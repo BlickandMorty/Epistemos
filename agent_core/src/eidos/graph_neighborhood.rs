@@ -27,8 +27,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind,
 };
 
 /// In-memory directed adjacency list. `edges[u]` = neighbors directly
@@ -70,11 +70,7 @@ impl EidosRetriever for InMemoryGraphNeighborhood {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -95,12 +91,9 @@ impl EidosRetriever for InMemoryGraphNeighborhood {
             .iter()
             .take(top_k)
             .map(|n| {
-                let chunk_id = EidosChunkId::new(format!(
-                    "{}::graph::from::{}",
-                    n.as_str(),
-                    seed.as_str()
-                ))
-                .expect("non-empty document ids");
+                let chunk_id =
+                    EidosChunkId::new(format!("{}::graph::from::{}", n.as_str(), seed.as_str()))
+                        .expect("non-empty document ids");
                 EidosHit {
                     source_id: chunk_id,
                     document_id: n.clone(),
@@ -240,10 +233,7 @@ mod tests {
         // Truncation preserves the sorted-ascending order, so "a" and "b"
         // survive over "c".
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
-        assert_eq!(
-            ids,
-            vec!["a::graph::from::hub", "b::graph::from::hub"]
-        );
+        assert_eq!(ids, vec!["a::graph::from::hub", "b::graph::from::hub"]);
     }
 
     #[test]

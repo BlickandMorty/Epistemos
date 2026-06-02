@@ -1132,31 +1132,26 @@ enum LocalModelCatalog {
     /// exceeds the 16 GB Mac ceiling. Honest historical bound.
     nonisolated static let primaryAgentModelMinHostRAMGB: Int = 32
 
-    /// **POWER-USER override** (2026-05-16): The V6.1 substrate doctrine
-    /// (ternary kernel / Sherry-Leech lattice / KV-Direct / sparse-active
-    /// MoE assembly) claims 36B-class models can fit on 16 GB unified
-    /// memory via aggressive weight quantization + memory-arch-aware
-    /// inference. The substrate primitives exist as research crates
-    /// (`agent_core/src/research/ternary/`, `agent_core/src/research/sherry_lattice/`,
-    /// `agent_core/src/kv_direct/`) but are not yet wired into the MLX-Swift
-    /// inference path. When this flag is ON, the threshold drops to 16 GB,
-    /// enabling 36B opt-in on the M2 Pro 16 GB rig WITH FULL DISCLOSURE
-    /// OF OOM RISK. Power-user mode is a "let me try anyway, I accept the
-    /// risk" affordance — not a guarantee the model will load without
-    /// thermal throttling, swap, or OOM. Pin to V6.1 Foundational Seven
-    /// theorem E5 (ternary) + see docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md
-    /// §4.E Phase C for the substrate-bound rollout plan.
+    /// **POWER-USER posture** (2026-05-27): the no-compromise path is
+    /// F-70B-Local-Cocktail / ACS / UAS, not a dense MLX shortcut. Power-user
+    /// mode preserves the Capability Ceiling controls and research intent, but
+    /// does not lower this dense 36B gate until a local SSD/RAM composition
+    /// falsifier proves the addressable-substrate path. The target cocktail is
+    /// ternary + Sherry/Leech lattice VQ + KV-Direct + PageGather + active
+    /// assembly + EML/Geometry/Scan IR lowering + speculative/cascade policy.
     nonisolated static let powerUserModeDefaultsKey: String =
         "epistemos.localAgent.powerUserMode"
 
-    /// Power-user threshold (16 GB) — the V6.1 substrate target floor.
-    nonisolated static let primaryAgentModelMinHostRAMGB_powerUser: Int = 16
+    /// Power-user threshold for the dense MLX path. It intentionally matches
+    /// the canonical gate until F-70B-Local-Cocktail or an equivalent
+    /// SSD/RAM addressable-substrate falsifier passes.
+    nonisolated static let primaryAgentModelMinHostRAMGB_powerUser: Int = 32
 
     /// Reads the power-user-mode UserDefaults flag and returns the
-    /// effective threshold: 16 GB if power-user mode is ON, otherwise
-    /// the canonical 32 GB. Used by `defaultPrimaryAgentModel` accessor
-    /// AND by AppBootstrap's hardware-snapshot status string so display
-    /// + behavior stay in lock-step.
+    /// effective dense-path threshold. Power-user mode does not lower the
+    /// threshold before the addressable-substrate falsifier passes. Used by
+    /// `defaultPrimaryAgentModel` accessor AND by AppBootstrap's hardware-
+    /// snapshot status string so display + behavior stay in lock-step.
     nonisolated static func minRAMForPrimaryAgentModel(isPowerUser: Bool) -> Int {
         isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
     }
@@ -1199,9 +1194,8 @@ enum LocalModelCatalog {
     /// Convenience accessor that uses the current hardware snapshot and
     /// the persisted opt-in flag from `UserDefaults.standard`. Tests use
     /// the `(hostMemoryGB:hasOptedInTo36B:)` overload above to avoid
-    /// touching defaults. Honors the power-user-mode override
-    /// (`powerUserModeDefaultsKey`): when ON, lowers the threshold to
-    /// 16 GB, enabling 36B opt-in on the M2 Pro 16 GB rig.
+    /// touching defaults. Honors the power-user-mode posture without lowering
+    /// the dense MLX gate before the SSD/RAM addressable-substrate proof.
     nonisolated static var defaultPrimaryAgentModel: LocalTextModelID {
         let hostMemoryGB = LocalHardwareCapabilitySnapshot.current.roundedMemoryGB
         let hasOptedIn = UserDefaults.standard.bool(

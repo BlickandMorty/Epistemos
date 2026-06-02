@@ -105,10 +105,7 @@ mod tests {
     #[test]
     fn nested_eml_depth_takes_max_path() {
         // eml(eml(1, 1), 1) → depth 2 on left, depth 0 on right → 1 + max = 2
-        let e = EmlExpr::eml(
-            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
-            EmlExpr::One,
-        );
+        let e = EmlExpr::eml(EmlExpr::eml(EmlExpr::One, EmlExpr::One), EmlExpr::One);
         assert_eq!(e.depth(), 2);
     }
 
@@ -129,10 +126,7 @@ mod tests {
 
     #[test]
     fn expr_roundtrips_through_serde_json() {
-        let e = EmlExpr::eml(
-            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
-            EmlExpr::One,
-        );
+        let e = EmlExpr::eml(EmlExpr::eml(EmlExpr::One, EmlExpr::One), EmlExpr::One);
         let json = serde_json::to_string(&e).unwrap();
         let back: EmlExpr = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
@@ -197,10 +191,7 @@ mod tests {
     #[test]
     fn left_chain_is_unbalanced() {
         // Eml(Eml(1, 1), 1) → left depth 1, right depth 0.
-        let unbalanced = EmlExpr::eml(
-            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
-            EmlExpr::One,
-        );
+        let unbalanced = EmlExpr::eml(EmlExpr::eml(EmlExpr::One, EmlExpr::One), EmlExpr::One);
         assert!(!unbalanced.is_balanced());
     }
 

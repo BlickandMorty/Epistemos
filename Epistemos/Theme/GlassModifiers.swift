@@ -335,25 +335,44 @@ struct AssistantInsetChrome: ViewModifier {
     let isEmphasized: Bool
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(theme.isDark ? theme.muted.opacity(isEmphasized ? 0.82 : 0.64) : theme.muted.opacity(isEmphasized ? 0.72 : 0.54))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(
-                                theme.glassBorder.opacity(isEmphasized ? 0.9 : 0.68),
-                                lineWidth: 0.6
-                            )
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: max(cornerRadius - 3, 0), style: .continuous)
-                            .strokeBorder(
-                                .white.opacity(theme.isDark ? (isEmphasized ? 0.08 : 0.05) : (isEmphasized ? 0.34 : 0.22)),
-                                lineWidth: 0.5
-                            )
-                            .padding(1.2)
-                    }
+                ZStack(alignment: .topLeading) {
+                    shape.fill(theme.isDark ? .ultraThinMaterial : .regularMaterial)
+                    shape.fill(
+                        theme.muted.opacity(
+                            theme.isDark
+                                ? (isEmphasized ? 0.76 : 0.58)
+                                : (isEmphasized ? 0.68 : 0.50)
+                        )
+                    )
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isDark ? 0.05 : 0.24),
+                            Color.white.opacity(theme.isDark ? 0.015 : 0.07),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(shape)
+                }
+            }
+            .overlay {
+                shape
+                    .strokeBorder(
+                        theme.glassBorder.opacity(isEmphasized ? 0.9 : 0.68),
+                        lineWidth: 0.6
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: max(cornerRadius - 3, 0), style: .continuous)
+                    .strokeBorder(
+                        .white.opacity(theme.isDark ? (isEmphasized ? 0.08 : 0.05) : (isEmphasized ? 0.34 : 0.22)),
+                        lineWidth: 0.5
+                    )
+                    .padding(1.2)
             }
     }
 }
@@ -609,18 +628,18 @@ struct AssistantSendButton: View {
                 .foregroundStyle(iconColor)
                 .frame(width: metrics.sendButtonSize, height: metrics.sendButtonSize)
                 .background {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(fillColor)
                         .overlay {
-                            Circle()
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .strokeBorder(borderColor, lineWidth: 0.6)
                         }
                 }
                 .shadow(
-                    color: .black.opacity(isEnabled || isProcessing ? (theme.isDark ? 0.26 : 0.12) : 0),
-                    radius: 10,
+                    color: .black.opacity(isEnabled || isProcessing ? (theme.isDark ? 0.12 : 0.06) : 0),
+                    radius: 4,
                     x: 0,
-                    y: 4
+                    y: 1
                 )
                 .scaleEffect(isHovered && (isEnabled || isProcessing) ? 1.02 : 1.0)
         }
@@ -669,48 +688,30 @@ struct AssistantComposerChrome: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-        let lightSurfaceTint = lightModeSurfaceTint ?? theme.resolved.background.color
+        let shape = RoundedRectangle(cornerRadius: min(metrics.cornerRadius, 4), style: .continuous)
 
         content
             .background {
-                if prefersNativeAssistantGlass {
-                    shape
-                        .fill(.white.opacity(0.001))
-                        .glassEffect(.regular.interactive(), in: shape)
-                } else if theme.isDark {
-                    ZStack {
-                        shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.resolved.background.color.opacity(0.58))
-                    }
-                } else {
-                    ZStack {
-                        shape.fill(.regularMaterial)
-                        shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.16 : 0.94))
-                    }
+                ZStack {
+                    shape.fill(theme.card.opacity(theme.isDark ? 0.60 : 0.74))
+                    shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.030 : 0.018))
                 }
             }
             .overlay {
                 shape
                     .strokeBorder(
-                        theme.glassBorder.opacity(isActive ? 0.7 : 0.52),
-                        lineWidth: metrics.borderWidth
+                        theme.border.opacity(isActive ? 0.72 : 0.56),
+                        lineWidth: 0.8
                     )
-            }
-            .overlay {
-                shape
-                    .strokeBorder(
-                        .white.opacity(theme.isDark ? 0.06 : 0.18),
-                        lineWidth: 0.45
-                    )
-                    .padding(1.1)
             }
             .shadow(
-                color: .black.opacity(theme.isDark ? 0.16 : 0.08),
-                radius: metrics.shadowRadius,
+                color: .black.opacity(theme.isDark ? 0.10 : 0.05),
+                radius: 6,
                 x: 0,
-                y: metrics.shadowYOffset
+                y: 2
             )
+            .scaleEffect(isActive ? 1.002 : 1.0)
+            .animation(.interpolatingSpring(stiffness: 260, damping: 24), value: isActive)
     }
 }
 

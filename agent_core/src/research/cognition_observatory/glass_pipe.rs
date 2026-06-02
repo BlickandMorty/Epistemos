@@ -45,7 +45,10 @@ pub enum GlassPipeError {
     ZeroCapacity,
     /// `read_recent(n)` was called with `n > capacity`. The reader can
     /// only see at most `capacity` samples.
-    ReadOverflow { requested: usize, capacity: usize },
+    ReadOverflow {
+        requested: usize,
+        capacity: usize,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -142,14 +145,20 @@ impl GlassPipe {
         let count = n.min(write_index);
         let mut samples = Vec::with_capacity(count);
         if count == 0 {
-            return Ok(GlassPipeReadout { samples, write_index });
+            return Ok(GlassPipeReadout {
+                samples,
+                write_index,
+            });
         }
         let start = write_index - count;
         for i in 0..count {
             let slot = (start + i) % self.capacity;
             samples.push(self.buffer[slot]);
         }
-        Ok(GlassPipeReadout { samples, write_index })
+        Ok(GlassPipeReadout {
+            samples,
+            write_index,
+        })
     }
 }
 
@@ -206,7 +215,13 @@ mod tests {
     fn read_overflow_errors() {
         let pipe = GlassPipe::new(3).unwrap();
         let err = pipe.read_recent(4).unwrap_err();
-        assert_eq!(err, GlassPipeError::ReadOverflow { requested: 4, capacity: 3 });
+        assert_eq!(
+            err,
+            GlassPipeError::ReadOverflow {
+                requested: 4,
+                capacity: 3
+            }
+        );
     }
 
     #[test]

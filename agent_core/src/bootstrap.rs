@@ -23,7 +23,6 @@ use serde::{Deserialize, Serialize};
 // `tempfile` import removed — atomic writes now go through
 // `crate::util::atomic_write_json` per the Phase audit.
 
-
 const VAULT_METADATA_REL: &str = ".epistemos/vault.json";
 const SCHEMA_VERSION: u32 = 1;
 
@@ -110,8 +109,7 @@ pub fn bootstrap(vault_path: &Path) -> io::Result<BootstrapReceipt> {
 
 pub fn read_metadata(path: &Path) -> io::Result<VaultMetadata> {
     let bytes = std::fs::read(path)?;
-    serde_json::from_slice(&bytes)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    serde_json::from_slice(&bytes).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 // Atomic write helper moved to `crate::util::atomic_write_json` (Phase
@@ -264,10 +262,7 @@ mod tests {
         let dir = tempdir().unwrap();
         assert!(is_fresh(dir.path()), "empty dir must be fresh");
         bootstrap(dir.path()).unwrap();
-        assert!(
-            !is_fresh(dir.path()),
-            "post-bootstrap must not be fresh"
-        );
+        assert!(!is_fresh(dir.path()), "post-bootstrap must not be fresh");
     }
 
     #[test]
@@ -294,10 +289,7 @@ mod tests {
 
     #[test]
     fn router_candidates_have_exactly_one_plan_default() {
-        let count = ROUTER_CANDIDATES
-            .iter()
-            .filter(|c| c.plan_default)
-            .count();
+        let count = ROUTER_CANDIDATES.iter().filter(|c| c.plan_default).count();
         assert_eq!(count, 1, "exactly one ROUTER_CANDIDATES.plan_default");
 
         let default = default_router();

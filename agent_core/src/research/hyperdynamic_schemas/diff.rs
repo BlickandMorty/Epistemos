@@ -37,11 +37,27 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SchemaChange {
-    FieldAdded { name: String, schema: FieldSchema },
-    FieldRemoved { name: String, schema: FieldSchema },
-    TypeWidened { name: String, added: Vec<FieldType> },
-    TypeNarrowed { name: String, removed: Vec<FieldType> },
-    RequiredFlipped { name: String, was_required: bool, now_required: bool },
+    FieldAdded {
+        name: String,
+        schema: FieldSchema,
+    },
+    FieldRemoved {
+        name: String,
+        schema: FieldSchema,
+    },
+    TypeWidened {
+        name: String,
+        added: Vec<FieldType>,
+    },
+    TypeNarrowed {
+        name: String,
+        removed: Vec<FieldType>,
+    },
+    RequiredFlipped {
+        name: String,
+        was_required: bool,
+        now_required: bool,
+    },
 }
 
 impl SchemaChange {
@@ -144,8 +160,7 @@ impl SchemaDiff {
 /// `from` → `to`. Output is sorted by field name (deterministic).
 pub fn diff_schemas(from: &Schema, to: &Schema) -> SchemaDiff {
     let mut changes = Vec::new();
-    let mut all_names: Vec<&String> =
-        from.fields.keys().chain(to.fields.keys()).collect();
+    let mut all_names: Vec<&String> = from.fields.keys().chain(to.fields.keys()).collect();
     all_names.sort();
     all_names.dedup();
 
@@ -171,8 +186,7 @@ pub fn diff_schemas(from: &Schema, to: &Schema) -> SchemaDiff {
                     t.allowed_types.iter().copied().collect();
 
                 let added: Vec<FieldType> = to_types.difference(&from_types).copied().collect();
-                let removed: Vec<FieldType> =
-                    from_types.difference(&to_types).copied().collect();
+                let removed: Vec<FieldType> = from_types.difference(&to_types).copied().collect();
 
                 if !added.is_empty() && removed.is_empty() {
                     changes.push(SchemaChange::TypeWidened {
@@ -301,7 +315,14 @@ mod tests {
         let to = Schema::new().with("a", FieldSchema::optional(ft_int()));
         let d = diff_schemas(&from, &to);
         assert_eq!(d.changes.len(), 1);
-        assert!(matches!(&d.changes[0], SchemaChange::RequiredFlipped { was_required: true, now_required: false, .. }));
+        assert!(matches!(
+            &d.changes[0],
+            SchemaChange::RequiredFlipped {
+                was_required: true,
+                now_required: false,
+                ..
+            }
+        ));
         assert!(!d.is_breaking());
     }
 
@@ -327,8 +348,14 @@ mod tests {
         let to = Schema::new().with("a", to_schema);
         let d = diff_schemas(&from, &to);
         assert_eq!(d.changes.len(), 2);
-        assert!(d.changes.iter().any(|c| matches!(c, SchemaChange::TypeWidened { .. })));
-        assert!(d.changes.iter().any(|c| matches!(c, SchemaChange::TypeNarrowed { .. })));
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, SchemaChange::TypeWidened { .. })));
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, SchemaChange::TypeNarrowed { .. })));
         assert!(d.is_breaking());
     }
 
@@ -388,11 +415,27 @@ mod tests {
 
     fn all_change_variants() -> Vec<SchemaChange> {
         vec![
-            SchemaChange::FieldAdded { name: "a".into(), schema: FieldSchema::optional(ft_int()) },
-            SchemaChange::FieldRemoved { name: "b".into(), schema: FieldSchema::strict(ft_int()) },
-            SchemaChange::TypeWidened { name: "c".into(), added: vec![ft_flt()] },
-            SchemaChange::TypeNarrowed { name: "d".into(), removed: vec![ft_str()] },
-            SchemaChange::RequiredFlipped { name: "e".into(), was_required: true, now_required: false },
+            SchemaChange::FieldAdded {
+                name: "a".into(),
+                schema: FieldSchema::optional(ft_int()),
+            },
+            SchemaChange::FieldRemoved {
+                name: "b".into(),
+                schema: FieldSchema::strict(ft_int()),
+            },
+            SchemaChange::TypeWidened {
+                name: "c".into(),
+                added: vec![ft_flt()],
+            },
+            SchemaChange::TypeNarrowed {
+                name: "d".into(),
+                removed: vec![ft_str()],
+            },
+            SchemaChange::RequiredFlipped {
+                name: "e".into(),
+                was_required: true,
+                now_required: false,
+            },
         ]
     }
 

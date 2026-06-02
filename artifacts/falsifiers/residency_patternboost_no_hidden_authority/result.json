@@ -1,0 +1,278 @@
+{
+  "falsifier_id": "F-ResidencyPatternBoost-NoHiddenAuthority",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_residency_patternboost_no_hidden_authority.sh",
+  "command_digest": "sha256:cc07ba51bc899897e703f84a31821be5fbb5b3defb1882910e8c9d6c45a72738",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "627569d11b4db1cf3503ea8563602ca9ad097a59",
+  "fixture_id": "residency_patternboost_no_hidden_authority_v1",
+  "timestamp_utc": "2026-06-02T08:43:42Z",
+  "result_digest": "sha256:df6bdeaa2f8168d319bee47a1f3929bfd1c37a6faa69604d076339520a5ac459",
+  "measurements": {
+    "cold_route_policy_patch_kill_switch_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shadow_scoped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shape_valid": {
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_route_is_static_or_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_patch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_runtime_router_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_no_hidden_authority_falsifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_inference_runs": {
+      "value": 0,
+      "unit": "count"
+    },
+    "network_transport_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_capability_ceiling_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_no_hidden_authority_guard_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_and_answer_packet_refs_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_router_shadow_route_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_weight_pages": {
+      "value": 1,
+      "unit": "count"
+    },
+    "shadow_genome_constructed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_read_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "transport_page_runs": {
+      "value": 1,
+      "unit": "count"
+    },
+    "unscoped_policy_patch_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "cold_route_policy_patch_kill_switch_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shadow_scoped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shape_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_route_is_static_or_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_patch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_runtime_router_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_no_hidden_authority_falsifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_inference_runs": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "network_transport_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_capability_ceiling_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_no_hidden_authority_guard_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_and_answer_packet_refs_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_router_shadow_route_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_genome_constructed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_read_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "unscoped_policy_patch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "cold_route_policy_patch_kill_switch_bound": true,
+    "cold_route_policy_patch_rollback_bound": true,
+    "cold_route_policy_patch_shadow_scoped": true,
+    "cold_route_policy_patch_shape_valid": true,
+    "direct_live_authority_rejected": true,
+    "fallback_route_is_static_or_baseline": true,
+    "live_policy_patch_rejected": true,
+    "live_runtime_router_route_rejected": true,
+    "mas_promotion_rejected": true,
+    "missing_no_hidden_authority_falsifier_rejected": true,
+    "model_inference_runs": true,
+    "network_transport_rejected": true,
+    "pro_research_capability_ceiling_only": true,
+    "required_no_hidden_authority_guard_present": true,
+    "route_card_ref_bound": true,
+    "run_event_log_and_answer_packet_refs_visible": true,
+    "runtime_model_bytes_loaded": true,
+    "runtime_model_peak_uma_bytes": true,
+    "runtime_router_shadow_route_only": true,
+    "shadow_genome_constructed": true,
+    "ssd_read_bytes": true,
+    "unscoped_policy_patch_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only UAS assembly genome; no model bytes, mmap, MLX, Metal, KV restore, or inference executed"
+    }
+  ],
+  "notes": "Validates Residency PatternBoost no-hidden-authority guardrails; not a live route or runtime pass."
+}

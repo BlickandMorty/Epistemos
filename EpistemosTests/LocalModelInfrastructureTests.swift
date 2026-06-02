@@ -165,11 +165,17 @@ struct LocalModelInfrastructureTests {
         #expect(model == .hermes43_36B4Bit)
     }
 
-    @Test("primary-agent host RAM gate matches the published 32 GB threshold")
-    func primaryAgentHostRAMGateIsExactlyThirtyTwoGB() {
+    @Test("primary-agent host RAM gate stays at 32 GB even in power-user mode")
+    func primaryAgentHostRAMGateDoesNotDropBeforeSubstrateFalsifiersPass() throws {
         #expect(LocalModelCatalog.primaryAgentModelMinHostRAMGB == 32)
         #expect(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: false) == 32)
-        #expect(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true) == 16)
+        #expect(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true) == 32)
+
+        let infrastructure = try loadMirroredSourceTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        #expect(infrastructure.contains("F-70B-Local-Cocktail"))
+        #expect(settings.contains("does not lower the 36B memory gate"))
+        #expect(!settings.contains("Allows the 36B primary-agent opt-in gate at"))
     }
 
     @Test("Hermes 4.3 36B at 4-bit is honestly reported as ~18 GB resident")

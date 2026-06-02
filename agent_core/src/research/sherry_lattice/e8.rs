@@ -165,10 +165,7 @@ pub fn e8_quantize(x: &[f32; 8]) -> Result<E8Point, E8Error> {
 /// its E8 quantization. The standard "how lossy was this E8 encode?"
 /// diagnostic — companion to the J7 Sherry quantization_error
 /// (iter 120). Returns 0.0 for inputs already on the E8 lattice.
-pub fn e8_quantization_error(
-    original: &[f32; 8],
-    quantized: &E8Point,
-) -> f32 {
+pub fn e8_quantization_error(original: &[f32; 8], quantized: &E8Point) -> f32 {
     squared_distance(original, &quantized.0)
 }
 

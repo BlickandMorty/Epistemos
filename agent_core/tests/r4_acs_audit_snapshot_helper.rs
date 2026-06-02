@@ -62,7 +62,11 @@ fn snapshot_acs_audit_records_returns_one_record_per_admission() {
         .expect("admit_and_record records");
 
     let records = snapshot_acs_audit_records(&oplog).expect("snapshot after one admission");
-    assert_eq!(records.len(), 1, "exactly one ACS record after one admission");
+    assert_eq!(
+        records.len(),
+        1,
+        "exactly one ACS record after one admission"
+    );
     assert_eq!(
         records[0], decision.audit_record,
         "snapshotted record must equal the decision's audit_record"

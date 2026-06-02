@@ -52,7 +52,10 @@ pub enum SaeAucError {
     /// All observations had the same label (all positive or all negative).
     /// AUC is undefined in this degenerate case; the doctrine pin requires
     /// a mixed-label validation set.
-    SingleClass { is_hallucination: bool, count: usize },
+    SingleClass {
+        is_hallucination: bool,
+        count: usize,
+    },
     /// An observation had a non-finite score (`NaN` or `±∞`). Reject so
     /// the AUC math doesn't silently produce garbage.
     NonFiniteScore { index: usize, score: f32 },
@@ -149,7 +152,10 @@ pub fn auc_roc(observations: &[LabeledScore]) -> Result<f32, SaeAucError> {
     }
     for (i, obs) in observations.iter().enumerate() {
         if !obs.score.is_finite() {
-            return Err(SaeAucError::NonFiniteScore { index: i, score: obs.score });
+            return Err(SaeAucError::NonFiniteScore {
+                index: i,
+                score: obs.score,
+            });
         }
     }
     let n_pos = observations.iter().filter(|o| o.is_hallucination).count();
@@ -250,9 +256,17 @@ impl ValidationSet {
     /// Compute the class-balance breakdown of this set.
     pub fn class_balance(&self) -> ClassBalance {
         let total = self.observations.len();
-        let positives = self.observations.iter().filter(|o| o.is_hallucination).count();
+        let positives = self
+            .observations
+            .iter()
+            .filter(|o| o.is_hallucination)
+            .count();
         let negatives = total - positives;
-        ClassBalance { total, positives, negatives }
+        ClassBalance {
+            total,
+            positives,
+            negatives,
+        }
     }
 
     /// Convenience: run [`evaluate_against_gate`] on this set's
@@ -268,7 +282,10 @@ mod tests {
     use super::*;
 
     fn obs(score: f32, h: bool) -> LabeledScore {
-        LabeledScore { score, is_hallucination: h }
+        LabeledScore {
+            score,
+            is_hallucination: h,
+        }
     }
 
     #[test]
@@ -331,7 +348,10 @@ mod tests {
         let err = auc_roc(&v).unwrap_err();
         assert_eq!(
             err,
-            SaeAucError::SingleClass { is_hallucination: true, count: 2 }
+            SaeAucError::SingleClass {
+                is_hallucination: true,
+                count: 2
+            }
         );
     }
 
@@ -341,7 +361,10 @@ mod tests {
         let err = auc_roc(&v).unwrap_err();
         assert_eq!(
             err,
-            SaeAucError::SingleClass { is_hallucination: false, count: 2 }
+            SaeAucError::SingleClass {
+                is_hallucination: false,
+                count: 2
+            }
         );
     }
 
@@ -426,7 +449,10 @@ mod tests {
     // ── ValidationSet + ClassBalance tests (iter 103) ───────────────────────
 
     fn vs(observations: Vec<LabeledScore>) -> ValidationSet {
-        ValidationSet { vault_domain: "test".into(), observations }
+        ValidationSet {
+            vault_domain: "test".into(),
+            observations,
+        }
     }
 
     #[test]
@@ -523,7 +549,11 @@ mod tests {
 
     #[test]
     fn class_balance_serde_roundtrip() {
-        let cb = ClassBalance { total: 10, positives: 3, negatives: 7 };
+        let cb = ClassBalance {
+            total: 10,
+            positives: 3,
+            negatives: 7,
+        };
         let json = serde_json::to_string(&cb).unwrap();
         let back: ClassBalance = serde_json::from_str(&json).unwrap();
         assert_eq!(cb, back);
@@ -535,7 +565,10 @@ mod tests {
     fn verdict_passed_xor_below_partition() {
         // Cross-surface invariant: passed XOR is_below.
         let p = SaeVerdict::GatePassed { auc: 0.95 };
-        let b = SaeVerdict::BelowGate { auc: 0.80, gap: 0.10 };
+        let b = SaeVerdict::BelowGate {
+            auc: 0.80,
+            gap: 0.10,
+        };
         for v in [p, b] {
             assert_ne!(v.passed(), v.is_below());
         }
@@ -544,7 +577,10 @@ mod tests {
     #[test]
     fn verdict_gap_below_gate_matches_field() {
         // Cross-surface invariant: gap_below_gate matches BelowGate.gap.
-        let b = SaeVerdict::BelowGate { auc: 0.80, gap: 0.10 };
+        let b = SaeVerdict::BelowGate {
+            auc: 0.80,
+            gap: 0.10,
+        };
         assert!((b.gap_below_gate() - 0.10).abs() < 1e-9);
     }
 
@@ -557,7 +593,12 @@ mod tests {
     #[test]
     fn verdict_gap_arithmetic_from_real_eval() {
         // Cross-surface: BelowGate's gap = SAE_DOCTRINE_AUC_BAR - auc.
-        let v = vec![obs(0.1, true), obs(0.2, false), obs(0.3, true), obs(0.4, false)];
+        let v = vec![
+            obs(0.1, true),
+            obs(0.2, false),
+            obs(0.3, true),
+            obs(0.4, false),
+        ];
         let verdict = evaluate_against_gate(&v).unwrap();
         assert!(verdict.is_below());
         let computed_gap = SAE_DOCTRINE_AUC_BAR - verdict.auc();
@@ -568,8 +609,14 @@ mod tests {
     fn auc_error_cause_distinct_per_variant() {
         let variants = [
             SaeAucError::EmptyObservations,
-            SaeAucError::SingleClass { is_hallucination: true, count: 5 },
-            SaeAucError::NonFiniteScore { index: 0, score: f32::NAN },
+            SaeAucError::SingleClass {
+                is_hallucination: true,
+                count: 5,
+            },
+            SaeAucError::NonFiniteScore {
+                index: 0,
+                score: f32::NAN,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -579,8 +626,14 @@ mod tests {
     fn auc_error_classifiers_partition() {
         let variants = [
             SaeAucError::EmptyObservations,
-            SaeAucError::SingleClass { is_hallucination: true, count: 5 },
-            SaeAucError::NonFiniteScore { index: 0, score: f32::NAN },
+            SaeAucError::SingleClass {
+                is_hallucination: true,
+                count: 5,
+            },
+            SaeAucError::NonFiniteScore {
+                index: 0,
+                score: f32::NAN,
+            },
         ];
         // Cross-surface invariant: is_label_error XOR is_score_error.
         for e in variants {
@@ -595,7 +648,10 @@ mod tests {
         // Cross-surface invariant: ClassBalance::has_both_classes iff
         // auc_roc does NOT return SingleClass (for non-empty input).
         fn vs2(obs_list: Vec<LabeledScore>) -> ValidationSet {
-            ValidationSet { vault_domain: "t".into(), observations: obs_list }
+            ValidationSet {
+                vault_domain: "t".into(),
+                observations: obs_list,
+            }
         }
         let s = vs2(vec![obs(0.1, true), obs(0.5, false)]);
         let bal = s.class_balance();

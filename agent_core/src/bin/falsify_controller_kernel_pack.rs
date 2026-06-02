@@ -51,7 +51,9 @@ fn main() {
     let mut violations: usize = 0;
 
     for &n in SIZES {
-        let input: Vec<f32> = (0..n).map(|i| (i as f32) * 0.5 - (n as f32) * 0.25).collect();
+        let input: Vec<f32> = (0..n)
+            .map(|i| (i as f32) * 0.5 - (n as f32) * 0.25)
+            .collect();
 
         // scalar_add_in_place
         let mut a = input.clone();
@@ -97,10 +99,14 @@ fn main() {
     let empty: Vec<f32> = vec![];
     let empty_contract_pass = matches!(
         max_reduce(&empty),
-        Err(ControllerKernelError::EmptyInput { which: "max_reduce" })
+        Err(ControllerKernelError::EmptyInput {
+            which: "max_reduce"
+        })
     ) && matches!(
         argmax_reduce(&empty),
-        Err(ControllerKernelError::EmptyInput { which: "argmax_reduce" })
+        Err(ControllerKernelError::EmptyInput {
+            which: "argmax_reduce"
+        })
     );
 
     // Length-mismatch contract: copy_range MUST reject mismatched lengths.

@@ -51,6 +51,7 @@ struct Harness {
     let streamTriad: MTLComputePipelineState
     let pageGather: MTLComputePipelineState
     let pageGatherScheduled: MTLComputePipelineState
+    let pageGatherPacketized: MTLComputePipelineState
 }
 
 struct SampleStats {
@@ -92,10 +93,12 @@ struct WorkingSetResult {
     let scatter: SampleStats
     let localWindow: SampleStats?
     let blockSorted: SampleStats?
+    let packetized: SampleStats?
     let gatherViolations: Int
     let scatterViolations: Int
     let localWindowViolations: Int?
     let blockSortedViolations: Int?
+    let packetizedViolations: Int?
 }
 
 struct RunConfig {
@@ -208,6 +211,7 @@ let actualCommandString = "swift " + CommandLine.arguments.joined(separator: " "
 let fp32Bytes = 4
 let pageGatherTrafficBytesPerElement = 12
 let pageGatherScheduledTrafficBytesPerElement = 16
+let pageGatherPacketizedTrafficBytesPerElement = 20
 let streamTrafficBytesPerElement = 16
 
 let streamShader = """
@@ -300,13 +304,17 @@ func makeHarness() throws -> Harness {
     guard let scheduledGatherFn = library.makeFunction(name: "pageGatherScatterScheduled") else {
         throw PageGatherArtifactError.noFunction("pageGatherScatterScheduled")
     }
+    guard let packetizedGatherFn = library.makeFunction(name: "pageGatherPacketizeScheduled") else {
+        throw PageGatherArtifactError.noFunction("pageGatherPacketizeScheduled")
+    }
     do {
         return Harness(
             device: device,
             queue: queue,
             streamTriad: try device.makeComputePipelineState(function: streamFn),
             pageGather: try device.makeComputePipelineState(function: gatherFn),
-            pageGatherScheduled: try device.makeComputePipelineState(function: scheduledGatherFn)
+            pageGatherScheduled: try device.makeComputePipelineState(function: scheduledGatherFn),
+            pageGatherPacketized: try device.makeComputePipelineState(function: packetizedGatherFn)
         )
     } catch {
         throw PageGatherArtifactError.noPipeline(error.localizedDescription)
@@ -539,6 +547,34 @@ func sampleScheduledViolations(
     return bad
 }
 
+func samplePacketizedViolations(
+    source: MTLBuffer,
+    indices: MTLBuffer,
+    logicalPositions: MTLBuffer,
+    packetValues: MTLBuffer,
+    packetLogicalPositions: MTLBuffer,
+    count: Int
+) -> Int {
+    let sourcePointer = source.contents().bindMemory(to: Float.self, capacity: count)
+    let indexPointer = indices.contents().bindMemory(to: UInt32.self, capacity: count)
+    let logicalPositionPointer = logicalPositions.contents().bindMemory(to: UInt32.self, capacity: count)
+    let packetValuePointer = packetValues.contents().bindMemory(to: Float.self, capacity: count)
+    let packetLogicalPositionPointer = packetLogicalPositions.contents().bindMemory(to: UInt32.self, capacity: count)
+    let sampleCount = min(4096, max(1, count))
+    let step = max(1, count / sampleCount)
+    var bad = 0
+    var index = 0
+    while index < count {
+        let sourceIndex = Int(indexPointer[index])
+        if packetValuePointer[index] != sourcePointer[sourceIndex] ||
+            packetLogicalPositionPointer[index] != logicalPositionPointer[index] {
+            bad += 1
+        }
+        index += step
+    }
+    return bad
+}
+
 func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> WorkingSetResult {
     let bytes = mb * 1024 * 1024
     let count = bytes / fp32Bytes
@@ -599,6 +635,8 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
     var localWindowViolations: Int?
     var blockSorted: SampleStats?
     var blockSortedViolations: Int?
+    var packetized: SampleStats?
+    var packetizedViolations: Int?
 
     if config.probeLocality {
         initializeLocalWindowIndices(
@@ -646,6 +684,30 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
             out: out,
             count: count
         )
+
+        let packetLogicalPositions = try makeBuffer(
+            device: harness.device,
+            length: count * MemoryLayout<UInt32>.stride,
+            label: "pageGather.\(mb)mb.packetLogicalPositions"
+        )
+        packetized = try measure(
+            harness: harness,
+            pipeline: harness.pageGatherPacketized,
+            buffers: [source, indices, logicalPositions, out, packetLogicalPositions, countBuffer],
+            count: count,
+            bytesPerElement: pageGatherPacketizedTrafficBytesPerElement,
+            windowSeconds: config.windowSeconds,
+            warmupIterations: config.warmupIterations,
+            trials: config.trials
+        )
+        packetizedViolations = samplePacketizedViolations(
+            source: source,
+            indices: indices,
+            logicalPositions: logicalPositions,
+            packetValues: out,
+            packetLogicalPositions: packetLogicalPositions,
+            count: count
+        )
     }
 
     return WorkingSetResult(
@@ -655,10 +717,12 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
         scatter: scatter,
         localWindow: localWindow,
         blockSorted: blockSorted,
+        packetized: packetized,
         gatherViolations: gatherViolations,
         scatterViolations: scatterViolations,
         localWindowViolations: localWindowViolations,
-        blockSortedViolations: blockSortedViolations
+        blockSortedViolations: blockSortedViolations,
+        packetizedViolations: packetizedViolations
     )
 }
 
@@ -914,6 +978,57 @@ func runArtifact(config: RunConfig) throws -> RunResult {
             )
             measurements["block_sorted_scheduled_scatter_samples_gbs_\(mb)mb"] = metric(blockSorted.samples, unit: "GB_per_second")
         }
+
+        if let packetized = result.packetized,
+           let packetizedViolations = result.packetizedViolations {
+            let packetizedValue = packetized.median
+            let packetizedRatio = stream > 0 ? packetizedValue / stream : 0
+            addAxis(
+                name: "packetized_scheduled_gbs_\(mb)mb",
+                value: packetizedValue,
+                unit: "GB_per_second",
+                op: ">",
+                thresholdValue: 0,
+                pass: packetizedValue > 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "packetized_scheduled_stream_ratio_\(mb)mb",
+                value: packetizedRatio,
+                unit: "ratio",
+                op: ">=",
+                thresholdValue: 0.70,
+                pass: packetizedRatio >= 0.70,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "packetized_scheduled_correctness_violations_\(mb)mb",
+                value: packetizedViolations,
+                unit: "violations",
+                op: "==",
+                thresholdValue: 0,
+                pass: packetizedViolations == 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "packetized_scheduled_stability_range_over_mean_\(mb)mb",
+                value: packetized.rangeOverMean,
+                unit: "ratio",
+                op: "<",
+                thresholdValue: 0.15,
+                pass: packetized.rangeOverMean < 0.15,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            measurements["packetized_scheduled_samples_gbs_\(mb)mb"] = metric(packetized.samples, unit: "GB_per_second")
+        }
     }
 
     let elapsed = Date().timeIntervalSince(started)
@@ -962,7 +1077,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
     if config.probeLocality {
         anomalies.append([
             "kind": "locality_probe",
-            "detail": "Diagnostic run includes local-window and block-sorted scheduled scatter candidates. It cannot promote F-PageGather-M2Pro by itself.",
+            "detail": "Diagnostic run includes local-window, dense block-sorted scheduled, and packetized scheduled candidates. It cannot promote dense F-PageGather-M2Pro by itself.",
         ])
     }
 
@@ -1012,7 +1127,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         "overall_pass": axesPass,
         "fallback_tier": fallbackTier,
         "anomalies": anomalies,
-        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element; scheduled PageGather=16 bytes/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
+        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element; scheduled PageGather=16 bytes/element; packetized scheduled PageGather=20 bytes/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
     ]
 
     return RunResult(artifact: artifact, overallPass: overallPass, outputPath: outputPath)

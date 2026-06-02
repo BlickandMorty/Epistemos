@@ -90,8 +90,9 @@ Closed but preserved:
   only as a preservation reference.
 - `stash@{17}` - parallel Landing Wave / Session Intelligence session. Current
   product recovery is closed by
-  `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`; keep the stash
-  only as a historical landing/session UI donor reference.
+  `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`; Landing Wave source
+  files are retired from live product source, Session Intelligence remains, and
+  the stash is only a historical landing/session UI donor reference.
 - `stash@{16}` - April 27 editor/vendor donor. Honest-handle, approval queue,
   and remaining editor/vendor material are closed by
   `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`,
@@ -435,9 +436,10 @@ landing/session UI donor reference.
 Closeout:
 
 - `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md` records that the
-  Landing Wave and Session Intelligence files are already present on current
-  `main`, and that the remaining raw stash tree would downgrade newer fused
-  landing/chat/ambient surfaces if applied wholesale.
+  stash landing/session intent is already represented by the current fused
+  landing/chat/ambient surface. Landing Wave source files are now retired from
+  live product source, Session Intelligence remains, and the remaining raw stash
+  tree would downgrade newer surfaces if applied wholesale.
 
 Differs:
 
@@ -451,7 +453,7 @@ Differs:
 - tests: `NonAgentPruningValidationTests`,
   `PhaseR5ChatGrantWiringTests`, `RuntimeValidationTests`.
 
-Missing files:
+Retired live-source files:
 
 - `Epistemos/Views/Landing/Wave/LandingWaveDesign.swift`
 - `Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift`

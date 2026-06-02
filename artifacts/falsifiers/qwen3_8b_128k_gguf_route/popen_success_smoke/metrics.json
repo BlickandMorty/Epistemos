@@ -1,0 +1,16 @@
+{
+  "prompt_count": 1,
+  "context_window_tokens": 128,
+  "decode_tokens_per_prompt": 1,
+  "peak_ram_gb": 4.819732666015625,
+  "decode_tok_s": 28.499874,
+  "suite_wall_clock_min": 0.03504264515,
+  "prefill_tok_s": 284.571632,
+  "runner": "/opt/homebrew/bin/llama-bench",
+  "metrics_source": "llama_bench",
+  "cache_type_k": "f16",
+  "cache_type_v": "f16",
+  "flash_attn": 0,
+  "no_kv_offload": 0,
+  "falsifier_green_capable": false
+}

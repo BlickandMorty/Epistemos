@@ -27,8 +27,8 @@
 //! orchestrator. The form-layer slice (`EidosKind`, canonical schemas) lands
 //! in T10B against `eidos::forms` later in the loop.
 
-pub mod claim_evidence;
 pub mod adversarial;
+pub mod claim_evidence;
 pub mod code_symbol;
 pub mod dag_backed_graph_neighborhood;
 pub mod falsifier;
@@ -68,9 +68,10 @@ pub use recency::InMemoryRecencyIndex;
 pub use retriever::EidosRetriever;
 pub use semantic::{InMemorySemanticIndex, SemanticIndexError};
 pub use types::{
-    CitationError, EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosContextPacket,
-    EidosDocumentId, EidosHit, EidosIndexManifest, EidosIndexManifestId, EidosProvenance,
-    EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind, EidosSpan,
+    CitationError, EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosCitationNeed,
+    EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifest, EidosIndexManifestId,
+    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosRoutePrior, EidosRoutePriorError,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 pub use validator::{
     enforce_closed_citation_contract, ClosedCitationValidation, ClosedCitationValidationError,

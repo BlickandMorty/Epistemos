@@ -104,11 +104,7 @@ impl RunEventLog {
 
     /// Record a sealed mutation. Called by the dispatcher AFTER the
     /// `Sealer` accepts an envelope and the writer succeeds.
-    pub fn append_sealed_mutation(
-        &mut self,
-        capability_hash: Hash,
-        debit: BudgetDebit,
-    ) -> u64 {
+    pub fn append_sealed_mutation(&mut self, capability_hash: Hash, debit: BudgetDebit) -> u64 {
         let ordinal = self.entries.len() as u64;
         self.entries.push(RunEventEntry::SealedMutation {
             ordinal,
@@ -157,7 +153,10 @@ impl RunEventLog {
     /// up to `ord`; returns `None` if no snapshot has been recorded
     /// at-or-before ord.
     #[must_use]
-    pub fn ledger_at_ordinal(&self, ord: u64) -> Option<crate::agent_runtime_v2::budget::BudgetLedger> {
+    pub fn ledger_at_ordinal(
+        &self,
+        ord: u64,
+    ) -> Option<crate::agent_runtime_v2::budget::BudgetLedger> {
         for entry in self.entries.iter().rev() {
             if entry.ordinal() > ord {
                 continue;
@@ -174,13 +173,8 @@ impl RunEventLog {
     /// callers can collect, filter, or short-circuit as needed.
     pub fn sealed_mutations(
         &self,
-    ) -> impl Iterator<
-        Item = (
-            u64,
-            &Hash,
-            &crate::agent_runtime_v2::budget::BudgetDebit,
-        ),
-    > + '_ {
+    ) -> impl Iterator<Item = (u64, &Hash, &crate::agent_runtime_v2::budget::BudgetDebit)> + '_
+    {
         self.entries.iter().filter_map(|e| match e {
             RunEventEntry::SealedMutation {
                 ordinal,
@@ -196,9 +190,7 @@ impl RunEventLog {
     /// uses this to build a tool-call timeline without walking
     /// the full log. O(n) walk; caller may collect into a Vec for
     /// random access.
-    pub fn find_tool_calls(
-        &self,
-    ) -> Vec<(u64, &crate::agent_runtime_v2::mission::ToolCall)> {
+    pub fn find_tool_calls(&self) -> Vec<(u64, &crate::agent_runtime_v2::mission::ToolCall)> {
         let mut hits = Vec::new();
         for entry in &self.entries {
             if let RunEventEntry::Event {
@@ -563,13 +555,18 @@ mod tests {
         // pins rely on.
         let mut log = RunEventLog::new();
         // 7 mixed-variant entries.
-        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });   // 0
-        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());     // 1
-        log.append_ledger_snapshot(BudgetLedger::default());                  // 2
-        log.append_event(AgentEvent::FinalText { text: "b".into() });        // 3
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() }); // 0
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default()); // 1
+        log.append_ledger_snapshot(BudgetLedger::default()); // 2
+        log.append_event(AgentEvent::FinalText { text: "b".into() }); // 3
         log.append_sealed_mutation(Hash::from_bytes([1; 32]), BudgetDebit::default()); // 4
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });   // 5
-        log.append_ledger_snapshot(BudgetLedger { tokens_used: 100, ..Default::default() }); // 6
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        }); // 5
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        }); // 6
 
         let ordinals: Vec<u64> = log.entries().iter().map(|e| e.ordinal()).collect();
         assert_eq!(ordinals, vec![0, 1, 2, 3, 4, 5, 6], "dense 0..N");
@@ -638,7 +635,11 @@ mod tests {
             text: "回答: 42 ✓".into(),
         });
 
-        assert_eq!(a.root_hash(), b.root_hash(), "Unicode-equal logs must hash equal");
+        assert_eq!(
+            a.root_hash(),
+            b.root_hash(),
+            "Unicode-equal logs must hash equal"
+        );
         // Single-byte Unicode diff (swap last char in one event)
         // breaks equality.
         let mut c = RunEventLog::new();
@@ -648,7 +649,11 @@ mod tests {
         c.append_event(AgentEvent::FinalText {
             text: "回答: 42 ✗".into(), // ✓ → ✗
         });
-        assert_ne!(a.root_hash(), c.root_hash(), "Unicode-diff logs must hash differently");
+        assert_ne!(
+            a.root_hash(),
+            c.root_hash(),
+            "Unicode-diff logs must hash differently"
+        );
     }
 
     #[test]
@@ -665,7 +670,9 @@ mod tests {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
         log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
-        log.append_event(AgentEvent::FinalText { text: "done".into() });
+        log.append_event(AgentEvent::FinalText {
+            text: "done".into(),
+        });
 
         let addresses = log.agent_trace_addresses();
         assert_eq!(addresses.len(), 2);
@@ -693,15 +700,26 @@ mod tests {
         // or return a Result) would silently break the append-only
         // invariant. Pin the current permissive doctrine.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         // Appending more events after Stop succeeds.
         let ord_after_stop = log.append_event(AgentEvent::ReasoningDelta {
             text: "post-stop".into(),
         });
-        assert_eq!(ord_after_stop, 1, "post-Stop append still gets a fresh ordinal");
+        assert_eq!(
+            ord_after_stop, 1,
+            "post-Stop append still gets a fresh ordinal"
+        );
         // Multiple Stops are allowed too.
-        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
-        assert_eq!(log.stop_count(), 2, "multiple Stops are permitted at log level");
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::ToolUse,
+        });
+        assert_eq!(
+            log.stop_count(),
+            2,
+            "multiple Stops are permitted at log level"
+        );
         // last_stop_event returns the most recent.
         assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
         // Sealed mutations after Stop also succeed.
@@ -719,10 +737,9 @@ mod tests {
         // capability_hash + debit verbatim. append_ledger_snapshot
         // MUST preserve the input ledger verbatim.
         let cap = Hash::from_bytes([
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-            0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+            0x1D, 0x1E, 0x1F, 0x20,
         ]);
         let debit = BudgetDebit {
             tokens: 100,
@@ -745,7 +762,9 @@ mod tests {
 
         match &log.entries()[0] {
             RunEventEntry::SealedMutation {
-                capability_hash, debit: stored_debit, ..
+                capability_hash,
+                debit: stored_debit,
+                ..
             } => {
                 assert_eq!(*capability_hash, cap, "capability_hash must be byte-equal");
                 assert_eq!(*stored_debit, debit, "debit must be byte-equal");
@@ -774,8 +793,12 @@ mod tests {
         // across executor variants.
         use crate::agent_runtime_v2::mission::ToolCall;
         let events = [
-            AgentEvent::ReasoningDelta { text: "  preserve\t  ".into() },
-            AgentEvent::FinalText { text: "\nleading newline".into() },
+            AgentEvent::ReasoningDelta {
+                text: "  preserve\t  ".into(),
+            },
+            AgentEvent::FinalText {
+                text: "\nleading newline".into(),
+            },
             AgentEvent::ToolCall {
                 call: ToolCall {
                     name: "vault.read".into(),
@@ -786,7 +809,9 @@ mod tests {
                 name: "vault.read".into(),
                 result: serde_json::json!({"trailing whitespace": "  "}),
             },
-            AgentEvent::Stop { reason: StopReason::Refusal },
+            AgentEvent::Stop {
+                reason: StopReason::Refusal,
+            },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "verbatim message".into(),
@@ -836,8 +861,16 @@ mod tests {
             ledger: BudgetLedger::default(),
         };
         assert_eq!(event.ordinal(), 100, "Event variant returns stored ordinal");
-        assert_eq!(sealed.ordinal(), 200, "SealedMutation variant returns stored ordinal");
-        assert_eq!(snapshot.ordinal(), 300, "LedgerSnapshot variant returns stored ordinal");
+        assert_eq!(
+            sealed.ordinal(),
+            200,
+            "SealedMutation variant returns stored ordinal"
+        );
+        assert_eq!(
+            snapshot.ordinal(),
+            300,
+            "LedgerSnapshot variant returns stored ordinal"
+        );
     }
 
     #[test]
@@ -910,7 +943,9 @@ mod tests {
     fn root_hash_changes_on_append() {
         let mut log = RunEventLog::new();
         let before = log.root_hash();
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let after = log.root_hash();
         assert_ne!(before, after);
     }
@@ -953,7 +988,9 @@ mod tests {
         log.append_event(AgentEvent::FinalText { text: "y".into() });
         log.append_sealed_mutation(needle_a, BudgetDebit::default());
         log.append_sealed_mutation(needle_b, BudgetDebit::default());
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         // Hit case: needle_a appears twice.
         let h1 = log.find_capability_hash(&needle_a);
@@ -1002,23 +1039,38 @@ mod tests {
         let fixtures: &[(BudgetLedger, &str)] = &[
             (BudgetLedger::default(), "baseline"),
             (
-                BudgetLedger { tokens_used: 1, ..Default::default() },
+                BudgetLedger {
+                    tokens_used: 1,
+                    ..Default::default()
+                },
                 "tokens_used=1",
             ),
             (
-                BudgetLedger { wall_used_ms: 1, ..Default::default() },
+                BudgetLedger {
+                    wall_used_ms: 1,
+                    ..Default::default()
+                },
                 "wall_used_ms=1",
             ),
             (
-                BudgetLedger { tool_calls_used: 1, ..Default::default() },
+                BudgetLedger {
+                    tool_calls_used: 1,
+                    ..Default::default()
+                },
                 "tool_calls_used=1",
             ),
             (
-                BudgetLedger { subprocess_used_ms: 1, ..Default::default() },
+                BudgetLedger {
+                    subprocess_used_ms: 1,
+                    ..Default::default()
+                },
                 "subprocess_used_ms=1",
             ),
             (
-                BudgetLedger { memory_bytes_used: 1, ..Default::default() },
+                BudgetLedger {
+                    memory_bytes_used: 1,
+                    ..Default::default()
+                },
                 "memory_bytes_used=1",
             ),
         ];
@@ -1070,27 +1122,42 @@ mod tests {
             // Single-axis debits.
             (
                 baseline_hash,
-                BudgetDebit { tokens: 1, ..Default::default() },
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
                 "tokens=1",
             ),
             (
                 baseline_hash,
-                BudgetDebit { wall_ms: 1, ..Default::default() },
+                BudgetDebit {
+                    wall_ms: 1,
+                    ..Default::default()
+                },
                 "wall_ms=1",
             ),
             (
                 baseline_hash,
-                BudgetDebit { tool_calls: 1, ..Default::default() },
+                BudgetDebit {
+                    tool_calls: 1,
+                    ..Default::default()
+                },
                 "tool_calls=1",
             ),
             (
                 baseline_hash,
-                BudgetDebit { subprocess_ms: 1, ..Default::default() },
+                BudgetDebit {
+                    subprocess_ms: 1,
+                    ..Default::default()
+                },
                 "subprocess_ms=1",
             ),
             (
                 baseline_hash,
-                BudgetDebit { memory_bytes: 1, ..Default::default() },
+                BudgetDebit {
+                    memory_bytes: 1,
+                    ..Default::default()
+                },
                 "memory_bytes=1",
             ),
         ];
@@ -1134,22 +1201,10 @@ mod tests {
         // produce the WRONG result on a re-run despite a matching
         // chain hash.
         let fixtures = [
-            (
-                "vault.read",
-                serde_json::json!({"content": "result-a"}),
-            ),
-            (
-                "vault.read",
-                serde_json::json!({"content": "result-b"}),
-            ),
-            (
-                "vault.write",
-                serde_json::json!({"content": "result-a"}),
-            ),
-            (
-                "vault.write",
-                serde_json::json!({"content": "result-b"}),
-            ),
+            ("vault.read", serde_json::json!({"content": "result-a"})),
+            ("vault.read", serde_json::json!({"content": "result-b"})),
+            ("vault.write", serde_json::json!({"content": "result-a"})),
+            ("vault.write", serde_json::json!({"content": "result-b"})),
         ];
         let hashes: Vec<Hash> = fixtures
             .iter()
@@ -1193,22 +1248,10 @@ mod tests {
         // Pin checks 4 (name, args) fixtures produce pairwise-
         // distinct root hashes.
         let fixtures = [
-            (
-                "vault.read",
-                serde_json::json!({"path": "notes/a"}),
-            ),
-            (
-                "vault.read",
-                serde_json::json!({"path": "notes/b"}),
-            ),
-            (
-                "vault.write",
-                serde_json::json!({"path": "notes/a"}),
-            ),
-            (
-                "vault.write",
-                serde_json::json!({"path": "notes/b"}),
-            ),
+            ("vault.read", serde_json::json!({"path": "notes/a"})),
+            ("vault.read", serde_json::json!({"path": "notes/b"})),
+            ("vault.write", serde_json::json!({"path": "notes/a"})),
+            ("vault.write", serde_json::json!({"path": "notes/b"})),
         ];
         let hashes: Vec<Hash> = fixtures
             .iter()
@@ -1451,9 +1494,18 @@ mod tests {
         let r_event = event_only.root_hash();
         let r_sealed = sealed_only.root_hash();
         let r_snap = snapshot_only.root_hash();
-        assert_ne!(r_event, r_sealed, "event-row and sealed-row roots must differ");
-        assert_ne!(r_sealed, r_snap, "sealed-row and snapshot-row roots must differ");
-        assert_ne!(r_event, r_snap, "event-row and snapshot-row roots must differ");
+        assert_ne!(
+            r_event, r_sealed,
+            "event-row and sealed-row roots must differ"
+        );
+        assert_ne!(
+            r_sealed, r_snap,
+            "sealed-row and snapshot-row roots must differ"
+        );
+        assert_ne!(
+            r_event, r_snap,
+            "event-row and snapshot-row roots must differ"
+        );
     }
 
     #[test]
@@ -1496,10 +1548,8 @@ mod tests {
             let mut tampered_bytes = canonical;
             tampered_bytes[byte_idx] ^= 0xFF;
             let mut tampered_log = RunEventLog::new();
-            tampered_log.append_sealed_mutation(
-                Hash::from_bytes(tampered_bytes),
-                BudgetDebit::default(),
-            );
+            tampered_log
+                .append_sealed_mutation(Hash::from_bytes(tampered_bytes), BudgetDebit::default());
             assert_ne!(
                 base_root,
                 tampered_log.root_hash(),
@@ -1549,11 +1599,7 @@ mod tests {
         // The serialised capability_hash for Hash::zero is a
         // [u8; 32] of all zeros, encoded as "[0,0,0,...]" by serde.
         // Flip the first byte from 0 to 1 to produce a tampered hash.
-        let tampered_json = s.replacen(
-            "\"capability_hash\":[0,",
-            "\"capability_hash\":[1,",
-            1,
-        );
+        let tampered_json = s.replacen("\"capability_hash\":[0,", "\"capability_hash\":[1,", 1);
         let tampered: RunEventLog =
             serde_json::from_str(&tampered_json).expect("deserialise tampered");
         assert_ne!(
@@ -1577,7 +1623,10 @@ mod tests {
         let mut log = RunEventLog::new();
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
         );
         let original = log.root_hash();
 
@@ -1602,7 +1651,9 @@ mod tests {
         // (not just an internal index).
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let original_root = log.root_hash();
 
         // Serialise + tamper an ordinal + deserialise + recompute root.
@@ -1626,14 +1677,26 @@ mod tests {
         // root only hashes some fields (e.g. ordinals + kinds but
         // not text) would surface here as identical roots.
         let mut a = RunEventLog::new();
-        a.append_event(AgentEvent::ReasoningDelta { text: "hello".into() });
-        a.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        a.append_event(AgentEvent::ReasoningDelta {
+            text: "hello".into(),
+        });
+        a.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let mut b = RunEventLog::new();
-        b.append_event(AgentEvent::ReasoningDelta { text: "hellO".into() }); // ONE-byte diff
-        b.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        b.append_event(AgentEvent::ReasoningDelta {
+            text: "hellO".into(),
+        }); // ONE-byte diff
+        b.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
-        assert_ne!(a.root_hash(), b.root_hash(), "single-byte payload change must change root");
+        assert_ne!(
+            a.root_hash(),
+            b.root_hash(),
+            "single-byte payload change must change root"
+        );
     }
 
     #[test]
@@ -1653,7 +1716,10 @@ mod tests {
                 1 => {
                     log.append_sealed_mutation(
                         Hash::from_bytes([(i % 256) as u8; 32]),
-                        BudgetDebit { tokens: i, ..Default::default() },
+                        BudgetDebit {
+                            tokens: i,
+                            ..Default::default()
+                        },
                     );
                 }
                 _ => {
@@ -1808,8 +1874,7 @@ mod tests {
         // Spot-check: forge ordinal at position 500.
         let s = serde_json::to_string(&log).expect("serialise");
         let tampered = s.replacen("\"ordinal\":500", "\"ordinal\":99999", 1);
-        let bad: RunEventLog =
-            serde_json::from_str(&tampered).expect("deserialise tampered");
+        let bad: RunEventLog = serde_json::from_str(&tampered).expect("deserialise tampered");
         let err = bad
             .validate_ordinal_density()
             .expect_err("forgery at mid-log position must fail");
@@ -1975,8 +2040,8 @@ mod tests {
         // Forgery 2: corrupt the LedgerSnapshot row at position 2.
         let s2 = serde_json::to_string(&clean).expect("serialise mixed log");
         let tamper_snap = s2.replacen("\"ordinal\":2", "\"ordinal\":777", 1);
-        let bad_snap: RunEventLog = serde_json::from_str(&tamper_snap)
-            .expect("deserialise tampered LedgerSnapshot log");
+        let bad_snap: RunEventLog =
+            serde_json::from_str(&tamper_snap).expect("deserialise tampered LedgerSnapshot log");
         let err_snap = bad_snap
             .validate_ordinal_density()
             .expect_err("LedgerSnapshot ordinal forgery must surface as OrdinalMismatch");
@@ -2030,7 +2095,11 @@ mod tests {
             actual: 999,
         };
         match err {
-            LogValidationError::OrdinalMismatch { position, expected, actual } => {
+            LogValidationError::OrdinalMismatch {
+                position,
+                expected,
+                actual,
+            } => {
                 // Exactly 3 fields. Type assertions verify the typed shape.
                 let _: usize = position;
                 let _: u64 = expected;
@@ -2166,7 +2235,9 @@ mod tests {
             expected: 1,
             actual: 99,
         };
-        let _a = e; let _b = e; assert_eq!(e, e);
+        let _a = e;
+        let _b = e;
+        assert_eq!(e, e);
     }
 
     #[test]
@@ -2278,15 +2349,23 @@ mod tests {
         // root_hash that's not equal to either component's root.
         // This is a guardrail for any future log-merge tooling.
         let mut a = RunEventLog::new();
-        a.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
+        a.append_event(AgentEvent::ReasoningDelta {
+            text: "a-only".into(),
+        });
         let mut b = RunEventLog::new();
-        b.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
+        b.append_event(AgentEvent::ReasoningDelta {
+            text: "b-only".into(),
+        });
 
         // Build a synthetic "merged" log by replaying b's entries
         // into a copy of a (renumbering ordinals).
         let mut merged = RunEventLog::new();
-        merged.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
-        merged.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
+        merged.append_event(AgentEvent::ReasoningDelta {
+            text: "a-only".into(),
+        });
+        merged.append_event(AgentEvent::ReasoningDelta {
+            text: "b-only".into(),
+        });
 
         let root_a = a.root_hash();
         let root_b = b.root_hash();
@@ -2298,8 +2377,12 @@ mod tests {
         // Reversed-order merge produces yet ANOTHER root (order
         // matters at the BLAKE3-tree level).
         let mut reverse_merged = RunEventLog::new();
-        reverse_merged.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
-        reverse_merged.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
+        reverse_merged.append_event(AgentEvent::ReasoningDelta {
+            text: "b-only".into(),
+        });
+        reverse_merged.append_event(AgentEvent::ReasoningDelta {
+            text: "a-only".into(),
+        });
         assert_ne!(reverse_merged.root_hash(), root_merged);
     }
 
@@ -2323,8 +2406,7 @@ mod tests {
         // Simulate corruption via JSON tamper.
         let s = serde_json::to_string(&original).expect("serialise");
         let tampered = s.replacen("\"ordinal\":1", "\"ordinal\":42", 1);
-        let corrupted: RunEventLog =
-            serde_json::from_str(&tampered).expect("deserialise tampered");
+        let corrupted: RunEventLog = serde_json::from_str(&tampered).expect("deserialise tampered");
         assert!(corrupted.validate_ordinal_density().is_err());
 
         // Recovery = discard + rebuild from authoritative entries.
@@ -2346,7 +2428,8 @@ mod tests {
     #[test]
     fn empty_log_validates() {
         let log = RunEventLog::new();
-        log.validate_ordinal_density().expect("empty log is dense by definition");
+        log.validate_ordinal_density()
+            .expect("empty log is dense by definition");
     }
 
     #[test]
@@ -2362,7 +2445,9 @@ mod tests {
             tokens_used: 250,
             ..Default::default()
         }); // ord 3
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn }); // ord 4
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        }); // ord 4
 
         // At ord 0 — before any snapshot — returns None.
         assert_eq!(log.ledger_at_ordinal(0), None);
@@ -2395,7 +2480,9 @@ mod tests {
             tokens_used: 100,
             ..Default::default()
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         for ord in [0u64, 1, 2, 999] {
             let r1 = log.ledger_at_ordinal(ord);
@@ -2428,9 +2515,21 @@ mod tests {
         let mut log = RunEventLog::new();
         let cap_a = Hash::from_bytes([1u8; 32]);
         let cap_b = Hash::from_bytes([2u8; 32]);
-        log.append_sealed_mutation(cap_a, BudgetDebit { tokens: 10, ..Default::default() });
+        log.append_sealed_mutation(
+            cap_a,
+            BudgetDebit {
+                tokens: 10,
+                ..Default::default()
+            },
+        );
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
-        log.append_sealed_mutation(cap_b, BudgetDebit { tokens: 20, ..Default::default() });
+        log.append_sealed_mutation(
+            cap_b,
+            BudgetDebit {
+                tokens: 20,
+                ..Default::default()
+            },
+        );
 
         let first: Vec<_> = log.sealed_mutations().collect();
         let second: Vec<_> = log.sealed_mutations().collect();
@@ -2454,12 +2553,18 @@ mod tests {
         let cap_b = Hash::from_bytes([2u8; 32]);
         let _o1 = log.append_sealed_mutation(
             cap_a,
-            BudgetDebit { tokens: 10, ..Default::default() },
+            BudgetDebit {
+                tokens: 10,
+                ..Default::default()
+            },
         ); // 1
         log.append_event(AgentEvent::FinalText { text: "y".into() }); // 2
         let _o3 = log.append_sealed_mutation(
             cap_b,
-            BudgetDebit { tokens: 20, ..Default::default() },
+            BudgetDebit {
+                tokens: 20,
+                ..Default::default()
+            },
         ); // 3
         log.append_ledger_snapshot(BudgetLedger::default()); // 4
 
@@ -2564,8 +2669,13 @@ mod tests {
         // audit dashboard with non-mutation rows.
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
-        log.append_ledger_snapshot(BudgetLedger { tokens_used: 100, ..Default::default() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let count = log.sealed_mutations().count();
         assert_eq!(count, 0, "no SealedMutation rows must yield empty iterator");
@@ -2656,7 +2766,10 @@ mod tests {
         for i in 0..10u64 {
             log.append_sealed_mutation(
                 Hash::from_bytes([(i % 256) as u8; 32]),
-                BudgetDebit { tokens: i, ..Default::default() },
+                BudgetDebit {
+                    tokens: i,
+                    ..Default::default()
+                },
             );
         }
         // .take(3) avoids walking the full 10-entry log — proves
@@ -2685,7 +2798,9 @@ mod tests {
                 arguments: serde_json::json!({"path": "b"}),
             },
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let hits = log.find_tool_calls();
         assert_eq!(hits.len(), 2);
@@ -2726,7 +2841,9 @@ mod tests {
             },
         });
         log.append_ledger_snapshot(BudgetLedger::default());
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let tool_calls = log.find_tool_calls();
         let (events, _sealed, _snapshots) = log.entry_count_by_kind();
@@ -2760,14 +2877,24 @@ mod tests {
             name: "vault.search".into(),
             arguments: serde_json::json!({"q": "Aegis is rejected", "fuzzy": false}),
         };
-        log.append_event(AgentEvent::ToolCall { call: call_a.clone() });
-        log.append_event(AgentEvent::ToolCall { call: call_b.clone() });
+        log.append_event(AgentEvent::ToolCall {
+            call: call_a.clone(),
+        });
+        log.append_event(AgentEvent::ToolCall {
+            call: call_b.clone(),
+        });
 
         let hits = log.find_tool_calls();
         assert_eq!(hits.len(), 2);
         // Each returned reference must deep-equal the appended call.
-        assert_eq!(hits[0].1, &call_a, "first hit must equal call_a byte-for-byte");
-        assert_eq!(hits[1].1, &call_b, "second hit must equal call_b byte-for-byte");
+        assert_eq!(
+            hits[0].1, &call_a,
+            "first hit must equal call_a byte-for-byte"
+        );
+        assert_eq!(
+            hits[1].1, &call_b,
+            "second hit must equal call_b byte-for-byte"
+        );
         // Argument contents preserved (no normalisation).
         assert_eq!(hits[0].1.arguments["path"], "vault/a.md");
         assert_eq!(hits[0].1.arguments["limit"], 100);
@@ -2789,18 +2916,30 @@ mod tests {
         let mut log = RunEventLog::new();
         // 4 tool calls interleaved with other events.
         log.append_event(AgentEvent::ToolCall {
-            call: ToolCall { name: "a".into(), arguments: serde_json::json!({}) },
+            call: ToolCall {
+                name: "a".into(),
+                arguments: serde_json::json!({}),
+            },
         }); // 0
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 1
         log.append_event(AgentEvent::ToolCall {
-            call: ToolCall { name: "b".into(), arguments: serde_json::json!({}) },
+            call: ToolCall {
+                name: "b".into(),
+                arguments: serde_json::json!({}),
+            },
         }); // 2
         log.append_sealed_mutation(Hash::zero(), BudgetDebit::default()); // 3
         log.append_event(AgentEvent::ToolCall {
-            call: ToolCall { name: "c".into(), arguments: serde_json::json!({}) },
+            call: ToolCall {
+                name: "c".into(),
+                arguments: serde_json::json!({}),
+            },
         }); // 4
         log.append_event(AgentEvent::ToolCall {
-            call: ToolCall { name: "d".into(), arguments: serde_json::json!({}) },
+            call: ToolCall {
+                name: "d".into(),
+                arguments: serde_json::json!({}),
+            },
         }); // 5
 
         let hits = log.find_tool_calls();
@@ -2851,7 +2990,9 @@ mod tests {
     fn find_tool_calls_empty_when_no_tool_call_events() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert!(log.find_tool_calls().is_empty());
     }
 
@@ -2877,10 +3018,14 @@ mod tests {
     fn first_event_ordinal_returns_zero_when_non_empty_none_when_empty() {
         let mut log = RunEventLog::new();
         assert_eq!(log.first_event_ordinal(), None);
-        log.append_event(AgentEvent::ReasoningDelta { text: "first".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "first".into(),
+        });
         assert_eq!(log.first_event_ordinal(), Some(0));
         // Adding more entries doesn't shift the first ordinal.
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert_eq!(log.first_event_ordinal(), Some(0));
     }
 
@@ -2904,10 +3049,7 @@ mod tests {
         assert_eq!(event_first.first_event_ordinal(), Some(0));
 
         let mut sealed_first = RunEventLog::new();
-        sealed_first.append_sealed_mutation(
-            Hash::from_bytes([0x11; 32]),
-            BudgetDebit::default(),
-        );
+        sealed_first.append_sealed_mutation(Hash::from_bytes([0x11; 32]), BudgetDebit::default());
         assert_eq!(
             sealed_first.first_event_ordinal(),
             Some(0),
@@ -2929,7 +3071,9 @@ mod tests {
         // (companion to the purity series). Both helpers count
         // matching variants by walking entries.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         log.append_event(AgentEvent::Error {
             kind: AgentEventErrorKind::Provider,
             message: "x".into(),
@@ -2976,12 +3120,16 @@ mod tests {
         assert_eq!(log.stop_count(), 0);
         log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
         assert_eq!(log.stop_count(), 0);
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert_eq!(log.stop_count(), 1);
         // Anomalous: a second Stop after the first (replay anomaly /
         // partial-write recovery). The helper counts it so the audit
         // surface can flag the run.
-        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::Error,
+        });
         assert_eq!(log.stop_count(), 2);
     }
 
@@ -3031,7 +3179,9 @@ mod tests {
         assert_eq!(log.error_count(), 1);
         // Stop after Error is the typical terminal sequence; error
         // count must not be affected by Stop events.
-        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::Error,
+        });
         assert_eq!(log.error_count(), 1);
         assert_eq!(log.stop_count(), 1);
         // Anomalous double-error case.
@@ -3057,19 +3207,35 @@ mod tests {
         // Append Stops in DELIBERATELY-VARYING order; verify the helper
         // returns the LAST one each time a new Stop is appended.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
-        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
-        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse),
-            "must return LAST Stop (ToolUse), not first (EndTurn)");
-        log.append_event(AgentEvent::Stop { reason: StopReason::BudgetExhausted });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::ToolUse,
+        });
+        assert_eq!(
+            log.last_stop_event(),
+            Some(StopReason::ToolUse),
+            "must return LAST Stop (ToolUse), not first (EndTurn)"
+        );
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::BudgetExhausted,
+        });
         assert_eq!(log.last_stop_event(), Some(StopReason::BudgetExhausted));
         // Non-Stop event in between must not affect the last_stop_event.
-        log.append_event(AgentEvent::ReasoningDelta { text: "post-stop".into() });
-        assert_eq!(log.last_stop_event(), Some(StopReason::BudgetExhausted),
-            "ReasoningDelta does not affect last_stop_event");
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "post-stop".into(),
+        });
+        assert_eq!(
+            log.last_stop_event(),
+            Some(StopReason::BudgetExhausted),
+            "ReasoningDelta does not affect last_stop_event"
+        );
         // Another Stop appended LATER updates the value.
-        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::Error,
+        });
         assert_eq!(log.last_stop_event(), Some(StopReason::Error));
     }
 
@@ -3096,8 +3262,11 @@ mod tests {
         ] {
             let mut log = RunEventLog::new();
             log.append_event(AgentEvent::Stop { reason });
-            assert_eq!(log.last_stop_event(), Some(reason),
-                "last_stop_event must surface {reason:?} verbatim");
+            assert_eq!(
+                log.last_stop_event(),
+                Some(reason),
+                "last_stop_event must surface {reason:?} verbatim"
+            );
         }
     }
 
@@ -3124,12 +3293,16 @@ mod tests {
         assert_eq!(log.last_stop_event(), None);
 
         // Append a Stop event: count flips to 1, last_stop_event Some.
-        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::ToolUse,
+        });
         assert_eq!(log.stop_count(), 1);
         assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
 
         // Append a second Stop: count grows, last_stop tracks the newer.
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert_eq!(log.stop_count(), 2);
         assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
     }
@@ -3145,9 +3318,13 @@ mod tests {
         // A future refactor that introduced caching or "skip ahead"
         // state inside the walker would silently break determinism.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::ToolUse,
+        });
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let r1 = log.last_stop_event();
         let r2 = log.last_stop_event();
@@ -3173,13 +3350,17 @@ mod tests {
         // surface even if other events follow (defensive: in practice
         // Stop is terminal so nothing should follow, but the helper
         // shouldn't assume that).
-        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::ToolUse,
+        });
         assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
         // Most recent Stop is still ToolUse.
         assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
         // Add a fresher Stop with different reason.
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
     }
 
@@ -3191,15 +3372,24 @@ mod tests {
         // 3 sealed mutations with 25 / 75 / 100 tokens.
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 25, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                ..Default::default()
+            },
         );
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 75, ..Default::default() },
+            BudgetDebit {
+                tokens: 75,
+                ..Default::default()
+            },
         );
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
         );
         // Snapshot — also doesn't contribute.
         log.append_ledger_snapshot(BudgetLedger::default());
@@ -3220,7 +3410,10 @@ mod tests {
         for i in 1u64..=4 {
             log.append_sealed_mutation(
                 Hash::zero(),
-                BudgetDebit { tokens: i * 10, ..Default::default() },
+                BudgetDebit {
+                    tokens: i * 10,
+                    ..Default::default()
+                },
             );
         }
         let r1 = log.total_tokens_debited();
@@ -3261,15 +3454,26 @@ mod tests {
         //   row 3: tokens=0, memory_bytes=4096 (T2 heuristic over memory axis)
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 25, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                ..Default::default()
+            },
         );
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 0, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 0,
+                tool_calls: 1,
+                ..Default::default()
+            },
         );
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 0, memory_bytes: 4_096, ..Default::default() },
+            BudgetDebit {
+                tokens: 0,
+                memory_bytes: 4_096,
+                ..Default::default()
+            },
         );
 
         let (total, count) = log.total_tokens_debited();
@@ -3285,11 +3489,17 @@ mod tests {
         let mut log = RunEventLog::new();
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: u64::MAX - 5, ..Default::default() },
+            BudgetDebit {
+                tokens: u64::MAX - 5,
+                ..Default::default()
+            },
         );
         log.append_sealed_mutation(
             Hash::zero(),
-            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
         );
         let (total, _) = log.total_tokens_debited();
         assert_eq!(total, u64::MAX);
@@ -3306,7 +3516,9 @@ mod tests {
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
         log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
         log.append_ledger_snapshot(BudgetLedger::default());
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let r1 = log.entry_count_by_kind();
         let r2 = log.entry_count_by_kind();
         let r3 = log.entry_count_by_kind();
@@ -3321,7 +3533,9 @@ mod tests {
         // 3 events
         log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
         log.append_event(AgentEvent::FinalText { text: "b".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         // 2 sealed mutations
         log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
         log.append_sealed_mutation(Hash::from_bytes([1u8; 32]), BudgetDebit::default());
@@ -3358,7 +3572,11 @@ mod tests {
         let _ord = log.append_sealed_mutation(cap, debit);
         let entry = &log.entries()[0];
         match entry {
-            RunEventEntry::SealedMutation { capability_hash, debit: stored_debit, .. } => {
+            RunEventEntry::SealedMutation {
+                capability_hash,
+                debit: stored_debit,
+                ..
+            } => {
                 assert_eq!(*capability_hash, cap, "first arg goes to capability_hash");
                 assert_eq!(stored_debit.tokens, 999_999, "second arg goes to debit");
             }
@@ -3430,15 +3648,11 @@ mod tests {
         let mut log = RunEventLog::new();
         let mut returned: Vec<u64> = Vec::new();
         returned.push(log.append_event(AgentEvent::ReasoningDelta { text: "a".into() }));
-        returned.push(log.append_sealed_mutation(
-            Hash::from_bytes([1u8; 32]),
-            BudgetDebit::default(),
-        ));
+        returned
+            .push(log.append_sealed_mutation(Hash::from_bytes([1u8; 32]), BudgetDebit::default()));
         returned.push(log.append_ledger_snapshot(BudgetLedger::default()));
-        returned.push(log.append_sealed_mutation(
-            Hash::from_bytes([2u8; 32]),
-            BudgetDebit::default(),
-        ));
+        returned
+            .push(log.append_sealed_mutation(Hash::from_bytes([2u8; 32]), BudgetDebit::default()));
         returned.push(log.append_event(AgentEvent::FinalText { text: "b".into() }));
         returned.push(log.append_ledger_snapshot(BudgetLedger {
             tokens_used: 7,
@@ -3509,11 +3723,16 @@ mod tests {
         for i in 0..7u64 {
             log.append_sealed_mutation(
                 Hash::from_bytes([(i as u8) ^ 0x5C; 32]),
-                BudgetDebit { tokens: i, ..Default::default() },
+                BudgetDebit {
+                    tokens: i,
+                    ..Default::default()
+                },
             );
         }
         log.append_ledger_snapshot(BudgetLedger::default());
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let (events, sealed_tuple, snapshots) = log.entry_count_by_kind();
         let sealed_iter = log.sealed_mutations().count();
@@ -3527,7 +3746,8 @@ mod tests {
     }
 
     #[test]
-    fn total_tokens_debited_matches_post_mutation_ledger_snapshot_when_dispatcher_accounts_correctly() {
+    fn total_tokens_debited_matches_post_mutation_ledger_snapshot_when_dispatcher_accounts_correctly(
+    ) {
         // Phase 1 hardening — cross-helper consistency pin between
         // the witness-trail aggregator (total_tokens_debited) and the
         // ledger-snapshot reading path (ledger_at_ordinal).
@@ -3548,10 +3768,34 @@ mod tests {
         let mut log = RunEventLog::new();
         let cap = Hash::from_bytes([1u8; 32]);
         // 4 sealed mutations: 25, 50, 75, 100 tokens.
-        log.append_sealed_mutation(cap, BudgetDebit { tokens: 25, ..Default::default() });
-        log.append_sealed_mutation(cap, BudgetDebit { tokens: 50, ..Default::default() });
-        log.append_sealed_mutation(cap, BudgetDebit { tokens: 75, ..Default::default() });
-        log.append_sealed_mutation(cap, BudgetDebit { tokens: 100, ..Default::default() });
+        log.append_sealed_mutation(
+            cap,
+            BudgetDebit {
+                tokens: 25,
+                ..Default::default()
+            },
+        );
+        log.append_sealed_mutation(
+            cap,
+            BudgetDebit {
+                tokens: 50,
+                ..Default::default()
+            },
+        );
+        log.append_sealed_mutation(
+            cap,
+            BudgetDebit {
+                tokens: 75,
+                ..Default::default()
+            },
+        );
+        log.append_sealed_mutation(
+            cap,
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
+        );
         // Post-mutation ledger snapshot: caller's dispatcher writes
         // total tokens_used.
         let snapshot_ordinal = log.append_ledger_snapshot(BudgetLedger {
@@ -3637,7 +3881,10 @@ mod tests {
         for i in 0..5u64 {
             log.append_sealed_mutation(
                 Hash::from_bytes([i as u8; 32]),
-                BudgetDebit { tokens: i * 10, ..Default::default() },
+                BudgetDebit {
+                    tokens: i * 10,
+                    ..Default::default()
+                },
             );
         }
         // Snapshots must NOT contribute to the sealed count.
@@ -3645,7 +3892,9 @@ mod tests {
             tokens_used: 100,
             ..Default::default()
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let (_total, count_via_tokens) = log.total_tokens_debited();
         let count_via_iter = log.sealed_mutations().count();
@@ -3682,7 +3931,9 @@ mod tests {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
         log.append_event(AgentEvent::FinalText { text: "y".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         log.append_event(AgentEvent::Error {
             kind: AgentEventErrorKind::Provider,
             message: "z".into(),
@@ -3889,15 +4140,19 @@ mod tests {
         let other = Hash::from_bytes([0x88; 32]);
         // Sealed mutations at ordinals 0, 2, 3, 5, with non-matching
         // rows at 1 and 4.
-        log.append_sealed_mutation(needle, BudgetDebit::default());      // 0
-        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });// 1
-        log.append_sealed_mutation(needle, BudgetDebit::default());      // 2
-        log.append_sealed_mutation(needle, BudgetDebit::default());      // 3
-        log.append_sealed_mutation(other, BudgetDebit::default());       // 4
-        log.append_sealed_mutation(needle, BudgetDebit::default());      // 5
+        log.append_sealed_mutation(needle, BudgetDebit::default()); // 0
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() }); // 1
+        log.append_sealed_mutation(needle, BudgetDebit::default()); // 2
+        log.append_sealed_mutation(needle, BudgetDebit::default()); // 3
+        log.append_sealed_mutation(other, BudgetDebit::default()); // 4
+        log.append_sealed_mutation(needle, BudgetDebit::default()); // 5
 
         let hits = log.find_capability_hash(&needle);
-        assert_eq!(hits, vec![0, 2, 3, 5], "ordinals must appear in append order");
+        assert_eq!(
+            hits,
+            vec![0, 2, 3, 5],
+            "ordinals must appear in append order"
+        );
         // Strict-ascending: each ordinal > the previous.
         for pair in hits.windows(2) {
             assert!(pair[0] < pair[1], "ordinals must be strictly ascending");
@@ -3943,9 +4198,18 @@ mod tests {
         let set_a: HashSet<u64> = hits_a.iter().copied().collect();
         let set_b: HashSet<u64> = hits_b.iter().copied().collect();
         let set_c: HashSet<u64> = hits_c.iter().copied().collect();
-        assert!(set_a.is_disjoint(&set_b), "A and B results must be disjoint");
-        assert!(set_b.is_disjoint(&set_c), "B and C results must be disjoint");
-        assert!(set_a.is_disjoint(&set_c), "A and C results must be disjoint");
+        assert!(
+            set_a.is_disjoint(&set_b),
+            "A and B results must be disjoint"
+        );
+        assert!(
+            set_b.is_disjoint(&set_c),
+            "B and C results must be disjoint"
+        );
+        assert!(
+            set_a.is_disjoint(&set_c),
+            "A and C results must be disjoint"
+        );
     }
 
     #[test]
@@ -4084,7 +4348,11 @@ mod tests {
             debit: BudgetDebit::default(),
         };
         match sealed {
-            RunEventEntry::SealedMutation { ordinal, capability_hash, debit } => {
+            RunEventEntry::SealedMutation {
+                ordinal,
+                capability_hash,
+                debit,
+            } => {
                 let _: u64 = ordinal;
                 let _: Hash = capability_hash;
                 let _: BudgetDebit = debit;
@@ -4215,8 +4483,14 @@ mod tests {
         let ord = s.find("\"ordinal\":").unwrap();
         let cap = s.find("\"capability_hash\":").unwrap();
         let deb = s.find("\"debit\":").unwrap();
-        assert!(ord < cap, "SealedMutation.ordinal must precede capability_hash in {s}");
-        assert!(cap < deb, "SealedMutation.capability_hash must precede debit in {s}");
+        assert!(
+            ord < cap,
+            "SealedMutation.ordinal must precede capability_hash in {s}"
+        );
+        assert!(
+            cap < deb,
+            "SealedMutation.capability_hash must precede debit in {s}"
+        );
 
         let snap = RunEventEntry::LedgerSnapshot {
             ordinal: 9,
@@ -4257,7 +4531,10 @@ mod tests {
         let sealed = RunEventEntry::SealedMutation {
             ordinal: 8,
             capability_hash: Hash::from_bytes([1u8; 32]),
-            debit: BudgetDebit { tokens: 42, ..Default::default() },
+            debit: BudgetDebit {
+                tokens: 42,
+                ..Default::default()
+            },
         };
         let s = serde_json::to_string(&sealed).expect("serialise");
         for needle in ["\"ordinal\":8", "\"capability_hash\":", "\"debit\":{"] {
@@ -4388,7 +4665,10 @@ mod tests {
         let sealed = RunEventEntry::SealedMutation {
             ordinal: 9,
             capability_hash: Hash::from_bytes([1u8; 32]),
-            debit: BudgetDebit { tokens: 5, ..Default::default() },
+            debit: BudgetDebit {
+                tokens: 5,
+                ..Default::default()
+            },
         };
         let sealed_s = serde_json::to_string(&sealed).expect("serialise sealed");
         // Insert before the FINAL closing brace (not trim_end_matches,
@@ -4471,10 +4751,7 @@ mod tests {
 
     #[test]
     fn corrupted_run_event_log_entries_array_empty_object_row_fails_to_deserialise() {
-        for bad in [
-            r#"{"entries":[{}]}"#,
-            r#"{"entries":[{"ordinal":0}]}"#,
-        ] {
+        for bad in [r#"{"entries":[{}]}"#, r#"{"entries":[{"ordinal":0}]}"#] {
             let parsed: Result<RunEventLog, _> = serde_json::from_str(bad);
             assert!(
                 parsed.is_err(),
@@ -4543,8 +4820,12 @@ mod tests {
         // format.
         use crate::agent_runtime_v2::mission::ToolCall;
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::ReasoningDelta { text: "考えている".into() });
-        log.append_event(AgentEvent::FinalText { text: "答え: 42".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "考えている".into(),
+        });
+        log.append_event(AgentEvent::FinalText {
+            text: "答え: 42".into(),
+        });
         log.append_event(AgentEvent::ToolCall {
             call: ToolCall {
                 name: "vault.read".into(),
@@ -4572,7 +4853,9 @@ mod tests {
             subprocess_used_ms: 444,
             memory_bytes_used: 555,
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         log.append_event(AgentEvent::Error {
             kind: AgentEventErrorKind::Provider,
             message: "transport: 接続失敗".into(),
@@ -4594,17 +4877,25 @@ mod tests {
     #[test]
     fn log_round_trips_through_json() {
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "think".into(),
+        });
         log.append_sealed_mutation(
             Hash::from_bytes([7u8; 32]),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
         );
         log.append_ledger_snapshot(BudgetLedger {
             tokens_used: 25,
             tool_calls_used: 1,
             ..Default::default()
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let s = serde_json::to_string(&log).expect("serialize");
         let back: RunEventLog = serde_json::from_str(&s).expect("deserialize");

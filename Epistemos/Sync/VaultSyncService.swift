@@ -259,6 +259,14 @@ private struct VersionCaptureSnapshot: Sendable {
     let wordCount: Int
 }
 
+private final class VaultFileWatcherState {
+    var source: DispatchSourceFileSystemObject?
+    var fileDescriptor: Int32 = -1
+    var debounceTask: Task<Void, Never>?
+    let clock = ContinuousClock()
+    var ignoreUntil: ContinuousClock.Instant?
+}
+
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor
@@ -435,11 +443,8 @@ final class VaultSyncService {
     private var initialImportCompleted = false
 
     // MARK: - File Watching
-    private var fileWatcherSource: DispatchSourceFileSystemObject?
-    private var fileWatcherFD: Int32 = -1
-    private var fileWatchDebounceTask: Task<Void, Never>?
-    private let fileWatcherClock = ContinuousClock()
-    private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
+    @ObservationIgnored
+    private let fileWatcherState = VaultFileWatcherState()
     private nonisolated static let recoverySnapshotLimit = 20
 
     private struct ResolvedVaultBookmark: Sendable {
@@ -2905,14 +2910,18 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try await svc.fusedSearchAsync(query: query)
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: FusionWeights.default.maxResults,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(\.parentDocID)
+                do {
+                    let fused = try await svc.fusedSearchAsync(query: query)
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: FusionWeights.default.maxResults,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(\.parentDocID)
+                } catch {
+                    log.error("RRF fused searchIndex failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try await svc.searchAsync(query: query)
             recordVaultRecallTraceIfEnabled(
@@ -2939,17 +2948,21 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try svc.fusedSearch(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
-                )
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: limit,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(Self.mapFusedToSearchResult)
+                do {
+                    let fused = try svc.fusedSearch(
+                        query: query,
+                        weights: FusionWeights(maxResults: limit)
+                    )
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: limit,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(Self.mapFusedToSearchResult)
+                } catch {
+                    log.error("RRF fused searchFull failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try svc.search(query: query, limit: limit)
             recordVaultRecallTraceIfEnabled(
@@ -2970,17 +2983,21 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try await svc.fusedSearchAsync(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
-                )
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: limit,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(Self.mapFusedToSearchResult)
+                do {
+                    let fused = try await svc.fusedSearchAsync(
+                        query: query,
+                        weights: FusionWeights(maxResults: limit)
+                    )
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: limit,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(Self.mapFusedToSearchResult)
+                } catch {
+                    log.error("RRF fused searchFullAsync failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try await svc.searchAsync(query: query, limit: limit)
             recordVaultRecallTraceIfEnabled(
@@ -3475,7 +3492,7 @@ final class VaultSyncService {
         (
             isWatching: isWatching,
             autoSaveActive: autoSaveTask != nil,
-            fileWatcherActive: fileWatcherSource != nil
+            fileWatcherActive: fileWatcherState.source != nil
         )
     }
 
@@ -3537,7 +3554,7 @@ final class VaultSyncService {
             log.warning("File watcher: failed to open vault directory for monitoring")
             return
         }
-        fileWatcherFD = fd
+        fileWatcherState.fileDescriptor = fd
 
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
@@ -3554,37 +3571,41 @@ final class VaultSyncService {
         }
 
         source.resume()
-        fileWatcherSource = source
+        fileWatcherState.source = source
         log.info("File watcher started for: \(url.lastPathComponent, privacy: .public)")
     }
 
     private func stopFileWatcher() {
-        fileWatchDebounceTask?.cancel()
-        fileWatchDebounceTask = nil
-        fileWatcherIgnoreUntil = nil
-        if let source = fileWatcherSource {
+        fileWatcherState.debounceTask?.cancel()
+        fileWatcherState.debounceTask = nil
+        fileWatcherState.ignoreUntil = nil
+        if let source = fileWatcherState.source {
             source.cancel()
-            fileWatcherSource = nil
-            fileWatcherFD = -1
+            fileWatcherState.source = nil
+            fileWatcherState.fileDescriptor = -1
         }
     }
 
     private func suppressFileWatcherForSelfOriginatedChange(window: Duration = .seconds(3)) {
         guard isWatching else { return }
-        let deadline = fileWatcherClock.now + window
-        if let existingDeadline = fileWatcherIgnoreUntil, existingDeadline > deadline {
+        let deadline = fileWatcherState.clock.now + window
+        if let existingDeadline = fileWatcherState.ignoreUntil, existingDeadline > deadline {
             return
         }
-        fileWatcherIgnoreUntil = deadline
+        fileWatcherState.ignoreUntil = deadline
+    }
+
+    func suppressNextFileWatcherChangeForSelfOriginatedWrite(window: Duration = .seconds(3)) {
+        suppressFileWatcherForSelfOriginatedChange(window: window)
     }
 
     private func shouldIgnoreFileWatcherChange() -> Bool {
-        guard let deadline = fileWatcherIgnoreUntil else { return false }
-        let now = fileWatcherClock.now
+        guard let deadline = fileWatcherState.ignoreUntil else { return false }
+        let now = fileWatcherState.clock.now
         if now < deadline {
             return true
         }
-        fileWatcherIgnoreUntil = nil
+        fileWatcherState.ignoreUntil = nil
         return false
     }
 
@@ -3592,7 +3613,7 @@ final class VaultSyncService {
     /// Waits 2 seconds after the last change before re-importing, so rapid
     /// saves (e.g. typing in an external editor) don't trigger 50 reimports.
     private func handleFileSystemChange() {
-        fileWatchDebounceTask?.cancel()
+        fileWatcherState.debounceTask?.cancel()
         // Capture what we need before detaching — avoids @MainActor inheritance
         // so the heavy vault import doesn't block the UI.
         let vaultURL = self.vaultURL
@@ -3600,7 +3621,7 @@ final class VaultSyncService {
         let searchService = self.searchService
         let shouldIgnore = shouldIgnoreFileWatcherChange()
 
-        fileWatchDebounceTask = Task.detached(priority: .utility) {
+        fileWatcherState.debounceTask = Task.detached(priority: .utility) {
             let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
             guard await Self.sleepHandlingCancellation(
                 for: .seconds(2),
@@ -3900,16 +3921,55 @@ final class VaultSyncService {
 
         // Index in Spotlight
         SpotlightIndexer.index(page)
-        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody())
-        page.lastSyncedAt = .now
-        page.needsVaultSync = false
+        page.lastSyncedBodyHash = nil
+        page.lastSyncedAt = nil
+        page.needsVaultSync = true
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error(
+                "Failed to mark new page dirty for vault export '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+            )
+        }
 
         // Export to disk in background
         let pageId = failedPageId
         suppressFileWatcherForSelfOriginatedChange()
         Task { [weak self] in
             do {
-                _ = try await self?.exportPage(pageId: pageId, to: vaultURL)
+                guard let self,
+                      let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL) else {
+                    return
+                }
+                await MainActor.run {
+                    let context = self.modelContainer.mainContext
+                    let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                    guard let page = self.fetchFirst(descriptor, in: context, label: "new page export tracking") else {
+                        return
+                    }
+                    let currentHash = SDPage.bodyHash(self.latestAvailableBody(for: page, pageId: pageId))
+                    guard currentHash == exportResult.bodyHash else {
+                        page.needsVaultSync = true
+                        do {
+                            try context.save()
+                        } catch {
+                            Log.vault.error(
+                                "Failed to retain dirty state after new page export hash mismatch: \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
+                        return
+                    }
+                    page.lastSyncedBodyHash = currentHash
+                    page.lastSyncedAt = .now
+                    page.needsVaultSync = false
+                    do {
+                        try context.save()
+                    } catch {
+                        Log.vault.error(
+                            "Failed to save new page export tracking: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                }
             } catch {
                 log.error(
                     "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"

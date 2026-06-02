@@ -120,7 +120,10 @@ mod tests {
 
     #[test]
     fn kind_is_witness_repair() {
-        assert_eq!(WitnessRepairLoop::<DummyPayload>::new().kind(), "witness_repair");
+        assert_eq!(
+            WitnessRepairLoop::<DummyPayload>::new().kind(),
+            "witness_repair"
+        );
     }
 
     #[test]
@@ -167,18 +170,12 @@ mod tests {
         let l = WitnessRepairLoop::<DummyPayload>::new();
         let initial = d(1, WitnessState::repairable("budget_wall_clock_ms_exceeded"));
         let mut c = LoopCounters::new();
-        let outcome = run_loop(
-            &l,
-            initial,
-            RepairBudget::DEFAULT,
-            &mut c,
-            |prev, _hint| {
-                let mut next = prev.clone();
-                next.state = WitnessState::Verified;
-                next.payload.run_id += 1;
-                next
-            },
-        )
+        let outcome = run_loop(&l, initial, RepairBudget::DEFAULT, &mut c, |prev, _hint| {
+            let mut next = prev.clone();
+            next.state = WitnessState::Verified;
+            next.payload.run_id += 1;
+            next
+        })
         .unwrap();
         match outcome {
             RepairOutcome::Accepted { packet, repairs } => {
@@ -217,13 +214,9 @@ mod tests {
         let l = WitnessRepairLoop::<DummyPayload>::new();
         let initial = d(1, WitnessState::invalid("unsupported_evaluator: ane_v8"));
         let mut c = LoopCounters::new();
-        let outcome = run_loop(
-            &l,
-            initial,
-            RepairBudget::DEFAULT,
-            &mut c,
-            |prev, _hint| prev.clone(),
-        )
+        let outcome = run_loop(&l, initial, RepairBudget::DEFAULT, &mut c, |prev, _hint| {
+            prev.clone()
+        })
         .unwrap();
         match outcome {
             RepairOutcome::Quarantined { reason, repairs } => {

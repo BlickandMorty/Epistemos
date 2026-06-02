@@ -123,7 +123,7 @@ struct HaloUITests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Halo/ShadowPanelContent.swift")
 
         #expect(source.contains("private var sourceAndActions"))
-        #expect(source.contains("Text(provenanceLabel)"))
+        #expect(source.contains("VaultRecallHaloProvenance(hit: hit"))
         #expect(source.contains("actionButton(title: \"Open\""))
         #expect(source.contains("actionButton(title: \"Edit\""))
         #expect(source.contains("actionButton(title: \"Summarise\""))
@@ -151,6 +151,21 @@ struct HaloUITests {
         // Body is opaque (some View); we just verify the init compiles
         // + the underlying controller is reachable for rendering.
         #expect(button.controller === mock)
+    }
+
+    @Test("recoverable Halo backend errors open the panel instead of rendering a dead glyph")
+    func recoverableHaloErrorCanOpenPanel() throws {
+        let controller = HaloUITestSupport.mockController()
+        controller.reportRecoverableError("Search backend unavailable")
+
+        #expect(controller.state.isVisible)
+        #expect(controller.state.isRecoverableError)
+
+        controller.openPanel()
+        #expect(controller.state.isRecoverableError)
+
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+        #expect(editor.contains("controller.state.isPanelOpen || controller.state.isRecoverableError"))
     }
 
     // MARK: - ShadowPanelController.panelOrigin (T+5 trailing-edge anchor)

@@ -72,6 +72,153 @@ struct RuntimeRouterTests {
         #expect(router.metrics.tally(for: .mlx).accepts >= 1)
     }
 
+    @Test("local policy table gates MLX/GGUF before cloud fallback")
+    func localPolicyTableGatesLocalLanesBeforeCloudFallback() {
+        guard let policy = RuntimeRouter.localPolicyTable[.code] else {
+            Issue.record("code role must have a local policy row")
+            return
+        }
+        let cases: [(MissionPacket, RouteVerdict.EscalationReason)] = [
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-confidence",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    classificationConfidence: policy.minimumConfidence - 0.01
+                ),
+                .classificationUncertain
+            ),
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-complexity",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    estimatedComplexity: policy.maximumComplexity + 0.01
+                ),
+                .taskTooComplex
+            ),
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-tools",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    toolCountEstimate: policy.maximumToolCount + 1
+                ),
+                .tooManyToolCalls
+            ),
+        ]
+
+        for (packet, reason) in cases {
+            let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+            router._testResetMetrics()
+            let verdict = router.route(packet)
+
+            if case .accept(let lane, _) = verdict {
+                #expect(lane == .cloud(provider: "claude"), "policy-gated code request should fall through to Claude; got \(lane.stableID)")
+            } else {
+                Issue.record("expected .accept on cloud fallback, got \(verdict)")
+            }
+
+            #expect(router.metrics.tally(for: .mlx).escalations == 1)
+            #expect(router.metrics.tally(for: .gguf).escalations == 1)
+            #expect(router.metrics.tally(for: .cloud(provider: "claude")).accepts == 1)
+
+            let localEscalationReasons = router.metrics.ring
+                .filter { $0.lane == .mlx || $0.lane == .gguf }
+                .compactMap(\.detail)
+            #expect(localEscalationReasons == [reason.rawValue, reason.rawValue])
+        }
+    }
+
+    @Test("malformed policy hints reject before any fallback lane accepts")
+    func malformedPolicyHintsRejectBeforeFallback() {
+        let cases: [(String, MissionPacket)] = [
+            (
+                "nan-confidence",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-confidence",
+                    role: .code,
+                    objective: "Refactor this.",
+                    classificationConfidence: Double.nan
+                )
+            ),
+            (
+                "infinite-complexity",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-complexity",
+                    role: .code,
+                    objective: "Refactor this.",
+                    estimatedComplexity: Double.infinity
+                )
+            ),
+            (
+                "negative-tool-count",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-tool-count",
+                    role: .code,
+                    objective: "Refactor this.",
+                    toolCountEstimate: -1
+                )
+            ),
+            (
+                "negative-input-tokens",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-input-tokens",
+                    role: .code,
+                    objective: "Refactor this.",
+                    estimatedInputTokens: -1
+                )
+            ),
+        ]
+
+        for (label, packet) in cases {
+            let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+            router._testResetMetrics()
+            let verdict = router.route(packet)
+
+            if case .reject(let reason) = verdict {
+                #expect(reason == .invalidPolicyInput, "\(label) should reject as invalid policy input")
+            } else {
+                Issue.record("\(label) expected .reject, got \(verdict)")
+            }
+
+            #expect(router.metrics.ring.count == 1, "\(label) should record one reject event")
+            #expect(router.metrics.ring.first?.kind == .reject)
+            #expect(router.metrics.ring.first?.detail == RouteVerdict.RejectReason.invalidPolicyInput.rawValue)
+            #expect(router.metrics.tally(for: .cloud(provider: "claude")).accepts == 0)
+        }
+    }
+
+    @Test("estimated input tokens gate small-context lanes before fallback")
+    func estimatedInputTokensGateSmallContextLane() {
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        router._testResetMetrics()
+        let appleContext = RuntimeRouter.defaultStubCapability(for: .appleIntelligence).contextWindow
+        let packet = MissionPacket(
+            uasAddress: "uas:test:policy-context-window",
+            role: .quick,
+            objective: "Summarize this context.",
+            estimatedInputTokens: appleContext + 1
+        )
+
+        let verdict = router.route(packet)
+
+        if case .accept(let lane, _) = verdict {
+            #expect(lane == .mlx, "quick request should skip Apple Intelligence and accept on MLX; got \(lane.stableID)")
+        } else {
+            Issue.record("expected .accept on MLX fallback, got \(verdict)")
+        }
+
+        #expect(router.metrics.tally(for: .appleIntelligence).escalations == 1)
+        let reasons = router.metrics.ring
+            .filter { $0.lane == .appleIntelligence }
+            .compactMap(\.detail)
+        #expect(reasons == [RouteVerdict.EscalationReason.contextWindowExceeded.rawValue])
+    }
+
     @Test("flipping MLX off escalates to GGUF — honest log, not silent fallback")
     func mlxFlippedOffEscalatesHonestly() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
@@ -121,6 +268,31 @@ struct RuntimeRouterTests {
         }
         let packet = MissionPacket(
             uasAddress: "uas:test:003",
+            role: .reasoning,
+            objective: "Sensitive query.",
+            privacySensitive: true
+        )
+        let verdict = router.route(packet)
+        if case .reject(let reason) = verdict {
+            #expect(reason == .privacySensitiveNoLocal)
+        } else {
+            Issue.record("expected .reject, got \(verdict)")
+        }
+    }
+
+    @Test("privacy-sensitive request ignores enabled stub when all executable local lanes are disabled")
+    func privacySensitiveIgnoresEnabledStubLane() {
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        for local in [RuntimeLane.mlx, .gguf, .appleIntelligence] {
+            router.setLaneEnabled(local, false)
+        }
+        defer {
+            for local in [RuntimeLane.mlx, .gguf, .appleIntelligence] {
+                router.setLaneEnabled(local, true)
+            }
+        }
+        let packet = MissionPacket(
+            uasAddress: "uas:test:privacy-stub",
             role: .reasoning,
             objective: "Sensitive query.",
             privacySensitive: true

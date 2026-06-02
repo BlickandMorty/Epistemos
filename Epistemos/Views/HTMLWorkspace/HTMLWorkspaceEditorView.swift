@@ -4,18 +4,23 @@ import UniformTypeIdentifiers
 
 struct HTMLWorkspaceEditorView: View {
     @Binding var package: HTMLWorkspacePackage
+    let theme: EpistemosTheme?
     @Environment(\.colorScheme) private var colorScheme
     @State private var previewPackage: HTMLWorkspacePackage
     @State private var selectedPane: HTMLWorkspaceSourcePane = .html
     @State private var layoutMode: HTMLWorkspaceLayoutMode = .split
     @State private var previewUpdateTask: Task<Void, Never>?
     @State private var consoleExpanded = false
-    @State private var inspectorVisible = true
+    @State private var inspectorVisible = false
     @State private var isExportingPDF = false
     @State private var statusText: String?
+    @State private var sourceCursorLine = 1
+    @State private var sourceCursorColumn = 1
+    @State private var sourceTotalLines = 1
 
-    init(package: Binding<HTMLWorkspacePackage>) {
+    init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
         self._package = package
+        self.theme = theme
         self._previewPackage = State(initialValue: package.wrappedValue)
     }
 
@@ -35,6 +40,7 @@ struct HTMLWorkspaceEditorView: View {
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
         }
+        .background(workspaceTheme.resolved.background.color)
     }
 
     @ViewBuilder
@@ -59,6 +65,7 @@ struct HTMLWorkspaceEditorView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title)
                     .font(.headline)
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("\(contentHash.prefix(10)) / \(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML)) DOM")
@@ -85,54 +92,25 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.iconOnly)
             .help("Save")
 
-            Button {
-                openMiniChatForCurrentPane()
+            Menu {
+                Button("Import HTML", systemImage: "tray.and.arrow.down") {
+                    importHTML()
+                }
+                Button("Export HTML", systemImage: "square.and.arrow.up") {
+                    exportHTML()
+                }
+                Button("Capture Snapshot", systemImage: "camera.viewfinder") {
+                    captureSnapshot()
+                }
+                Button("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext") {
+                    exportPDF()
+                }
+                .disabled(isExportingPDF)
             } label: {
-                Label("MiniChat", systemImage: "bubble.left.and.text.bubble.right")
+                Label("Artifacts", systemImage: "shippingbox.and.arrow.backward")
             }
             .labelStyle(.iconOnly)
-            .help("Open MiniChat for this workspace")
-
-            Button {
-                copyPatchContext(for: selectedPane)
-            } label: {
-                Label("Copy patch context", systemImage: "curlybraces.square")
-            }
-            .labelStyle(.iconOnly)
-            .help("Copy MiniChat patch context")
-
-            Button {
-                importHTML()
-            } label: {
-                Label("Import HTML", systemImage: "tray.and.arrow.down")
-            }
-            .labelStyle(.iconOnly)
-            .help("Import HTML into this workspace")
-
-            Button {
-                exportHTML()
-            } label: {
-                Label("Export HTML", systemImage: "square.and.arrow.up")
-            }
-            .labelStyle(.iconOnly)
-            .help("Export standalone HTML")
-
-            Button {
-                captureSnapshot()
-            } label: {
-                Label("Snapshot", systemImage: "camera.viewfinder")
-            }
-            .labelStyle(.iconOnly)
-            .help("Capture local HTML snapshot")
-
-            Button {
-                exportPDF()
-            } label: {
-                Label("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext")
-            }
-            .labelStyle(.iconOnly)
-            .disabled(isExportingPDF)
-            .help("Export preview as PDF")
+            .help("Import, export, snapshot, and PDF")
 
             Button {
                 consoleExpanded.toggle()
@@ -152,6 +130,9 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(headerFill)
+        .tint(workspaceTheme.resolved.accent.color)
+        .buttonStyle(HTMLWorkspaceToolbarIconButtonStyle(theme: workspaceTheme))
     }
 
     private var sourceShell: some View {
@@ -185,13 +166,13 @@ struct HTMLWorkspaceEditorView: View {
                         Spacer(minLength: 0)
                     }
                     .font(.system(size: 12, weight: selectedPane == pane ? .semibold : .regular))
-                    .foregroundStyle(selectedPane == pane ? .primary : .secondary)
+                    .foregroundStyle(selectedPane == pane ? workspaceTheme.resolved.accent.color : .secondary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 7)
                     .background {
                         if selectedPane == pane {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.accentColor.opacity(0.16))
+                                .fill(workspaceTheme.resolved.accent.color.opacity(workspaceTheme.isDark ? 0.20 : 0.14))
                         }
                     }
                 }
@@ -201,7 +182,7 @@ struct HTMLWorkspaceEditorView: View {
             sourceRailStatus
         }
         .padding(8)
-        .background(.bar)
+        .background(panelFill)
     }
 
     private var sourceRailStatus: some View {
@@ -237,8 +218,13 @@ struct HTMLWorkspaceEditorView: View {
             }
             Spacer(minLength: 12)
             Text(selectedPane.metricText(for: package))
-                .font(.caption.monospacedDigit())
+                .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(.quaternary, in: Capsule())
             Menu {
                 Section("Allowed Ops") {
                     ForEach(allowedOperations(for: selectedPane), id: \.self) { operation in
@@ -275,25 +261,79 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(headerFill)
+        .tint(workspaceTheme.resolved.accent.color)
     }
 
     @ViewBuilder
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: colorScheme)
+            workspaceCodeMirrorEditor(text: $package.indexHTML, language: "html")
         case .css:
-            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: colorScheme)
+            workspaceCodeMirrorEditor(text: $package.styleCSS, language: "css")
         case .js:
-            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: colorScheme)
+            workspaceCodeMirrorEditor(text: $package.scriptJS, language: "javascript")
         case .data:
-            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: colorScheme)
+            workspaceCodeMirrorEditor(text: $package.dataJSON, language: "json")
         case .dom:
-            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: colorScheme)
+            readOnlySourcePane(
+                title: "DOM Outline",
+                systemImage: "point.3.connected.trianglepath.dotted",
+                text: domOutlineText,
+                emptyText: "No DOM nodes parsed yet. Edit HTML to populate this outline."
+            )
         case .assets:
-            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: colorScheme)
+            readOnlySourcePane(
+                title: "Assets",
+                systemImage: "shippingbox",
+                text: assetManifestText,
+                emptyText: "No assets or snapshots. Import or capture to populate this manifest."
+            )
         }
+    }
+
+    private func readOnlySourcePane(
+        title: String,
+        systemImage: String,
+        text: String,
+        emptyText: String
+    ) -> some View {
+        ScrollView([.vertical, .horizontal]) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(workspaceTheme.resolved.accent.color)
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Spacer(minLength: 0)
+                }
+                Text(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? emptyText : text)
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+        }
+        .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
+    }
+
+    private func workspaceCodeMirrorEditor(text: Binding<String>, language: String) -> some View {
+        WebKitCodeEditorView(
+            text: text,
+            cursorLine: $sourceCursorLine,
+            cursorColumn: $sourceCursorColumn,
+            totalLines: $sourceTotalLines,
+            language: language,
+            theme: workspaceTheme,
+            fontSize: 13.5,
+            wrapLines: false,
+            showLineNumbers: true,
+            selectionRequest: nil
+        )
+        .id("workspace-codemirror-\(selectedPane.rawValue)")
+        .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
     private var previewShell: some View {
@@ -301,7 +341,12 @@ struct HTMLWorkspaceEditorView: View {
             VStack(spacing: 0) {
                 previewHeader
                 Divider()
-                HTMLWorkspacePreviewView(package: previewPackage, previewTheme: previewTheme)
+                HTMLWorkspacePreviewView(
+                    package: previewPackage,
+                    previewTheme: previewTheme,
+                    themeGuardCSSOverride: previewThemeGuardCSS,
+                    themeIdentity: workspaceThemeIdentity
+                )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
             }
@@ -332,7 +377,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(headerFill)
     }
 
     private var consolePanel: some View {
@@ -370,7 +415,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(panelFill)
     }
 
     private var inspectorPanel: some View {
@@ -400,7 +445,7 @@ struct HTMLWorkspaceEditorView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(.regularMaterial)
+        .background(panelFill)
     }
 
     private func inspectorRow(_ label: String, _ value: String) -> some View {
@@ -465,11 +510,114 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewTheme: HTMLWorkspacePreviewTheme {
-        colorScheme == .dark ? .dark : .light
+        workspaceTheme.isDark ? .dark : .light
+    }
+
+    private var workspaceTheme: EpistemosTheme {
+        (theme ?? (colorScheme == .dark ? EpistemosTheme.oledSoft : EpistemosTheme.light))
+            .surfaceVariant(.other)
+    }
+
+    private var workspaceColorScheme: ColorScheme {
+        workspaceTheme.isDark ? .dark : .light
+    }
+
+    private var previewThemeGuardCSS: String {
+        let background = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: workspaceTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .htmlWorkspaceCSSColor
+        let foreground = workspaceTheme.resolved.foreground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let muted = workspaceTheme.resolved.mutedForeground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let card = workspaceTheme.resolved.card.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .htmlWorkspaceCSSColor
+        let border = workspaceTheme.resolved.glassBorder.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor(opacity: workspaceTheme.isDark ? 0.48 : 0.32)
+        let accent = workspaceTheme.resolved.accent.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let scheme = workspaceTheme.isDark ? "dark" : "light"
+
+        return """
+        :root {
+          color-scheme: \(scheme);
+          --epistemos-workspace-bg: \(background);
+          --epistemos-workspace-fg: \(foreground);
+          --epistemos-workspace-muted: \(muted);
+          --epistemos-workspace-card: \(card);
+          --epistemos-workspace-border: \(border);
+          --epistemos-workspace-accent: \(accent);
+          --epistemos-workspace-title-font: "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-heading-font: "ChonkyPixels", "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        }
+
+        html[data-epistemos-theme] body,
+        html[data-epistemos-theme],
+        html[data-epistemos-theme] main.workspace {
+          background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body,
+        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .secondary, .subtle, .caption, .eyebrow, .meta, [data-muted]) {
+          color: var(--epistemos-workspace-muted) !important;
+        }
+
+        html[data-epistemos-theme="light"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme] body :is(h1, h2, h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body a {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme] body :is(hr, table, th, td, fieldset, input, textarea, select) {
+          border-color: var(--epistemos-workspace-border) !important;
+        }
+
+        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
+          background: var(--epistemos-workspace-card);
+          border-color: var(--epistemos-workspace-border);
+        }
+        """
+    }
+
+    private var workspaceThemeIdentity: String {
+        [
+            previewTheme.rawValue,
+            MarkdownPreviewSurfaceStyle.canvasNSColor(for: workspaceTheme).htmlWorkspaceCSSColor,
+            workspaceTheme.resolved.foreground.nsColor.htmlWorkspaceCSSColor,
+            workspaceTheme.resolved.accent.nsColor.htmlWorkspaceCSSColor,
+        ].joined(separator: "|")
+    }
+
+    private var panelFill: Color {
+        workspaceTheme.card.opacity(workspaceTheme.isDark ? 0.78 : 0.94)
+    }
+
+    private var headerFill: Color {
+        workspaceTheme.resolved.background.color.opacity(workspaceTheme.isDark ? 0.68 : 0.90)
     }
 
     private var previewRenderIdentity: String {
-        "\(previewPackage.manifest.id)-\(previewContentHash)-\(previewTheme.rawValue)"
+        "\(previewPackage.manifest.id)-\(previewContentHash)-\(workspaceThemeIdentity.hashValue)"
     }
 
     private var previewContentHash: String {
@@ -879,5 +1027,45 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     private static func counts(for source: String) -> String {
         let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
         return "\(lines) lines / \(source.count) chars"
+    }
+}
+
+private struct HTMLWorkspaceToolbarIconButtonStyle: ButtonStyle {
+    let theme: EpistemosTheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(theme.resolved.accent.color)
+            .frame(width: 32, height: 30)
+            .contentShape(Rectangle())
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(theme.resolved.accent.color.opacity(configuration.isPressed ? 0.22 : 0.11))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.26 : 0.20), lineWidth: 0.75)
+            }
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.snappy(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private extension NSColor {
+    var htmlWorkspaceCSSColor: String {
+        htmlWorkspaceCSSColor(opacity: nil)
+    }
+
+    func htmlWorkspaceCSSColor(opacity overrideOpacity: CGFloat?) -> String {
+        let color = usingColorSpace(.sRGB) ?? self
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let alpha = overrideOpacity ?? color.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

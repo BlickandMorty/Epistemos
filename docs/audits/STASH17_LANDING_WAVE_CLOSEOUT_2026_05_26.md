@@ -8,14 +8,15 @@ Recovery rule: No stash was popped, dropped, checked out, or bulk-applied.
 
 ## What Was Recovered
 
-The stash's user-visible Landing Wave and Session Intelligence intent is already
-on current `main`:
+The stash's user-visible landing/session intent is already on current `main`.
+The active product route is the newer fused landing/chat/ambient surface, not the
+old Metal Landing Wave source family.
 
-- `Epistemos/Views/Landing/Wave/LandingWaveDesign.swift`
-- `Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift`
-- `Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift`
-- `Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift`
-- `Epistemos/Views/Landing/Wave/LandingWaveSearchBar.swift`
+Landing Wave source files are now retired from live product source. The retained
+product surface is:
+
+- `Epistemos/Views/Landing/LandingView.swift`
+- `Epistemos/Views/Landing/Farm/LandingFarmView.swift`
 - `Epistemos/Views/Landing/SessionIntelligenceOverlay.swift`
 
 The recovered main version is newer than the stash donor: it includes the Farm
@@ -32,6 +33,11 @@ already contains newer fused-chat, graph, ambient, and landing surfaces.
 
 Any future use of this stash should be a narrow donor comparison only, not a
 product recovery merge.
+
+As of 2026-05-28, the live-source rule is explicit: do not reintroduce
+`Epistemos/Views/Landing/Wave/LandingWave*` files without a fresh product
+decision and a source guard update. They are historical donor material, while the
+current product path uses the inline landing search stage.
 
 ## Queue Result
 

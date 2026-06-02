@@ -64,7 +64,11 @@ struct Xor64(u64);
 impl Xor64 {
     fn new(seed: u64) -> Self {
         // Avoid the degenerate seed=0 state of xorshift.
-        Self(if seed == 0 { 0x9E37_79B9_7F4A_7C15 } else { seed })
+        Self(if seed == 0 {
+            0x9E37_79B9_7F4A_7C15
+        } else {
+            seed
+        })
     }
     fn next_u64(&mut self) -> u64 {
         let mut x = self.0;
@@ -136,7 +140,11 @@ fn parse_args() -> Result<Config, String> {
     if node_count == 0 {
         return Err("--nodes must be > 0".to_string());
     }
-    Ok(Config { node_count, out_dir, seed })
+    Ok(Config {
+        node_count,
+        out_dir,
+        seed,
+    })
 }
 
 fn print_help() {
@@ -226,9 +234,7 @@ fn build_edges(node_count: usize, rng: &mut Xor64) -> Vec<Vec<usize>> {
     // Pass 2: add a few hub nodes that everyone links to. ~1% of nodes
     // become hubs with 20+ incoming links.
     let hub_count = (node_count / 100).max(3);
-    let mut hubs: Vec<usize> = (0..hub_count)
-        .map(|_| rng.range(0, node_count))
-        .collect();
+    let mut hubs: Vec<usize> = (0..hub_count).map(|_| rng.range(0, node_count)).collect();
     hubs.sort();
     hubs.dedup();
     for h in &hubs {
@@ -252,16 +258,48 @@ fn make_title(idx: usize, rng: &mut Xor64) -> String {
     // deliberately keep this dumb — it's a benchmark fixture, not
     // user-facing content.
     const NOUNS: [&str; 24] = [
-        "Architecture", "Substrate", "Memory", "Routing", "Gate", "Anchor",
-        "Protocol", "Lattice", "Index", "Vault", "Surface", "Plane",
-        "Kernel", "Pipeline", "Engine", "Layer", "Bridge", "Cache",
-        "Profile", "Manifest", "Checkpoint", "Falsifier", "Doctrine", "Schema",
+        "Architecture",
+        "Substrate",
+        "Memory",
+        "Routing",
+        "Gate",
+        "Anchor",
+        "Protocol",
+        "Lattice",
+        "Index",
+        "Vault",
+        "Surface",
+        "Plane",
+        "Kernel",
+        "Pipeline",
+        "Engine",
+        "Layer",
+        "Bridge",
+        "Cache",
+        "Profile",
+        "Manifest",
+        "Checkpoint",
+        "Falsifier",
+        "Doctrine",
+        "Schema",
     ];
     const VERBS: [&str; 16] = [
-        "Notes on", "Working notes:", "Draft —", "Thinking about",
-        "Open questions:", "Audit of", "Hardening", "Verifying",
-        "Sketch:", "Migration plan for", "Comparing", "Brainstorm —",
-        "Postmortem:", "Daily —", "Snapshot of", "Outline:",
+        "Notes on",
+        "Working notes:",
+        "Draft —",
+        "Thinking about",
+        "Open questions:",
+        "Audit of",
+        "Hardening",
+        "Verifying",
+        "Sketch:",
+        "Migration plan for",
+        "Comparing",
+        "Brainstorm —",
+        "Postmortem:",
+        "Daily —",
+        "Snapshot of",
+        "Outline:",
     ];
     let v = VERBS[rng.range(0, VERBS.len())];
     let n = NOUNS[rng.range(0, NOUNS.len())];

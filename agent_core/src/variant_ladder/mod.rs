@@ -472,18 +472,19 @@ mod tests {
         // build might introduce a fourth policy (e.g.
         // "OnPolicyGradeOnly"); this build must reject the unknown
         // string rather than panic.
-        let result: Result<EscalationPolicy, _> =
-            serde_json::from_str("\"on_policy_grade_only\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown escalation policies");
+        let result: Result<EscalationPolicy, _> = serde_json::from_str("\"on_policy_grade_only\"");
+        assert!(
+            result.is_err(),
+            "decoder must reject unknown escalation policies"
+        );
         // Empty + PascalCase reject too.
-        let result: Result<EscalationPolicy, _> =
-            serde_json::from_str("\"\"");
+        let result: Result<EscalationPolicy, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
-        let result: Result<EscalationPolicy, _> =
-            serde_json::from_str("\"OnEmpty\"");
-        assert!(result.is_err(),
-                "PascalCase policies must reject — only snake_case is canonical");
+        let result: Result<EscalationPolicy, _> = serde_json::from_str("\"OnEmpty\"");
+        assert!(
+            result.is_err(),
+            "PascalCase policies must reject — only snake_case is canonical"
+        );
     }
 
     #[test]
@@ -494,18 +495,19 @@ mod tests {
         // applies: a bundle from a future build with a new outcome
         // variant (e.g. hypothetical "TimedOut") must decode to Err
         // rather than panic on this build.
-        let result: Result<LadderAttemptOutcome, _> =
-            serde_json::from_str("\"timed_out\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown outcome strings");
-        let result: Result<LadderAttemptOutcome, _> =
-            serde_json::from_str("\"\"");
+        let result: Result<LadderAttemptOutcome, _> = serde_json::from_str("\"timed_out\"");
+        assert!(
+            result.is_err(),
+            "decoder must reject unknown outcome strings"
+        );
+        let result: Result<LadderAttemptOutcome, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
         // PascalCase rejects — only snake_case is canonical.
-        let result: Result<LadderAttemptOutcome, _> =
-            serde_json::from_str("\"SkippedByPolicy\"");
-        assert!(result.is_err(),
-                "PascalCase outcomes must reject — only snake_case is canonical");
+        let result: Result<LadderAttemptOutcome, _> = serde_json::from_str("\"SkippedByPolicy\"");
+        assert!(
+            result.is_err(),
+            "PascalCase outcomes must reject — only snake_case is canonical"
+        );
     }
 
     #[test]
@@ -517,17 +519,20 @@ mod tests {
         // return an Err — NOT panic — so the consumer can surface a
         // graceful "unknown tier" error rather than crashing the
         // process mid-replay.
-        let result: Result<LadderTier, _> =
-            serde_json::from_str("\"substrate\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown tier strings (defensive against future-version bundles)");
+        let result: Result<LadderTier, _> = serde_json::from_str("\"substrate\"");
+        assert!(
+            result.is_err(),
+            "decoder must reject unknown tier strings (defensive against future-version bundles)"
+        );
         // Empty string also rejects.
         let result: Result<LadderTier, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
         // PascalCase form (pre-snake_case migration) rejects too.
         let result: Result<LadderTier, _> = serde_json::from_str("\"Deterministic\"");
-        assert!(result.is_err(),
-                "PascalCase strings must reject — only snake_case is canonical");
+        assert!(
+            result.is_err(),
+            "PascalCase strings must reject — only snake_case is canonical"
+        );
     }
 
     #[test]
@@ -552,10 +557,14 @@ mod tests {
             message.contains("strict escalation order"),
             "doctrine §2 phrase must remain in the error message; got: {message}"
         );
-        assert!(message.contains("Deterministic"),
-                "newly-added tier name must appear; got: {message}");
-        assert!(message.contains("SmallLLM"),
-                "previous tier name must appear; got: {message}");
+        assert!(
+            message.contains("Deterministic"),
+            "newly-added tier name must appear; got: {message}"
+        );
+        assert!(
+            message.contains("SmallLLM"),
+            "previous tier name must appear; got: {message}"
+        );
     }
 
     #[test]
@@ -596,7 +605,10 @@ mod tests {
         // explicit `#[serde(rename = "small_llm")]` to that variant
         // AND ship a migration; this test fails if either side drifts.
         use serde_json::to_string;
-        assert_eq!(to_string(&LadderTier::Deterministic).unwrap(), "\"deterministic\"");
+        assert_eq!(
+            to_string(&LadderTier::Deterministic).unwrap(),
+            "\"deterministic\""
+        );
         assert_eq!(to_string(&LadderTier::Embedding).unwrap(), "\"embedding\"");
         assert_eq!(to_string(&LadderTier::Classical).unwrap(), "\"classical\"");
         assert_eq!(to_string(&LadderTier::SmallLLM).unwrap(), "\"small_l_l_m\"");
@@ -736,7 +748,10 @@ mod tests {
         let res = ladder.resolve(&3).await.expect("emb resolved");
         assert_eq!(res.tier, LadderTier::Embedding);
         assert_eq!(res.output, 103);
-        assert_ne!(res.variant_name, "cloud", "Cloud must not run when emb resolved");
+        assert_ne!(
+            res.variant_name, "cloud",
+            "Cloud must not run when emb resolved"
+        );
     }
 
     #[test]
@@ -762,7 +777,6 @@ mod tests {
         let decoded: EscalationPolicy = serde_json::from_str("\"always\"").unwrap();
         assert_eq!(decoded, EscalationPolicy::Always);
     }
-
 
     // -----------------------------------------------------------------
     // Master Fusion Plan §B.1 — LadderAttempt audit trail
@@ -827,9 +841,15 @@ mod tests {
             .unwrap();
 
         let walk = ladder.resolve_walk(&42).await;
-        assert!(walk.resolution.is_none(), "no variant accepted → resolution=None");
+        assert!(
+            walk.resolution.is_none(),
+            "no variant accepted → resolution=None"
+        );
         assert_eq!(walk.attempts.len(), 2);
-        assert!(walk.attempts.iter().all(|a| a.outcome == LadderAttemptOutcome::Declined));
+        assert!(walk
+            .attempts
+            .iter()
+            .all(|a| a.outcome == LadderAttemptOutcome::Declined));
     }
 
     #[tokio::test]
@@ -854,13 +874,18 @@ mod tests {
         // Default escalation policy = Never.
 
         let walk = ladder.resolve_walk(&7).await;
-        assert!(walk.resolution.is_none(),
-                "Never policy must NOT let T4 fire even though it would accept");
+        assert!(
+            walk.resolution.is_none(),
+            "Never policy must NOT let T4 fire even though it would accept"
+        );
         assert_eq!(walk.attempts.len(), 2);
         assert_eq!(walk.attempts[0].variant_name, "cls");
         assert_eq!(walk.attempts[0].outcome, LadderAttemptOutcome::Declined);
         assert_eq!(walk.attempts[1].variant_name, "small_llm");
-        assert_eq!(walk.attempts[1].outcome, LadderAttemptOutcome::SkippedByPolicy);
+        assert_eq!(
+            walk.attempts[1].outcome,
+            LadderAttemptOutcome::SkippedByPolicy
+        );
     }
 
     #[tokio::test]
@@ -904,11 +929,9 @@ mod tests {
         // Round-trip IN: a hand-written audit log produced before
         // any code change must decode cleanly — proving the wire
         // format is anchored both directions.
-        let decoded: LadderAttemptOutcome =
-            serde_json::from_str("\"skipped_by_policy\"").unwrap();
+        let decoded: LadderAttemptOutcome = serde_json::from_str("\"skipped_by_policy\"").unwrap();
         assert_eq!(decoded, LadderAttemptOutcome::SkippedByPolicy);
-        let decoded: LadderAttemptOutcome =
-            serde_json::from_str("\"accepted\"").unwrap();
+        let decoded: LadderAttemptOutcome = serde_json::from_str("\"accepted\"").unwrap();
         assert_eq!(decoded, LadderAttemptOutcome::Accepted);
     }
 
@@ -926,12 +949,18 @@ mod tests {
         let json = serde_json::to_string(&attempt).expect("serialize");
         // Wire-format pin — the registry.rs tracing emission relies on
         // these exact key names and snake_case enum values.
-        assert!(json.contains("\"tier\":\"classical\""),
-                "tier must serialize as snake_case `classical`; got {json}");
-        assert!(json.contains("\"variant_name\":\"VaultSearchT3RrfHybrid\""),
-                "variant_name must be the canonical key; got {json}");
-        assert!(json.contains("\"outcome\":\"accepted\""),
-                "outcome must serialize as snake_case `accepted`; got {json}");
+        assert!(
+            json.contains("\"tier\":\"classical\""),
+            "tier must serialize as snake_case `classical`; got {json}"
+        );
+        assert!(
+            json.contains("\"variant_name\":\"VaultSearchT3RrfHybrid\""),
+            "variant_name must be the canonical key; got {json}"
+        );
+        assert!(
+            json.contains("\"outcome\":\"accepted\""),
+            "outcome must serialize as snake_case `accepted`; got {json}"
+        );
 
         let decoded: LadderAttempt = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(decoded, attempt);

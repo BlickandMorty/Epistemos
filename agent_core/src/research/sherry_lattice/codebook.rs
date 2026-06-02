@@ -183,7 +183,9 @@ mod tests {
         for f in CodebookFamily::ALL.iter() {
             let c = f.code();
             assert!(s.insert(c));
-            assert!(c.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'));
+            assert!(c
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'));
         }
     }
 
@@ -319,7 +321,10 @@ mod tests {
     #[test]
     fn select_error_cause_distinct() {
         let variants = [
-            CodebookSelectError::BudgetBelowFloor { budget_bits: 0.5, floor: 1.19 },
+            CodebookSelectError::BudgetBelowFloor {
+                budget_bits: 0.5,
+                floor: 1.19,
+            },
             CodebookSelectError::NonFiniteBudget,
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -330,7 +335,10 @@ mod tests {
     fn select_error_classifiers_partition() {
         // Cross-surface invariant: is_budget_below_floor XOR is_non_finite_budget.
         for e in [
-            CodebookSelectError::BudgetBelowFloor { budget_bits: 0.5, floor: 1.19 },
+            CodebookSelectError::BudgetBelowFloor {
+                budget_bits: 0.5,
+                floor: 1.19,
+            },
             CodebookSelectError::NonFiniteBudget,
         ] {
             assert_ne!(e.is_budget_below_floor(), e.is_non_finite_budget());

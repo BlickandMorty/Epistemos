@@ -42,11 +42,11 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 1. **Lift / Ingest** — surface to substrate.
 2. **Project / Compress / Recall** — substrate to useful surface.
-3. **Mutate / Promote** — substrate to substrate, under ACS + witness + rollback.
+3. **Mutate / Promote** — substrate to substrate, under SCOPE-Rex/SovereignGate + witness + rollback.
 
 **Status discipline.** The addendum is `state: candidate`. It does **not** silently promote L8, E8, E9, `ShadowProjection<H,L>`, T28, W-Lift-N, or `F-Erdos-Lift-Optimality` to canon. Agents must treat those as candidate work until local falsifiers and WRV caller chains exist.
 
-**Agent rule.** Any Phase 2+ PR that invokes "unified cognitive substrate," "lattice," "shadow projection," "auto fine-tuning," "best neuron group," or "Research Construction Engine" must cite the addendum and include a No-Orphan check: motion, UAS address, plane, residency, WBO/error policy, witness, falsifier, tier, rollback.
+**Agent rule.** Any Phase 2+ PR that invokes "unified cognitive substrate," "lattice," "shadow projection," "auto fine-tuning," "best neuron group," or "Research Construction Engine" must cite the addendum and include a No-Orphan check: motion, UAS address, plane, ProductBuild, ProStatus/ResidencyStatus, WBO/error policy, witness, falsifier, rollback.
 
 **Public-research rule.** Any Phase 2+ PR that cites Parameter Golf, the Erdős unit-distance result, EML forks, arXiv papers, GitHub PRs/forks, or forum-derived ideas must also cite the online intake source and classify each source by credibility rank. Public code is mined for motifs, never raw-merged, unless a separate vendor/setup PR is explicitly approved.
 
@@ -60,9 +60,250 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
-**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, and `F-70B-Local-Cocktail`.
+**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
-**Agent rule.** Any Phase 2+ PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
+**Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
+
+---
+
+## 0C. 2026-05-30 Candidate Intake — AetherLink / OAS / AletheiaFS
+
+**New candidate-intake source:** `docs/fusion/AETHERLINK_OAS_CANON_INTAKE_2026_05_30.md`.
+
+**Cleanup companion:** `docs/audits/AETHERLINK_KIT_AND_WORKTREE_CANON_CHECK_2026_05_30.md`.
+
+**Source kit:** `/Users/jojo/Downloads/AETHERLINK_APPLICATION_KIT_FULL/AETHERLINK_APPLICATION_PROJECT`.
+
+**Why it exists.** The AetherLink kit sharpens the existing doctrine into a
+proof-carrying coordinate-state runtime: models propose, the runtime verifies,
+and the ledger remembers. This is canon-aligned with Helios / SCOPE-Rex /
+System G / AcsAnchor / UAS, but it is an intake addendum, not a new product route.
+
+**Large-model impact.** AetherLink's Ontological Address Space language adds
+the missing large-model bridge artifact: a `WeightBlockManifest` /
+`ResidencyPlan` over model file byte ranges, UAS addresses, lattice/ternary/NF4
+encodings, WBO budgets, dense/reference rollback, and verifier witnesses. Build
+that manifest/simulator before launching more 65K/128K/70B probes.
+
+**Status discipline.** Antigravity, gravitophoton propulsion, zero-latency,
+infinite precision, and perfect optimal control remain `DROP` for public/product
+claims. seL4, SMC, neural HJB, and learned certificates are external grounding
+sources only; they do not make AetherLink flight-ready or product-ready.
+
+**Agent rule.** Any Phase 2+ PR touching AetherLink, OAS, AletheiaFS, cognitive
+file-system sidecars, WeightBlock manifests, or SpaceX-facing application
+materials must cite this source and include an AetherLink/OAS check: addressed
+object, UAS kind, floor state, promotion contract, verifier, ledger event,
+model role, falsifier, and rollback.
+
+## 0D. 2026-05-30 Candidate Intake — Erdos / Parameter Golf / Construction Engine
+
+**New candidate-intake source:** `docs/fusion/AETHERLINK_ERDOS_PARAMETER_GOLF_INTAKE_2026_05_30.md`.
+
+**Non-runtime audit companion:** `docs/audits/NON_RUNTIME_FEATURE_WORKTREE_CHECK_2026_05_30.md`.
+
+**Why it exists.** Live research intake found that the Erdos unit-distance
+ecosystem is currently small and mostly reproduction/explanation/formalization,
+while Parameter Golf is the large runnable fork ecosystem. Therefore agents
+should mine Erdos for the lift/search/project/witness doctrine and Parameter
+Golf for the reproducible compression/search discipline.
+
+**Canonical build implication.** Do not launch more heavy 128K/70B probes until
+the non-executing planner layer exists: bounded `WeightBlockManifest` range
+hash -> `ResidencyPlan` -> `LargeModelConstructionCard` -> local
+budget/falsifier gate. This keeps the no-compromise 70B/UAS/ColdStore ambition alive
+without crashing the laptop.
+
+**First planner witness.** `F-ResidencyPlan-DryRun` now emits
+`artifacts/falsifiers/residency_plan_dry_run/result.json`: a dry-run
+model-shaped plan with `72 GiB` cold addressed bytes, `872,415,232` active
+runtime bytes, zero model bytes loaded, deterministic plan address, Sherry /
+Leech codec labels, and missing-rollback rejection. Scope guard: this is not
+live 70B inference.
+
+**Safe hardening.** The planner layer now includes bounded 64 KiB chunked range
+hashing, known-hash manifests for externally precomputed model byte ranges, and
+`F-WeightBlockRangeHash-DryRun`, which proves over-limit range rejection,
+short-reader rejection, known-hash parity, and no model-file access on a tiny
+fixture. `ConstructionCard` binds ProblemCard / LiftChart / ProjectionPacket /
+Witness / Budget / Falsifier / Rollback to a passed `ResidencyPlan` and records
+the upstream `F-WeightBlockRangeHash-DryRun` -> `F-ResidencyPlan-DryRun` proof
+chain.
+`ProviderReferenceManifest` now guards the next bottleneck by requiring row-root
+artifact refs, sha256 digests, replay permission, local-vs-hosted
+retention/data-class discipline, prompt-suite digest binding, retained replay
+files that exist and match their declared hashes, and an evidence scope that
+distinguishes `shape_only_fixture` from `prompt_level_comparison` before a
+fp16/cloud/local reference can count. Prompt-level references also require at
+least 50 prompts.
+The 70B preflight consumes the range-hash artifact as
+`weight_block_range_hash_dry_run_available=true`, then the planner artifact as
+`residency_plan_dry_run_available=true`, and remains red on
+`missing_fp16_or_provider_reference` until prompt-level comparison evidence
+exists.
+
+**Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,
+Research Construction Engine, ShadowProjection, OAS, ColdStore, AcsAnchor, or the 70B local
+cocktail must include a Construction check: ProblemCard, LiftChart,
+ProjectionPacket, Witness, Budget, Falsifier, Rollback, ProductBuild, and
+ProStatus/ResidencyStatus.
+
+---
+
+## 0E. 2026-05-30 Namespace Patch — ColdStore Versus ACS
+
+**New drift-control source:** `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`.
+
+**Correction.** Do not abbreviate Active Cold Storage as ACS. Use
+**ColdStore** or **Cold Residency Layer** for the dormant-but-addressable
+memory/model substrate: note atoms, graph islands, vector pages, KV pages,
+model shards, adapters, rank-one components, parameter anchors, and circuit
+candidates that stay cold until selected.
+
+**ACS namespace.** Existing `AcsAnchor` / `AcsAnchorRegistry` / F-ACS anchor
+lookup source truth remains the Anchored Cognitive Substrate coordinate and
+provenance lineage. Legacy ACS/Kuramoto cellular resonance is renamed forward
+to **KuramotoSync** / **ResonanceSync**, a research-tier phase/coherence
+candidate under ActiveAssembly. Admission/verdict behavior is named SCOPE-Rex
+Admission, SovereignGate, or AdmissionGate; older `acs_admission` paths are
+migration debt.
+
+**Correct flow.**
+
+```text
+User intent
+  -> Intent Intake / MissionPacket classifies the task
+  -> OAS/UAS resolves what exists and where it lives
+  -> ColdStore / ResidencyGovernor surfaces cold candidates
+  -> ActiveAssembly selects the waking set
+  -> Eidos pre-validates candidate evidence
+  -> SCOPE-Rex / SovereignGate admits the mission and route
+  -> Runtime Router chooses local model / MLX / Apple Intelligence / tool / kernel
+  -> Executor runs under policy
+  -> Eidos post-validates output, citations, and mutations
+  -> SCOPE-Rex / SovereignGate admits or rejects user-impacting mutations
+  -> RunEventLog + AnswerPacket make it visible
+```
+
+Short doctrine: Intent -> Address -> Awaken -> Assemble -> Verify -> Govern ->
+Execute -> Verify -> Witness. SCOPE-Rex/SovereignGate wraps the whole mission
+and must gate cloud calls, external tools, shell actions, file writes, memory
+updates, and durable mutations rather than appearing only at the end.
+
+**Agent rule.** Future work must use UAS as the primitive identity fabric and
+ColdStore for Active Cold Storage. EML is one elementary-function chart inside
+the substrate, not the substrate identity primitive. Any stale doc using ACS
+for cold residency, admission, KV spill, or ActiveAssembly is superseded by
+this namespace patch for future naming.
+
+---
+
+## 0F. 2026-05-30 Namespace Patch — Helios As Lineage, Not A Spine Step
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Helios is the substrate-runtime research lineage underneath
+Epistemos, not an operational step in the live product spine. The operational
+spine remains:
+
+```text
+Intent -> Address -> Awaken -> Assemble -> Verify -> Govern -> Execute -> Verify -> Witness
+```
+
+When a doc says "Helios does X", agents must translate it into the concrete
+organ before editing or claiming progress:
+
+| Legacy/umbrella phrasing | Concrete organ |
+|---|---|
+| Helios memory hierarchy | ColdStore / ResidencyGovernor / WBO |
+| Helios kernels | RuntimeRouter-owned Metal/kernel routes and ActiveAssembly mechanisms |
+| Helios WBO / lattice doctrine | LatticeBudget / compression accounting |
+| Helios SCOPE-Rex lineage | SCOPE-Rex verifier / ClaimGraph / WitnessedState |
+| Helios model tracks | local model runtime candidates behind gates |
+| Helios scanner language | AetherLink / OAS candidate language |
+
+**Agent rule.** Do not add a product step called Helios. Product truth should
+name the concrete wired organ, caller chain, gate, test/falsifier, and visible
+surface. Helios can remain the research umbrella only if the product claim uses
+the actual organ names.
+
+---
+
+## 0G. 2026-05-31 Build/Tier Supersession — MAS + Pro With Internal Pro Bands
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Epistemos has exactly two distributable builds:
+
+1. **MAS Build** - App Store-safe public floor.
+2. **Pro Build** - direct-distribution power build.
+
+There is no separate Research build and no separate Vault build. Research,
+Vault, Omega, heavy runtime, future substrate work, old ambitious mechanisms,
+and speculative theorems are internal Pro statuses, not app builds.
+
+**Pro internal status bands.**
+
+| Pro status | Meaning |
+|---|---|
+| Pro Live | Advanced feature is implemented, visible, tested, and safe for Pro users. |
+| Pro Gated | Implemented or partial, behind explicit opt-in, rollback, warning, or policy. |
+| Pro Research | Promising/runnable/document-backed; requires falsifier evidence before promotion. |
+| Pro Vault-Preserved | Preserved ambition, branch, theorem, or mechanism with no runtime authority. |
+| Pro Omega | Deepest private experimental substrate work; never silently enabled, never MAS-bound, always witnessed and reversible. |
+
+**Supersession rule.** New docs should not describe "five lanes, three tiers"
+as the distributable architecture. Use "two builds plus Pro internal tier
+ladder." Historical branch text can keep older names when describing what the
+branch was called at the time, but active planning must declare ProductBuild
+and ProStatus/ResidencyStatus.
+
+**Nested map.**
+
+```text
+Epistemos
+  -> MAS Build: public safe floor
+  -> Pro Build
+     -> Pro Live
+     -> Pro Gated
+     -> Pro Research
+     -> Pro Vault-Preserved
+     -> Pro Omega
+  -> substrate organs
+     -> UAS/OAS/AcsAnchor
+     -> ColdStore/ResidencyGovernor
+     -> ActiveAssembly
+     -> Eidos/VaultRecall/Halo/Shadow
+     -> SCOPE-Rex/SovereignGate
+     -> RuntimeRouter/System G
+     -> WBO/LatticeBudget/Primitive IR
+     -> RunEventLog/MutationEnvelope/AnswerPacket
+```
+
+## 0H. 2026-05-31 Research / AI Intake Discipline
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Generated syntheses, donor docs, papers, forum claims, and
+research metaphors are useful intake, but they are not architecture authority by
+themselves. Agents must extract implementation motifs into existing organs:
+
+| Research motif | Route through |
+|---|---|
+| semantic search, source grounding, reranking, citations | Eidos / VaultRecall / Halo / Shadow |
+| retry logic, tool persistence, self-correction | System G / RuntimeRouter / RunEventLog / AnswerPacket |
+| adapters, KV pages, experts, rank-one components, model internals | Parameter Connectome / ColdStore with UAS, WBO, verifier, rollback |
+| EML or primitive math | Primitive IR chart work with Lean/schema/falsifier witnesses |
+| unverifiable terms or broad metaphors | Pro Research or Pro Vault-Preserved until sourced and falsified |
+
+**EML lock.** EML is one elementary-function/proof chart inside the Primitive
+IR stack. It is not the substrate identity primitive, not the retrieval engine,
+not a runtime router, and not a product proof of physics or intelligence.
+
+**Agent rule.** Before turning research into code, declare the organ, motion,
+ProductBuild, ProStatus/ResidencyStatus, witness, source/falsifier, and
+rollback. If the source was not verified from local code/logs or a primary
+source, mark it as intake/unverified.
 
 ---
 
@@ -112,8 +353,14 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 - `worktree:agent-a0550f9c/epistemos-shadow/src/honest_handle.rs` lines 73-100 — `Arc::into_raw` discipline + `panic::catch_unwind(AssertUnwindSafe(...))` panic safety
 - `worktree:agent-a0550f9c/Epistemos/Engine/RustShadowFFIClient.swift` (clean 321-line consumer; but legacy line 39 still bound — see H7)
 
-### Three-tier ship model
-**Canonical:** doctrine §3 + §5. `Core` (App Store) + `Pro` (Developer ID + Notarization) + `Research` (Developer ID + private framework loading). Confirmed locked by user 2026-05-02.
+### Two-build ship model
+**Supersedes older three-tier wording.** Active planning uses exactly two
+distributable builds: `MAS` (App Store-safe public floor) and `Pro`
+(Developer ID / direct distribution). Research, Vault, Omega, heavy runtime,
+and private framework loading are internal Pro statuses or gates, not separate
+app builds. Older branch/docs may still say `Core`/`Pro`/`Research` when they
+describe the state of that historical branch; new work must declare
+ProductBuild plus ProStatus/ResidencyStatus.
 
 ### WRV doctrine (Wired + Reachable + Visible + Verified)
 **Status:** staged in `docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` C1. Not yet in doctrine. Mentioned across `docs/audits/MASTER_HARDENING_WIRING_AUDIT.md` ("init-time gate GREEN; 4k-line runtime fluidity unproven") and `docs/fusion/KIMI_FUSION_REVIEW_2026_04_30.md` ("recommended first three slices").
@@ -134,7 +381,9 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 - `EpistemosTests/SearchIndexServiceFusionTests.swift` - real file-backed DB fusion integration tests.
 - `EpistemosTests/QueryRuntimeTests.swift` - QueryRuntime consumer guard tests.
 
-**Tier:** Core by default when flag-off; Pro/Research/dev-dogfood when `EPISTEMOS_RRF_FUSION_V1=1` until Phase 6 runtime dogfood flips defaults.
+**Build/status:** MAS by default when flag-off; Pro Gated / Pro Research /
+dev-dogfood when `EPISTEMOS_RRF_FUSION_V1=1` until Phase 6 runtime dogfood
+flips defaults.
 
 **Search aliases:** RRF, fused search, cross-index fusion, Search Fusion Health, readable blocks, universal projection, Epdoc slash, at-mention autocomplete, block-link autocomplete, one SQL query, `EPISTEMOS_RRF_FUSION_V1`.
 
@@ -143,8 +392,9 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 
 **Donor research:** `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/scope_rex_final_architecture.md` (definitive architecture, 31 research dimensions).
 
-### ACS five-layer recursion
-**Canonical:** doctrine Annex A.4 (Cell → Tissue → Organ → Organism → Ecosystem with tier mapping).
+### Legacy ACS five-layer recursion
+**Historical canonical source:** doctrine Annex A.4 (Cell → Tissue → Organ → Organism → Ecosystem with tier mapping).
+**Current namespace status:** superseded for active naming by `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. Do not use ACS for Active Cold Storage or admission in new work. Map legacy recursion/coherence language to KuramotoSync / ResonanceSync when it means phase/coherence research, to AcsAnchor when it means anchored coordinate/provenance, and to SCOPE-Rex/SovereignGate when it means admission.
 **Donor research:** `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/acs_meta_layer.md`.
 
 ---

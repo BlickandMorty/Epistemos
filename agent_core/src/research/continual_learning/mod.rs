@@ -65,6 +65,4 @@ pub use seal_dora::{compose_dora, DoraDecomposition, LoraDelta, SealDoraError};
 pub use stack::{
     validate_submission, ContinualPrimitive, NeverRetrainLayer, NeverRetrainStackError,
 };
-pub use titans_mac::{
-    apply_surprise_update, surprise, LearnedMemoryModule, TitansError,
-};
+pub use titans_mac::{apply_surprise_update, surprise, LearnedMemoryModule, TitansError};

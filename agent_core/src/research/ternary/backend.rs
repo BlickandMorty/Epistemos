@@ -182,7 +182,10 @@ mod tests {
         }
         // 2 reference lanes + 1 in-tree.
         assert_eq!(
-            BackendKind::ALL.iter().filter(|b| b.is_reference_lane()).count(),
+            BackendKind::ALL
+                .iter()
+                .filter(|b| b.is_reference_lane())
+                .count(),
             2,
         );
         assert_eq!(
@@ -224,10 +227,16 @@ mod tests {
         let b = Stub(BackendKind::BitnetReference, true);
         let c = Stub(BackendKind::TernaryMetal, true);
         let backends: Vec<&dyn TernaryBackend> = vec![&a, &b, &c];
-        assert_eq!(first_available_kind(&backends), Some(BackendKind::BitnetReference));
+        assert_eq!(
+            first_available_kind(&backends),
+            Some(BackendKind::BitnetReference)
+        );
         // Reorder: c first → c wins.
         let backends: Vec<&dyn TernaryBackend> = vec![&c, &a, &b];
-        assert_eq!(first_available_kind(&backends), Some(BackendKind::TernaryMetal));
+        assert_eq!(
+            first_available_kind(&backends),
+            Some(BackendKind::TernaryMetal)
+        );
     }
 
     #[test]

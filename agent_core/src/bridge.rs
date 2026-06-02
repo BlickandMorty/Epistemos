@@ -3376,8 +3376,9 @@ pub fn routing_stats_json() -> Result<String, AgentErrorFFI> {
 // and canonicalizes the query mode from `retriever.mode()` so callers
 // cannot accidentally pass a mode-mismatched query.
 
-static EIDOS_FIXTURE_INDEX: std::sync::OnceLock<std::sync::Mutex<crate::eidos::InMemoryLexicalIndex>> =
-    std::sync::OnceLock::new();
+static EIDOS_FIXTURE_INDEX: std::sync::OnceLock<
+    std::sync::Mutex<crate::eidos::InMemoryLexicalIndex>,
+> = std::sync::OnceLock::new();
 
 fn eidos_fixture_index() -> &'static std::sync::Mutex<crate::eidos::InMemoryLexicalIndex> {
     EIDOS_FIXTURE_INDEX.get_or_init(|| {
@@ -3466,8 +3467,7 @@ static EIDOS_VAULT_INDEX: std::sync::OnceLock<
     std::sync::RwLock<Option<crate::eidos::InMemoryLexicalIndex>>,
 > = std::sync::OnceLock::new();
 
-fn eidos_vault_slot() -> &'static std::sync::RwLock<Option<crate::eidos::InMemoryLexicalIndex>>
-{
+fn eidos_vault_slot() -> &'static std::sync::RwLock<Option<crate::eidos::InMemoryLexicalIndex>> {
     EIDOS_VAULT_INDEX.get_or_init(|| std::sync::RwLock::new(None))
 }
 
@@ -3539,10 +3539,9 @@ pub fn eidos_vault_index_insert_note(
     ffi_guard_sync!({
         use crate::eidos::EidosDocumentId;
         let kind = parse_eidos_source_kind(&source_kind)?;
-        let doc_id =
-            EidosDocumentId::new(document_id).map_err(|e| AgentErrorFFI::AgentError {
-                message: format!("document_id: {:?}", e),
-            })?;
+        let doc_id = EidosDocumentId::new(document_id).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("document_id: {:?}", e),
+        })?;
         let mut slot = eidos_vault_slot()
             .write()
             .map_err(|_| AgentErrorFFI::AgentError {
@@ -3731,7 +3730,7 @@ pub fn eidos_close_vault_index() -> Result<bool, AgentErrorFFI> {
 #[cfg(test)]
 mod eidos_production_ffi_tests {
     use super::*;
-    use crate::eidos::{EidosCitation, EidosChunkId, EidosContextPacket, EidosIndexManifestId};
+    use crate::eidos::{EidosChunkId, EidosCitation, EidosContextPacket, EidosIndexManifestId};
 
     // All tests in this module share the process-global vault slot.
     // `cargo test` defaults to multi-threaded, so we serialize the
@@ -3797,11 +3796,9 @@ mod eidos_production_ffi_tests {
             source_id: EidosChunkId::new("forged::lex").unwrap(),
             manifest_id: packet.manifest_id.clone(),
         };
-        let validation = eidos_validate_citation_json(
-            packet_json,
-            serde_json::to_string(&forged).unwrap(),
-        )
-        .unwrap();
+        let validation =
+            eidos_validate_citation_json(packet_json, serde_json::to_string(&forged).unwrap())
+                .unwrap();
         assert!(validation.contains("FabricatedSourceId"));
         reset();
     }
@@ -3811,12 +3808,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("manifest-2026-05-23".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc".to_string(),
-            "body".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc".to_string(), "body".to_string(), "Note".to_string())
+            .unwrap();
         let packet_json = eidos_retrieve_json("body".to_string(), 8).unwrap();
         let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
         let other_manifest = EidosIndexManifestId::new("vault-some-other").unwrap();
@@ -3825,11 +3818,9 @@ mod eidos_production_ffi_tests {
             source_id: only_hit.source_id.clone(),
             manifest_id: other_manifest,
         };
-        let validation = eidos_validate_citation_json(
-            packet_json,
-            serde_json::to_string(&citation).unwrap(),
-        )
-        .unwrap();
+        let validation =
+            eidos_validate_citation_json(packet_json, serde_json::to_string(&citation).unwrap())
+                .unwrap();
         assert!(validation.contains("ManifestMismatch"));
         reset();
     }
@@ -3849,12 +3840,9 @@ mod eidos_production_ffi_tests {
     fn insert_without_open_errors() {
         let _g = guard();
         reset();
-        let err = eidos_vault_index_insert_note(
-            "d".to_string(),
-            "b".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap_err();
+        let err =
+            eidos_vault_index_insert_note("d".to_string(), "b".to_string(), "Note".to_string())
+                .unwrap_err();
         let message = match err {
             AgentErrorFFI::AgentError { message } => message,
         };
@@ -3866,12 +3854,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("first".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc-a".to_string(),
-            "alpha".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc-a".to_string(), "alpha".to_string(), "Note".to_string())
+            .unwrap();
         eidos_open_vault_index("second".to_string()).unwrap();
         // doc-a must be gone now.
         let packet_json = eidos_retrieve_json("alpha".to_string(), 8).unwrap();
@@ -3936,12 +3920,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("topk-overflow".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc".to_string(),
-            "body".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc".to_string(), "body".to_string(), "Note".to_string())
+            .unwrap();
         // u32::MAX must not panic on the u32 → u16 narrowing.
         let packet_json = eidos_retrieve_json("body".to_string(), u32::MAX).unwrap();
         let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
@@ -4024,12 +4004,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("batch-fail".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "real".to_string(),
-            "alpha".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("real".to_string(), "alpha".to_string(), "Note".to_string())
+            .unwrap();
         let packet_json = eidos_retrieve_json("alpha".to_string(), 4).unwrap();
         let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
         let citations = vec![
@@ -4104,7 +4080,9 @@ mod eidos_production_ffi_tests {
                 }
             }));
         }
-        for h in handles { h.join().unwrap(); }
+        for h in handles {
+            h.join().unwrap();
+        }
         // 8 threads × 100 iters = 800. Allow 95% completion floor so a
         // single transient hiccup doesn't false-alarm.
         let count = success.load(std::sync::atomic::Ordering::Relaxed);
@@ -4127,12 +4105,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("re-encode".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc".to_string(),
-            "body".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc".to_string(), "body".to_string(), "Note".to_string())
+            .unwrap();
         let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
         let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
         // Round-trip the packet through Rust serde to mimic the
@@ -4154,12 +4128,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("empty-batch".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc".to_string(),
-            "body".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc".to_string(), "body".to_string(), "Note".to_string())
+            .unwrap();
         let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
         // Empty list — nothing to validate, accept vacuously.
         let result = eidos_validate_citations_json(packet_json, "[]".to_string()).unwrap();
@@ -4219,12 +4189,8 @@ mod eidos_production_ffi_tests {
         let _g = guard();
         reset();
         eidos_open_vault_index("corrupt-cite".to_string()).unwrap();
-        eidos_vault_index_insert_note(
-            "doc".to_string(),
-            "body".to_string(),
-            "Note".to_string(),
-        )
-        .unwrap();
+        eidos_vault_index_insert_note("doc".to_string(), "body".to_string(), "Note".to_string())
+            .unwrap();
         let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
         let err = eidos_validate_citation_json(packet_json, "not json".to_string()).unwrap_err();
         let message = match err {
@@ -4323,8 +4289,8 @@ pub fn vault_recall_trace_json(query: String) -> Result<String, AgentErrorFFI> {
             effective.clone()
         };
 
-        let mut trace =
-            RetrievalTrace::new(query.clone(), effective_query).with_ladder_tier("scaffold-lexical");
+        let mut trace = RetrievalTrace::new(query.clone(), effective_query)
+            .with_ladder_tier("scaffold-lexical");
         if all_chatter {
             trace.record_all_chatter_fallback();
         }
@@ -4549,6 +4515,27 @@ pub fn system_g_start_run_json(mission_json: String) -> Result<String, AgentErro
     })
 }
 
+/// FFI entry: start a provider-aware System G run. Local MLX/GGUF routes emit
+/// a `local_model_handoff` event: Rust admits and witnesses the provider
+/// policy, then the Swift host streams the live local model and appends final
+/// `token_chunk` / `complete` events to its RunEventLog. Other provider
+/// families remain fail-closed until their executors are bound.
+#[uniffi::export]
+pub fn system_g_start_run_with_provider_json(
+    mission_json: String,
+    provider_policy_json: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        crate::agent_runtime_v2::system_g_runtime::start_run_with_provider_policy(
+            &mission_json,
+            &provider_policy_json,
+        )
+        .map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("system_g start_run_with_provider: {}", e),
+        })
+    })
+}
+
 /// FFI entry: drain the next batch of `SystemGAgentEvent`s for `run_id`.
 /// Returns a JSON array of events in arrival order. Empty array means
 /// "no events yet, poll again." A trailing `complete` or `failed`
@@ -4556,11 +4543,12 @@ pub fn system_g_start_run_json(mission_json: String) -> Result<String, AgentErro
 #[uniffi::export]
 pub fn system_g_drain_events_json(run_id: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        let events = crate::agent_runtime_v2::system_g_runtime::drain_events(&run_id).map_err(
-            |e| AgentErrorFFI::AgentError {
-                message: format!("system_g drain_events: {}", e),
-            },
-        )?;
+        let events =
+            crate::agent_runtime_v2::system_g_runtime::drain_events(&run_id).map_err(|e| {
+                AgentErrorFFI::AgentError {
+                    message: format!("system_g drain_events: {}", e),
+                }
+            })?;
         serde_json::to_string(&events).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("system_g drain_events serialize: {}", e),
         })
@@ -4609,20 +4597,38 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
             .unwrap_or(0);
 
         #[cfg(feature = "research")]
-        let (eml_sample_observations, eml_augmented_auc, eml_auc_bar, eml_count, eml_pos, eml_neg, eml_mean) = {
+        let (
+            eml_sample_observations,
+            eml_augmented_auc,
+            eml_auc_bar,
+            eml_count,
+            eml_pos,
+            eml_neg,
+            eml_mean,
+        ) = {
             use crate::research::cognition_observatory::sae::LabeledScore;
             let observations = [
-                LabeledScore { score: 0.08, is_hallucination: false },
-                LabeledScore { score: 0.25, is_hallucination: false },
-                LabeledScore { score: 0.73, is_hallucination: true },
-                LabeledScore { score: 0.91, is_hallucination: true },
+                LabeledScore {
+                    score: 0.08,
+                    is_hallucination: false,
+                },
+                LabeledScore {
+                    score: 0.25,
+                    is_hallucination: false,
+                },
+                LabeledScore {
+                    score: 0.73,
+                    is_hallucination: true,
+                },
+                LabeledScore {
+                    score: 0.91,
+                    is_hallucination: true,
+                },
             ];
-            let summary =
-                crate::research::eml_integration::observatory::summarize(&observations).map_err(
-                    |err| AgentErrorFFI::AgentError {
-                        message: format!("EML observatory summary failed: {:?}", err),
-                    },
-                )?;
+            let summary = crate::research::eml_integration::observatory::summarize(&observations)
+                .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("EML observatory summary failed: {:?}", err),
+            })?;
             let auc =
                 crate::research::eml_integration::observatory::auc_on_augmented(&observations)
                     .map_err(|err| AgentErrorFFI::AgentError {
@@ -4639,8 +4645,23 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
             )
         };
         #[cfg(not(feature = "research"))]
-        let (eml_sample_observations, eml_augmented_auc, eml_auc_bar, eml_count, eml_pos, eml_neg, eml_mean) =
-            (0_usize, 0.0_f32, 0.90_f32, 0_usize, 0_usize, 0_usize, None::<f64>);
+        let (
+            eml_sample_observations,
+            eml_augmented_auc,
+            eml_auc_bar,
+            eml_count,
+            eml_pos,
+            eml_neg,
+            eml_mean,
+        ) = (
+            0_usize,
+            0.0_f32,
+            0.90_f32,
+            0_usize,
+            0_usize,
+            0_usize,
+            None::<f64>,
+        );
 
         let store = cognitive_dag_store();
         let dag_snapshot = store.snapshot().map_err(|err| AgentErrorFFI::AgentError {
@@ -4653,7 +4674,9 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
         let mut plane_controller_count = 0_usize;
         let mut plane_verification_count = 0_usize;
         for node in &dag_snapshot.nodes {
-            *node_kind_counts.entry(node.kind.discriminator()).or_insert(0) += 1;
+            *node_kind_counts
+                .entry(node.kind.discriminator())
+                .or_insert(0) += 1;
             match node.kind.plane() {
                 crate::uas::RuntimePlane::State => plane_state_count += 1,
                 crate::uas::RuntimePlane::Episodic => plane_episodic_count += 1,
@@ -4670,7 +4693,9 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
         let unplaced_plane_count = dag_snapshot.nodes.len().saturating_sub(placed_plane_count);
         let mut edge_kind_counts: BTreeMap<&'static str, usize> = BTreeMap::new();
         for edge in &dag_snapshot.edges {
-            *edge_kind_counts.entry(edge.kind.discriminator()).or_insert(0) += 1;
+            *edge_kind_counts
+                .entry(edge.kind.discriminator())
+                .or_insert(0) += 1;
         }
 
         let mut merkle_hex = String::with_capacity(64);

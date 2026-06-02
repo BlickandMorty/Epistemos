@@ -1,0 +1,16 @@
+{
+  "prompt_count": 1,
+  "context_window_tokens": 128,
+  "average_d_kl_nats": 0.000402,
+  "max_d_kl_nats": 0.042566,
+  "p99_d_kl_nats": 0.006094,
+  "same_top_p_percent": 100.0,
+  "reference_route": "llama_perplexity_f16_kv",
+  "test_route": "llama_perplexity_q4_0_kv",
+  "reference_status": 0,
+  "test_status": 0,
+  "suite_wall_clock_min": 1.3861397756833334,
+  "reference_logits_retained": false,
+  "reference_logits_path": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_kl/reference_logits.bin",
+  "falsifier_green_capable": false
+}

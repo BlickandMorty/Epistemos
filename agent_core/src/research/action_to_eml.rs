@@ -38,9 +38,18 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ActionError {
     EmptyTrajectory,
-    LengthMismatch { x: usize, t: usize },
-    NonUniformTimestep { i: usize, dt_here: f64, dt_zero: f64 },
-    NonPositiveDt { dt: f64 },
+    LengthMismatch {
+        x: usize,
+        t: usize,
+    },
+    NonUniformTimestep {
+        i: usize,
+        dt_here: f64,
+        dt_zero: f64,
+    },
+    NonPositiveDt {
+        dt: f64,
+    },
 }
 
 impl ActionError {
@@ -135,7 +144,10 @@ pub fn euler_lagrange_residual<L: Lagrangian>(
         return Err(ActionError::EmptyTrajectory);
     }
     if x.len() != t.len() {
-        return Err(ActionError::LengthMismatch { x: x.len(), t: t.len() });
+        return Err(ActionError::LengthMismatch {
+            x: x.len(),
+            t: t.len(),
+        });
     }
     if x.len() < 5 {
         return Err(ActionError::EmptyTrajectory);
@@ -147,7 +159,11 @@ pub fn euler_lagrange_residual<L: Lagrangian>(
     for i in 1..t.len() - 1 {
         let dt = t[i + 1] - t[i];
         if (dt - dt_zero).abs() > 1e-9 {
-            return Err(ActionError::NonUniformTimestep { i, dt_here: dt, dt_zero });
+            return Err(ActionError::NonUniformTimestep {
+                i,
+                dt_here: dt,
+                dt_zero,
+            });
         }
     }
     let mut max_res: f64 = 0.0;
@@ -239,40 +255,52 @@ mod tests {
 
     #[test]
     fn harmonic_oscillator_lagrangian_zero_state_zero_energy() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         assert_eq!(h.evaluate(0.0, 0.0, 0.0), 0.0);
     }
 
     #[test]
     fn harmonic_oscillator_partials_correct() {
-        let h = HarmonicOscillator { mass: 2.0, k_spring: 3.0 };
+        let h = HarmonicOscillator {
+            mass: 2.0,
+            k_spring: 3.0,
+        };
         assert_eq!(h.d_dx(1.0, 0.0, 0.0), -3.0);
         assert_eq!(h.d_d_xdot(0.0, 4.0, 0.0), 8.0);
     }
 
     #[test]
     fn empty_trajectory_errors() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let err = euler_lagrange_residual(&h, &[], &[]).unwrap_err();
         assert_eq!(err, ActionError::EmptyTrajectory);
     }
 
     #[test]
     fn length_mismatch_errors() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let err = euler_lagrange_residual(&h, &[1.0, 2.0, 3.0], &[0.0, 1.0]).unwrap_err();
         assert!(matches!(err, ActionError::LengthMismatch { .. }));
     }
 
     #[test]
     fn non_uniform_timestep_errors() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
-        let err = euler_lagrange_residual(
-            &h,
-            &[1.0, 1.0, 1.0, 1.0, 1.0],
-            &[0.0, 0.1, 0.5, 0.6, 0.7],
-        )
-        .unwrap_err();
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
+        let err =
+            euler_lagrange_residual(&h, &[1.0, 1.0, 1.0, 1.0, 1.0], &[0.0, 0.1, 0.5, 0.6, 0.7])
+                .unwrap_err();
         assert!(matches!(err, ActionError::NonUniformTimestep { .. }));
     }
 
@@ -280,7 +308,10 @@ mod tests {
     fn cosine_trajectory_satisfies_harmonic_oscillator_eom() {
         // For m=1, k=1, omega = sqrt(k/m) = 1.
         // x(t) = cos(t) is the EOM solution.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let dt = 0.001_f64;
         let n = 200;
         let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
@@ -293,7 +324,10 @@ mod tests {
     #[test]
     fn parabolic_trajectory_does_not_satisfy_harmonic_oscillator_eom() {
         // x(t) = t² is NOT a solution; expect visibly nonzero residual.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let dt = 0.001_f64;
         let n = 200;
         let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
@@ -305,7 +339,10 @@ mod tests {
     #[test]
     fn cosine_with_different_omega_also_satisfies_when_lagrangian_matches() {
         // m=2, k=8, omega = sqrt(8/2) = 2. x(t) = cos(2t).
-        let h = HarmonicOscillator { mass: 2.0, k_spring: 8.0 };
+        let h = HarmonicOscillator {
+            mass: 2.0,
+            k_spring: 8.0,
+        };
         let dt = 0.0005_f64;
         let n = 500;
         let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
@@ -316,25 +353,22 @@ mod tests {
 
     #[test]
     fn short_trajectory_under_five_points_errors() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
-        let err = euler_lagrange_residual(
-            &h,
-            &[1.0, 2.0, 3.0, 4.0],
-            &[0.0, 0.1, 0.2, 0.3],
-        )
-        .unwrap_err();
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
+        let err =
+            euler_lagrange_residual(&h, &[1.0, 2.0, 3.0, 4.0], &[0.0, 0.1, 0.2, 0.3]).unwrap_err();
         assert_eq!(err, ActionError::EmptyTrajectory);
     }
 
     #[test]
     fn non_positive_dt_errors() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
-        let err = euler_lagrange_residual(
-            &h,
-            &[1.0; 5],
-            &[0.0; 5],
-        )
-        .unwrap_err();
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
+        let err = euler_lagrange_residual(&h, &[1.0; 5], &[0.0; 5]).unwrap_err();
         assert!(matches!(err, ActionError::NonPositiveDt { .. }));
     }
 
@@ -342,7 +376,10 @@ mod tests {
     fn linear_trajectory_violates_harmonic_eom() {
         // x(t) = t — linear, not periodic; harmonic restoring force
         // makes the residual nonzero.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let dt = 0.001_f64;
         let n = 200;
         let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
@@ -356,7 +393,7 @@ mod tests {
     #[test]
     fn free_particle_partials_correct() {
         let p = FreeParticleLagrangian { mass: 3.0 };
-        assert_eq!(p.evaluate(99.0, 2.0, 0.0), 6.0);  // ½·3·4 = 6
+        assert_eq!(p.evaluate(99.0, 2.0, 0.0), 6.0); // ½·3·4 = 6
         assert_eq!(p.d_dx(99.0, 2.0, 0.0), 0.0);
         assert_eq!(p.d_d_xdot(99.0, 2.0, 0.0), 6.0); // m·v = 6
     }
@@ -384,7 +421,10 @@ mod tests {
     fn harmonic_solution_generator_matches_inline_cosine_test() {
         // Reproduces `cosine_trajectory_satisfies_harmonic_oscillator_eom`
         // via the generator API to prove the helper is equivalent.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let (x, t) = harmonic_oscillator_solution(1.0, 1.0, 200, 0.001).unwrap();
         let res = euler_lagrange_residual(&h, &x, &t).unwrap();
         assert!(res < 1e-3, "residual={}", res);
@@ -431,7 +471,11 @@ mod tests {
         let variants = [
             ActionError::EmptyTrajectory,
             ActionError::LengthMismatch { x: 1, t: 2 },
-            ActionError::NonUniformTimestep { i: 0, dt_here: 0.1, dt_zero: 0.2 },
+            ActionError::NonUniformTimestep {
+                i: 0,
+                dt_here: 0.1,
+                dt_zero: 0.2,
+            },
             ActionError::NonPositiveDt { dt: 0.0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -443,7 +487,11 @@ mod tests {
         let variants = [
             ActionError::EmptyTrajectory,
             ActionError::LengthMismatch { x: 1, t: 2 },
-            ActionError::NonUniformTimestep { i: 0, dt_here: 0.1, dt_zero: 0.2 },
+            ActionError::NonUniformTimestep {
+                i: 0,
+                dt_here: 0.1,
+                dt_zero: 0.2,
+            },
             ActionError::NonPositiveDt { dt: 0.0 },
         ];
         // Cross-surface invariant: is_shape_error XOR is_timestep_error.
@@ -456,11 +504,20 @@ mod tests {
 
     #[test]
     fn harmonic_oscillator_omega_matches_sqrt_k_over_m() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         assert!((h.omega() - 1.0).abs() < 1e-12);
-        let h = HarmonicOscillator { mass: 2.0, k_spring: 8.0 };
+        let h = HarmonicOscillator {
+            mass: 2.0,
+            k_spring: 8.0,
+        };
         assert!((h.omega() - 2.0).abs() < 1e-12); // sqrt(8/2) = 2
-        let h = HarmonicOscillator { mass: 4.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 4.0,
+            k_spring: 1.0,
+        };
         assert!((h.omega() - 0.5).abs() < 1e-12); // sqrt(0.25) = 0.5
     }
 
@@ -468,7 +525,10 @@ mod tests {
     fn harmonic_oscillator_omega_squared_matches_k_over_m_invariant() {
         // Cross-surface invariant: omega² = k/m.
         for &(m, k) in &[(1.0_f64, 1.0), (2.0, 8.0), (4.0, 1.0), (0.5, 50.0)] {
-            let h = HarmonicOscillator { mass: m, k_spring: k };
+            let h = HarmonicOscillator {
+                mass: m,
+                k_spring: k,
+            };
             let om = h.omega();
             assert!((om * om - k / m).abs() < 1e-9);
         }
@@ -476,21 +536,30 @@ mod tests {
 
     #[test]
     fn harmonic_total_energy_at_rest_zero_state_is_zero() {
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         assert_eq!(h.total_energy(0.0, 0.0), 0.0);
     }
 
     #[test]
     fn harmonic_total_energy_pure_kinetic() {
         // x = 0, x_dot = 2 → KE = ½·1·4 = 2, PE = 0.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         assert!((h.total_energy(0.0, 2.0) - 2.0).abs() < 1e-12);
     }
 
     #[test]
     fn harmonic_total_energy_pure_potential() {
         // x = 3, x_dot = 0 → KE = 0, PE = ½·1·9 = 4.5.
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         assert!((h.total_energy(3.0, 0.0) - 4.5).abs() < 1e-12);
     }
 
@@ -498,7 +567,10 @@ mod tests {
     fn harmonic_total_energy_conserved_along_cosine_solution() {
         // Cross-surface invariant (Noether): for x(t) = A·cos(ωt),
         // total_energy(x, ẋ) = constant = ½·k·A².
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let amplitude = 2.0_f64;
         let omega = h.omega();
         let expected_energy = 0.5 * h.k_spring * amplitude * amplitude;
@@ -531,7 +603,10 @@ mod tests {
     #[test]
     fn real_action_error_carries_matching_cause() {
         // Cross-surface: euler_lagrange_residual errors carry matching cause().
-        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let h = HarmonicOscillator {
+            mass: 1.0,
+            k_spring: 1.0,
+        };
         let err = euler_lagrange_residual(&h, &[], &[]).unwrap_err();
         assert_eq!(err.cause(), "empty_trajectory");
         assert!(err.is_shape_error());

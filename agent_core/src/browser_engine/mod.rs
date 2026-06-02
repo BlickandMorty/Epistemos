@@ -211,9 +211,7 @@ impl BrowserEngine for MockBrowserEngine {
         let snap = self
             .pages
             .get(&url)
-            .ok_or_else(|| {
-                BrowserError::NavigationFailed(format!("mock has no page for {url}"))
-            })?
+            .ok_or_else(|| BrowserError::NavigationFailed(format!("mock has no page for {url}")))?
             .clone();
         drop(s);
         let mut s = self.state.lock().unwrap();
@@ -223,10 +221,8 @@ impl BrowserEngine for MockBrowserEngine {
 
     async fn click(&self, session: &SessionId, ref_id: &str) -> Result<(), BrowserError> {
         let mut s = self.state.lock().unwrap();
-        s.events.push(MockEvent::Click(
-            session.0.clone(),
-            ref_id.to_string(),
-        ));
+        s.events
+            .push(MockEvent::Click(session.0.clone(), ref_id.to_string()));
         Ok(())
     }
 
@@ -251,7 +247,8 @@ impl BrowserEngine for MockBrowserEngine {
         direction: ScrollDirection,
     ) -> Result<(), BrowserError> {
         let mut s = self.state.lock().unwrap();
-        s.events.push(MockEvent::Scroll(session.0.clone(), direction));
+        s.events
+            .push(MockEvent::Scroll(session.0.clone(), direction));
         Ok(())
     }
 
@@ -385,8 +382,7 @@ mod tests {
 
     #[tokio::test]
     async fn mock_engine_round_trips_navigate_snapshot_click_close() {
-        let engine = MockBrowserEngine::new()
-            .with_page("https://example.test/", sample_snap());
+        let engine = MockBrowserEngine::new().with_page("https://example.test/", sample_snap());
         let session = engine.open_session().await.unwrap();
         engine
             .navigate(&session, "https://example.test/")
@@ -454,11 +450,12 @@ mod tests {
         // trait. Test this by holding a Box<dyn BrowserEngine> and
         // calling through it; the mock satisfies the contract end-to-end
         // and the stubs surface NotConfigured uniformly.
-        let mock: Box<dyn BrowserEngine> = Box::new(
-            MockBrowserEngine::new().with_page("https://example.test/", sample_snap()),
-        );
+        let mock: Box<dyn BrowserEngine> =
+            Box::new(MockBrowserEngine::new().with_page("https://example.test/", sample_snap()));
         let session = mock.open_session().await.unwrap();
-        mock.navigate(&session, "https://example.test/").await.unwrap();
+        mock.navigate(&session, "https://example.test/")
+            .await
+            .unwrap();
         let snap = mock.snapshot(&session).await.unwrap();
         assert_eq!(snap.title, "Example");
 

@@ -202,7 +202,12 @@ impl EmlPotential {
         let y = 1.0 + s;
         let x = y.ln();
         let value = eml(x, y)?;
-        Ok(EmlPotential { raw_score: s, x, y, value })
+        Ok(EmlPotential {
+            raw_score: s,
+            x,
+            y,
+            value,
+        })
     }
 
     /// Original score the potential was derived from.
@@ -283,8 +288,13 @@ mod tests {
         for &s in &[0.0_f64, 0.5, 1.0, 7.5, 100.0] {
             let p = EmlPotential::from_score(s).unwrap();
             let expected = (1.0 + s) - (1.0 + s).ln();
-            assert!(approx(p.value(), expected, 1e-9),
-                "s={}: got {}, expected {}", s, p.value(), expected);
+            assert!(
+                approx(p.value(), expected, 1e-9),
+                "s={}: got {}, expected {}",
+                s,
+                p.value(),
+                expected
+            );
         }
     }
 
@@ -356,8 +366,11 @@ mod tests {
         let s = 1e6;
         let p = EmlPotential::from_score(s).unwrap();
         let ratio = p.value() / s;
-        assert!(ratio > 0.99 && ratio < 1.01,
-            "value/s ratio at s=1e6 was {} (expected ≈ 1)", ratio);
+        assert!(
+            ratio > 0.99 && ratio < 1.01,
+            "value/s ratio at s=1e6 was {} (expected ≈ 1)",
+            ratio
+        );
     }
 
     #[test]
@@ -417,8 +430,12 @@ mod tests {
         // f64 rounds (1+s) - ln(1+s) to exactly 1.0, but is_floor still
         // returns false because raw_score is nonzero.
         let p = EmlPotential::from_score(1e-12).unwrap();
-        assert!(!p.is_floor(),
-            "raw_score={} value={}", p.raw_score(), p.value());
+        assert!(
+            !p.is_floor(),
+            "raw_score={} value={}",
+            p.raw_score(),
+            p.value()
+        );
         // Note: p.value() may equal FLOOR_VALUE under f64 rounding —
         // the assertion above proves we don't conflate that with floor.
     }
@@ -453,8 +470,11 @@ mod tests {
     fn display_includes_struct_name_for_grep_friendliness() {
         let p = EmlPotential::from_score(0.5).unwrap();
         let s = format!("{}", p);
-        assert!(s.starts_with("EmlPotential {"),
-            "display should start with type name: {}", s);
+        assert!(
+            s.starts_with("EmlPotential {"),
+            "display should start with type name: {}",
+            s
+        );
     }
 
     #[test]
@@ -483,14 +503,18 @@ mod tests {
 
     #[test]
     fn display_positive_infinity_error_format() {
-        let err = EmlPotentialError::NonFiniteScore { score: f64::INFINITY };
+        let err = EmlPotentialError::NonFiniteScore {
+            score: f64::INFINITY,
+        };
         let s = format!("{}", err);
         assert_eq!(s, "non-finite score: +inf");
     }
 
     #[test]
     fn display_negative_infinity_error_format() {
-        let err = EmlPotentialError::NonFiniteScore { score: f64::NEG_INFINITY };
+        let err = EmlPotentialError::NonFiniteScore {
+            score: f64::NEG_INFINITY,
+        };
         let s = format!("{}", err);
         assert_eq!(s, "non-finite score: -inf");
     }
@@ -529,8 +553,12 @@ mod tests {
     fn sentinel_at_one_value_equals_two_minus_ln_two() {
         let s = EmlPotential::sentinel_at_one();
         let expected = 2.0_f64 - 2.0_f64.ln();
-        assert!((s.value() - expected).abs() < 1e-12,
-            "sentinel value was {}, expected {}", s.value(), expected);
+        assert!(
+            (s.value() - expected).abs() < 1e-12,
+            "sentinel value was {}, expected {}",
+            s.value(),
+            expected
+        );
     }
 
     #[test]

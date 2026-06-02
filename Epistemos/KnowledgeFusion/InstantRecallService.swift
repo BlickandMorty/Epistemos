@@ -109,6 +109,15 @@ final class InstantRecallService {
         hasHydratedInitialSnapshot = false
     }
 
+    /// Warm the ambient recall index before the first keystroke. The SwiftData
+    /// snapshot is still captured on MainActor, but the rebuild runs detached,
+    /// so typing does not become the first surface to pay hydration cost.
+    func prewarmForAmbientRecall() {
+        ensureInitialized()
+        guard isReady else { return }
+        hydrateInitialSnapshotIfNeeded()
+    }
+
     /// Initialize and create the Rust index.
     func initialize() {
         let success = instantRecallCreate(handle: handle)

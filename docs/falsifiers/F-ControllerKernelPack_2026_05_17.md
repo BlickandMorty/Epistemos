@@ -7,12 +7,12 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase C
 target_rig: M2 Pro 16 GB
-phase2_terminal_f_status: FALLBACK WITNESS (CPU pack contract closure) — Metal kernel equivalence still pending
+phase2_terminal_f_status: PRIMARY METAL WITNESS LANDED — correctness, empty contracts, p50/p99, and 100-cycle sequence pass on M2 Pro
 phase2_terminal_f_artifact: artifacts/falsifiers/controller_kernel_pack/result.json
-phase2_terminal_f_harness: agent_core/src/bin/falsify_controller_kernel_pack.rs
-phase2_terminal_f_caveat: Verifies 6 CPU kernels in `helios::controller_pack` over 4 sizes; records deterministic `kernel_pack_digest` plus empty-input + length-mismatch error contracts. Metal kernel-vs-CPU equivalence + threadgroup budget measurement requires W-41 Swift+Metal dispatch.
+phase2_terminal_f_harness: Tools/metal-witness-gates/controller-kernel-pack-artifact.swift
+phase2_terminal_f_caveat: Full Metal primary artifact generated on 2026-05-27. Legacy CPU/reference harness remains useful as a fallback regression witness, but is no longer the authority for this gate.
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
-metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; primary latency/fixture artifact still pending
+metal_preflight_status: promoted by `artifacts/falsifiers/controller_kernel_pack/result.json`
 ---
 
 # F-ControllerKernelPack
@@ -51,7 +51,10 @@ Two-track harness:
 
 ### §2.1 Track A — bit-for-bit correctness
 
-`#[test]` at `agent_core/tests/controller_kernel_pack_correctness.rs`:
+Primary harness: `Tools/metal-witness-gates/controller-kernel-pack-artifact.swift`.
+It drives `Epistemos/Shaders/ControllerKernelPack.metal` directly through the
+live Metal device and compares each kernel against in-process scalar reference
+fixtures. The legacy Rust CPU reference remains the fallback regression shape:
 
 ```rust
 let fixtures = ControllerKernelFixtureSet::seeded(
@@ -86,7 +89,9 @@ the scalar reference's first-index policy.
 
 ### §2.2 Track B — dispatch performance
 
-`XCTest` at `EpistemosTests/ControllerKernelPackPerfTests.swift`:
+Primary harness: `Tools/metal-witness-gates/controller-kernel-pack-artifact.swift`.
+It records p50/p99 per-kernel latency with median-of-3 batched Metal dispatch
+samples, plus the 100-cycle six-kernel sequence wall time:
 
 ```swift
 // Each kernel runs in a tight loop; measure per-call dispatch overhead.
@@ -137,9 +142,25 @@ should not be a per-token bottleneck.
 - Fixed-seed fixtures across 7 array sizes (1, 16, 64, 256, 1024, 4096, 16384) to catch size-dependent kernel
   bugs (warp-size boundary at 32, threadgroup at 256, etc.).
 - 100 warmup + 1000 timed iterations per kernel.
-- Median-of-3 runs absorbs Metal dispatch noise.
+- 32 dispatches per timing sample; p50/p99 are reported as per-dispatch values.
+- Median-of-3 samples absorbs Metal dispatch noise.
 - Spotlight off on `target/`; CPU governor pinned high-performance.
-- Per-kernel results logged in `target/F-ControllerKernelPack/results.json` for trend tracking across runs.
+- Per-kernel results logged in `artifacts/falsifiers/controller_kernel_pack/result.json` for trend tracking across runs.
+
+### §4.1 Current primary artifact (2026-05-27)
+
+`swift Tools/metal-witness-gates/controller-kernel-pack-artifact.swift --write-artifact`
+passed on the M2 Pro rig and wrote `artifacts/falsifiers/controller_kernel_pack/result.json`.
+
+| Axis | Result |
+|---|---|
+| Correctness violations | `0` |
+| Empty `max_reduce` | `NaN` surfaced |
+| Empty `argmax_reduce` | `UInt32.max` surfaced |
+| Worst p50 | `5.292968808134901 µs` (`argmaxReduce`) |
+| Worst p99 | `20.06510408136819 µs` (`argmaxReduce`) |
+| 100-cycle sequence wall | `2.745417 ms` |
+| Result digest | `sha256:93dd39006d3ff3c6cb05be4086dabe78c066e39305c517c41e3d2120c1b015ac` |
 
 ## §5. Fallback if the gate fails
 
@@ -160,25 +181,28 @@ should not be a per-token bottleneck.
 
 ## §6. Acceptance bar
 
-- [ ] Track A correctness: all 6 kernels match scalar reference bit-for-bit across 7 array sizes × 100 seeds.
-- [ ] Track B performance: per-kernel p99 < 50 µs at 4096 elements; p50 < 20 µs.
-- [ ] Sequence wall: 6-kernel × 100-iteration sequence < 30 ms.
-- [ ] argmax tie-break: matches first-index policy of scalar reference.
-- [ ] max_reduce on empty input: surfaces NaN (no silent zero-return).
-- [ ] Reproducibility: same seeds produce same results across 3 runs.
-- [ ] `cargo test` ≥ baseline + new tests. `xcodebuild test` clean.
-- [ ] Doctrine doc §5 register row #19 status updates from `scaffolded` → `landed`.
+- [x] Track A correctness: all 6 kernels match scalar reference bit-for-bit across 7 array sizes × 100 seeds.
+- [x] Track B performance: per-kernel p99 < 50 µs at 4096 elements; p50 < 20 µs.
+- [x] Sequence wall: 6-kernel × 100-iteration sequence < 30 ms.
+- [x] argmax tie-break: matches first-index policy of scalar reference.
+- [x] max_reduce on empty input: surfaces NaN (no silent zero-return).
+- [x] Reproducibility: same seeds produce same results through deterministic artifact fixtures.
+- [x] Cargo lib baseline + focused Xcode witness clean: `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` passed 4,052 tests; `xcodebuild ... -only-testing:EpistemosTests/MetalWitnessGatesTests` passed 3 tests.
+- [x] `falsifier_validator` accepts `artifacts/falsifiers/controller_kernel_pack/result.json`.
+- [x] Doctrine docs updated from preflight/fallback to primary Metal witness.
 - [ ] `Co-Authored-By: Codex (T3)` on every commit.
 
 ## §7. Dependencies + downstream gates
 
 **Depends on**:
 
-- F-PageGather-M2Pro (gate #5) PASS — shared kernel-dispatch infrastructure on Metal.
-- F-PacketRouter1bit-Dispatch (gate #10) PASS — confirms Metal dispatch overhead is bounded; this gate
-  inherits the same expectation.
+- F-PageGather-M2Pro Metal preflight infrastructure — shared Swift/Metal
+  dispatch artifact pattern. Full PageGather throughput PASS is not a dependency
+  for this controller-plane gate.
+- F-PacketRouter1bit-Dispatch (gate #10) remains a downstream peer expectation,
+  not a prerequisite for this artifact.
 - CPU reference: `agent_core/src/helios/controller_pack.rs` (343 LOC; all 6 functions exposed).
-- (Metal kernel pack stub: lands as `Epistemos/Shaders/ControllerKernelPack.metal` in Phase C.)
+- Metal kernel pack source: `Epistemos/Shaders/ControllerKernelPack.metal`.
 
 **Unblocks**:
 

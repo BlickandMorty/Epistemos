@@ -41,7 +41,7 @@ Recent recovery/checkpoint PRs now on main:
 | `#84` | Merged | Restored source-guard and verified-floor audit tests. |
 | `#85` | Merged | Restored preserved audit documents. |
 | `#86` | Merged | Restored snappy graph/editor defaults and HTML Workspace route; removed stale Mermaid active route. |
-| `#87` | Merged | Added this recovery ledger lineage and restored additive Landing Wave + Session Intelligence files from `stash@{17}`. |
+| `#87` | Merged | Added this recovery ledger lineage and restored additive Landing Wave + Session Intelligence files from `stash@{17}`; the Landing Wave source family was later retired from live product source, while Session Intelligence remains. |
 | `#88` | Merged | Split finished main work from preserved stash/worktree/deferred architecture work and refreshed the Living Index pointer. |
 
 Earlier Phase-2 floor PRs already on main:
@@ -60,7 +60,7 @@ feature PRs:
 | PR | Branch | State | Meaning |
 |---|---|---|---|
 | `#81` | `codex/recovery-claude-shadow-handle-2026-05-26` | Draft | Preserves Claude shadow-handle WIP. Raw tree is stale and huge; re-promote focused hunks only. |
-| `#82` | `codex/recovery-b-prime-uncommitted-followup-2026-05-26` | Draft | Preserves B-prime follow-up stash. Do not merge raw; it would delete current HTML Workspace/Landing Wave files. |
+| `#82` | `codex/recovery-b-prime-uncommitted-followup-2026-05-26` | Draft | Preserves B-prime follow-up stash. Do not merge raw; it would delete current HTML Workspace and stale Landing Wave donor files. |
 
 ## Finished / On Main
 
@@ -80,8 +80,8 @@ These are finished enough to count as present on main:
   `#71`.
 - HTML Workspace direction and UI repromotion: merged through `#83` and guarded
   by `#86`.
-- Landing Wave source files and Session Intelligence source: restored in `#87`
-  and closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`.
+- Landing Wave source files from `#87` are now retired from live product source;
+  Session Intelligence source remains; closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`.
 - Snappy graph defaults: restored in `#86`.
 - Code editor/vendor donor material from `stash@{16}` and `stash@{19}` is
   closed by `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`.

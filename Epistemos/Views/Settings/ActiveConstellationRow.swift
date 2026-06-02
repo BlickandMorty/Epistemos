@@ -25,6 +25,11 @@ public struct ActiveConstellationRow: View {
         return "\(hot) hot · \(warm) warm · \(cold) cold · \(LocalAgentDiagnostics.idleUnloadPolicySummary)"
     }
 
+    private var routePolicySummary: String {
+        _ = refreshTick
+        return LocalAgentDiagnostics.snapshot().routePolicySummary
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
@@ -43,16 +48,16 @@ public struct ActiveConstellationRow: View {
             }
             VerifiedFloorChipStrip(
                 flag: "n/a",
-                substrate: "placeholder routes",
-                productionWired: false,
+                substrate: "RuntimeRouter profiles",
+                productionWired: true,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
-                wiredToday: "Installed/local model states are summarized for diagnostics.",
-                stillStub: "No production route table or ActiveAssembly falsifier witness is wired here."
+                wiredToday: "\(routePolicySummary) Policy tables are wired through RuntimeRouter.",
+                stillStub: "ActiveAssembly falsifier witness remains pending; this row does not claim live ActiveAssembly."
             )
 
             if models.isEmpty {
-                Text("No production route table is available yet; modelPreferenceTable/localPolicyTable wiring is pending.")
+                Text(routePolicySummary)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {

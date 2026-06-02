@@ -10,6 +10,7 @@ struct CompanionRoamingField: View {
     let activeCompanionID: String?
     var isAnimationActive: Bool = false
     var onActivate: (CompanionRosterEntry) -> Void = { _ in }
+    var onRequestEdit: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -68,6 +69,11 @@ struct CompanionRoamingField: View {
                 onActivate(entry)
             } label: {
                 Label("Activate", systemImage: "circle.dashed.inset.filled")
+            }
+            Button {
+                onRequestEdit(entry)
+            } label: {
+                Label("Edit", systemImage: "pencil")
             }
             Button(role: .destructive) {
                 onRequestDelete(entry)

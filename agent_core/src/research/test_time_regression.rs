@@ -138,8 +138,7 @@ impl OptimizationAlgorithm {
     pub const fn is_substrate_noop(self) -> bool {
         matches!(
             self,
-            OptimizationAlgorithm::LinearRecurrence
-                | OptimizationAlgorithm::ClosedFormLeastSquares
+            OptimizationAlgorithm::LinearRecurrence | OptimizationAlgorithm::ClosedFormLeastSquares
         )
     }
 }
@@ -180,9 +179,17 @@ pub struct TestTimeRegressor {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RegressionError {
-    KeyDimMismatch { expected_rows: usize, key_len: usize },
-    ValueDimMismatch { expected_cols: usize, value_len: usize },
-    NonPositiveLearningRate { lr: f32 },
+    KeyDimMismatch {
+        expected_rows: usize,
+        key_len: usize,
+    },
+    ValueDimMismatch {
+        expected_cols: usize,
+        value_len: usize,
+    },
+    NonPositiveLearningRate {
+        lr: f32,
+    },
 }
 
 impl TestTimeRegressor {
@@ -206,7 +213,10 @@ impl TestTimeRegressor {
     }
 
     pub fn cols(&self) -> usize {
-        self.regression_weights.first().map(|r| r.len()).unwrap_or(0)
+        self.regression_weights
+            .first()
+            .map(|r| r.len())
+            .unwrap_or(0)
     }
 
     /// Total scalar weight count `rows × cols`. The "how big is this
@@ -219,7 +229,9 @@ impl TestTimeRegressor {
     /// `is_zero_weights() iff frobenius_norm() == 0.0` (within fp32
     /// precision).
     pub fn is_zero_weights(&self) -> bool {
-        self.regression_weights.iter().all(|row| row.iter().all(|&v| v == 0.0))
+        self.regression_weights
+            .iter()
+            .all(|row| row.iter().all(|&v| v == 0.0))
     }
 
     /// Apply one observation `(key, value)` using the configured
@@ -228,12 +240,7 @@ impl TestTimeRegressor {
     /// `lr > 0` via the `lr` field passed in by caller).
     /// For `LinearRecurrence` and `ClosedFormLeastSquares`: rejects —
     /// those need extra parameters not modeled at substrate floor.
-    pub fn observe(
-        &mut self,
-        key: &[f32],
-        value: &[f32],
-        lr: f32,
-    ) -> Result<(), RegressionError> {
+    pub fn observe(&mut self, key: &[f32], value: &[f32], lr: f32) -> Result<(), RegressionError> {
         if key.len() != self.cols() {
             return Err(RegressionError::KeyDimMismatch {
                 expected_rows: self.cols(),
@@ -291,11 +298,7 @@ impl TestTimeRegressor {
     /// `L = ‖W·key − value‖² / value.len()` — mean over the output
     /// dimensions (matches the MSE convention rather than total
     /// squared error so the value is comparable across rows-counts).
-    pub fn predict_loss(
-        &self,
-        key: &[f32],
-        value: &[f32],
-    ) -> Result<f32, RegressionError> {
+    pub fn predict_loss(&self, key: &[f32], value: &[f32]) -> Result<f32, RegressionError> {
         if key.len() != self.cols() {
             return Err(RegressionError::KeyDimMismatch {
                 expected_rows: self.cols(),
@@ -391,7 +394,10 @@ mod tests {
         );
         assert_eq!(r.rows(), 3);
         assert_eq!(r.cols(), 5);
-        assert!(r.regression_weights.iter().all(|row| row.iter().all(|&v| v == 0.0)));
+        assert!(r
+            .regression_weights
+            .iter()
+            .all(|row| row.iter().all(|&v| v == 0.0)));
     }
 
     #[test]
@@ -492,7 +498,10 @@ mod tests {
         let err = r.observe(&[1.0, 2.0], &[1.0, 2.0], 0.0).unwrap_err();
         assert_eq!(
             err,
-            RegressionError::KeyDimMismatch { expected_rows: 3, key_len: 2 }
+            RegressionError::KeyDimMismatch {
+                expected_rows: 3,
+                key_len: 2
+            }
         );
     }
 
@@ -507,7 +516,10 @@ mod tests {
         let err = r.observe(&[1.0, 2.0, 3.0], &[1.0], 0.0).unwrap_err();
         assert_eq!(
             err,
-            RegressionError::ValueDimMismatch { expected_cols: 2, value_len: 1 }
+            RegressionError::ValueDimMismatch {
+                expected_cols: 2,
+                value_len: 1
+            }
         );
     }
 
@@ -520,7 +532,10 @@ mod tests {
             OptimizationAlgorithm::LinearRecurrence,
         );
         r.observe(&[1.0, 2.0], &[3.0, 4.0], 0.1).unwrap();
-        assert!(r.regression_weights.iter().all(|row| row.iter().all(|&v| v == 0.0)));
+        assert!(r
+            .regression_weights
+            .iter()
+            .all(|row| row.iter().all(|&v| v == 0.0)));
     }
 
     #[test]
@@ -532,7 +547,10 @@ mod tests {
             OptimizationAlgorithm::ClosedFormLeastSquares,
         );
         r.observe(&[1.0, 2.0], &[3.0, 4.0], 0.1).unwrap();
-        assert!(r.regression_weights.iter().all(|row| row.iter().all(|&v| v == 0.0)));
+        assert!(r
+            .regression_weights
+            .iter()
+            .all(|row| row.iter().all(|&v| v == 0.0)));
     }
 
     #[test]
@@ -719,11 +737,17 @@ mod tests {
             assert_ne!(a.is_per_step_at_substrate(), a.is_substrate_noop());
         }
         assert_eq!(
-            OptimizationAlgorithm::ALL.iter().filter(|a| a.is_per_step_at_substrate()).count(),
+            OptimizationAlgorithm::ALL
+                .iter()
+                .filter(|a| a.is_per_step_at_substrate())
+                .count(),
             2,
         );
         assert_eq!(
-            OptimizationAlgorithm::ALL.iter().filter(|a| a.is_substrate_noop()).count(),
+            OptimizationAlgorithm::ALL
+                .iter()
+                .filter(|a| a.is_substrate_noop())
+                .count(),
             2,
         );
     }
@@ -732,13 +756,12 @@ mod tests {
     fn noop_optimizer_observe_leaves_weights_zero() {
         // Cross-surface invariant: is_substrate_noop optimizers leave
         // weights at the zero-initialized state after observe.
-        for opt in OptimizationAlgorithm::ALL.iter().copied().filter(|a| a.is_substrate_noop()) {
-            let mut r = TestTimeRegressor::zeros(
-                2,
-                2,
-                RegressorFunctionClass::Identity,
-                opt,
-            );
+        for opt in OptimizationAlgorithm::ALL
+            .iter()
+            .copied()
+            .filter(|a| a.is_substrate_noop())
+        {
+            let mut r = TestTimeRegressor::zeros(2, 2, RegressorFunctionClass::Identity, opt);
             r.observe(&[1.0, 2.0], &[3.0, 4.0], 0.1).unwrap();
             assert!(r.is_zero_weights(), "optimizer={:?} mutated weights", opt);
         }
@@ -747,8 +770,14 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            RegressionError::KeyDimMismatch { expected_rows: 1, key_len: 2 },
-            RegressionError::ValueDimMismatch { expected_cols: 1, value_len: 2 },
+            RegressionError::KeyDimMismatch {
+                expected_rows: 1,
+                key_len: 2,
+            },
+            RegressionError::ValueDimMismatch {
+                expected_cols: 1,
+                value_len: 2,
+            },
             RegressionError::NonPositiveLearningRate { lr: 0.0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -758,8 +787,14 @@ mod tests {
     #[test]
     fn error_classifier_partition() {
         let variants = [
-            RegressionError::KeyDimMismatch { expected_rows: 1, key_len: 2 },
-            RegressionError::ValueDimMismatch { expected_cols: 1, value_len: 2 },
+            RegressionError::KeyDimMismatch {
+                expected_rows: 1,
+                key_len: 2,
+            },
+            RegressionError::ValueDimMismatch {
+                expected_cols: 1,
+                value_len: 2,
+            },
             RegressionError::NonPositiveLearningRate { lr: 0.0 },
         ];
         // Cross-surface invariant: is_dim_error XOR is_hyperparam_error.
@@ -767,7 +802,10 @@ mod tests {
             assert_ne!(e.is_dim_error(), e.is_hyperparam_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_dim_error()).count(), 2);
-        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_hyperparam_error()).count(),
+            1
+        );
     }
 
     #[test]

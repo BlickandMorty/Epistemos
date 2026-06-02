@@ -19,8 +19,8 @@
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind, EidosSpan,
 };
 
 /// One archived document in the toy raw-archive backend.
@@ -73,11 +73,7 @@ impl EidosRetriever for InMemoryRawArchive {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         // Empty query text is *not* a wildcard. Treat as no-result defer so
         // callers cannot accidentally bulk-fetch the archive.
         if is_blank_query_text(&query.text) {
@@ -151,8 +147,16 @@ mod tests {
     fn build() -> InMemoryRawArchive {
         let mut a = InMemoryRawArchive::new(manifest());
         a.insert(doc("note-001"), "first note body", EidosSourceKind::Note);
-        a.insert(doc("epdoc-tropical"), "{\"kind\":\"epdoc\"}", EidosSourceKind::Epdoc);
-        a.insert(doc("chat-2024-01-01"), "chat transcript", EidosSourceKind::Chat);
+        a.insert(
+            doc("epdoc-tropical"),
+            "{\"kind\":\"epdoc\"}",
+            EidosSourceKind::Epdoc,
+        );
+        a.insert(
+            doc("chat-2024-01-01"),
+            "chat transcript",
+            EidosSourceKind::Chat,
+        );
         a
     }
 
@@ -220,7 +224,11 @@ mod tests {
     #[test]
     fn invisible_only_query_text_returns_empty_packet() {
         let mut archive = InMemoryRawArchive::new(manifest());
-        archive.insert(doc("\u{200B}"), "invisible id body", EidosSourceKind::RawArchive);
+        archive.insert(
+            doc("\u{200B}"),
+            "invisible id body",
+            EidosSourceKind::RawArchive,
+        );
         let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::RawArchive, 8);
         let packet = archive.retrieve(&q, 1_700_000_000_000);
         assert!(
@@ -246,10 +254,7 @@ mod tests {
         let q = EidosQuery::new("文档-Привет-école", EidosRetrievalMode::RawArchive, 8);
         let packet = archive.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
-        assert_eq!(
-            packet.hits[0].source_id.as_str(),
-            "文档-Привет-école::raw"
-        );
+        assert_eq!(packet.hits[0].source_id.as_str(), "文档-Привет-école::raw");
     }
 
     #[test]

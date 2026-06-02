@@ -46,8 +46,14 @@ pub struct LoraHotSwapManager {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LoraSwapError {
     ZeroCapacity,
-    LoraTooLarge { id_byte_size: u64, capacity: u64 },
-    PerCompanionCeilingExceeded { companion_id_size: u64, ceiling: u64 },
+    LoraTooLarge {
+        id_byte_size: u64,
+        capacity: u64,
+    },
+    PerCompanionCeilingExceeded {
+        companion_id_size: u64,
+        ceiling: u64,
+    },
     AdapterNotFound,
 }
 
@@ -56,7 +62,10 @@ impl LoraHotSwapManager {
         if pool_capacity_bytes == 0 {
             return Err(LoraSwapError::ZeroCapacity);
         }
-        Ok(Self { pool_capacity_bytes, loaded: Vec::new() })
+        Ok(Self {
+            pool_capacity_bytes,
+            loaded: Vec::new(),
+        })
     }
 
     pub fn current_bytes(&self) -> u64 {
@@ -64,7 +73,8 @@ impl LoraHotSwapManager {
     }
 
     pub fn free_bytes(&self) -> u64 {
-        self.pool_capacity_bytes.saturating_sub(self.current_bytes())
+        self.pool_capacity_bytes
+            .saturating_sub(self.current_bytes())
     }
 
     pub fn bytes_for_companion(&self, companion_id: &str) -> u64 {
@@ -263,22 +273,30 @@ mod tests {
         let mut m =
             LoraHotSwapManager::new(PER_COMPANION_CEILING_BYTES + LORA_BYTES_PER_ADAPTER).unwrap();
         for i in 0..50 {
-            m.swap_in(lora(&format!("a{}", i), LORA_BYTES_PER_ADAPTER, "c1", i)).unwrap();
+            m.swap_in(lora(&format!("a{}", i), LORA_BYTES_PER_ADAPTER, "c1", i))
+                .unwrap();
         }
         let err = m
             .swap_in(lora("overflow", LORA_BYTES_PER_ADAPTER, "c1", 50))
             .unwrap_err();
-        assert!(matches!(err, LoraSwapError::PerCompanionCeilingExceeded { .. }));
+        assert!(matches!(
+            err,
+            LoraSwapError::PerCompanionCeilingExceeded { .. }
+        ));
     }
 
     #[test]
     fn lru_eviction_makes_room() {
         let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
-        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
-        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
-        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100))
+            .unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200))
+            .unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300))
+            .unwrap();
         assert_eq!(m.loaded.len(), 3);
-        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400)).unwrap();
+        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400))
+            .unwrap();
         assert_eq!(m.loaded.len(), 3);
         assert!(m.loaded.iter().all(|d| d.id != "oldest"));
     }
@@ -301,11 +319,15 @@ mod tests {
     #[test]
     fn touch_updates_last_used_for_lru() {
         let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
-        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
-        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
-        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100))
+            .unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200))
+            .unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300))
+            .unwrap();
         m.touch("oldest", 500).unwrap();
-        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400)).unwrap();
+        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400))
+            .unwrap();
         assert!(m.loaded.iter().any(|d| d.id == "oldest"));
         assert!(!m.loaded.iter().any(|d| d.id == "middle"));
     }
@@ -379,7 +401,8 @@ mod tests {
     fn contains_aligns_with_touch_result() {
         // Cross-surface: contains(id) iff touch(id, _) returns Ok.
         let mut m = LoraHotSwapManager::new(100 * 1024 * 1024).unwrap();
-        m.swap_in(lora("present", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        m.swap_in(lora("present", 50 * 1024 * 1024, "c1", 0))
+            .unwrap();
         assert_eq!(m.contains("present"), m.touch("present", 5).is_ok());
         assert_eq!(m.contains("absent"), m.touch("absent", 5).is_ok());
     }
@@ -414,9 +437,12 @@ mod tests {
     #[test]
     fn lru_and_mru_identify_extreme_last_used() {
         let mut m = LoraHotSwapManager::new(300 * 1024 * 1024).unwrap();
-        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
-        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
-        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100))
+            .unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200))
+            .unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300))
+            .unwrap();
         assert_eq!(m.lru_id(), Some("oldest"));
         assert_eq!(m.mru_id(), Some("newest"));
     }
@@ -425,11 +451,15 @@ mod tests {
     fn lru_is_first_eviction_target() {
         // Cross-surface: when swap_in needs to evict, it removes lru_id().
         let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
-        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
-        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
-        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100))
+            .unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200))
+            .unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300))
+            .unwrap();
         let expected_evict = m.lru_id().unwrap().to_string();
-        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400)).unwrap();
+        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400))
+            .unwrap();
         assert!(!m.contains(&expected_evict));
     }
 
@@ -449,8 +479,14 @@ mod tests {
     fn error_classifiers_partition_variants() {
         let errors = [
             LoraSwapError::ZeroCapacity,
-            LoraSwapError::LoraTooLarge { id_byte_size: 0, capacity: 0 },
-            LoraSwapError::PerCompanionCeilingExceeded { companion_id_size: 0, ceiling: 0 },
+            LoraSwapError::LoraTooLarge {
+                id_byte_size: 0,
+                capacity: 0,
+            },
+            LoraSwapError::PerCompanionCeilingExceeded {
+                companion_id_size: 0,
+                ceiling: 0,
+            },
             LoraSwapError::AdapterNotFound,
         ];
         for e in errors.iter() {

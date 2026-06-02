@@ -54,17 +54,28 @@ pub struct RealReluLayer {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealReluLayerError {
-    NonRectangular { expected_cols: usize, actual_cols: usize, row: usize },
-    BiasShapeMismatch { expected: usize, actual: usize },
-    NonFiniteWeight { row: usize, col: usize, value: f64 },
-    NonFiniteBias { row: usize, value: f64 },
+    NonRectangular {
+        expected_cols: usize,
+        actual_cols: usize,
+        row: usize,
+    },
+    BiasShapeMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    NonFiniteWeight {
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    NonFiniteBias {
+        row: usize,
+        value: f64,
+    },
 }
 
 impl RealReluLayer {
-    pub fn new(
-        weights: Vec<Vec<f64>>,
-        biases: Vec<f64>,
-    ) -> Result<Self, RealReluLayerError> {
+    pub fn new(weights: Vec<Vec<f64>>, biases: Vec<f64>) -> Result<Self, RealReluLayerError> {
         if biases.len() != weights.len() {
             return Err(RealReluLayerError::BiasShapeMismatch {
                 expected: weights.len(),
@@ -130,10 +141,7 @@ pub fn compile_real_relu_layer(layer: &RealReluLayer) -> Vec<TropicalExpr> {
             .collect();
         affine_parts.push(TropicalExpr::constant(bias));
         let affine = fold_plus(affine_parts);
-        out.push(TropicalExpr::max(vec![
-            TropicalExpr::constant(0.0),
-            affine,
-        ]));
+        out.push(TropicalExpr::max(vec![TropicalExpr::constant(0.0), affine]));
     }
     out
 }
@@ -155,11 +163,7 @@ pub fn compile_real_relu_layer(layer: &RealReluLayer) -> Vec<TropicalExpr> {
 ///
 /// Iter-87 — neural max-pool as a tropical rational. Pure
 /// (max, +) operation with no Plus/Scale nodes.
-pub fn compile_max_pool(
-    input_dim: usize,
-    window: usize,
-    stride: usize,
-) -> Vec<TropicalExpr> {
+pub fn compile_max_pool(input_dim: usize, window: usize, stride: usize) -> Vec<TropicalExpr> {
     assert!(window >= 1, "max-pool window must be ≥ 1");
     assert!(stride >= 1, "max-pool stride must be ≥ 1");
     assert!(window <= input_dim, "window > input_dim");
@@ -168,9 +172,7 @@ pub fn compile_max_pool(
     let mut out = Vec::with_capacity(num_outputs);
     for o in 0..num_outputs {
         let start = o * stride;
-        let args: Vec<TropicalExpr> = (start..start + window)
-            .map(TropicalExpr::var)
-            .collect();
+        let args: Vec<TropicalExpr> = (start..start + window).map(TropicalExpr::var).collect();
         out.push(TropicalExpr::max(args));
     }
     out
@@ -187,11 +189,7 @@ pub fn compile_max_pool(
 /// Iter-129 — anti-tropical companion of [`compile_max_pool`]
 /// (iter-87). Used in some convolutional architectures for
 /// "min-pooling" attention-like operations.
-pub fn compile_min_pool(
-    input_dim: usize,
-    window: usize,
-    stride: usize,
-) -> Vec<TropicalExpr> {
+pub fn compile_min_pool(input_dim: usize, window: usize, stride: usize) -> Vec<TropicalExpr> {
     assert!(window >= 1, "min-pool window must be ≥ 1");
     assert!(stride >= 1, "min-pool stride must be ≥ 1");
     assert!(window <= input_dim, "window > input_dim");
@@ -200,9 +198,7 @@ pub fn compile_min_pool(
     let mut out = Vec::with_capacity(num_outputs);
     for o in 0..num_outputs {
         let start = o * stride;
-        let args: Vec<TropicalExpr> = (start..start + window)
-            .map(TropicalExpr::var)
-            .collect();
+        let args: Vec<TropicalExpr> = (start..start + window).map(TropicalExpr::var).collect();
         out.push(TropicalExpr::min(args));
     }
     out
@@ -211,11 +207,7 @@ pub fn compile_min_pool(
 /// Direct min-pool oracle for [`compile_min_pool`].
 ///
 /// Iter-129 — companion direct evaluator for property-testing.
-pub fn evaluate_min_pool_directly(
-    input: &[f64],
-    window: usize,
-    stride: usize,
-) -> Vec<f64> {
+pub fn evaluate_min_pool_directly(input: &[f64], window: usize, stride: usize) -> Vec<f64> {
     let input_dim = input.len();
     let num_outputs = (input_dim - window) / stride + 1;
     let mut out = Vec::with_capacity(num_outputs);
@@ -233,11 +225,7 @@ pub fn evaluate_min_pool_directly(
 /// Direct max-pool oracle for [`compile_max_pool`].
 ///
 /// Iter-87 — companion direct evaluator for property-testing.
-pub fn evaluate_max_pool_directly(
-    input: &[f64],
-    window: usize,
-    stride: usize,
-) -> Vec<f64> {
+pub fn evaluate_max_pool_directly(input: &[f64], window: usize, stride: usize) -> Vec<f64> {
     let input_dim = input.len();
     let num_outputs = (input_dim - window) / stride + 1;
     let mut out = Vec::with_capacity(num_outputs);
@@ -254,10 +242,7 @@ pub fn evaluate_max_pool_directly(
 
 /// Direct real-weight ReLU evaluator — the property-test oracle for
 /// [`compile_real_relu_layer`].
-pub fn evaluate_real_relu_layer_directly(
-    layer: &RealReluLayer,
-    valuation: &[f64],
-) -> Vec<f64> {
+pub fn evaluate_real_relu_layer_directly(layer: &RealReluLayer, valuation: &[f64]) -> Vec<f64> {
     let mut out = Vec::with_capacity(layer.output_dim());
     for (i, row) in layer.weights.iter().enumerate() {
         let mut sum = layer.biases[i];
@@ -285,7 +270,11 @@ pub struct BinaryReluLayer {
 #[derive(Clone, Debug, PartialEq)]
 pub enum BinaryReluLayerError {
     /// Weight matrix is not rectangular.
-    NonRectangular { expected_cols: usize, actual_cols: usize, row: usize },
+    NonRectangular {
+        expected_cols: usize,
+        actual_cols: usize,
+        row: usize,
+    },
     /// A weight cell is not 0 or 1.
     NonBinaryWeight { row: usize, col: usize, value: u8 },
     /// Bias vector length doesn't match the weight matrix rows.
@@ -294,10 +283,7 @@ pub enum BinaryReluLayerError {
 
 impl BinaryReluLayer {
     /// Construct + validate. Returns the layer or a shape error.
-    pub fn new(
-        weights: Vec<Vec<u8>>,
-        biases: Vec<f64>,
-    ) -> Result<Self, BinaryReluLayerError> {
+    pub fn new(weights: Vec<Vec<u8>>, biases: Vec<f64>) -> Result<Self, BinaryReluLayerError> {
         if biases.len() != weights.len() {
             return Err(BinaryReluLayerError::BiasShapeMismatch {
                 expected: weights.len(),
@@ -362,10 +348,7 @@ pub fn compile_relu_layer(layer: &BinaryReluLayer) -> Vec<TropicalExpr> {
             .collect();
         affine_parts.push(TropicalExpr::constant(bias));
         let affine = fold_plus(affine_parts);
-        out.push(TropicalExpr::max(vec![
-            TropicalExpr::constant(0.0),
-            affine,
-        ]));
+        out.push(TropicalExpr::max(vec![TropicalExpr::constant(0.0), affine]));
     }
     out
 }
@@ -389,10 +372,7 @@ fn fold_plus(parts: Vec<TropicalExpr>) -> TropicalExpr {
 /// compares the compiled TropicalExpr against). Operates on the
 /// same `BinaryReluLayer` + valuation that
 /// [`compile_relu_layer`] consumes.
-pub fn evaluate_relu_layer_directly(
-    layer: &BinaryReluLayer,
-    valuation: &[f64],
-) -> Vec<f64> {
+pub fn evaluate_relu_layer_directly(layer: &BinaryReluLayer, valuation: &[f64]) -> Vec<f64> {
     let mut out = Vec::with_capacity(layer.output_dim());
     for (i, row) in layer.weights.iter().enumerate() {
         let mut sum = layer.biases[i];
@@ -454,7 +434,12 @@ mod max_pool_tests_iter_87 {
                 let v = evaluate(tree, &input_slice).unwrap();
                 assert!(
                     (v - expected).abs() < 1e-12,
-                    "n={}, w={}, s={}: tree={}, direct={}", n, w, s, v, expected
+                    "n={}, w={}, s={}: tree={}, direct={}",
+                    n,
+                    w,
+                    s,
+                    v,
+                    expected
                 );
             }
         }
@@ -519,7 +504,12 @@ mod max_pool_tests_iter_87 {
         for (mt, xt) in min_trees.iter().zip(max_trees.iter()) {
             let min_v = evaluate(mt, &input).unwrap();
             let max_v = evaluate(xt, &neg_input).unwrap();
-            assert!((min_v + max_v).abs() < 1e-12, "min={}, neg_max={}", min_v, -max_v);
+            assert!(
+                (min_v + max_v).abs() < 1e-12,
+                "min={}, neg_max={}",
+                min_v,
+                -max_v
+            );
         }
     }
 
@@ -623,15 +613,14 @@ mod tests {
         ];
         for x in &fixtures {
             let direct = evaluate_relu_layer_directly(&l, x);
-            let compiled: Vec<f64> = trees
-                .iter()
-                .map(|t| evaluate(t, x).unwrap())
-                .collect();
+            let compiled: Vec<f64> = trees.iter().map(|t| evaluate(t, x).unwrap()).collect();
             assert_eq!(
                 direct.to_bits_vec(),
                 compiled.to_bits_vec(),
                 "input {:?} direct={:?} compiled={:?}",
-                x, direct, compiled
+                x,
+                direct,
+                compiled
             );
         }
     }
@@ -651,28 +640,24 @@ mod tests {
     fn new_rejects_non_binary_weight() {
         let err = BinaryReluLayer::new(vec![vec![1, 2]], vec![0.0]).unwrap_err();
         match err {
-            BinaryReluLayerError::NonBinaryWeight { row: 0, col: 1, value: 2 } => {}
+            BinaryReluLayerError::NonBinaryWeight {
+                row: 0,
+                col: 1,
+                value: 2,
+            } => {}
             other => panic!("unexpected error: {:?}", other),
         }
     }
 
     #[test]
     fn new_rejects_non_rectangular_weights() {
-        let err = BinaryReluLayer::new(
-            vec![vec![1, 0], vec![1]],
-            vec![0.0, 0.0],
-        )
-        .unwrap_err();
-        assert!(matches!(
-            err,
-            BinaryReluLayerError::NonRectangular { .. }
-        ));
+        let err = BinaryReluLayer::new(vec![vec![1, 0], vec![1]], vec![0.0, 0.0]).unwrap_err();
+        assert!(matches!(err, BinaryReluLayerError::NonRectangular { .. }));
     }
 
     #[test]
     fn new_rejects_bias_shape_mismatch() {
-        let err = BinaryReluLayer::new(vec![vec![1, 0]], vec![0.0, 1.0])
-            .unwrap_err();
+        let err = BinaryReluLayer::new(vec![vec![1, 0]], vec![0.0, 1.0]).unwrap_err();
         assert_eq!(
             err,
             BinaryReluLayerError::BiasShapeMismatch {
@@ -746,8 +731,7 @@ mod tests {
 
     #[test]
     fn real_layer_rejects_bias_mismatch() {
-        let err =
-            RealReluLayer::new(vec![vec![1.0]], vec![0.0, 0.0]).unwrap_err();
+        let err = RealReluLayer::new(vec![vec![1.0]], vec![0.0, 0.0]).unwrap_err();
         assert_eq!(
             err,
             RealReluLayerError::BiasShapeMismatch {
@@ -768,14 +752,8 @@ mod tests {
         // y = max(0, 1.0 * x_0). At x=2 → 2; at x=-1 → 0.
         let l = real_layer(vec![vec![1.0]], vec![0.0]);
         let trees = compile_real_relu_layer(&l);
-        assert_eq!(
-            evaluate(&trees[0], &[2.0]).unwrap(),
-            2.0
-        );
-        assert_eq!(
-            evaluate(&trees[0], &[-1.0]).unwrap(),
-            0.0
-        );
+        assert_eq!(evaluate(&trees[0], &[2.0]).unwrap(), 2.0);
+        assert_eq!(evaluate(&trees[0], &[-1.0]).unwrap(), 0.0);
     }
 
     #[test]
@@ -822,10 +800,7 @@ mod tests {
         ];
         for x in &fixtures {
             let direct = evaluate_real_relu_layer_directly(&l, x);
-            let compiled: Vec<f64> = trees
-                .iter()
-                .map(|t| evaluate(t, x).unwrap())
-                .collect();
+            let compiled: Vec<f64> = trees.iter().map(|t| evaluate(t, x).unwrap()).collect();
             // Compare as bit patterns (handles 0 vs -0 and NaN strictly).
             let d_bits: Vec<u64> = direct.iter().map(|v| v.to_bits()).collect();
             let c_bits: Vec<u64> = compiled.iter().map(|v| v.to_bits()).collect();
@@ -845,10 +820,7 @@ mod tests {
         let trees = compile_real_relu_layer(&l);
         // y = max(0, 1.5 * x_1 - 2 * x_3 + 0.5) at x=(99, 4, 99, 1)
         // = max(0, 6 - 2 + 0.5) = 4.5.
-        assert_eq!(
-            evaluate(&trees[0], &[99.0, 4.0, 99.0, 1.0]).unwrap(),
-            4.5
-        );
+        assert_eq!(evaluate(&trees[0], &[99.0, 4.0, 99.0, 1.0]).unwrap(), 4.5);
     }
 
     #[test]

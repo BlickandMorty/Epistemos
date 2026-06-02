@@ -41,6 +41,7 @@ pub const MAX_CONCURRENT_RUNS: usize = 64;
 pub const TERMINATED_RUN_RETENTION: Duration = Duration::from_secs(60);
 
 use super::answer::AnswerPacket;
+use super::blueprint::ProviderPolicy;
 use super::budget::BudgetSpec;
 use super::mission::{MissionPacket, MissionPromptError};
 use super::mission_run::MissionRun;
@@ -56,10 +57,7 @@ pub enum SystemGAgentEvent {
     /// First event of a turn. `plan` is the executor's high-level
     /// dispatch summary (synthesized in V1; a real planner emits it
     /// once the model commits to a strategy).
-    PlanStart {
-        turn_id: String,
-        plan: String,
-    },
+    PlanStart { turn_id: String, plan: String },
     /// Executor invoked a tool. `args_json` is the raw JSON payload
     /// the executor sent — opaque to the seam; the Swift UI surfaces
     /// it verbatim for replay.
@@ -79,9 +77,17 @@ pub enum SystemGAgentEvent {
     },
     /// Streaming text delta. Concatenation of every `token_chunk`
     /// within a turn reproduces the final answer body.
-    TokenChunk {
+    TokenChunk { turn_id: String, text: String },
+    /// Provider-aware route handoff for local MLX/GGUF generation.
+    /// Rust owns route admission and the witnessed provider policy;
+    /// the Swift host owns the live local model client. The event is
+    /// terminal for the Rust registry (the Rust leg is complete) but
+    /// non-terminal for the Swift RunEventLog, which appends live
+    /// `token_chunk` events and a final `complete` after generation.
+    LocalModelHandoff {
         turn_id: String,
-        text: String,
+        model_id: String,
+        provider_policy_json: String,
     },
     /// Terminal — happy path. `answer_packet_id` is the seam's
     /// stable identifier for the produced `AnswerPacket` (V1 uses
@@ -92,16 +98,16 @@ pub enum SystemGAgentEvent {
     },
     /// Terminal — unhappy path. `error` carries a human-readable
     /// summary; the Swift seam surfaces it as `SystemGRunSeamError.ffi`.
-    Failed {
-        turn_id: String,
-        error: String,
-    },
+    Failed { turn_id: String, error: String },
 }
 
 impl SystemGAgentEvent {
     #[must_use]
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Complete { .. } | Self::Failed { .. })
+        matches!(
+            self,
+            Self::Complete { .. } | Self::Failed { .. } | Self::LocalModelHandoff { .. }
+        )
     }
 }
 
@@ -110,6 +116,13 @@ pub enum SystemGRuntimeError {
     /// `start_run`: the supplied `mission_json` failed JSON decode.
     /// Carries the serde error message for log triage.
     Decode(String),
+    /// Provider-aware start: the supplied `provider_policy_json` failed
+    /// JSON decode. Kept distinct from mission decode so the operator can
+    /// triage whether the mission envelope or executor selection drifted.
+    DecodeProviderPolicy(String),
+    /// Provider-aware start: the decoded provider policy is structurally valid
+    /// JSON but cannot produce an honest route.
+    InvalidProviderPolicy(String),
     /// `start_run`: the mission prompt exceeded
     /// `MissionPacket::MAX_PROMPT_BYTES`. Pre-empts any provider
     /// call so the executor never sees an over-budget input.
@@ -133,14 +146,15 @@ impl std::fmt::Display for SystemGRuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Decode(m) => write!(f, "mission JSON decode: {m}"),
+            Self::DecodeProviderPolicy(m) => write!(f, "provider policy JSON decode: {m}"),
+            Self::InvalidProviderPolicy(m) => write!(f, "provider policy invalid: {m}"),
             Self::PromptOversize { size, cap } => {
                 write!(f, "mission prompt {size} bytes exceeds cap {cap}")
             }
             Self::UnknownRun(id) => write!(f, "unknown run_id: {id}"),
-            Self::CapacityExhausted { in_flight, cap } => write!(
-                f,
-                "registry at capacity: {in_flight}/{cap} in-flight runs"
-            ),
+            Self::CapacityExhausted { in_flight, cap } => {
+                write!(f, "registry at capacity: {in_flight}/{cap} in-flight runs")
+            }
             Self::Internal(m) => write!(f, "internal: {m}"),
         }
     }
@@ -149,9 +163,7 @@ impl std::fmt::Display for SystemGRuntimeError {
 impl From<MissionPromptError> for SystemGRuntimeError {
     fn from(e: MissionPromptError) -> Self {
         match e {
-            MissionPromptError::OversizePrompt { size, cap } => {
-                Self::PromptOversize { size, cap }
-            }
+            MissionPromptError::OversizePrompt { size, cap } => Self::PromptOversize { size, cap },
         }
     }
 }
@@ -208,9 +220,7 @@ fn execute_v1_dispatch(packet: &MissionPacket, turn_id: &str) -> (Vec<SystemGAge
     let run = MissionRun::new(
         packet.blueprint_id.clone(),
         BudgetSpec::new(
-            /* max_tokens */ 4_096,
-            /* max_wall_ms */ 5_000,
-            /* max_tool_calls */ 4,
+            /* max_tokens */ 4_096, /* max_wall_ms */ 5_000, /* max_tool_calls */ 4,
             /* max_subprocess_ms */ 0,
         ),
     );
@@ -230,13 +240,148 @@ fn execute_v1_dispatch(packet: &MissionPacket, turn_id: &str) -> (Vec<SystemGAge
     // The packet's `run_event_log_root` is the witness hash; the seam
     // surfaces it (hex-encoded) as the `answer_packet_id` so Swift can
     // resolve the packet through `AnswerPacketEmitter.shared`.
-    let answer: AnswerPacket = run.finalize(packet.user_prompt.clone(), Vec::new(), StopReason::EndTurn);
+    let answer: AnswerPacket =
+        run.finalize(packet.user_prompt.clone(), Vec::new(), StopReason::EndTurn);
     let answer_packet_id = answer.run_event_log_root.to_hex();
     events.push(SystemGAgentEvent::Complete {
         turn_id: turn_id.to_string(),
         answer_packet_id: answer_packet_id.clone(),
     });
     (events, answer_packet_id)
+}
+
+/// Compose the provider-aware route. `ProviderPolicy::LocalMlx` is a real
+/// host handoff: Rust admits the route and records the exact provider policy,
+/// then Swift performs live MLX/GGUF generation and appends token chunks to the
+/// same RunEventLog. Other provider families remain fail-closed until their
+/// executors are bound.
+fn execute_provider_policy_route(
+    packet: &MissionPacket,
+    provider_policy: &ProviderPolicy,
+    turn_id: &str,
+) -> Vec<SystemGAgentEvent> {
+    if let ProviderPolicy::LocalMlx { model_id } = provider_policy {
+        let provider_policy_json = serde_json::to_string(provider_policy)
+            .unwrap_or_else(|_| "{\"kind\":\"local_mlx\",\"model_id\":\"<encode_error>\"}".into());
+        return vec![
+            SystemGAgentEvent::PlanStart {
+                turn_id: turn_id.to_string(),
+                plan: format!(
+                    "Execute mission with ProviderPolicy::LocalMlx model_id={model_id}: {}",
+                    packet.user_prompt
+                ),
+            },
+            SystemGAgentEvent::LocalModelHandoff {
+                turn_id: turn_id.to_string(),
+                model_id: model_id.clone(),
+                provider_policy_json,
+            },
+        ];
+    }
+
+    let (plan, error) = match provider_policy {
+        ProviderPolicy::LocalMlx { .. } => unreachable!("local mlx handled above"),
+        ProviderPolicy::AnthropicMessages { model } => (
+            format!(
+                "Execute mission with AnthropicMessages model={model}: {}",
+                packet.user_prompt
+            ),
+            "provider_not_bound: AnthropicMessages is not bound in the local System G runtime"
+                .to_string(),
+        ),
+        ProviderPolicy::OpenAIResponses { model } => (
+            format!(
+                "Execute mission with OpenAIResponses model={model}: {}",
+                packet.user_prompt
+            ),
+            "provider_not_bound: OpenAIResponses is not bound in the local System G runtime"
+                .to_string(),
+        ),
+        ProviderPolicy::OpenAICompatible { base_url, model } => (
+            format!(
+                "Execute mission with OpenAICompatible base_url={base_url} model={model}: {}",
+                packet.user_prompt
+            ),
+            "provider_not_bound: OpenAICompatible is not bound in the local System G runtime"
+                .to_string(),
+        ),
+        ProviderPolicy::Mcp { server_id } => (
+            format!(
+                "Execute mission with MCP server_id={server_id}: {}",
+                packet.user_prompt
+            ),
+            "provider_not_bound: MCP provider execution is not bound in the local System G runtime"
+                .to_string(),
+        ),
+        ProviderPolicy::ProCli { adapter, command } => (
+            format!(
+                "Execute mission with ProCli adapter={adapter:?} command={command}: {}",
+                packet.user_prompt
+            ),
+            "provider_not_bound: ProCli execution is not bound in the local System G runtime"
+                .to_string(),
+        ),
+    };
+
+    vec![
+        SystemGAgentEvent::PlanStart {
+            turn_id: turn_id.to_string(),
+            plan,
+        },
+        SystemGAgentEvent::Failed {
+            turn_id: turn_id.to_string(),
+            error,
+        },
+    ]
+}
+
+fn validate_provider_policy_for_system_g(
+    provider_policy: &ProviderPolicy,
+) -> Result<(), SystemGRuntimeError> {
+    match provider_policy {
+        ProviderPolicy::LocalMlx { model_id } => {
+            validate_provider_policy_field("LocalMlx model_id", model_id)?;
+        }
+        ProviderPolicy::AnthropicMessages { model } => {
+            validate_provider_policy_field("AnthropicMessages model", model)?;
+        }
+        ProviderPolicy::OpenAIResponses { model } => {
+            validate_provider_policy_field("OpenAIResponses model", model)?;
+        }
+        ProviderPolicy::OpenAICompatible { base_url, model } => {
+            validate_provider_policy_field("OpenAICompatible base_url", base_url)?;
+            validate_provider_policy_field("OpenAICompatible model", model)?;
+        }
+        ProviderPolicy::Mcp { server_id } => {
+            validate_provider_policy_field("MCP server_id", server_id)?;
+        }
+        ProviderPolicy::ProCli { command, .. } => {
+            validate_provider_policy_field("ProCli command", command)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_provider_policy_field(
+    label: &'static str,
+    value: &str,
+) -> Result<(), SystemGRuntimeError> {
+    if value.trim().is_empty() {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} is required"
+        )));
+    }
+    if value.trim() != value {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} must not contain leading or trailing whitespace"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} must not contain control characters"
+        )));
+    }
+    Ok(())
 }
 
 /// Reap terminated runs whose `terminated_at` is at least
@@ -256,20 +401,10 @@ fn count_in_flight(map: &HashMap<String, SystemGRunState>) -> usize {
     map.values().filter(|s| s.terminated_at.is_none()).count()
 }
 
-/// Start a run for the given JSON-encoded `MissionPacket`. Returns the
-/// freshly minted `run_id`. The run is fully composed by the time this
-/// call returns; `drain_events` will pop the pending queue. Rejects
-/// with `CapacityExhausted` if `MAX_CONCURRENT_RUNS` non-terminated
-/// runs are already parked.
-pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
-    let packet: MissionPacket = serde_json::from_str(mission_json)
-        .map_err(|e| SystemGRuntimeError::Decode(e.to_string()))?;
-    packet.validate_prompt()?;
-
-    let run_id = Uuid::new_v4().to_string();
-    let turn_id = format!("turn-{}", &run_id[..8]);
-    let (events, _answer_id) = execute_v1_dispatch(&packet, &turn_id);
-
+fn insert_run_events(
+    run_id: String,
+    events: Vec<SystemGAgentEvent>,
+) -> Result<String, SystemGRuntimeError> {
     let mut state = SystemGRunState::new();
     state.pending.extend(events);
 
@@ -287,6 +422,45 @@ pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
     guard.insert(run_id.clone(), state);
     TOTAL_RUNS_DISPATCHED.fetch_add(1, Ordering::Relaxed);
     Ok(run_id)
+}
+
+/// Start a run for the given JSON-encoded `MissionPacket`. Returns the
+/// freshly minted `run_id`. The run is fully composed by the time this
+/// call returns; `drain_events` will pop the pending queue. Rejects
+/// with `CapacityExhausted` if `MAX_CONCURRENT_RUNS` non-terminated
+/// runs are already parked.
+pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
+    let packet: MissionPacket = serde_json::from_str(mission_json)
+        .map_err(|e| SystemGRuntimeError::Decode(e.to_string()))?;
+    packet.validate_prompt()?;
+
+    let run_id = Uuid::new_v4().to_string();
+    let turn_id = format!("turn-{}", &run_id[..8]);
+    let (events, _answer_id) = execute_v1_dispatch(&packet, &turn_id);
+
+    insert_run_events(run_id, events)
+}
+
+/// Start a provider-aware System G run. This is the bridge shape the
+/// local-agent adapter can hand to System G once it has admitted a route.
+/// Local MLX/GGUF emits a `local_model_handoff` for the Swift host to stream
+/// through the live local client; other provider paths terminate in `.failed`
+/// until their executors are bound.
+pub fn start_run_with_provider_policy(
+    mission_json: &str,
+    provider_policy_json: &str,
+) -> Result<String, SystemGRuntimeError> {
+    let packet: MissionPacket = serde_json::from_str(mission_json)
+        .map_err(|e| SystemGRuntimeError::Decode(e.to_string()))?;
+    packet.validate_prompt()?;
+    let provider_policy: ProviderPolicy = serde_json::from_str(provider_policy_json)
+        .map_err(|e| SystemGRuntimeError::DecodeProviderPolicy(e.to_string()))?;
+    validate_provider_policy_for_system_g(&provider_policy)?;
+
+    let run_id = Uuid::new_v4().to_string();
+    let turn_id = format!("turn-{}", &run_id[..8]);
+    let events = execute_provider_policy_route(&packet, &provider_policy, &turn_id);
+    insert_run_events(run_id, events)
 }
 
 /// Drain all pending events for a given `run_id`. Returns them in
@@ -344,8 +518,8 @@ pub fn reset_for_test() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::blueprint::AgentBlueprintId;
+    use super::*;
     use std::sync::{Mutex, MutexGuard};
 
     /// Serialises tests that mutate the process-wide registry. cargo
@@ -392,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn agent_event_is_terminal_only_for_complete_and_failed() {
+    fn agent_event_is_terminal_for_complete_failed_and_local_handoff() {
         assert!(SystemGAgentEvent::Complete {
             turn_id: "t".into(),
             answer_packet_id: "a".into()
@@ -401,6 +575,12 @@ mod tests {
         assert!(SystemGAgentEvent::Failed {
             turn_id: "t".into(),
             error: "e".into()
+        }
+        .is_terminal());
+        assert!(SystemGAgentEvent::LocalModelHandoff {
+            turn_id: "t".into(),
+            model_id: "qwen3".into(),
+            provider_policy_json: "{}".into()
         }
         .is_terminal());
         assert!(!SystemGAgentEvent::PlanStart {
@@ -440,10 +620,143 @@ mod tests {
         reset_for_test();
         let run_id = start_run(&good_mission_json()).expect("start");
         let events = drain_events(&run_id).expect("drain");
-        assert_eq!(events.len(), 3, "V1 turn is plan_start + token_chunk + complete");
+        assert_eq!(
+            events.len(),
+            3,
+            "V1 turn is plan_start + token_chunk + complete"
+        );
         assert!(matches!(events[0], SystemGAgentEvent::PlanStart { .. }));
         assert!(matches!(events[1], SystemGAgentEvent::TokenChunk { .. }));
         assert!(matches!(events[2], SystemGAgentEvent::Complete { .. }));
+    }
+
+    #[test]
+    fn start_run_with_local_mlx_provider_emits_handoff_without_token_chunks() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let provider_policy = serde_json::to_string(&ProviderPolicy::LocalMlx {
+            model_id: "qwen3-8b-mlx-4bit".into(),
+        })
+        .expect("provider encode");
+        let run_id = start_run_with_provider_policy(&good_mission_json(), &provider_policy)
+            .expect("provider-aware start");
+        let events = drain_events(&run_id).expect("drain");
+        assert_eq!(
+            events.len(),
+            2,
+            "local provider emits plan_start + local_model_handoff only"
+        );
+        assert!(matches!(events[0], SystemGAgentEvent::PlanStart { .. }));
+        match &events[1] {
+            SystemGAgentEvent::LocalModelHandoff {
+                model_id,
+                provider_policy_json,
+                ..
+            } => {
+                assert_eq!(model_id, "qwen3-8b-mlx-4bit");
+                assert!(
+                    provider_policy_json.contains("\"kind\":\"local_mlx\"")
+                        && provider_policy_json.contains("\"model_id\":\"qwen3-8b-mlx-4bit\""),
+                    "handoff must preserve exact provider policy JSON: {provider_policy_json}"
+                );
+            }
+            other => panic!("expected local model handoff, got {other:?}"),
+        }
+        assert!(
+            events
+                .iter()
+                .all(|event| !matches!(event, SystemGAgentEvent::TokenChunk { .. })),
+            "provider-aware Rust path must not synthesize token text before Swift live generation"
+        );
+        let second = drain_events(&run_id).expect("second drain after handoff still ok");
+        assert!(
+            second.is_empty(),
+            "local_model_handoff terminates the Rust leg and parks an empty queue"
+        );
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_malformed_provider_json() {
+        let err = start_run_with_provider_policy(&good_mission_json(), "{ not provider")
+            .expect_err("malformed provider policy must reject");
+        assert!(matches!(err, SystemGRuntimeError::DecodeProviderPolicy(_)));
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_empty_local_mlx_model_id_without_dispatch() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+        let provider_policy = serde_json::to_string(&ProviderPolicy::LocalMlx {
+            model_id: "  ".into(),
+        })
+        .expect("provider encode");
+
+        let err = start_run_with_provider_policy(&good_mission_json(), &provider_policy)
+            .expect_err("empty local model id must reject before dispatch");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("provider policy invalid"),
+            "unexpected error message: {message}"
+        );
+        assert_eq!(
+            registry_stats(),
+            (0, 0),
+            "invalid provider policy must not insert a run"
+        );
+        assert_eq!(
+            registry_stats_full().2,
+            dispatched_before,
+            "invalid provider policy must not bump the lifetime counter"
+        );
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_blank_unsupported_route_fields_without_dispatch() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+        let cases = [
+            ProviderPolicy::AnthropicMessages { model: " ".into() },
+            ProviderPolicy::OpenAIResponses { model: "\t".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "https://example.invalid/v1".into(),
+                model: "".into(),
+            },
+            ProviderPolicy::OpenAICompatible {
+                base_url: " ".into(),
+                model: "qwen-compatible".into(),
+            },
+            ProviderPolicy::Mcp {
+                server_id: "".into(),
+            },
+            ProviderPolicy::ProCli {
+                adapter: super::super::blueprint::CliAdapter::Codex,
+                command: " ".into(),
+            },
+        ];
+
+        for provider_policy in cases {
+            let provider_json = serde_json::to_string(&provider_policy).expect("provider encode");
+            let err = start_run_with_provider_policy(&good_mission_json(), &provider_json)
+                .expect_err("blank provider route field must reject before dispatch");
+
+            assert!(
+                matches!(err, SystemGRuntimeError::InvalidProviderPolicy(_)),
+                "expected InvalidProviderPolicy for {provider_policy:?}, got {err:?}"
+            );
+        }
+        assert_eq!(
+            registry_stats(),
+            (0, 0),
+            "invalid provider route fields must not insert runs"
+        );
+        assert_eq!(
+            registry_stats_full().2,
+            dispatched_before,
+            "invalid provider route fields must not bump the lifetime counter"
+        );
     }
 
     #[test]
@@ -477,16 +790,23 @@ mod tests {
         let run1 = start_run(&json).expect("start 1");
         let events1 = drain_events(&run1).expect("drain 1");
         let id1 = match events1.last() {
-            Some(SystemGAgentEvent::Complete { answer_packet_id, .. }) => answer_packet_id.clone(),
+            Some(SystemGAgentEvent::Complete {
+                answer_packet_id, ..
+            }) => answer_packet_id.clone(),
             other => panic!("expected Complete, got {other:?}"),
         };
         let run2 = start_run(&json).expect("start 2");
         let events2 = drain_events(&run2).expect("drain 2");
         let id2 = match events2.last() {
-            Some(SystemGAgentEvent::Complete { answer_packet_id, .. }) => answer_packet_id.clone(),
+            Some(SystemGAgentEvent::Complete {
+                answer_packet_id, ..
+            }) => answer_packet_id.clone(),
             other => panic!("expected Complete, got {other:?}"),
         };
-        assert_eq!(id1, id2, "identical missions yield identical answer_packet_id");
+        assert_eq!(
+            id1, id2,
+            "identical missions yield identical answer_packet_id"
+        );
         assert!(!id1.is_empty(), "id must be non-empty");
         assert!(id1.chars().all(|c| c.is_ascii_hexdigit()), "must be hex");
     }
@@ -518,6 +838,7 @@ mod tests {
                 SystemGAgentEvent::ToolStart { turn_id, .. } => turn_id.as_str(),
                 SystemGAgentEvent::ToolEnd { turn_id, .. } => turn_id.as_str(),
                 SystemGAgentEvent::Failed { turn_id, .. } => turn_id.as_str(),
+                SystemGAgentEvent::LocalModelHandoff { turn_id, .. } => turn_id.as_str(),
             })
             .collect();
         assert_eq!(turn_ids[0], turn_ids[1]);
@@ -595,7 +916,10 @@ mod tests {
         let _ = start_run(&good_mission_json()).expect("start triggers gc");
         // Original run still drains empty (within retention window).
         let post_gc = drain_events(&run_id).expect("still queryable after GC pass");
-        assert!(post_gc.is_empty(), "terminated run drains empty post-GC, not UnknownRun");
+        assert!(
+            post_gc.is_empty(),
+            "terminated run drains empty post-GC, not UnknownRun"
+        );
     }
 
     #[test]
@@ -610,7 +934,11 @@ mod tests {
         let _ = drain_events(&id).expect("first drain");
         assert_eq!(registry_stats().1, 0);
         let _ = drain_events(&id).expect("second drain");
-        assert_eq!(registry_stats().1, 0, "second drain must not flip back to in-flight");
+        assert_eq!(
+            registry_stats().1,
+            0,
+            "second drain must not flip back to in-flight"
+        );
     }
 
     #[test]
@@ -631,7 +959,10 @@ mod tests {
         // CodingKeys. Drift here breaks the Swift decoder silently.
         let cases: Vec<(SystemGAgentEvent, Vec<&str>)> = vec![
             (
-                SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() },
+                SystemGAgentEvent::PlanStart {
+                    turn_id: "t".into(),
+                    plan: "p".into(),
+                },
                 vec!["kind", "turn_id", "plan"],
             ),
             (
@@ -652,7 +983,10 @@ mod tests {
                 vec!["kind", "turn_id", "tool_name", "ok", "output_json"],
             ),
             (
-                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "x".into() },
+                SystemGAgentEvent::TokenChunk {
+                    turn_id: "t".into(),
+                    text: "x".into(),
+                },
                 vec!["kind", "turn_id", "text"],
             ),
             (
@@ -663,7 +997,10 @@ mod tests {
                 vec!["kind", "turn_id", "answer_packet_id"],
             ),
             (
-                SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() },
+                SystemGAgentEvent::Failed {
+                    turn_id: "t".into(),
+                    error: "e".into(),
+                },
                 vec!["kind", "turn_id", "error"],
             ),
         ];
@@ -694,12 +1031,20 @@ mod tests {
         reset_for_test();
         let baseline = registry_stats_full().2;
         let _ = start_run(&good_mission_json()).expect("start 1");
-        assert_eq!(registry_stats_full().2, baseline + 1, "successful start bumps counter");
+        assert_eq!(
+            registry_stats_full().2,
+            baseline + 1,
+            "successful start bumps counter"
+        );
         let _ = start_run(&good_mission_json()).expect("start 2");
         assert_eq!(registry_stats_full().2, baseline + 2);
         // Decode-rejected start: counter unchanged.
         let _ = start_run("{ not json").expect_err("malformed reject");
-        assert_eq!(registry_stats_full().2, baseline + 2, "decode reject does not bump");
+        assert_eq!(
+            registry_stats_full().2,
+            baseline + 2,
+            "decode reject does not bump"
+        );
         // Oversize-prompt-rejected start: counter unchanged.
         let huge = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
         let oversize = serde_json::json!({
@@ -786,7 +1131,10 @@ mod tests {
         let before = registry_stats_full().2;
         reset_for_test();
         let after = registry_stats_full().2;
-        assert_eq!(before, after, "reset_for_test must not zero the lifetime counter");
+        assert_eq!(
+            before, after,
+            "reset_for_test must not zero the lifetime counter"
+        );
     }
 
     #[test]
@@ -795,7 +1143,13 @@ mod tests {
         // The Swift `Kind` enum uses these literals; any drift breaks
         // round-trip decode.
         let cases: Vec<(SystemGAgentEvent, &str)> = vec![
-            (SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() }, "plan_start"),
+            (
+                SystemGAgentEvent::PlanStart {
+                    turn_id: "t".into(),
+                    plan: "p".into(),
+                },
+                "plan_start",
+            ),
             (
                 SystemGAgentEvent::ToolStart {
                     turn_id: "t".into(),
@@ -814,7 +1168,10 @@ mod tests {
                 "tool_end",
             ),
             (
-                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "x".into() },
+                SystemGAgentEvent::TokenChunk {
+                    turn_id: "t".into(),
+                    text: "x".into(),
+                },
                 "token_chunk",
             ),
             (
@@ -824,7 +1181,13 @@ mod tests {
                 },
                 "complete",
             ),
-            (SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() }, "failed"),
+            (
+                SystemGAgentEvent::Failed {
+                    turn_id: "t".into(),
+                    error: "e".into(),
+                },
+                "failed",
+            ),
         ];
         for (event, expected_kind) in cases {
             let value = serde_json::to_value(&event).expect("encode");

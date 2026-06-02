@@ -573,20 +573,16 @@ private enum EpdocEditorThemeStyle {
             ("--epdoc-chart-blue", cssColor(resolved.accent.nsColor)),
             ("--epdoc-chart-violet", cssColor(resolved.headingAccent.nsColor)),
         ]
-        // Per-theme H1-H3 size shrink (2026-05-19): Classic + Platinum
-        // render visibly larger than Ember at the same point size, so
-        // override the editor.css defaults (59 / 31 / 19 px) with the
-        // 0.85× values. Ember keeps the defaults — its sizes are the
-        // canonical target.
-        let multiplier = theme.headingSizeMultiplier
-        if multiplier < 1.0 {
-            let h1 = Int((59 * multiplier).rounded())
-            let h2 = Int((31 * multiplier).rounded())
-            let h3 = Int((19 * multiplier).rounded())
-            variables.append(("--epdoc-h1-size", "\(h1)px"))
-            variables.append(("--epdoc-h2-size", "\(h2)px"))
-            variables.append(("--epdoc-h3-size", "\(h3)px"))
-        }
+        // Per-theme H1-H3 size overrides. Always assign all three so
+        // theme switches cannot leave stale CSS variables behind.
+        // Classic H2/H3 now keep Ember Tan's default 31 / 19 px
+        // values; Classic H1 and Platinum still shrink Matrix headings.
+        let h1Multiplier = theme.headingSizeMultiplier(level: 1)
+        let h2Multiplier = theme.headingSizeMultiplier(level: 2)
+        let h3Multiplier = theme.headingSizeMultiplier(level: 3)
+        variables.append(("--epdoc-h1-size", "\(Int((59 * h1Multiplier).rounded()))px"))
+        variables.append(("--epdoc-h2-size", "\(Int((31 * h2Multiplier).rounded()))px"))
+        variables.append(("--epdoc-h3-size", "\(Int((19 * h3Multiplier).rounded()))px"))
         return variables
     }
 

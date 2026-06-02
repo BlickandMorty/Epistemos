@@ -38,8 +38,7 @@ fn eidos_search_lexical_json_returns_citation_bearing_packet_for_seeded_query() 
 fn eidos_search_lexical_json_returns_empty_hits_for_unmatched_query() {
     let raw = eidos_search_lexical_json("zzzzz_unmatchable_zzzzz".to_string(), 5)
         .expect("eidos_search_lexical_json should succeed even with no matches");
-    let packet: EidosContextPacket =
-        serde_json::from_str(&raw).expect("packet JSON should decode");
+    let packet: EidosContextPacket = serde_json::from_str(&raw).expect("packet JSON should decode");
     assert!(
         packet.hits.is_empty(),
         "unmatched query should produce zero hits, got {}",
@@ -51,8 +50,7 @@ fn eidos_search_lexical_json_returns_empty_hits_for_unmatched_query() {
 fn eidos_search_lexical_json_hit_source_id_validates_under_closed_citation_contract() {
     let raw = eidos_search_lexical_json("eidos".to_string(), 3)
         .expect("seeded fixture corpus matches 'eidos'");
-    let packet: EidosContextPacket =
-        serde_json::from_str(&raw).expect("packet decodes");
+    let packet: EidosContextPacket = serde_json::from_str(&raw).expect("packet decodes");
     assert!(!packet.hits.is_empty(), "expected at least one hit");
 
     // Each emitted hit's source_id must validate as a legitimate citation

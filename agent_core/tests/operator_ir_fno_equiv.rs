@@ -8,8 +8,8 @@
 #![cfg(feature = "research")]
 
 use agent_core::research::operator_ir::{
-    evaluate_linear, evaluate_operator_at, fno_spectral_block, KernelTransform,
-    LinearNetwork, OperatorExpr,
+    evaluate_linear, evaluate_operator_at, fno_spectral_block, KernelTransform, LinearNetwork,
+    OperatorExpr,
 };
 
 /// Hand-rolled FNO forward pass. Mirrors the operator_ir
@@ -24,7 +24,10 @@ fn raw_fno_forward_at(
     let b = evaluate_linear(branch, u).unwrap();
     let t = evaluate_linear(trunk, y).unwrap();
     let t_spectral = fno_spectral_block(&t, modes);
-    b.iter().zip(t_spectral.iter()).map(|(bi, ti)| bi * ti).sum()
+    b.iter()
+        .zip(t_spectral.iter())
+        .map(|(bi, ti)| bi * ti)
+        .sum()
 }
 
 fn make_fixture_op(modes: usize) -> OperatorExpr {
@@ -115,7 +118,9 @@ fn ir_fno_linear_in_u_at_fixed_y() {
     let v1 = evaluate_operator_at(&op, &[1.0, 1.0], &y).unwrap();
     let v2 = evaluate_operator_at(&op, &[2.0, 2.0], &y).unwrap();
     assert!(
-        ((v2 - 2.0 * v1)).abs() < 1e-9 * v1.abs().max(1.0),
-        "v1={} v2={}", v1, v2
+        (v2 - 2.0 * v1).abs() < 1e-9 * v1.abs().max(1.0),
+        "v1={} v2={}",
+        v1,
+        v2
     );
 }

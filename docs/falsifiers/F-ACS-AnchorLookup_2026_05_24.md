@@ -2,7 +2,7 @@
 falsifier: F-ACS-AnchorLookup
 created_on: 2026-05-24
 hardware_floor: M2 Pro 16 GB UMA
-status: PASS
+status: PASS - SCHEMA NORMALIZED 2026-05-28
 artifact: artifacts/falsifiers/acs_anchor_lookup/result.json
 ---
 
@@ -10,21 +10,24 @@ artifact: artifacts/falsifiers/acs_anchor_lookup/result.json
 
 ## Result
 
-PASS on one measured run over 10,000 claims.
+PASS on one measured run over 10,000 claims. The artifact is now in the shared
+`FalsifierArtifact` schema shape and validates with `falsifier_validator`.
 
 Command:
 
 ```bash
-cargo +stable run --manifest-path agent_core/Cargo.toml --bin acs_anchor_lookup
+Tools/falsifiers/f_acs_anchor_lookup.sh
 ```
 
 Measured artifact:
 
 - `claim_count`: 10000
 - `found_count`: 10000
-- `avg_lookup_ns`: 516
+- `avg_lookup_ns`: latest generated artifact currently reports 443 ns
 - threshold: `< 1000 ns`
 - invalid theorem id rejection: true
+- `artifact_kind`: `primary_witness`
+- `fallback_tier`: `Primary`
 
 ## Scope Note
 

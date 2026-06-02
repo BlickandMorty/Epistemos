@@ -64,7 +64,7 @@ impl ToolCallAdmissionError {
             Self::MalformedToolCall(_) => "malformed_tool_call",
             Self::Audit(error) => error.cause(),
             Self::Proof(error) => error.cause(),
-            Self::Blocked { .. } => "acs_verdict_blocks_tool_call",
+            Self::Blocked { .. } => "scope_rex_verdict_blocks_tool_call",
         }
     }
 }
@@ -135,14 +135,14 @@ impl MissionRun {
     /// the assigned ordinal.
     ///
     /// Tool calls must use [`Self::admit_and_record_tool_call`] so
-    /// every invocation receives an ACS admission verdict and proof
+    /// every invocation receives a SCOPE-Rex Admission verdict and proof
     /// before it can enter the typed RunEventLog.
     pub fn record_event(&mut self, event: AgentEvent) -> u64 {
         match event {
             AgentEvent::ToolCall { call } => self.log.append_event(AgentEvent::Error {
                 kind: AgentEventErrorKind::CapabilityDenied,
                 message: format!(
-                    "tool call {} requires ACS admission via admit_and_record_tool_call",
+                    "tool call {} requires SCOPE-Rex Admission via admit_and_record_tool_call",
                     call.name
                 ),
             }),
@@ -150,9 +150,9 @@ impl MissionRun {
         }
     }
 
-    /// ACS-admit a tool call, write the ACS verdict to the audit
+    /// SCOPE-Rex-admit a tool call, write the admission verdict to the audit
     /// OpLog, sign a SCOPE-Rex admission proof, then append the typed
-    /// `AgentEvent::ToolCall` row. If ACS blocks the call, the audit
+    /// `AgentEvent::ToolCall` row. If admission blocks the call, the audit
     /// record remains in the OpLog and no tool row is appended.
     pub fn admit_and_record_tool_call<K: SigningKey>(
         &mut self,
@@ -304,7 +304,7 @@ impl MissionRun {
 //
 // - `gate_admission_draft_through_loop` — wraps the existing
 //   `AdmissionRepairLoop` with the `RepairBudget::DEFAULT` budget so
-//   tool-call drafts whose ACS verdict is `Defer` get a bounded
+//   tool-call drafts whose SCOPE-Rex verdict is `Defer` get a bounded
 //   number of `re_emit` retries before being quarantined.
 //
 // - `gate_witness_draft_through_loop` — same shape, generic over the
@@ -325,7 +325,7 @@ impl MissionRun {
 // The `_through_loop` suffix is the canonical marker so a future
 // `cargo doc` or `grep` pass can confirm every adapter call site is
 // gated. Quarantine outcomes flow into the same `RunEventEntry`
-// channel ACS terminal verdicts already populate — the Provenance
+// channel SCOPE-Rex terminal verdicts already populate — the Provenance
 // Console renders them without further changes.
 
 use crate::hyperdynamic_loop::{
@@ -334,7 +334,7 @@ use crate::hyperdynamic_loop::{
 };
 
 /// Gate a tool-call admission draft through `AdmissionRepairLoop`.
-/// `re_emit` is the adapter's "rerun the ACS admission with tightened
+/// `re_emit` is the adapter's "rerun the SCOPE-Rex Admission with tightened
 /// risk parameters" closure — on `Defer` the loop calls it up to
 /// `budget.max_retries` times; on `Allow / AllowWithWarning` it
 /// accepts; on `Quarantine / Reject` it terminates without invoking
@@ -383,9 +383,7 @@ where
 
 #[cfg(test)]
 mod hyperdynamic_loop_hook_tests {
-    use super::{
-        gate_admission_draft_through_loop, gate_witness_draft_through_loop,
-    };
+    use super::{gate_admission_draft_through_loop, gate_witness_draft_through_loop};
     use crate::acs_admission::ACSAdmissionVerdict;
     use crate::hyperdynamic_loop::{
         AdmissionDraft, LoopCounters, RepairBudget, RepairOutcome, WitnessDraft, WitnessState,
@@ -460,7 +458,7 @@ mod hyperdynamic_loop_hook_tests {
         );
         match outcome {
             RepairOutcome::Quarantined { reason, repairs } => {
-                assert!(reason.starts_with("acs_terminal:reject"));
+                assert!(reason.starts_with("scope_rex_terminal:reject"));
                 assert_eq!(repairs, 0);
             }
             other => panic!("expected explicit quarantine, got {other:?}"),

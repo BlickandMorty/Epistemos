@@ -148,8 +148,10 @@ mod tests {
 
     #[test]
     fn two_distinct_planes() {
-        let s: std::collections::HashSet<_> =
-            [PlaneZ::CompanionFarm, PlaneZ::Snake].iter().copied().collect();
+        let s: std::collections::HashSet<_> = [PlaneZ::CompanionFarm, PlaneZ::Snake]
+            .iter()
+            .copied()
+            .collect();
         assert_eq!(s.len(), 2);
     }
 

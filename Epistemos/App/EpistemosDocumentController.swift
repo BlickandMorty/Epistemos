@@ -264,6 +264,53 @@ public extension NSDocumentController {
         document.showWindows()
         return document
     }
+
+    @MainActor
+    @discardableResult
+    func openHTMLWorkspaceDocument(at url: URL) throws -> HTMLWorkspaceDocument {
+        let standardizedURL = url.standardizedFileURL
+        if let existingDocument = documents
+            .compactMap({ $0 as? HTMLWorkspaceDocument })
+            .first(where: { $0.fileURL?.standardizedFileURL == standardizedURL }) {
+            existingDocument.showWindows()
+            return existingDocument
+        }
+
+        let wrapper: FileWrapper
+        do {
+            wrapper = try FileWrapper(url: standardizedURL, options: [.immediate])
+        } catch {
+            throw NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFileReadUnknownError,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Couldn't read HTML Workspace package",
+                    NSUnderlyingErrorKey: error,
+                ]
+            )
+        }
+
+        let package: HTMLWorkspacePackage
+        do {
+            package = try HTMLWorkspacePackage(fileWrapper: wrapper)
+        } catch {
+            throw NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFileReadCorruptFileError,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Couldn't open HTML Workspace package",
+                    NSUnderlyingErrorKey: error,
+                ]
+            )
+        }
+
+        let document = HTMLWorkspaceDocument()
+        document.loadOpenedPackage(package, fileURL: standardizedURL)
+        addDocument(document)
+        document.makeWindowControllers()
+        document.showWindows()
+        return document
+    }
 }
 
 public extension EpdocDocument {
@@ -314,6 +361,7 @@ public extension HTMLWorkspaceDocument {
         )
         let destination = Self.uniqueUntitledWorkspaceURL(in: directory)
         let wrapper = try fileWrapper(ofType: "com.epistemos.html-workspace")
+        AppBootstrap.shared?.vaultSync.suppressNextFileWatcherChangeForSelfOriginatedWrite()
         try wrapper.write(
             to: destination,
             options: [.atomic],

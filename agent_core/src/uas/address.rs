@@ -39,7 +39,11 @@ impl UasAddress {
 
     /// Build from an already-computed hash.
     pub fn from_hash(kind: UasKind, hash: Hash, created_at_ms: u64) -> Self {
-        Self { kind, hash, created_at_ms }
+        Self {
+            kind,
+            hash,
+            created_at_ms,
+        }
     }
 }
 
@@ -48,9 +52,9 @@ impl UasAddress {
 pub enum UasAddressParseError {
     /// Wire string lacked the canonical `<kind>:<hex>@<ms>` shape.
     BadShape,
-    /// `<kind>` segment is wire-format malformed (empty). Unknown tags do
-    /// NOT trigger this — they deserialize to `UasKind::Other` per the
-    /// forward-compat escape hatch.
+    /// `<kind>` segment is wire-format malformed. Unknown valid tags do NOT
+    /// trigger this — they deserialize to `UasKind::Other` per the forward-
+    /// compat escape hatch.
     BadKind(String),
     /// `<hex>` segment was not a valid 64-hex-char BLAKE3 representation.
     BadHash(String),
@@ -61,10 +65,18 @@ pub enum UasAddressParseError {
 impl fmt::Display for UasAddressParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UasAddressParseError::BadShape => write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`"),
-            UasAddressParseError::BadKind(k) => write!(f, "malformed UasKind wire tag `{}` (empty)", k),
-            UasAddressParseError::BadHash(h) => write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h),
-            UasAddressParseError::BadCreatedAt(ms) => write!(f, "invalid created_at_ms `{}` (expected u64)", ms),
+            UasAddressParseError::BadShape => {
+                write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`")
+            }
+            UasAddressParseError::BadKind(k) => {
+                write!(f, "malformed UasKind wire tag `{}`", k)
+            }
+            UasAddressParseError::BadHash(h) => {
+                write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h)
+            }
+            UasAddressParseError::BadCreatedAt(ms) => {
+                write!(f, "invalid created_at_ms `{}` (expected u64)", ms)
+            }
         }
     }
 }
@@ -89,25 +101,42 @@ impl FromStr for UasAddress {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (kind_part, rest) = s.split_once(':').ok_or(UasAddressParseError::BadShape)?;
         let (hex_part, ms_part) = rest.split_once('@').ok_or(UasAddressParseError::BadShape)?;
+        if rest.contains(':') {
+            return Err(UasAddressParseError::BadShape);
+        }
 
-        // UasKind::from_wire_tag is total — unknown tags deserialize to
-        // UasKind::Other(tag.to_string()). BadKind in the error enum is
-        // reserved for kind segments that are wire-format malformed (empty
-        // string) rather than unknown.
-        if kind_part.is_empty() {
-            return Err(UasAddressParseError::BadKind(String::new()));
+        // UasKind::from_wire_tag is total — unknown valid tags deserialize to
+        // UasKind::Other(tag.to_string()). BadKind is reserved for kind
+        // segments that are wire-format malformed rather than merely unknown.
+        if !is_valid_kind_wire_tag(kind_part) {
+            return Err(UasAddressParseError::BadKind(kind_part.to_string()));
         }
         let kind = UasKind::from_wire_tag(kind_part);
 
         let hash = Hash::from_hex(hex_part)
             .map_err(|_| UasAddressParseError::BadHash(hex_part.to_string()))?;
+        if hash.to_hex().as_str() != hex_part {
+            return Err(UasAddressParseError::BadHash(hex_part.to_string()));
+        }
 
         let created_at_ms = ms_part
             .parse::<u64>()
             .map_err(|_| UasAddressParseError::BadCreatedAt(ms_part.to_string()))?;
 
-        Ok(UasAddress { kind, hash, created_at_ms })
+        Ok(UasAddress {
+            kind,
+            hash,
+            created_at_ms,
+        })
     }
+}
+
+fn is_valid_kind_wire_tag(tag: &str) -> bool {
+    !tag.is_empty()
+        && tag.trim() == tag
+        && !tag
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, ':' | '|' | '@'))
 }
 
 mod serde_blake3_hash {
@@ -120,7 +149,11 @@ mod serde_blake3_hash {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Hash, D::Error> {
         let hex = String::deserialize(d)?;
-        Hash::from_hex(&hex).map_err(serde::de::Error::custom)
+        let hash = Hash::from_hex(&hex).map_err(serde::de::Error::custom)?;
+        if hash.to_hex().as_str() != hex {
+            return Err(serde::de::Error::custom("noncanonical BLAKE3 hex"));
+        }
+        Ok(hash)
     }
 }
 
@@ -145,6 +178,18 @@ mod tests {
     }
 
     #[test]
+    fn serde_json_rejects_noncanonical_uppercase_hash() {
+        let addr = UasAddress::new(UasKind::VaultNote, b"hello-uas", 1_234_567_890);
+        let mut json = serde_json::to_value(&addr).expect("serialize must succeed");
+        let uppercase_hash = addr.hash.to_hex().to_string().to_uppercase();
+        json["hash"] = serde_json::Value::String(uppercase_hash);
+
+        let err = serde_json::from_value::<UasAddress>(json).unwrap_err();
+
+        assert!(err.to_string().contains("noncanonical BLAKE3 hex"));
+    }
+
+    #[test]
     fn hash_is_blake3_32_bytes() {
         let addr = UasAddress::new(UasKind::VaultNote, b"x", 0);
         assert_eq!(addr.hash.as_bytes().len(), 32);
@@ -163,8 +208,12 @@ mod tests {
         // malformed (empty) tag segments.
         let fake_hex: String = std::iter::repeat('a').take(64).collect();
         let s = format!("future_variant_xyz:{}@0", fake_hex);
-        let parsed = UasAddress::from_str(&s).expect("unknown kind must fall back to Other, not error");
-        assert_eq!(parsed.kind, UasKind::Other("future_variant_xyz".to_string()));
+        let parsed =
+            UasAddress::from_str(&s).expect("unknown kind must fall back to Other, not error");
+        assert_eq!(
+            parsed.kind,
+            UasKind::Other("future_variant_xyz".to_string())
+        );
     }
 
     #[test]
@@ -176,10 +225,47 @@ mod tests {
     }
 
     #[test]
+    fn malformed_kind_tags_fail_closed_before_other_escape_hatch() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        for kind in [
+            " future_variant",
+            "future_variant ",
+            "future\nvariant",
+            "future|variant",
+            "future@variant",
+        ] {
+            let s = format!("{kind}:{}@0", fake_hex);
+            let err = UasAddress::from_str(&s).unwrap_err();
+            assert_eq!(err, UasAddressParseError::BadKind(kind.to_string()));
+        }
+    }
+
+    #[test]
+    fn extra_kind_delimiter_surfaces_bad_shape_before_hash_parse() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        let s = format!("future:variant:{}@0", fake_hex);
+        let err = UasAddress::from_str(&s).unwrap_err();
+        assert_eq!(err, UasAddressParseError::BadShape);
+    }
+
+    #[test]
     fn bad_hash_surfaces_typed_error() {
         let s = "vault_note:not-a-hash@0";
         let err = UasAddress::from_str(s).unwrap_err();
         assert!(matches!(err, UasAddressParseError::BadHash(_)));
+    }
+
+    #[test]
+    fn noncanonical_uppercase_hash_surfaces_typed_error() {
+        let uppercase_hex = blake3::hash(b"hello-uas")
+            .to_hex()
+            .to_string()
+            .to_uppercase();
+        let s = format!("vault_note:{uppercase_hex}@0");
+
+        let err = UasAddress::from_str(&s).unwrap_err();
+
+        assert_eq!(err, UasAddressParseError::BadHash(uppercase_hex));
     }
 
     #[test]

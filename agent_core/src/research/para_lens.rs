@@ -100,8 +100,7 @@ impl ParaLensBackward {
     /// Useful as a sentinel for "this backward call propagated no
     /// signal" (e.g., ReLU in the dead branch).
     pub fn is_zero(&self) -> bool {
-        self.param_grad.iter().all(|&g| g == 0.0)
-            && self.input_grad.iter().all(|&g| g == 0.0)
+        self.param_grad.iter().all(|&g| g == 0.0) && self.input_grad.iter().all(|&g| g == 0.0)
     }
 }
 
@@ -151,10 +150,16 @@ impl ParaLens for LinearLayer {
         output: &mut [f32],
     ) -> Result<(), ParaLensError> {
         if params.len() != 2 {
-            return Err(ParaLensError::InputLengthMismatch { expected: 2, actual: params.len() });
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 2,
+                actual: params.len(),
+            });
         }
         if input.len() != 1 {
-            return Err(ParaLensError::InputLengthMismatch { expected: 1, actual: input.len() });
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: input.len(),
+            });
         }
         if output.len() != 1 {
             return Err(ParaLensError::OutputLengthMismatch {
@@ -175,10 +180,16 @@ impl ParaLens for LinearLayer {
         output_grad: &[f32],
     ) -> Result<ParaLensBackward, ParaLensError> {
         if params.len() != 2 {
-            return Err(ParaLensError::InputLengthMismatch { expected: 2, actual: params.len() });
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 2,
+                actual: params.len(),
+            });
         }
         if input.len() != 1 {
-            return Err(ParaLensError::InputLengthMismatch { expected: 1, actual: input.len() });
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: input.len(),
+            });
         }
         if output_grad.len() != 1 {
             return Err(ParaLensError::GradientLengthMismatch {
@@ -448,7 +459,10 @@ mod tests {
         let err = l.forward(&[1.0], &[2.0], &mut out).unwrap_err();
         assert_eq!(
             err,
-            ParaLensError::InputLengthMismatch { expected: 2, actual: 1 }
+            ParaLensError::InputLengthMismatch {
+                expected: 2,
+                actual: 1
+            }
         );
     }
 
@@ -458,7 +472,10 @@ mod tests {
         let err = l.backward(&[1.0, 2.0], &[3.0], &[1.0, 1.0]).unwrap_err();
         assert_eq!(
             err,
-            ParaLensError::GradientLengthMismatch { expected: 1, actual: 2 }
+            ParaLensError::GradientLengthMismatch {
+                expected: 1,
+                actual: 2
+            }
         );
     }
 
@@ -472,9 +489,11 @@ mod tests {
         l.forward(&params, &input, &mut y0).unwrap();
         let eps = 1e-3_f32;
         let mut y_w = vec![0.0_f32];
-        l.forward(&[params[0] + eps, params[1]], &input, &mut y_w).unwrap();
+        l.forward(&[params[0] + eps, params[1]], &input, &mut y_w)
+            .unwrap();
         let mut y_b = vec![0.0_f32];
-        l.forward(&[params[0], params[1] + eps], &input, &mut y_b).unwrap();
+        l.forward(&[params[0], params[1] + eps], &input, &mut y_b)
+            .unwrap();
         let mut y_x = vec![0.0_f32];
         l.forward(&params, &[input[0] + eps], &mut y_x).unwrap();
         let bw = l.backward(&params, &input, &[1.0]).unwrap();
@@ -566,7 +585,10 @@ mod tests {
         let err = r.forward(&[1.0], &[2.0], &mut out).unwrap_err();
         assert_eq!(
             err,
-            ParaLensError::InputLengthMismatch { expected: 0, actual: 1 }
+            ParaLensError::InputLengthMismatch {
+                expected: 0,
+                actual: 1
+            }
         );
     }
 
@@ -665,9 +687,9 @@ mod tests {
         let mid = 3.0 * x + 0.5;
         assert_eq!(bw.param_grad.len(), 4);
         assert!(approx(bw.param_grad[0], 2.0 * x, 1e-5)); // dL/dw1 = w2 * x = 8
-        assert!(approx(bw.param_grad[1], 2.0, 1e-6));    // dL/db1 = w2
-        assert!(approx(bw.param_grad[2], mid, 1e-5));    // dL/dw2 = mid
-        assert!(approx(bw.param_grad[3], 1.0, 1e-6));    // dL/db2
+        assert!(approx(bw.param_grad[1], 2.0, 1e-6)); // dL/db1 = w2
+        assert!(approx(bw.param_grad[2], mid, 1e-5)); // dL/dw2 = mid
+        assert!(approx(bw.param_grad[3], 1.0, 1e-6)); // dL/db2
         assert!(approx(bw.input_grad[0], 3.0 * 2.0, 1e-5)); // dL/dx = w1 * w2
     }
 
@@ -677,7 +699,13 @@ mod tests {
         let mut out = vec![0.0_f32];
         // expected 2, give 3.
         let err = c.forward(&[1.0, 2.0, 3.0], &[0.0], &mut out).unwrap_err();
-        assert!(matches!(err, ParaLensError::InputLengthMismatch { expected: 2, actual: 3 }));
+        assert!(matches!(
+            err,
+            ParaLensError::InputLengthMismatch {
+                expected: 2,
+                actual: 3
+            }
+        ));
     }
 
     // ── diagnostic surface (iter 164) ────────────────────────────────────────
@@ -685,9 +713,18 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            ParaLensError::InputLengthMismatch { expected: 1, actual: 2 },
-            ParaLensError::OutputLengthMismatch { expected: 1, actual: 2 },
-            ParaLensError::GradientLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
+            ParaLensError::OutputLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
+            ParaLensError::GradientLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -696,24 +733,46 @@ mod tests {
     #[test]
     fn error_classifiers_partition_variants() {
         let variants = [
-            ParaLensError::InputLengthMismatch { expected: 1, actual: 2 },
-            ParaLensError::OutputLengthMismatch { expected: 1, actual: 2 },
-            ParaLensError::GradientLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
+            ParaLensError::OutputLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
+            ParaLensError::GradientLengthMismatch {
+                expected: 1,
+                actual: 2,
+            },
         ];
         // Cross-surface invariant: exactly one of the 3 predicates is true.
         for e in variants {
-            let trio = [e.is_input_mismatch(), e.is_output_mismatch(), e.is_gradient_mismatch()];
+            let trio = [
+                e.is_input_mismatch(),
+                e.is_output_mismatch(),
+                e.is_gradient_mismatch(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }
 
     #[test]
     fn error_lengths_extracts_pair() {
-        let e = ParaLensError::InputLengthMismatch { expected: 7, actual: 3 };
+        let e = ParaLensError::InputLengthMismatch {
+            expected: 7,
+            actual: 3,
+        };
         assert_eq!(e.lengths(), (7, 3));
-        let e = ParaLensError::OutputLengthMismatch { expected: 1, actual: 5 };
+        let e = ParaLensError::OutputLengthMismatch {
+            expected: 1,
+            actual: 5,
+        };
         assert_eq!(e.lengths(), (1, 5));
-        let e = ParaLensError::GradientLengthMismatch { expected: 2, actual: 9 };
+        let e = ParaLensError::GradientLengthMismatch {
+            expected: 2,
+            actual: 9,
+        };
         assert_eq!(e.lengths(), (2, 9));
     }
 
@@ -732,11 +791,20 @@ mod tests {
 
     #[test]
     fn backward_is_zero_when_all_grads_zero() {
-        let z = ParaLensBackward { param_grad: vec![0.0, 0.0], input_grad: vec![0.0] };
+        let z = ParaLensBackward {
+            param_grad: vec![0.0, 0.0],
+            input_grad: vec![0.0],
+        };
         assert!(z.is_zero());
-        let nz = ParaLensBackward { param_grad: vec![0.0, 0.0001], input_grad: vec![0.0] };
+        let nz = ParaLensBackward {
+            param_grad: vec![0.0, 0.0001],
+            input_grad: vec![0.0],
+        };
         assert!(!nz.is_zero());
-        let empty = ParaLensBackward { param_grad: vec![], input_grad: vec![] };
+        let empty = ParaLensBackward {
+            param_grad: vec![],
+            input_grad: vec![],
+        };
         assert!(empty.is_zero()); // vacuously
     }
 

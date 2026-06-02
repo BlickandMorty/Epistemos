@@ -12,7 +12,7 @@
 //! - Checks the M2 Pro `hardware_pin` constants are correct.
 //! - Checks `command_digest` and `result_digest` are
 //!   `sha256:<64 hex>` lowercase.
-//! - Checks `falsifier_id` is one of the 15 canonical IDs +
+//! - Checks `falsifier_id` is one of the canonical falsifier IDs +
 //!   `commit_sha` is full 40-char lowercase hex.
 //! - Checks `schema_version` matches the canonical version
 //!   `2026-05-18.2`.
@@ -44,8 +44,14 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-PageGather-Baseline",
     "F-PageGather-Scatter",
     "F-PageGather-M2Pro",
+    "F-PageGather-Packetized-Caller",
     "F-UAS-CopyCount",
     "F-UAS-ZeroCopy-Spine",
+    "F-UAS-ACS-MmapResidency",
+    "F-ResidencyPlan-DryRun",
+    "F-AppColdStore-Layout",
+    "F-ProviderReferenceManifest-DryRun",
+    "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",
     "F-ACS-Anchor-Addressing",
     "F-InterruptScore-CPU",
@@ -54,12 +60,21 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SemiseparableBlockScan",
     "F-LocalRecallIsland",
     "F-KV-Direct-Gate",
+    "F-Qwen3-8B-128K-GGUF-Route",
     "F-WBO-DriftLedger",
     "F-ULP-Oracle",
     "F-70B-Local-Cocktail-Lite",
+    "F-Agent-Local-Model-Runtime-Bridge",
     "F-ShadowFirst-PageEscalation",
     "F-ActiveAssembly-Minimal",
+    "F-Sparse-Runtime-Split",
     "F-Eidos-Bridge-RoundTrip",
+    "F-Eidos-NeuralRoute-Prior",
+    "F-ParamRouteCard-Admission",
+    "F-ResidencyPatternBoost-NoHiddenAuthority",
+    "F-DynamicCompute-Checkpoint",
+    "F-Capability-Ceiling-Evaluation-Kernel",
+    "F-Architecture-Pending-Work-Guard",
 ];
 const CANONICAL_ARTIFACT_KINDS: &[&str] =
     &["primary_witness", "fallback_witness", "failure_report"];
@@ -95,7 +110,9 @@ fn main() {
              (18 required fields + hardware pin + canonical IDs + \
              digest format). Returns 0 on pass, 4 on conformance \
              violation.",
-            args.first().map(String::as_str).unwrap_or("falsifier_validator")
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("falsifier_validator")
         );
         std::process::exit(1);
     }
@@ -134,7 +151,7 @@ fn main() {
     // -- falsifier_id is canonical ---------------------------------
     if let Some(id) = obj.get("falsifier_id").and_then(|v| v.as_str()) {
         if !CANONICAL_FALSIFIER_IDS.contains(&id) {
-            violations.push(format!("falsifier_id `{id}` not in canonical 21-row set"));
+            violations.push(format!("falsifier_id `{id}` not in canonical row set"));
         }
     }
 
@@ -174,28 +191,26 @@ fn main() {
     for field in ["command_digest", "result_digest"] {
         if let Some(v) = obj.get(field).and_then(|v| v.as_str()) {
             if !is_sha256_lower_hex(v) {
-                violations.push(format!(
-                    "{field} `{v}` not `sha256:<64 lowercase hex>`"
-                ));
+                violations.push(format!("{field} `{v}` not `sha256:<64 lowercase hex>`"));
             }
         }
     }
 
     // -- commit_sha = 40-char lowercase hex (or 40 zeros placeholder) --
     if let Some(s) = obj.get("commit_sha").and_then(|v| v.as_str()) {
-        if s.len() != 40 || !s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()) {
-            violations.push(format!(
-                "commit_sha `{s}` not 40-char lowercase hex"
-            ));
+        if s.len() != 40
+            || !s
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase())
+        {
+            violations.push(format!("commit_sha `{s}` not 40-char lowercase hex"));
         }
     }
 
     // -- timestamp_utc = RFC 3339 with Z suffix --------------------
     if let Some(s) = obj.get("timestamp_utc").and_then(|v| v.as_str()) {
         if !looks_like_rfc3339_z(s) {
-            violations.push(format!(
-                "timestamp_utc `{s}` not RFC 3339 UTC `Z` form"
-            ));
+            violations.push(format!("timestamp_utc `{s}` not RFC 3339 UTC `Z` form"));
         }
     }
 
@@ -240,11 +255,7 @@ fn main() {
         println!("OK {}", path.display());
         std::process::exit(0);
     } else {
-        eprintln!(
-            "VIOLATIONS ({}) in {}:",
-            violations.len(),
-            path.display()
-        );
+        eprintln!("VIOLATIONS ({}) in {}:", violations.len(), path.display());
         for v in violations {
             eprintln!("  - {v}");
         }
@@ -284,7 +295,10 @@ fn check_const_num(
 
 fn is_sha256_lower_hex(s: &str) -> bool {
     if let Some(rest) = s.strip_prefix("sha256:") {
-        rest.len() == 64 && rest.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+        rest.len() == 64
+            && rest
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
     } else {
         false
     }
@@ -315,4 +329,24 @@ fn axis_set(v: Option<&serde_json::Value>) -> std::collections::BTreeSet<String>
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CANONICAL_FALSIFIER_IDS;
+
+    #[test]
+    fn canonical_route_falsifier_ids_are_accepted() {
+        for id in [
+            "F-Eidos-NeuralRoute-Prior",
+            "F-ParamRouteCard-Admission",
+            "F-ResidencyPatternBoost-NoHiddenAuthority",
+            "F-DynamicCompute-Checkpoint",
+        ] {
+            assert!(
+                CANONICAL_FALSIFIER_IDS.contains(&id),
+                "{id} should be accepted by the stub validator"
+            );
+        }
+    }
 }

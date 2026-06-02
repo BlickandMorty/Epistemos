@@ -5,6 +5,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
     @Binding var text: String
     var isEditable: Bool = true
     var colorScheme: ColorScheme = .light
+    var theme: EpistemosTheme? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -37,6 +38,15 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         context.coordinator.attach(textView: textView, scrollView: scrollView)
     }
 
+    static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
+        if let textView = scrollView.documentView as? NSTextView {
+            textView.delegate = nil
+        }
+        coordinator.detach()
+        scrollView.verticalRulerView = nil
+        scrollView.documentView = nil
+    }
+
     private func configure(textView: NSTextView, scrollView: NSScrollView) {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -51,10 +61,15 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         scrollView.horizontalScrollElasticity = .allowed
         scrollView.verticalScrollElasticity = .allowed
         let appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
+        let palette = HTMLWorkspaceCodeEditorPalette(theme: theme, colorScheme: colorScheme)
         scrollView.appearance = appearance
         scrollView.verticalRulerView = (scrollView.verticalRulerView as? LineNumberRulerView)
             ?? LineNumberRulerView(textView: textView)
         scrollView.verticalRulerView?.appearance = appearance
+        if let rulerView = scrollView.verticalRulerView as? LineNumberRulerView {
+            rulerView.labelColor = palette.gutterText
+            rulerView.backgroundColor = palette.gutterBackground
+        }
 
         textView.isRichText = false
         textView.importsGraphics = false
@@ -64,10 +79,10 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.font = .monospacedSystemFont(ofSize: 12.5, weight: .regular)
-        textView.textColor = .labelColor
-        textView.insertionPointColor = .controlAccentColor
-        textView.backgroundColor = .clear
-        textView.drawsBackground = false
+        textView.textColor = palette.foreground
+        textView.insertionPointColor = palette.accent
+        textView.backgroundColor = palette.background
+        textView.drawsBackground = true
         textView.appearance = appearance
         textView.textContainerInset = NSSize(width: 14, height: 12)
         textView.isVerticallyResizable = true
@@ -90,6 +105,20 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isContinuousSpellCheckingEnabled = false
+        applyPlainTextAttributes(to: textView, foreground: palette.foreground)
+    }
+
+    private func applyPlainTextAttributes(to textView: NSTextView, foreground: NSColor) {
+        let editorFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: foreground,
+            .font: editorFont,
+        ]
+        textView.typingAttributes = attributes
+        let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+        guard fullRange.length > 0 else { return }
+        textView.textStorage?.addAttributes(attributes, range: fullRange)
+        textView.layoutManager?.invalidateDisplay(forCharacterRange: fullRange)
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -102,7 +131,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
             self.text = text
         }
 
-        deinit {
+        func detach() {
             if let observedContentView {
                 NotificationCenter.default.removeObserver(
                     self,
@@ -110,6 +139,11 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
                     object: observedContentView
                 )
             }
+            observedContentView = nil
+            textView?.delegate = nil
+            textView = nil
+            rulerView?.textView = nil
+            rulerView = nil
         }
 
         func attach(textView: NSTextView, scrollView: NSScrollView) {
@@ -153,6 +187,71 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
     }
 }
 
+private struct HTMLWorkspaceCodeEditorPalette {
+    let background: NSColor
+    let gutterBackground: NSColor
+    let foreground: NSColor
+    let gutterText: NSColor
+    let accent: NSColor
+
+    init(theme: EpistemosTheme?, colorScheme: ColorScheme) {
+        let resolvedTheme = (theme ?? (colorScheme == .dark ? EpistemosTheme.oledSoft : EpistemosTheme.light))
+            .surfaceVariant(.other)
+        let base = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: resolvedTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+        let tintSource: NSColor = resolvedTheme.isDark ? .white : .black
+        let gutter = (base.blended(
+            withFraction: resolvedTheme.isDark ? 0.055 : 0.045,
+            of: tintSource
+        ) ?? base)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+
+        let preferredForeground = resolvedTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
+        let preferredMuted = resolvedTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+
+        self.background = base
+        self.gutterBackground = gutter
+        self.foreground = Self.readable(preferredForeground, on: base, isDark: resolvedTheme.isDark)
+        self.gutterText = Self.readable(preferredMuted, on: gutter, isDark: resolvedTheme.isDark).withAlphaComponent(0.78)
+        self.accent = resolvedTheme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+    }
+
+    private static func readable(_ preferred: NSColor, on background: NSColor, isDark: Bool) -> NSColor {
+        if preferred.contrastRatio(against: background) >= 4.5 {
+            return preferred
+        }
+        return (background.relativeLuminance < 0.46
+            ? NSColor(deviceWhite: 0.92, alpha: 1.0)
+            : NSColor(deviceWhite: 0.12, alpha: 1.0))
+            .rgbSafeForCodeEditorTheme()
+    }
+}
+
+private extension NSColor {
+    var relativeLuminance: CGFloat {
+        let color = usingColorSpace(.sRGB) ?? self
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928
+                ? value / 12.92
+                : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return (0.2126 * channel(color.redComponent))
+            + (0.7152 * channel(color.greenComponent))
+            + (0.0722 * channel(color.blueComponent))
+    }
+
+    func contrastRatio(against other: NSColor) -> CGFloat {
+        let first = relativeLuminance
+        let second = other.relativeLuminance
+        let lighter = max(first, second)
+        let darker = min(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+}
+
 private final class LineNumberRulerView: NSRulerView {
     weak var textView: NSTextView? {
         didSet {
@@ -161,16 +260,26 @@ private final class LineNumberRulerView: NSRulerView {
         }
     }
 
+    var labelColor: NSColor = .secondaryLabelColor {
+        didSet { needsDisplay = true }
+    }
+    var backgroundColor: NSColor = .clear {
+        didSet {
+            layer?.backgroundColor = backgroundColor.cgColor
+            needsDisplay = true
+        }
+    }
+
     private var lineStarts: [Int] = [0]
-    private let labelAttributes: [NSAttributedString.Key: Any] = {
+    private var labelAttributes: [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .right
         return [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor,
+            .foregroundColor: labelColor,
             .paragraphStyle: paragraph,
         ]
-    }()
+    }
 
     init(textView: NSTextView) {
         super.init(scrollView: nil, orientation: .verticalRuler)
@@ -179,6 +288,8 @@ private final class LineNumberRulerView: NSRulerView {
         self.ruleThickness = 46
         self.reservedThicknessForMarkers = 0
         self.reservedThicknessForAccessoryView = 0
+        self.wantsLayer = true
+        self.layer?.backgroundColor = backgroundColor.cgColor
         self.invalidateLineNumbers(rebuild: true)
     }
 
@@ -187,6 +298,8 @@ private final class LineNumberRulerView: NSRulerView {
         self.ruleThickness = 46
         self.reservedThicknessForMarkers = 0
         self.reservedThicknessForAccessoryView = 0
+        self.wantsLayer = true
+        self.layer?.backgroundColor = backgroundColor.cgColor
     }
 
     func invalidateLineNumbers(rebuild: Bool = false) {
@@ -204,7 +317,7 @@ private final class LineNumberRulerView: NSRulerView {
             return
         }
 
-        NSColor.clear.setFill()
+        backgroundColor.setFill()
         rect.fill()
         layoutManager.ensureLayout(for: textContainer)
         if lineStarts.isEmpty {
@@ -232,6 +345,12 @@ private final class LineNumberRulerView: NSRulerView {
                 withAttributes: self.labelAttributes
             )
         }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        backgroundColor.setFill()
+        dirtyRect.fill()
+        super.draw(dirtyRect)
     }
 
     private func rebuildLineStarts() {
@@ -323,7 +442,7 @@ nonisolated enum HTMLWorkspaceDOMOutline {
         ) else { return nil }
         let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
         guard let match = expression.firstMatch(in: attributes, range: range),
-              let valueRange = Range(match.range(at: 1), in: attributes) else {
+              let valueRange = Range(match.range(at: 2), in: attributes) else {
             return nil
         }
         return String(attributes[valueRange])

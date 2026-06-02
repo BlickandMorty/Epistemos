@@ -101,7 +101,9 @@ fn fisher_norm_is_non_negative_psd_property() {
         let q = fisher_norm_squared(&v, &fisher);
         assert!(
             q >= -1e-12,
-            "Fisher norm² = {} should be ≥ 0 for v = {:?}", q, v.vector_part()
+            "Fisher norm² = {} should be ≥ 0 for v = {:?}",
+            q,
+            v.vector_part()
         );
     }
 }
@@ -144,7 +146,9 @@ fn fisher_metric_differs_from_euclidean_metric() {
     // Euclidean: 1.0.
     assert!(
         (fisher_norm - euclidean_norm).abs() > 0.5,
-        "Fisher = {} vs Euclidean = {} should differ", fisher_norm, euclidean_norm
+        "Fisher = {} vs Euclidean = {} should differ",
+        fisher_norm,
+        euclidean_norm
     );
 }
 
@@ -159,7 +163,10 @@ fn fisher_metric_scales_quadratically_with_vector() {
         let scaled_q = fisher_norm_squared(&scaled, &fisher);
         assert!(
             (scaled_q - alpha * alpha * base).abs() < 1e-12,
-            "q({}v) = {}; α²·q(v) = {}", alpha, scaled_q, alpha * alpha * base
+            "q({}v) = {}; α²·q(v) = {}",
+            alpha,
+            scaled_q,
+            alpha * alpha * base
         );
     }
 }
@@ -176,6 +183,8 @@ fn fisher_metric_changes_with_theta_position() {
     let q_far = fisher_norm_squared(&v, &fisher_far);
     assert!(
         (q_uniform - q_far).abs() > 0.05,
-        "θ-independent metric would mean q_uniform={} ≈ q_far={}", q_uniform, q_far
+        "θ-independent metric would mean q_uniform={} ≈ q_far={}",
+        q_uniform,
+        q_far
     );
 }

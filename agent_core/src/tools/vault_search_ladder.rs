@@ -114,9 +114,7 @@ pub struct VaultSearchLadderOutput {
 pub struct VaultSearchT1LexicalBm25;
 
 #[async_trait]
-impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
-    for VaultSearchT1LexicalBm25
-{
+impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput> for VaultSearchT1LexicalBm25 {
     fn tier(&self) -> LadderTier {
         LadderTier::Deterministic
     }
@@ -125,10 +123,7 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
         "VaultSearchT1LexicalBm25"
     }
 
-    async fn try_resolve(
-        &self,
-        input: &VaultSearchLadderInput,
-    ) -> Option<VaultSearchLadderOutput> {
+    async fn try_resolve(&self, input: &VaultSearchLadderInput) -> Option<VaultSearchLadderOutput> {
         let results = match input
             .backend
             .lexical_search(&input.query, input.limit, &input.tags)
@@ -149,9 +144,7 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
 pub struct VaultSearchT3RrfHybrid;
 
 #[async_trait]
-impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
-    for VaultSearchT3RrfHybrid
-{
+impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput> for VaultSearchT3RrfHybrid {
     fn tier(&self) -> LadderTier {
         LadderTier::Classical
     }
@@ -160,10 +153,7 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
         "VaultSearchT3RrfHybrid"
     }
 
-    async fn try_resolve(
-        &self,
-        input: &VaultSearchLadderInput,
-    ) -> Option<VaultSearchLadderOutput> {
+    async fn try_resolve(&self, input: &VaultSearchLadderInput) -> Option<VaultSearchLadderOutput> {
         let results = match input
             .backend
             .hybrid_search(&input.query, input.limit, &input.tags)
@@ -178,10 +168,7 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
 
 /// Helper: accept the results set iff non-empty AND the top result's
 /// score is at or above `floor`. Used by every tier's `try_resolve`.
-fn accept_above_floor(
-    results: Vec<SearchResult>,
-    floor: f64,
-) -> Option<VaultSearchLadderOutput> {
+fn accept_above_floor(results: Vec<SearchResult>, floor: f64) -> Option<VaultSearchLadderOutput> {
     let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
     if !results.is_empty() && top_score >= floor {
         Some(VaultSearchLadderOutput { results })
@@ -200,9 +187,10 @@ fn accept_above_floor(
 /// can fire silently. Construction sites that need LLM escalation must
 /// chain `.with_escalation_policy(EscalationPolicy::OnEmpty)` AND
 /// carry a `// VARIANT-LADDER-DEFER:` source marker.
-pub fn build_vault_search_ladder(
-) -> Result<VariantLadder<VaultSearchLadderInput, VaultSearchLadderOutput>, crate::variant_ladder::LadderError>
-{
+pub fn build_vault_search_ladder() -> Result<
+    VariantLadder<VaultSearchLadderInput, VaultSearchLadderOutput>,
+    crate::variant_ladder::LadderError,
+> {
     let mut ladder = VariantLadder::new();
     ladder.push(Arc::new(VaultSearchT1LexicalBm25))?;
     ladder.push(Arc::new(VaultSearchT3RrfHybrid))?;
@@ -300,10 +288,14 @@ mod tests {
         // Strict less-than (not ≤) — flat-tied floors collapse the
         // ladder semantics (T1 = T2 means T1 already covers
         // everything T2 would).
-        assert!(FLOOR_T2 < FLOOR_T1,
-                "FLOOR_T2 ({FLOOR_T2}) MUST be strictly below FLOOR_T1 ({FLOOR_T1})");
-        assert!(FLOOR_T3 < FLOOR_T2,
-                "FLOOR_T3 ({FLOOR_T3}) MUST be strictly below FLOOR_T2 ({FLOOR_T2})");
+        assert!(
+            FLOOR_T2 < FLOOR_T1,
+            "FLOOR_T2 ({FLOOR_T2}) MUST be strictly below FLOOR_T1 ({FLOOR_T1})"
+        );
+        assert!(
+            FLOOR_T3 < FLOOR_T2,
+            "FLOOR_T3 ({FLOOR_T3}) MUST be strictly below FLOOR_T2 ({FLOOR_T2})"
+        );
 
         // All floors live in [0, 1] — they're confidence scores.
         assert!((0.0..=1.0).contains(&FLOOR_T1));
@@ -391,7 +383,10 @@ mod tests {
         );
         assert_eq!(
             names_and_tiers[0],
-            ("VaultSearchT1LexicalBm25".to_string(), LadderTier::Deterministic),
+            (
+                "VaultSearchT1LexicalBm25".to_string(),
+                LadderTier::Deterministic
+            ),
             "T1 must come first per tier-ascending order"
         );
         assert_eq!(
@@ -433,7 +428,10 @@ mod tests {
     async fn t1_variant_declines_on_empty_results() {
         let inp = input(vec![]);
         let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
-        assert!(resolved.is_none(), "T1 must decline on empty backend results");
+        assert!(
+            resolved.is_none(),
+            "T1 must decline on empty backend results"
+        );
     }
 
     /// T21 iter-63 (2026-05-18): documenting test — raw BM25 scores
@@ -457,7 +455,10 @@ mod tests {
         // match — well below the typical max (~15) but well above the
         // FLOOR_T1 = 0.85 constant that was calibrated for clamped
         // [0, 1] scores. Today T1 accepts because 4.21 ≥ 0.85.
-        let canned = vec![result("notes/strong.md", 4.21), result("notes/medium.md", 2.10)];
+        let canned = vec![
+            result("notes/strong.md", 4.21),
+            result("notes/medium.md", 2.10),
+        ];
         let inp = input(canned);
         let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
         let output = resolved.expect(
@@ -557,7 +558,9 @@ mod tests {
         // VaultStore-style impls (whose hybrid_search is already
         // lexical-only).
         let canned = vec![result("notes/a.md", 0.95)];
-        let backend = Arc::new(FakeVaultBackend { canned: canned.clone() });
+        let backend = Arc::new(FakeVaultBackend {
+            canned: canned.clone(),
+        });
         let via_hybrid = backend
             .hybrid_search("anything", 5, &[])
             .await

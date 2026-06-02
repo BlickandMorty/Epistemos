@@ -307,7 +307,9 @@ mod tests {
     fn cert_projects_geometry_target_obligations() {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
-        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\""));
+        assert!(c.contains(
+            "sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\""
+        ));
         assert!(c.contains("theorem geometry_certificate_source_row_"));
         assert!(c.contains("Epistemos.Geometry.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem geometry_certificate_obligations_"));
@@ -361,9 +363,9 @@ mod tests {
         assert!(c.contains(
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-701"
         ));
-        assert!(
-            c.contains("Generated rotor/Clifford/sandwich/composition proofs expose schema witnesses")
-        );
+        assert!(c.contains(
+            "Generated rotor/Clifford/sandwich/composition proofs expose schema witnesses"
+        ));
     }
 
     #[test]

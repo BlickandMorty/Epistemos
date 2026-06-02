@@ -34,8 +34,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use crate::tools::registry::ToolHandler;
 use super::{Profile, Tool, ToolCtx, ToolMeta, ToolResult, VariantId};
+use crate::tools::registry::ToolHandler;
 
 /// Static metadata bundle — the 7 plan-§3.1 method results that the
 /// legacy handler can't supply on its own. Each migrated tool ships
@@ -185,7 +185,9 @@ mod tests {
 
     #[tokio::test]
     async fn adapter_wraps_plain_string_output_as_text_object() {
-        let handler = Arc::new(StubHandler { out: "hello world".to_string() });
+        let handler = Arc::new(StubHandler {
+            out: "hello world".to_string(),
+        });
         let tool = LegacyToolAdapter::new(TEST_SPEC, handler);
         let ctx = default_ctx(Duration::from_millis(800));
         let r = run_with_variants(&tool, &ctx, json!({"q": "x"})).await;
@@ -224,7 +226,9 @@ mod tests {
 
     #[tokio::test]
     async fn adapter_exposes_static_schemas_via_tool_trait() {
-        let handler = Arc::new(StubHandler { out: "x".to_string() });
+        let handler = Arc::new(StubHandler {
+            out: "x".to_string(),
+        });
         let tool = LegacyToolAdapter::new(TEST_SPEC, handler);
         // Pointer-equality proves the schemas come from OnceLock-backed
         // statics — the adapter doesn't rebuild them per call.
@@ -244,7 +248,9 @@ mod tests {
         // Plan §17.3 sampler-bound dispatch: any adapted tool's input
         // schema must compile via Phase 2A's compiler.
         use crate::grammar::{build_dispatch_grammar, schema_to_llg};
-        let handler = Arc::new(StubHandler { out: "x".to_string() });
+        let handler = Arc::new(StubHandler {
+            out: "x".to_string(),
+        });
         let tool = LegacyToolAdapter::new(TEST_SPEC, handler);
         schema_to_llg(tool.input_schema()).expect("input schema must compile");
         let pairs: Vec<(&str, &Value)> = vec![(tool.name(), tool.input_schema())];

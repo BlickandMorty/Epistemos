@@ -13,6 +13,30 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("model_manifest.json"))
         #expect(script.contains("RetroGaming.ttf"))
         #expect(script.contains("CoralPixels-Regular.ttf"))
+        #expect(script.contains("MatrixTypeDisplay-Bold.otf"))
+        #expect(script.contains("MatrixDotsDemoRegular.ttf"))
+        for font in [
+            "ReturnOfGanonReg.ttf",
+            "Charybdis.ttf",
+            "VTFMisterPixel.otf",
+            "VTFMisterPixel-Tools.otf",
+            "AtlantisHeadline-Bold.otf",
+            "AtlantisText-Regular.ttf",
+            "AtlantisText-Bold.otf",
+            "Atlantis-RegularSmallCaps.otf",
+            "LunchtimeDoublySoReg.ttf",
+            "DisposableDroidBB.ttf",
+            "DisposableDroidBB-Bold.ttf",
+            "DisposableDroidBB-Italic.ttf",
+            "DisposableDroidBB-BoldItalic.ttf",
+            "EXEPixelPerfect.ttf",
+            "Delicatus.ttf",
+            "LEDDisplay7.ttf",
+            "GNF.ttf",
+            "CodersCrux.ttf",
+        ] {
+            #expect(script.contains(font))
+        }
         #expect(script.contains("KnowledgeFusion/Training/scripts/train_knowledge.py"))
         #expect(script.contains("KnowledgeFusion/Training/scripts/train_style.py"))
         #expect(script.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))

@@ -68,8 +68,8 @@ enum LiquidGreetingTiming {
 // Both pairs render in the hero font + size — no separate smaller
 // font. The hero typewriter cycles: types pair 1, holds, backspaces,
 // types pair 2, holds, backspaces, repeats. Landing owns its own scoped
-// typography: Classic + Platinum use MatrixTypeDisplay for this hero,
-// while Ember keeps ColorBasic.
+// typography: Classic uses Matrix Type regular for this hero, Platinum uses
+// the non-watermarked Matrix Type face, and Ember keeps ColorBasic.
 
 struct LiquidGreeting: View {
     /// Stacked hero pair — both lines render in the hero font + size.
@@ -88,8 +88,10 @@ struct LiquidGreeting: View {
     /// single-line greeting.
     nonisolated static let restingGreeting = "\(greetingLine1) \(greetingLine2)"
 
-    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var theme: EpistemosTheme
+    var windowOccluded: Bool
+    var typewriterEnabled: Bool
     var compact: Bool = false
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
@@ -113,23 +115,40 @@ struct LiquidGreeting: View {
     @State private var searchReady: Bool = false
     @State private var cursorVisible: Bool = true
 
-    private var theme: EpistemosTheme { ui.theme }
-
-    /// Hero font for the two stacked lines. Uses the global theme
-    /// display face so Classic's Matrix typography is consistent with
-    /// note headings, graph chrome, and chat surfaces.
+    /// Hero font for the two stacked lines. Landing owns this face
+    /// independently from note headings so Classic can keep Matrix Type
+    /// regular here while note headings use their own Matrix/Chonky rules.
     private var heroFont: Font {
-        let baseSize: CGFloat = compact ? 22 : 44
-        return Font.custom(LandingCommandTypography.heroFontName(for: theme), size: baseSize)
-            .weight(.heavy)
+        Font.custom(LandingCommandTypography.heroFontName(for: theme), size: heroFontSize)
+            .weight(heroFontWeight)
     }
 
     /// Search-line font shrinks as the query grows — same dynamic
     /// curve as before, but anchored to the new smaller hero baseline.
     private var searchFont: Font {
         Font.custom(LandingCommandTypography.heroFontName(for: theme), size: dynamicSearchFontSize)
-            .weight(.heavy)
+            .weight(heroFontWeight)
     }
+
+    private var heroFontSize: CGFloat {
+        compact ? 22 : 44
+    }
+
+    private var heroFontWeight: Font.Weight {
+        theme.themePair == .classic ? .regular : .heavy
+    }
+
+    private var usesPlatinumGlyphFallback: Bool {
+        AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: 1)
+    }
+
+    private func landingHeroText(_ text: String, boxed: Bool) -> String {
+        if AppCustomTheme.isActive {
+            return text.uppercased()
+        }
+        return boxed ? theme.boxedLabelText(text) : theme.plainLabelText(text)
+    }
+
     private var dynamicSearchFontSize: CGFloat {
         let baseSize: CGFloat = compact ? 22 : 36
         let minSize: CGFloat = compact ? 14 : 18
@@ -143,7 +162,10 @@ struct LiquidGreeting: View {
         return CGFloat(size)
     }
     private var greetingColor: Color {
-        theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9)
+        if theme.themePair == .classic {
+            return theme.fontAccent.opacity(theme.isDark ? 0.9 : 0.86)
+        }
+        return theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9)
     }
 
     /// Block cursor metrics scaled to the current search font.
@@ -153,7 +175,7 @@ struct LiquidGreeting: View {
     }
 
     private var shouldAnimate: Bool {
-        !ui.windowOccluded && ui.landingGreetingTypewriterEnabled
+        !windowOccluded && typewriterEnabled
     }
 
     private var taskKey: String {
@@ -221,17 +243,12 @@ struct LiquidGreeting: View {
     /// plain (no-box) glyph form via `plainLabelText` (uppercases the
     /// text so ColorBasic's A-Z glyphs render) and `line2` is rendered
     /// in the boxed form via `boxedLabelText` (lowercases so a-z
-    /// renders as white-on-black). Other themes pass through unchanged.
+    /// renders as white-on-black). Classic and Platinum preserve the
+    /// phrase casing on their Matrix Type landing greeting.
     private var stackedGreeting: some View {
         VStack(alignment: .center, spacing: compact ? 2 : 4) {
-            Text(theme.plainLabelText(line1))
-                .font(heroFont)
-                .foregroundStyle(greetingColor)
-                .lineLimit(1)
-            Text(theme.boxedLabelText(line2))
-                .font(heroFont)
-                .foregroundStyle(greetingColor)
-                .lineLimit(1)
+            heroLine(line1, boxed: false)
+            heroLine(line2, boxed: true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .shadow(
@@ -246,14 +263,30 @@ struct LiquidGreeting: View {
         )
     }
 
+    @ViewBuilder
+    private func heroLine(_ text: String, boxed: Bool) -> some View {
+        let renderedText = landingHeroText(text, boxed: boxed)
+        if usesPlatinumGlyphFallback {
+            Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                renderedText,
+                size: heroFontSize,
+                weight: .heavy,
+                isDark: theme.isDark
+            ))
+            .foregroundStyle(greetingColor)
+            .lineLimit(1)
+        } else {
+            Text(renderedText)
+                .font(heroFont)
+                .foregroundStyle(greetingColor)
+                .lineLimit(1)
+        }
+    }
+
     /// Renders the live query followed by a thick block cursor.
     private var searchLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(searchText)
-                .font(searchFont)
-                .foregroundStyle(greetingColor)
-                .lineLimit(3)
-                .multilineTextAlignment(.center)
+            searchTextView
             Rectangle()
                 .fill(greetingColor)
                 .frame(width: cursorMetrics.width, height: cursorMetrics.height)
@@ -273,6 +306,27 @@ struct LiquidGreeting: View {
                     : Color.black.opacity(0.08)),
             radius: compact ? 0 : (theme.isDark ? 8 : 5)
         )
+    }
+
+    @ViewBuilder
+    private var searchTextView: some View {
+        if usesPlatinumGlyphFallback {
+            Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                searchText,
+                size: dynamicSearchFontSize,
+                weight: .heavy,
+                isDark: theme.isDark
+            ))
+            .foregroundStyle(greetingColor)
+            .lineLimit(3)
+            .multilineTextAlignment(.center)
+        } else {
+            Text(searchText)
+                .font(searchFont)
+                .foregroundStyle(greetingColor)
+                .lineLimit(3)
+                .multilineTextAlignment(.center)
+        }
     }
 
     // MARK: - Lifecycle helpers

@@ -14,12 +14,12 @@
 //! values exactly so the bridge can round-trip via JSON without
 //! translation tables.
 //!
-//! Status: iter-17 lands the enum mirrors + tier→mode mapping. The
-//! actual `LocalAgentAdapter::dispatch` body lands in a later
-//! iteration once the dispatcher seam is wired.
+//! Status: the enum mirrors, tier-mode mapping, and local dispatch planning
+//! are wired. The live provider execution seam remains in System G.
 
 use serde::{Deserialize, Serialize};
 
+use crate::agent_runtime_v2::blueprint::ProviderPolicy;
 use crate::agent_runtime_v2::mode::AgentRuntimeV2Mode;
 
 /// Tier mirror of the Swift-side `LocalAgentCapabilityTier`. Names
@@ -216,20 +216,92 @@ impl LocalAgentCapability {
         }
         true
     }
+
+    #[must_use]
+    pub const fn required_dispatch_mode(&self) -> AgentRuntimeV2Mode {
+        if self.requires_subprocess {
+            AgentRuntimeV2Mode::Subprocess
+        } else {
+            self.tier.required_mode()
+        }
+    }
 }
 
-/// Adapter scaffold. The dispatcher seam lands in a later iteration;
-/// today the adapter exists so callers can `use` the type and
-/// `LocalAgentCapability` from the v2 namespace.
+/// Dispatch request for one legacy LocalAgent capability through the v2
+/// mode lattice. This selects a provider policy; it does not execute the
+/// model or mutate state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LocalAgentDispatchRequest {
+    pub capability: LocalAgentCapability,
+    pub mode: AgentRuntimeV2Mode,
+    pub user_prompt: String,
+    pub local_model_id: String,
+}
+
+/// The admitted local-agent route. Future System G provider wiring consumes
+/// this plan and streams from the selected local runtime.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LocalAgentDispatchPlan {
+    pub command_token: String,
+    pub required_mode: AgentRuntimeV2Mode,
+    pub admitted_mode: AgentRuntimeV2Mode,
+    pub provider_policy: ProviderPolicy,
+    pub structured_evidence_required: bool,
+    pub approval_required: bool,
+    pub native_equivalent: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LocalAgentDispatchError {
+    EmptyCommandToken,
+    MissingLocalModelId,
+    CapabilityNotAllowed {
+        required_mode: AgentRuntimeV2Mode,
+        active_mode: AgentRuntimeV2Mode,
+    },
+}
+
+/// Adapter surface. It performs local-agent admission and provider-policy
+/// selection only; live MLX/GGUF streaming remains a separate System G gate.
 #[derive(Debug, Clone, Default)]
 pub struct LocalAgentAdapter {
-    _scaffold: (),
+    _stateless: (),
 }
 
 impl LocalAgentAdapter {
     #[must_use]
     pub const fn new() -> Self {
-        Self { _scaffold: () }
+        Self { _stateless: () }
+    }
+
+    pub fn dispatch(
+        &self,
+        request: LocalAgentDispatchRequest,
+    ) -> Result<LocalAgentDispatchPlan, LocalAgentDispatchError> {
+        let command_token = request.capability.command_token();
+        if command_token.is_empty() {
+            return Err(LocalAgentDispatchError::EmptyCommandToken);
+        }
+        if request.local_model_id.trim().is_empty() {
+            return Err(LocalAgentDispatchError::MissingLocalModelId);
+        }
+        if !request.capability.allowed_in(request.mode) {
+            return Err(LocalAgentDispatchError::CapabilityNotAllowed {
+                required_mode: request.capability.required_dispatch_mode(),
+                active_mode: request.mode,
+            });
+        }
+        Ok(LocalAgentDispatchPlan {
+            command_token,
+            required_mode: request.capability.required_dispatch_mode(),
+            admitted_mode: request.mode,
+            provider_policy: ProviderPolicy::LocalMlx {
+                model_id: request.local_model_id,
+            },
+            structured_evidence_required: request.capability.structured_evidence,
+            approval_required: request.capability.requires_approval,
+            native_equivalent: request.capability.native_equivalent,
+        })
     }
 }
 
@@ -256,10 +328,8 @@ mod tests {
         const TIER_CORE_CODE: &str = LocalAgentCapabilityTier::Core.code();
         const TIER_PRO_CODE: &str = LocalAgentCapabilityTier::Pro.code();
         const TIER_RES_CODE: &str = LocalAgentCapabilityTier::Research.code();
-        const TIER_CORE_MODE: AgentRuntimeV2Mode =
-            LocalAgentCapabilityTier::Core.required_mode();
-        const TIER_PRO_MODE: AgentRuntimeV2Mode =
-            LocalAgentCapabilityTier::Pro.required_mode();
+        const TIER_CORE_MODE: AgentRuntimeV2Mode = LocalAgentCapabilityTier::Core.required_mode();
+        const TIER_PRO_MODE: AgentRuntimeV2Mode = LocalAgentCapabilityTier::Pro.required_mode();
         const TIER_RES_MODE: AgentRuntimeV2Mode =
             LocalAgentCapabilityTier::Research.required_mode();
         const OWNER_NATIVE_CODE: &str = LocalAgentCapabilityOwner::NativeCore.code();
@@ -361,7 +431,10 @@ mod tests {
 
         for (owner, expected) in [
             (LocalAgentCapabilityOwner::NativeCore, "NativeCore"),
-            (LocalAgentCapabilityOwner::LocalAgentGateway, "LocalAgentGateway"),
+            (
+                LocalAgentCapabilityOwner::LocalAgentGateway,
+                "LocalAgentGateway",
+            ),
             (LocalAgentCapabilityOwner::ResearchOnly, "ResearchOnly"),
             (LocalAgentCapabilityOwner::OutOfScope, "OutOfScope"),
         ] {
@@ -524,8 +597,7 @@ mod tests {
     fn local_agent_tier_round_trips_through_json() {
         for tier in LocalAgentCapabilityTier::ALL {
             let s = serde_json::to_string(&tier).expect("serialize");
-            let back: LocalAgentCapabilityTier =
-                serde_json::from_str(&s).expect("deserialize");
+            let back: LocalAgentCapabilityTier = serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, tier);
         }
     }
@@ -563,17 +635,53 @@ mod tests {
         // in one place with the truth-table embedded.
         let cases: &[(LocalAgentCapabilityTier, AgentRuntimeV2Mode, bool)] = &[
             // Disabled mode → ALWAYS deny (MAS safety invariant).
-            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::Disabled, false),
+            (
+                LocalAgentCapabilityTier::Core,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
             // IpcBounded mode → admit Core/Pro, deny Research.
-            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::IpcBounded, true),
-            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::IpcBounded, true),
-            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::IpcBounded, false),
+            (
+                LocalAgentCapabilityTier::Core,
+                AgentRuntimeV2Mode::IpcBounded,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                AgentRuntimeV2Mode::IpcBounded,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                AgentRuntimeV2Mode::IpcBounded,
+                false,
+            ),
             // Subprocess mode → admit all tiers.
-            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::Subprocess, true),
-            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::Subprocess, true),
-            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::Subprocess, true),
+            (
+                LocalAgentCapabilityTier::Core,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
         ];
         assert_eq!(cases.len(), 9, "must enumerate all 3×3 combinations");
         for &(tier, mode, expected) in cases {
@@ -653,7 +761,10 @@ mod tests {
             LocalAgentCapabilityOwner::LocalAgentGateway.code(),
             "localAgentGateway"
         );
-        assert_eq!(LocalAgentCapabilityOwner::ResearchOnly.code(), "researchOnly");
+        assert_eq!(
+            LocalAgentCapabilityOwner::ResearchOnly.code(),
+            "researchOnly"
+        );
         assert_eq!(LocalAgentCapabilityOwner::OutOfScope.code(), "outOfScope");
     }
 
@@ -726,7 +837,10 @@ mod tests {
         // A rename here silently breaks the Swift⇄Rust JSON bridge.
         for (variant, expected) in [
             (LocalAgentCapabilityOwner::NativeCore, "\"nativeCore\""),
-            (LocalAgentCapabilityOwner::LocalAgentGateway, "\"localAgentGateway\""),
+            (
+                LocalAgentCapabilityOwner::LocalAgentGateway,
+                "\"localAgentGateway\"",
+            ),
             (LocalAgentCapabilityOwner::ResearchOnly, "\"researchOnly\""),
             (LocalAgentCapabilityOwner::OutOfScope, "\"outOfScope\""),
         ] {
@@ -846,7 +960,8 @@ mod tests {
             let serde_form = serde_json::to_string(&owner).expect("serialize");
             let expected = format!("\"{}\"", owner.code());
             assert_eq!(
-                serde_form, expected,
+                serde_form,
+                expected,
                 "owner {owner:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
                 owner.code()
             );
@@ -855,7 +970,8 @@ mod tests {
             let serde_form = serde_json::to_string(&tier).expect("serialize");
             let expected = format!("\"{}\"", tier.code());
             assert_eq!(
-                serde_form, expected,
+                serde_form,
+                expected,
                 "tier {tier:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
                 tier.code()
             );
@@ -932,8 +1048,7 @@ mod tests {
     fn owner_round_trips_through_json() {
         for o in LocalAgentCapabilityOwner::ALL {
             let s = serde_json::to_string(&o).expect("serialize");
-            let back: LocalAgentCapabilityOwner =
-                serde_json::from_str(&s).expect("deserialize");
+            let back: LocalAgentCapabilityOwner = serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, o);
         }
     }
@@ -970,7 +1085,10 @@ mod tests {
                 .strip_prefix('"')
                 .and_then(|x| x.strip_suffix('"'))
                 .expect("surface serialises to a JSON string");
-            assert!(!inner.is_empty(), "surface form must be non-empty for {variant:?}");
+            assert!(
+                !inner.is_empty(),
+                "surface form must be non-empty for {variant:?}"
+            );
             // Every char ASCII alphabetic.
             for ch in inner.chars() {
                 assert!(
@@ -1004,9 +1122,15 @@ mod tests {
         for (variant, expected) in [
             (LocalAgentCapabilitySurface::AgentTask, "\"agentTask\""),
             (LocalAgentCapabilitySurface::Session, "\"session\""),
-            (LocalAgentCapabilitySurface::Configuration, "\"configuration\""),
+            (
+                LocalAgentCapabilitySurface::Configuration,
+                "\"configuration\"",
+            ),
             (LocalAgentCapabilitySurface::FileData, "\"fileData\""),
-            (LocalAgentCapabilitySurface::ToolsIntegration, "\"toolsIntegration\""),
+            (
+                LocalAgentCapabilitySurface::ToolsIntegration,
+                "\"toolsIntegration\"",
+            ),
             (LocalAgentCapabilitySurface::UiDisplay, "\"uiDisplay\""),
             (LocalAgentCapabilitySurface::Persona, "\"persona\""),
             (LocalAgentCapabilitySurface::Messaging, "\"messaging\""),
@@ -1065,7 +1189,10 @@ mod tests {
         for (variant, expected) in [
             (LocalAgentCapabilitySurface::AgentTask, "\"agentTask\""),
             (LocalAgentCapabilitySurface::Session, "\"session\""),
-            (LocalAgentCapabilitySurface::Configuration, "\"configuration\""),
+            (
+                LocalAgentCapabilitySurface::Configuration,
+                "\"configuration\"",
+            ),
             (LocalAgentCapabilitySurface::FileData, "\"fileData\""),
             (
                 LocalAgentCapabilitySurface::ToolsIntegration,
@@ -1159,13 +1286,19 @@ mod tests {
 
         // Runtime sanity: copy + use both bindings for each enum.
         let t = LocalAgentCapabilityTier::Pro;
-        let _ta = t; let _tb = t; assert_eq!(t, t);
+        let _ta = t;
+        let _tb = t;
+        assert_eq!(t, t);
 
         let o = LocalAgentCapabilityOwner::NativeCore;
-        let _oa = o; let _ob = o; assert_eq!(o, o);
+        let _oa = o;
+        let _ob = o;
+        assert_eq!(o, o);
 
         let s = LocalAgentCapabilitySurface::AgentTask;
-        let _sa = s; let _sb = s; assert_eq!(s, s);
+        let _sa = s;
+        let _sb = s;
+        assert_eq!(s, s);
     }
 
     #[test]
@@ -1247,10 +1380,7 @@ mod tests {
             LocalAgentCapability::command_token_from("/run <command>"),
             "/run"
         );
-        assert_eq!(
-            LocalAgentCapability::command_token_from("/help"),
-            "/help"
-        );
+        assert_eq!(LocalAgentCapability::command_token_from("/help"), "/help");
         assert_eq!(
             LocalAgentCapability::command_token_from("/kill <pid>"),
             "/kill"
@@ -1448,28 +1578,118 @@ mod tests {
         //   - IpcBounded mode → tier-allow + NOT requires_subprocess
         let cases: &[(LocalAgentCapabilityTier, bool, AgentRuntimeV2Mode, bool)] = &[
             // Core tier
-            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::IpcBounded, true),
-            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::Subprocess, true),
-            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::Disabled, false),
+            (
+                LocalAgentCapabilityTier::Core,
+                false,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Core,
+                false,
+                AgentRuntimeV2Mode::IpcBounded,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Core,
+                false,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Core,
+                true,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
             // Core + requires_subprocess + IpcBounded: tier OK but
             // flag forces Subprocess → deny.
-            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::IpcBounded, false),
-            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::Subprocess, true),
+            (
+                LocalAgentCapabilityTier::Core,
+                true,
+                AgentRuntimeV2Mode::IpcBounded,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Core,
+                true,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
             // Pro tier
-            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::IpcBounded, true),
-            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::Subprocess, true),
-            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::IpcBounded, false),
-            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::Subprocess, true),
+            (
+                LocalAgentCapabilityTier::Pro,
+                false,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                false,
+                AgentRuntimeV2Mode::IpcBounded,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                false,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                true,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                true,
+                AgentRuntimeV2Mode::IpcBounded,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Pro,
+                true,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
             // Research tier — tier itself denies IpcBounded.
-            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::IpcBounded, false),
-            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::Subprocess, true),
-            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::Disabled, false),
-            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::IpcBounded, false),
-            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::Subprocess, true),
+            (
+                LocalAgentCapabilityTier::Research,
+                false,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                false,
+                AgentRuntimeV2Mode::IpcBounded,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                false,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                true,
+                AgentRuntimeV2Mode::Disabled,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                true,
+                AgentRuntimeV2Mode::IpcBounded,
+                false,
+            ),
+            (
+                LocalAgentCapabilityTier::Research,
+                true,
+                AgentRuntimeV2Mode::Subprocess,
+                true,
+            ),
         ];
         assert_eq!(cases.len(), 18, "must enumerate all 3x2x3 combinations");
         for &(tier, requires_subprocess, mode, expected) in cases {
@@ -1589,7 +1809,10 @@ mod tests {
         // For each field, mutate exactly one and assert inequality.
         let mut diff_pattern = base.clone();
         diff_pattern.command_pattern = "/other <x>".into();
-        assert_ne!(diff_pattern, base, "command_pattern must participate in PartialEq");
+        assert_ne!(
+            diff_pattern, base,
+            "command_pattern must participate in PartialEq"
+        );
 
         let mut diff_surface = base.clone();
         diff_surface.surface = LocalAgentCapabilitySurface::Session;
@@ -1605,27 +1828,45 @@ mod tests {
 
         let mut diff_net = base.clone();
         diff_net.requires_network = true;
-        assert_ne!(diff_net, base, "requires_network must participate in PartialEq");
+        assert_ne!(
+            diff_net, base,
+            "requires_network must participate in PartialEq"
+        );
 
         let mut diff_sub = base.clone();
         diff_sub.requires_subprocess = true;
-        assert_ne!(diff_sub, base, "requires_subprocess must participate in PartialEq");
+        assert_ne!(
+            diff_sub, base,
+            "requires_subprocess must participate in PartialEq"
+        );
 
         let mut diff_app = base.clone();
         diff_app.requires_approval = true;
-        assert_ne!(diff_app, base, "requires_approval must participate in PartialEq");
+        assert_ne!(
+            diff_app, base,
+            "requires_approval must participate in PartialEq"
+        );
 
         let mut diff_evidence = base.clone();
         diff_evidence.structured_evidence = true;
-        assert_ne!(diff_evidence, base, "structured_evidence must participate in PartialEq");
+        assert_ne!(
+            diff_evidence, base,
+            "structured_evidence must participate in PartialEq"
+        );
 
         let mut diff_native = base.clone();
         diff_native.native_equivalent = "other".into();
-        assert_ne!(diff_native, base, "native_equivalent must participate in PartialEq");
+        assert_ne!(
+            diff_native, base,
+            "native_equivalent must participate in PartialEq"
+        );
 
         let mut diff_pass = base.clone();
         diff_pass.local_agent_passthrough = true;
-        assert_ne!(diff_pass, base, "local_agent_passthrough must participate in PartialEq");
+        assert_ne!(
+            diff_pass, base,
+            "local_agent_passthrough must participate in PartialEq"
+        );
 
         // Sanity preserved.
         assert_eq!(base.clone(), base);
@@ -1659,7 +1900,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -1766,8 +2009,7 @@ mod tests {
         cap.command_pattern = r#"/cmd "with quotes" <arg>"#.into();
         cap.native_equivalent = "fallback\nwith\nnewlines and \\ backslashes".into();
         let s = serde_json::to_string(&cap).expect("serialise");
-        let back: LocalAgentCapability =
-            serde_json::from_str(&s).expect("deserialise");
+        let back: LocalAgentCapability = serde_json::from_str(&s).expect("deserialise");
         assert_eq!(back.command_pattern, cap.command_pattern);
         assert_eq!(back.native_equivalent, cap.native_equivalent);
         assert_eq!(back, cap);
@@ -1777,8 +2019,7 @@ mod tests {
         cap2.command_pattern = "/cmd\twith\ttabs".into();
         cap2.native_equivalent = r#"{"json": "in native_equivalent"}"#.into();
         let s2 = serde_json::to_string(&cap2).expect("serialise");
-        let back2: LocalAgentCapability =
-            serde_json::from_str(&s2).expect("deserialise");
+        let back2: LocalAgentCapability = serde_json::from_str(&s2).expect("deserialise");
         assert_eq!(back2, cap2);
     }
 
@@ -1944,7 +2185,11 @@ mod tests {
         // panic and must return "" verbatim.
         let mut cap = ask_capability();
         cap.command_pattern = String::new();
-        assert_eq!(cap.command_token(), "", "empty pattern must yield empty token");
+        assert_eq!(
+            cap.command_token(),
+            "",
+            "empty pattern must yield empty token"
+        );
 
         // Whitespace-only pattern: same result.
         cap.command_pattern = "   ".into();
@@ -1962,11 +2207,9 @@ mod tests {
         // Companion to the trait-bound sweep across the user-facing
         // types in agent_runtime_v2 (iter-366..iter-386).
         //
-        // LocalAgentAdapter: zero-sized scaffold (unit struct with
-        // PhantomData-equivalent state). Clone + Default by derive
-        // (local_agent.rs §224). Not Copy by derive choice — keep
-        // the construction call explicit while the dispatcher seam
-        // lands in a later iteration.
+        // LocalAgentAdapter: zero-sized, stateless dispatch surface. Clone +
+        // Default by derive. Not Copy by derive choice — keep the construction
+        // call explicit as provider execution wiring evolves.
         //
         // Send + Sync are load-bearing — the adapter will eventually
         // be held in a static / Lazy across the dispatcher's thread
@@ -2001,5 +2244,81 @@ mod tests {
     #[test]
     fn adapter_constructs_via_new() {
         let _adapter = LocalAgentAdapter::new();
+    }
+
+    #[test]
+    fn local_agent_adapter_dispatch_admits_core_capability_to_local_mlx_plan() {
+        let adapter = LocalAgentAdapter::new();
+        let plan = adapter
+            .dispatch(LocalAgentDispatchRequest {
+                capability: ask_capability(),
+                mode: AgentRuntimeV2Mode::IpcBounded,
+                user_prompt: "Summarize this note".into(),
+                local_model_id: "Qwen/Qwen3-8B-MLX-4bit".into(),
+            })
+            .expect("core local capability should admit");
+
+        assert_eq!(plan.command_token, "/ask");
+        assert_eq!(plan.required_mode, AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(plan.admitted_mode, AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(
+            plan.provider_policy,
+            ProviderPolicy::LocalMlx {
+                model_id: "Qwen/Qwen3-8B-MLX-4bit".into()
+            }
+        );
+        assert!(!plan.approval_required);
+        assert!(!plan.structured_evidence_required);
+    }
+
+    #[test]
+    fn local_agent_adapter_dispatch_refuses_subprocess_capability_in_ipc_bounded() {
+        let adapter = LocalAgentAdapter::new();
+        let err = adapter
+            .dispatch(LocalAgentDispatchRequest {
+                capability: shell_capability(),
+                mode: AgentRuntimeV2Mode::IpcBounded,
+                user_prompt: "ls".into(),
+                local_model_id: "Qwen/Qwen3-8B-MLX-4bit".into(),
+            })
+            .expect_err("subprocess capability must not run in bounded mode");
+
+        assert_eq!(
+            err,
+            LocalAgentDispatchError::CapabilityNotAllowed {
+                required_mode: AgentRuntimeV2Mode::Subprocess,
+                active_mode: AgentRuntimeV2Mode::IpcBounded,
+            }
+        );
+    }
+
+    #[test]
+    fn local_agent_adapter_dispatch_rejects_empty_model_or_command() {
+        let adapter = LocalAgentAdapter::new();
+        let mut cap = ask_capability();
+        cap.command_pattern.clear();
+        assert_eq!(
+            adapter
+                .dispatch(LocalAgentDispatchRequest {
+                    capability: cap,
+                    mode: AgentRuntimeV2Mode::IpcBounded,
+                    user_prompt: "hello".into(),
+                    local_model_id: "Qwen/Qwen3-8B-MLX-4bit".into(),
+                })
+                .expect_err("empty command token must fail"),
+            LocalAgentDispatchError::EmptyCommandToken
+        );
+
+        assert_eq!(
+            adapter
+                .dispatch(LocalAgentDispatchRequest {
+                    capability: ask_capability(),
+                    mode: AgentRuntimeV2Mode::IpcBounded,
+                    user_prompt: "hello".into(),
+                    local_model_id: "   ".into(),
+                })
+                .expect_err("empty local model id must fail"),
+            LocalAgentDispatchError::MissingLocalModelId
+        );
     }
 }

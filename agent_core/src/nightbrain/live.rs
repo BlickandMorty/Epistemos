@@ -381,10 +381,7 @@ mod tests {
         let outcomes = run_live_registered_tasks().await.expect("run ok");
         assert_eq!(outcomes.len(), canonical_task_names().len());
         for outcome in &outcomes {
-            assert!(
-                outcome.outcome.completed,
-                "task must not stop the run loop"
-            );
+            assert!(outcome.outcome.completed, "task must not stop the run loop");
             let is_real_body = matches!(
                 outcome.name.as_str(),
                 "maintenance_log"
@@ -550,10 +547,9 @@ mod tests {
             reset_live_scheduler().await;
             let _ = run_live_registered_tasks().await.expect("run ok");
         }
-        let snapshot = recent_search_index_checkpoint_entries(
-            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY + 64,
-        )
-        .await;
+        let snapshot =
+            recent_search_index_checkpoint_entries(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY + 64)
+                .await;
         assert!(
             snapshot.len() <= SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
             "ring must never grow past capacity; got {} after {} runs",
@@ -570,13 +566,17 @@ mod tests {
         register_canonical_tasks().await;
         reset_live_scheduler().await;
 
-        let before =
-            recent_lane_entries("event_store_checkpoint_vacuum", OBSERVATION_LANE_RING_CAPACITY)
-                .await;
+        let before = recent_lane_entries(
+            "event_store_checkpoint_vacuum",
+            OBSERVATION_LANE_RING_CAPACITY,
+        )
+        .await;
         let _ = run_live_registered_tasks().await.expect("run ok");
-        let after =
-            recent_lane_entries("event_store_checkpoint_vacuum", OBSERVATION_LANE_RING_CAPACITY)
-                .await;
+        let after = recent_lane_entries(
+            "event_store_checkpoint_vacuum",
+            OBSERVATION_LANE_RING_CAPACITY,
+        )
+        .await;
         assert_eq!(
             after.len(),
             (before.len() + 1).min(OBSERVATION_LANE_RING_CAPACITY),
@@ -594,13 +594,17 @@ mod tests {
         register_canonical_tasks().await;
         reset_live_scheduler().await;
 
-        let before =
-            recent_lane_entries("workspace_snapshot_compaction", OBSERVATION_LANE_RING_CAPACITY)
-                .await;
+        let before = recent_lane_entries(
+            "workspace_snapshot_compaction",
+            OBSERVATION_LANE_RING_CAPACITY,
+        )
+        .await;
         let _ = run_live_registered_tasks().await.expect("run ok");
-        let after =
-            recent_lane_entries("workspace_snapshot_compaction", OBSERVATION_LANE_RING_CAPACITY)
-                .await;
+        let after = recent_lane_entries(
+            "workspace_snapshot_compaction",
+            OBSERVATION_LANE_RING_CAPACITY,
+        )
+        .await;
         assert_eq!(
             after.len(),
             (before.len() + 1).min(OBSERVATION_LANE_RING_CAPACITY),
@@ -640,9 +644,11 @@ mod tests {
             assert_eq!(outcome.outcome.items_processed, 0);
             // And the observation lane store must NOT have a ring for
             // this name (it shouldn't be written to).
-            let ring_snapshot =
-                recent_lane_entries(canonical_name_to_static(name), OBSERVATION_LANE_RING_CAPACITY)
-                    .await;
+            let ring_snapshot = recent_lane_entries(
+                canonical_name_to_static(name),
+                OBSERVATION_LANE_RING_CAPACITY,
+            )
+            .await;
             assert!(
                 ring_snapshot.is_empty(),
                 "non-observation task ({name}) must NOT have written to a lane ring"
@@ -674,20 +680,18 @@ mod tests {
         let m_before = recent_maintenance_log_entries(MAINTENANCE_LOG_RING_CAPACITY)
             .await
             .len();
-        let s_before = recent_search_index_checkpoint_entries(
-            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
-        )
-        .await
-        .len();
+        let s_before =
+            recent_search_index_checkpoint_entries(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY)
+                .await
+                .len();
         let _ = run_live_registered_tasks().await.expect("run ok");
         let m_after = recent_maintenance_log_entries(MAINTENANCE_LOG_RING_CAPACITY)
             .await
             .len();
-        let s_after = recent_search_index_checkpoint_entries(
-            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
-        )
-        .await
-        .len();
+        let s_after =
+            recent_search_index_checkpoint_entries(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY)
+                .await
+                .len();
         assert_eq!(
             m_after,
             (m_before + 1).min(MAINTENANCE_LOG_RING_CAPACITY),

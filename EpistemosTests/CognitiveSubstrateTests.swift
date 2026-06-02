@@ -1628,6 +1628,39 @@ struct PaperclipStateStoreTests {
         #expect(recent.first?.errorMessage == heartbeat.errorMessage)
         #expect(recent.first?.success == false)
     }
+
+    @Test("Paperclip heartbeat clock defaults to a two-minute cadence")
+    func heartbeatClockDefaultsToTwoMinuteCadence() {
+        #expect(PaperclipHeartbeatClock.defaultInterval == .seconds(120))
+        #expect(PaperclipHeartbeatClock.defaultAgentId == "epistemos.paperclip.heartbeat")
+    }
+
+    @Test("Paperclip heartbeat clock records an explicit tick without waiting")
+    func heartbeatClockRecordsExplicitTick() async throws {
+        let store = try makeTestStore()
+        let clock = PaperclipHeartbeatClock(
+            store: store,
+            agentId: "agent-heartbeat-test",
+            interval: .seconds(120)
+        )
+        let scheduledAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        await clock.tickOnce(scheduledAt: scheduledAt)
+
+        let recent = try await store.recentHeartbeats(
+            agentId: "agent-heartbeat-test",
+            limit: 1
+        )
+        let heartbeat = try #require(recent.first)
+
+        #expect(recent.count == 1)
+        #expect(heartbeat.agentId == "agent-heartbeat-test")
+        #expect(heartbeat.scheduledAt == scheduledAt)
+        #expect(heartbeat.executedAt >= scheduledAt)
+        #expect(heartbeat.durationMs >= 0)
+        #expect(heartbeat.success)
+        #expect(heartbeat.errorMessage == nil)
+    }
 }
 
 // MARK: - Night Brain Checkpoint Resume Tests

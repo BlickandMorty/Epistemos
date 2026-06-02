@@ -23,8 +23,8 @@
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan, IdError,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind, EidosSpan, IdError,
 };
 
 /// One indexed document for [`InMemoryLexicalIndex`]. The body is stored
@@ -129,11 +129,7 @@ impl EidosRetriever for InMemoryLexicalIndex {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
@@ -194,11 +190,7 @@ impl EidosRetriever for InMemoryLexicalIndex {
                 .then_with(|| a.1.source_id.as_str().cmp(b.1.source_id.as_str()))
         });
 
-        let hits: Vec<EidosHit> = scored
-            .into_iter()
-            .take(top_k)
-            .map(|(_, hit)| hit)
-            .collect();
+        let hits: Vec<EidosHit> = scored.into_iter().take(top_k).map(|(_, hit)| hit).collect();
 
         EidosContextPacket {
             query: query.clone(),
@@ -264,12 +256,8 @@ mod tests {
     #[test]
     fn invisible_only_query_returns_empty_packet() {
         let mut idx = InMemoryLexicalIndex::new(manifest());
-        idx.insert(
-            doc("zwsp-body"),
-            "alpha\u{200B}beta",
-            EidosSourceKind::Note,
-        )
-        .unwrap();
+        idx.insert(doc("zwsp-body"), "alpha\u{200B}beta", EidosSourceKind::Note)
+            .unwrap();
         let query = EidosQuery::new("\u{200B}", EidosRetrievalMode::Lexical, 8);
         let packet = idx.retrieve(&query, 1_700_000_000_000);
         assert!(
@@ -307,12 +295,8 @@ mod tests {
         let mut lex = InMemoryLexicalIndex::new(manifest());
         for n in [1u32, 2, 9, 99] {
             let body = needle.repeat(n as usize);
-            lex.insert(
-                doc(&format!("d-{n}")),
-                body,
-                EidosSourceKind::Note,
-            )
-            .unwrap();
+            lex.insert(doc(&format!("d-{n}")), body, EidosSourceKind::Note)
+                .unwrap();
         }
 
         let q = EidosQuery::new(needle, EidosRetrievalMode::Lexical, 16);
@@ -432,8 +416,10 @@ mod tests {
     #[test]
     fn reinserting_same_document_id_replaces_body() {
         let mut idx = InMemoryLexicalIndex::new(manifest());
-        idx.insert(doc("note-1"), "alpha", EidosSourceKind::Note).unwrap();
-        idx.insert(doc("note-1"), "beta", EidosSourceKind::Note).unwrap();
+        idx.insert(doc("note-1"), "alpha", EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("note-1"), "beta", EidosSourceKind::Note)
+            .unwrap();
         let query = EidosQuery::new("alpha", EidosRetrievalMode::Lexical, 8);
         assert!(idx.retrieve(&query, 0).hits.is_empty());
         let query2 = EidosQuery::new("beta", EidosRetrievalMode::Lexical, 8);

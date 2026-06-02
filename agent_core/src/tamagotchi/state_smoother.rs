@@ -223,7 +223,10 @@ impl SmoothedSignalStream {
         let smoother = EmaSmoother::new(alpha).map_err(StreamConfigError::Smoother)?;
         let hysteresis =
             StateHysteresis::new(hold_samples).map_err(StreamConfigError::Hysteresis)?;
-        Ok(Self { smoother, hysteresis })
+        Ok(Self {
+            smoother,
+            hysteresis,
+        })
     }
 
     pub fn observe(&mut self, sample: BiometricSignal) -> CompanionState {
@@ -348,7 +351,10 @@ mod tests {
 
     #[test]
     fn hold_zero_rejected() {
-        assert_eq!(StateHysteresis::new(0).unwrap_err(), HysteresisError::ZeroHold);
+        assert_eq!(
+            StateHysteresis::new(0).unwrap_err(),
+            HysteresisError::ZeroHold
+        );
     }
 
     #[test]

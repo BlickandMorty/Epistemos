@@ -16,7 +16,7 @@ import SwiftUI
 /// - Reads from `companionState.roster` snapshot — never holds a
 ///   SwiftData model directly
 /// - Tap = activate (foreground persona for next chat)
-/// - Long-press / right-click = context menu (Activate, Delete)
+/// - Long-press / right-click = context menu (Activate, Edit, Delete)
 /// - No card/panel wrapper; this sits as quiet landing chrome
 struct LandingFarmView: View {
     @Bindable var companionState: CompanionState
@@ -24,6 +24,7 @@ struct LandingFarmView: View {
     var isAnimationActive: Bool = true
     var onCreate: () -> Void = {}
     var onOpenTrash: () -> Void = {}
+    var onRequestEdit: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -39,6 +40,7 @@ struct LandingFarmView: View {
                     activeCompanionID: companionState.activeCompanionID,
                     isAnimationActive: isAnimationActive,
                     onActivate: { companionState.activate($0.id) },
+                    onRequestEdit: onRequestEdit,
                     onRequestDelete: onRequestDelete
                 )
             }

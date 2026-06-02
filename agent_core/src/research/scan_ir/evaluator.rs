@@ -360,9 +360,7 @@ pub fn running_first_difference_min(program: &ScanProgram<f64>) -> Vec<f64> {
 /// differences: standard time-series envelope diagnostic; cf.
 /// Hyndman & Athanasopoulos, "Forecasting: Principles and
 /// Practice" (3rd ed., 2021) §2.6.
-pub fn running_first_difference_signed_pair(
-    program: &ScanProgram<f64>,
-) -> Vec<(f64, f64)> {
+pub fn running_first_difference_signed_pair(program: &ScanProgram<f64>) -> Vec<(f64, f64)> {
     let mut prev = program.initial;
     let mut out = Vec::with_capacity(program.output_count());
     out.push((0.0, 0.0));
@@ -408,9 +406,7 @@ pub fn running_first_difference_signed_pair(
 /// Source. Differenced-series amplitude (envelope width): standard
 /// time-series diagnostic; cf. Hyndman & Athanasopoulos,
 /// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
-pub fn running_first_difference_amplitude(
-    program: &ScanProgram<f64>,
-) -> Vec<f64> {
+pub fn running_first_difference_amplitude(program: &ScanProgram<f64>) -> Vec<f64> {
     let mut prev = program.initial;
     let mut out = Vec::with_capacity(program.output_count());
     out.push(0.0);
@@ -678,9 +674,7 @@ pub fn running_squared_increments(program: &ScanProgram<f64>) -> Vec<f64> {
 /// per step: standard stochastic-process discretization, cf.
 /// Karatzas & Shreve, "Brownian Motion and Stochastic Calculus"
 /// (Springer, 1991) §1.5 (quadratic variation definition).
-pub fn running_mean_squared_first_difference(
-    program: &ScanProgram<f64>,
-) -> Vec<f64> {
+pub fn running_mean_squared_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
     let mut prev = program.initial;
     let mut sum = 0.0_f64;
     let mut count: u64 = 0;
@@ -772,9 +766,7 @@ pub fn running_total_variation(program: &ScanProgram<f64>) -> Vec<f64> {
 /// Source. Mean absolute deviation of first differences: standard
 /// time-series diagnostic; cf. Hyndman & Athanasopoulos,
 /// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
-pub fn running_mean_first_difference_abs(
-    program: &ScanProgram<f64>,
-) -> Vec<f64> {
+pub fn running_mean_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     let mut prev = program.initial;
     let mut sum = 0.0_f64;
     let mut count: u64 = 0;
@@ -951,11 +943,7 @@ pub fn running_sign_changes(program: &ScanProgram<f64>) -> Vec<u64> {
     let mut out = Vec::with_capacity(program.output_count());
     out.push(count);
     for &x in &program.inputs {
-        let s = if x == 0.0 {
-            0
-        } else {
-            x.signum() as i32
-        };
+        let s = if x == 0.0 { 0 } else { x.signum() as i32 };
         if s != 0 && prev_sign != 0 && s != prev_sign {
             count += 1;
         }
@@ -1228,7 +1216,9 @@ pub fn running_geometric_mean(program: &ScanProgram<f64>) -> Vec<f64> {
 /// `running_max_abs` (L^∞). Useful for cumulative-gradient-norm
 /// tracking and convergence diagnostics on long sequences.
 pub fn running_l2_norm(program: &ScanProgram<f64>) -> Vec<f64> {
-    sequential_scan(program, |state, input| (state * state + input * input).sqrt())
+    sequential_scan(program, |state, input| {
+        (state * state + input * input).sqrt()
+    })
 }
 
 /// Running cumulative sum of squares: `S_t = Σ_{i ≤ t} x_i²`.
@@ -1464,11 +1454,12 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
 /// Source. Magnitude-threshold counting / robust outlier-detection
 /// statistic: Tukey, "Exploratory Data Analysis" (Addison-Wesley,
 /// 1977) §2C — symmetric tail-trimming via absolute deviation.
-pub fn running_count_abs_above(
-    program: &ScanProgram<f64>,
-    threshold: f64,
-) -> Vec<u64> {
-    let mut count: u64 = if program.initial.abs() > threshold { 1 } else { 0 };
+pub fn running_count_abs_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial.abs() > threshold {
+        1
+    } else {
+        0
+    };
     let mut out = Vec::with_capacity(program.output_count());
     out.push(count);
     for &x in &program.inputs {
@@ -1499,7 +1490,11 @@ pub fn running_count_abs_above(
 /// linear inverse problems with a sparsity constraint", Comm.
 /// Pure Appl. Math. 57:1413-1457 (2004) §3.
 pub fn running_count_near_zero(program: &ScanProgram<f64>, tolerance: f64) -> Vec<u64> {
-    let mut count: u64 = if program.initial.abs() <= tolerance { 1 } else { 0 };
+    let mut count: u64 = if program.initial.abs() <= tolerance {
+        1
+    } else {
+        0
+    };
     let mut out = Vec::with_capacity(program.output_count());
     out.push(count);
     for &x in &program.inputs {
@@ -1581,11 +1576,7 @@ pub fn running_count_negative(program: &ScanProgram<f64>) -> Vec<u64> {
 /// `running_count_above` (iter-126) and `running_count_below`
 /// (iter-207); the in-range version is the central case
 /// between the two threshold-tail counters.
-pub fn running_count_in_range(
-    program: &ScanProgram<f64>,
-    lo: f64,
-    hi: f64,
-) -> Vec<u64> {
+pub fn running_count_in_range(program: &ScanProgram<f64>, lo: f64, hi: f64) -> Vec<u64> {
     let in_range = |x: f64| x >= lo && x <= hi;
     let mut count: u64 = if in_range(program.initial) { 1 } else { 0 };
     let mut out = Vec::with_capacity(program.output_count());
@@ -1746,8 +1737,7 @@ pub fn running_kurtosis(program: &ScanProgram<f64>) -> Vec<f64> {
         let delta_n = delta / count;
         let delta_n2 = delta_n * delta_n;
         let term1 = delta * delta_n * n1;
-        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
-            + 6.0 * delta_n2 * m2
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0) + 6.0 * delta_n2 * m2
             - 4.0 * delta_n * m3;
         m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
         m2 += term1;
@@ -1790,8 +1780,7 @@ pub fn running_fourth_central_moment(program: &ScanProgram<f64>) -> Vec<f64> {
         let delta_n2 = delta_n * delta_n;
         let term1 = delta * delta_n * n1;
         // Update higher moments first (use old mean/m2/m3).
-        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
-            + 6.0 * delta_n2 * m2
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0) + 6.0 * delta_n2 * m2
             - 4.0 * delta_n * m3;
         m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
         m2 += term1;
@@ -2101,7 +2090,9 @@ pub fn running_unbiased_standard_deviation(program: &ScanProgram<f64>) -> Vec<f6
 /// Iter-102 — used in Adam optimizer momentum tracks, Polyak
 /// averaging of model weights, real-time signal smoothing.
 pub fn running_ema(program: &ScanProgram<f64>, alpha: f64) -> Vec<f64> {
-    sequential_scan(program, move |state, input| alpha * state + (1.0 - alpha) * input)
+    sequential_scan(program, move |state, input| {
+        alpha * state + (1.0 - alpha) * input
+    })
 }
 
 /// Running running-mean: at each step, the arithmetic mean of all
@@ -2177,9 +2168,15 @@ mod tests {
 
     #[test]
     fn string_concat_scan() {
-        let p = ScanProgram::new("".to_string(), vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        let p = ScanProgram::new(
+            "".to_string(),
+            vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        );
         let out = sequential_scan(&p, |a, b| format!("{}{}", a, b));
-        assert_eq!(out, vec!["".to_string(), "a".into(), "ab".into(), "abc".into()]);
+        assert_eq!(
+            out,
+            vec!["".to_string(), "a".into(), "ab".into(), "abc".into()]
+        );
     }
 
     #[test]
@@ -2526,10 +2523,7 @@ mod tests {
     #[test]
     fn ties_partition_identity_holds_exactly() {
         // Closing identity: up + down + tie ≡ t for every t.
-        let p = ScanProgram::new(
-            0.0_f64,
-            vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0],
-        );
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0]);
         let up = running_count_strict_increase(&p);
         let down = running_count_strict_decrease(&p);
         let ties = running_count_consecutive_ties(&p);
@@ -2576,13 +2570,7 @@ mod tests {
             // Synthesize flat = t − up − down; verify all numbers are
             // non-negative integers and reconstitute t.
             let lhs = up[t] + down[t];
-            assert!(
-                lhs <= t as u64,
-                "t={} up={} down={} > t",
-                t,
-                up[t],
-                down[t]
-            );
+            assert!(lhs <= t as u64, "t={} up={} down={} > t", t, up[t], down[t]);
         }
     }
 
@@ -4230,7 +4218,10 @@ mod tests {
     fn running_min_max_pair_tracks_both_bounds() {
         let p = ScanProgram::new(3.0_f64, vec![1.0, 5.0, -2.0, 4.0]);
         let out = running_min_max_pair(&p);
-        assert_eq!(out, vec![(3.0, 3.0), (1.0, 3.0), (1.0, 5.0), (-2.0, 5.0), (-2.0, 5.0)]);
+        assert_eq!(
+            out,
+            vec![(3.0, 3.0), (1.0, 3.0), (1.0, 5.0), (-2.0, 5.0), (-2.0, 5.0)]
+        );
     }
 
     #[test]
@@ -4308,10 +4299,7 @@ mod tests {
         // Welford handles large means correctly where naive E[X²]-E[X]²
         // would lose precision. With initial=1e9 and tiny perturbations,
         // variance should match the perturbation-only variance closely.
-        let p = ScanProgram::new(
-            1.0e9_f64,
-            vec![1.0e9 + 1.0, 1.0e9 - 1.0, 1.0e9 + 2.0],
-        );
+        let p = ScanProgram::new(1.0e9_f64, vec![1.0e9 + 1.0, 1.0e9 - 1.0, 1.0e9 + 2.0]);
         let out = running_variance(&p);
         // Mean = 1e9 + 0.5; pop variance of (0, 1, -1, 2):
         // mean shift = 0.5; deviations from 0.5:
@@ -4369,17 +4357,22 @@ mod tests {
 
         // Compute variance of inputs and of smoothed outputs.
         let input_mean: f64 = inputs.iter().sum::<f64>() / inputs.len() as f64;
-        let input_var: f64 = inputs.iter().map(|x| (x - input_mean).powi(2)).sum::<f64>()
-            / inputs.len() as f64;
+        let input_var: f64 =
+            inputs.iter().map(|x| (x - input_mean).powi(2)).sum::<f64>() / inputs.len() as f64;
         let smoothed_no_init = &smoothed[1..];
-        let smoothed_mean: f64 = smoothed_no_init.iter().sum::<f64>() / smoothed_no_init.len() as f64;
-        let smoothed_var: f64 = smoothed_no_init.iter().map(|x| (x - smoothed_mean).powi(2)).sum::<f64>()
+        let smoothed_mean: f64 =
+            smoothed_no_init.iter().sum::<f64>() / smoothed_no_init.len() as f64;
+        let smoothed_var: f64 = smoothed_no_init
+            .iter()
+            .map(|x| (x - smoothed_mean).powi(2))
+            .sum::<f64>()
             / smoothed_no_init.len() as f64;
 
         assert!(
             smoothed_var < input_var,
             "EMA didn't smooth: input_var = {}, smoothed_var = {}",
-            input_var, smoothed_var
+            input_var,
+            smoothed_var
         );
     }
 

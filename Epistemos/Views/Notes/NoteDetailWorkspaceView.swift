@@ -1083,8 +1083,13 @@ struct NoteDetailWorkspaceView: View {
 
     private var contextualShadowsOverlay: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            ContextualShadowsPanel(onOpen: openContextualShadowHit)
-            ContextualShadowsButton()
+            ContextualShadowsPanel(
+                scopeKind: .note,
+                scopeID: pageId,
+                onOpen: openContextualShadowHit,
+                onInsert: insertContextualShadowPassage
+            )
+            ContextualShadowsButton(scopeKind: .note, scopeID: pageId)
         }
     }
 
@@ -1095,7 +1100,18 @@ struct NoteDetailWorkspaceView: View {
         case .chat:
             MiniChatWindowController.shared.openChat(hit.id)
         }
-        contextualShadows.closePanel()
+        contextualShadows.closePanel(kind: .note, originDocId: pageId)
+    }
+
+    private func insertContextualShadowPassage(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let tv = commandTarget() else { return }
+        let quoted = trimmed
+            .components(separatedBy: .newlines)
+            .map { line in line.isEmpty ? ">" : "> \(line)" }
+            .joined(separator: "\n")
+        tv.insertText("\n\n\(quoted)\n", replacementRange: tv.selectedRange())
+        tv.window?.makeKeyAndOrderFront(nil)
     }
 
     private func refreshLegacyRecoveryPresentation() {

@@ -82,25 +82,29 @@ struct LiveActivityStrip: View {
     }
 
     private var statusBadgeTitle: String {
-        if toolName != nil { return "TOOL" }
+        if let activeToolSurface { return activeToolSurface.badgeTitle }
         if isThinkingActive { return "THINK" }
         return "WRITE"
     }
 
     private var tone: ProcessDisclosureTone {
+        if let activeToolSurface, activeToolSurface.isEvidenceBubble { return .evidence }
         if toolName != nil { return .tool }
         if isThinkingActive { return .thinking }
         return .write
     }
 
     private var tint: Color {
-        if toolName != nil { return .orange }
-        if isThinkingActive { return .purple }
-        return .blue
+        tone.tint(theme: theme)
     }
 
     private var showsTimer: Bool {
         toolName == nil && isThinkingActive
+    }
+
+    private var activeToolSurface: ToolActivityNarrator.Surface? {
+        guard let toolName, !toolName.isEmpty else { return nil }
+        return ToolActivityNarrator.surface(name: toolName)
     }
 
     private func animatedPhrase(at date: Date) -> String {

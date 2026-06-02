@@ -1,0 +1,11 @@
+{
+  "completed_prompt_count": 0,
+  "completed_prompt_ids": [],
+  "current_prompt_id": "long_prefix_recall_000",
+  "generated_test_tokens": 0,
+  "prompt_count": 25,
+  "prompt_offset": 0,
+  "status": "running",
+  "test_decode_seconds": 0.0,
+  "updated_unix_seconds": 1779976214.337638
+}

@@ -3,7 +3,7 @@
 **Branch:** `codex/t10-eidos-v0-2026-05-18`
 **Mission:** Build Eidos V0 as deterministic local search fusion and closed-citation retrieval for the current app. Eidos V0 makes vault / chat / agent retrieval **honest** before web augmentation, VPD, model training, or 70B work.
 
-**Status:** All seven retrieval modes implemented behind the `EidosRetriever` trait with 84 unit tests covering the closed-citation contract, the nine acceptance-bar paths (exact note hit, `.epdoc` projection hit, code hit, graph hit, duplicate merge, fake citation rejection, empty vault, unicode query, no-result defer), and per-mode determinism guards. Swift bridge facade and per-tier wiring land in subsequent iterations.
+**Status:** The Rust retrieval substrate is implemented behind the `EidosRetriever` trait with 463 unit tests covering the closed-citation contract, the acceptance-bar paths (exact note hit, `.epdoc` projection hit, code hit, graph hit, duplicate merge, fake citation rejection, empty vault, unicode query, no-result defer), per-mode determinism guards, W-49 ledger-backed claim evidence, and W-50 DAG-backed graph neighborhood. Swift bridge facade and per-tier UI wiring land in subsequent iterations.
 
 ---
 
@@ -194,6 +194,7 @@ From `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T10:
 - Wire-format pinned: PascalCase enums (mode + source kind), lowercase stance tokens, RRF `k = 60`.
 - Swift mirror types declared with closed-citation `validate(citation:)` / `validate(citations:)` methods + Swift Testing tests.
 - W-49 (LedgerBackedClaimEvidence) closed in code; snapshot-isolated; retraction propagation pinned.
+- W-50 (DagBackedGraphNeighborhood) closed in Rust; snapshot-isolated; same `source_id` shape as the in-memory graph backend; 2-hop frontier order remains deferred.
 - ~217 unit tests / 50+ commits / drift detectors for §4 retrieval-modes table + §11 research-question subsections.
 
 ### 9.2 Pending wiring (downstream of this branch)
@@ -203,8 +204,7 @@ In W-row priority order — all gated on W-46 Swift bridge FFI:
 1. **W-46** `Epistemos/Eidos/EidosBridge.swift` — Sendable-friendly retrieval shim over Rust ↔ Swift FFI. Mirror types already declared; FFI plumbing + xcodebuild verification is the remaining gap.
 2. **W-47** ChatCoordinator emit-path gate — wire `validate_citations` into the chat answer-emit flow. The Rust contract is proven by the chat-layer emit-gate hardening tests; the wiring lives in Swift.
 3. **W-48** Brain Panel "Retrieved by Eidos" surface — render per-hit mode + manifest id + 4-component score breakdown. Eidos packets already carry every required field.
-4. **W-50** `DagBackedGraphNeighborhood` over `agent_core::cognitive_dag` — production wiring for graph retrieval. Same shape as W-49 LedgerBacked.
-5. **W-51** `ShadowBackedSemanticIndex` over `epistemos-shadow` usearch HNSW — needs a matching FFI surface on the shadow side.
+4. **W-51** `ShadowBackedSemanticIndex` over `epistemos-shadow` usearch HNSW — needs a matching FFI surface on the shadow side.
 
 ### 9.3 Open research (see §11)
 

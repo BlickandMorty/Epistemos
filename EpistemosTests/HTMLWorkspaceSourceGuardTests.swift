@@ -64,6 +64,22 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!epdocSlash.contains("html-dom"))
     }
 
+    @Test("existing HTML Workspace selection avoids the generic AppKit open path")
+    func existingWorkspaceSelectionUsesHTMLWorkspaceOpenHelper() throws {
+        let sidebarSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let graphSource = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
+        let controllerSource = try loadMirroredSourceTextFile("Epistemos/App/EpistemosDocumentController.swift")
+        let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
+
+        #expect(controllerSource.contains("func openHTMLWorkspaceDocument(at url: URL) throws -> HTMLWorkspaceDocument"))
+        #expect(controllerSource.contains("FileWrapper(url: standardizedURL, options: [.immediate])"))
+        #expect(controllerSource.contains("document.loadOpenedPackage(package, fileURL: standardizedURL)"))
+        #expect(documentSource.contains("func loadOpenedPackage(_ package: HTMLWorkspacePackage, fileURL: URL)"))
+        #expect(sidebarSource.contains("url.pathExtension == \"htmlworkspace\""))
+        #expect(sidebarSource.contains("openHTMLWorkspaceDocument(at: url)"))
+        #expect(graphSource.contains("openHTMLWorkspaceDocument(at: url)"))
+    }
+
     @Test("editor preview updates are debounced and diagnostics are collapsible")
     func editorDebouncesPreviewAndCollapsesDiagnostics() throws {
         let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
@@ -142,6 +158,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("font-synthesis: none"))
         #expect(packageSource.contains("data-metric-value"))
         #expect(packageSource.contains("html[data-epistemos-theme] .metric-card strong"))
+        #expect(packageSource.contains("background: var(--epistemos-workspace-bg) !important"))
+        #expect(packageSource.contains("color: var(--epistemos-workspace-fg) !important"))
+        #expect(packageSource.contains("body :is(main, section, article"))
+        #expect(packageSource.contains("border-color: var(--epistemos-workspace-border)"))
         #expect(packageSource.contains("legacyScriptJS"))
         #expect(packageSource.contains("validatePackageFileName"))
         #expect(packageSource.contains("case replaceDataJSON"))
@@ -149,6 +169,31 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("case addAsset"))
         #expect(packageSource.contains("case captureSnapshot"))
         #expect(packageSource.contains("case recordConsoleError"))
+        #expect(packageSource.contains("maxManifestBytes"))
+        #expect(packageSource.contains("maxAssetCount"))
+        #expect(packageSource.contains("maxAssetsTotalBytes"))
+        #expect(packageSource.contains("maxSnapshotsTotalBytes"))
+        #expect(packageSource.contains("packageLimitExceeded"))
+        #expect(packageSource.contains("validateAssets(updated.assets)"))
+        #expect(packageSource.contains("validateSnapshots(updated.snapshots)"))
+        #expect(packageSource.contains("!name.hasPrefix(\".\")"))
+        #expect(packageSource.contains("CharacterSet.controlCharacters"))
+        #expect(packageSource.contains("guard child.isRegularFile"))
+    }
+
+    @Test("vault PDF and text ingestion is bounded before extraction")
+    func vaultPDFAndTextIngestionIsBounded() throws {
+        let parserSource = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/DataIngestion/VaultParser.swift")
+
+        #expect(parserSource.contains("maxTextFileBytes"))
+        #expect(parserSource.contains("maxPDFFileBytes"))
+        #expect(parserSource.contains("maxPDFPageCount"))
+        #expect(parserSource.contains("maxPDFExtractedCharacters"))
+        #expect(parserSource.contains("boundedTextFileString"))
+        #expect(parserSource.contains("validateFileSize("))
+        #expect(parserSource.contains("min(document.pageCount, Self.maxPDFPageCount)"))
+        #expect(parserSource.contains("remainingCharacters"))
+        #expect(parserSource.contains("case fileTooLarge"))
     }
 
     @Test("document surface exposes structured chat patch hooks without Epdoc internals")
@@ -167,6 +212,28 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(documentSource.contains("chatContextSnapshot("))
         #expect(!documentSource.contains("EpdocDocument"))
         #expect(bridgeSource.contains("epistemos-doc"))
+    }
+
+    @Test("document save refuses starter template overwrite of existing workspaces")
+    func documentSaveRefusesStarterTemplateOverwrite() throws {
+        let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
+        let packageSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackage.swift")
+
+        #expect(packageSource.contains("isStarterTemplateContent"))
+        #expect(documentSource.contains("validateNoStarterTemplateOverwrite"))
+        #expect(documentSource.contains("Refusing to overwrite an existing HTML Workspace with the starter template"))
+        #expect(documentSource.contains("existingPackage(at: existingFileURL)"))
+        #expect(documentSource.contains("!existingPackage.isStarterTemplateContent"))
+    }
+
+    @Test("HTML Workspace DOM outline extracts attribute values instead of names")
+    func htmlWorkspaceDOMOutlineExtractsAttributeValues() throws {
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+
+        #expect(editorSource.contains("captureAttribute(\"id\""))
+        #expect(editorSource.contains("captureAttribute(\"class\""))
+        #expect(editorSource.contains("Range(match.range(at: 2), in: attributes)"))
+        #expect(!editorSource.contains("Range(match.range(at: 1), in: attributes)"))
     }
 
     @Test("MiniChat routes HTML Workspace edits through structured patch commands")

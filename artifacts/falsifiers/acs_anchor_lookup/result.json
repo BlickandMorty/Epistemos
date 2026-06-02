@@ -1,24 +1,101 @@
 {
+  "falsifier_id": "F-ACS-AnchorLookup",
   "schema_version": "2026-05-18.2",
-  "falsifier": "F-ACS-AnchorLookup",
-  "status": "PASS",
-  "hardware_floor": "M2 Pro 16 GB UMA",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_acs_anchor_lookup.sh",
+  "command_digest": "sha256:b19a8b73f7eba0353c30b5fd0bad877ffe28c58973c51f1a528e8304048f2196",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "acs_anchor_lookup_10k_verified_floor_v2",
+  "timestamp_utc": "2026-05-28T04:34:45Z",
+  "result_digest": "sha256:4e50a64dc327002e4d393683aff4376a51c1803881fbda923bec344f16d70f76",
   "measurements": {
-    "claim_count": 10000,
-    "found_count": 10000,
-    "elapsed_ns": 5166250,
-    "avg_lookup_ns": 516,
-    "invalid_theorem_rejected": true
+    "avg_lookup_ns": {
+      "value": 443,
+      "unit": "nanoseconds"
+    },
+    "claim_count": {
+      "value": 10000,
+      "unit": "claims"
+    },
+    "elapsed_ns": {
+      "value": 4436875,
+      "unit": "nanoseconds"
+    },
+    "found_count": {
+      "value": 10000,
+      "unit": "claims"
+    },
+    "invalid_theorem_rejection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency": {
+      "value": 443,
+      "unit": "nanoseconds"
+    },
+    "projection_integrity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "round_trip_field_digest": {
+      "value": true,
+      "unit": "bool"
+    }
   },
   "acceptance_thresholds": {
-    "avg_lookup_ns_lt": 1000,
-    "claim_count": 10000,
-    "invalid_theorem_rejected": true
+    "invalid_theorem_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency": {
+      "operator": "<",
+      "value": 1000,
+      "unit": "nanoseconds"
+    },
+    "projection_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "round_trip_field_digest": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
   },
   "pass_per_axis": {
-    "round_trip_field_digest": true,
     "invalid_theorem_rejection": true,
+    "latency": true,
     "projection_integrity": true,
-    "latency": true
-  }
+    "round_trip_field_digest": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "primary_witness; normalized from legacy artifact shape; 10k verified-floor anchors resolved and invalid theorem rejected"
 }

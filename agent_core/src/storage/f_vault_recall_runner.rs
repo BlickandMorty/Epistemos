@@ -29,7 +29,7 @@ use serde::Serialize;
 
 use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
 use crate::storage::retrieval_trace::{EvidenceStrength, RetrievalTrace};
-use crate::storage::vault::{VaultBackend, VaultError};
+use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
 
 /// Outcome of running one fixture row against a backend.
 ///
@@ -103,11 +103,7 @@ pub async fn run_row(
         .hybrid_search_with_trace(row.query, row.top_n, &[])
         .await?;
 
-    let top_paths: Vec<String> = results
-        .iter()
-        .take(row.top_n)
-        .map(|r| r.path.clone())
-        .collect();
+    let top_paths = unique_top_paths(&results, row.top_n);
 
     let mut expected_seen = Vec::new();
     let mut expected_missed = Vec::new();
@@ -153,6 +149,21 @@ pub async fn run_row(
         },
         trace,
     ))
+}
+
+fn unique_top_paths(results: &[SearchResult], top_n: usize) -> Vec<String> {
+    let mut seen = std::collections::HashSet::with_capacity(top_n.min(results.len()));
+    let mut paths = Vec::with_capacity(top_n.min(results.len()));
+    for result in results.iter().take(top_n) {
+        let path = result.path.trim();
+        if path.is_empty() {
+            continue;
+        }
+        if seen.insert(path.to_lowercase()) {
+            paths.push(path.to_string());
+        }
+    }
+    paths
 }
 
 /// Run every row in `fixture` against the backend, in order. Returns a
@@ -243,12 +254,18 @@ impl FVaultRecallSummary {
             breakdown
         };
         let lexical_chip = if self.lexical_only_count > 0 {
-            format!(" [lexical-only: {}/{}]", self.lexical_only_count, self.total)
+            format!(
+                " [lexical-only: {}/{}]",
+                self.lexical_only_count, self.total
+            )
         } else {
             String::new()
         };
         let weak_chip = if self.weak_evidence_count > 0 {
-            format!(" [weak-evidence: {}/{}]", self.weak_evidence_count, self.total)
+            format!(
+                " [weak-evidence: {}/{}]",
+                self.weak_evidence_count, self.total
+            )
         } else {
             String::new()
         };
@@ -312,10 +329,59 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::f_vault_recall_50_fixture::{
-        FVaultRecallCategory, FVaultRecallRow,
-    };
-    use crate::storage::vault::VaultStore;
+    use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
+    use crate::storage::vault::{SearchResult, VaultStore};
+
+    struct DuplicatePathBackend {
+        results: Vec<SearchResult>,
+    }
+
+    #[async_trait::async_trait]
+    impl VaultBackend for DuplicatePathBackend {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            Ok(self.results.clone())
+        }
+
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            Ok(format!("content for {path}"))
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _overwrite: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
+    fn search_result(path: &str, score: f64) -> SearchResult {
+        SearchResult {
+            path: path.to_string(),
+            excerpt: format!("excerpt for {path}"),
+            score,
+            tags: Vec::new(),
+        }
+    }
 
     /// Build a row inline and run it through `run_row` against a vault
     /// seeded with the expected note. Asserts the pass case: outcome
@@ -326,8 +392,8 @@ mod tests {
     async fn run_row_passes_when_expected_note_outranks_others() {
         use crate::storage::retrieval_trace::RetrievalSignal;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed the expected note + 3 unrelated decoys.
         let docs: [(&str, &str); 4] = [
@@ -336,7 +402,10 @@ mod tests {
                 "mamba ssm cache mamba ssm cache notes on the Mamba SSM cache architecture",
             ),
             ("notes/general_layout.md", "ui layout design general notes"),
-            ("notes/random_a.md", "miscellaneous note about something else"),
+            (
+                "notes/random_a.md",
+                "miscellaneous note about something else",
+            ),
             ("notes/random_b.md", "another miscellaneous note unrelated"),
         ];
         for (path, content) in docs.iter() {
@@ -357,11 +426,7 @@ mod tests {
         };
 
         let (outcome, trace) = run_row(&store, &row).await.expect("run_row");
-        assert!(
-            outcome.passed,
-            "expected pass; outcome = {:?}",
-            outcome
-        );
+        assert!(outcome.passed, "expected pass; outcome = {:?}", outcome);
         assert_eq!(outcome.expected_seen, vec!["notes/mamba_ssm_cache.md"]);
         assert!(outcome.expected_missed.is_empty());
         assert!(outcome.forbidden_present.is_empty());
@@ -379,6 +444,32 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn run_row_reports_unique_paths_inside_top_n_window() {
+        let backend = DuplicatePathBackend {
+            results: vec![
+                search_result("notes/expected.md", 4.0),
+                search_result("notes/expected.md", 3.9),
+                search_result("notes/forbidden.md", 3.8),
+            ],
+        };
+        let row = FVaultRecallRow {
+            query: "needle",
+            expected_paths: &["notes/expected.md"],
+            forbidden_paths: &["notes/forbidden.md"],
+            category: FVaultRecallCategory::SignalOnly,
+            top_n: 2,
+            note: "duplicate-path top-N regression",
+        };
+
+        let (outcome, _trace) = run_row(&backend, &row).await.expect("run_row");
+
+        assert_eq!(outcome.top_paths, vec!["notes/expected.md"]);
+        assert!(outcome.passed);
+        assert_eq!(outcome.expected_seen, vec!["notes/expected.md"]);
+        assert!(outcome.forbidden_present.is_empty());
+    }
+
     /// Failure-mode test: when the expected note is NOT in the vault,
     /// the outcome MUST report `passed = false`, the expected path
     /// MUST be in `expected_missed`, and the verdict line MUST start
@@ -386,8 +477,8 @@ mod tests {
     #[tokio::test]
     async fn run_row_fails_when_expected_note_is_missing() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed only decoys — no `mamba_ssm_cache.md`.
         for (path, content) in [
@@ -553,9 +644,7 @@ mod tests {
         assert!(line.starts_with("2/3 passing"));
         assert!(line.contains("(67%)"));
         // ChattyPrefix sorts before Paraphrase (alphabetical).
-        let chatty_idx = line
-            .find("ChattyPrefix")
-            .expect("ChattyPrefix must appear");
+        let chatty_idx = line.find("ChattyPrefix").expect("ChattyPrefix must appear");
         let para_idx = line.find("Paraphrase").expect("Paraphrase must appear");
         assert!(
             chatty_idx < para_idx,
@@ -636,8 +725,8 @@ mod tests {
     #[tokio::test]
     async fn run_all_returns_outcome_per_row() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let fixture: [FVaultRecallRow; 2] = [
             FVaultRecallRow {
@@ -679,8 +768,8 @@ mod tests {
     #[tokio::test]
     async fn run_row_snapshots_lexical_only_and_summary_aggregates() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
         // Seed a doc so the retrieval is non-empty (otherwise the
         // signal_summary is empty and `has_only_lexical_signals()`
         // returns false — that case is covered in iter-65 already).
@@ -845,8 +934,7 @@ mod tests {
             evidence_strength: EvidenceStrength::Weak.slug().into(),
         };
         let json = serde_json::to_string(&outcome).expect("serialize outcome");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("parse outcome JSON");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse outcome JSON");
 
         // Identity fields.
         assert_eq!(parsed["query"], "vault index refresh");
@@ -866,7 +954,8 @@ mod tests {
         assert!(parsed["top_paths"].is_array());
         assert_eq!(parsed["expected_missed"].as_array().unwrap().len(), 1);
         assert_eq!(
-            parsed["expected_missed"][0], "notes/vault_index_reload_canon.md"
+            parsed["expected_missed"][0],
+            "notes/vault_index_reload_canon.md"
         );
     }
 
@@ -908,8 +997,7 @@ mod tests {
         ];
         let summary = summarize(&outcomes);
         let json = serde_json::to_string(&summary).expect("serialize summary");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("parse summary JSON");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse summary JSON");
 
         // Core counts — pinned by key name.
         assert_eq!(parsed["total"], 2);

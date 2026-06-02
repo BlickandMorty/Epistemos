@@ -1,0 +1,17 @@
+{
+  "file_backed_cache_reload": true,
+  "prompt_ids": [
+    "long_prefix_recall_000"
+  ],
+  "reason": "The runner saved and reloaded an MLX prompt cache from disk before emitting test logits. This is a file-backed cache reload witness, not the final residual-patched mmap/NF4 SSD-spill KV-Direct route.",
+  "route": "prompt_cache_reload",
+  "route_traces": [
+    {
+      "cache_bytes": 75356889,
+      "cache_file": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/prompt_cache_reload/long_prefix_recall_000.safetensors",
+      "file_backed_reload": true,
+      "prompt_id": "long_prefix_recall_000"
+    }
+  ],
+  "ssd_spill_labeled": false
+}

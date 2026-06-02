@@ -26,7 +26,11 @@ pub struct TableProps {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TableError {
     EmptyHeaders,
-    RowWidthMismatch { row_index: usize, header_count: usize, row_count: usize },
+    RowWidthMismatch {
+        row_index: usize,
+        header_count: usize,
+        row_count: usize,
+    },
 }
 
 impl TableError {
@@ -87,12 +91,17 @@ mod tests {
     use super::*;
 
     fn cell(s: &str) -> TableCell {
-        TableCell { text: s.to_string() }
+        TableCell {
+            text: s.to_string(),
+        }
     }
 
     #[test]
     fn empty_headers_rejected() {
-        let t = TableProps { headers: vec![], rows: vec![] };
+        let t = TableProps {
+            headers: vec![],
+            rows: vec![],
+        };
         assert_eq!(t.validate().unwrap_err(), TableError::EmptyHeaders);
     }
 
@@ -112,12 +121,18 @@ mod tests {
             rows: vec![vec![cell("1"), cell("2")], vec![cell("3")]],
         };
         let err = t.validate().unwrap_err();
-        assert!(matches!(err, TableError::RowWidthMismatch { row_index: 1, .. }));
+        assert!(matches!(
+            err,
+            TableError::RowWidthMismatch { row_index: 1, .. }
+        ));
     }
 
     #[test]
     fn zero_rows_validates_with_nonempty_headers() {
-        let t = TableProps { headers: vec!["h".into()], rows: vec![] };
+        let t = TableProps {
+            headers: vec!["h".into()],
+            rows: vec![],
+        };
         assert!(t.validate().is_ok());
     }
 
@@ -138,7 +153,12 @@ mod tests {
     fn error_cause_distinct() {
         assert_ne!(
             TableError::EmptyHeaders.cause(),
-            TableError::RowWidthMismatch { row_index: 0, header_count: 1, row_count: 0 }.cause(),
+            TableError::RowWidthMismatch {
+                row_index: 0,
+                header_count: 1,
+                row_count: 0
+            }
+            .cause(),
         );
     }
 

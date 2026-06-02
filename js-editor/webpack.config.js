@@ -52,7 +52,10 @@ class BrotliTransferAssetsPlugin {
 module.exports = (_env, argv) => ({
   // WKWebView, NOT Node — disable Node-style polyfills.
   target: 'web',
-  entry: { editor: './src/index.ts' },
+  entry: {
+    editor: './src/index.ts',
+    'code-editor': './src/code-editor.ts',
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
@@ -78,6 +81,26 @@ module.exports = (_env, argv) => ({
                   || url === '/RetroGaming.ttf'
                   || url === '/ChonkyPixels.ttf'
                   || url === '/MatrixtypeDisplay-9MyE5.ttf'
+                  || url === '/MatrixTypeDisplay-Bold.otf'
+                  || url === '/MatrixDotsDemoRegular.ttf'
+                  || url === '/ReturnOfGanonReg.ttf'
+                  || url === '/Charybdis.ttf'
+                  || url === '/VTFMisterPixel.otf'
+                  || url === '/VTFMisterPixel-Tools.otf'
+                  || url === '/AtlantisHeadline-Bold.otf'
+                  || url === '/AtlantisText-Regular.ttf'
+                  || url === '/AtlantisText-Bold.otf'
+                  || url === '/Atlantis-RegularSmallCaps.otf'
+                  || url === '/LunchtimeDoublySoReg.ttf'
+                  || url === '/DisposableDroidBB.ttf'
+                  || url === '/DisposableDroidBB-Bold.ttf'
+                  || url === '/DisposableDroidBB-Italic.ttf'
+                  || url === '/DisposableDroidBB-BoldItalic.ttf'
+                  || url === '/EXEPixelPerfect.ttf'
+                  || url === '/Delicatus.ttf'
+                  || url === '/LEDDisplay7.ttf'
+                  || url === '/GNF.ttf'
+                  || url === '/CodersCrux.ttf'
                 ),
               },
             },
@@ -91,12 +114,20 @@ module.exports = (_env, argv) => ({
     ],
   },
   plugins: [
-    new MiniCssExtractPlugin({ filename: 'editor.css' }),
+    new MiniCssExtractPlugin({ filename: '[name].css' }),
     new HtmlWebpackPlugin({
       template: './src/editor.html',
       filename: 'editor.html',
+      chunks: ['editor'],
       inject: 'body',
       scriptLoading: 'blocking',              // WKWebView mounts deterministically
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/code-editor.html',
+      filename: 'code-editor.html',
+      chunks: ['code-editor'],
+      inject: 'body',
+      scriptLoading: 'blocking',
     }),
     new CopyPlugin({
       patterns: [

@@ -42,7 +42,10 @@ pub enum OftError {
     /// `data.len()` did not match `size * size`.
     ShapeMismatch { size: usize, data_len: usize },
     /// Vector length did not match the orthogonal matrix size.
-    VectorSizeMismatch { matrix_size: usize, vector_len: usize },
+    VectorSizeMismatch {
+        matrix_size: usize,
+        vector_len: usize,
+    },
     /// `out.len()` did not match `matrix.size`.
     OutLengthMismatch { matrix_size: usize, out_len: usize },
     /// `U^T U` deviated from `I` by more than `tol` in Frobenius norm.
@@ -90,7 +93,10 @@ impl OftError {
 impl OrthogonalMatrix {
     pub fn new(size: usize, data: Vec<f32>) -> Result<Self, OftError> {
         if data.len() != size * size {
-            return Err(OftError::ShapeMismatch { size, data_len: data.len() });
+            return Err(OftError::ShapeMismatch {
+                size,
+                data_len: data.len(),
+            });
         }
         Ok(Self { size, data })
     }
@@ -327,7 +333,13 @@ mod tests {
     #[test]
     fn shape_mismatch_rejects_construction() {
         let err = OrthogonalMatrix::new(2, vec![1.0, 0.0, 0.0]).unwrap_err();
-        assert_eq!(err, OftError::ShapeMismatch { size: 2, data_len: 3 });
+        assert_eq!(
+            err,
+            OftError::ShapeMismatch {
+                size: 2,
+                data_len: 3
+            }
+        );
     }
 
     #[test]
@@ -338,7 +350,10 @@ mod tests {
         let err = apply_oftv2(&u, &x, &mut out).unwrap_err();
         assert_eq!(
             err,
-            OftError::VectorSizeMismatch { matrix_size: 3, vector_len: 2 }
+            OftError::VectorSizeMismatch {
+                matrix_size: 3,
+                vector_len: 2
+            }
         );
     }
 
@@ -350,7 +365,10 @@ mod tests {
         let err = apply_oftv2(&u, &x, &mut out).unwrap_err();
         assert_eq!(
             err,
-            OftError::OutLengthMismatch { matrix_size: 3, out_len: 5 }
+            OftError::OutLengthMismatch {
+                matrix_size: 3,
+                out_len: 5
+            }
         );
     }
 
@@ -362,7 +380,10 @@ mod tests {
         };
         let err = bad.verify_orthogonal(1e-6).unwrap_err();
         match err {
-            OftError::NotOrthogonal { frobenius_distance, tol } => {
+            OftError::NotOrthogonal {
+                frobenius_distance,
+                tol,
+            } => {
                 assert!(frobenius_distance > 1e-6);
                 assert_eq!(tol, 1e-6);
             }
@@ -505,10 +526,22 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            OftError::ShapeMismatch { size: 2, data_len: 3 },
-            OftError::VectorSizeMismatch { matrix_size: 3, vector_len: 2 },
-            OftError::OutLengthMismatch { matrix_size: 3, out_len: 5 },
-            OftError::NotOrthogonal { frobenius_distance: 1.0, tol: 1e-6 },
+            OftError::ShapeMismatch {
+                size: 2,
+                data_len: 3,
+            },
+            OftError::VectorSizeMismatch {
+                matrix_size: 3,
+                vector_len: 2,
+            },
+            OftError::OutLengthMismatch {
+                matrix_size: 3,
+                out_len: 5,
+            },
+            OftError::NotOrthogonal {
+                frobenius_distance: 1.0,
+                tol: 1e-6,
+            },
             OftError::NonPositiveTolerance { tol: 0.0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -518,10 +551,22 @@ mod tests {
     #[test]
     fn error_classifiers_partition() {
         let variants = [
-            OftError::ShapeMismatch { size: 2, data_len: 3 },
-            OftError::VectorSizeMismatch { matrix_size: 3, vector_len: 2 },
-            OftError::OutLengthMismatch { matrix_size: 3, out_len: 5 },
-            OftError::NotOrthogonal { frobenius_distance: 1.0, tol: 1e-6 },
+            OftError::ShapeMismatch {
+                size: 2,
+                data_len: 3,
+            },
+            OftError::VectorSizeMismatch {
+                matrix_size: 3,
+                vector_len: 2,
+            },
+            OftError::OutLengthMismatch {
+                matrix_size: 3,
+                out_len: 5,
+            },
+            OftError::NotOrthogonal {
+                frobenius_distance: 1.0,
+                tol: 1e-6,
+            },
             OftError::NonPositiveTolerance { tol: 0.0 },
         ];
         // Cross-surface invariant: is_shape_error XOR is_orthogonality_error.
@@ -529,7 +574,13 @@ mod tests {
             assert_ne!(e.is_shape_error(), e.is_orthogonality_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_shape_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_orthogonality_error()).count(), 2);
+        assert_eq!(
+            variants
+                .iter()
+                .filter(|e| e.is_orthogonality_error())
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -549,7 +600,10 @@ mod tests {
         }
 
         // Bad matrix.
-        let bad = OrthogonalMatrix { size: 2, data: vec![2.0, 0.0, 0.0, 1.0] };
+        let bad = OrthogonalMatrix {
+            size: 2,
+            data: vec![2.0, 0.0, 0.0, 1.0],
+        };
         let dev = bad.deviation_from_orthogonal();
         let tol = 1e-5_f32;
         assert_eq!(dev < tol, bad.verify_orthogonal(tol).is_ok());

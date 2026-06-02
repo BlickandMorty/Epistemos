@@ -47,8 +47,8 @@ use std::collections::BTreeMap;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind, EidosSpan,
 };
 
 /// RRF constant. Matches `epistemos-shadow/src/backend/rrf.rs:22`
@@ -136,11 +136,7 @@ impl<L: EidosRetriever, S: EidosRetriever> EidosRetriever for HybridRetriever<L,
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
@@ -284,11 +280,7 @@ mod tests {
             &self.manifest_id
         }
 
-        fn retrieve(
-            &self,
-            query: &EidosQuery,
-            retrieved_at_unix_ms: u64,
-        ) -> EidosContextPacket {
+        fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
             EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),
@@ -411,9 +403,17 @@ mod tests {
         // 2-way counterpart to iter 82's N=1 Hybrid_N pass-through
         // pin and iter 95's PV preservation pin.
         let mut inner_lex = InMemoryLexicalIndex::new(manifest());
-        inner_lex.insert(doc("alpha"), "alpha tropical optimization", EidosSourceKind::Note).unwrap();
+        inner_lex
+            .insert(
+                doc("alpha"),
+                "alpha tropical optimization",
+                EidosSourceKind::Note,
+            )
+            .unwrap();
         let mut inner_sem = InMemorySemanticIndex::new(manifest(), 3);
-        inner_sem.insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        inner_sem
+            .insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
 
         let q = EidosQuery::with_vector(
             "tropical",
@@ -439,9 +439,17 @@ mod tests {
             .semantic;
 
         let mut h_lex = InMemoryLexicalIndex::new(manifest());
-        h_lex.insert(doc("alpha"), "alpha tropical optimization", EidosSourceKind::Note).unwrap();
+        h_lex
+            .insert(
+                doc("alpha"),
+                "alpha tropical optimization",
+                EidosSourceKind::Note,
+            )
+            .unwrap();
         let mut h_sem = InMemorySemanticIndex::new(manifest(), 3);
-        h_sem.insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        h_sem
+            .insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(h_lex, h_sem).unwrap();
         let fused = hybrid.retrieve(&q, 1_700_000_000_000);
         let alpha_fused = fused
@@ -565,26 +573,19 @@ mod tests {
         // ordering change (descending, insertion-order, etc.) fires here.
         let mut lex = InMemoryLexicalIndex::new(manifest());
         // Lexical-only: "z-doc" matches at rank 1 in lexical.
-        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(manifest(), 3);
         // Semantic-only: "a-doc" matches at rank 1 in semantic.
         sem.insert(doc("a-doc"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
             .unwrap();
 
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "needle",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0, 0.0],
-        );
+        let q =
+            EidosQuery::with_vector("needle", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0, 0.0]);
         let packet = hybrid.retrieve(&q, 1_700_000_000_000);
 
-        let order: Vec<&str> = packet
-            .hits
-            .iter()
-            .map(|h| h.document_id.as_str())
-            .collect();
+        let order: Vec<&str> = packet.hits.iter().map(|h| h.document_id.as_str()).collect();
         assert_eq!(
             order,
             vec!["a-doc", "z-doc"],
@@ -617,11 +618,7 @@ mod tests {
 
         // alpha is in both lexical and semantic top results, so its RRF must
         // exceed beta's (lexical only) and delta's (semantic only).
-        let order: Vec<&str> = packet
-            .hits
-            .iter()
-            .map(|h| h.document_id.as_str())
-            .collect();
+        let order: Vec<&str> = packet.hits.iter().map(|h| h.document_id.as_str()).collect();
         let alpha_pos = order.iter().position(|s| *s == "alpha").unwrap();
         let beta_pos = order.iter().position(|s| *s == "beta").unwrap();
         assert!(
@@ -737,16 +734,13 @@ mod tests {
         // rank 1 in both gets raw RRF = 1/61 + 1/61 = 2/61, normalized to
         // exactly 1.0.
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("only"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("only"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(manifest(), 1);
-        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0]);
         let packet = hybrid.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
         assert!(
@@ -782,16 +776,12 @@ mod tests {
         // "max-of-both-modes" to "max-of-N-modes" wouldn't accidentally
         // shift the single-mode half-point) surfaces here.
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         // Empty semantic — "only-lex" won't appear in sem ranking.
         let sem = InMemorySemanticIndex::new(manifest(), 1);
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0]);
         let packet = hybrid.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
         // (1/(k+1)) / (2/(k+1)) = 0.5, independent of k.
@@ -807,15 +797,11 @@ mod tests {
         // Asymmetric inner retrievers: lexical has docs, semantic is empty.
         // Hybrid output mimics the populated side (lexical-only ranks).
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("solo"), "tropical alpha", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("solo"), "tropical alpha", EidosSourceKind::Note)
+            .unwrap();
         let sem = InMemorySemanticIndex::new(manifest(), 2);
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]);
         let packet = hybrid.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
         assert_eq!(packet.hits[0].document_id.as_str(), "solo");
@@ -828,14 +814,10 @@ mod tests {
     fn only_semantic_populated_still_emits_hits_for_those() {
         let lex = InMemoryLexicalIndex::new(manifest());
         let mut sem = InMemorySemanticIndex::new(manifest(), 2);
-        sem.insert(doc("solo"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("solo"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]);
         let packet = hybrid.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
         assert_eq!(packet.hits[0].document_id.as_str(), "solo");
@@ -851,9 +833,11 @@ mod tests {
         // The behavioral signal we can observe externally: hybrid.k() ==
         // configured value.
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("only"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("only"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(manifest(), 1);
-        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex, sem).unwrap().with_k(10);
         assert_eq!(hybrid.k(), 10);
 
@@ -887,33 +871,55 @@ mod tests {
         // "match") and rank-2 in sem (cos = 0.5 at 60°; doc-Y at
         // 0° is rank-1).
         let mut lex_a = InMemoryLexicalIndex::new(manifest());
-        lex_a.insert(doc("doc-x"), "match here", EidosSourceKind::Note).unwrap();
+        lex_a
+            .insert(doc("doc-x"), "match here", EidosSourceKind::Note)
+            .unwrap();
         let mut sem_a = InMemorySemanticIndex::new(manifest(), 3);
-        sem_a.insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
-        sem_a.insert(doc("doc-x"), vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem_a
+            .insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        sem_a
+            .insert(
+                doc("doc-x"),
+                vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0],
+                EidosSourceKind::Note,
+            )
+            .unwrap();
         let h_default = HybridRetriever::new(lex_a, sem_a).unwrap();
 
         let mut lex_b = InMemoryLexicalIndex::new(manifest());
-        lex_b.insert(doc("doc-x"), "match here", EidosSourceKind::Note).unwrap();
+        lex_b
+            .insert(doc("doc-x"), "match here", EidosSourceKind::Note)
+            .unwrap();
         let mut sem_b = InMemorySemanticIndex::new(manifest(), 3);
-        sem_b.insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
-        sem_b.insert(doc("doc-x"), vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem_b
+            .insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        sem_b
+            .insert(
+                doc("doc-x"),
+                vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0],
+                EidosSourceKind::Note,
+            )
+            .unwrap();
         let h_small_k = HybridRetriever::new(lex_b, sem_b).unwrap().with_k(10);
 
-        let q = EidosQuery::with_vector(
-            "match",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0, 0.0],
-        );
+        let q =
+            EidosQuery::with_vector("match", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0, 0.0]);
         let p_default = h_default.retrieve(&q, 1_700_000_000_000);
         let p_small_k = h_small_k.retrieve(&q, 1_700_000_000_000);
 
         // doc-x is rank-1 in lex (only lex match) and rank-2 in sem
         // (60° cosine, below doc-y's 0°).
-        let x_default = p_default.hits.iter().find(|h| h.document_id.as_str() == "doc-x")
+        let x_default = p_default
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "doc-x")
             .expect("doc-x must appear in default-k packet");
-        let x_small_k = p_small_k.hits.iter().find(|h| h.document_id.as_str() == "doc-x")
+        let x_small_k = p_small_k
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "doc-x")
             .expect("doc-x must appear in small-k packet");
 
         let expected_default = 123.0_f32 / 124.0;

@@ -6,10 +6,29 @@ import Testing
 
 @Suite("ThemePair Dock Icon")
 struct ThemePairTests {
+    private var customThemeDefaultsKeys: [String] {
+        AppCustomThemeColorSlot.allCases.flatMap { slot in
+            [
+                slot.defaultsKey,
+                slot.defaultsKey(isDark: false),
+                slot.defaultsKey(isDark: true),
+            ]
+        }
+    }
+
     @MainActor
     private func withPreservedThemeDefaults(_ body: () -> Void) {
         let defaults = UserDefaults.standard
-        let keys = [ThemeMode.defaultsKey, UIState.themePairDefaultsKey]
+        let keys = [
+            ThemeMode.defaultsKey,
+            UIState.themePairDefaultsKey,
+            AppDisplayTypography.headingLevel1FontDefaultsKey,
+            AppDisplayTypography.headingLevel2FontDefaultsKey,
+            AppDisplayTypography.headingLevel3FontDefaultsKey,
+            AppDisplayTypography.headingLevel1ScaleDefaultsKey,
+            AppDisplayTypography.headingLevel2ScaleDefaultsKey,
+            AppDisplayTypography.headingLevel3ScaleDefaultsKey,
+        ] + customThemeDefaultsKeys
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
             for (key, value) in previousValues {
@@ -20,6 +39,7 @@ struct ThemePairTests {
                 }
             }
         }
+        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
         body()
     }
 
@@ -32,6 +52,208 @@ struct ThemePairTests {
             )
         )
         #expect(!EpistemosFont.isBenignRegistrationErrorDescription("missing font resource"))
+    }
+
+    @Test("Display font catalog includes the validated user font library")
+    func displayFontCatalogIncludesValidatedUserFonts() {
+        let postScriptNames = Set(AppDisplayTypography.displayFontOptions.map(\.postScriptName))
+        let filenames = Set(AppDisplayTypography.displayFontOptions.map(\.resourceFilename))
+
+        #expect(postScriptNames.contains("ReturnOfGanonReg"))
+        #expect(postScriptNames.contains("Charybdis"))
+        #expect(postScriptNames.contains("VTFMisterPixel"))
+        #expect(postScriptNames.contains("AtlantisHeadline-Bold"))
+        #expect(postScriptNames.contains("LunchtimeDoublySoReg"))
+        #expect(postScriptNames.contains("DisposableDroidBB-BoldItalic"))
+        #expect(postScriptNames.contains("EXEPixelPerfect"))
+        #expect(postScriptNames.contains("Delicatus"))
+        #expect(postScriptNames.contains("LEDDisplay7"))
+        #expect(postScriptNames.contains("GNF"))
+        #expect(postScriptNames.contains("Coder's-Crux"))
+        #expect(filenames.contains("CodersCrux.ttf"))
+        #expect(filenames.contains("VTFMisterPixel-Tools.otf"))
+    }
+
+    @Test("Heading typography overrides route through the shared theme resolver")
+    func headingTypographyOverridesRouteThroughThemeResolver() {
+        let defaults = UserDefaults.standard
+        let keys = [
+            UIState.themePairDefaultsKey,
+            AppDisplayTypography.headingLevel1FontDefaultsKey,
+            AppDisplayTypography.headingLevel2FontDefaultsKey,
+            AppDisplayTypography.headingLevel3FontDefaultsKey,
+            AppDisplayTypography.headingLevel1ScaleDefaultsKey,
+            AppDisplayTypography.headingLevel2ScaleDefaultsKey,
+            AppDisplayTypography.headingLevel3ScaleDefaultsKey,
+        ]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+
+        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
+        AppDisplayTypography.setHeadingFontOverride("Coder's-Crux", level: 2, defaults: defaults)
+        AppDisplayTypography.setHeadingSizeScale(1.2, level: 2, defaults: defaults)
+
+        defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
+        #expect(EpistemosTheme.oledSoft.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
+        #expect(abs(EpistemosTheme.oledSoft.headingSizeMultiplier(level: 2) - 1.0) < 0.001)
+
+        defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
+        #expect(EpistemosTheme.platinumVioletDark.headingFontName(level: 2) == "Coder's-Crux")
+        #expect(abs(EpistemosTheme.platinumVioletDark.headingSizeMultiplier(level: 2) - 1.2) < 0.001)
+
+        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
+        #expect(EpistemosTheme.platinumVioletDark.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
+        #expect(abs(EpistemosTheme.platinumVioletDark.headingSizeMultiplier(level: 2) - 1.0) < 0.001)
+    }
+
+    @Test("Custom appearance colors are isolated from preset theme cards")
+    func customAppearanceColorsAreIsolatedFromPresetThemes() {
+        let defaults = UserDefaults.standard
+        let keys = [UIState.themePairDefaultsKey] + customThemeDefaultsKeys
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+
+        AppCustomTheme.reset(defaults: defaults)
+        AppCustomTheme.setHex(0x123456, for: .background, isDark: true, defaults: defaults)
+        AppCustomTheme.setHex(0xABCDEF, for: .accent, isDark: true, defaults: defaults)
+
+        defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
+        #expect(!AppCustomTheme.isActive(defaults: defaults))
+        #expect(rgbHex(EpistemosTheme.oledSoft.resolved.background.nsColor) != 0x123456)
+
+        defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
+        #expect(AppCustomTheme.isActive(defaults: defaults))
+        #expect(rgbHex(EpistemosTheme.platinumVioletDark.resolved.background.nsColor) == 0x123456)
+        #expect(rgbHex(EpistemosTheme.platinumVioletDark.presetResolved.background.nsColor) != 0x123456)
+        #expect(rgbHex(EpistemosTheme.platinumVioletDark.resolved.accent.nsColor) == 0xABCDEF)
+        #expect(rgbHex(EpistemosTheme.platinumViolet.resolved.background.nsColor) != 0x123456)
+    }
+
+    @MainActor
+    @Test("Custom note surface has an explicit editor canvas token")
+    func customNoteSurfaceHasExplicitEditorCanvasToken() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
+            AppCustomTheme.reset(defaults: defaults)
+
+            AppCustomTheme.setHex(0xABCDEF, for: .card, isDark: false, defaults: defaults)
+            #expect(AppCustomTheme.noteSurfaceHex(isDark: false, defaults: defaults) == 0xABCDEF)
+
+            AppCustomTheme.setHex(0x224466, for: .noteSurface, isDark: false, defaults: defaults)
+            #expect(AppCustomTheme.noteSurfaceHex(isDark: false, defaults: defaults) == 0x224466)
+            #expect(
+                rgbHex(
+                    MarkdownPreviewSurfaceStyle.solidFlatBackgroundNSColor(for: EpistemosTheme.platinumViolet)
+                ) == 0x224466
+            )
+            #expect(
+                rgbHex(
+                    MarkdownPreviewSurfaceStyle.canvasNSColor(for: EpistemosTheme.platinumViolet)
+                ) == 0x224466
+            )
+        }
+    }
+
+    @Test("Stored custom values never mutate preset themes")
+    func storedCustomValuesNeverMutatePresetThemes() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            AppCustomTheme.setHex(0x112233, for: .background, isDark: false, defaults: defaults)
+            AppCustomTheme.setHex(0x445566, for: .text, isDark: false, defaults: defaults)
+            AppCustomTheme.setHex(0x778899, for: .accent, isDark: true, defaults: defaults)
+            AppCustomTheme.setHex(0xAABBCC, for: .heading, isDark: true, defaults: defaults)
+            AppDisplayTypography.setHeadingFontOverride("Charybdis", level: 1, defaults: defaults)
+            AppDisplayTypography.setHeadingFontOverride("Coder's-Crux", level: 2, defaults: defaults)
+            AppDisplayTypography.setHeadingSizeScale(1.3, level: 3, defaults: defaults)
+
+            let lockedPairs: [ThemePair] = [.platinumViolet, .classic, .ember]
+            for pair in lockedPairs {
+                defaults.set(pair.rawValue, forKey: UIState.themePairDefaultsKey)
+                #expect(!AppCustomTheme.isActive(defaults: defaults))
+
+                for theme in [pair.lightTheme, pair.darkTheme] {
+                    #expect(rgbHex(theme.resolved.background.nsColor) == rgbHex(theme.presetResolved.background.nsColor))
+                    #expect(theme.resolved.foregroundHex == theme.presetResolved.foregroundHex)
+                    #expect(theme.resolved.headingAccentHex == theme.presetResolved.headingAccentHex)
+                    #expect(theme.resolved.markdownHeadingAccentHex == theme.presetResolved.markdownHeadingAccentHex)
+                    #expect(theme.resolved.userBubbleBackgroundHex == theme.presetResolved.userBubbleBackgroundHex)
+                }
+            }
+
+            defaults.set(ThemePair.platinumViolet.rawValue, forKey: UIState.themePairDefaultsKey)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == AppDisplayTypography.matrixBoldDisplayFontName)
+
+            defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
+            #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.coralDisplayFontName)
+
+            defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
+            #expect(EpistemosTheme.tan.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.tan.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.tan.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
+        }
+    }
+
+    @Test("Custom theme exposes color controls and labeled font previews")
+    func customThemeExposesColorControlsAndLabeledFontPreviews() throws {
+        let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let themeSource = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
+
+        #expect(settings.contains("AppearanceCustomThemeSection(ui: ui)"))
+        #expect(settings.contains("if ui.themeMode == .custom && ui.activePair == .custom"))
+        #expect(settings.contains("CustomThemeColorTile("))
+        #expect(themeSource.contains("Note Surface"))
+        #expect(settings.contains("Picker(\"Variant\", selection: $editingDarkVariant)"))
+        #expect(settings.contains("CustomThemeLivePreview(isDark: editingDarkVariant)"))
+        #expect(settings.contains("AppCustomTheme.noteSurfaceHex(isDark: isDark)"))
+        #expect(settings.contains("slot == .noteSurface"))
+        #expect(settings.contains("FontLibraryPreviewGrid()"))
+        #expect(settings.contains("Every bundled display face is labeled with its own preview."))
+        #expect(settings.contains("Preset themes stay locked."))
+        #expect(settings.contains("Heading font and scale apply only to Custom."))
+        #expect(settings.contains("if pair == .custom"))
+        #expect(settings.contains("let resolved = theme.presetResolved"))
+    }
+
+    @Test("Custom landing typography uses the stored H1 override while presets stay locked")
+    func customLandingTypographyUsesStoredH1OverrideWhilePresetsStayLocked() {
+        withPreservedThemeDefaults {
+            UserDefaults.standard.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
+            AppDisplayTypography.setHeadingFontOverride("Charybdis", level: 1)
+            #expect(LandingCommandTypography.heroFontName(for: .platinumVioletDark) == "Charybdis")
+
+            UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
+            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.coralDisplayFontName)
+        }
+    }
+
+    private func rgbHex(_ color: NSColor) -> UInt32? {
+        guard let color = color.usingColorSpace(.sRGB) else { return nil }
+        let red = UInt32((color.redComponent * 255).rounded())
+        let green = UInt32((color.greenComponent * 255).rounded())
+        let blue = UInt32((color.blueComponent * 255).rounded())
+        return (red << 16) | (green << 8) | blue
     }
 
     @Test("Classic does not require a runtime dock icon override")
@@ -399,7 +621,7 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Classic resolves to the stable custom light and softened OLED themes with global Matrix/Chonky typography")
+    @Test("Classic resolves to the stable custom light and softened OLED themes with Matrix Bold headings")
     func appHeadingRolesUseSharedDisplayScale() {
         #expect(ThemePair.classic.description == "White · OLED Soft")
         #expect(ThemePair.classic.lightTheme == .light)
@@ -412,14 +634,15 @@ struct ThemePairTests {
             UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
 
             #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
+            #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
             #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
             #expect(AppDisplayTypography.displayFontName(isDark: false) == "MatrixTypeDisplay-Regular")
             #expect(AppDisplayTypography.displayFontName(isDark: true) == "MatrixTypeDisplay-Regular")
             #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.0)
             #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
-            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Regular")
-            #expect(AppHeadingRole.h2.fontName == "ChonkyPixels")
-            #expect(AppHeadingRole.h3.fontName == "ChonkyPixels")
+            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h2.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h3.fontName == "MatrixTypeDisplay-Bold")
         }
         // Per user 2026-05-12: graph node labels use the JetBrainsMono
         // monospace atlas (the v1 "before" identity) in both light and
@@ -433,6 +656,85 @@ struct ThemePairTests {
         #expect(AppHeadingRole.h2.fontSize == 26)
         #expect(AppHeadingRole.h3.fontSize == 18)
         #expect(AppHeadingRole.section.fontSize == 12)
+    }
+
+    @Test("Classic H2 and H3 use Matrix Bold while keeping Ember Tan note heading scale")
+    func classicH2H3UseMatrixBoldWithEmberTanNoteHeadingScale() {
+        let classic = EpistemosTheme.light
+        let emberTan = EpistemosTheme.tan
+
+        #expect(classic.headingFontName(level: 1) != emberTan.headingFontName(level: 1))
+        #expect(classic.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
+        #expect(classic.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
+        #expect(classic.headingFontName(level: 2) != emberTan.headingFontName(level: 2))
+        #expect(classic.headingFontName(level: 3) != emberTan.headingFontName(level: 3))
+        #expect(classic.headingSizeMultiplier(level: 1) < emberTan.headingSizeMultiplier(level: 1))
+        #expect(classic.headingSizeMultiplier(level: 2) == emberTan.headingSizeMultiplier(level: 2))
+        #expect(classic.headingSizeMultiplier(level: 3) == emberTan.headingSizeMultiplier(level: 3))
+        #expect(classic.notesMatchingHeadingSpec(level: 2)?.fontName == "MatrixTypeDisplay-Bold")
+        #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == emberTan.notesMatchingHeadingSpec(level: 2)?.size)
+        #expect(classic.notesMatchingHeadingSpec(level: 3)?.fontName == "MatrixTypeDisplay-Bold")
+        #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == emberTan.notesMatchingHeadingSpec(level: 3)?.size)
+        #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == 31)
+        #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == 19)
+    }
+
+    @Test("Platinum retires the Matrix Dots demo face from active text")
+    func platinumRetiresMatrixDotsDemoFaceFromActiveText() throws {
+        let theme = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
+        let fontRegistration = try loadTextFile("Epistemos/Theme/EpistemosFont.swift")
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+        let markdownContentStorage = try loadTextFile("Epistemos/Views/Notes/MarkdownContentStorage.swift")
+        let markdownTextView = try loadTextFile("Epistemos/Views/Shared/MarkdownTextView.swift")
+        let hologramInspector = try loadTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+
+        #expect(AppDisplayTypography.matrixDotsDisplayFontName == "MatrixDotsDemoRegular")
+        #expect(!AppDisplayTypography.displayFontOptions.map(\.postScriptName).contains("MatrixDotsDemoRegular"))
+        #expect(AppDisplayTypography.platinumGlyphFontName(for: "A") == "MatrixTypeDisplay-Regular")
+        #expect(AppDisplayTypography.platinumGlyphFontName(for: ",") == "MatrixTypeDisplay-Regular")
+        #expect(AppDisplayTypography.platinumGlyphFontName(for: "1") == "MatrixTypeDisplay-Regular")
+        #expect(!AppDisplayTypography.usesPlatinumGlyphFallback(theme: .platinumViolet, level: 1))
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.platinumViolet.nodeTitleFontName == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.platinumViolet.panelFontName == "MatrixTypeDisplay-Regular")
+        #expect(EpistemosTheme.platinumViolet.headingSizeMultiplier(level: 2) > 0.72)
+        #expect(EpistemosTheme.platinumViolet.headingSizeMultiplier(level: 3) > 0.72)
+        withPreservedThemeDefaults {
+            UserDefaults.standard.set(ThemePair.platinumViolet.rawValue, forKey: UIState.themePairDefaultsKey)
+            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h2.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h3.fontName == "MatrixTypeDisplay-Bold")
+        }
+        #expect(theme.contains(#"matrixDotsDisplayFontName = "MatrixDotsDemoRegular""#))
+        #expect(theme.contains("platinumGlyphFallbackAttributedString"))
+        #expect(theme.contains("applyPlatinumGlyphFallbackFonts"))
+        #expect(fontRegistration.contains(#"registerFont(named: "MatrixTypeDisplay-Bold", extension: "otf")"#))
+        #expect(fontRegistration.contains(#"registerFont(named: "MatrixDotsDemoRegular", extension: "ttf")"#))
+        #expect(!pixelComponents.contains("AppDisplayTypography.matrixDotsDisplayFontName"))
+        #expect(liquidGreeting.contains("platinumGlyphFallbackAttributedString"))
+        #expect(markdownContentStorage.contains("applyPlatinumGlyphFallbackFonts"))
+        #expect(markdownTextView.contains("platinumGlyphFallbackAttributedString"))
+        #expect(hologramInspector.contains(".font(AppDisplayTypography.panelFont(size: 14, theme: theme))"))
+        #expect(hologramInspector.contains("platinumGlyphFallbackAttributedString"))
+        #expect(liquidGreeting.contains("theme.themePair == .classic"))
+        #expect(!liquidGreeting.contains("[.classic, .platinumViolet].contains(theme.themePair)"))
+    }
+
+    @Test("Classic landing greeting stays Coral Pixels and all caps while headings use Matrix Bold")
+    func classicLandingGreetingUsesCoralPixelsAndAllCaps() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+
+        #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
+        #expect(EpistemosTheme.light.headingFontName(level: 1) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.light.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.light.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
+        #expect(pixelComponents.contains("case .classic:"))
+        #expect(pixelComponents.contains("return AppDisplayTypography.coralDisplayFontName"))
+        #expect(liquidGreeting.contains("theme.themePair == .classic"))
     }
 
     @Test("Classic softened OLED follows the same assistant glass path as old Classic dark")
@@ -915,13 +1217,17 @@ struct ThemePairTests {
     func chatStreamingStaysPlainWithoutThinkingAccordion() throws {
         let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
         let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let inlineTranscript = try loadTextFile("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift")
 
-        #expect(chatView.contains("TaggedMarkdownTextView("))
+        #expect(chatView.contains("MessageBubble("))
         #expect(chatView.contains("UserFacingModelOutput.streamingVisibleText"))
+        #expect(messageBubble.contains("AssistantInlineTranscriptView("))
+        #expect(inlineTranscript.contains("TaggedMarkdownTextView("))
         #expect(!chatView.contains("ThinkingAccordion"))
         #expect(!chatView.contains("chat.isReasoning"))
         #expect(!messageBubble.contains("ThinkingAccordion"))
         #expect(!messageBubble.contains("reasoningText"))
+        #expect(!inlineTranscript.contains("ThinkingAccordion"))
     }
 
     @Test("LocalModelToolbarMenu is owned by standalone surfaces, not main chat or landing")
@@ -1564,15 +1870,15 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains(".preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)"))
     }
 
-    @Test("landing typography follows the global Classic Matrix and Chonky mapping")
+    @Test("landing typography follows the Classic Matrix Bold heading mapping")
     func landingTypographyFollowsGlobalClassicMapping() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
         let theme = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
 
         #expect(theme.contains("case .classic:        return AppDisplayTypography.matrixDisplayFontName"))
-        #expect(theme.contains("? AppDisplayTypography.matrixDisplayFontName"))
-        #expect(theme.contains(": AppDisplayTypography.chonkyDisplayFontName"))
+        #expect(theme.contains("? AppDisplayTypography.matrixBoldDisplayFontName"))
+        #expect(theme.contains("case .h1, .h2, .h3: return matrixBoldDisplayFontName"))
         #expect(liquidGreeting.contains("LandingCommandTypography.heroFontName(for: theme)"))
         #expect(liquidGreeting.contains(".weight(.heavy)"))
         #expect(pixelComponents.contains("theme.displayFontName"))
@@ -1837,8 +2143,10 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!components.contains("PixelPanelBackground.actionSurface"))
         #expect(!components.contains(".ultraThinMaterial"))
         #expect(settingsView.contains(".settingsThemedBlurPage(theme: ui.theme.surfaceVariant(.other))"))
-        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .sidebar)"))
-        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .page)"))
+        #expect(settingsView.contains("SettingsSidebarBackdrop(theme: ui.theme)"))
+        #expect(settingsView.contains("SettingsDetailBackdrop(theme: ui.theme)"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .sidebar)"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .page)"))
         #expect(settingsView.contains("SettingsPixelGlyphBadge(systemImage: section.icon"))
         #expect(settingsView.contains("SettingsFeaturedPixelPanel(theme: settingsTheme)"))
         #expect(!settingsView.contains("pixelPanel(theme: settingsTheme)"))

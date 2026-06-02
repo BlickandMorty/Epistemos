@@ -1,12 +1,18 @@
 //! F-UAS-CopyCount harness.
 
-use std::fs;
+use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::path::PathBuf;
 
-use serde_json::json;
-
+use agent_core::falsifier_artifacts::{
+    now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
+    FallbackTier, Measurement,
+};
 use agent_core::uas::copy_counter;
+
+const FALSIFIER_ID: &str = "F-UAS-CopyCount";
+const FIXTURE_ID: &str = "uas_copy_count_shared_backing_4096_f32_v2";
+const COMMAND: &str = "Tools/falsifiers/f_uas_copy_count.sh";
 
 fn main() -> std::process::ExitCode {
     let payload = vec![0.25_f32; 4096];
@@ -27,36 +33,90 @@ fn main() -> std::process::ExitCode {
         black_box(checksum);
     });
 
-    let pass = stats.copy_count == 0;
-    let artifact = json!({
-        "schema_version": "2026-05-18.2",
-        "falsifier": "F-UAS-CopyCount",
-        "status": if pass { "PASS" } else { "FAIL" },
-        "hardware_floor": "M2 Pro 16 GB UMA",
-        "scope": "instrumented UAS shared-backing fixture; tensor-copy counter only",
-        "measurements": {
-            "tensor_copy_count": stats.copy_count,
-            "data_copy_bytes": 0,
-            "allocator_count_instrumented": stats.alloc_count,
-            "hops": hot_path,
-        },
-        "acceptance_thresholds": {
-            "tensor_copy_count": 0,
-            "data_copy_bytes": 0
-        },
-        "pass_per_axis": {
-            "tensor_copy_count": stats.copy_count == 0,
-            "data_copy_bytes": true,
-            "metadata_copy_ledger": true,
-            "stack_label_coverage": true
-        },
-        "metadata_copy_ledger": [
-            "artifact JSON serialization happens after the measured hot path",
-            "payload allocation happens before copy_counter::with_tracking"
-        ]
-    });
+    let mut measurements: BTreeMap<String, Measurement> = BTreeMap::new();
+    let mut thresholds: BTreeMap<String, AcceptanceThreshold> = BTreeMap::new();
+    let mut pass_per_axis: BTreeMap<String, bool> = BTreeMap::new();
 
-    match write_artifact("artifacts/falsifiers/uas_copy_count/result.json", &artifact) {
+    add_count_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "tensor_copy_count",
+        stats.copy_count as u64,
+        0,
+    );
+    add_count_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "data_copy_bytes",
+        0,
+        0,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "metadata_copy_ledger",
+        true,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stack_label_coverage",
+        true,
+    );
+    measurements.insert(
+        "allocator_count_instrumented".to_string(),
+        Measurement {
+            value: serde_json::Value::Number(serde_json::Number::from(stats.alloc_count as u64)),
+            unit: "allocations".to_string(),
+        },
+    );
+    measurements.insert(
+        "hot_path_hops".to_string(),
+        Measurement {
+            value: serde_json::json!(hot_path),
+            unit: "labels".to_string(),
+        },
+    );
+
+    let pass = pass_per_axis.values().copied().all(|axis| axis);
+    let artifact = ArtifactBuilder {
+        falsifier_id: FALSIFIER_ID.to_string(),
+        artifact_kind: if pass {
+            ArtifactKind::PrimaryWitness
+        } else {
+            ArtifactKind::FailureReport
+        },
+        command: COMMAND.to_string(),
+        commit_sha: agent_core::falsifier_artifacts::current_commit_sha(),
+        fixture_id: FIXTURE_ID.to_string(),
+        measurements,
+        acceptance_thresholds: thresholds,
+        pass_per_axis,
+        fallback_tier: if pass {
+            FallbackTier::Primary
+        } else {
+            FallbackTier::Fail
+        },
+        anomalies: vec![
+            serde_json::json!({
+                "kind": "scope_limited_shared_backing_fixture",
+                "detail": "This proves the instrumented UAS shared-backing fixture, not the full MLX production generation loop."
+            }),
+            serde_json::json!({
+                "kind": "metadata_copy_ledger",
+                "detail": "Artifact JSON serialization happens after the measured hot path; payload allocation happens before copy_counter::with_tracking."
+            }),
+        ],
+        notes: "primary_witness; normalized from legacy artifact shape; instrumented shared-backing fixture with zero tensor/data copies after payload creation".to_string(),
+        timestamp_utc: now_utc_rfc3339(),
+    }
+    .build();
+
+    match write_schema_artifact("artifacts/falsifiers/uas_copy_count/result.json", &artifact) {
         Ok(()) if pass => std::process::ExitCode::SUCCESS,
         Ok(()) => std::process::ExitCode::from(1),
         Err(error) => {
@@ -66,10 +126,65 @@ fn main() -> std::process::ExitCode {
     }
 }
 
-fn write_artifact(path: &str, value: &serde_json::Value) -> std::io::Result<()> {
+fn write_schema_artifact(
+    path: &str,
+    artifact: &agent_core::falsifier_artifacts::FalsifierArtifact,
+) -> std::io::Result<()> {
     let path = PathBuf::from(path);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent)?;
     }
-    fs::write(path, serde_json::to_vec_pretty(value)?)
+    let mut file = std::fs::File::create(path)?;
+    write_artifact(&mut file, artifact)
+}
+
+fn add_count_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    value: u64,
+    threshold: u64,
+) {
+    measurements.insert(
+        axis.to_string(),
+        Measurement {
+            value: serde_json::Value::Number(serde_json::Number::from(value)),
+            unit: "count".to_string(),
+        },
+    );
+    thresholds.insert(
+        axis.to_string(),
+        AcceptanceThreshold {
+            operator: "==".to_string(),
+            value: serde_json::Value::Number(serde_json::Number::from(threshold)),
+            unit: "count".to_string(),
+        },
+    );
+    pass_per_axis.insert(axis.to_string(), value == threshold);
+}
+
+fn add_bool_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    value: bool,
+) {
+    measurements.insert(
+        axis.to_string(),
+        Measurement {
+            value: serde_json::Value::Bool(value),
+            unit: "bool".to_string(),
+        },
+    );
+    thresholds.insert(
+        axis.to_string(),
+        AcceptanceThreshold {
+            operator: "==".to_string(),
+            value: serde_json::Value::Bool(true),
+            unit: "bool".to_string(),
+        },
+    );
+    pass_per_axis.insert(axis.to_string(), value);
 }

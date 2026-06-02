@@ -33,8 +33,12 @@ pub enum Substrate {
 }
 
 impl Substrate {
-    pub const ALL: [Substrate; 4] =
-        [Substrate::Cpu, Substrate::Gpu, Substrate::Ane, Substrate::Mock];
+    pub const ALL: [Substrate; 4] = [
+        Substrate::Cpu,
+        Substrate::Gpu,
+        Substrate::Ane,
+        Substrate::Mock,
+    ];
 
     pub const fn code(self) -> &'static str {
         match self {
@@ -144,9 +148,18 @@ pub struct SubstrateIndependenceReport {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SubstrateError {
     EmptyOutputs,
-    OutputLengthMismatch { a: Substrate, a_len: usize, b: Substrate, b_len: usize },
-    NonPositiveTolerance { tol: f32 },
-    DuplicateSubstrate { substrate: Substrate },
+    OutputLengthMismatch {
+        a: Substrate,
+        a_len: usize,
+        b: Substrate,
+        b_len: usize,
+    },
+    NonPositiveTolerance {
+        tol: f32,
+    },
+    DuplicateSubstrate {
+        substrate: Substrate,
+    },
 }
 
 /// Compute the max-abs pairwise divergence across `N` substrate outputs.
@@ -164,7 +177,9 @@ pub fn check_substrate_independence(
     let mut seen: std::collections::HashSet<Substrate> = Default::default();
     for o in outputs {
         if !seen.insert(o.substrate) {
-            return Err(SubstrateError::DuplicateSubstrate { substrate: o.substrate });
+            return Err(SubstrateError::DuplicateSubstrate {
+                substrate: o.substrate,
+            });
         }
     }
     let first_len = outputs[0].output.len();
@@ -254,7 +269,9 @@ pub fn check_substrate_independence_relative(
     let mut seen: std::collections::HashSet<Substrate> = Default::default();
     for o in outputs {
         if !seen.insert(o.substrate) {
-            return Err(SubstrateError::DuplicateSubstrate { substrate: o.substrate });
+            return Err(SubstrateError::DuplicateSubstrate {
+                substrate: o.substrate,
+            });
         }
     }
     let first_len = outputs[0].output.len();
@@ -306,16 +323,23 @@ mod tests {
     use super::*;
 
     fn out(s: Substrate, v: Vec<f32>) -> SubstrateOutput {
-        SubstrateOutput { substrate: s, output: v }
+        SubstrateOutput {
+            substrate: s,
+            output: v,
+        }
     }
 
     #[test]
     fn four_substrates_distinct() {
-        let set: std::collections::HashSet<_> =
-            [Substrate::Cpu, Substrate::Gpu, Substrate::Ane, Substrate::Mock]
-                .iter()
-                .copied()
-                .collect();
+        let set: std::collections::HashSet<_> = [
+            Substrate::Cpu,
+            Substrate::Gpu,
+            Substrate::Ane,
+            Substrate::Mock,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(set.len(), 4);
     }
 
@@ -347,7 +371,12 @@ mod tests {
             out(Substrate::Cpu, vec![1.0]),
         ];
         let err = check_substrate_independence(&outputs, 0.01).unwrap_err();
-        assert_eq!(err, SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu });
+        assert_eq!(
+            err,
+            SubstrateError::DuplicateSubstrate {
+                substrate: Substrate::Cpu
+            }
+        );
     }
 
     #[test]
@@ -536,7 +565,12 @@ mod tests {
             out(Substrate::Cpu, vec![1.0]),
         ];
         let err = check_substrate_independence_relative(&outputs, 0.01).unwrap_err();
-        assert_eq!(err, SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu });
+        assert_eq!(
+            err,
+            SubstrateError::DuplicateSubstrate {
+                substrate: Substrate::Cpu
+            }
+        );
     }
 
     // ── diagnostic surface (iter 157) ────────────────────────────────────────
@@ -559,13 +593,13 @@ mod tests {
         }
         // 3 real-hardware + 1 mock.
         assert_eq!(
-            Substrate::ALL.iter().filter(|s| s.is_real_hardware()).count(),
+            Substrate::ALL
+                .iter()
+                .filter(|s| s.is_real_hardware())
+                .count(),
             3,
         );
-        assert_eq!(
-            Substrate::ALL.iter().filter(|s| s.is_mock()).count(),
-            1,
-        );
+        assert_eq!(Substrate::ALL.iter().filter(|s| s.is_mock()).count(), 1,);
     }
 
     #[test]
@@ -573,10 +607,15 @@ mod tests {
         let variants = [
             SubstrateError::EmptyOutputs,
             SubstrateError::OutputLengthMismatch {
-                a: Substrate::Cpu, a_len: 1, b: Substrate::Gpu, b_len: 2,
+                a: Substrate::Cpu,
+                a_len: 1,
+                b: Substrate::Gpu,
+                b_len: 2,
             },
             SubstrateError::NonPositiveTolerance { tol: 0.0 },
-            SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu },
+            SubstrateError::DuplicateSubstrate {
+                substrate: Substrate::Cpu,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 4);
@@ -587,10 +626,15 @@ mod tests {
         let variants = [
             SubstrateError::EmptyOutputs,
             SubstrateError::OutputLengthMismatch {
-                a: Substrate::Cpu, a_len: 1, b: Substrate::Gpu, b_len: 2,
+                a: Substrate::Cpu,
+                a_len: 1,
+                b: Substrate::Gpu,
+                b_len: 2,
             },
             SubstrateError::NonPositiveTolerance { tol: 0.0 },
-            SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu },
+            SubstrateError::DuplicateSubstrate {
+                substrate: Substrate::Cpu,
+            },
         ];
         // Cross-surface invariant: is_input_error XOR is_param_error.
         for e in variants {
@@ -638,7 +682,9 @@ mod tests {
     fn per_pair_count_invariant() {
         // Cross-surface invariant: per_pair.len() = n*(n-1)/2.
         for n in 1..=4 {
-            let outputs: Vec<SubstrateOutput> = Substrate::ALL.iter().take(n)
+            let outputs: Vec<SubstrateOutput> = Substrate::ALL
+                .iter()
+                .take(n)
                 .copied()
                 .map(|s| out(s, vec![1.0]))
                 .collect();

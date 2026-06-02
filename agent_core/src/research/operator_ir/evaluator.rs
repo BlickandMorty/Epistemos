@@ -68,7 +68,10 @@ pub fn evaluate_operator_at(
         KernelTransform::Identity => b.iter().zip(t.iter()).map(|(bi, ti)| bi * ti).sum(),
         KernelTransform::Fourier { modes } => {
             let t_spectral = super::fourier_kernel::fno_spectral_block(&t, modes);
-            b.iter().zip(t_spectral.iter()).map(|(bi, ti)| bi * ti).sum()
+            b.iter()
+                .zip(t_spectral.iter())
+                .map(|(bi, ti)| bi * ti)
+                .sum()
         }
     };
     if !v.is_finite() {
@@ -128,9 +131,7 @@ pub fn compose_linear_layers(
         bias[i] = acc;
     }
 
-    LinearNetwork::new(w, bias).map_err(|_| OperatorEvalError::NonFiniteResult {
-        value: f64::NAN,
-    })
+    LinearNetwork::new(w, bias).map_err(|_| OperatorEvalError::NonFiniteResult { value: f64::NAN })
 }
 
 /// Apply a linear layer with a residual / skip connection:
@@ -797,11 +798,7 @@ pub fn apply_layer_pairwise_l1_distance(
     }
     let ya = evaluate_linear(a, input)?;
     let yb = evaluate_linear(b, input)?;
-    let sum: f64 = ya
-        .iter()
-        .zip(yb.iter())
-        .map(|(x, y)| (x - y).abs())
-        .sum();
+    let sum: f64 = ya.iter().zip(yb.iter()).map(|(x, y)| (x - y).abs()).sum();
     Ok(sum)
 }
 
@@ -1851,10 +1848,7 @@ pub fn apply_layer_l2_norm_squared(
 /// Tibshirani, "Regression Shrinkage and Selection via the
 /// Lasso", JRSS-B 58:267-288 (1996); generalization to neural
 /// networks: Goodfellow/Bengio/Courville 2016 §7.1.
-pub fn apply_layer_l1_norm(
-    layer: &LinearNetwork,
-    input: &[f64],
-) -> Result<f64, OperatorEvalError> {
+pub fn apply_layer_l1_norm(layer: &LinearNetwork, input: &[f64]) -> Result<f64, OperatorEvalError> {
     let v = evaluate_linear(layer, input)?;
     Ok(v.iter().map(|x| x.abs()).sum())
 }
@@ -2213,7 +2207,11 @@ pub fn apply_pre_norm_block(
     }
     let normed = apply_layer_norm(input, gain, bias, eps)?;
     let layer_out = evaluate_linear(network, &normed)?;
-    Ok(input.iter().zip(layer_out.iter()).map(|(x, y)| x + y).collect())
+    Ok(input
+        .iter()
+        .zip(layer_out.iter())
+        .map(|(x, y)| x + y)
+        .collect())
 }
 
 /// Post-LN transformer block: `y = LN(x + L(x))`.
@@ -2244,7 +2242,11 @@ pub fn apply_post_norm_block(
         });
     }
     let layer_out = evaluate_linear(network, input)?;
-    let sum: Vec<f64> = input.iter().zip(layer_out.iter()).map(|(x, y)| x + y).collect();
+    let sum: Vec<f64> = input
+        .iter()
+        .zip(layer_out.iter())
+        .map(|(x, y)| x + y)
+        .collect();
     apply_layer_norm(&sum, gain, bias, eps)
 }
 
@@ -2676,14 +2678,8 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_concat_two_heads() {
-        let l1 = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![2.0, 0.0]],
-            vec![0.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![2.0, 0.0]], vec![0.0]).unwrap();
         let input = vec![3.0, 4.0];
         // L1(3, 4) = (4, 3); L2(3, 4) = (6).
         let out = apply_layer_concat(&[l1, l2], &input).unwrap();
@@ -2697,7 +2693,8 @@ mod iter_89_tests {
         let l3 = LinearNetwork::new(
             vec![vec![1.0], vec![1.0], vec![1.0]],
             vec![10.0, 20.0, 30.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![1.0];
         let out = apply_layer_concat(&[l1, l2, l3], &input).unwrap();
         // L1(1) = (1, 2). L2(1) = (3). L3(1) = (11, 21, 31).
@@ -2723,15 +2720,8 @@ mod iter_89_tests {
 
     #[test]
     fn evaluate_linear_batch_three_inputs() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
-        let inputs = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![2.0, 3.0],
-        ];
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
+        let inputs = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![2.0, 3.0]];
         let out = evaluate_linear_batch(&l, &inputs).unwrap();
         assert_eq!(out.len(), 3);
         // Layer: y_0 = x_0 + 1, y_1 = x_1 - 1.
@@ -2742,25 +2732,15 @@ mod iter_89_tests {
 
     #[test]
     fn evaluate_linear_batch_dim_mismatch_rejected() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let inputs = vec![vec![1.0, 2.0], vec![1.0]]; // second has wrong dim
         assert!(evaluate_linear_batch(&l, &inputs).is_err());
     }
 
     #[test]
     fn evaluate_linear_batch_matches_individual_calls() {
-        let l = LinearNetwork::new(
-            vec![vec![2.0, 0.5], vec![-1.0, 3.0]],
-            vec![1.0, -0.5],
-        ).unwrap();
-        let inputs = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![3.0, 2.0],
-        ];
+        let l = LinearNetwork::new(vec![vec![2.0, 0.5], vec![-1.0, 3.0]], vec![1.0, -0.5]).unwrap();
+        let inputs = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![3.0, 2.0]];
         let batch_out = evaluate_linear_batch(&l, &inputs).unwrap();
         for (input, b_out) in inputs.iter().zip(batch_out.iter()) {
             let direct = evaluate_linear(&l, input).unwrap();
@@ -2773,10 +2753,7 @@ mod iter_89_tests {
     #[test]
     fn apply_skip_connection_known() {
         // L(input) + skip.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
         let input = vec![3.0, 4.0];
         let skip = vec![10.0, 20.0];
         let out = apply_skip_connection(&l, &input, &skip).unwrap();
@@ -2786,10 +2763,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_skip_connection_zero_skip_matches_evaluate_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![5.0, 7.0];
         let out = apply_skip_connection(&l, &input, &[0.0, 0.0]).unwrap();
         assert_eq!(out, vec![5.0, 7.0]);
@@ -2797,10 +2771,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_skip_connection_dim_mismatch_rejected() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0], vec![0.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0], vec![0.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0];
         let skip = vec![1.0, 2.0, 3.0]; // wrong dim
         assert!(apply_skip_connection(&l, &input, &skip).is_err());
@@ -2810,10 +2781,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_sum_single_layer_matches_evaluate_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
         let input = vec![3.0, 4.0];
         let sum = apply_layer_sum(std::slice::from_ref(&l), &input).unwrap();
         let direct = evaluate_linear(&l, &input).unwrap();
@@ -2822,14 +2790,9 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_sum_two_layers_sums_outputs() {
-        let l1 = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, 1.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![0.0, 1.0], vec![1.0, 0.0]],
-            vec![-1.0, -1.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, 1.0]).unwrap();
+        let l2 =
+            LinearNetwork::new(vec![vec![0.0, 1.0], vec![1.0, 0.0]], vec![-1.0, -1.0]).unwrap();
         let input = vec![3.0, 4.0];
         // L1(3, 4) = (4, 5); L2(3, 4) = (3, 2). Sum = (7, 7).
         let sum = apply_layer_sum(&[l1, l2], &input).unwrap();
@@ -2846,10 +2809,8 @@ mod iter_89_tests {
     fn apply_layer_sum_dim_mismatch_rejected() {
         // L1 output 2, L2 output 3.
         let l1 = LinearNetwork::new(vec![vec![1.0], vec![0.0]], vec![0.0, 0.0]).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![1.0], vec![1.0], vec![1.0]],
-            vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        let l2 =
+            LinearNetwork::new(vec![vec![1.0], vec![1.0], vec![1.0]], vec![0.0, 0.0, 0.0]).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
     }
 
@@ -2857,11 +2818,7 @@ mod iter_89_tests {
 
     #[test]
     fn layer_subtract_self_is_zero() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![3.0, 4.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![3.0, 4.0]).unwrap();
         let out = apply_layer_subtract(&l, &l, &[5.0, 6.0]).unwrap();
         assert_eq!(out, vec![0.0, 0.0]);
     }
@@ -2897,11 +2854,7 @@ mod iter_89_tests {
 
     #[test]
     fn bias_shift_zero_offset_matches_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
         let input = vec![2.0, 3.0];
         let shifted = apply_layer_bias_shift(&l, &input, &[0.0, 0.0]).unwrap();
         let direct = evaluate_linear(&l, &input).unwrap();
@@ -2953,7 +2906,11 @@ mod iter_89_tests {
         //   φ ∘ L = ReLU((1, 2, -5)) = (1, 2, 0).
         //   L ∘ φ = L((1, 2, 5)) = (1, 2, -5).
         let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]],
+            vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+            ],
             vec![0.0, 0.0, -10.0],
         )
         .unwrap();
@@ -2974,11 +2931,7 @@ mod iter_89_tests {
     #[test]
     fn residual_concat_zero_layer_returns_input_then_bias() {
         // L = 0; y = concat(x, bias).
-        let l = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![3.0, -1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![3.0, -1.0]).unwrap();
         let out = apply_residual_concat(&l, &[5.0, 6.0]).unwrap();
         assert_eq!(out, vec![5.0, 6.0, 3.0, -1.0]);
     }
@@ -2993,11 +2946,8 @@ mod iter_89_tests {
 
     #[test]
     fn residual_concat_preserves_input_prefix() {
-        let l = LinearNetwork::new(
-            vec![vec![100.0, 200.0], vec![300.0, 400.0]],
-            vec![1.0, 1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![100.0, 200.0], vec![300.0, 400.0]], vec![1.0, 1.0])
+            .unwrap();
         let input = vec![1.0, 2.0];
         let out = apply_residual_concat(&l, &input).unwrap();
         assert_eq!(&out[..2], &input[..]);
@@ -3013,11 +2963,7 @@ mod iter_89_tests {
 
     #[test]
     fn linear_then_layernorm_matches_sequential() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![5.0, 11.0];
         let g = vec![1.0, 1.0];
         let b = vec![0.0, 0.0];
@@ -3032,27 +2978,17 @@ mod iter_89_tests {
     #[test]
     fn linear_then_layernorm_outputs_mean_zero_with_default_gain_bias() {
         // Identity layer; LN with γ=1, β=0, ε≈0 → mean of LN output is 0.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let out =
-            apply_linear_then_layernorm(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12)
-                .unwrap();
+            apply_linear_then_layernorm(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12).unwrap();
         let mean: f64 = out.iter().sum::<f64>() / 2.0;
         assert!(mean.abs() < 1e-9);
     }
 
     #[test]
     fn linear_then_layernorm_input_dim_mismatch_rejected() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
-        let r =
-            apply_linear_then_layernorm(&l, &[1.0, 2.0, 3.0], &[1.0, 1.0], &[0.0, 0.0], 1e-5);
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let r = apply_linear_then_layernorm(&l, &[1.0, 2.0, 3.0], &[1.0, 1.0], &[0.0, 0.0], 1e-5);
         assert!(r.is_err());
     }
 
@@ -3060,11 +2996,7 @@ mod iter_89_tests {
 
     #[test]
     fn input_dropout_all_keep_unit_scale_matches_plain_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 1.0], vec![0.0, 2.0]],
-            vec![0.0, 1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 1.0], vec![0.0, 2.0]], vec![0.0, 1.0]).unwrap();
         let input = vec![1.0, 2.0];
         let out = apply_input_dropout_then_layer(&l, &input, &[true, true], 1.0).unwrap();
         let direct = evaluate_linear(&l, &input).unwrap();
@@ -3074,11 +3006,7 @@ mod iter_89_tests {
     #[test]
     fn input_dropout_full_drop_returns_layer_bias() {
         // Drop everything: input becomes (0, 0); L(0, 0) = bias.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 1.0], vec![0.0, 2.0]],
-            vec![3.0, -1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 1.0], vec![0.0, 2.0]], vec![3.0, -1.0]).unwrap();
         let input = vec![1.0, 2.0];
         let out = apply_input_dropout_then_layer(&l, &input, &[false, false], 0.5).unwrap();
         assert_eq!(out, vec![3.0, -1.0]);
@@ -3088,22 +3016,15 @@ mod iter_89_tests {
     fn input_dropout_keep_prob_scales_surviving_inputs() {
         // mask = (true, false), keep = 0.5: input → (2·1.0, 0).
         // L = (1, 0; 0, 1), bias = 0 → output = (2, 0).
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
-        let out =
-            apply_input_dropout_then_layer(&l, &[1.0, 1.0], &[true, false], 0.5).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_input_dropout_then_layer(&l, &[1.0, 1.0], &[true, false], 0.5).unwrap();
         assert_eq!(out, vec![2.0, 0.0]);
     }
 
     #[test]
     fn input_dropout_mask_dim_mismatch_rejected() {
         let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
-        assert!(
-            apply_input_dropout_then_layer(&l, &[1.0, 2.0], &[true], 1.0).is_err()
-        );
+        assert!(apply_input_dropout_then_layer(&l, &[1.0, 2.0], &[true], 1.0).is_err());
     }
 
     // ── iter-287: apply_layer_l2_normalize ────────────────────────
@@ -3185,11 +3106,7 @@ mod iter_89_tests {
 
     #[test]
     fn residual_subtract_zero_layer_returns_input() {
-        let l = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_residual_subtract_block(&l, &[3.0, 4.0]).unwrap();
         assert_eq!(out, vec![3.0, 4.0]);
     }
@@ -3197,11 +3114,7 @@ mod iter_89_tests {
     #[test]
     fn residual_subtract_identity_layer_is_zero() {
         // L = identity → y = x - x = 0.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_residual_subtract_block(&l, &[3.0, 4.0]).unwrap();
         assert_eq!(out, vec![0.0, 0.0]);
     }
@@ -3209,11 +3122,7 @@ mod iter_89_tests {
     #[test]
     fn residual_subtract_matches_scaled_residual_minus_one() {
         // y = x - L(x) ≡ apply_scaled_residual_block(L, x, -1).
-        let l = LinearNetwork::new(
-            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
-            vec![1.0, -1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 0.5]], vec![1.0, -1.0]).unwrap();
         let x = vec![1.0, 4.0];
         let direct = apply_residual_subtract_block(&l, &x).unwrap();
         let via_scaled = apply_scaled_residual_block(&l, &x, -1.0).unwrap();
@@ -3258,11 +3167,7 @@ mod iter_89_tests {
 
     #[test]
     fn rms_after_layer_matches_sequential() {
-        let l = LinearNetwork::new(
-            vec![vec![3.0], vec![4.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
         let composed = apply_rms_after_layer(&l, &[1.0], &[], 0.0).unwrap();
         let direct = apply_rms_normalize(&evaluate_linear(&l, &[1.0]).unwrap(), &[], 0.0).unwrap();
         for (a, d) in composed.iter().zip(direct.iter()) {
@@ -3272,11 +3177,7 @@ mod iter_89_tests {
 
     #[test]
     fn rms_after_layer_unit_rms_after_normalize() {
-        let l = LinearNetwork::new(
-            vec![vec![3.0], vec![4.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_rms_after_layer(&l, &[1.0], &[], 0.0).unwrap();
         let ms: f64 = out.iter().map(|x| x * x).sum::<f64>() / 2.0;
         assert!((ms - 1.0).abs() < 1e-9);
@@ -3292,11 +3193,7 @@ mod iter_89_tests {
 
     #[test]
     fn rms_then_linear_matches_sequential() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![3.0, 4.0];
         let composed = apply_rms_then_linear(&l, &input, &[], 0.0).unwrap();
         let direct = evaluate_linear(&l, &apply_rms_normalize(&input, &[], 0.0).unwrap()).unwrap();
@@ -3309,7 +3206,11 @@ mod iter_89_tests {
     fn rms_then_linear_constant_input_unit_after_normalize() {
         // Constant input → RMS-norm gives all-1; then identity layer → all-1.
         let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]],
+            vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+            ],
             vec![0.0, 0.0, 0.0],
         )
         .unwrap();
@@ -3321,11 +3222,7 @@ mod iter_89_tests {
 
     #[test]
     fn rms_then_linear_input_dim_mismatch_rejected() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_rms_then_linear(&l, &[1.0, 2.0, 3.0], &[1.0; 3], 1e-5);
         assert!(r.is_err());
     }
@@ -3446,16 +3343,8 @@ mod iter_89_tests {
     #[test]
     fn pair_compose_residual_zero_branch_returns_input() {
         // Both layers zero → projected = bias of L2 = 0; y = x + 0 = x.
-        let l1 = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l1 = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_pair_compose_residual(&l1, &l2, &[3.0, 4.0]).unwrap();
         assert_eq!(out, vec![3.0, 4.0]);
     }
@@ -3463,11 +3352,7 @@ mod iter_89_tests {
     #[test]
     fn pair_compose_residual_known() {
         // L1 = I (2×2), L2 = I (2×2), x = (3, 4): y = x + L2(L1(x)) = (6, 8).
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_pair_compose_residual(&l, &l, &[3.0, 4.0]).unwrap();
         assert_eq!(out, vec![6.0, 8.0]);
     }
@@ -3476,7 +3361,11 @@ mod iter_89_tests {
     fn pair_compose_residual_bridge_dim_mismatch_rejected() {
         let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         // L2.input != L1.output.
-        let l2 = LinearNetwork::new(vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
         assert!(apply_pair_compose_residual(&l1, &l2, &[1.0, 2.0]).is_err());
     }
 
@@ -3484,22 +3373,15 @@ mod iter_89_tests {
 
     #[test]
     fn scaled_residual_alpha_zero_returns_input() {
-        let l = LinearNetwork::new(
-            vec![vec![100.0, 0.0], vec![0.0, 100.0]],
-            vec![5.0, -3.0],
-        )
-        .unwrap();
+        let l =
+            LinearNetwork::new(vec![vec![100.0, 0.0], vec![0.0, 100.0]], vec![5.0, -3.0]).unwrap();
         let out = apply_scaled_residual_block(&l, &[1.0, 2.0], 0.0).unwrap();
         assert_eq!(out, vec![1.0, 2.0]);
     }
 
     #[test]
     fn scaled_residual_alpha_one_matches_plain_residual() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![1.0, -1.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![1.0, -1.0]).unwrap();
         let x = vec![3.0, 4.0];
         let scaled = apply_scaled_residual_block(&l, &x, 1.0).unwrap();
         let plain = evaluate_with_residual(&l, &x).unwrap();
@@ -3511,11 +3393,7 @@ mod iter_89_tests {
     #[test]
     fn scaled_residual_alpha_half_known() {
         // L(x) = x; α = 0.5 → y = x + 0.5x = 1.5x.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let out = apply_scaled_residual_block(&l, &[2.0, 4.0], 0.5).unwrap();
         assert_eq!(out, vec![3.0, 6.0]);
     }
@@ -3531,16 +3409,11 @@ mod iter_89_tests {
     #[test]
     fn layernorm_then_linear_matches_sequential() {
         // Composition equivalence on a small case.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0, 2.0];
         let g = vec![1.0, 1.0];
         let b = vec![0.0, 0.0];
-        let composed =
-            apply_layernorm_then_linear(&l, &input, &g, &b, 1e-5).unwrap();
+        let composed = apply_layernorm_then_linear(&l, &input, &g, &b, 1e-5).unwrap();
         let normalized = apply_layer_norm(&input, &g, &b, 1e-5).unwrap();
         let direct = evaluate_linear(&l, &normalized).unwrap();
         for (a, d) in composed.iter().zip(direct.iter()) {
@@ -3552,14 +3425,9 @@ mod iter_89_tests {
     fn layernorm_then_linear_centers_first() {
         // LN with γ=1, β=0 centers and standardizes; then identity-
         // weight L should produce mean-zero output for any input.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let out =
-            apply_layernorm_then_linear(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12)
-                .unwrap();
+            apply_layernorm_then_linear(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12).unwrap();
         let mean: f64 = out.iter().sum::<f64>() / 2.0;
         assert!(mean.abs() < 1e-9, "mean = {}", mean);
     }
@@ -3567,13 +3435,8 @@ mod iter_89_tests {
     #[test]
     fn layernorm_then_linear_input_dim_mismatch_rejected() {
         // L expects 2D input; supply 3D → evaluate_linear rejects.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
-        let r =
-            apply_layernorm_then_linear(&l, &[1.0, 2.0, 3.0], &[1.0; 3], &[0.0; 3], 1e-5);
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let r = apply_layernorm_then_linear(&l, &[1.0, 2.0, 3.0], &[1.0; 3], &[0.0; 3], 1e-5);
         assert!(r.is_err());
     }
 
@@ -3644,7 +3507,8 @@ mod iter_89_tests {
         let x = vec![0.5, 2.0];
         let avg = apply_layer_average(&[l1.clone(), l2.clone(), l3.clone()], &x).unwrap();
         let weighted =
-            apply_layer_weighted_sum(&[l1, l2, l3], &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], &x).unwrap();
+            apply_layer_weighted_sum(&[l1, l2, l3], &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], &x)
+                .unwrap();
         for (a, w) in avg.iter().zip(weighted.iter()) {
             assert!((a - w).abs() < 1e-12);
         }
@@ -3701,7 +3565,8 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let l2 = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 2.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![3.0, 4.0];
-        let unit = apply_layer_weighted_sum(&[l1.clone(), l2.clone()], &[1.0, 1.0], &input).unwrap();
+        let unit =
+            apply_layer_weighted_sum(&[l1.clone(), l2.clone()], &[1.0, 1.0], &input).unwrap();
         let sum = apply_layer_sum(&[l1, l2], &input).unwrap();
         assert_eq!(unit, sum);
     }
@@ -3741,10 +3606,7 @@ mod iter_89_tests {
         // L = 0, LN scales differences; residual adds input back.
         // With γ=1, β=0, LN(x) → standardized x. L(LN(x)) = 0.
         // y = x + 0 = x.
-        let l = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0, 2.0];
         let out = apply_pre_norm_block(&l, &input, &[], &[], 1e-9).unwrap();
         assert_eq!(out, input);
@@ -3756,7 +3618,8 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![1.0, 2.0];
         assert!(apply_pre_norm_block(&l, &input, &[], &[], 1e-9).is_err());
     }
@@ -3766,10 +3629,7 @@ mod iter_89_tests {
         // L = 0, residual gives back x, then LN(x) standardizes.
         // For x = (1, 2): mean = 1.5, var = 0.25, std = 0.5.
         // Normalized: ((1-1.5)/0.5, (2-1.5)/0.5) = (-1, 1).
-        let l = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0, 2.0];
         let out = apply_post_norm_block(&l, &input, &[], &[], 1e-9).unwrap();
         assert!((out[0] - (-1.0)).abs() < 1e-3);
@@ -3781,7 +3641,8 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![1.0, 2.0];
         assert!(apply_post_norm_block(&l, &input, &[], &[], 1e-9).is_err());
     }
@@ -3837,7 +3698,10 @@ mod iter_89_tests {
         let input = vec![1.0, 2.0, 3.0];
         let gain = vec![1.0, 1.0];
         let err = apply_layer_norm(&input, &gain, &[], 1e-9).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+        assert!(matches!(
+            err,
+            OperatorEvalError::BranchInputDimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -3877,10 +3741,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_clamp_within_range_unchanged() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![0.3, -0.5];
         let out = apply_layer_clamp(&l, &input, -1.0, 1.0).unwrap();
         assert_eq!(out, vec![0.3, -0.5]);
@@ -3906,10 +3767,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_with_dropout_full_keep_matches_evaluate_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![3.0, 4.0];
         let mask = vec![true, true];
         let out = apply_layer_with_dropout(&l, &input, &mask, 1.0).unwrap();
@@ -3919,10 +3777,8 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_with_dropout_zeros_masked_outputs() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0], vec![1.0], vec![1.0]],
-            vec![1.0, 2.0, 3.0],
-        ).unwrap();
+        let l =
+            LinearNetwork::new(vec![vec![1.0], vec![1.0], vec![1.0]], vec![1.0, 2.0, 3.0]).unwrap();
         let input = vec![5.0];
         // L(5) = (6, 7, 8). Mask drops position 1.
         let mask = vec![true, false, true];
@@ -3933,10 +3789,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_layer_with_dropout_mask_length_must_match_output_dim() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0], vec![1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0], vec![1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0];
         let mask = vec![true]; // wrong length
         assert!(apply_layer_with_dropout(&l, &input, &mask, 0.5).is_err());
@@ -3987,7 +3840,10 @@ mod iter_89_tests {
         let input = vec![1.0, 2.0, 3.0];
         let mask = vec![true, false];
         let err = apply_dropout(&input, &mask, 0.5).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+        assert!(matches!(
+            err,
+            OperatorEvalError::BranchInputDimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -4004,14 +3860,9 @@ mod iter_89_tests {
     #[test]
     fn norm_layer_activation_residual_zero_layer_returns_input() {
         // L = 0, σ = identity → projected = 0 → y = x.
-        let l = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0, 2.0];
-        let out = apply_norm_layer_activation_residual(
-            &l, &input, &[], &[], 1e-9, |x| x,
-        ).unwrap();
+        let out = apply_norm_layer_activation_residual(&l, &input, &[], &[], 1e-9, |x| x).unwrap();
         assert_eq!(out, input);
     }
 
@@ -4019,14 +3870,10 @@ mod iter_89_tests {
     fn norm_layer_activation_residual_relu() {
         // Pre-LN normalized (1, 3) has mean=2, var=1 → standardized (-1, 1).
         // L = I (with bias 0): output (-1, 1). ReLU: (0, 1). Add input (1, 3) → (1, 4).
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.0, 3.0];
-        let out = apply_norm_layer_activation_residual(
-            &l, &input, &[], &[], 1e-9, |x| x.max(0.0),
-        ).unwrap();
+        let out = apply_norm_layer_activation_residual(&l, &input, &[], &[], 1e-9, |x| x.max(0.0))
+            .unwrap();
         assert!((out[0] - 1.0).abs() < 1e-6);
         assert!((out[1] - 4.0).abs() < 1e-6);
     }
@@ -4036,11 +3883,10 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![1.0, 2.0];
-        assert!(apply_norm_layer_activation_residual(
-            &l, &input, &[], &[], 1e-9, |x| x
-        ).is_err());
+        assert!(apply_norm_layer_activation_residual(&l, &input, &[], &[], 1e-9, |x| x).is_err());
     }
 
     // ── iter-173: apply_linear_with_activation_then_residual ──────
@@ -4048,10 +3894,7 @@ mod iter_89_tests {
     #[test]
     fn apply_lar_relu_known() {
         // L(x) = x + b, σ = ReLU, y = x + max(0, L(x)).
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![-5.0, 5.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![-5.0, 5.0]).unwrap();
         let input = vec![1.0, -3.0];
         // L(1, -3) = (-4, 2). ReLU: (0, 2). + input: (1, -1).
         let out = apply_linear_with_activation_then_residual(&l, &input, |x| x.max(0.0)).unwrap();
@@ -4060,10 +3903,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_lar_identity_activation_matches_evaluate_with_residual() {
-        let l = LinearNetwork::new(
-            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
-            vec![1.0, -1.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 0.5]], vec![1.0, -1.0]).unwrap();
         let input = vec![3.0, 4.0];
         let lar = apply_linear_with_activation_then_residual(&l, &input, |x| x).unwrap();
         let residual = evaluate_with_residual(&l, &input).unwrap();
@@ -4075,7 +3915,8 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![1.0, 2.0];
         assert!(apply_linear_with_activation_then_residual(&l, &input, |x| x).is_err());
     }
@@ -4085,10 +3926,8 @@ mod iter_89_tests {
     #[test]
     fn residual_mlp_block_identity_collapses_to_input_plus_zero() {
         // L1 = 0, σ = identity, L2 = 0 → projected = 0 → y = x.
-        let zero_2x2 = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
+        let zero_2x2 =
+            LinearNetwork::new(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let input = vec![1.5, -2.0];
         let out = apply_residual_mlp_block(&zero_2x2, &zero_2x2, &input, |x| x).unwrap();
         assert_eq!(out, input);
@@ -4100,12 +3939,14 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, -5.0],
-        ).unwrap();
+        )
+        .unwrap();
         // L2: 3-dim → 2-dim projection.
         let l2 = LinearNetwork::new(
             vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
             vec![0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let input = vec![2.0, 3.0];
         // L1 output: (2, 3, 0). ReLU same: (2, 3, 0).
         // L2 output: (2, 3).
@@ -4121,7 +3962,8 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let l2_bad = LinearNetwork::new(
             vec![
                 vec![1.0, 0.0, 0.0],
@@ -4130,22 +3972,21 @@ mod iter_89_tests {
                 vec![1.0, 1.0, 1.0],
             ],
             vec![0.0; 4],
-        ).unwrap();
+        )
+        .unwrap();
         let err = apply_residual_mlp_block(&l1, &l2_bad, &[1.0, 2.0], |x| x).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+        assert!(matches!(
+            err,
+            OperatorEvalError::BranchInputDimMismatch { .. }
+        ));
     }
 
     #[test]
     fn residual_mlp_block_with_zero_activation_returns_input_only() {
         // If σ(x) = 0 for all x, then projected = 0, so y = x.
-        let l1 = LinearNetwork::new(
-            vec![vec![5.0, 5.0], vec![5.0, 5.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-            vec![100.0, 100.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![5.0, 5.0], vec![5.0, 5.0]], vec![1.0, -1.0]).unwrap();
+        let l2 =
+            LinearNetwork::new(vec![vec![1.0, 1.0], vec![1.0, 1.0]], vec![100.0, 100.0]).unwrap();
         let input = vec![3.0, 4.0];
         // With σ(x) = 0, hidden = 0. L2(0) = bias = (100, 100).
         // y = input + (100, 100) = (103, 104).
@@ -4164,10 +4005,7 @@ mod iter_89_tests {
 
     #[test]
     fn apply_linear_sequence_single_layer_matches_evaluate_linear() {
-        let l = LinearNetwork::new(
-            vec![vec![2.0, 0.0], vec![0.0, 3.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 3.0]], vec![1.0, -1.0]).unwrap();
         let input = vec![1.5, 2.0];
         let via_seq = apply_linear_sequence(std::slice::from_ref(&l), &input).unwrap();
         let via_direct = evaluate_linear(&l, &input).unwrap();
@@ -4176,14 +4014,8 @@ mod iter_89_tests {
 
     #[test]
     fn apply_linear_sequence_two_layers_matches_chained_call() {
-        let l1 = LinearNetwork::new(
-            vec![vec![1.0, 1.0], vec![1.0, -1.0]],
-            vec![0.0, 0.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
-            vec![1.0, -1.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![1.0, 1.0], vec![1.0, -1.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 0.5]], vec![1.0, -1.0]).unwrap();
         let input = vec![3.0, 4.0];
         let via_seq = apply_linear_sequence(&[l1.clone(), l2.clone()], &input).unwrap();
         let intermediate = evaluate_linear(&l1, &input).unwrap();
@@ -4197,20 +4029,14 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![-1.0, -1.0]],
             vec![0.0, 0.0, 5.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![1.0, 1.0, 1.0]],
-            vec![0.0],
-        ).unwrap();
+        )
+        .unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 1.0, 1.0]], vec![0.0]).unwrap();
         let input = vec![2.0, 3.0];
         // L1 output: (2, 3, 0) before activation.
         // After ReLU: (2, 3, 0).
         // L2 output: 2 + 3 + 0 + 0 = 5.
-        let out = apply_linear_sequence_with_activation(
-            &[l1, l2],
-            &input,
-            |x| x.max(0.0),
-        ).unwrap();
+        let out = apply_linear_sequence_with_activation(&[l1, l2], &input, |x| x.max(0.0)).unwrap();
         assert_eq!(out, vec![5.0]);
     }
 
@@ -4219,48 +4045,30 @@ mod iter_89_tests {
         // Verify activation is applied BETWEEN layers but not after
         // the last one. Use a layer that produces a negative output;
         // confirm it propagates (not zeroed by an over-applied ReLU).
-        let l = LinearNetwork::new(
-            vec![vec![-1.0]],
-            vec![-5.0],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![-1.0]], vec![-5.0]).unwrap();
         let input = vec![3.0];
         // y = -1 · 3 + (-5) = -8.
-        let out = apply_linear_sequence_with_activation(
-            &[l],
-            &input,
-            |x| x.max(0.0),
-        ).unwrap();
+        let out = apply_linear_sequence_with_activation(&[l], &input, |x| x.max(0.0)).unwrap();
         assert_eq!(out, vec![-8.0]);
     }
 
     #[test]
     fn apply_linear_sequence_with_sigmoid_activation() {
         // 2 layers with sigmoid activation between.
-        let l1 = LinearNetwork::new(
-            vec![vec![10.0]],
-            vec![0.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![1.0]],
-            vec![0.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![10.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
         let input = vec![5.0];
         // L1: 10·5 = 50. sigmoid(50) ≈ 1.0.
         // L2: 1·sigmoid(50) ≈ 1.0.
-        let out = apply_linear_sequence_with_activation(
-            &[l1, l2],
-            &input,
-            |x| 1.0 / (1.0 + (-x).exp()),
-        ).unwrap();
+        let out =
+            apply_linear_sequence_with_activation(&[l1, l2], &input, |x| 1.0 / (1.0 + (-x).exp()))
+                .unwrap();
         assert!((out[0] - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn compose_with_identity_is_identity() {
-        let l = LinearNetwork::new(
-            vec![vec![2.0, 0.5], vec![-1.0, 3.0]],
-            vec![1.0, -0.5],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![2.0, 0.5], vec![-1.0, 3.0]], vec![1.0, -0.5]).unwrap();
         let id = id_2();
         let composed = compose_linear_layers(&l, &id).unwrap();
         // composed should equal l (W2=I, b2=0).
@@ -4274,7 +4082,8 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let l2 = LinearNetwork::new(
             vec![
                 vec![1.0, 1.0, 1.0],
@@ -4283,7 +4092,8 @@ mod iter_89_tests {
                 vec![0.5, 0.5, 0.5],
             ],
             vec![0.0, 0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let composed = compose_linear_layers(&l1, &l2).unwrap();
         assert_eq!(composed.input_dim(), 2);
         assert_eq!(composed.output_dim(), 4);
@@ -4292,14 +4102,8 @@ mod iter_89_tests {
     #[test]
     fn compose_matches_chained_evaluation() {
         // y = L2(L1(x)) must equal composed_layer(x).
-        let l1 = LinearNetwork::new(
-            vec![vec![2.0, 1.0], vec![0.0, 3.0]],
-            vec![1.0, -1.0],
-        ).unwrap();
-        let l2 = LinearNetwork::new(
-            vec![vec![1.0, 0.5], vec![-1.0, 1.0]],
-            vec![0.5, 0.0],
-        ).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![2.0, 1.0], vec![0.0, 3.0]], vec![1.0, -1.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 0.5], vec![-1.0, 1.0]], vec![0.5, 0.0]).unwrap();
         let composed = compose_linear_layers(&l1, &l2).unwrap();
 
         for input in [vec![1.0, 0.0], vec![0.0, 1.0], vec![2.0, -1.0]] {
@@ -4314,10 +4118,7 @@ mod iter_89_tests {
     #[test]
     fn residual_connection_adds_input_to_output() {
         // y = Wx + b + x.
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.5, -0.5],
-        ).unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.5, -0.5]).unwrap();
         let input = vec![2.0, 3.0];
         let out = evaluate_with_residual(&l, &input).unwrap();
         // Without residual: (2 + 0.5, 3 - 0.5) = (2.5, 2.5).
@@ -4331,9 +4132,13 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
-        ).unwrap();
+        )
+        .unwrap();
         let err = evaluate_with_residual(&l, &[1.0, 2.0]).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+        assert!(matches!(
+            err,
+            OperatorEvalError::BranchInputDimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -4341,7 +4146,8 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]],
             vec![1.0, -1.0],
-        ).unwrap();
+        )
+        .unwrap();
         let t = transpose_linear_layer(&l);
         assert_eq!(t.input_dim(), 2);
         assert_eq!(t.output_dim(), 3);
@@ -4358,7 +4164,8 @@ mod iter_89_tests {
         let l = LinearNetwork::new(
             vec![vec![1.5, -0.3, 2.0], vec![0.7, 1.1, -1.0]],
             vec![0.5, -0.5],
-        ).unwrap();
+        )
+        .unwrap();
         let t = transpose_linear_layer(&l);
         let tt = transpose_linear_layer(&t);
         // (W^T)^T = W on the weights side.
@@ -4391,11 +4198,7 @@ mod tests {
 
     #[test]
     fn evaluate_linear_with_biases() {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.5, -0.5],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.5, -0.5]).unwrap();
         let y = evaluate_linear(&l, &[2.0, 3.0]).unwrap();
         assert_eq!(y, vec![2.5, 2.5]);
     }
@@ -4440,7 +4243,10 @@ mod tests {
         let trunk = linear_2_to_3();
         let op = OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap();
         let err = evaluate_operator_at(&op, &[1.0], &[1.0, 1.0]).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+        assert!(matches!(
+            err,
+            OperatorEvalError::BranchInputDimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -4448,9 +4254,11 @@ mod tests {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
         let op = OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap();
-        let err =
-            evaluate_operator_at(&op, &[1.0, 1.0], &[1.0]).unwrap_err();
-        assert!(matches!(err, OperatorEvalError::TrunkInputDimMismatch { .. }));
+        let err = evaluate_operator_at(&op, &[1.0, 1.0], &[1.0]).unwrap_err();
+        assert!(matches!(
+            err,
+            OperatorEvalError::TrunkInputDimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -4460,25 +4268,19 @@ mod tests {
         // result (within DFT round-off).
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op_identity = OperatorExpr::new(
-            branch.clone(),
-            trunk.clone(),
-            KernelTransform::Identity,
-        )
-        .unwrap();
-        let op_fourier = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 3 },
-        )
-        .unwrap();
+        let op_identity =
+            OperatorExpr::new(branch.clone(), trunk.clone(), KernelTransform::Identity).unwrap();
+        let op_fourier =
+            OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 3 }).unwrap();
         let u = vec![2.0, 3.0];
         let y = vec![1.0, 1.0];
         let v_id = evaluate_operator_at(&op_identity, &u, &y).unwrap();
         let v_fo = evaluate_operator_at(&op_fourier, &u, &y).unwrap();
         assert!(
             (v_id - v_fo).abs() < 1e-9 * v_id.abs().max(1.0),
-            "identity={} fourier={}", v_id, v_fo
+            "identity={} fourier={}",
+            v_id,
+            v_fo
         );
     }
 
@@ -5288,11 +5090,7 @@ mod tests {
     fn apply_layer_pairwise_l1_distance_dim_mismatch_errors() {
         let a = linear_2_to_3();
         // Build a network with output_dim = 2 ≠ 3.
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_pairwise_l1_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5338,11 +5136,7 @@ mod tests {
     #[test]
     fn apply_layer_pairwise_l2_distance_squared_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_pairwise_l2_distance_squared(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5406,11 +5200,7 @@ mod tests {
     #[test]
     fn apply_layer_pairwise_l_inf_distance_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_pairwise_l_inf_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5513,11 +5303,7 @@ mod tests {
     #[test]
     fn apply_layer_cosine_similarity_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_cosine_similarity(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5581,11 +5367,7 @@ mod tests {
     #[test]
     fn apply_layer_pairwise_l2_distance_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_pairwise_l2_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5639,16 +5421,8 @@ mod tests {
     #[test]
     fn apply_layer_dot_product_orthogonal_layers_give_zero() {
         // Construct two layers with output ya = (1, 0), yb = (0, 1).
-        let lx = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 0.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
-        let ly = LinearNetwork::new(
-            vec![vec![0.0, 0.0], vec![1.0, 0.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let lx = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 0.0]], vec![0.0, 0.0]).unwrap();
+        let ly = LinearNetwork::new(vec![vec![0.0, 0.0], vec![1.0, 0.0]], vec![0.0, 0.0]).unwrap();
         let d = apply_layer_dot_product(&lx, &ly, &[1.0, 0.0]).unwrap();
         assert_eq!(d, 0.0);
     }
@@ -5656,11 +5430,7 @@ mod tests {
     #[test]
     fn apply_layer_dot_product_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_dot_product(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5712,10 +5482,7 @@ mod tests {
         let l = linear_2_to_3();
         let x = vec![0.5, -0.25];
         let p = apply_layer_softmax(&l, &x).unwrap();
-        let h_direct: f64 = p.iter()
-            .filter(|p| **p > 0.0)
-            .map(|p| -p * p.ln())
-            .sum();
+        let h_direct: f64 = p.iter().filter(|p| **p > 0.0).map(|p| -p * p.ln()).sum();
         let h_helper = apply_layer_softmax_entropy(&l, &x).unwrap();
         assert!((h_direct - h_helper).abs() < 1e-12);
     }
@@ -5770,11 +5537,7 @@ mod tests {
     #[test]
     fn apply_layer_softmax_cross_entropy_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_softmax_cross_entropy(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5804,7 +5567,8 @@ mod tests {
         let kl_helper = apply_layer_softmax_kl_divergence(&a, &b, &x).unwrap();
         let p = apply_layer_softmax(&a, &x).unwrap();
         let q = apply_layer_softmax(&b, &x).unwrap();
-        let kl_direct: f64 = p.iter()
+        let kl_direct: f64 = p
+            .iter()
             .zip(q.iter())
             .filter(|(p, _)| **p > 0.0)
             .map(|(p, q)| p * (p.ln() - q.ln()))
@@ -5830,11 +5594,7 @@ mod tests {
     #[test]
     fn apply_layer_softmax_kl_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_softmax_kl_divergence(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5899,11 +5659,7 @@ mod tests {
     #[test]
     fn apply_layer_softmax_js_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
@@ -5967,11 +5723,7 @@ mod tests {
     #[test]
     fn apply_layer_softmax_tv_dim_mismatch_errors() {
         let a = linear_2_to_3();
-        let b = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let b = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         let r = apply_layer_softmax_total_variation_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,

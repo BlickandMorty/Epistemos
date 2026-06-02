@@ -752,20 +752,44 @@ struct HologramNodeInspector: View {
         text: String,
         role: AppHeadingRole
     ) -> some View {
-        // 2026-05-13 fifth pass: on Ember, panel preview headings
-        // (which are H1-H3 surfaces inside the graph node inspector)
-        // get the boxed glyph form via `boxedLabelText(_:)`. The
-        // heading font itself is `role.font` (AppHeadingRole goes
-        // through the UserDefaults-aware `displayFontName` resolver,
-        // so Ember picks up ColorBasic-Regular here). The lowercase
-        // transform switches ColorBasic to its boxed glyph variant.
-        previewMarkdownText(
+        let level = headingLevel(for: role)
+        let notesSpec = theme.notesMatchingHeadingSpec(level: level)
+        let font = graphPreviewHeadingFont(
+            role: role,
+            level: level,
+            notesSpec: notesSpec
+        )
+        return previewMarkdownText(
             markdown: theme.boxedLabelText(
-                MarkdownHeadingDisplay.displayText(text, level: headingLevel(for: role), theme: theme)
+                MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
             ),
-            font: role.font,
-            color: MarkdownHeadingDisplay.foregroundColor(for: theme, level: headingLevel(for: role)),
+            font: font,
+            color: MarkdownHeadingDisplay.foregroundColor(for: theme, level: level),
             rippleEnabled: false
+        )
+    }
+
+    private func graphPreviewHeadingFont(
+        role: AppHeadingRole,
+        level: Int,
+        notesSpec: NotesMatchingHeadingSpec?
+    ) -> Font {
+        if let notesSpec {
+            return Font.custom(
+                notesSpec.fontName,
+                size: AppDisplayTypography.displayFontSize(
+                    for: notesSpec.size * theme.headingSizeMultiplier(level: level),
+                    isDark: theme.isDark
+                )
+            )
+            .weight(notesSpec.weight)
+        }
+        let weight: Font.Weight = level == 1 ? .heavy : .semibold
+        return AppDisplayTypography.headingFont(
+            size: role.fontSize,
+            weight: weight,
+            theme: theme,
+            level: level
         )
     }
 

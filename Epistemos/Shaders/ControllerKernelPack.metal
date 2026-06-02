@@ -22,11 +22,10 @@
 //   5. copyRange             — dst[i] = src[i]
 //   6. zeroFill              — a[i] = 0
 //
-// Reductions (max / argmax) are intentionally NOT thread-grid optimized
-// here — the substrate floor matches the Rust reference's
-// single-threaded semantics. The Helios V6.2 stage 5 acceptance harness
-// validates correctness first; the productionalized parallel reduction
-// variant lands in a subsequent iter once correctness is locked.
+// Reductions (max / argmax) use one 256-thread threadgroup and preserve
+// the Rust reference's empty-input and first-index tie-break semantics.
+// The Helios V6.2 stage 5 acceptance harness validates both the contract
+// and the measured p50/p99 controller timings.
 //
 // **Gated behind:** NOT YET WIRED.
 //
@@ -55,38 +54,86 @@ kernel void scalarMulInPlace(
     a[gid] *= scalar;
 }
 
-/// Single-threaded reduction. Dispatched as a 1-thread grid; the
-/// productionalized threadgroup-shared-memory variant lands later.
+/// Threadgroup-local reduction with Rust-reference empty semantics:
+/// `max([]) = NaN`.
 kernel void maxReduce(
     device const float* a            [[buffer(0)]],
     device       float* out          [[buffer(1)]],
     constant     uint&  count        [[buffer(2)]],
-    uint                gid          [[thread_position_in_grid]]
+    uint                gid          [[thread_position_in_grid]],
+    uint                lid          [[thread_index_in_threadgroup]],
+    uint                groupWidth   [[threads_per_threadgroup]]
 ) {
-    if (gid != 0 || count == 0) return;
-    float best = a[0];
-    for (uint i = 1u; i < count; ++i) {
-        if (a[i] > best) best = a[i];
+    if (count == 0) {
+        if (gid == 0) {
+            out[0] = NAN;
+        }
+        return;
     }
-    out[0] = best;
+
+    threadgroup float localMax[256];
+    float best = -INFINITY;
+    for (uint i = gid; i < count; i += groupWidth) {
+        best = max(best, a[i]);
+    }
+    localMax[lid] = best;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = groupWidth >> 1; stride > 0; stride >>= 1) {
+        if (lid < stride) {
+            localMax[lid] = max(localMax[lid], localMax[lid + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (lid == 0) {
+        out[0] = localMax[0];
+    }
 }
 
 kernel void argmaxReduce(
     device const float* a            [[buffer(0)]],
     device       uint*  out          [[buffer(1)]],
     constant     uint&  count        [[buffer(2)]],
-    uint                gid          [[thread_position_in_grid]]
+    uint                gid          [[thread_position_in_grid]],
+    uint                lid          [[thread_index_in_threadgroup]],
+    uint                groupWidth   [[threads_per_threadgroup]]
 ) {
-    if (gid != 0 || count == 0) return;
-    uint best_idx = 0u;
-    float best_val = a[0];
-    for (uint i = 1u; i < count; ++i) {
-        if (a[i] > best_val) {
-            best_val = a[i];
-            best_idx = i;
+    if (count == 0) {
+        if (gid == 0) {
+            out[0] = uint(-1);
+        }
+        return;
+    }
+
+    threadgroup float localValue[256];
+    threadgroup uint localIndex[256];
+    float bestValue = -INFINITY;
+    uint bestIndex = uint(-1);
+    for (uint i = gid; i < count; i += groupWidth) {
+        float candidate = a[i];
+        if (candidate > bestValue || (candidate == bestValue && i < bestIndex)) {
+            bestValue = candidate;
+            bestIndex = i;
         }
     }
-    out[0] = best_idx;
+    localValue[lid] = bestValue;
+    localIndex[lid] = bestIndex;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint stride = groupWidth >> 1; stride > 0; stride >>= 1) {
+        if (lid < stride) {
+            float rhsValue = localValue[lid + stride];
+            uint rhsIndex = localIndex[lid + stride];
+            if (rhsValue > localValue[lid] || (rhsValue == localValue[lid] && rhsIndex < localIndex[lid])) {
+                localValue[lid] = rhsValue;
+                localIndex[lid] = rhsIndex;
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (lid == 0) {
+        out[0] = localIndex[0];
+    }
 }
 
 kernel void copyRange(

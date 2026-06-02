@@ -8,6 +8,13 @@
 that ≥ 2 modules outside `research/eml/` call into, with every behavior
 claim either paper-line-cited or property-test-backed.
 
+**2026-05-31 status lock:** this is an integration mission document, not proof
+that EML is already wired everywhere. EML is an elementary-function/proof chart
+inside the Primitive IR stack. It is not UAS, ColdStore, Eidos, RuntimeRouter,
+or a general product/physics/intelligence proof. New research prose may suggest
+candidate encodings, rerankers, witnesses, or tests, but must be mapped to an
+existing organ and backed by source/falsifier evidence before product claims.
+
 ---
 
 ## §1. Typed surface (what EML provides today)
@@ -501,4 +508,3 @@ hardening is approaching; the next high-value slices are:
 - coord-dep cycle 3 at iter ~34 (if T1-T4 surfaces have unblocked).
 - (only when relevant) FFI bridge / Swift mirror once the
   release-plan decision lands.
-

@@ -68,11 +68,11 @@ pub mod trit;
 
 pub use activation_tap::{ActivationTap, ActivationTapError};
 pub use backend::{BackendKind, TernaryBackend};
+pub use fused_rmsnorm::{fused_rmsnorm_gemv, rmsnorm_into, FusedRmsnormError};
+pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
 pub use kernel_kind::{
     validate_optimization, DecodePriority, OptimizationError, TernaryKernelKind,
 };
-pub use fused_rmsnorm::{fused_rmsnorm_gemv, rmsnorm_into, FusedRmsnormError};
-pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
 pub use kv_fingerprint::{
     fingerprint_distance, fingerprint_k_vector, FingerprintError, KvFingerprint,
 };

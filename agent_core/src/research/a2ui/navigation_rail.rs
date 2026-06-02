@@ -149,7 +149,10 @@ mod tests {
 
     #[test]
     fn no_items_rejected() {
-        let n = NavigationRailProps { items: vec![], active_key: String::new() };
+        let n = NavigationRailProps {
+            items: vec![],
+            active_key: String::new(),
+        };
         assert_eq!(n.validate().unwrap_err(), NavigationRailError::NoItems);
     }
 
@@ -177,7 +180,10 @@ mod tests {
             items: vec![item("", "h", None)],
             active_key: String::new(),
         };
-        assert!(matches!(n.validate().unwrap_err(), NavigationRailError::EmptyKey { .. }));
+        assert!(matches!(
+            n.validate().unwrap_err(),
+            NavigationRailError::EmptyKey { .. }
+        ));
     }
 
     #[test]
@@ -186,7 +192,10 @@ mod tests {
             items: vec![item("home", "", None)],
             active_key: "home".into(),
         };
-        assert!(matches!(n.validate().unwrap_err(), NavigationRailError::EmptyIcon { .. }));
+        assert!(matches!(
+            n.validate().unwrap_err(),
+            NavigationRailError::EmptyIcon { .. }
+        ));
     }
 
     #[test]
@@ -195,7 +204,10 @@ mod tests {
             items: vec![item("home", "h", None)],
             active_key: "missing".into(),
         };
-        assert_eq!(n.validate().unwrap_err(), NavigationRailError::ActiveNotFound);
+        assert_eq!(
+            n.validate().unwrap_err(),
+            NavigationRailError::ActiveNotFound
+        );
     }
 
     #[test]
@@ -204,7 +216,10 @@ mod tests {
             items: vec![item("home", "h", Some(1000))],
             active_key: "home".into(),
         };
-        assert!(matches!(n.validate().unwrap_err(), NavigationRailError::BadgeOverflow { .. }));
+        assert!(matches!(
+            n.validate().unwrap_err(),
+            NavigationRailError::BadgeOverflow { .. }
+        ));
     }
 
     #[test]
@@ -242,7 +257,10 @@ mod tests {
             NavigationRailError::EmptyKey { index: 0 },
             NavigationRailError::EmptyIcon { index: 0 },
             NavigationRailError::ActiveNotFound,
-            NavigationRailError::BadgeOverflow { index: 0, count: 1000 },
+            NavigationRailError::BadgeOverflow {
+                index: 0,
+                count: 1000,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 6);
@@ -256,7 +274,10 @@ mod tests {
             NavigationRailError::EmptyKey { index: 0 },
             NavigationRailError::EmptyIcon { index: 0 },
             NavigationRailError::ActiveNotFound,
-            NavigationRailError::BadgeOverflow { index: 0, count: 1000 },
+            NavigationRailError::BadgeOverflow {
+                index: 0,
+                count: 1000,
+            },
         ];
         // Cross-surface invariant: exactly one of is_item_error /
         // is_badge_error / is_active_error per variant.

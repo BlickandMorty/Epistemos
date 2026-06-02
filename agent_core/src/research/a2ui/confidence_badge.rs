@@ -92,10 +92,14 @@ impl ConfidenceTier {
 impl ConfidenceBadgeProps {
     pub fn validate(&self) -> Result<(), ConfidenceBadgeError> {
         if !self.confidence.is_finite() {
-            return Err(ConfidenceBadgeError::NonFinite { value: self.confidence });
+            return Err(ConfidenceBadgeError::NonFinite {
+                value: self.confidence,
+            });
         }
         if !(0.0..=1.0).contains(&self.confidence) {
-            return Err(ConfidenceBadgeError::OutOfRange { value: self.confidence });
+            return Err(ConfidenceBadgeError::OutOfRange {
+                value: self.confidence,
+            });
         }
         Ok(())
     }
@@ -122,38 +126,62 @@ mod tests {
 
     #[test]
     fn high_at_0_85() {
-        let b = ConfidenceBadgeProps { confidence: 0.85, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: 0.85,
+            label: "x".into(),
+        };
         assert!(b.validate().is_ok());
         assert_eq!(b.tier(), ConfidenceTier::High);
     }
 
     #[test]
     fn medium_at_0_75() {
-        let b = ConfidenceBadgeProps { confidence: 0.75, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: 0.75,
+            label: "x".into(),
+        };
         assert_eq!(b.tier(), ConfidenceTier::Medium);
     }
 
     #[test]
     fn low_below_0_7() {
-        let b = ConfidenceBadgeProps { confidence: 0.5, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: 0.5,
+            label: "x".into(),
+        };
         assert_eq!(b.tier(), ConfidenceTier::Low);
     }
 
     #[test]
     fn out_of_range_rejected() {
-        let b = ConfidenceBadgeProps { confidence: 1.5, label: "x".into() };
-        assert!(matches!(b.validate().unwrap_err(), ConfidenceBadgeError::OutOfRange { .. }));
+        let b = ConfidenceBadgeProps {
+            confidence: 1.5,
+            label: "x".into(),
+        };
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ConfidenceBadgeError::OutOfRange { .. }
+        ));
     }
 
     #[test]
     fn nan_rejected() {
-        let b = ConfidenceBadgeProps { confidence: f32::NAN, label: "x".into() };
-        assert!(matches!(b.validate().unwrap_err(), ConfidenceBadgeError::NonFinite { .. }));
+        let b = ConfidenceBadgeProps {
+            confidence: f32::NAN,
+            label: "x".into(),
+        };
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ConfidenceBadgeError::NonFinite { .. }
+        ));
     }
 
     #[test]
     fn serde_json_roundtrip() {
-        let b = ConfidenceBadgeProps { confidence: 0.9, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: 0.9,
+            label: "x".into(),
+        };
         let json = serde_json::to_string(&b).unwrap();
         let back: ConfidenceBadgeProps = serde_json::from_str(&json).unwrap();
         assert_eq!(b, back);
@@ -187,13 +215,22 @@ mod tests {
     #[test]
     fn tier_aligned_with_thresholds() {
         // Cross-surface invariant: tier() output aligned with constants.
-        let b = ConfidenceBadgeProps { confidence: CONFIDENCE_HIGH_THRESHOLD, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: CONFIDENCE_HIGH_THRESHOLD,
+            label: "x".into(),
+        };
         assert!(b.tier().is_high());
 
-        let b = ConfidenceBadgeProps { confidence: CONFIDENCE_MEDIUM_THRESHOLD, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: CONFIDENCE_MEDIUM_THRESHOLD,
+            label: "x".into(),
+        };
         assert!(b.tier().is_medium());
 
-        let b = ConfidenceBadgeProps { confidence: 0.0, label: "x".into() };
+        let b = ConfidenceBadgeProps {
+            confidence: 0.0,
+            label: "x".into(),
+        };
         assert!(b.tier().is_low());
     }
 
@@ -211,15 +248,23 @@ mod tests {
     fn error_value_accessor_total() {
         // Cross-surface: both variants carry a value.
         assert!((ConfidenceBadgeError::OutOfRange { value: 1.5 }.value() - 1.5).abs() < 1e-9);
-        assert!(ConfidenceBadgeError::NonFinite { value: f32::NAN }.value().is_nan());
+        assert!(ConfidenceBadgeError::NonFinite { value: f32::NAN }
+            .value()
+            .is_nan());
     }
 
     #[test]
     fn is_valid_matches_validate_ok() {
         // Cross-surface invariant.
-        let good = ConfidenceBadgeProps { confidence: 0.9, label: "x".into() };
+        let good = ConfidenceBadgeProps {
+            confidence: 0.9,
+            label: "x".into(),
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
-        let bad = ConfidenceBadgeProps { confidence: 1.5, label: "x".into() };
+        let bad = ConfidenceBadgeProps {
+            confidence: 1.5,
+            label: "x".into(),
+        };
         assert_eq!(bad.is_valid(), bad.validate().is_ok());
     }
 }

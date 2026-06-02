@@ -123,7 +123,10 @@ mod tests {
         let t = ToolCallTraceProps {
             entries: vec![entry("", 0)],
         };
-        assert!(matches!(t.validate().unwrap_err(), ToolCallTraceError::EmptyToolName { .. }));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ToolCallTraceError::EmptyToolName { .. }
+        ));
     }
 
     #[test]
@@ -205,13 +208,15 @@ mod tests {
             ],
         };
         assert_eq!(t.distinct_tool_count(), 3); // read, write, search
-        // Cross-surface invariant: distinct ≤ total.
+                                                // Cross-surface invariant: distinct ≤ total.
         assert!(t.distinct_tool_count() <= t.entry_count());
     }
 
     #[test]
     fn is_valid_matches_validate_ok() {
-        let good = ToolCallTraceProps { entries: vec![entry("x", 1)] };
+        let good = ToolCallTraceProps {
+            entries: vec![entry("x", 1)],
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
         assert!(good.is_valid());
     }

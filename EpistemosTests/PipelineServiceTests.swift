@@ -2767,6 +2767,53 @@ struct ChatCoordinatorPersistenceTests {
         )
     }
 
+    @Test("soft vault fallback rejects hits without visible title path or snippet evidence")
+    func softVaultFallbackRejectsHitsWithoutVisibleEvidence() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-cartography",
+                    title: "Cartography Notes",
+                    relativePath: "Research/Cartography Notes.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 80,
+                    snippet: "Mapmaking context without the requested token.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let fallback = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Find notes about art in my vault",
+            manifest: manifest,
+            limit: 1
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "page-cartography",
+                    title: "Cartography Notes",
+                    snippet: "Mapmaking context without the requested token.",
+                    rank: 100.0
+                )
+            ]
+        })
+
+        #expect(fallback.loadedNoteIds.isEmpty)
+        #expect(fallback.loadedNoteTitles.isEmpty)
+        #expect(fallback.answer.contains("but none had title, path, or snippet evidence"))
+        #expect(!fallback.answer.contains("Cartography Notes"))
+        #expect(fallback.vaultRecallTrace?.candidatePoolSize == 1)
+        #expect(fallback.vaultRecallTrace?.candidatesRetained == 0)
+    }
+
     @Test("all-notes context does not inject arbitrary note bodies when search misses")
     func allNotesContextDoesNotInjectArbitraryNoteBodiesWhenSearchMisses() async throws {
         let now = Date()

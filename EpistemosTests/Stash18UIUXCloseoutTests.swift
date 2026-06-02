@@ -39,7 +39,6 @@ struct Stash18UIUXCloseoutTests {
             "Epistemos/Views/Chat/SlashCommandPopover.swift",
             "Epistemos/Views/Chat/VaultRecallProvenanceCard.swift",
             "Epistemos/Views/Landing/Farm/LandingFarmView.swift",
-            "Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift",
             "Epistemos/Views/Graph/GraphFPSHUD.swift",
             "Epistemos/Views/Notes/EditableTransclusionView.swift",
         ]

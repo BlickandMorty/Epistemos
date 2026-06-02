@@ -18,9 +18,12 @@
 //! - `mcp` — MCP client adapter (iter-26)
 //! - `cloud_loop` — Anthropic / OpenAI provider absorbed (iter-27)
 //!
-//! Iter-16 (this commit) creates the namespace + a `LocalAgentAdapter`
-//! stub with one failing test that gates the absorb work.
+//! The local-agent adapter now performs typed admission/provider planning;
+//! live provider execution remains a System G responsibility.
 
 pub mod local_agent;
 
-pub use local_agent::{LocalAgentAdapter, LocalAgentCapabilityTier};
+pub use local_agent::{
+    LocalAgentAdapter, LocalAgentCapabilityTier, LocalAgentDispatchError, LocalAgentDispatchPlan,
+    LocalAgentDispatchRequest,
+};

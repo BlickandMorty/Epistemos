@@ -125,6 +125,17 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("line-height: 0.95"))
     }
 
+    @Test("starter template detection distinguishes untouched defaults from edited workspaces")
+    func starterTemplateDetectionDistinguishesEditedWorkspaces() {
+        let starter = HTMLWorkspacePackage.defaultPackage()
+        var edited = starter
+        edited.indexHTML = "<main><h1>User pasted code</h1></main>"
+
+        #expect(starter.isStarterTemplateContent)
+        #expect(!edited.isStarterTemplateContent)
+        #expect(!Self.samplePackage().isStarterTemplateContent)
+    }
+
     @Test("structured patch operations update sources without arbitrary mutation strings")
     func structuredPatchOperationsApply() throws {
         var package = Self.samplePackage()

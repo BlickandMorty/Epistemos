@@ -40,8 +40,16 @@ pub struct RunLedgerEntry {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RunLedgerError {
     EmptyChain,
-    ChainBreak { index: usize, expected: u64, actual: u64 },
-    PrevHashMismatch { index: usize, expected: u64, actual: u64 },
+    ChainBreak {
+        index: usize,
+        expected: u64,
+        actual: u64,
+    },
+    PrevHashMismatch {
+        index: usize,
+        expected: u64,
+        actual: u64,
+    },
 }
 
 impl RunLedgerError {
@@ -193,7 +201,10 @@ impl RunLedger {
     /// Set of unique provider_id strings across all entries. Cross-
     /// surface invariant: `providers().len() ≤ entries.len()`.
     pub fn providers(&self) -> std::collections::HashSet<&str> {
-        self.entries.iter().map(|e| e.provider_id.as_str()).collect()
+        self.entries
+            .iter()
+            .map(|e| e.provider_id.as_str())
+            .collect()
     }
 
     /// Predicate: at least one entry has this provider_id.
@@ -323,7 +334,10 @@ mod tests {
         l.append(2, 1, "claude", 0xbeef);
         l.entries[1].prev_hash = 12345;
         let err = l.verify().unwrap_err();
-        assert!(matches!(err, RunLedgerError::PrevHashMismatch { index: 1, .. }));
+        assert!(matches!(
+            err,
+            RunLedgerError::PrevHashMismatch { index: 1, .. }
+        ));
     }
 
     #[test]
@@ -474,8 +488,16 @@ mod tests {
     fn error_cause_distinct_per_variant() {
         let variants = [
             RunLedgerError::EmptyChain,
-            RunLedgerError::ChainBreak { index: 0, expected: 0, actual: 0 },
-            RunLedgerError::PrevHashMismatch { index: 0, expected: 0, actual: 0 },
+            RunLedgerError::ChainBreak {
+                index: 0,
+                expected: 0,
+                actual: 0,
+            },
+            RunLedgerError::PrevHashMismatch {
+                index: 0,
+                expected: 0,
+                actual: 0,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -485,12 +507,24 @@ mod tests {
     fn error_classifiers_partition_variants() {
         let variants = [
             RunLedgerError::EmptyChain,
-            RunLedgerError::ChainBreak { index: 5, expected: 1, actual: 2 },
-            RunLedgerError::PrevHashMismatch { index: 7, expected: 3, actual: 4 },
+            RunLedgerError::ChainBreak {
+                index: 5,
+                expected: 1,
+                actual: 2,
+            },
+            RunLedgerError::PrevHashMismatch {
+                index: 7,
+                expected: 3,
+                actual: 4,
+            },
         ];
         // Cross-surface invariant: exactly one of the 3 predicates is true.
         for e in variants {
-            let trio = [e.is_empty_chain(), e.is_chain_break(), e.is_prev_hash_mismatch()];
+            let trio = [
+                e.is_empty_chain(),
+                e.is_chain_break(),
+                e.is_prev_hash_mismatch(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }
@@ -499,11 +533,21 @@ mod tests {
     fn at_index_returns_index_for_chain_errors() {
         assert_eq!(RunLedgerError::EmptyChain.at_index(), None);
         assert_eq!(
-            RunLedgerError::ChainBreak { index: 5, expected: 0, actual: 0 }.at_index(),
+            RunLedgerError::ChainBreak {
+                index: 5,
+                expected: 0,
+                actual: 0
+            }
+            .at_index(),
             Some(5),
         );
         assert_eq!(
-            RunLedgerError::PrevHashMismatch { index: 7, expected: 0, actual: 0 }.at_index(),
+            RunLedgerError::PrevHashMismatch {
+                index: 7,
+                expected: 0,
+                actual: 0
+            }
+            .at_index(),
             Some(7),
         );
     }

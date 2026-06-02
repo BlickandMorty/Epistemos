@@ -37,12 +37,7 @@ use super::grammar::Multivector;
 /// caller is responsible for ensuring the bivector is unit-norm
 /// for a clean rotor; non-unit input still produces a valid
 /// multivector but it will not be a pure rotation.
-pub fn rotor_from_angle_and_bivector(
-    angle: f64,
-    b12: f64,
-    b13: f64,
-    b23: f64,
-) -> Multivector {
+pub fn rotor_from_angle_and_bivector(angle: f64, b12: f64, b13: f64, b23: f64) -> Multivector {
     let half = angle * 0.5;
     let c = half.cos();
     let s = half.sin();
@@ -275,9 +270,7 @@ pub fn rotor_power(r: &Multivector, t: f64) -> Option<Multivector> {
         return None;
     }
     match rotor_to_angle_and_bivector(r) {
-        Some((theta, (bx, by, bz))) => {
-            Some(rotor_from_angle_and_bivector(theta * t, bx, by, bz))
-        }
+        Some((theta, (bx, by, bz))) => Some(rotor_from_angle_and_bivector(theta * t, bx, by, bz)),
         None => Some(rotor_identity()),
     }
 }
@@ -388,7 +381,9 @@ mod tests {
             let (theta_back, _) = rotor_to_angle_and_bivector(&r).unwrap();
             assert!(
                 (theta_back - theta).abs() < 1e-10,
-                "θ={} → θ_back={}", theta, theta_back
+                "θ={} → θ_back={}",
+                theta,
+                theta_back
             );
         }
     }
@@ -452,7 +447,11 @@ mod tests {
         let u = Multivector::vector(0.6, 0.8, 0.0); // unit vector
         let v = Multivector::vector(0.0, 0.0, 1.0); // unit vector
         let r = rotor_from_two_vectors(&u, &v).unwrap();
-        assert!(r.is_approximately_unit_rotor(1e-12), "norm² = {}", r.norm_squared());
+        assert!(
+            r.is_approximately_unit_rotor(1e-12),
+            "norm² = {}",
+            r.norm_squared()
+        );
     }
 
     #[test]
@@ -563,7 +562,8 @@ mod tests {
         let rotated = rotate(&v, &r);
         assert!(
             approx_mv(&rotated, &Multivector::vector(0.0, 1.0, 0.0), 1e-9),
-            "got {:?}", rotated.vector_part()
+            "got {:?}",
+            rotated.vector_part()
         );
     }
 
@@ -574,7 +574,8 @@ mod tests {
         let rotated = rotate(&v, &r);
         assert!(
             approx_mv(&rotated, &Multivector::vector(-1.0, 0.0, 0.0), 1e-9),
-            "got {:?}", rotated.vector_part()
+            "got {:?}",
+            rotated.vector_part()
         );
     }
 
@@ -596,7 +597,8 @@ mod tests {
         let rotated = rotate(&v, &r);
         assert!(
             approx_mv(&rotated, &Multivector::vector(-1.0, 0.0, 0.0), 1e-9),
-            "got {:?}", rotated.vector_part()
+            "got {:?}",
+            rotated.vector_part()
         );
     }
 
@@ -623,7 +625,9 @@ mod tests {
         let by_direct = rotate(&v, &r_half);
         assert!(
             approx_mv(&by_compose, &by_direct, 1e-9),
-            "compose: {:?}; direct: {:?}", by_compose.vector_part(), by_direct.vector_part()
+            "compose: {:?}; direct: {:?}",
+            by_compose.vector_part(),
+            by_direct.vector_part()
         );
     }
 
@@ -650,7 +654,9 @@ mod tests {
         let v_rot_norm_sq = v_rot.grade_norm_squared(1);
         assert!(
             (v_norm_sq - v_rot_norm_sq).abs() < 1e-9,
-            "norm² before {} vs after {}", v_norm_sq, v_rot_norm_sq
+            "norm² before {} vs after {}",
+            v_norm_sq,
+            v_rot_norm_sq
         );
     }
 
@@ -874,7 +880,12 @@ mod tests {
         for &b in &[(0.1, 0.2, 0.3), (1.0, -2.0, 3.0), (5.0, 0.0, 0.0)] {
             let r = bivector_exp(&Multivector::bivector(b.0, b.1, b.2));
             let norm_sq = r.norm_squared();
-            assert!((norm_sq - 1.0).abs() < 1e-9, "|exp|² = {} for {:?}", norm_sq, b);
+            assert!(
+                (norm_sq - 1.0).abs() < 1e-9,
+                "|exp|² = {} for {:?}",
+                norm_sq,
+                b
+            );
         }
     }
 }

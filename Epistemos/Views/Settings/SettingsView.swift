@@ -48,6 +48,7 @@ enum SettingsViewDestructiveActionSovereignGate {
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var selection: SettingsSection? = .general
+    @State private var settingsSearchQuery = ""
     /// Single source of truth for the Authority & Installs panel in this
     /// settings window. Owned here so the store survives view redraws while
     /// the user navigates between sidebar rows. Uses the file-backed
@@ -299,26 +300,86 @@ struct SettingsView: View {
                 "Research-only HELIOS scaffold; v1 runtime controls are deferred."
             }
         }
+
+        var searchKeywords: [String] {
+            switch self {
+            case .general:
+                ["session", "workspace", "restore", "reset", "retention", "privacy", "data"]
+            case .ambientFrequencies:
+                ["audio", "sound", "frequency", "frequencies", "wav", "ambient", "binaural", "music"]
+            case .channels:
+                ["slack", "webhook", "matrix", "email", "sms", "outbound", "route"]
+            case .cognitive:
+                ["reasoning", "profile", "temperature", "route", "local", "cloud"]
+            case .inference:
+                ["model", "provider", "runtime", "mlx", "qwen", "generation", "tokens"]
+            case .knowledgeFusion:
+                ["training", "adapter", "feedback", "fusion", "ingest", "experimental"]
+            case .modelVaults:
+                ["model vault", "profile", "isolation", "memory", "per-model"]
+            case .iMessageDriver:
+                ["imessage", "messages", "driver", "contact", "pairing"]
+            case .skills:
+                ["skills", "manifest", "activation", "plugin", "tools"]
+            case .agent:
+                ["agent", "tools", "permissions", "authority", "overseer", "system g", "runtime"]
+            case .agentControl:
+                ["agent", "tools", "approval", "limits", "sessions"]
+            case .authority:
+                ["authority", "permission", "allow", "ask", "deny", "install"]
+            case .overseer:
+                ["overseer", "mask", "audit", "route", "trace"]
+            case .landing:
+                ["landing", "greeting", "quick capture", "home", "welcome", "agents"]
+            case .appearance:
+                ["theme", "custom", "font", "graph", "platinum", "classic", "dark", "color"]
+            case .vault:
+                ["vault", "folder", "sync", "path", "index", "retrieval", "notes"]
+            case .privacy:
+                ["privacy", "local", "cloud", "app privacy", "permissions", "security"]
+            case .provenance:
+                ["provenance", "event", "run", "mutation", "audit", "console"]
+            case .substrateHealth:
+                ["substrate", "health", "falsifier", "wrv", "eidos", "search", "runtime"]
+            case .experimentalFeatures:
+                ["flags", "experiments", "gates", "feature", "defaults"]
+            case .heliosV5:
+                ["helios", "research", "scaffold", "deferred"]
+            }
+        }
     }
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(SettingsCategory.orderedCases) { category in
-                    let sections = SettingsSection.visibleSections
-                        .filter { $0.category == category }
-                    if !sections.isEmpty {
-                        Section(category.rawValue) {
-                            ForEach(sections) { section in
-                                SettingsSidebarRow(section: section)
+            VStack(spacing: 0) {
+                SettingsSearchField(text: $settingsSearchQuery)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+
+                List(selection: $selection) {
+                    ForEach(SettingsCategory.orderedCases) { category in
+                        let sections = sidebarSections(in: category)
+                        if !sections.isEmpty {
+                            Section(category.rawValue) {
+                                ForEach(sections) { section in
+                                    SettingsSidebarRow(
+                                        section: section,
+                                        searchQuery: normalizedSettingsSearchQuery
+                                    )
                                     .tag(section)
+                                }
                             }
                         }
                     }
+
+                    if !normalizedSettingsSearchQuery.isEmpty && filteredVisibleSections.isEmpty {
+                        SettingsSearchEmptyRow(query: settingsSearchQuery)
+                    }
                 }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
             .background {
                 SettingsSidebarBackdrop(theme: ui.theme)
                     .ignoresSafeArea()
@@ -349,6 +410,9 @@ struct SettingsView: View {
                 selection = safeSelection
             }
         }
+        .onChange(of: settingsSearchQuery) { _, _ in
+            normalizeSelectionForVisibleSearchResults()
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -360,6 +424,35 @@ struct SettingsView: View {
                 .accessibilityLabel("Toggle sidebar")
             }
         }
+    }
+
+    private var normalizedSettingsSearchQuery: String {
+        settingsSearchQuery
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private var filteredVisibleSections: [SettingsSection] {
+        let query = normalizedSettingsSearchQuery
+        guard !query.isEmpty else {
+            return SettingsSection.visibleSections
+        }
+        return SettingsSection.visibleSections.filter { section in
+            section.matchesSettingsSearch(query)
+        }
+    }
+
+    private func sidebarSections(in category: SettingsCategory) -> [SettingsSection] {
+        filteredVisibleSections.filter { $0.category == category }
+    }
+
+    private func normalizeSelectionForVisibleSearchResults() {
+        guard !normalizedSettingsSearchQuery.isEmpty else { return }
+        let safeSelection = SettingsSection.safeDetailSelection(for: selection)
+        if let safeSelection, filteredVisibleSections.contains(safeSelection) {
+            return
+        }
+        selection = filteredVisibleSections.first ?? safeSelection ?? .general
     }
 
     private var settingsDetail: some View {
@@ -419,19 +512,101 @@ struct SettingsView: View {
     }
 }
 
-private struct SettingsSidebarRow: View {
+private extension SettingsView.SettingsSection {
+    func matchesSettingsSearch(_ query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        let haystack = ([rawValue, rowDescription, category.rawValue] + searchKeywords)
+            .joined(separator: " ")
+            .lowercased()
+        let tokens = query
+            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "/" })
+            .map(String.init)
+        guard !tokens.isEmpty else { return true }
+        return tokens.allSatisfy { haystack.localizedStandardContains($0) }
+    }
+}
+
+private struct SettingsSearchField: View {
     @Environment(UIState.self) private var ui
-    let section: SettingsView.SettingsSection
+    @Binding var text: String
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            SettingsPixelGlyphBadge(systemImage: section.icon, theme: theme, tint: theme.textSecondary, size: 18)
-                .frame(width: 18, height: 18)
-                .padding(.top, 2)
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            TextField("Search Settings", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .regular))
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear settings search")
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.76))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(theme.border.opacity(theme.isDark ? 0.22 : 0.18), lineWidth: 0.6)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct SettingsSearchEmptyRow: View {
+    let query: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No Settings Found")
+                    .font(.footnote.weight(.medium))
+                Text(query.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    @Environment(UIState.self) private var ui
+    let section: SettingsView.SettingsSection
+    let searchQuery: String
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            SettingsPixelGlyphBadge(
+                systemImage: section.icon,
+                theme: theme,
+                tint: iconTint,
+                size: 24
+            )
+            .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.rawValue)
                     .font(.footnote.weight(.medium))
+                    .lineLimit(1)
                 Text(section.rowDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -439,7 +614,16 @@ private struct SettingsSidebarRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
+    }
+
+    private var iconTint: Color {
+        if searchQuery.isEmpty {
+            return theme.resolved.accent.color
+        }
+        return section.matchesSettingsSearch(searchQuery)
+            ? theme.resolved.accent.color
+            : theme.textSecondary
     }
 }
 
@@ -1201,6 +1385,7 @@ private struct ExperimentalFeaturesSettingsPanel: View {
     @AppStorage(PromptTreePreferences.userDefaultsKey) private var promptTreeEnabled = false
     @AppStorage(EidosFlags.userDefaultsKey) private var eidosEnabled = false
     @AppStorage(VaultRecallFlags.userDefaultsKey) private var vaultRecallEnabled = false
+    @AppStorage(ContextualShadowsState.userDefaultsKey) private var ambientRecallEnabled = ContextualShadowsState.defaultEnabled
     @AppStorage(SystemGFlags.userDefaultsKey) private var systemGEnabled = false
     @AppStorage(ACSAdmissionFlags.userDefaultsKey) private var acsAdmissionEnabled = false
     @AppStorage(FUlpFlags.userDefaultsKey) private var fUlpEnabled = false
@@ -1246,6 +1431,12 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                     isOn: $vaultRecallEnabled
                 )
                 flagToggle(
+                    title: "Contextual Shadows",
+                    key: ContextualShadowsState.userDefaultsKey,
+                    detail: "Enables local Halo/Shadow suggestions while typing in chat, landing, and note surfaces.",
+                    isOn: $ambientRecallEnabled
+                )
+                flagToggle(
                     title: "System G",
                     key: SystemGFlags.userDefaultsKey,
                     detail: "Enables the System G breadcrumb/status path; production chip waits for a falsifier.",
@@ -1269,7 +1460,7 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                 flagToggle(
                     title: "Power-user mode",
                     key: LocalModelCatalog.powerUserModeDefaultsKey,
-                    detail: "Lowers the primary-agent RAM gate to \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB.",
+                    detail: "Preserves Capability Ceiling / 70B research controls, but does not lower the 36B memory gate until F-70B-Local-Cocktail or an equivalent SSD/RAM composition falsifier passes.",
                     isOn: $localAgentPowerUserMode
                 )
                 LabeledContent("Effective primary-agent floor") {
@@ -1463,7 +1654,7 @@ private struct InferenceDetailView: View {
                 Toggle(isOn: $localAgentPowerUserMode) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Power-user mode")
-                        Text("Allows the 36B primary-agent opt-in gate at \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB instead of \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: false)) GB.")
+                        Text("Preserves Capability Ceiling / 70B research controls, but does not lower the 36B memory gate until F-70B-Local-Cocktail or an equivalent SSD/RAM composition falsifier passes.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2876,6 +3067,7 @@ private struct InferenceDetailView: View {
 private struct LocalModelManagerSheet: View {
     @Environment(LocalModelManager.self) private var localModelManager
     @Environment(UIState.self) private var ui
+    @State private var capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
 
     private var curatedBaselineDescriptors: [LocalModelDescriptor] {
         localModelManager.curatedBaselineDescriptors
@@ -2917,6 +3109,7 @@ private struct LocalModelManagerSheet: View {
 
                             Button("Refresh") {
                                 localModelManager.refreshFromDisk()
+                                capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
                             }
                             .buttonStyle(.bordered)
                         }
@@ -2924,16 +3117,24 @@ private struct LocalModelManagerSheet: View {
                     .padding(.vertical, 4)
                 }
 
+                capabilityCeilingContextSection
+
                 Section("Recommended Baseline") {
                     ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
-                        LocalModelRow(descriptor: descriptor)
+                        LocalModelRow(
+                            descriptor: descriptor,
+                            capabilityCeiling: capabilityCeiling
+                        )
                     }
                 }
 
                 if !optionalBaselineDescriptors.isEmpty {
                     Section("Optional Flagship + Fallbacks") {
                         ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
-                            LocalModelRow(descriptor: descriptor)
+                            LocalModelRow(
+                                descriptor: descriptor,
+                                capabilityCeiling: capabilityCeiling
+                            )
                         }
                     }
                 }
@@ -2945,7 +3146,10 @@ private struct LocalModelManagerSheet: View {
                             .foregroundStyle(.secondary)
 
                         ForEach(legacyInstalledDescriptors, id: \.id) { descriptor in
-                            LocalModelRow(descriptor: descriptor)
+                            LocalModelRow(
+                                descriptor: descriptor,
+                                capabilityCeiling: capabilityCeiling
+                            )
                         }
                     }
                 }
@@ -2954,6 +3158,44 @@ private struct LocalModelManagerSheet: View {
             .navigationTitle("Local Models")
         }
     }
+
+    @ViewBuilder
+    private var capabilityCeilingContextSection: some View {
+        Section("Capability Ceiling Context") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Canonical KV-Direct remains pinned to Qwen 3 8B until its local asset proves a 128K context window. Other 128K-capable local models are shown as candidates only, so Manage Local Models does not silently retarget the falsifier.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                LabeledContent("Canonical gate") {
+                    Text(capabilityCeiling.contextInventoryCanonicalOK ? "128K ready" : "canonical red")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(capabilityCeiling.contextInventoryCanonicalOK ? .green : ui.theme.warning)
+                }
+                LabeledContent("Best candidate") {
+                    Text(bestContextCandidateLabel)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                LabeledContent("Next work") {
+                    Text(capabilityCeiling.nextBottleneck)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var bestContextCandidateLabel: String {
+        guard capabilityCeiling.contextInventoryFound else {
+            return "missing inventory"
+        }
+        let repo = capabilityCeiling.contextInventoryBestCandidateRepoID.isEmpty
+            ? "no candidate"
+            : capabilityCeiling.contextInventoryBestCandidateRepoID
+        return "\(repo) · \(capabilityCeiling.contextInventoryBestCandidateTokens) tokens"
+    }
 }
 
 private struct LocalModelRow: View {
@@ -2961,6 +3203,7 @@ private struct LocalModelRow: View {
     @Environment(InferenceState.self) private var inference
 
     let descriptor: LocalModelDescriptor
+    let capabilityCeiling: CapabilityCeilingHealthSnapshot
 
     private var state: LocalModelPresentationState {
         localModelManager.presentationState(for: descriptor)
@@ -3013,6 +3256,12 @@ private struct LocalModelRow: View {
             Text(descriptor.summary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let contextCapabilitySummary {
+                Text(contextCapabilitySummary)
+                    .font(.caption2)
+                    .foregroundStyle(contextCapabilityColor)
+            }
 
             // Footer meta row: compact HStack pinned to its natural
             // width, stacked fallback at large sizes.
@@ -3091,6 +3340,11 @@ private struct LocalModelRow: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.orange)
         }
+        if let contextCapabilityBadge {
+            Text(contextCapabilityBadge)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(contextCapabilityColor)
+        }
         Text(state.title)
             .font(.caption2.weight(.medium))
             .foregroundStyle(.secondary)
@@ -3123,6 +3377,9 @@ private struct LocalModelRow: View {
            model.isExperimentalForEpistemos {
             parts.append("Experimental")
         }
+        if let contextCapabilityBadge {
+            parts.append(contextCapabilityBadge)
+        }
         parts.append(state.title)
         return parts.joined(separator: ", ")
     }
@@ -3139,6 +3396,41 @@ private struct LocalModelRow: View {
             parts.append("Minimum \(descriptor.minimumRecommendedMemoryGB) gigabytes")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var contextInventoryEntry: CapabilityCeilingContextInventoryEntry? {
+        capabilityCeiling.contextInventoryEntry(for: descriptor.id)
+    }
+
+    private var contextCapabilityBadge: String? {
+        guard let entry = contextInventoryEntry else { return nil }
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext ? "KV 128K" : "KV red"
+        }
+        guard entry.isTextGenerationCandidate else { return nil }
+        return entry.satisfiesRequiredContext ? "128K candidate" : "Context gated"
+    }
+
+    private var contextCapabilitySummary: String? {
+        guard let entry = contextInventoryEntry else { return nil }
+        let context = entry.effectiveContextTokens > 0 ? "\(entry.effectiveContextTokens) token context" : "context metadata missing"
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext
+                ? "Canonical KV-Direct asset satisfies the 128K context contract."
+                : "Canonical KV-Direct asset is installed but only reports \(context); F-KV-Direct-Gate stays red."
+        }
+        guard entry.isTextGenerationCandidate else { return nil }
+        return entry.satisfiesRequiredContext
+            ? "\(context); candidate evidence only, not the canonical KV-Direct route."
+            : "\(context); below the Capability Ceiling 128K requirement."
+    }
+
+    private var contextCapabilityColor: Color {
+        guard let entry = contextInventoryEntry else { return .secondary }
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext ? .green : .orange
+        }
+        return entry.satisfiesRequiredContext ? .blue : .secondary
     }
 
     private func installedStorageLabel(for record: LocalModelInstallRecord) -> String {
@@ -3314,6 +3606,9 @@ private struct AppearanceDetailContainer: View {
     private var appearanceForm: some View {
         Form {
             AppearanceThemePairSection(ui: ui, theme: theme)
+            if ui.themeMode == .custom && ui.activePair == .custom {
+                AppearanceCustomThemeSection(ui: ui)
+            }
             AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
             AppearanceGraphPerformanceSection()
@@ -3554,7 +3849,11 @@ private struct ThemePairCard: View {
                     }
                 }
 
-                ThemePairCinematicPreview(pair: pair)
+                if pair == .custom {
+                    CustomThemeCinematicPreview()
+                } else {
+                    ThemePairCinematicPreview(pair: pair)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.sm)
@@ -3625,7 +3924,7 @@ private struct ThemePairCinematicHalf: View {
     let accentSide: AccentSide
 
     var body: some View {
-        let resolved = theme.resolved
+        let resolved = theme.presetResolved
         // ALL-CAPS for Classic per the user direction; other themes
         // keep mixed case so each pair shows off its actual feel.
         let heroText = theme.prefersUppercaseDisplay ? "GREETINGS" : "Greetings"
@@ -3689,6 +3988,225 @@ private struct ThemePairCinematicHalf: View {
             .foregroundStyle(bodyColor)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct CustomThemeCinematicPreview: View {
+    private static let cornerRadius: CGFloat = 8
+    private static let height: CGFloat = 78
+
+    var body: some View {
+        HStack(spacing: 0) {
+            CustomThemeCinematicHalf(isDark: false)
+            CustomThemeCinematicHalf(isDark: true)
+        }
+        .frame(height: Self.height)
+        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        )
+        .overlay(Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 1))
+    }
+}
+
+private struct CustomThemeCinematicHalf: View {
+    let isDark: Bool
+
+    var body: some View {
+        let resolved = AppCustomTheme.resolved(isDark: isDark)
+        let heroFontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
+            ?? AppDisplayTypography.matrixDisplayFontName
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    resolved.background.color,
+                    resolved.card.color.opacity(0.82),
+                    resolved.accent.color.opacity(0.26),
+                ],
+                startPoint: isDark ? .topLeading : .topTrailing,
+                endPoint: isDark ? .bottomTrailing : .bottomLeading
+            )
+            VStack(alignment: .leading, spacing: 6) {
+                Text("CUSTOM")
+                    .font(.custom(heroFontName, size: 12).weight(.bold))
+                    .foregroundStyle(resolved.headingAccent.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                Capsule()
+                    .fill(resolved.foreground.color.opacity(0.24))
+                    .frame(width: 58, height: 4)
+                Capsule()
+                    .fill(resolved.accent.color.opacity(0.55))
+                    .frame(width: 38, height: 4)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct AppearanceCustomThemeSection: View {
+    let ui: UIState
+    @State private var editingDarkVariant = SystemAppearanceState.isDark()
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 146), spacing: Spacing.sm, alignment: .top),
+    ]
+
+    var body: some View {
+        Section {
+            HStack(alignment: .center, spacing: Spacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Custom theme")
+                        .font(.caption.weight(.semibold))
+                    Text("Editing \(editingDarkVariant ? "dark" : "light") Custom. Preset themes stay locked.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("Variant", selection: $editingDarkVariant) {
+                    Text("Light").tag(false)
+                    Text("Dark").tag(true)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 124)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
+                ForEach(AppCustomThemeColorSlot.allCases) { slot in
+                    CustomThemeColorTile(
+                        slot: slot,
+                        color: colorBinding(slot: slot, isDark: editingDarkVariant)
+                    )
+                }
+            }
+
+            HStack {
+                CustomThemeLivePreview(isDark: editingDarkVariant)
+                    .frame(maxWidth: 260)
+                Spacer()
+                Button("Reset Custom Colors") {
+                    AppCustomTheme.reset()
+                    ui.refreshTypographySettings()
+                }
+                .controlSize(.small)
+            }
+        } header: {
+            Text("Custom Appearance")
+        }
+        .onAppear {
+            editingDarkVariant = ui.theme.presetResolved.isDark
+        }
+    }
+
+    private func colorBinding(slot: AppCustomThemeColorSlot, isDark: Bool) -> Binding<Color> {
+        Binding(
+            get: {
+                let hex = slot == .noteSurface
+                    ? AppCustomTheme.noteSurfaceHex(isDark: isDark)
+                    : AppCustomTheme.hex(for: slot, isDark: isDark)
+                return Color(hex: hex)
+            },
+            set: { color in
+                guard let hex = color.rgbHex else { return }
+                AppCustomTheme.setHex(hex, for: slot, isDark: isDark)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+}
+
+private struct CustomThemeColorTile: View {
+    let slot: AppCustomThemeColorSlot
+    @Binding var color: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ColorPicker("", selection: $color, supportsOpacity: false)
+                .labelsHidden()
+                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(slot.title)
+                    .font(.caption.weight(.semibold))
+                Text(slot.detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct CustomThemeLivePreview: View {
+    let isDark: Bool
+
+    var body: some View {
+        let resolved = AppCustomTheme.resolved(isDark: isDark)
+        let noteSurface = EpistemosTheme.ResolvedColorToken
+            .hex(AppCustomTheme.noteSurfaceHex(isDark: isDark))
+        let fontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
+            ?? AppDisplayTypography.matrixDisplayFontName
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Custom Preview")
+                .font(.custom(fontName, size: 15).weight(.bold))
+                .foregroundStyle(resolved.headingAccent.color)
+            HStack(spacing: 6) {
+                Capsule()
+                    .fill(resolved.accent.color)
+                    .frame(width: 42, height: 7)
+                Capsule()
+                    .fill(resolved.foreground.color.opacity(0.28))
+                    .frame(width: 72, height: 7)
+            }
+            Text("Heading, text, note surfaces, panels, and chat stay together.")
+                .font(.caption2)
+                .foregroundStyle(resolved.foreground.color.opacity(0.82))
+                .lineLimit(2)
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(noteSurface.color)
+                    .frame(width: 52, height: 20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .stroke(resolved.border.color.opacity(0.7), lineWidth: 1)
+                    )
+                Text(isDark ? "Dark note surface" : "Light note surface")
+                    .font(.caption2)
+                    .foregroundStyle(resolved.foreground.color.opacity(0.74))
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(resolved.background.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(resolved.border.color, lineWidth: 1)
+        )
+    }
+}
+
+private extension Color {
+    var rgbHex: UInt32? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else {
+            return nil
+        }
+        let red = UInt32((color.redComponent * 255).rounded()).clampedToByte
+        let green = UInt32((color.greenComponent * 255).rounded()).clampedToByte
+        let blue = UInt32((color.blueComponent * 255).rounded()).clampedToByte
+        return (red << 16) | (green << 8) | blue
+    }
+}
+
+private extension UInt32 {
+    var clampedToByte: UInt32 {
+        Swift.min(Swift.max(self, 0), 255)
     }
 }
 
@@ -3759,6 +4277,7 @@ private extension GraphNodeType {
 
 private struct AppearanceTypographySection: View {
     let ui: UIState
+    @State private var showsFontLibrary = false
 
     var body: some View {
         Section {
@@ -3771,9 +4290,173 @@ private struct AppearanceTypographySection: View {
             Text("Uses Avenir Next for app chrome, notes, chat, and document text. Landing-page display typography stays unchanged.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            DisclosureGroup(isExpanded: $showsFontLibrary) {
+                FontLibraryPreviewGrid()
+                    .padding(.top, 6)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Font Library")
+                        .font(.caption.weight(.semibold))
+                    Text("Every bundled display face is labeled with its own preview.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if ui.themeMode == .custom && ui.activePair == .custom {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Heading Typography")
+                                .font(.caption.weight(.semibold))
+                            Text("Heading font and scale apply only to Custom.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Reset") {
+                            AppDisplayTypography.resetHeadingTypography()
+                            ui.refreshTypographySettings()
+                        }
+                        .controlSize(.small)
+                    }
+
+                    ForEach([1, 2, 3], id: \.self) { level in
+                        HeadingTypographyControlRow(
+                            level: level,
+                            fontSelection: headingFontBinding(level: level),
+                            sizeScale: headingSizeScaleBinding(level: level),
+                            previewFontName: selectedHeadingFontName(level: level),
+                            previewSize: previewSize(level: level)
+                        )
+                    }
+                }
+                .padding(.top, 4)
+            }
         } header: {
             Text("Typography")
         }
+    }
+
+    private func headingFontBinding(level: Int) -> Binding<String> {
+        Binding(
+            get: { AppDisplayTypography.storedHeadingFontOverride(level: level) ?? "" },
+            set: { newValue in
+                AppDisplayTypography.setHeadingFontOverride(newValue.isEmpty ? nil : newValue, level: level)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+
+    private func headingSizeScaleBinding(level: Int) -> Binding<Double> {
+        Binding(
+            get: { Double(AppDisplayTypography.storedHeadingSizeScale(level: level)) },
+            set: { newValue in
+                AppDisplayTypography.setHeadingSizeScale(CGFloat(newValue), level: level)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+
+    private func selectedHeadingFontName(level: Int) -> String {
+        AppDisplayTypography.storedHeadingFontOverride(level: level)
+            ?? ui.theme.headingFontName(level: level)
+    }
+
+    private func previewSize(level: Int) -> CGFloat {
+        let base: CGFloat = switch level {
+        case 1: 22
+        case 2: 18
+        default: 15
+        }
+        return base * AppDisplayTypography.storedHeadingSizeScale(level: level)
+    }
+}
+
+private struct FontLibraryPreviewGrid: View {
+    private let columns = [
+        GridItem(.adaptive(minimum: 156), spacing: 8, alignment: .top),
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(AppDisplayTypography.displayFontOptions) { option in
+                FontLibraryPreviewTile(option: option)
+            }
+        }
+    }
+}
+
+private struct FontLibraryPreviewTile: View {
+    let option: AppBundledDisplayFont
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(option.displayName)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+            Text("EPST H1")
+                .font(.custom(option.postScriptName, size: 17))
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(option.postScriptName)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct HeadingTypographyControlRow: View {
+    let level: Int
+    @Binding var fontSelection: String
+    @Binding var sizeScale: Double
+    let previewFontName: String
+    let previewSize: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("H\(level)")
+                    .font(.caption.weight(.bold))
+                    .frame(width: 28, alignment: .leading)
+                Picker("Font", selection: $fontSelection) {
+                    Text("Theme default").tag("")
+                    ForEach(AppDisplayTypography.displayFontOptions) { option in
+                        Text(option.displayName)
+                            .font(.custom(option.postScriptName, size: 13))
+                            .tag(option.postScriptName)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 240)
+
+                Slider(
+                    value: $sizeScale,
+                    in: Double(AppDisplayTypography.minimumHeadingSizeScale)...Double(AppDisplayTypography.maximumHeadingSizeScale),
+                    step: 0.05
+                )
+                .frame(minWidth: 120)
+
+                Text("\(Int((sizeScale * 100).rounded()))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+
+            Text("Heading \(level) Preview")
+                .font(.custom(previewFontName, size: previewSize))
+                .fontWeight(level == 1 ? .heavy : .semibold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .padding(.vertical, 4)
     }
 }
 

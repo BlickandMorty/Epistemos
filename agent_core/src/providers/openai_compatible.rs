@@ -1058,7 +1058,8 @@ mod tests {
             "Kimi model list must be in the module-level Source prologue"
         );
         assert!(
-            prologue.contains("//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart"),
+            prologue
+                .contains("//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart"),
             "Kimi K2.6 quickstart must be in the module-level Source prologue"
         );
     }

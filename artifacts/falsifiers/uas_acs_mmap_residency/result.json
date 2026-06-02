@@ -1,0 +1,152 @@
+{
+  "falsifier_id": "F-UAS-ACS-MmapResidency",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_uas_acs_mmap_residency.sh",
+  "command_digest": "sha256:f8293f09f28d054352d92d13384b04bdad2a160c36c73c280631b33e00e83eb2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "uas_acs_mmap_residency_16mb_v1",
+  "timestamp_utc": "2026-05-29T13:22:16Z",
+  "result_digest": "sha256:2de6fb66c2edcf99bfc3334a90ce6ded9a0a1133dbe507ea90210e012fce056e",
+  "measurements": {
+    "acs_projection_lookup": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_len_matches_mmap": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_path_data_copy_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hot_path_tracked_copies": {
+      "value": 0,
+      "unit": "count"
+    },
+    "invalid_offset_rejection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_address": {
+      "value": "kv_page:fb6a7b090d8f9c0e2e46142c65c5a0ea09acea81637583141d7b0c1594ad93e0@1779000000000",
+      "unit": "uas_address"
+    },
+    "mmap_backed_bytes": {
+      "value": 16777216,
+      "unit": "bytes"
+    },
+    "model_component_address": {
+      "value": "model_component:f6f0a9b055e3ea7f4ce38eb89c18e849b192f0b60a31d5b868e24f218f8749af@1779000000000",
+      "unit": "uas_address"
+    },
+    "residency_lease_round_trip": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sampled_page_checksum_match": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sampled_page_count": {
+      "value": 16,
+      "unit": "pages"
+    },
+    "uas_address_round_trip": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "acs_projection_lookup": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_len_matches_mmap": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_path_data_copy_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hot_path_tracked_copies": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "invalid_offset_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_backed_bytes": {
+      "operator": ">=",
+      "value": 16777216,
+      "unit": "bytes"
+    },
+    "residency_lease_round_trip": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sampled_page_checksum_match": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_address_round_trip": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "acs_projection_lookup": true,
+    "file_len_matches_mmap": true,
+    "hot_path_data_copy_bytes": true,
+    "hot_path_tracked_copies": true,
+    "invalid_offset_rejection": true,
+    "mmap_backed_bytes": true,
+    "residency_lease_round_trip": true,
+    "sampled_page_checksum_match": true,
+    "uas_address_round_trip": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "not_live_model_generation",
+      "detail": "This proves file-backed mmap residency plus UAS/ACS addressing. It does not prove MLX token generation, KV residual patching, or a 70B sparse runtime."
+    }
+  ],
+  "notes": "primary_witness; file-backed mmap bytes addressed by UAS, leased through ResidencyLease, and resolved through ACS projection lookup with zero tracked hot-path copies"
+}

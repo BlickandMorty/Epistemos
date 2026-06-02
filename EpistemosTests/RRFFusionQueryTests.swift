@@ -1,8 +1,37 @@
 import Foundation
+import Darwin
 import GRDB
 import Testing
+import XCTest
 
 @testable import Epistemos
+
+nonisolated final class RRFFusionRecencyHalfLifeXCTests: XCTestCase {
+    func testRecencySQLUsesTrueHalfLifeDecay() throws {
+        XCTAssertTrue(RRFFusionQuery.sql.contains("-:recency_ln_2"))
+        XCTAssertTrue(RRFFusionQuery.pageBlockOnlySQL.contains("-:recency_ln_2"))
+        XCTAssertTrue(RRFFusionQuery.sql.contains("epistemos_exp("))
+        XCTAssertTrue(RRFFusionQuery.pageBlockOnlySQL.contains("epistemos_exp("))
+        XCTAssertTrue(RRFFusionQuery.sql.contains("MAX(:now_unix - updated_at_unix, 0.0)"))
+        XCTAssertTrue(RRFFusionQuery.sql.contains("/ MAX(:half_life_days, 0.000001)"))
+
+        let oneHalfLifeRetention: Double = Darwin.exp(
+            -Phase3FusionConsts.RECENCY_LN_2 * 30.0 / 30.0
+        )
+        XCTAssertEqual(oneHalfLifeRetention, 0.5, accuracy: 0.000000000001)
+
+        let queue = try DatabaseQueue()
+        try queue.read { db in
+            RRFFusionQuery.installSQLiteFunctions(in: db)
+            let sqliteRetention = try XCTUnwrap(Double.fetchOne(
+                db,
+                sql: "SELECT epistemos_exp(-:recency_ln_2 * 30.0 / 30.0)",
+                arguments: RRFFusionQuery.bindArguments(query: "half-life")
+            ))
+            XCTAssertEqual(sqliteRetention, 0.5, accuracy: 0.000000000001)
+        }
+    }
+}
 
 /// RRF Phase-2 critical-invariant tests for `RRFFusionQuery`. The
 /// heavy fixture-corpus tests (cross-source RRF math, 100-iter
@@ -42,6 +71,7 @@ nonisolated struct RRFFusionQueryTests {
     private static func makeFusionTestPool() throws -> DatabaseQueue {
         let queue = try DatabaseQueue(path: ":memory:")
         try queue.write { db in
+            RRFFusionQuery.installSQLiteFunctions(in: db)
             try installLegacyPageAndBlockSchema(in: db)
         }
 
@@ -136,6 +166,24 @@ nonisolated struct RRFFusionQueryTests {
                 "K_RRF drift: Swift Phase3FusionConsts.K_RRF = \(Phase3FusionConsts.K_RRF), Rust RRF_K_DEFAULT = \(rustK). One source-of-truth must agree with the other.")
         #expect(Phase3FusionConsts.K_RRF == 60.0,
                 "K_RRF must equal 60.0 — the SIGIR 2009 empirical default the design doc commits to. Got \(Phase3FusionConsts.K_RRF).")
+    }
+
+    @Test("Recency SQL uses true half-life decay")
+    func recencySQLUsesTrueHalfLifeDecay() {
+        #expect(RRFFusionQuery.sql.contains("-:recency_ln_2"))
+        #expect(RRFFusionQuery.pageBlockOnlySQL.contains("-:recency_ln_2"))
+        #expect(RRFFusionQuery.sql.contains("epistemos_exp("))
+        #expect(RRFFusionQuery.pageBlockOnlySQL.contains("epistemos_exp("))
+        #expect(RRFFusionQuery.sql.contains("MAX(:now_unix - updated_at_unix, 0.0)"))
+        #expect(RRFFusionQuery.sql.contains("/ MAX(:half_life_days, 0.000001)"))
+
+        let oneHalfLifeRetention: Double = Darwin.exp(
+            -Phase3FusionConsts.RECENCY_LN_2 * 30.0 / 30.0
+        )
+        #expect(
+            abs(oneHalfLifeRetention - 0.5) < 0.000000000001,
+            "30 days at a 30-day half-life must retain half the score; got \(oneHalfLifeRetention)"
+        )
     }
 
     // MARK: - 2. bm25 sign assumption (lower = better)

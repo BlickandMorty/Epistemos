@@ -1533,6 +1533,39 @@ struct LocalAgentLoopTests {
         #expect(answer == "tool smoke ok")
     }
 
+    @Test("live loop automatic token budget stays below heavy long-context boundary")
+    func liveLoopAutomaticTokenBudgetStaysBelowHeavyLongContextBoundary() {
+        #expect(LocalAgentLoop.heavyLongContextEnvironmentKey == "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT")
+        #expect(LocalAgentLoop.maxSafeAutomaticTokenBudget == 32_768)
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.qwen3CoderNext4Bit.rawValue)
+                == 32_768
+        )
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.qwen3_8B4Bit.rawValue)
+                == 32_768
+        )
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.bonsai4B2Bit.rawValue)
+                == 22_937
+        )
+        #expect(LocalAgentLoop.defaultMaxTokenBudget(forModelID: nil) == 6_144)
+        #expect(
+            LocalAgentLoop.resolvedMaxTokenBudget(
+                requested: 65_536,
+                modelID: LocalTextModelID.qwen3_8B4Bit.rawValue,
+                environment: [:]
+            ) == 32_768
+        )
+        #expect(
+            LocalAgentLoop.resolvedMaxTokenBudget(
+                requested: 65_536,
+                modelID: LocalTextModelID.qwen3_8B4Bit.rawValue,
+                environment: ["EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT": "1"]
+            ) == 65_536
+        )
+    }
+
     @Test("live loop repairs empty streaming turns with one-shot local generation")
     @MainActor
     func liveLoopRepairsEmptyStreamingTurnsWithOneShotLocalGeneration() async throws {
@@ -2068,6 +2101,46 @@ struct LocalAgentLoopTests {
         <think>Constrained path.</think>
         Existing constrained service output.
         """)
+    }
+
+    @Test("explicit note lookup synthesizes vault search when model only narrates")
+    func explicitNoteLookupSynthesizesVaultSearchWhenModelOnlyNarrates() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            "I will search your notes for that.",
+            "My Autobiography is about projects, school, and personal systems.",
+        ])
+        let toolRecorder = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolRecorder.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: """
+                    1. **some essays/My Autobiography.md** (score: 12.00, tier: T3, variant: rrf)
+                    I grew up around projects, school, and personal systems.
+                    """,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: #"Find the note titled "My Autobiography" and explain it."#,
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        let calls = await toolRecorder.snapshot()
+        #expect(calls.map(\.name) == ["vault.search"])
+        #expect(calls.first?.argumentsJson.contains("\"query\":\"My Autobiography\"") == true)
+        #expect(answer == "My Autobiography is about projects, school, and personal systems.")
     }
 
     private func sampleTool() -> OmegaToolDefinition {

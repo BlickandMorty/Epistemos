@@ -1,0 +1,925 @@
+//! Construction cards for Research Construction Engine dry-runs.
+//!
+//! A card records the Erdos / Parameter Golf invariant in executable schema
+//! form: problem -> lift chart -> projection -> witness -> budget ->
+//! falsifier -> rollback. It is intentionally metadata-only.
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+use crate::uas::{
+    weight_block::{is_valid_wbo_budget_nats, weight_block_ir_chart_preimage},
+    ResidencyPlan, ResidencyPlanStatus, ResidencyTier, UasAddress, UasKind, WeightBlockIrChart,
+};
+
+const RANGE_HASH_FALSIFIER_ID: &str = "F-WeightBlockRangeHash-DryRun";
+const RESIDENCY_PLAN_FALSIFIER_ID: &str = "F-ResidencyPlan-DryRun";
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProductBuild {
+    Mas,
+    Pro,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProStatus {
+    Live,
+    Gated,
+    ResearchCandidate,
+    VaultPreserved,
+    Omega,
+    Blocked,
+    TargetOnly,
+    Superseded,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConstructionBudget {
+    pub hot_uma_bytes: u64,
+    pub warm_compressed_uma_bytes: u64,
+    pub cold_mmap_ssd_bytes: u64,
+    pub wbo_budget_nats: f32,
+    pub copy_budget: u64,
+}
+
+impl ConstructionBudget {
+    pub fn from_residency_plan(plan: &ResidencyPlan, copy_budget: u64) -> Self {
+        Self {
+            hot_uma_bytes: plan.totals.hot_uma_bytes,
+            warm_compressed_uma_bytes: plan.totals.warm_compressed_uma_bytes,
+            cold_mmap_ssd_bytes: plan.totals.cold_mmap_ssd_bytes,
+            wbo_budget_nats: plan.totals.wbo_budget_nats,
+            copy_budget,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConstructionCard {
+    pub card_address: UasAddress,
+    pub problem_card: String,
+    pub lift_charts: Vec<WeightBlockIrChart>,
+    pub projection_packet: String,
+    pub witness: String,
+    pub budget: ConstructionBudget,
+    pub falsifier_id: String,
+    #[serde(default)]
+    pub upstream_falsifier_ids: Vec<String>,
+    pub rollback_reference: String,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub residency_status: ResidencyTier,
+    pub residency_plan_address: Option<UasAddress>,
+}
+
+impl ConstructionCard {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_residency_plan(
+        problem_card: impl Into<String>,
+        projection_packet: impl Into<String>,
+        witness: impl Into<String>,
+        falsifier_id: impl Into<String>,
+        rollback_reference: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        plan: &ResidencyPlan,
+        copy_budget: u64,
+        created_at_ms: u64,
+    ) -> Result<Self, ConstructionCardError> {
+        if plan.status != ResidencyPlanStatus::FitForDryRun {
+            return Err(ConstructionCardError::PlanRejected);
+        }
+        validate_residency_plan_snapshot(plan)?;
+        let lift_charts = unique_lift_charts(plan);
+        let budget = ConstructionBudget::from_residency_plan(plan, copy_budget);
+        let falsifier_id = falsifier_id.into();
+        let mut upstream_falsifier_ids = Vec::with_capacity(2);
+        upstream_falsifier_ids.push(RANGE_HASH_FALSIFIER_ID.to_string());
+        if falsifier_id != RESIDENCY_PLAN_FALSIFIER_ID {
+            upstream_falsifier_ids.push(RESIDENCY_PLAN_FALSIFIER_ID.to_string());
+        }
+        Self::new_with_upstreams(
+            problem_card,
+            lift_charts,
+            projection_packet,
+            witness,
+            budget,
+            falsifier_id,
+            upstream_falsifier_ids,
+            rollback_reference,
+            product_build,
+            pro_status,
+            plan.effective_residency_tier,
+            Some(plan.plan_address.clone()),
+            created_at_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        problem_card: impl Into<String>,
+        lift_charts: Vec<WeightBlockIrChart>,
+        projection_packet: impl Into<String>,
+        witness: impl Into<String>,
+        budget: ConstructionBudget,
+        falsifier_id: impl Into<String>,
+        rollback_reference: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
+        residency_plan_address: Option<UasAddress>,
+        created_at_ms: u64,
+    ) -> Result<Self, ConstructionCardError> {
+        Self::new_with_upstreams(
+            problem_card,
+            lift_charts,
+            projection_packet,
+            witness,
+            budget,
+            falsifier_id,
+            Vec::new(),
+            rollback_reference,
+            product_build,
+            pro_status,
+            residency_status,
+            residency_plan_address,
+            created_at_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_upstreams(
+        problem_card: impl Into<String>,
+        lift_charts: Vec<WeightBlockIrChart>,
+        projection_packet: impl Into<String>,
+        witness: impl Into<String>,
+        budget: ConstructionBudget,
+        falsifier_id: impl Into<String>,
+        upstream_falsifier_ids: Vec<String>,
+        rollback_reference: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
+        residency_plan_address: Option<UasAddress>,
+        created_at_ms: u64,
+    ) -> Result<Self, ConstructionCardError> {
+        let problem_card = problem_card.into();
+        let projection_packet = projection_packet.into();
+        let witness = witness.into();
+        let falsifier_id = falsifier_id.into();
+        let rollback_reference = rollback_reference.into();
+        validate_nonempty("problem_card", &problem_card)?;
+        validate_nonempty("projection_packet", &projection_packet)?;
+        validate_nonempty("witness", &witness)?;
+        validate_nonempty("falsifier_id", &falsifier_id)?;
+        validate_nonempty("rollback_reference", &rollback_reference)?;
+        let mut seen_upstreams = HashSet::new();
+        for upstream in &upstream_falsifier_ids {
+            validate_nonempty("upstream_falsifier_id", upstream)?;
+            if upstream == &falsifier_id {
+                return Err(ConstructionCardError::DuplicateUpstreamFalsifier {
+                    falsifier_id: upstream.clone(),
+                });
+            }
+            if !seen_upstreams.insert(upstream.as_str()) {
+                return Err(ConstructionCardError::DuplicateUpstreamFalsifier {
+                    falsifier_id: upstream.clone(),
+                });
+            }
+        }
+        if lift_charts.is_empty() {
+            return Err(ConstructionCardError::MissingLiftChart);
+        }
+        if !is_valid_wbo_budget_nats(budget.wbo_budget_nats) {
+            return Err(ConstructionCardError::InvalidBudget);
+        }
+        if product_build == ProductBuild::Mas
+            && matches!(
+                pro_status,
+                ProStatus::ResearchCandidate | ProStatus::VaultPreserved | ProStatus::Omega
+            )
+        {
+            return Err(ConstructionCardError::ProductBuildStatusMismatch);
+        }
+        if product_build == ProductBuild::Pro
+            && pro_status == ProStatus::Live
+            && residency_status == ResidencyTier::CapabilityCeiling
+        {
+            return Err(ConstructionCardError::ProductBuildStatusMismatch);
+        }
+        if product_build == ProductBuild::Mas && !residency_status.ships_to_mas() {
+            return Err(ConstructionCardError::ProductBuildResidencyMismatch);
+        }
+        let card_address = Self::address(
+            &problem_card,
+            &lift_charts,
+            &projection_packet,
+            &witness,
+            &budget,
+            &falsifier_id,
+            &upstream_falsifier_ids,
+            &rollback_reference,
+            &product_build,
+            &pro_status,
+            residency_status,
+            residency_plan_address.as_ref(),
+            created_at_ms,
+        );
+
+        Ok(Self {
+            card_address,
+            problem_card,
+            lift_charts,
+            projection_packet,
+            witness,
+            budget,
+            falsifier_id,
+            upstream_falsifier_ids,
+            rollback_reference,
+            product_build,
+            pro_status,
+            residency_status,
+            residency_plan_address,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn address(
+        problem_card: &str,
+        lift_charts: &[WeightBlockIrChart],
+        projection_packet: &str,
+        witness: &str,
+        budget: &ConstructionBudget,
+        falsifier_id: &str,
+        upstream_falsifier_ids: &[String],
+        rollback_reference: &str,
+        product_build: &ProductBuild,
+        pro_status: &ProStatus,
+        residency_status: ResidencyTier,
+        residency_plan_address: Option<&UasAddress>,
+        created_at_ms: u64,
+    ) -> UasAddress {
+        let mut preimage = String::new();
+        preimage.push_str("construction_card_v1\n");
+        preimage.push_str(problem_card);
+        preimage.push('\n');
+        for chart in lift_charts {
+            preimage.push_str(weight_block_ir_chart_preimage(chart));
+            preimage.push('\n');
+        }
+        preimage.push_str(projection_packet);
+        preimage.push('\n');
+        preimage.push_str(witness);
+        preimage.push('\n');
+        preimage.push_str(&format!(
+            "{}:{}:{}:{}:{}\n",
+            budget.hot_uma_bytes,
+            budget.warm_compressed_uma_bytes,
+            budget.cold_mmap_ssd_bytes,
+            (budget.wbo_budget_nats * 1000.0).round() as u32,
+            budget.copy_budget
+        ));
+        preimage.push_str(falsifier_id);
+        preimage.push('\n');
+        for upstream in upstream_falsifier_ids {
+            preimage.push_str(upstream);
+            preimage.push('\n');
+        }
+        preimage.push_str(rollback_reference);
+        preimage.push('\n');
+        preimage.push_str(product_build_preimage(product_build));
+        preimage.push('\n');
+        preimage.push_str(pro_status_preimage(pro_status));
+        preimage.push('\n');
+        preimage.push_str(residency_status.wire_tag());
+        preimage.push('\n');
+        if let Some(address) = residency_plan_address {
+            preimage.push_str(&address.to_string());
+        }
+        UasAddress::new(
+            UasKind::Other("construction_card".to_string()),
+            preimage.as_bytes(),
+            created_at_ms,
+        )
+    }
+}
+
+pub(crate) fn product_build_preimage(product_build: &ProductBuild) -> &'static str {
+    match product_build {
+        ProductBuild::Mas => "mas",
+        ProductBuild::Pro => "pro",
+    }
+}
+
+pub(crate) fn pro_status_preimage(pro_status: &ProStatus) -> &'static str {
+    match pro_status {
+        ProStatus::Live => "live",
+        ProStatus::Gated => "gated",
+        ProStatus::ResearchCandidate => "research_candidate",
+        ProStatus::VaultPreserved => "vault_preserved",
+        ProStatus::Omega => "omega",
+        ProStatus::Blocked => "blocked",
+        ProStatus::TargetOnly => "target_only",
+        ProStatus::Superseded => "superseded",
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConstructionCardError {
+    MissingProblemCard,
+    MissingLiftChart,
+    MissingProjectionPacket,
+    MissingWitness,
+    MissingFalsifier,
+    MissingRollback,
+    FieldHasSurroundingWhitespace { field: &'static str },
+    FieldContainsControlCharacter { field: &'static str },
+    InvalidBudget,
+    ProductBuildStatusMismatch,
+    ProductBuildResidencyMismatch,
+    DuplicateUpstreamFalsifier { falsifier_id: String },
+    PlanRejected,
+    PlanShapeDrift,
+}
+
+impl std::fmt::Display for ConstructionCardError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingProblemCard => write!(f, "problem_card is required"),
+            Self::MissingLiftChart => write!(f, "at least one lift chart is required"),
+            Self::MissingProjectionPacket => write!(f, "projection_packet is required"),
+            Self::MissingWitness => write!(f, "witness is required"),
+            Self::MissingFalsifier => write!(f, "falsifier_id is required"),
+            Self::MissingRollback => write!(f, "rollback_reference is required"),
+            Self::FieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            Self::FieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
+            }
+            Self::InvalidBudget => write!(f, "construction budget is invalid"),
+            Self::ProductBuildStatusMismatch => write!(
+                f,
+                "construction card product build, Pro status, and residency status are inconsistent"
+            ),
+            Self::ProductBuildResidencyMismatch => write!(
+                f,
+                "MAS build construction cards cannot carry non-current-app residency status"
+            ),
+            Self::DuplicateUpstreamFalsifier { falsifier_id } => {
+                write!(
+                    f,
+                    "construction card upstream falsifier was duplicated: {falsifier_id}"
+                )
+            }
+            Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
+            Self::PlanShapeDrift => write!(
+                f,
+                "residency plan fields no longer match the verified dry-run snapshot"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ConstructionCardError {}
+
+fn validate_nonempty(field: &'static str, value: &str) -> Result<(), ConstructionCardError> {
+    if value.trim().is_empty() {
+        return Err(missing_field_error(field));
+    }
+    if value.trim() != value {
+        return Err(ConstructionCardError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(ConstructionCardError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
+fn missing_field_error(field: &'static str) -> ConstructionCardError {
+    match field {
+        "problem_card" => ConstructionCardError::MissingProblemCard,
+        "projection_packet" => ConstructionCardError::MissingProjectionPacket,
+        "witness" => ConstructionCardError::MissingWitness,
+        "falsifier_id" => ConstructionCardError::MissingFalsifier,
+        "upstream_falsifier_id" => ConstructionCardError::MissingFalsifier,
+        "rollback_reference" => ConstructionCardError::MissingRollback,
+        _ => ConstructionCardError::InvalidBudget,
+    }
+}
+
+fn validate_residency_plan_snapshot(plan: &ResidencyPlan) -> Result<(), ConstructionCardError> {
+    let recomputed = ResidencyPlan::evaluate(
+        plan.blocks.clone(),
+        plan.budget.clone(),
+        plan.plan_address.created_at_ms,
+    );
+    if recomputed != *plan {
+        return Err(ConstructionCardError::PlanShapeDrift);
+    }
+    Ok(())
+}
+
+fn unique_lift_charts(plan: &ResidencyPlan) -> Vec<WeightBlockIrChart> {
+    let mut charts = Vec::new();
+    for block in &plan.blocks {
+        if !charts.contains(&block.ir_chart) {
+            charts.push(block.ir_chart.clone());
+        }
+    }
+    charts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::uas::weight_block::MAX_WBO_BUDGET_NATS;
+    use crate::uas::{
+        ResidencyBudget, WeightBlockEncoding, WeightBlockIrChart, WeightBlockManifest,
+        WeightBlockResidencyClass,
+    };
+
+    fn rollback_reference() -> UasAddress {
+        UasAddress::new(UasKind::ModelComponent, b"dense-reference", 7)
+    }
+
+    fn fit_plan() -> ResidencyPlan {
+        let hot = WeightBlockManifest::from_bytes(
+            "local/70b",
+            "file:///models/70b/hot.safetensors",
+            0,
+            b"hot",
+            1,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            WeightBlockIrChart::Scan,
+            0.0,
+            "bit_exact",
+            None,
+        )
+        .unwrap();
+        let cold = WeightBlockManifest::from_bytes(
+            "local/70b",
+            "file:///models/70b/cold.safetensors",
+            128,
+            b"cold",
+            1,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.01,
+            "dense_reference",
+            Some(rollback_reference()),
+        )
+        .unwrap();
+        ResidencyPlan::evaluate(
+            [hot, cold],
+            ResidencyBudget::new(64, 64, 64, 0.10, 8).unwrap(),
+            9,
+        )
+    }
+
+    #[test]
+    fn construction_card_binds_passed_residency_plan() {
+        let plan = fit_plan();
+        let card = ConstructionCard::from_residency_plan(
+            "fit 70b-shaped active set without runtime load",
+            "active_assembly_packet",
+            "F-ResidencyPlan-DryRun/result.json",
+            "F-ResidencyPlan-DryRun",
+            "dense_reference_path",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            0,
+            10,
+        )
+        .unwrap();
+
+        assert_eq!(card.residency_plan_address, Some(plan.plan_address));
+        assert_eq!(card.product_build, ProductBuild::Pro);
+        assert_eq!(card.pro_status, ProStatus::ResearchCandidate);
+        assert_eq!(card.residency_status, ResidencyTier::CapabilityCeiling);
+        assert_eq!(
+            card.upstream_falsifier_ids,
+            vec!["F-WeightBlockRangeHash-DryRun".to_string()]
+        );
+        assert_eq!(card.budget.cold_mmap_ssd_bytes, 4);
+        assert_eq!(
+            card.lift_charts,
+            vec![
+                WeightBlockIrChart::OpaqueWithWitness,
+                WeightBlockIrChart::Scan
+            ]
+        );
+        assert_eq!(
+            card.card_address.kind,
+            UasKind::Other("construction_card".to_string())
+        );
+    }
+
+    #[test]
+    fn construction_card_refuses_rejected_plan() {
+        let rejected = ResidencyPlan::evaluate(
+            Vec::<WeightBlockManifest>::new(),
+            ResidencyBudget::new(64, 64, 64, 0.10, 8).unwrap(),
+            9,
+        );
+        let err = ConstructionCard::from_residency_plan(
+            "empty",
+            "projection",
+            "witness",
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &rejected,
+            0,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::PlanRejected);
+    }
+
+    #[test]
+    fn construction_card_revalidates_mutated_residency_plan_snapshot() {
+        let mut plan = fit_plan();
+        plan.blocks[0].content_hash_hex = blake3::hash(b"tampered-after-plan").to_hex().to_string();
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = ConstructionCard::from_residency_plan(
+            "fit 70b-shaped active set without runtime load",
+            "active_assembly_packet",
+            "F-ResidencyPlan-DryRun/result.json",
+            "F-ResidencyPlan-DryRun",
+            "dense_reference_path",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            0,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::PlanShapeDrift);
+    }
+
+    #[test]
+    fn construction_card_requires_all_doctrine_fields() {
+        let err = ConstructionCard::new(
+            "",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::MissingProblemCard);
+    }
+
+    #[test]
+    fn construction_card_rejects_noncanonical_preimage_fields() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        let spaced = ConstructionCard::new(
+            " problem ",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            budget.clone(),
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+        let controlled = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection\npacket",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            spaced,
+            ConstructionCardError::FieldHasSurroundingWhitespace {
+                field: "problem_card"
+            }
+        );
+        assert_eq!(
+            controlled,
+            ConstructionCardError::FieldContainsControlCharacter {
+                field: "projection_packet"
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_noncanonical_upstream_falsifier_ids() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec!["F-Upstream\nInjected".to_string()],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::FieldContainsControlCharacter {
+                field: "upstream_falsifier_id"
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_duplicate_upstream_falsifier_ids() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec![
+                "F-WeightBlockRangeHash-DryRun".to_string(),
+                "F-WeightBlockRangeHash-DryRun".to_string(),
+            ],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::DuplicateUpstreamFalsifier {
+                falsifier_id: "F-WeightBlockRangeHash-DryRun".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_primary_falsifier_reused_as_upstream() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec!["F-Test".to_string()],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::DuplicateUpstreamFalsifier {
+                falsifier_id: "F-Test".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_wbo_budget_above_residency_ceiling() {
+        let err = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: MAX_WBO_BUDGET_NATS + 1.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::InvalidBudget);
+    }
+
+    #[test]
+    fn construction_card_rejects_mas_research_vault_or_omega_status() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        for pro_status in [
+            ProStatus::ResearchCandidate,
+            ProStatus::VaultPreserved,
+            ProStatus::Omega,
+        ] {
+            let err = ConstructionCard::new(
+                "problem",
+                vec![WeightBlockIrChart::Scan],
+                "projection",
+                "witness",
+                budget.clone(),
+                "F-Test",
+                "rollback",
+                ProductBuild::Mas,
+                pro_status,
+                ResidencyTier::CapabilityCeiling,
+                None,
+                10,
+            )
+            .unwrap_err();
+
+            assert_eq!(err, ConstructionCardError::ProductBuildStatusMismatch);
+        }
+    }
+
+    #[test]
+    fn construction_card_rejects_mas_non_current_app_residency() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        for residency_status in [
+            ResidencyTier::VerifiedFloor,
+            ResidencyTier::CapabilityCeiling,
+        ] {
+            let err = ConstructionCard::new(
+                "problem",
+                vec![WeightBlockIrChart::Scan],
+                "projection",
+                "witness",
+                budget.clone(),
+                "F-Test",
+                "rollback",
+                ProductBuild::Mas,
+                ProStatus::Live,
+                residency_status,
+                None,
+                10,
+            )
+            .unwrap_err();
+
+            assert_eq!(err, ConstructionCardError::ProductBuildResidencyMismatch);
+        }
+    }
+
+    #[test]
+    fn construction_card_rejects_live_status_on_capability_ceiling_residency() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        let err = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::Live,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::ProductBuildStatusMismatch);
+    }
+
+    #[test]
+    fn construction_card_address_uses_stable_wire_labels() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 1,
+            warm_compressed_uma_bytes: 2,
+            cold_mmap_ssd_bytes: 3,
+            wbo_budget_nats: 0.01,
+            copy_budget: 4,
+        };
+
+        let card = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::OpaqueWithWitness],
+            "projection",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap();
+        let expected_preimage = concat!(
+            "construction_card_v1\n",
+            "problem\n",
+            "opaque_with_witness\n",
+            "projection\n",
+            "witness\n",
+            "1:2:3:10:4\n",
+            "F-Test\n",
+            "rollback\n",
+            "pro\n",
+            "research_candidate\n",
+            "capability_ceiling\n"
+        );
+        let expected = UasAddress::new(
+            UasKind::Other("construction_card".to_string()),
+            expected_preimage.as_bytes(),
+            10,
+        );
+
+        assert_eq!(card.card_address, expected);
+    }
+}

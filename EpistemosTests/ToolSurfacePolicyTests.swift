@@ -236,6 +236,167 @@ struct ToolSurfacePolicyTests {
         #expect(object["target"] as? String == "files")
     }
 
+    @Test func fileSearchHomeRootNormalizesToVaultRoot() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-search-home-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files"}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["pattern"] as? String == "My Autobiography")
+        #expect(object["path"] as? String == vaultRoot)
+        #expect(object["target"] as? String == "files")
+    }
+
+    @Test func vaultSearchPathArgumentNormalizesToQuery() throws {
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "vault.search",
+            inputJson: #"{"path":"My Autobiography","limit":5}"#
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["path"] == nil)
+        #expect(object["limit"] as? Int == 5)
+    }
+
+    @Test func eidosQueryPathArgumentNormalizesToEvidenceQuery() throws {
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "eidos.query",
+            inputJson: #"{"path":"My Autobiography","limit":5}"#
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["path"] == nil)
+        #expect(object["top_k"] as? Int == 5)
+        #expect(object["limit"] as? Int == 5)
+    }
+
+    @Test func narratorTreatsEidosAndVaultToolsAsOneEvidenceSurface() {
+        #expect(ToolActivityNarrator.surface(name: "eidos.query").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "eidos__query").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "knowledge.recall").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "knowledge_recall").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.search").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.read").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.write").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "file.search").isEvidenceBubble == false)
+
+        #expect(ToolActivityNarrator.surface(name: "vault.read").badgeTitle == "EIDOS")
+        #expect(ToolActivityNarrator.surface(name: "vault.write").badgeTitle == "EIDOS")
+    }
+
+    @Test func narratorNamesEidosBeforeFilesystemFallback() {
+        let eidosPhrase = ToolActivityNarrator.phrase(
+            name: "eidos.query",
+            inputJson: #"{"query":"My Autobiography"}"#
+        )
+        let vaultPhrase = ToolActivityNarrator.phrase(
+            name: "vault.search",
+            inputJson: #"{"query":"My Autobiography"}"#
+        )
+        let readPhrase = ToolActivityNarrator.phrase(
+            name: "vault.read",
+            inputJson: #"{"path":"Notes/My Autobiography.md"}"#
+        )
+
+        #expect(eidosPhrase?.contains("Eidos") == true)
+        #expect(eidosPhrase?.contains("My Autobiography") == true)
+        #expect(vaultPhrase?.contains("vault evidence") == true)
+        #expect(readPhrase?.contains("vault note") == true)
+    }
+
+    @Test func vaultScopedFileSearchBuildsAppFirstVaultSearchInput() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-vault-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files","limit":250}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let preflight = try #require(ToolTierBridge.appFirstVaultSearchInputForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["vault.search", "file.search"]
+        ))
+        let data = try #require(preflight.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["limit"] as? Int == 20)
+    }
+
+    @Test func vaultScopedFileSearchPrefersEidosForAppFirstLookup() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-eidos-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files","limit":250}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let preflight = try #require(ToolTierBridge.appFirstVaultLookupForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["eidos.query", "vault.search", "file.search"]
+        ))
+        let data = try #require(preflight.inputJson.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(preflight.toolName == "eidos.query")
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["top_k"] as? Int == 20)
+    }
+
+    @Test func explicitNonVaultFileSearchSkipsAppFirstVaultSearchInput() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-vault-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"QueryRuntime","path":"/Users/jojo/Downloads/Epistemos","target":"content"}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+
+        #expect(ToolTierBridge.appFirstVaultSearchInputForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["vault.search", "file.search"]
+        ) == nil)
+    }
+
+    @Test func vaultSearchResultDetectorRequiresRealMatches() {
+        #expect(ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        1. **Notes/My Autobiography.md** (score: 12.00, tier: T3, variant: rrf)
+        A paragraph about the note.
+        """))
+        #expect(ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        {"tool":"eidos.query","count":1,"results":[{"path":"Notes/My Autobiography.md"}]}
+        """))
+        #expect(!ToolTierBridge.vaultSearchOutputHasUsableResults(
+            "No notes matched with high enough confidence (ladder declined; no tier above floor)."
+        ))
+        #expect(!ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        {"tool":"eidos.query","count":0,"results":[]}
+        """))
+    }
+
     @Test @MainActor func fileSearchPatternExecutesAsNonEmptyQuery() async throws {
         let vaultURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-file-search-pattern-\(UUID().uuidString)")

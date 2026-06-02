@@ -160,10 +160,8 @@ fn public_key_registries_deserialize_from_owned_json_values() {
         ResidencyTier::L0RamHot
     );
     assert_eq!(
-        serde_json::from_value::<LatticeCoderKind>(serde_json::json!(
-            "lattice-wyner-ziv-residual"
-        ))
-        .expect("owned codec key value"),
+        serde_json::from_value::<LatticeCoderKind>(serde_json::json!("lattice-wyner-ziv-residual"))
+            .expect("owned codec key value"),
         LatticeCoderKind::LatticeWynerZivResidual
     );
     assert_eq!(
@@ -177,10 +175,8 @@ fn public_key_registries_deserialize_from_owned_json_values() {
         WboTermCode::NumericalPostCorrection
     );
     assert_eq!(
-        serde_json::from_value::<LatticeWboError>(serde_json::json!(
-            "InvalidBudgetComposition"
-        ))
-        .expect("owned error key value"),
+        serde_json::from_value::<LatticeWboError>(serde_json::json!("InvalidBudgetComposition"))
+            .expect("owned error key value"),
         LatticeWboError::InvalidBudgetComposition
     );
 }
@@ -277,10 +273,7 @@ fn public_key_registries_reject_unicode_adjacent_public_keys() {
     }
 
     reject_unicode_adjacent_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
-    reject_unicode_adjacent_keys::<LatticeCoderKind>(
-        "LatticeCoderKind",
-        &LatticeCoderKind::CODES,
-    );
+    reject_unicode_adjacent_keys::<LatticeCoderKind>("LatticeCoderKind", &LatticeCoderKind::CODES);
     reject_unicode_adjacent_keys::<SideInformationKind>(
         "SideInformationKind",
         &SideInformationKind::CODES,
@@ -320,10 +313,7 @@ fn public_key_registries_reject_whitespace_adjacent_public_keys() {
         &SideInformationKind::CODES,
     );
     reject_whitespace_adjacent_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
-    reject_whitespace_adjacent_keys::<LatticeWboError>(
-        "LatticeWboError",
-        &LatticeWboError::CODES,
-    );
+    reject_whitespace_adjacent_keys::<LatticeWboError>("LatticeWboError", &LatticeWboError::CODES);
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
@@ -350,10 +340,7 @@ fn public_key_registries_reject_control_character_adjacent_public_keys() {
         }
     }
 
-    reject_control_character_adjacent_keys::<ResidencyTier>(
-        "ResidencyTier",
-        &ResidencyTier::CODES,
-    );
+    reject_control_character_adjacent_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
     reject_control_character_adjacent_keys::<LatticeCoderKind>(
         "LatticeCoderKind",
         &LatticeCoderKind::CODES,
@@ -370,8 +357,7 @@ fn public_key_registries_reject_control_character_adjacent_public_keys() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`public_key_registries_reject_control_character_adjacent_public_keys`"),
+        register.contains("`public_key_registries_reject_control_character_adjacent_public_keys`"),
         "register doc must cross-link control-character-adjacent public-key rejection"
     );
 }
@@ -407,15 +393,11 @@ fn public_key_registries_reject_quoted_and_escaped_public_key_spoofs() {
         &SideInformationKind::CODES,
     );
     reject_quoted_and_escaped_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
-    reject_quoted_and_escaped_keys::<LatticeWboError>(
-        "LatticeWboError",
-        &LatticeWboError::CODES,
-    );
+    reject_quoted_and_escaped_keys::<LatticeWboError>("LatticeWboError", &LatticeWboError::CODES);
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`public_key_registries_reject_quoted_and_escaped_public_key_spoofs`"),
+        register.contains("`public_key_registries_reject_quoted_and_escaped_public_key_spoofs`"),
         "register doc must cross-link quoted and escaped public-key spoof rejection"
     );
 }
@@ -442,10 +424,7 @@ fn public_key_registries_reject_percent_encoded_public_key_spoofs() {
     }
 
     reject_percent_encoded_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
-    reject_percent_encoded_keys::<LatticeCoderKind>(
-        "LatticeCoderKind",
-        &LatticeCoderKind::CODES,
-    );
+    reject_percent_encoded_keys::<LatticeCoderKind>("LatticeCoderKind", &LatticeCoderKind::CODES);
     reject_percent_encoded_keys::<SideInformationKind>(
         "SideInformationKind",
         &SideInformationKind::CODES,
@@ -519,19 +498,13 @@ fn public_key_registries_reject_delimiter_wrapped_public_key_spoofs() {
     }
 
     reject_delimiter_wrapped_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
-    reject_delimiter_wrapped_keys::<LatticeCoderKind>(
-        "LatticeCoderKind",
-        &LatticeCoderKind::CODES,
-    );
+    reject_delimiter_wrapped_keys::<LatticeCoderKind>("LatticeCoderKind", &LatticeCoderKind::CODES);
     reject_delimiter_wrapped_keys::<SideInformationKind>(
         "SideInformationKind",
         &SideInformationKind::CODES,
     );
     reject_delimiter_wrapped_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
-    reject_delimiter_wrapped_keys::<LatticeWboError>(
-        "LatticeWboError",
-        &LatticeWboError::CODES,
-    );
+    reject_delimiter_wrapped_keys::<LatticeWboError>("LatticeWboError", &LatticeWboError::CODES);
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(

@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import GRDB
 
 // MARK: - RRFFusionQuery — load-bearing single-SQL Reciprocal Rank Fusion
@@ -20,8 +21,9 @@ import GRDB
 //   - per-source LIMIT 200 BEFORE the union to bound work
 //   - GROUP BY entity_id rollup with weighted reciprocal-rank sum
 //   - tie-breakers: fused_score DESC, updated_at DESC, entity_id ASC
-//   - recency boost: `fused_score * exp(-age_days / halfLifeDays)`
-//     (`exp()` is built-in to SQLite ≥3.35; we ship 3.45+ via GRDB 7.10)
+//   - recency boost: `fused_score * exp(-ln(2) * age_days / halfLifeDays)`
+//     via the registered `epistemos_exp()` SQLite function. Do not rely on
+//     SQLite math extensions being compiled into the host runtime.
 //   - additive behind `EPISTEMOS_RRF_FUSION_V1` flag
 //
 // bm25 sign reminder: FTS5's `bm25()` returns negative scores in
@@ -182,6 +184,10 @@ nonisolated public enum Phase3FusionConsts {
     /// lower values reward consensus more aggressively. DO NOT
     /// change without validating against the test corpus.
     public static let K_RRF: Double = 60.0
+    /// Natural log of 2.0 for true half-life decay in SQLite SQL.
+    /// Bound as a parameter instead of calling `ln()` so the query
+    /// only depends on Epistemos' registered `epistemos_exp()` scalar.
+    public static let RECENCY_LN_2: Double = 0.6931471805599453
 }
 
 // MARK: - FusionWeights
@@ -201,10 +207,10 @@ nonisolated public struct FusionWeights: Sendable, Hashable {
     /// expects Documents / RawThoughts / Code to dominate (e.g.
     /// the Epdoc Slash menu).
     public var universalWeight: Double
-    /// Recency exponential-decay half-life in days. Score is
-    /// multiplied by `exp(-age_days / halfLifeDays)`. Default 30
-    /// keeps a 30-day-old doc at half score, 90-day-old at ~12%,
-    /// 365-day-old at ~0.005%.
+    /// Recency exponential-decay half-life in days. Score is multiplied
+    /// by `exp(-ln(2) * age_days / halfLifeDays)`. Default 30 keeps a
+    /// 30-day-old doc at half score, 90-day-old at 12.5%, 365-day-old
+    /// at ~0.02%.
     public var halfLifeDays: Double
     /// Final result LIMIT applied AFTER fusion + tie-break sort.
     public var maxResults: Int
@@ -280,13 +286,29 @@ nonisolated public struct FusedResult: Sendable, Hashable {
 /// Pure SQL builder + argument binder. Stateless — every call
 /// produces an identical (idempotent) query string parameterised
 /// by `:query` / `:k` / `:w_page` / `:w_block` / `:w_universal` /
-/// `:per_source_limit` / `:half_life_days` / `:now_unix` /
-/// `:max_results`.
+/// `:per_source_limit` / `:half_life_days` / `:recency_ln_2` /
+/// `:now_unix` / `:max_results`.
 ///
 /// `SearchIndexService.fusedSearch` (Phase 3) wraps this; tests
 /// (Phase 5) bind the parameters directly against a `:memory:`
 /// pool with a fixture corpus.
 nonisolated public enum RRFFusionQuery {
+    /// Install scalar helpers required by the fusion SQL on one GRDB
+    /// connection. SQLite math functions are compile-time optional, so
+    /// the recency path must ship its own exponential primitive.
+    public static func installSQLiteFunctions(in db: Database) {
+        let expFunction = DatabaseFunction(
+            "epistemos_exp",
+            argumentCount: 1,
+            pure: true
+        ) { values in
+            guard let value = Double.fromDatabaseValue(values[0]) else {
+                return nil
+            }
+            return Darwin.exp(value)
+        }
+        db.add(function: expFunction)
+    }
 
     /// The single-statement SQL query. Built once + cached at
     /// call-site if the caller wants. Composes 3 per-source CTEs +
@@ -394,9 +416,10 @@ nonisolated public enum RRFFusionQuery {
           entity_kind,
           (raw_fused_score *
             CASE WHEN updated_at_unix IS NULL THEN 1.0
-                 ELSE exp(
-                   -((:now_unix - updated_at_unix) / 86400.0)
-                   / :half_life_days
+                 ELSE epistemos_exp(
+                   -:recency_ln_2
+                   * (MAX(:now_unix - updated_at_unix, 0.0) / 86400.0)
+                   / MAX(:half_life_days, 0.000001)
                  )
             END
           )                                   AS fused_score,
@@ -409,7 +432,94 @@ nonisolated public enum RRFFusionQuery {
         LIMIT :max_results
         """
 
-    /// Bind the 9 parameters the SQL expects against a query
+    /// Two-source fallback SQL used when the universal readable-blocks
+    /// projection has not been installed in a legacy/stale search DB.
+    /// This keeps RRF live for page/block recall instead of forcing the
+    /// caller onto the older one-index-at-a-time fallback path.
+    public static let pageBlockOnlySQL: String = """
+        WITH
+          page_hits AS (
+            SELECT
+              indexed_pages.id        AS entity_id,
+              indexed_pages.id        AS parent_doc_id,
+              'page'                  AS entity_kind,
+              'page'                  AS source,
+              NULL                    AS snippet_block_id,
+              snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet_text,
+              indexed_pages.updatedAt AS updated_at_unix,
+              ROW_NUMBER() OVER (ORDER BY bm25(page_search) ASC) AS rnk
+            FROM page_search
+            JOIN indexed_pages ON indexed_pages.rowid = page_search.rowid
+            WHERE page_search MATCH :query
+            LIMIT :per_source_limit
+          ),
+          block_hits AS (
+            SELECT
+              indexed_blocks.page_id  AS entity_id,
+              indexed_blocks.page_id  AS parent_doc_id,
+              'block'                 AS entity_kind,
+              'block'                 AS source,
+              indexed_blocks.block_id AS snippet_block_id,
+              snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet_text,
+              (SELECT updatedAt FROM indexed_pages
+               WHERE id = indexed_blocks.page_id)
+                                      AS updated_at_unix,
+              ROW_NUMBER() OVER (ORDER BY bm25(block_search) ASC) AS rnk
+            FROM block_search
+            JOIN indexed_blocks ON indexed_blocks.rowid = block_search.rowid
+            WHERE block_search MATCH :query
+            LIMIT :per_source_limit
+          ),
+          unioned AS (
+            SELECT entity_id, parent_doc_id, entity_kind, source,
+                   snippet_block_id, snippet_text, updated_at_unix, rnk
+            FROM page_hits
+            UNION ALL
+            SELECT entity_id, parent_doc_id, entity_kind, source,
+                   snippet_block_id, snippet_text, updated_at_unix, rnk
+            FROM block_hits
+          ),
+          rolled_up AS (
+            SELECT
+              entity_id,
+              MAX(parent_doc_id)              AS parent_doc_id,
+              entity_kind,
+              MAX(updated_at_unix)            AS updated_at_unix,
+              snippet_block_id,
+              snippet_text,
+              MIN(rnk)                        AS best_source_rank,
+              SUM(
+                CASE source
+                  WHEN 'page'  THEN :w_page  / (:k + rnk)
+                  WHEN 'block' THEN :w_block / (:k + rnk)
+                END
+              )                               AS raw_fused_score
+            FROM unioned
+            GROUP BY entity_id
+          )
+        SELECT
+          entity_id,
+          parent_doc_id,
+          entity_kind,
+          (raw_fused_score *
+            CASE WHEN updated_at_unix IS NULL THEN 1.0
+                 ELSE epistemos_exp(
+                   -:recency_ln_2
+                   * (MAX(:now_unix - updated_at_unix, 0.0) / 86400.0)
+                   / MAX(:half_life_days, 0.000001)
+                 )
+            END
+          )                                   AS fused_score,
+          best_source_rank,
+          snippet_block_id,
+          snippet_text,
+          updated_at_unix
+        FROM rolled_up
+        ORDER BY fused_score DESC, updated_at_unix DESC, entity_id ASC
+        LIMIT :max_results
+        """
+
+    /// Bind the 10 parameters the SQL expects against a query
     /// string + weights + clock. `now` is injectable so tests can
     /// pin a deterministic recency boost.
     public static func bindArguments(
@@ -426,6 +536,7 @@ nonisolated public enum RRFFusionQuery {
             "w_universal":       weights.universalWeight,
             "per_source_limit":  weights.perSourceLimit,
             "half_life_days":    weights.halfLifeDays,
+            "recency_ln_2":      Phase3FusionConsts.RECENCY_LN_2,
             "now_unix":          nowUnix,
             "max_results":       weights.maxResults,
         ]
@@ -439,11 +550,13 @@ nonisolated public enum RRFFusionQuery {
         query: String,
         weights: FusionWeights = .default,
         now: Date = Date(),
+        includeReadableBlocks: Bool = true,
         in db: Database
     ) throws -> [FusedResult] {
+        installSQLiteFunctions(in: db)
         let rows = try Row.fetchAll(
             db,
-            sql: sql,
+            sql: includeReadableBlocks ? sql : pageBlockOnlySQL,
             arguments: bindArguments(query: query, weights: weights, now: now)
         )
         return rows.map { row in

@@ -1,7 +1,7 @@
 # PageGather Block-Sorted Scheduler - 2026-05-27
 
-Status: scheduler-side mitigation path landed; Metal destination contract now
-exists; primary throughput gate still pending.
+Status: scheduler-side mitigation path landed; Metal dense destination and
+packetized contracts now exist; primary dense throughput gate still pending.
 
 Branch: `codex/pagegather-block-sorted-scheduler-2026-05-27`
 
@@ -44,16 +44,20 @@ This does not promote `F-PageGather-M2Pro`.
 
 Remaining blockers:
 
-- The Metal destination-position variant exists, but the first smoke probe
-  shows the true scheduled restore path is still too slow for promotion.
+- The Metal dense destination-position variant exists, but the 256/512 MB
+  witness shows true scheduled dense restore is still too slow for promotion.
+- The packetized scheduled variant crosses the `0.70x` mitigation floor at
+  256/512 MB, but no product caller consumes packet packets yet.
 - The full `256/512/1024 MB`, `5 s`, `3 trial` canonical gate has not passed.
 - Sequential gather remains below the `0.95x` bar in the current witness.
 - Thermal/reproducibility axes still need the canonical pass run.
 
 Follow-up: `docs/audits/PAGEGATHER_METAL_DESTINATION_CONTRACT_2026_05_27.md`
-adds `pageGatherScatterScheduled` and records a noncanonical 16 MB smoke probe:
-`0` correctness violations, but only `0.3556x` STREAM for block-sorted scheduled
-scatter. That keeps the gate orange/pending.
+adds `pageGatherScatterScheduled` and `pageGatherPacketizeScheduled`.
+Dense scheduled restore remains below threshold, while packetized scheduled
+PageGather reaches `0.729x` / `0.752x` STREAM at 256/512 MB. That keeps the
+dense gate orange/pending and points the next slice at caller-path packet
+consumption.
 
 ## Verification
 
@@ -91,8 +95,8 @@ xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'p
 
 Optimize the scheduled Metal path, not the label:
 
-1. Try a threadgroup-tiled destination restore, vectorized logical-position
-   loads, or a two-pass block-local compaction path.
-2. Rerun the 256 MB scheduled diagnostic first.
-3. Only after both gather and scheduled block-sorted scatter pass at 256 MB
-   should the full 256/512/1024 MB canonical run be attempted.
+1. Add a caller-path witness that consumes `(logical_position, value)` packets
+   directly, or optimize dense restore if dense order is non-negotiable.
+2. Rerun the 256/512 MB diagnostic first.
+3. Only after the chosen product contract passes at 256/512 MB should the full
+   dense or packetized promotion gate be attempted.

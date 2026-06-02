@@ -88,7 +88,11 @@ struct CompanionAvatarGlyph: View {
                 aspect: .compact,
                 legs: .stubs,
                 antennae: .none,
-                eyeTreatment: .filled
+                eyeTreatment: .filled,
+                headStyle: kind.resolvedHeadStyle,
+                armStyle: kind.resolvedArmStyle,
+                eyeShape: kind.resolvedEyeShape,
+                accessoryStyle: kind.resolvedAccessoryStyle
             )
         case .block:
             drawBlock(
@@ -101,10 +105,25 @@ struct CompanionAvatarGlyph: View {
                 aspect: kind.blockAspect ?? .compact,
                 legs: kind.legStyle ?? .stubs,
                 antennae: kind.antennaStyle ?? .none,
-                eyeTreatment: kind.eyeTreatment ?? .filled
+                eyeTreatment: kind.eyeTreatment ?? .filled,
+                headStyle: kind.resolvedHeadStyle,
+                armStyle: kind.resolvedArmStyle,
+                eyeShape: kind.resolvedEyeShape,
+                accessoryStyle: kind.resolvedAccessoryStyle
             )
         case .sage:
-            drawSage(context: &context, rect: rect, palette: palette, phase: phase, state: state, offset: frameOffset)
+            drawSage(
+                context: &context,
+                rect: rect,
+                palette: palette,
+                phase: phase,
+                state: state,
+                offset: frameOffset,
+                headStyle: kind.resolvedHeadStyle,
+                armStyle: kind.resolvedArmStyle,
+                eyeShape: kind.resolvedEyeShape,
+                accessoryStyle: kind.resolvedAccessoryStyle
+            )
         }
     }
 
@@ -212,7 +231,11 @@ struct CompanionAvatarGlyph: View {
         aspect: CompanionBlockAspect,
         legs: CompanionLegStyle,
         antennae: CompanionAntennaStyle,
-        eyeTreatment: CompanionEyeTreatment
+        eyeTreatment: CompanionEyeTreatment,
+        headStyle: CompanionHeadStyle,
+        armStyle: CompanionArmStyle,
+        eyeShape: CompanionEyeShape,
+        accessoryStyle: CompanionAccessoryStyle
     ) {
         let bodyWidth: Int
         let bodyHeight: Int
@@ -264,34 +287,60 @@ struct CompanionAvatarGlyph: View {
             }
         }
 
+        drawHeadStyle(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            left: appliedLeft,
+            top: appliedTop,
+            width: bodyWidth,
+            style: headStyle
+        )
+
         // Keep the tiny landing glyphs as solid body silhouettes. Earlier
         // inner belt/spine cells read as stray grid squares at 38pt dock size.
 
         // Eyes (filled vs. negative-space).
-        let eyeY = appliedTop + 8
-        let eyeWidth = 4
-        let eyeHeight = 3
+        let eyeColor = eyeTreatment == .filled ? palette.eye : Color.black.opacity(0.62)
         let leftEyeX = appliedLeft + bodyWidth / 4 - 2
         let rightEyeX = appliedLeft + (bodyWidth * 3 / 4) - 2
-        switch eyeTreatment {
-        case .filled:
-            for row in 0..<eyeHeight {
-                for col in 0..<eyeWidth {
-                    fillCell(context: &context, rect: rect, x: leftEyeX + col, y: eyeY + row, color: palette.eye)
-                    fillCell(context: &context, rect: rect, x: rightEyeX + col, y: eyeY + row, color: palette.eye)
-                }
-            }
-        case .negativeSpace:
-            // Punch through: paint the cosmetic theater background behind the
-            // eyes. We approximate by erasing to a darker accent (the renderer
-            // doesn't have direct access to the surface backdrop here).
-            for row in 0..<eyeHeight {
-                for col in 0..<eyeWidth {
-                    fillCell(context: &context, rect: rect, x: leftEyeX + col, y: eyeY + row, color: Color.black.opacity(0.62))
-                    fillCell(context: &context, rect: rect, x: rightEyeX + col, y: eyeY + row, color: Color.black.opacity(0.62))
-                }
-            }
-        }
+        drawEyes(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            leftEyeX: leftEyeX,
+            rightEyeX: rightEyeX,
+            eyeY: appliedTop + 8,
+            bodyLeft: appliedLeft,
+            bodyWidth: bodyWidth,
+            color: eyeColor,
+            shape: eyeShape
+        )
+
+        drawAccessory(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            leftEyeX: leftEyeX,
+            rightEyeX: rightEyeX,
+            eyeY: appliedTop + 8,
+            bodyLeft: appliedLeft,
+            bodyTop: appliedTop,
+            bodyWidth: bodyWidth,
+            style: accessoryStyle
+        )
+
+        drawArms(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            left: appliedLeft,
+            top: appliedTop,
+            width: bodyWidth,
+            height: bodyHeight,
+            style: armStyle,
+            offset: offset
+        )
 
         // No small mouth/belt pixels: the dock-size bodies should read as
         // clean Claude-Code-like silhouettes, not subdivided grid blocks.
@@ -354,6 +403,215 @@ struct CompanionAvatarGlyph: View {
         }
     }
 
+    private static func drawHeadStyle(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        palette: Palette,
+        left: Int,
+        top: Int,
+        width: Int,
+        style: CompanionHeadStyle
+    ) {
+        switch style {
+        case .plain:
+            return
+        case .cap:
+            for col in 5..<(width - 5) {
+                fillCell(context: &context, rect: rect, x: left + col, y: top - 2, color: palette.accent)
+            }
+            for col in 0..<8 {
+                fillCell(context: &context, rect: rect, x: left + width / 2 + col, y: top - 1, color: palette.accent)
+            }
+        case .crown:
+            let baseY = top - 2
+            for col in 6..<(width - 6) {
+                fillCell(context: &context, rect: rect, x: left + col, y: baseY, color: palette.accent)
+            }
+            for peak in [width / 4, width / 2, width * 3 / 4] {
+                fillCell(context: &context, rect: rect, x: left + peak, y: baseY - 2, color: palette.eyeBright)
+                fillCell(context: &context, rect: rect, x: left + peak - 1, y: baseY - 1, color: palette.accent)
+                fillCell(context: &context, rect: rect, x: left + peak + 1, y: baseY - 1, color: palette.accent)
+            }
+        case .visor:
+            for col in 4..<(width - 4) {
+                fillCell(context: &context, rect: rect, x: left + col, y: top + 3, color: palette.accent)
+            }
+        }
+    }
+
+    private static func drawEyes(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        palette: Palette,
+        leftEyeX: Int,
+        rightEyeX: Int,
+        eyeY: Int,
+        bodyLeft: Int,
+        bodyWidth: Int,
+        color: Color,
+        shape: CompanionEyeShape
+    ) {
+        switch shape {
+        case .square:
+            drawEyePair(context: &context, rect: rect, leftEyeX: leftEyeX, rightEyeX: rightEyeX, y: eyeY, width: 4, height: 3, color: color)
+        case .dot:
+            drawEyePair(context: &context, rect: rect, leftEyeX: leftEyeX + 1, rightEyeX: rightEyeX + 1, y: eyeY + 1, width: 2, height: 2, color: color)
+        case .bar:
+            drawEyePair(context: &context, rect: rect, leftEyeX: leftEyeX - 1, rightEyeX: rightEyeX - 1, y: eyeY + 1, width: 6, height: 2, color: color)
+        case .visor:
+            for col in 6..<(bodyWidth - 6) {
+                fillCell(context: &context, rect: rect, x: bodyLeft + col, y: eyeY + 1, color: palette.eyeBright)
+                fillCell(context: &context, rect: rect, x: bodyLeft + col, y: eyeY + 2, color: color)
+            }
+        }
+    }
+
+    private static func drawEyePair(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        leftEyeX: Int,
+        rightEyeX: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        color: Color
+    ) {
+        for row in 0..<height {
+            for col in 0..<width {
+                fillCell(context: &context, rect: rect, x: leftEyeX + col, y: y + row, color: color)
+                fillCell(context: &context, rect: rect, x: rightEyeX + col, y: y + row, color: color)
+            }
+        }
+    }
+
+    private static func drawAccessory(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        palette: Palette,
+        leftEyeX: Int,
+        rightEyeX: Int,
+        eyeY: Int,
+        bodyLeft: Int,
+        bodyTop: Int,
+        bodyWidth: Int,
+        style: CompanionAccessoryStyle
+    ) {
+        switch style {
+        case .none:
+            return
+        case .glasses:
+            drawPixelRectOutline(
+                context: &context,
+                rect: rect,
+                x: leftEyeX - 2,
+                y: eyeY - 2,
+                width: 8,
+                height: 7,
+                color: palette.eyeBright
+            )
+            drawPixelRectOutline(
+                context: &context,
+                rect: rect,
+                x: rightEyeX - 2,
+                y: eyeY - 2,
+                width: 8,
+                height: 7,
+                color: palette.eyeBright
+            )
+            for x in (leftEyeX + 6)..<rightEyeX {
+                fillCell(context: &context, rect: rect, x: x, y: eyeY + 1, color: palette.eyeBright)
+            }
+        case .mustache:
+            let mid = bodyLeft + bodyWidth / 2
+            for row in 0..<3 {
+                for col in -8...8 {
+                    let wing = abs(col)
+                    if wing > 1 && wing < 9 && row <= max(0, 2 - wing / 4) {
+                        fillCell(context: &context, rect: rect, x: mid + col, y: eyeY + 8 + row, color: palette.eye)
+                    }
+                }
+            }
+        case .hair:
+            for col in 3..<(bodyWidth - 3) {
+                fillCell(context: &context, rect: rect, x: bodyLeft + col, y: bodyTop + 1, color: palette.eye)
+            }
+            for col in stride(from: 5, to: bodyWidth - 5, by: 6) {
+                for width in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: bodyLeft + col + width, y: bodyTop + 2, color: palette.eye)
+                }
+            }
+        case .headset:
+            fillCell(context: &context, rect: rect, x: bodyLeft + 2, y: eyeY, color: palette.eyeBright)
+            fillCell(context: &context, rect: rect, x: bodyLeft + 2, y: eyeY + 1, color: palette.eyeBright)
+            fillCell(context: &context, rect: rect, x: bodyLeft + bodyWidth - 3, y: eyeY, color: palette.eyeBright)
+            fillCell(context: &context, rect: rect, x: bodyLeft + bodyWidth - 3, y: eyeY + 1, color: palette.eyeBright)
+            for row in 0..<8 {
+                fillCell(context: &context, rect: rect, x: bodyLeft + bodyWidth - 4, y: eyeY + row, color: palette.accent)
+            }
+            for col in 0..<5 {
+                fillCell(context: &context, rect: rect, x: bodyLeft + bodyWidth - 8 + col, y: eyeY + 8, color: palette.accent)
+            }
+        }
+    }
+
+    private static func drawArms(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        palette: Palette,
+        left: Int,
+        top: Int,
+        width: Int,
+        height: Int,
+        style: CompanionArmStyle,
+        offset: StepOffset
+    ) {
+        switch style {
+        case .none:
+            return
+        case .nubs:
+            for row in 0..<6 {
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + height / 2 + row - 3, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + col, y: top + height / 2 + row - 3, color: palette.body)
+                }
+            }
+        case .side:
+            for row in 0..<12 {
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + 10 + row, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + col, y: top + 10 + row, color: palette.body)
+                }
+            }
+        case .wave:
+            for row in 0..<10 {
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + 11 + row, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + min(row / 3, 2) + col, y: top + 7 + row + offset.rightLeg, color: palette.eyeBright)
+                }
+            }
+        }
+    }
+
+    private static func drawPixelRectOutline(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        color: Color
+    ) {
+        guard width > 1, height > 1 else { return }
+        for col in 0..<width {
+            fillCell(context: &context, rect: rect, x: x + col, y: y, color: color)
+            fillCell(context: &context, rect: rect, x: x + col, y: y + height - 1, color: color)
+        }
+        for row in 1..<(height - 1) {
+            fillCell(context: &context, rect: rect, x: x, y: y + row, color: color)
+            fillCell(context: &context, rect: rect, x: x + width - 1, y: y + row, color: color)
+        }
+    }
+
     private static func drawLeg(
         context: inout GraphicsContext,
         rect: CGRect,
@@ -380,7 +638,11 @@ struct CompanionAvatarGlyph: View {
         palette: Palette,
         phase: CGFloat,
         state: CompanionAnimationState,
-        offset: StepOffset
+        offset: StepOffset,
+        headStyle: CompanionHeadStyle,
+        armStyle: CompanionArmStyle,
+        eyeShape: CompanionEyeShape,
+        accessoryStyle: CompanionAccessoryStyle
     ) {
         let headSize = 10
         let bodyWidth = 24
@@ -395,12 +657,42 @@ struct CompanionAvatarGlyph: View {
                 fillCell(context: &context, rect: rect, x: headLeft + x, y: baseTop + y, color: palette.body)
             }
         }
-        // Eye highlights (two 2×1 cells).
+        drawHeadStyle(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            left: headLeft,
+            top: baseTop,
+            width: headSize,
+            style: headStyle
+        )
+
+        // Eye highlights.
         let eyeY = baseTop + 4
-        for col in 0..<2 {
-            fillCell(context: &context, rect: rect, x: headLeft + 2 + col, y: eyeY, color: palette.eye)
-            fillCell(context: &context, rect: rect, x: headLeft + headSize - 4 + col, y: eyeY, color: palette.eye)
-        }
+        drawEyes(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            leftEyeX: headLeft + 2,
+            rightEyeX: headLeft + headSize - 4,
+            eyeY: eyeY,
+            bodyLeft: headLeft,
+            bodyWidth: headSize,
+            color: palette.eye,
+            shape: eyeShape
+        )
+        drawAccessory(
+            context: &context,
+            rect: rect,
+            palette: palette,
+            leftEyeX: headLeft + 2,
+            rightEyeX: headLeft + headSize - 4,
+            eyeY: eyeY,
+            bodyLeft: headLeft,
+            bodyTop: baseTop,
+            bodyWidth: headSize,
+            style: accessoryStyle
+        )
 
         // Neck (2 cells wide).
         let neckTop = baseTop + headSize
@@ -420,12 +712,26 @@ struct CompanionAvatarGlyph: View {
 
         // Arms (3 cells wide × 8 cells tall, hanging from body's upper edge).
         let armTop = bodyTop + 2
-        let armHeight = 8
-        for y in 0..<armHeight {
-            for col in 0..<3 {
-                fillCell(context: &context, rect: rect, x: baseLeft - 3 + col, y: armTop + y, color: palette.body)
-                fillCell(context: &context, rect: rect, x: baseLeft + bodyWidth + col, y: armTop + y, color: palette.body)
+        if armStyle == .none {
+            let armHeight = 8
+            for y in 0..<armHeight {
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: baseLeft - 3 + col, y: armTop + y, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: baseLeft + bodyWidth + col, y: armTop + y, color: palette.body)
+                }
             }
+        } else {
+            drawArms(
+                context: &context,
+                rect: rect,
+                palette: palette,
+                left: baseLeft,
+                top: bodyTop,
+                width: bodyWidth,
+                height: bodyHeight,
+                style: armStyle,
+                offset: offset
+            )
         }
 
         // Legs (5 cells wide × 6 cells tall).

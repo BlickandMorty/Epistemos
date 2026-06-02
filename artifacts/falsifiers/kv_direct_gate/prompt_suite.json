@@ -1,0 +1,1018 @@
+{
+  "suite_id": "qwen3_8b_128k_kv_direct_prompt_suite_v1",
+  "model_family": "Qwen3-8B-MLX-4bit",
+  "target_context_tokens": 128000,
+  "decode_tokens_per_prompt": 256,
+  "prompt_count": 100,
+  "routes": {
+    "reference": "full_hot_kv_reference",
+    "test": "kv_direct_ssd_oracle_candidate"
+  },
+  "materialization_contract": {
+    "tokenizer": "the resolved Qwen3-8B MLX tokenizer",
+    "context_rule": "repeat anchor blocks deterministically until the tokenizer reports at least target_context_tokens, then trim on a token boundary",
+    "runner_obligation": "emit one next-token logit row per prompt for both routes plus RSS, throughput, wall-clock, context, decode, and spill labels"
+  },
+  "prompts": [
+    {
+      "id": "long_prefix_recall_000",
+      "family": "long_prefix_recall",
+      "seed": 41411,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 00 seed 41411: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_001",
+      "family": "long_prefix_recall",
+      "seed": 41412,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 01 seed 41412: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_002",
+      "family": "long_prefix_recall",
+      "seed": 41413,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 02 seed 41413: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_003",
+      "family": "long_prefix_recall",
+      "seed": 41414,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 03 seed 41414: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_004",
+      "family": "long_prefix_recall",
+      "seed": 41415,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 04 seed 41415: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_005",
+      "family": "long_prefix_recall",
+      "seed": 41416,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 05 seed 41416: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_006",
+      "family": "long_prefix_recall",
+      "seed": 41417,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 06 seed 41417: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_007",
+      "family": "long_prefix_recall",
+      "seed": 41418,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 07 seed 41418: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_008",
+      "family": "long_prefix_recall",
+      "seed": 41419,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 08 seed 41419: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_009",
+      "family": "long_prefix_recall",
+      "seed": 41420,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 09 seed 41420: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_010",
+      "family": "long_prefix_recall",
+      "seed": 41421,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 10 seed 41421: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_011",
+      "family": "long_prefix_recall",
+      "seed": 41422,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 11 seed 41422: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_012",
+      "family": "long_prefix_recall",
+      "seed": 41423,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 12 seed 41423: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_013",
+      "family": "long_prefix_recall",
+      "seed": 41424,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 13 seed 41424: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_014",
+      "family": "long_prefix_recall",
+      "seed": 41425,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 14 seed 41425: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_015",
+      "family": "long_prefix_recall",
+      "seed": 41426,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 15 seed 41426: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_016",
+      "family": "long_prefix_recall",
+      "seed": 41427,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 16 seed 41427: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_017",
+      "family": "long_prefix_recall",
+      "seed": 41428,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 17 seed 41428: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_018",
+      "family": "long_prefix_recall",
+      "seed": 41429,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 18 seed 41429: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_019",
+      "family": "long_prefix_recall",
+      "seed": 41430,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 19 seed 41430: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_020",
+      "family": "long_prefix_recall",
+      "seed": 41431,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 20 seed 41431: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_021",
+      "family": "long_prefix_recall",
+      "seed": 41432,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 21 seed 41432: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_022",
+      "family": "long_prefix_recall",
+      "seed": 41433,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 22 seed 41433: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_023",
+      "family": "long_prefix_recall",
+      "seed": 41434,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 23 seed 41434: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "long_prefix_recall_024",
+      "family": "long_prefix_recall",
+      "seed": 41435,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Ledger shard 24 seed 41435: retain the final checksum, owner, and exception clause across a very long prefix.",
+      "query": "Return the retained checksum and exception clause only if the witness is internally consistent.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_000",
+      "family": "multi_turn",
+      "seed": 45781,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 00 seed 45781: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_001",
+      "family": "multi_turn",
+      "seed": 45782,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 01 seed 45782: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_002",
+      "family": "multi_turn",
+      "seed": 45783,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 02 seed 45783: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_003",
+      "family": "multi_turn",
+      "seed": 45784,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 03 seed 45784: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_004",
+      "family": "multi_turn",
+      "seed": 45785,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 04 seed 45785: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_005",
+      "family": "multi_turn",
+      "seed": 45786,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 05 seed 45786: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_006",
+      "family": "multi_turn",
+      "seed": 45787,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 06 seed 45787: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_007",
+      "family": "multi_turn",
+      "seed": 45788,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 07 seed 45788: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_008",
+      "family": "multi_turn",
+      "seed": 45789,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 08 seed 45789: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_009",
+      "family": "multi_turn",
+      "seed": 45790,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 09 seed 45790: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_010",
+      "family": "multi_turn",
+      "seed": 45791,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 10 seed 45791: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_011",
+      "family": "multi_turn",
+      "seed": 45792,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 11 seed 45792: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_012",
+      "family": "multi_turn",
+      "seed": 45793,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 12 seed 45793: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_013",
+      "family": "multi_turn",
+      "seed": 45794,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 13 seed 45794: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_014",
+      "family": "multi_turn",
+      "seed": 45795,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 14 seed 45795: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_015",
+      "family": "multi_turn",
+      "seed": 45796,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 15 seed 45796: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_016",
+      "family": "multi_turn",
+      "seed": 45797,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 16 seed 45797: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_017",
+      "family": "multi_turn",
+      "seed": 45798,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 17 seed 45798: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_018",
+      "family": "multi_turn",
+      "seed": 45799,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 18 seed 45799: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_019",
+      "family": "multi_turn",
+      "seed": 45800,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 19 seed 45800: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_020",
+      "family": "multi_turn",
+      "seed": 45801,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 20 seed 45801: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_021",
+      "family": "multi_turn",
+      "seed": 45802,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 21 seed 45802: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_022",
+      "family": "multi_turn",
+      "seed": 45803,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 22 seed 45803: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_023",
+      "family": "multi_turn",
+      "seed": 45804,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 23 seed 45804: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "multi_turn_024",
+      "family": "multi_turn",
+      "seed": 45805,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Conversation block 24 seed 45805: alternate project updates, user corrections, and late-binding constraints.",
+      "query": "Resolve the last user correction against the earlier constraint and state the next action.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_000",
+      "family": "code_completion",
+      "seed": 50151,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 00 seed 50151: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_001",
+      "family": "code_completion",
+      "seed": 50152,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 01 seed 50152: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_002",
+      "family": "code_completion",
+      "seed": 50153,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 02 seed 50153: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_003",
+      "family": "code_completion",
+      "seed": 50154,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 03 seed 50154: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_004",
+      "family": "code_completion",
+      "seed": 50155,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 04 seed 50155: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_005",
+      "family": "code_completion",
+      "seed": 50156,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 05 seed 50156: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_006",
+      "family": "code_completion",
+      "seed": 50157,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 06 seed 50157: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_007",
+      "family": "code_completion",
+      "seed": 50158,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 07 seed 50158: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_008",
+      "family": "code_completion",
+      "seed": 50159,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 08 seed 50159: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_009",
+      "family": "code_completion",
+      "seed": 50160,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 09 seed 50160: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_010",
+      "family": "code_completion",
+      "seed": 50161,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 10 seed 50161: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_011",
+      "family": "code_completion",
+      "seed": 50162,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 11 seed 50162: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_012",
+      "family": "code_completion",
+      "seed": 50163,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 12 seed 50163: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_013",
+      "family": "code_completion",
+      "seed": 50164,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 13 seed 50164: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_014",
+      "family": "code_completion",
+      "seed": 50165,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 14 seed 50165: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_015",
+      "family": "code_completion",
+      "seed": 50166,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 15 seed 50166: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_016",
+      "family": "code_completion",
+      "seed": 50167,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 16 seed 50167: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_017",
+      "family": "code_completion",
+      "seed": 50168,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 17 seed 50168: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_018",
+      "family": "code_completion",
+      "seed": 50169,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 18 seed 50169: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_019",
+      "family": "code_completion",
+      "seed": 50170,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 19 seed 50170: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_020",
+      "family": "code_completion",
+      "seed": 50171,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 20 seed 50171: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_021",
+      "family": "code_completion",
+      "seed": 50172,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 21 seed 50172: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_022",
+      "family": "code_completion",
+      "seed": 50173,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 22 seed 50173: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_023",
+      "family": "code_completion",
+      "seed": 50174,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 23 seed 50174: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "code_completion_024",
+      "family": "code_completion",
+      "seed": 50175,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Source bundle 24 seed 50175: a Swift/Rust bridge sketch with hidden invariants, test names, and failure notes.",
+      "query": "Complete the bridge function signature and name the invariant that must be tested.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_000",
+      "family": "reasoning",
+      "seed": 54521,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 00 seed 54521: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_001",
+      "family": "reasoning",
+      "seed": 54522,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 01 seed 54522: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_002",
+      "family": "reasoning",
+      "seed": 54523,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 02 seed 54523: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_003",
+      "family": "reasoning",
+      "seed": 54524,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 03 seed 54524: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_004",
+      "family": "reasoning",
+      "seed": 54525,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 04 seed 54525: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_005",
+      "family": "reasoning",
+      "seed": 54526,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 05 seed 54526: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_006",
+      "family": "reasoning",
+      "seed": 54527,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 06 seed 54527: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_007",
+      "family": "reasoning",
+      "seed": 54528,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 07 seed 54528: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_008",
+      "family": "reasoning",
+      "seed": 54529,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 08 seed 54529: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_009",
+      "family": "reasoning",
+      "seed": 54530,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 09 seed 54530: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_010",
+      "family": "reasoning",
+      "seed": 54531,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 10 seed 54531: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_011",
+      "family": "reasoning",
+      "seed": 54532,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 11 seed 54532: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_012",
+      "family": "reasoning",
+      "seed": 54533,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 12 seed 54533: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_013",
+      "family": "reasoning",
+      "seed": 54534,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 13 seed 54534: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_014",
+      "family": "reasoning",
+      "seed": 54535,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 14 seed 54535: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_015",
+      "family": "reasoning",
+      "seed": 54536,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 15 seed 54536: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_016",
+      "family": "reasoning",
+      "seed": 54537,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 16 seed 54537: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_017",
+      "family": "reasoning",
+      "seed": 54538,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 17 seed 54538: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_018",
+      "family": "reasoning",
+      "seed": 54539,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 18 seed 54539: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_019",
+      "family": "reasoning",
+      "seed": 54540,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 19 seed 54540: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_020",
+      "family": "reasoning",
+      "seed": 54541,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 20 seed 54541: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_021",
+      "family": "reasoning",
+      "seed": 54542,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 21 seed 54542: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_022",
+      "family": "reasoning",
+      "seed": 54543,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 22 seed 54543: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_023",
+      "family": "reasoning",
+      "seed": 54544,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 23 seed 54544: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    },
+    {
+      "id": "reasoning_024",
+      "family": "reasoning",
+      "seed": 54545,
+      "target_context_tokens": 128000,
+      "decode_tokens": 256,
+      "anchor": "Reasoning dossier 24 seed 54545: compare two construction paths, retain rejected assumptions, and select the witnessed path.",
+      "query": "Choose the construction path with the smallest unpaid WBO term and cite the discarded assumption.",
+      "evidence_need": "next-token logits must match the full-hot-KV reference under the D_KL threshold"
+    }
+  ]
+}

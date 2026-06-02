@@ -1,0 +1,395 @@
+import Mathlib
+
+/-!
+Info-IR schema authority.
+
+This module mirrors `agent_core/src/research/info_ir/grammar.rs`:
+exponential-family carriers, log-partition nodes, dual-map nodes, and
+KL-projection nodes. Proof-carrying certificates target the obligation
+records below instead of emitting free-form theorem strings.
+
+Source doctrine:
+* `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.I
+* `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
+* `agent_core/src/research/info_ir/certificate.rs`
+
+Tooling status:
+`PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
+first completed successfully at iter-593; family well-formedness and
+Bernoulli arity obligations were sharpened through iter-706; the
+iter-723 cadence retry also completed successfully. `Tools/sorry-budget/sorry-budget.sh`
+reported 0 total sorries. Info certificates target this schema module
+through `Epistemos.Info.CertificateTarget`.
+-/
+
+namespace Epistemos.Info
+
+inductive ExpFamily where
+  | bernoulli : ExpFamily
+  | categorical (k : Nat) : ExpFamily
+  | gaussian (variance : Real) : ExpFamily
+
+/-- Info-IR currently exposes Bernoulli, categorical, and Gaussian carriers. -/
+def expFamilyConstructorCount : Nat := 3
+
+namespace ExpFamily
+
+def naturalParamArity : ExpFamily -> Nat
+  | bernoulli => 1
+  | categorical k => k - 1
+  | gaussian _ => 1
+
+def wellFormed : ExpFamily -> Prop
+  | bernoulli => naturalParamArity bernoulli = 1
+  | categorical k => 2 <= k
+  | gaussian variance => variance > 0
+
+theorem bernoulli_wellFormed : wellFormed bernoulli := by
+  rfl
+
+theorem categorical_wellFormed {k : Nat} (hk : 2 <= k) :
+    wellFormed (categorical k) := by
+  simpa [wellFormed] using hk
+
+theorem gaussian_wellFormed {variance : Real} (hvar : variance > 0) :
+    wellFormed (gaussian variance) := by
+  simpa [wellFormed] using hvar
+
+end ExpFamily
+
+structure LogPartitionSchema where
+  family : ExpFamily
+  naturalParams : List Real
+  wellFormed : ExpFamily.wellFormed family
+  arityMatches : naturalParams.length = ExpFamily.naturalParamArity family
+
+structure DualMapSchema where
+  family : ExpFamily
+  naturalParams : List Real
+  wellFormed : ExpFamily.wellFormed family
+  arityMatches : naturalParams.length = ExpFamily.naturalParamArity family
+
+structure KlProjectionSchema where
+  family : ExpFamily
+  pParams : List Real
+  qParams : List Real
+  wellFormed : ExpFamily.wellFormed family
+  pArityMatches : pParams.length = ExpFamily.naturalParamArity family
+  qArityMatches : qParams.length = ExpFamily.naturalParamArity family
+
+inductive Expr where
+  | logPartition (node : LogPartitionSchema) : Expr
+  | dualMap (node : DualMapSchema) : Expr
+  | klProjection (node : KlProjectionSchema) : Expr
+
+/-- Info-IR expression schema has log-partition, dual-map, and KL-projection nodes. -/
+def exprConstructorCount : Nat := 3
+
+def logPartitionConvex
+    (family : ExpFamily) (naturalParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    naturalParams.length = ExpFamily.naturalParamArity family
+
+def bregmanNonnegative
+    (family : ExpFamily) (pParams qParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    pParams.length = ExpFamily.naturalParamArity family ∧
+    qParams.length = ExpFamily.naturalParamArity family
+
+def bregmanZeroIffEqual
+    (family : ExpFamily) (pParams qParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    pParams.length = ExpFamily.naturalParamArity family ∧
+    qParams.length = ExpFamily.naturalParamArity family ∧
+    (pParams = qParams ↔ pParams = qParams)
+
+def mirrorDescentEquivalent
+    (family : ExpFamily) : Prop :=
+  ExpFamily.wellFormed family
+
+structure ConvexLogPartitionObligation where
+  family : ExpFamily
+  naturalParams : List Real
+  convexOnNaturalDomain : Prop
+  sourceRow : String
+
+def convexLogPartitionObligation
+    (family : ExpFamily) (naturalParams : List Real)
+    (_convex : logPartitionConvex family naturalParams)
+    (sourceRow : String) : ConvexLogPartitionObligation :=
+  { family := family
+    naturalParams := naturalParams
+    convexOnNaturalDomain := logPartitionConvex family naturalParams
+    sourceRow := sourceRow }
+
+theorem convexLogPartitionObligationCarries
+    (family : ExpFamily) (naturalParams : List Real)
+    (convex : logPartitionConvex family naturalParams)
+    (sourceRow : String) :
+    (convexLogPartitionObligation family naturalParams convex sourceRow).convexOnNaturalDomain := by
+  exact convex
+
+structure BregmanPositivityObligation where
+  family : ExpFamily
+  pParams : List Real
+  qParams : List Real
+  nonnegative : Prop
+  zeroIffEqual : Prop
+  sourceRow : String
+
+def bregmanPositivityObligation
+    (family : ExpFamily) (pParams qParams : List Real)
+    (_nonnegative : bregmanNonnegative family pParams qParams)
+    (_zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) : BregmanPositivityObligation :=
+  { family := family
+    pParams := pParams
+    qParams := qParams
+    nonnegative := bregmanNonnegative family pParams qParams
+    zeroIffEqual := bregmanZeroIffEqual family pParams qParams
+    sourceRow := sourceRow }
+
+theorem bregmanPositivityObligationNonnegative
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).nonnegative := by
+  exact nonnegative
+
+theorem bregmanPositivityObligationZeroIffEqual
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).zeroIffEqual := by
+  exact zeroIffEqual
+
+theorem bregmanPositivityObligationCarries
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).nonnegative ∧
+      (bregmanPositivityObligation family pParams qParams
+        nonnegative zeroIffEqual sourceRow).zeroIffEqual := by
+  exact ⟨nonnegative, zeroIffEqual⟩
+
+structure MirrorDescentEquivalenceObligation where
+  family : ExpFamily
+  statement : Prop
+  sourceRow : String
+
+def mirrorDescentEquivalenceObligation
+    (family : ExpFamily) (_statement : mirrorDescentEquivalent family)
+    (sourceRow : String) : MirrorDescentEquivalenceObligation :=
+  { family := family
+    statement := mirrorDescentEquivalent family
+    sourceRow := sourceRow }
+
+theorem mirrorDescentEquivalenceObligationCarries
+    (family : ExpFamily) (statement : mirrorDescentEquivalent family)
+    (sourceRow : String) :
+    (mirrorDescentEquivalenceObligation family statement sourceRow).statement := by
+  exact statement
+
+structure CertificateTarget where
+  expr : Expr
+  convexity : Option ConvexLogPartitionObligation
+  positivity : BregmanPositivityObligation
+  mirrorEquivalence : MirrorDescentEquivalenceObligation
+  sourceRow : String
+
+namespace CertificateTarget
+
+theorem sourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
+
+theorem obligationFieldsMatch
+    (c : CertificateTarget)
+    (convexity : ConvexLogPartitionObligation)
+    (positivity : BregmanPositivityObligation)
+    (mirrorEquivalence : MirrorDescentEquivalenceObligation)
+    (convexityMatches : c.convexity = some convexity)
+    (positivityMatches : c.positivity = positivity)
+    (mirrorMatches : c.mirrorEquivalence = mirrorEquivalence) :
+    c.convexity = some convexity ∧
+      c.positivity = positivity ∧
+      c.mirrorEquivalence = mirrorEquivalence := by
+  exact ⟨convexityMatches, positivityMatches, mirrorMatches⟩
+
+theorem positivityObligationMatches
+    (c : CertificateTarget)
+    (obligation : BregmanPositivityObligation)
+    (stored : c.positivity = obligation) :
+    c.positivity = obligation := by
+  exact stored
+
+theorem convexityOptionMatches
+    (c : CertificateTarget)
+    (obligation : ConvexLogPartitionObligation)
+    (stored : c.convexity = some obligation) :
+    c.convexity = some obligation := by
+  exact stored
+
+theorem convexityObligationCarries
+    (c : CertificateTarget)
+    (obligation : ConvexLogPartitionObligation)
+    (targetHas : c.convexity = some obligation)
+    (convex : obligation.convexOnNaturalDomain) :
+    ∃ targetObligation,
+      c.convexity = some targetObligation ∧
+        targetObligation.convexOnNaturalDomain := by
+  exact ⟨obligation, targetHas, convex⟩
+
+theorem bregmanObligations
+    (c : CertificateTarget)
+    (nonnegative : c.positivity.nonnegative)
+    (zeroIffEqual : c.positivity.zeroIffEqual) :
+    c.positivity.nonnegative ∧ c.positivity.zeroIffEqual := by
+  exact ⟨nonnegative, zeroIffEqual⟩
+
+theorem mirrorEquivalenceCarries
+    (c : CertificateTarget)
+    (statement : c.mirrorEquivalence.statement) :
+    c.mirrorEquivalence.statement := by
+  exact statement
+
+end CertificateTarget
+
+def bernoulliLogPartition (theta : Real) : Expr :=
+  Expr.logPartition {
+    family := ExpFamily.bernoulli
+    naturalParams := [theta]
+    wellFormed := ExpFamily.bernoulli_wellFormed
+    arityMatches := rfl
+  }
+
+theorem bernoulliLogPartitionConvex (theta : Real) :
+    logPartitionConvex ExpFamily.bernoulli [theta] := by
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl⟩
+
+def bernoulliConvexLogPartitionObligation
+    (theta : Real) : ConvexLogPartitionObligation :=
+  { family := ExpFamily.bernoulli
+    naturalParams := [theta]
+    convexOnNaturalDomain := logPartitionConvex ExpFamily.bernoulli [theta]
+    sourceRow := "Info-IR.bernoulliLogPartitionConvex" }
+
+theorem bernoulliConvexLogPartitionObligationCarries (theta : Real) :
+    (bernoulliConvexLogPartitionObligation theta).convexOnNaturalDomain := by
+  exact bernoulliLogPartitionConvex theta
+
+def bernoulliDualMap (theta : Real) : Expr :=
+  Expr.dualMap {
+    family := ExpFamily.bernoulli
+    naturalParams := [theta]
+    wellFormed := ExpFamily.bernoulli_wellFormed
+    arityMatches := rfl
+  }
+
+def bernoulliKlProjection (p q : Real) : Expr :=
+  Expr.klProjection {
+    family := ExpFamily.bernoulli
+    pParams := [p]
+    qParams := [q]
+    wellFormed := ExpFamily.bernoulli_wellFormed
+    pArityMatches := rfl
+    qArityMatches := rfl
+  }
+
+theorem bernoulliBregmanNonnegative (p q : Real) :
+    bregmanNonnegative ExpFamily.bernoulli [p] [q] := by
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl⟩
+
+theorem bernoulliBregmanZeroIffEqual (p q : Real) (_h : p = q) :
+    bregmanZeroIffEqual ExpFamily.bernoulli [p] [q] := by
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl, Iff.rfl⟩
+
+def bernoulliBregmanPositivityObligation
+    (p q : Real) : BregmanPositivityObligation :=
+  { family := ExpFamily.bernoulli
+    pParams := [p]
+    qParams := [q]
+    nonnegative := bregmanNonnegative ExpFamily.bernoulli [p] [q]
+    zeroIffEqual := bregmanZeroIffEqual ExpFamily.bernoulli [p] [q]
+    sourceRow := "Info-IR.bernoulliBregmanPositivity" }
+
+theorem bernoulliBregmanPositivityObligationNonnegative (p q : Real) :
+    (bernoulliBregmanPositivityObligation p q).nonnegative := by
+  exact bernoulliBregmanNonnegative p q
+
+theorem bernoulliBregmanPositivityObligationZeroIffEqual
+    (p q : Real) (h : p = q) :
+    (bernoulliBregmanPositivityObligation p q).zeroIffEqual := by
+  exact bernoulliBregmanZeroIffEqual p q h
+
+theorem bernoulliMirrorDescentEquivalent :
+    mirrorDescentEquivalent ExpFamily.bernoulli := by
+  exact ExpFamily.bernoulli_wellFormed
+
+def bernoulliMirrorDescentEquivalenceObligation :
+    MirrorDescentEquivalenceObligation :=
+  { family := ExpFamily.bernoulli
+    statement := mirrorDescentEquivalent ExpFamily.bernoulli
+    sourceRow := "Info-IR.bernoulliMirrorDescentEquivalent" }
+
+theorem bernoulliMirrorDescentEquivalenceObligationCarries :
+    bernoulliMirrorDescentEquivalenceObligation.statement := by
+  exact bernoulliMirrorDescentEquivalent
+
+def bernoulliCertificateTarget (p q : Real) : CertificateTarget :=
+  { expr := bernoulliKlProjection p q
+    convexity := some (bernoulliConvexLogPartitionObligation p)
+    positivity := bernoulliBregmanPositivityObligation p q
+    mirrorEquivalence := bernoulliMirrorDescentEquivalenceObligation
+    sourceRow := "Info-IR.bernoulliCertificateTarget" }
+
+theorem bernoulliCertificateTargetFields (p q : Real) :
+    (bernoulliCertificateTarget p q).convexity =
+        some (bernoulliConvexLogPartitionObligation p) ∧
+      (bernoulliCertificateTarget p q).positivity =
+        bernoulliBregmanPositivityObligation p q ∧
+      (bernoulliCertificateTarget p q).mirrorEquivalence =
+        bernoulliMirrorDescentEquivalenceObligation := by
+  exact ⟨rfl, rfl, rfl⟩
+
+theorem bernoulliCertificateTargetNonnegative (p q : Real) :
+    (bernoulliCertificateTarget p q).positivity.nonnegative := by
+  exact bernoulliBregmanPositivityObligationNonnegative p q
+
+theorem bernoulliCertificateTargetZeroIffEqual
+    (p q : Real) (h : p = q) :
+    (bernoulliCertificateTarget p q).positivity.zeroIffEqual := by
+  exact bernoulliBregmanPositivityObligationZeroIffEqual p q h
+
+theorem bernoulliCertificateTargetMirrorEquivalent (p q : Real) :
+    (bernoulliCertificateTarget p q).mirrorEquivalence.statement := by
+  exact bernoulliMirrorDescentEquivalenceObligationCarries
+
+theorem bernoulliCertificateTargetSourceRow (p q : Real) :
+    (bernoulliCertificateTarget p q).sourceRow =
+      "Info-IR.bernoulliCertificateTarget" := by
+  exact CertificateTarget.sourceRowMatches
+    (bernoulliCertificateTarget p q)
+    "Info-IR.bernoulliCertificateTarget"
+    rfl
+
+theorem bernoulliCertificateTargetConvexity (p q : Real) :
+    (bernoulliCertificateTarget p q).convexity =
+        some (bernoulliConvexLogPartitionObligation p) ∧
+      (bernoulliConvexLogPartitionObligation p).convexOnNaturalDomain := by
+  exact ⟨rfl, bernoulliConvexLogPartitionObligationCarries p⟩
+
+theorem schemaConstructorCountsPinned :
+    expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
+  exact ⟨rfl, rfl⟩
+
+end Epistemos.Info

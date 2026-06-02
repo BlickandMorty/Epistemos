@@ -30,7 +30,5 @@ pub mod claim;
 pub mod seed;
 
 pub use audit::{audit_registry, RegistryAuditReport};
-pub use claim::{
-    ClaimStatus, PaperClaim, PaperRegistry, RegistryError, Venue,
-};
+pub use claim::{ClaimStatus, PaperClaim, PaperRegistry, RegistryError, Venue};
 pub use seed::seed_wave_j_registry;

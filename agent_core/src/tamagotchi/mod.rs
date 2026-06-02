@@ -32,7 +32,7 @@ pub mod sprite_atlas;
 pub mod state_smoother;
 
 pub use state_smoother::{
-    EmaSmoother, HysteresisError, SmootherError, SmoothedSignalStream, StateHysteresis,
+    EmaSmoother, HysteresisError, SmoothedSignalStream, SmootherError, StateHysteresis,
     StreamConfigError,
 };
 
@@ -145,15 +145,25 @@ impl BiometricSignal {
         arousal_normalized: f32,
     ) -> Result<Self, TamagotchiError> {
         if !hrv_rmssd_ms.is_finite() || hrv_rmssd_ms < 0.0 || hrv_rmssd_ms > 200.0 {
-            return Err(TamagotchiError::HrvOutOfRange { value: hrv_rmssd_ms });
+            return Err(TamagotchiError::HrvOutOfRange {
+                value: hrv_rmssd_ms,
+            });
         }
         if !coherence_ratio.is_finite() || !(0.0..=1.0).contains(&coherence_ratio) {
-            return Err(TamagotchiError::CoherenceOutOfRange { value: coherence_ratio });
+            return Err(TamagotchiError::CoherenceOutOfRange {
+                value: coherence_ratio,
+            });
         }
         if !arousal_normalized.is_finite() || !(0.0..=1.0).contains(&arousal_normalized) {
-            return Err(TamagotchiError::ArousalOutOfRange { value: arousal_normalized });
+            return Err(TamagotchiError::ArousalOutOfRange {
+                value: arousal_normalized,
+            });
         }
-        Ok(Self { hrv_rmssd_ms, coherence_ratio, arousal_normalized })
+        Ok(Self {
+            hrv_rmssd_ms,
+            coherence_ratio,
+            arousal_normalized,
+        })
     }
 
     /// Predicate: HRV in the Sleeping zone (`< 5.0` ms). Companion
@@ -380,7 +390,11 @@ mod tests {
         for hrv_int in 0..=200 {
             let hrv = hrv_int as f32;
             let s = BiometricSignal::new(hrv, 0.5, 0.5).unwrap();
-            assert!(!(s.is_in_sleep_zone() && s.is_in_stressed_zone()), "hrv={}", hrv);
+            assert!(
+                !(s.is_in_sleep_zone() && s.is_in_stressed_zone()),
+                "hrv={}",
+                hrv
+            );
         }
     }
 
