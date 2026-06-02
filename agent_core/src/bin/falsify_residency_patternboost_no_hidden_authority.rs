@@ -12,8 +12,8 @@ use agent_core::falsifier_artifacts::{
     ArtifactKind, FallbackTier, Measurement,
 };
 use agent_core::uas::{
-    AssemblyPageRun, ProStatus, ProductBuild, ResidencyTier, UasAddress, UasAssemblyGenome,
-    UasAssemblyGenomeError, UasKind,
+    AssemblyPageRun, ColdRoutePolicyPatch, ProStatus, ProductBuild, ResidencyTier, UasAddress,
+    UasAssemblyGenome, UasAssemblyGenomeError, UasKind,
 };
 
 const FALSIFIER_ID: &str = "F-ResidencyPatternBoost-NoHiddenAuthority";
@@ -21,6 +21,7 @@ const FIXTURE_ID: &str = "residency_patternboost_no_hidden_authority_v1";
 const COMMAND: &str = "Tools/falsifiers/f_residency_patternboost_no_hidden_authority.sh";
 const RESULT: &str = "artifacts/falsifiers/residency_patternboost_no_hidden_authority/result.json";
 const ANSWER_PACKET_CAVEAT_REF: &str = "answer_packet_caveat:patternboost-dry-run-only";
+const KILL_SWITCH_REF: &str = "kill_switch:patternboost_shadow_patch";
 const RUN_EVENT_LOG_SPAN_REF: &str = "run_event_log:patternboost-shadow-span";
 const ROLLBACK_REF: &str = "rollback:static_route_policy";
 
@@ -64,6 +65,7 @@ fn main() -> std::process::ExitCode {
 fn build_report(
 ) -> Result<agent_core::falsifier_artifacts::FalsifierArtifact, Box<dyn std::error::Error>> {
     let genome = accepted_shadow_genome()?;
+    let policy_patch = accepted_shadow_policy_patch();
     let direct_live_authority_rejected = UasAssemblyGenome::new(
         "citation_heavy_research",
         route_card_ref(),
@@ -213,6 +215,40 @@ fn build_report(
         == UasAssemblyGenomeError::UnsupportedTransportPageRunSourceUri {
             source_uri: "https://example.invalid/coldstore/page.epwp".to_string(),
         };
+    let live_policy_patch_rejected = ColdRoutePolicyPatch::new(
+        "runtime_router:live_patternboost_policy",
+        tournament_trace_ref(),
+        "metrics:static_baseline",
+        "delta:held_out_route_win",
+        "held_out:mission_family_v1",
+        "shadow_policy_patch",
+        KILL_SWITCH_REF,
+        ROLLBACK_REF,
+        RUN_EVENT_LOG_SPAN_REF,
+        ANSWER_PACKET_CAVEAT_REF,
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        ResidencyTier::CapabilityCeiling,
+        1_779_000_000_000,
+    )
+    .is_err();
+    let unscoped_policy_patch_rejected = ColdRoutePolicyPatch::new(
+        "runtime_router:shadow_patternboost_route",
+        tournament_trace_ref(),
+        "metrics:static_baseline",
+        "delta:held_out_route_win",
+        "held_out:mission_family_v1",
+        "live_policy_patch",
+        KILL_SWITCH_REF,
+        ROLLBACK_REF,
+        RUN_EVENT_LOG_SPAN_REF,
+        ANSWER_PACKET_CAVEAT_REF,
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        ResidencyTier::CapabilityCeiling,
+        1_779_000_000_000,
+    )
+    .is_err();
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -309,6 +345,51 @@ fn build_report(
         &mut pass_per_axis,
         "network_transport_rejected",
         network_transport_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_route_policy_patch_shape_valid",
+        policy_patch.validate_shape().is_ok(),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_route_policy_patch_shadow_scoped",
+        policy_patch
+            .target_policy
+            .starts_with("runtime_router:shadow_")
+            && policy_patch.rollout_scope.starts_with("shadow_"),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_route_policy_patch_kill_switch_bound",
+        policy_patch.kill_switch.starts_with("kill_switch:"),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_route_policy_patch_rollback_bound",
+        policy_patch.rollback_ref.starts_with("rollback:"),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "live_policy_patch_rejected",
+        live_policy_patch_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "unscoped_policy_patch_rejected",
+        unscoped_policy_patch_rejected,
     );
     add_count_eq_axis(
         &mut measurements,
@@ -415,6 +496,26 @@ fn accepted_shadow_genome() -> Result<UasAssemblyGenome, UasAssemblyGenomeError>
     )
 }
 
+fn accepted_shadow_policy_patch() -> ColdRoutePolicyPatch {
+    ColdRoutePolicyPatch::new(
+        "runtime_router:shadow_patternboost_route",
+        tournament_trace_ref(),
+        "metrics:static_baseline",
+        "delta:held_out_route_win",
+        "held_out:mission_family_v1",
+        "shadow_policy_patch",
+        KILL_SWITCH_REF,
+        ROLLBACK_REF,
+        RUN_EVENT_LOG_SPAN_REF,
+        ANSWER_PACKET_CAVEAT_REF,
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        ResidencyTier::CapabilityCeiling,
+        1_779_000_000_000,
+    )
+    .expect("shadow policy patch fixture must stay valid")
+}
+
 fn addr(kind: UasKind, label: &[u8]) -> UasAddress {
     UasAddress::new(kind, label, 1_779_000_000_000)
 }
@@ -423,6 +524,13 @@ fn route_card_ref() -> UasAddress {
     addr(
         UasKind::Other("app_cold_store_route_card".to_string()),
         b"route-card",
+    )
+}
+
+fn tournament_trace_ref() -> UasAddress {
+    addr(
+        UasKind::Other("assembly_tournament_trace".to_string()),
+        b"tournament-trace",
     )
 }
 
