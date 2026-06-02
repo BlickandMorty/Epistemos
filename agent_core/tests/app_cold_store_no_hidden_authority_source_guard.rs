@@ -75,6 +75,10 @@ fn patternboost_genomes_stay_shadow_dry_run_and_witness_bound() {
         "validate_run_event_log_span_ref(&run_event_log_span_ref)?",
         "validate_answer_packet_caveat_ref(&answer_packet_caveat_ref)?",
         "is_shadow_or_dry_run_route_id(route_id)",
+        "is_baseline_fallback_route_id(route_id)",
+        "FALLBACK_ROUTE_ID_PREFIXES",
+        "\"baseline_\"",
+        "\"fallback_\"",
         "\"shadow_\"",
         "\"dry_run_\"",
     ] {
