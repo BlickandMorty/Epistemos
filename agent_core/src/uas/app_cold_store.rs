@@ -581,6 +581,12 @@ fn validate_app_cold_store_source_uri(
     })
 }
 
+pub(crate) fn app_cold_store_source_uri_is_app_owned(source_uri: &str) -> bool {
+    has_source_uri_payload(source_uri, "app-support://")
+        || has_source_uri_payload(source_uri, "app-group://")
+        || has_source_uri_payload(source_uri, "app-cache://")
+}
+
 fn has_source_uri_payload(source_uri: &str, prefix: &str) -> bool {
     source_uri
         .strip_prefix(prefix)
