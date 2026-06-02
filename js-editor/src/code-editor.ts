@@ -101,7 +101,7 @@ function themeExtension(state: CodeEditorState): Extension {
       fontSize: `${fontSize}px`,
     },
     '.cm-scroller': {
-      fontFamily: '"SF Mono", "SFMono-Regular", Menlo, Monaco, ui-monospace, Consolas, monospace',
+      fontFamily: 'Menlo, Monaco, "SF Mono", "SFMono-Regular", ui-monospace, Consolas, monospace',
     },
     '.cm-content': {
       minHeight: '100%',
@@ -112,6 +112,10 @@ function themeExtension(state: CodeEditorState): Extension {
       outline: 'none',
     },
   });
+}
+
+function textFromState(state: CodeEditorState, fallback: string): string {
+  return typeof state.text === 'string' ? state.text : fallback;
 }
 
 function wrappingExtension(wrapLines: boolean | undefined): Extension {
@@ -228,7 +232,7 @@ function baseExtensions(): Extension[] {
 function createEditor(state: CodeEditorState) {
   setCSSVars(state);
   const startState = EditorState.create({
-    doc: state.text || '',
+    doc: textFromState(state, ''),
     extensions: [
       ...baseExtensions(),
       languageCompartment.of(languageExtension(state.language)),
@@ -259,7 +263,7 @@ function applyState(state: CodeEditorState) {
   if (state.showLineNumbers !== lastState.showLineNumbers) effects.push(gutterCompartment.reconfigure(gutterExtension(state.showLineNumbers)));
 
   const currentText = view.state.doc.toString();
-  const nextText = state.text || '';
+  const nextText = textFromState(state, currentText);
   const preserveLocalText = currentText !== nextText
     && lastLocalText === currentText
     && Date.now() - lastLocalEditAt < 2000
@@ -271,10 +275,13 @@ function applyState(state: CodeEditorState) {
 
   if (effects.length || changes) {
     isApplyingSwiftState = true;
-    view.dispatch({ effects, changes });
-    isApplyingSwiftState = false;
+    try {
+      view.dispatch({ effects, changes });
+    } finally {
+      isApplyingSwiftState = false;
+    }
   }
-  lastState = preserveLocalText ? { ...state, text: currentText } : { ...state };
+  lastState = preserveLocalText ? { ...state, text: currentText } : { ...state, text: nextText };
 }
 
 window.epistemosCodeEditor = {

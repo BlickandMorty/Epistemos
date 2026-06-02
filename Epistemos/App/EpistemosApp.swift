@@ -72,15 +72,17 @@ private struct AuditMinimalHomeSceneView: View {
 private struct HomeSceneRootContent: View {
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let setupCompleteKey = "epistemos.setupComplete"
 
     let bootstrap: AppBootstrap
     @Binding var showQuickCapture: Bool
-    @AppStorage("epistemos.setupComplete") private var setupComplete = false
+    @State private var setupComplete = UserDefaults.standard.bool(forKey: setupCompleteKey)
     // ISSUE-2026-05-12-002 — post-setup vault re-prompt. Per-launch
     // flag that resets when the app cold-starts; lets the user dismiss
     // the re-prompt this session if they really want to use the app
     // vault-less, but re-fires next launch so they don't forget.
     @State private var vaultReprompDismissedThisSession = false
+    @State private var setupAssistantPresented = false
 
     var body: some View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
@@ -90,12 +92,10 @@ private struct HomeSceneRootContent: View {
                 showQuickCapture: $showQuickCapture
             )
                 .withAppEnvironment(bootstrap)
-                .sheet(isPresented: Binding(
-                    get: { !setupComplete },
-                    set: { if !$0 { setupComplete = true } }
-                )) {
+                .sheet(isPresented: $setupAssistantPresented) {
                     SetupAssistantView {
-                        setupComplete = true
+                        markSetupComplete()
+                        setupAssistantPresented = false
                     }
                     .withAppEnvironment(bootstrap)
                 }
@@ -211,6 +211,7 @@ private struct HomeSceneRootContent: View {
                     showQuickCapture = true
                 }
                 .onAppear {
+                    reconcileSetupAssistantPresentation()
                     guard !Self.isRunningTests else { return }
                     StatusBar.shared.setup()
                     HologramController.shared.setup(
@@ -223,6 +224,14 @@ private struct HomeSceneRootContent: View {
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
                         await bootstrap.performPrimaryLaunchInitialization()
+                    }
+                }
+                .onChange(of: setupComplete) { _, _ in
+                    reconcileSetupAssistantPresentation()
+                }
+                .onChange(of: setupAssistantPresented) { _, isPresented in
+                    if !isPresented && !setupComplete {
+                        markSetupComplete()
                     }
                 }
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
@@ -242,6 +251,16 @@ private struct HomeSceneRootContent: View {
                     // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
                 }
         }
+    }
+
+    private func reconcileSetupAssistantPresentation() {
+        setupAssistantPresented = !setupComplete
+    }
+
+    private func markSetupComplete() {
+        guard !setupComplete else { return }
+        UserDefaults.standard.set(true, forKey: Self.setupCompleteKey)
+        setupComplete = true
     }
 }
 
@@ -896,6 +915,134 @@ struct EpistemosApp: App {
 
 // MARK: - App Delegate (Dock Menu + Native Hooks)
 
+@MainActor
+enum KnowledgeGraphShortcutDispatcher {
+    private static let log = Logger(subsystem: "com.epistemos", category: "KnowledgeGraphShortcut")
+    private static let duplicateToggleWindow: TimeInterval = 0.18
+    private static let deferredOpenPollNanoseconds: UInt64 = 250_000_000
+    private static let deferredOpenMaxPolls = 240
+
+    private static var lastToggleUptime: TimeInterval = 0
+    private static var pendingDeferredOpenTask: Task<Void, Never>?
+
+    static func toggle(reduceMotion: Bool = false) {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastToggleUptime > duplicateToggleWindow else { return }
+        lastToggleUptime = now
+
+        guard let bootstrap = AppBootstrap.shared else {
+            HologramController.shared.toggle()
+            return
+        }
+
+        // Closing an already-open graph is safe and should remain immediate.
+        if HologramController.shared.isVisible {
+            pendingDeferredOpenTask?.cancel()
+            pendingDeferredOpenTask = nil
+            HologramController.shared.hide()
+            return
+        }
+
+        if bootstrap.uiState.homeContent == .graph {
+            pendingDeferredOpenTask?.cancel()
+            pendingDeferredOpenTask = nil
+            setEmbeddedGraphVisible(false, bootstrap: bootstrap, reduceMotion: reduceMotion)
+            return
+        }
+
+        if let pendingDeferredOpenTask {
+            pendingDeferredOpenTask.cancel()
+            Self.pendingDeferredOpenTask = nil
+            log.info("Canceled deferred knowledge graph open")
+            return
+        }
+
+        if isLocalGenerationActive(bootstrap) {
+            scheduleDeferredOpen(bootstrap: bootstrap, reduceMotion: reduceMotion)
+            return
+        }
+
+        openGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+    }
+
+    private static func isLocalGenerationActive(_ bootstrap: AppBootstrap) -> Bool {
+        bootstrap.chatState.isStreaming || bootstrap.dialogueChatState.isStreaming
+    }
+
+    private static func scheduleDeferredOpen(bootstrap: AppBootstrap, reduceMotion: Bool) {
+        guard pendingDeferredOpenTask == nil else { return }
+        log.info("Deferring knowledge graph open while local generation is active")
+
+        pendingDeferredOpenTask = Task { @MainActor in
+            defer { pendingDeferredOpenTask = nil }
+            for _ in 0..<deferredOpenMaxPolls {
+                guard !Task.isCancelled else { return }
+                if !isLocalGenerationActive(bootstrap) {
+                    openGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+                    return
+                }
+                try? await Task.sleep(nanoseconds: deferredOpenPollNanoseconds)
+            }
+            log.warning("Dropped deferred knowledge graph open after generation did not settle")
+        }
+    }
+
+    private static func openGraph(bootstrap: AppBootstrap, reduceMotion: Bool) {
+        switch bootstrap.graphState.graphViewLocation {
+        case .miniPanel:
+            if bootstrap.uiState.homeContent == .graph {
+                bootstrap.uiState.homeContent = .greeting
+            }
+            HologramController.shared.toggle()
+
+        case .embedded:
+            if HologramController.shared.isVisible {
+                HologramController.shared.hide()
+            }
+            bootstrap.chatState.goHome()
+            bootstrap.uiState.homeTab = .home
+            bootstrap.uiState.setActivePanel(.home)
+            HomeWindowIdentity.surfaceHomeWindow()
+            setEmbeddedGraphVisible(true, bootstrap: bootstrap, reduceMotion: reduceMotion)
+        }
+    }
+
+    private static func setEmbeddedGraphVisible(
+        _ visible: Bool,
+        bootstrap: AppBootstrap,
+        reduceMotion: Bool
+    ) {
+        let update = {
+            bootstrap.uiState.homeContent = visible ? .graph : .greeting
+        }
+
+        if reduceMotion {
+            update()
+        } else {
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)) {
+                update()
+            }
+        }
+    }
+}
+
+private enum KnowledgeGraphKeyEventMonitor {
+    nonisolated static func handle(_ event: NSEvent) -> NSEvent? {
+        let cmdOnly = event.modifierFlags
+            .intersection([.command, .shift, .option, .control]) == .command
+        guard cmdOnly,
+              event.charactersIgnoringModifiers?.lowercased() == "g"
+        else { return event }
+
+        DispatchQueue.main.async {
+            Task { @MainActor in
+                KnowledgeGraphShortcutDispatcher.toggle()
+            }
+        }
+        return nil
+    }
+}
+
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -1002,15 +1149,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         // returned token MUST be retained — without storing it the
         // monitor is deallocated immediately and never fires (the bug
         // the user hit in the first attempt).
-        cmdGEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let cmdOnly = event.modifierFlags
-                .intersection([.command, .shift, .option, .control]) == .command
-            guard cmdOnly,
-                  event.charactersIgnoringModifiers?.lowercased() == "g"
-            else { return event }
-            HologramController.shared.toggle()
-            return nil
-        }
+        cmdGEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .keyDown,
+            handler: KnowledgeGraphKeyEventMonitor.handle
+        )
         guard !Self.isRunningTests else { return }
 
         #if EPISTEMOS_APP_STORE
@@ -1157,12 +1299,12 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     @objc private func toggleKnowledgeGraphFromMenu(_ sender: NSMenuItem) {
-        HologramController.shared.toggle()
+        KnowledgeGraphShortcutDispatcher.toggle()
     }
 
     @objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?) {
         guard let epdoc = activeEpdocDocument() else {
-            HologramController.shared.toggle()
+            KnowledgeGraphShortcutDispatcher.toggle()
             return
         }
         HologramController.shared.revealDocument(epdoc.package.manifest.id)
@@ -1288,7 +1430,7 @@ struct EpistemosCommands: Commands {
             .keyboardShortcut("3", modifiers: .command)
 
             Button("Knowledge Graph") {
-                HologramController.shared.toggle()
+                KnowledgeGraphShortcutDispatcher.toggle()
             }
             .keyboardShortcut("g", modifiers: .command)
 

@@ -646,6 +646,9 @@ struct LandingView: View {
     private var landingGreetingStage: some View {
         ZStack {
             LiquidGreeting(
+                theme: theme,
+                windowOccluded: ui.windowOccluded,
+                typewriterEnabled: ui.landingGreetingTypewriterEnabled,
                 retractNow: .constant(false),
                 searchMode: showingLandingStageCommand,
                 searchText: ""
