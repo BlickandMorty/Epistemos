@@ -45,6 +45,10 @@ actor VaultParser {
     private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown"]
     private static let textExtensions: Set<String> = ["txt", "text"]
     private static let audioExtensions: Set<String> = ["m4a", "mp3", "wav", "ogg", "flac"]
+    private static let maxTextFileBytes = 8 * 1024 * 1024
+    private static let maxPDFFileBytes = 75 * 1024 * 1024
+    private static let maxPDFPageCount = 500
+    private static let maxPDFExtractedCharacters = 1_000_000
 
     // MARK: - SDPage-based parsing (primary path for Knowledge Fusion)
 
@@ -159,7 +163,7 @@ actor VaultParser {
         let rawText: String
         switch fileType {
         case .markdown, .text:
-            rawText = try String(contentsOf: url, encoding: .utf8)
+            rawText = try boundedTextFileString(from: url)
         case .pdf:
             rawText = try extractPDFText(from: url)
         case .audio:
@@ -217,28 +221,60 @@ actor VaultParser {
         return nil
     }
 
+    private func boundedTextFileString(from url: URL) throws -> String {
+        try validateFileSize(
+            url,
+            maxBytes: Self.maxTextFileBytes,
+            fileType: "text"
+        )
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
     private func extractPDFText(from url: URL) throws -> String {
+        try validateFileSize(
+            url,
+            maxBytes: Self.maxPDFFileBytes,
+            fileType: "PDF"
+        )
         guard let document = PDFDocument(url: url) else {
             throw VaultParserError.pdfLoadFailed(url)
         }
         var pages: [String] = []
-        pages.reserveCapacity(document.pageCount)
-        for i in 0..<document.pageCount {
+        pages.reserveCapacity(min(document.pageCount, Self.maxPDFPageCount))
+        var remainingCharacters = Self.maxPDFExtractedCharacters
+        for i in 0..<min(document.pageCount, Self.maxPDFPageCount) {
             if let page = document.page(at: i), let text = page.string {
-                pages.append(text)
+                guard remainingCharacters > 0 else { break }
+                if text.count <= remainingCharacters {
+                    pages.append(text)
+                    remainingCharacters -= text.count
+                } else {
+                    pages.append(String(text.prefix(remainingCharacters)))
+                    remainingCharacters = 0
+                }
             }
         }
         return pages.joined(separator: "\n\n")
+    }
+
+    private func validateFileSize(_ url: URL, maxBytes: Int, fileType: String) throws {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        guard let fileSize = values.fileSize, fileSize <= maxBytes else {
+            throw VaultParserError.fileTooLarge(url, fileType: fileType, maxBytes: maxBytes)
+        }
     }
 }
 
 enum VaultParserError: Error, LocalizedError {
     case pdfLoadFailed(URL)
+    case fileTooLarge(URL, fileType: String, maxBytes: Int)
 
     var errorDescription: String? {
         switch self {
         case .pdfLoadFailed(let url):
             return "Failed to load PDF: \(url.lastPathComponent)"
+        case .fileTooLarge(let url, let fileType, let maxBytes):
+            return "\(fileType) file is too large to import: \(url.lastPathComponent) exceeds \(maxBytes) bytes"
         }
     }
 }
