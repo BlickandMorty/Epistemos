@@ -24,6 +24,7 @@ const ANSWER_PACKET_CAVEAT_PREFIX: &str = "answer_packet_caveat:";
 const ROLLBACK_REF_PREFIX: &str = "rollback:";
 const RUN_EVENT_LOG_REF_PREFIX: &str = "run_event_log:";
 const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
+const FALLBACK_ROUTE_ID_PREFIXES: [&str; 3] = ["baseline_", "fallback_", "static_"];
 const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 5] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
     LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID,
@@ -559,7 +560,7 @@ fn validate_runtime_router_route(
         let is_allowed = if field == "runtime_route_id" {
             is_shadow_or_dry_run_route_id(route_id)
         } else {
-            is_runtime_route_id(route_id)
+            is_baseline_fallback_route_id(route_id)
         };
         if is_allowed {
             return Ok(());
@@ -581,6 +582,15 @@ fn is_runtime_route_id(route_id: &str) -> bool {
 fn is_shadow_or_dry_run_route_id(route_id: &str) -> bool {
     is_runtime_route_id(route_id)
         && ["shadow_", "dry_run_"].iter().any(|prefix| {
+            route_id
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| !suffix.is_empty())
+        })
+}
+
+fn is_baseline_fallback_route_id(route_id: &str) -> bool {
+    is_runtime_route_id(route_id)
+        && FALLBACK_ROUTE_ID_PREFIXES.iter().any(|prefix| {
             route_id
                 .strip_prefix(prefix)
                 .is_some_and(|suffix| !suffix.is_empty())
@@ -1262,6 +1272,44 @@ mod tests {
             UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
                 field: "runtime_route_id",
                 route: runtime_route.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_live_candidate_fallback_route() {
+        let fallback_route = "runtime_router:live_patternboost_policy";
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            fallback_route,
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: fallback_route.to_string()
             }
         );
     }
