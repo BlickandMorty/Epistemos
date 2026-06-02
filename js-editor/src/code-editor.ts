@@ -72,6 +72,8 @@ let view: EditorView | null = null;
 let lastState: CodeEditorState = {};
 let isApplyingSwiftState = false;
 let changeTimer = 0;
+let lastLocalEditAt = 0;
+let lastLocalText: string | null = null;
 
 function post(payload: Record<string, unknown>) {
   window.webkit?.messageHandlers?.epistemosCodeEditor?.postMessage(payload);
@@ -170,17 +172,21 @@ function sendCursor(editor: EditorView = requireView()) {
   });
 }
 
+function postChange(editor: EditorView = requireView()) {
+  const doc = editor.state.doc;
+  const text = doc.toString();
+  lastLocalText = text;
+  post({
+    kind: 'change',
+    text,
+    lineCount: doc.lines,
+    ...cursorInfo(editor),
+  });
+}
+
 function sendChange(editor: EditorView = requireView()) {
   window.clearTimeout(changeTimer);
-  changeTimer = window.setTimeout(() => {
-    const doc = editor.state.doc;
-    post({
-      kind: 'change',
-      text: doc.toString(),
-      lineCount: doc.lines,
-      ...cursorInfo(editor),
-    });
-  }, 120);
+  postChange(editor);
 }
 
 function baseExtensions(): Extension[] {
@@ -212,6 +218,7 @@ function baseExtensions(): Extension[] {
     EditorView.updateListener.of((update) => {
       if (update.selectionSet) sendCursor(update.view);
       if (update.docChanged && !isApplyingSwiftState) {
+        lastLocalEditAt = Date.now();
         sendChange(update.view);
       }
     }),
@@ -253,7 +260,12 @@ function applyState(state: CodeEditorState) {
 
   const currentText = view.state.doc.toString();
   const nextText = state.text || '';
+  const preserveLocalText = currentText !== nextText
+    && lastLocalText === currentText
+    && Date.now() - lastLocalEditAt < 2000
+    && nextText === (lastState.text || '');
   const changes = currentText === nextText
+    || preserveLocalText
     ? undefined
     : { from: 0, to: currentText.length, insert: nextText };
 
@@ -262,7 +274,7 @@ function applyState(state: CodeEditorState) {
     view.dispatch({ effects, changes });
     isApplyingSwiftState = false;
   }
-  lastState = { ...state };
+  lastState = preserveLocalText ? { ...state, text: currentText } : { ...state };
 }
 
 window.epistemosCodeEditor = {
@@ -284,3 +296,8 @@ window.epistemosCodeEditor = {
 };
 
 post({ kind: 'ready' });
+window.addEventListener('pagehide', () => {
+  if (view && lastLocalText !== view.state.doc.toString()) {
+    postChange(view);
+  }
+});

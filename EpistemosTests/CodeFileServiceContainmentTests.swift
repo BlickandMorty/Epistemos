@@ -174,5 +174,9 @@ struct CodeFileServiceContainmentTests {
             "CodeFileService.ServiceError must retain the pathEscapesVault case as the canonical denial signal — see RCA2-P0-002")
         #expect(source.contains("resolvingSymlinksInPath"),
             "CodeFileService must keep resolving symlinks before the containment check so symlink-escape attempts fail closed — see RCA2-P0-002")
+        #expect(source.contains("verifySourceWrite"),
+            "CodeFileService must read back source bytes before writing the sidecar or marking code files synced.")
+        #expect(source.contains("sourceVerificationFailed"),
+            "CodeFileService must expose a distinct source-verification failure instead of claiming a save succeeded.")
     }
 }

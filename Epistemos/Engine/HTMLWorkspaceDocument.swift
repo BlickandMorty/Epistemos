@@ -115,7 +115,10 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         }
 
         let now = Int64(Date().timeIntervalSince1970 * 1000)
-        let snapshot = MainActor.assumeIsolated { self.package }
+        let (snapshot, existingFileURL) = MainActor.assumeIsolated {
+            (self.package, self.fileURL)
+        }
+        try Self.validateNoStarterTemplateOverwrite(snapshot: snapshot, existingFileURL: existingFileURL)
         var copy = snapshot
         copy.manifest = HTMLWorkspaceManifest(
             id: snapshot.manifest.id,
@@ -132,6 +135,35 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             sandboxPolicy: snapshot.manifest.sandboxPolicy
         )
         return try copy.makeFileWrapper()
+    }
+
+    nonisolated private static func validateNoStarterTemplateOverwrite(
+        snapshot: HTMLWorkspacePackage,
+        existingFileURL: URL?
+    ) throws {
+        guard snapshot.isStarterTemplateContent,
+              let existingFileURL,
+              FileManager.default.fileExists(atPath: existingFileURL.path),
+              let existingPackage = existingPackage(at: existingFileURL),
+              !existingPackage.isStarterTemplateContent else {
+            return
+        }
+
+        throw NSError(
+            domain: NSCocoaErrorDomain,
+            code: NSFileWriteUnknownError,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Refusing to overwrite an existing HTML Workspace with the starter template. Reopen the workspace or use Save As if this reset was intentional."
+            ]
+        )
+    }
+
+    nonisolated private static func existingPackage(at url: URL) -> HTMLWorkspacePackage? {
+        guard let wrapper = try? FileWrapper(url: url, options: [.immediate]) else {
+            return nil
+        }
+        return try? HTMLWorkspacePackage(fileWrapper: wrapper)
     }
 
     nonisolated static func contentHash(

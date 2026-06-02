@@ -442,7 +442,7 @@ nonisolated enum HTMLWorkspaceDOMOutline {
         ) else { return nil }
         let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
         guard let match = expression.firstMatch(in: attributes, range: range),
-              let valueRange = Range(match.range(at: 1), in: attributes) else {
+              let valueRange = Range(match.range(at: 2), in: attributes) else {
             return nil
         }
         return String(attributes[valueRange])

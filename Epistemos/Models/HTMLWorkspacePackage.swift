@@ -79,14 +79,32 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
         """
         html[data-epistemos-theme],
         html[data-epistemos-theme] body {
-          background: var(--epistemos-workspace-bg);
-          color: var(--epistemos-workspace-fg);
+          background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body :is(main, section, article, aside, header, footer, div, p, li, td, th, blockquote, figcaption, small, span, strong, em) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme] body :is(hr, .rule, .divider) {
+          border-color: var(--epistemos-workspace-border);
+          background-color: var(--epistemos-workspace-border);
+        }
+
+        html[data-epistemos-theme] body :is(a) {
+          color: var(--epistemos-workspace-accent);
         }
 
         html[data-epistemos-theme] body :is(h1, h2, .workspace-title, [data-display-title]) {
           font-family: var(--epistemos-workspace-title-font);
           font-weight: 400;
           font-synthesis: none;
+          color: var(--epistemos-workspace-fg);
+        }
+
+        html[data-epistemos-theme] body :is(h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg);
         }
 
         html[data-epistemos-theme] .metric-card strong,
@@ -97,6 +115,11 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
           font-weight: 400;
           font-synthesis: none;
           font-variant-numeric: tabular-nums;
+        }
+
+        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
+          background: var(--epistemos-workspace-card);
+          border-color: var(--epistemos-workspace-border);
         }
         """
     }
@@ -296,6 +319,14 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
         self.assets = assets
         self.snapshots = snapshots
         self.consoleErrors = consoleErrors
+    }
+
+    public var isStarterTemplateContent: Bool {
+        let starter = Self.defaultPackage()
+        return indexHTML == starter.indexHTML
+            && styleCSS == starter.styleCSS
+            && scriptJS == starter.scriptJS
+            && dataJSON == starter.dataJSON
     }
 
     public static func defaultPackage(title: String = "Untitled HTML Workspace") -> HTMLWorkspacePackage {

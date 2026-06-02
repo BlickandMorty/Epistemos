@@ -142,6 +142,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("font-synthesis: none"))
         #expect(packageSource.contains("data-metric-value"))
         #expect(packageSource.contains("html[data-epistemos-theme] .metric-card strong"))
+        #expect(packageSource.contains("background: var(--epistemos-workspace-bg) !important"))
+        #expect(packageSource.contains("color: var(--epistemos-workspace-fg) !important"))
+        #expect(packageSource.contains("body :is(main, section, article"))
+        #expect(packageSource.contains("border-color: var(--epistemos-workspace-border)"))
         #expect(packageSource.contains("legacyScriptJS"))
         #expect(packageSource.contains("validatePackageFileName"))
         #expect(packageSource.contains("case replaceDataJSON"))
@@ -167,6 +171,28 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(documentSource.contains("chatContextSnapshot("))
         #expect(!documentSource.contains("EpdocDocument"))
         #expect(bridgeSource.contains("epistemos-doc"))
+    }
+
+    @Test("document save refuses starter template overwrite of existing workspaces")
+    func documentSaveRefusesStarterTemplateOverwrite() throws {
+        let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
+        let packageSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackage.swift")
+
+        #expect(packageSource.contains("isStarterTemplateContent"))
+        #expect(documentSource.contains("validateNoStarterTemplateOverwrite"))
+        #expect(documentSource.contains("Refusing to overwrite an existing HTML Workspace with the starter template"))
+        #expect(documentSource.contains("existingPackage(at: existingFileURL)"))
+        #expect(documentSource.contains("!existingPackage.isStarterTemplateContent"))
+    }
+
+    @Test("HTML Workspace DOM outline extracts attribute values instead of names")
+    func htmlWorkspaceDOMOutlineExtractsAttributeValues() throws {
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+
+        #expect(editorSource.contains("captureAttribute(\"id\""))
+        #expect(editorSource.contains("captureAttribute(\"class\""))
+        #expect(editorSource.contains("Range(match.range(at: 2), in: attributes)"))
+        #expect(!editorSource.contains("Range(match.range(at: 1), in: attributes)"))
     }
 
     @Test("MiniChat routes HTML Workspace edits through structured patch commands")

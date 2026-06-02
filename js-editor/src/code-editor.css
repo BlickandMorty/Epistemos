@@ -42,15 +42,18 @@ html[data-theme="dark"] body {
   min-width: max-content;
   padding: 12px 18px 32px 18px;
   caret-color: var(--epi-code-caret, #2f6df6);
+  color: var(--epi-code-fg, #202124);
+  background: transparent;
 }
 
 .cm-line {
   padding: 0 2px;
+  color: var(--epi-code-fg, #202124);
 }
 
 .cm-gutters {
-  background: var(--epi-code-gutter, #f7f8fa);
-  color: var(--epi-code-muted, #8b929c);
+  background: var(--epi-code-gutter, #f7f8fa) !important;
+  color: var(--epi-code-muted, #8b929c) !important;
   border-right: 1px solid var(--epi-code-line, #eef0f3);
   font-variant-numeric: tabular-nums;
   user-select: none;
@@ -64,7 +67,7 @@ html[data-theme="dark"] body {
 
 .cm-foldGutter {
   min-width: 18px;
-  color: var(--epi-code-muted, #8b929c);
+  color: var(--epi-code-muted, #8b929c) !important;
 }
 
 .cm-foldGutter .cm-gutterElement {
