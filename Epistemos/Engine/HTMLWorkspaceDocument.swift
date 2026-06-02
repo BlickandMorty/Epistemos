@@ -189,6 +189,13 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         updateChangeCount(.changeDone)
     }
 
+    public func loadOpenedPackage(_ package: HTMLWorkspacePackage, fileURL: URL) {
+        self.package = package
+        self.fileURL = fileURL
+        self.fileType = "com.epistemos.html-workspace"
+        updateChangeCount(.changeCleared)
+    }
+
     public func applyPatch(_ operation: HTMLWorkspacePatchOperation) throws {
         setPackage(try HTMLWorkspacePatchApplier.apply(operation, to: package))
     }

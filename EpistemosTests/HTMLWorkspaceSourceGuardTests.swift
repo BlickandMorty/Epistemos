@@ -64,6 +64,22 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!epdocSlash.contains("html-dom"))
     }
 
+    @Test("existing HTML Workspace selection avoids the generic AppKit open path")
+    func existingWorkspaceSelectionUsesHTMLWorkspaceOpenHelper() throws {
+        let sidebarSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let graphSource = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
+        let controllerSource = try loadMirroredSourceTextFile("Epistemos/App/EpistemosDocumentController.swift")
+        let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
+
+        #expect(controllerSource.contains("func openHTMLWorkspaceDocument(at url: URL) throws -> HTMLWorkspaceDocument"))
+        #expect(controllerSource.contains("FileWrapper(url: standardizedURL, options: [.immediate])"))
+        #expect(controllerSource.contains("document.loadOpenedPackage(package, fileURL: standardizedURL)"))
+        #expect(documentSource.contains("func loadOpenedPackage(_ package: HTMLWorkspacePackage, fileURL: URL)"))
+        #expect(sidebarSource.contains("url.pathExtension == \"htmlworkspace\""))
+        #expect(sidebarSource.contains("openHTMLWorkspaceDocument(at: url)"))
+        #expect(graphSource.contains("openHTMLWorkspaceDocument(at: url)"))
+    }
+
     @Test("editor preview updates are debounced and diagnostics are collapsible")
     func editorDebouncesPreviewAndCollapsesDiagnostics() throws {
         let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
