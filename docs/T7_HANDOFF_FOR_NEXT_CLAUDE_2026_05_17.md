@@ -1,5 +1,7 @@
 # T7 Handoff — Deep EML Integration (§4.B) — 2026-05-17
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Status**: Session complete. Cron loop cancelled. Branch `codex/t7-eml-2026-05-16` is ready for review / merge / continuation.
 
 **For the next Claude session**: read this doc top-to-bottom before doing anything in `agent_core/src/research/eml/` or `agent_core/src/research/eml_integration/`. The work is comprehensive; further iterations should be cautious additive slices, not large rewrites.

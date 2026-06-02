@@ -6,6 +6,8 @@ supersedes:
 purpose: Stop ACS acronym drift without erasing current AcsAnchor/Kuramoto source truth.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # ACS Namespace Reconciliation - 2026-05-30
 
 This correction replaces the temporary active-cold-storage acronym patch.
@@ -25,7 +27,7 @@ research contexts until those source names are deliberately migrated.
 |---|---|---|
 | UAS | Unified Address Space: identity/address fabric for notes, claims, vectors, KV pages, model components, proofs, citations, and tool events. | Primitive identity layer. |
 | AcsAnchor / Anchored Cognitive Substrate | Existing coordinate/provenance layer carried by UAS objects. | Current source uses `AcsAnchor`, `AcsAnchorRegistry`, and `F-ACS-AnchorLookup`; do not pretend this code means cold storage. |
-| KuramotoSync / ResonanceSync | Research-tier phase/coherence candidate for coordinating firing subsets. | Legacy phrases include the old ACS/Kuramoto wording and `Kuramoto cellular resonance`; use the new names for forward work. |
+| KuramotoSync / ResonanceSync | Pro Research phase/coherence candidate for coordinating firing subsets. | Legacy phrases include the old ACS/Kuramoto wording and `Kuramoto cellular resonance`; use the new names for forward work. |
 | ColdStore / Cold Residency Layer | Dormant-but-addressable memory/model substrate. Cold objects may live on SSD/disk/mmap and active slices are pulled into RAM/UMA only when selected. | This is the user's Active Cold Storage idea. Do not abbreviate it as ACS. |
 | ResidencyGovernor | Policy that decides leases, tiers, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | Works with ColdStore; not the same as AcsAnchor. |
 | ActiveAssembly | Waking-set selector for a task. It reads from ColdStore, VaultRecall, graph, KV pages, adapters, parameter anchors, tools, and kernels. | Do not call this ACS. |

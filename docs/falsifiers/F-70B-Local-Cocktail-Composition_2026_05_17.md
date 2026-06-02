@@ -10,6 +10,8 @@ target_rig: M2 Pro 16 GB (composition feasibility) + M2 Max 64 GB / cloud cascad
 posture: RESEARCH-ONLY · NOT PRODUCT · tagged C/Vault per §4.G "Tagged C/Vault, not product"
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-70B-Local-Cocktail-Composition
 
 > Gate #12 in the §4.G falsifier ladder — the **ceiling falsifier**. **Compose ternary + Mamba-2 + KV-Direct +
@@ -49,7 +51,7 @@ Driver §4.G prose:
 
 ### §1.2 What this gate IS
 
-A **composition-feasibility study**. The output is a research-tier doc + harness that answers four questions:
+A **composition-feasibility study**. The output is a Pro Research doc + harness that answers four questions:
 
 1. Can all seven layers run in the same process without panic, memory-OOM, or substrate corruption?
 2. Does memory stay under the **published budget** (10.5 GB on M2 Pro 16 GB; 60 GB on M2 Max 64 GB)?
@@ -61,7 +63,7 @@ A **composition-feasibility study**. The output is a research-tier doc + harness
 
 | # | Layer | Falsifier (must pass first) | M2 Pro role |
 |---|---|---|---|
-| 1 | Ternary kernel lane | research-tier; supported by F-PacketRouter1bit (#10) | weight compression substrate for non-controller layers |
+| 1 | Ternary kernel lane | Pro Research; supported by F-PacketRouter1bit (#10) | weight compression substrate for non-controller layers |
 | 2 | Mamba-2 SSM track | F-SemiseparableBlockScan-Correctness (#8) PASS | controller half of hybrid (75/25 transformer/Mamba per §3.41) |
 | 3 | KV-Direct cold-spill | F-KV-Direct-Gate (#7) PASS | long-memory path for transformer half |
 | 4 | PageGather scatter | F-PageGather-M2Pro (#5) PASS | bandwidth substrate for cold-decode + sketch routing |
@@ -189,7 +191,7 @@ for §3.2 bottleneck identification.
    selector × speculative-decode, etc.) gets a focused two-layer micro-harness to catch interactions before
    the full 7-layer test.
 3. Full cocktail pass on Qwen 3 8B + Mamba-2 2.8B at 32k context (under M2 Pro 16 GB budget).
-4. (Optional, M2 Max) full cocktail pass scaled up to research-tier weights.
+4. (Optional, M2 Max) full cocktail pass scaled up to Pro Research weights.
 
 ### §5.3 Reference
 
@@ -214,7 +216,7 @@ adjustments.
    - Most likely cause: layer N's output type does not match layer N+1's input expectation (FFI / Sendable
      boundary issue).
 2. **Live RAM > 13 GB**:
-   - **Tier 1**: shrink Mamba-2 from 2.8B to a smaller research-tier checkpoint.
+   - **Pro Research size-reduction lane**: shrink Mamba-2 from 2.8B to a smaller Pro Research checkpoint.
    - **Tier 2**: aggressive KV-Direct tier eviction (force more cold-spill).
    - **Tier 3**: trim active-assembly selector firing rate (raise cost_weight).
    - **Tier 4**: drop speculative-decode (saves draft-model RAM; pure throughput trade).
@@ -237,7 +239,7 @@ The gate **passes** when ALL of the following are true:
 - [ ] Peak RAM during live run < 13 GB (M2 Pro 16 GB budget).
 - [ ] 256 tokens generated without collapse (per §3.1 collapse detection).
 - [ ] Primary bottleneck identified + documented + ranked against the other 6.
-- [ ] Research-tier doc landed at `docs/research/UAS_ACS_COCKTAIL_COMPOSITION_2026_05_17.md` (or later
+- [ ] Pro Research doc landed at `docs/research/UAS_ACS_COCKTAIL_COMPOSITION_2026_05_17.md` (or later
   date) capturing the bottleneck analysis.
 - [ ] Reproducibility: same seed produces same bottleneck identification across 3 runs.
 - [ ] `cargo test` ≥ baseline + new tests. `xcodebuild test` clean.

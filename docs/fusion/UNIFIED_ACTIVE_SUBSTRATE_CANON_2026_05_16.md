@@ -6,6 +6,17 @@
 
 **Discipline:** this doc is APPEND-ONLY for net-new surfaces; if an existing surface changes status (NOT-STARTED → PARTIAL → SHIPPED), update its row in place + log the transition in §6.
 
+**2026-06-01 supersession:** read this register through the current naming and
+residency doctrine. UAS remains the address fabric. AcsAnchor is the
+address/provenance/residency anchor. SCOPE-Rex/SovereignGate is admission and
+governance. Residency PatternBoost is the offline/idle discovery layer for
+candidate UAS assemblies, and any PatternBoost-derived route/layout policy is
+Pro Research until the falsifier bundle in
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` passes. Also
+read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` before using
+this file for active model-state, sparse residency, mmap/SSD, dynamic compute,
+or 70B-cocktail work.
+
 ---
 
 ## 1. One-paragraph definition

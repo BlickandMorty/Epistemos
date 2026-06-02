@@ -1,5 +1,7 @@
 # What's Left — 2026-05-23
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 End-of-session what's-still-open report. Covers: what shipped, what's
 waiting for user merge, the 4 Codex terminals' state, verified-floor
 status, the P-ladder, the stash open-questions, and recommended
@@ -61,7 +63,7 @@ Per the canonical chronicle:
 - **P4**: CSISafeguard orphan still violates HONEST CAPABILITY GATING doctrine
 - **P5**: System G full path (only run seam stub exists)
 - **P6**: Substrate Health WRV panel unification — partial
-- **P7**: ACS admission gate (HIGH RISK)
+- **P7**: SCOPE-Rex admission gate + AcsAnchor field (HIGH RISK)
 - **P8**: ≥5 falsifiers to PASS (currently 0/15)
 - **P9**: Cleanup items
 
@@ -94,7 +96,7 @@ Per the canonical chronicle, the priority order is:
 | P4 | CSISafeguard production wiring | HONEST CAPABILITY GATING doctrine | 1 session |
 | P5 | System G full path | Mission → AgentEvent → RunEventLog → AnswerPacket | 2 sessions |
 | P6 | Substrate Health WRV panel unification | One pane, no chrome dupes | 1 session |
-| P7 | ACS admission gate | HIGH RISK — gates execution | 2 sessions |
+| P7 | SCOPE-Rex admission gate + AcsAnchor field | HIGH RISK — gates execution | 2 sessions |
 | P8 | ≥5 falsifiers to PASS | Real measurement on M2 Pro 16 GB | 3+ sessions |
 | P9 | Cleanup items | Drift remediation | 1 session |
 

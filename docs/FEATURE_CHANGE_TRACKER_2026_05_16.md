@@ -1,5 +1,7 @@
 # Feature Change Tracker — 2026-05-16
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Purpose:** Every feature shipped (or substantively modified) by any terminal logs an entry. Each entry cross-references which canonical docs were updated alongside the code, so Terminal C can audit completeness.
 
 **Status:** LIVING — append every feature ship. Cross-reference: `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §5 lockstep rules`, `docs/HARDENING_TRACKER_2026_05_16.md` (Phase 2 follow-on).

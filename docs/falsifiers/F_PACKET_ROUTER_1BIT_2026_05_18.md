@@ -5,6 +5,8 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 status: NOT IMPLEMENTED
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-PacketRouter1bit
 
 Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md).
@@ -17,7 +19,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Pass threshold | On Jojo's M2 Pro 14-inch 2023, 16 GB UMA, approximately 200 GB/s memory bandwidth: P99 dispatch latency < 100 us, reconstruction is byte-identical to input order, and degenerate/skewed masks are reported rather than hidden. |
 | Failure meaning | Sparse-active assembly routing is not physically cheap enough, or the router silently loses ordering; active-packet, controller-pack, and local-recall claims cannot inherit the 1-bit dispatch path. |
 | Fallback route | Keep `packet_router` as CPU reference/scaffolding only; use ordinary contiguous batching or static routing until the M2 Pro P99 artifact exists. |
-| Product lane | Vault/Research now; V2 assembly-plane feature-gated after hardware proof. |
+| Product lane | Pro Vault-Preserved / Pro Research now; V2 assembly-plane feature-gated after hardware proof. |
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_packet_router_1bit.sh` |
 | Expected artifact | `artifacts/falsifiers/packet_router_1bit/result.json` with p50/p95/p99, mask-class breakdown, reconstruction digest, and lane-balance report. |
 

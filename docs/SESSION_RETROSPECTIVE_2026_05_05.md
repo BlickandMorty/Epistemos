@@ -11,6 +11,12 @@ read-before: anything tagged 2026-05-05; this is the index
 > Read this before any of the individual artifact docs. The detailed
 > docs (`CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md`, lift-targets briefs,
 > CD audit, etc.) are referenced inline.
+>
+> **2026-06-01 supersession:** this retrospective is historical. For current
+> UAS/AppColdStore, active model-state, sparse residency, mmap/SSD, dynamic
+> compute, or 70B-cocktail doctrine, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 ## What this session was
 

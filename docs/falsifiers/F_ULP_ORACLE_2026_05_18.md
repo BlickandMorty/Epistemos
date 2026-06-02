@@ -1,5 +1,7 @@
 # F-ULP Oracle - 2026-05-18
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 ## Acceptance Bar
 
 F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
@@ -7,7 +9,7 @@ F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 
 | Field | Value |
 |---|---|
-| Lane | Research |
+| Build / status | Pro Research |
 | Tier | M2 Pro falsifier gate |
 | Hardware pin | MacBook Pro 14-inch 2023, Mac14,9, Apple M2 Pro, 12 CPU cores, 19 GPU cores, 16 GB UMA, about 200 GB/s |
 | Fixture | 412,000 log-sampled points + 2,048 stress points |
@@ -61,9 +63,9 @@ freezes treat Metal output itself as proven.
 
 ## Falsifier Row
 
-| Falsifier | Lane | Tier | Status | Evidence | Missing proof | Next action |
+| Falsifier | Build / status | Gate | Status | Evidence | Missing proof | Next action |
 |---|---|---|---|---|---|---|
-| F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
+| F-ULP-Oracle | Pro Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
 ## Apple MSL Spec Posture
 
@@ -174,7 +176,7 @@ F-ULP-Oracle iterations:
 - `agent_core/src/research/scan_ir/` (T5 scan IR).
 - `agent_core/src/research/tropical_ir/` (T5 tropical IR).
 - `agent_core/src/lattice_wbo/` (T17B WBO lattice).
-- `agent_core/src/acs_admission/` (T18B ACS admission).
+- `agent_core/src/acs_admission/` (legacy path for T18B SCOPE-Rex admission + AcsAnchor field).
 
 A scope drift into any of these directories must be reverted before the
 witness is re-emitted, so the F-ULP-Oracle witness can never depend on

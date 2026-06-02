@@ -1,5 +1,7 @@
 # Claude Autonomous Loop Prompt V2 — 2026-05-16 (Ship-Driving, MAS + Pro Parallel)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Purpose:** Self-contained `/loop` prompt that drives Epistemos toward **dual V1 ship targets** — Mac App Store submission (MAS bundle) AND Developer ID distribution (Pro bundle) — in parallel. Each iteration re-reads this prompt verbatim, executes ONE bounded slice, verifies, commits, schedules the next iter — until the **hard end state** is reached or the genuinely-auto-implementable queue exhausts.
 
 **This supersedes** `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md` (V1 was doctrine-only; that queue closed at iter 72 of run 2026-05-16). V2 extends scope to production code with test-first discipline + MAS+Pro parallel ship discipline.

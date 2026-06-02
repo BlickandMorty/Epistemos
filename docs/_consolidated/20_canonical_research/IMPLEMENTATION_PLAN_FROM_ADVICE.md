@@ -1,5 +1,7 @@
 # Epistemos — Implementation Plan Synthesized from the Four-Model Council
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Sources:** Gemini paper (v1 + v2 synthesis), Perplexity paper (+ master synthesis), Claude paper, GPT paper, PLAN_V2 (claude advice.md), Meta-prompt for Claude brainstorming, live-code audit.
 **Status date:** 2026-04-22.
 **Author context:** synthesis produced after reading all source documents end-to-end and running a live-code audit to align the plan with what is already built.

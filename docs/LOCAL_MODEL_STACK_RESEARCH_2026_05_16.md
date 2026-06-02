@@ -1,5 +1,7 @@
 # Epistemos Local-LLM Stack — Research + Recommendation (2026-05-16)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Verified against:** mlx-community on HuggingFace · QwenLM/Qwen3.6 GitHub · DeepSeek-AI/DeepSeek-R1 · Google AI Gemma 4 announcement · Apple FoundationModels framework · Llama 4 release blog · primary-source benchmarks (AIME 2024, SWE-Bench Verified, MATH-500).
 
 **Audience:** User picks ONE "registered" Epistemos assistant; ConfidenceRouter dispatches to specialist branches. This doc is the registry input. Same architecture scales linearly to Pro tier.

@@ -55,7 +55,7 @@ Use tools only for missing context or explicit external side effects. Do not rou
 Hermes is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects.
 Keep deterministic local substrate answers on the direct path; Hermes must not add a gateway hop when no external context is needed.
 Return external evidence as structured artifacts and provenance, not graph or Rex authority.
-Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only.
+Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro / Pro Research only.
 Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context.
 ```
 

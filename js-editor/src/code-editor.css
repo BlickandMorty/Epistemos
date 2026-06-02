@@ -25,9 +25,9 @@ html[data-theme="dark"] body {
   height: 100%;
   background: var(--epi-code-bg, #fbfbfb);
   color: var(--epi-code-fg, #202124);
-  font-family: Menlo, Monaco, "SF Mono", "SFMono-Regular", ui-monospace, Consolas, monospace;
-  font-weight: 500;
-  -webkit-font-smoothing: auto;
+  font-family: Menlo, "SF Mono", "SFMono-Regular", Monaco, ui-monospace, Consolas, monospace;
+  font-weight: 540;
+  -webkit-font-smoothing: subpixel-antialiased;
   text-rendering: optimizeLegibility;
   font-synthesis: none;
 }
@@ -63,6 +63,20 @@ html[data-theme="dark"] body {
 html[data-theme="dark"] .cm-gutters {
   border-right: 0 !important;
   box-shadow: none !important;
+}
+
+html[data-theme="dark"] .cm-editor,
+html[data-theme="dark"] .cm-content,
+html[data-theme="dark"] .cm-line {
+  color: var(--epi-code-fg, #f2f4f8) !important;
+  -webkit-text-fill-color: var(--epi-code-fg, #f2f4f8);
+}
+
+html[data-theme="dark"] .cm-lineNumbers .cm-gutterElement,
+html[data-theme="dark"] .cm-foldGutter,
+html[data-theme="dark"] .cm-foldGutter span {
+  color: color-mix(in srgb, var(--epi-code-fg, #f2f4f8) 72%, var(--epi-code-keyword, #8aa8ff) 28%) !important;
+  opacity: 0.88;
 }
 
 .cm-lineNumbers .cm-gutterElement {
@@ -179,3 +193,8 @@ html[data-theme="dark"] .cm-gutters {
 .tok-propertyName { color: var(--epi-code-property, #8b5a00); }
 .tok-variableName { color: var(--epi-code-variable, var(--epi-code-fg, #202124)); }
 .tok-punctuation { color: var(--epi-code-muted, #8b929c); }
+
+html[data-theme="dark"] .tok-punctuation,
+html[data-theme="dark"] .tok-variableName {
+  color: color-mix(in srgb, var(--epi-code-fg, #f2f4f8) 86%, var(--epi-code-keyword, #8aa8ff) 14%);
+}

@@ -2,6 +2,14 @@
 **For:** any new Claude / Codex / agent session continuing the Epistemos MAS-first work.
 **Source-of-truth bundle:** read the docs in §1 in order. They cover the current MAS-first state, the research corpus, the agent vision, and the gap audits without nuance loss.
 
+**2026-06-01 architecture supersession:** this handoff predates the June
+residency canon. For UAS/AppColdStore, active model-state, sparse residency,
+mmap/SSD, dynamic compute, or 70B-cocktail work, also read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+is offline/idle Pro Research until repair, sparse fingerprint, held-out replay,
+abstention, rollback, and witness gates pass.
+
 ---
 
 ## 1. Read these 9 docs first (in order)
@@ -300,7 +308,7 @@ If you need to understand *how* Codex was prompted at various stages:
 | **W1 floor work** | EML(x,y) operator + grammar · F-ULP-Oracle (412k log-sampled + 2048 stress, ≤2 ULP fp16, ≤90s M2 Pro) · `eml-lean`/`oxieml` vendored read-only | §6 W1 (75-77) |
 | **Memory hierarchy NOT-STARTED levels** | L1 Compressed Residual (Sherry 1.25-bit 3:4 sparsity) · L3 SSD Oracle (NF4 IOSurface mmap) · L_SE Self-Evolving (Titans-MAC + SEAL-DoRA nightly) · L5 Network Cascade PARTIAL (cloud providers wired; full cascade routing NOT-STARTED) | §3.2 (103-108) |
 | **KV-Direct harness** | gate experiment (D_KL=0 / token_match=100% / RAM≥8× lower); shader file `kv_direct_gate.metal` present but harness NOT-STARTED — passes collapse L2 to optional | §3.x (116-117) |
-| **K3/Belnap logic gates** | Belnap FDE 4-valued extension (Both/Contradictory beyond K3) — V1 ships K3 only, Belnap is research-tier extension · 5 directional operators (Up/Down/Sideways/Inward/OnItself) on claim graph | §3.5 (139, 142) |
+| **K3/Belnap logic gates** | Belnap FDE 4-valued extension (Both/Contradictory beyond K3) — V1 ships K3 only, Belnap is a Pro Research extension · 5 directional operators (Up/Down/Sideways/Inward/OnItself) on claim graph | §3.5 (139, 142) |
 | **Brain(τ) + routing** | Sinkhorn-projected routing matrix B* ∈ Birkhoff_n · Brain(τ) reconstruction rule from materialized checkpoint + semantic deltas · 4 product modes (VRM canon-doctrine; Observatory partial; Brain Time Machine NOT-STARTED) | §3.x (126-129) |
 | **Adaptation / Compute Steering** | §5.0 split — Adaptation Subsystem SHIPPED (Rust FFI + Swift executor); Compute Steering NOT-STARTED (per-call expert-budget / KV-allocation dispatch policy) | §3.39 (567-571) |
 | **Nano Model Training Recipe** | MOHAWK distillation hyperparameters validated · layer placement + quant table + ANE-vs-GPU rule frozen · post-V1 via MLX-LM v0.31.1+; no training infra in main today | §3.41 (604, 657) |
@@ -325,7 +333,7 @@ If you need to understand *how* Codex was prompted at various stages:
 | Wave G (Simulation v1.7+ V2.5) | G1/G2/G3/G4/G5 NOT-STARTED · G3/G4 cross-link references added iter 67 |
 | Wave H (UI/UX V2.6) | H1-H5 NOT-STARTED · **H6 Graph Toolbar USER-DECISION (added iter 69)** |
 | Wave I (A2UI catalog) | 24 components NOT-STARTED |
-| Wave J (Research tier V3) | all 9 subtopics gated behind explicit "RESUME RESEARCH TIER" signal |
+| Wave J (Pro Research V3) | all 9 subtopics gated behind explicit `RESUME PRO RESEARCH` signal; legacy alias `RESUME RESEARCH TIER` remains accepted only for old terminal prompts |
 
 **Cross-check discipline:** when a future session declares queue exhaustion or rotates to maintenance, scan this inventory + grep for the specific phrase used in the doctrine row to confirm the substrate genuinely is NOT-STARTED (not LANDED-but-undocumented per §5.0). Forward-staged primitives (B2-H19 egress · B2-H20 ephemeral · B2-M14 DP · B2-L1 heal · B2-L2 nightbrain widening · B2-M11 JIT defense) all stay verified-absent until their implementation slice fires.
 
@@ -430,7 +438,7 @@ The Windows port research is **explicitly post-V1**. V1 ships MAS macOS only. Th
 3. **Preserve local AI.** No cloud fallback added during the port. Local-tier inference must work on the Windows hardware target before submission.
 4. **Preserve perf.** Apple Silicon perf rules apply: pre-allocate buffers, debounce hot paths, zero per-frame allocations in render loops, no `repeatForever` animations.
 
-**When to look at this bundle:** AFTER V1 macOS ships + ANY Pro tier ships + a concrete distribution decision routes Windows ahead of Linux. Until then, treat as deferred reference material — do NOT optimize the macOS codebase for "easier Windows port" speculatively.
+**When to look at this bundle:** AFTER V1 macOS ships + any Pro build/status ships + a concrete distribution decision routes Windows ahead of Linux. Until then, treat as deferred reference material — do NOT optimize the macOS codebase for "easier Windows port" speculatively.
 
 Source: `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` B2-H4 (resolved 2026-05-16).
 

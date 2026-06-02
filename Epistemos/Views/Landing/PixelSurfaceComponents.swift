@@ -80,6 +80,8 @@ enum PixelGlyphKind {
     case notes
     case chat
     case document
+    case code
+    case html
     case graph
 
     var systemImageName: String {
@@ -92,6 +94,8 @@ enum PixelGlyphKind {
         case .notes: "note.text"
         case .chat: "message"
         case .document: "doc.text"
+        case .code: "chevron.left.forwardslash.chevron.right"
+        case .html: "curlybraces.square"
         case .graph: "network"
         }
     }

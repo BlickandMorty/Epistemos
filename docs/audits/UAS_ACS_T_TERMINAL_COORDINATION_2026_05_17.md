@@ -7,6 +7,8 @@ scope: Phase A iter 17 — enumerate every cross-terminal boundary T3's Phase B/
 authority: driver scope locks (T3 owns + T3 doesn't touch); audit §F open questions 2-4; canonical doctrine §8 open question 3 (T1 UasKind coordination).
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # UAS-ACS T-Terminal Coordination Handles — 2026-05-17
 
 > Phase A iter 17 deliverable. Every artifact that crosses the T3 scope boundary is enumerated here with the

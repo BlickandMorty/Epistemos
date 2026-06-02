@@ -1,5 +1,7 @@
 # Metal Witness Gates Preflight - 2026-05-27
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact landed; `F-ControllerKernelPack` full Metal primary artifact landed; PageGather has a real 256 MB failure witness plus locality, scheduler, dense-restore, and packetized mitigation witnesses, and remains the open dense throughput gate.
 
 Branch: `codex/resume-metal-witness-gates-2026-05-27`

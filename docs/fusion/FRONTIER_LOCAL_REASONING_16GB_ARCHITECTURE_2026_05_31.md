@@ -27,6 +27,71 @@ Companion routing source:
 system predicts which weights, heads, MLP blocks, adapters, KV pages, kernels,
 and verifiers deserve to wake for each task.
 
+Companion working-set compiler source:
+`docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` defines how source
+signals, Eidos route priors, KV lineage, neural importance, and constructive
+residency compile into a `SemanticWorkingSetPlan`, `ResidencyPageTable`,
+`PrefetchWindow`, `ColdFaultTrace`, `MmapResidencyFence`, and
+`KVByteBudgetCard`. This is the new L15 bridge: a huge cold atlas matters only
+when each mission can predict, budget, prefetch, observe, and learn from the
+working set it actually used.
+
+Companion trace-observatory source:
+`docs/fusion/SUBSTRATE_TRACE_OBSERVATORY_2026_06_01.md` defines how the
+frontier-local route becomes debuggable. `CognitiveTraceGraph`,
+`RouteMicroscopeFrame`, `AttentionKVTrace`, `TraceComparisonDeck`,
+`TelemetryToWorkingSetPatch`, and `VisualProofCapsule` make each selected
+page, cache, model route, source, verifier, tool action, and cold fault
+replayable and AnswerPacket-visible.
+
+Companion residency source:
+`docs/fusion/CONSTRUCTIVE_RESIDENCY_PARADIGM_2026_06_01.md` defines how the
+70B cocktail becomes a proof-carrying `ColdAssemblyPlan`, not a dense resident
+blob. Its implementation vocabulary is `ResidencyConstructionGraph`,
+`CoactivationTile`, `LatticeStateController`, `ProofCarryingResidencyLease`,
+`ReasoningStateContinuityCard`, and `ColdMissLedger`.
+
+Companion cache-lineage source:
+`docs/fusion/CACHE_LINEAGE_AUTORESEARCH_PARADIGM_2026_06_01.md` defines how
+persistent KV/prefix units, compatibility fences, cache admission, execution
+traces, and Pareto tournaments become active cold-state feedback rather than
+hidden runtime leftovers.
+
+Companion note/editor math source:
+`docs/fusion/MATH_AND_PORTABLE_NOTE_SYSTEMS_INTAKE_2026_06_01.md` defines how
+editor deltas, projection digests, incremental parse forests, differential
+views, FSRS review, constrained decoding, Git lineage, and Markdown sidecars
+keep the evidence substrate portable and fast.
+
+Companion engineering-logic source:
+`docs/fusion/ENGINEERING_LOGIC_ARCHITECTURE_INTAKE_2026_06_01.md` defines how
+each ambitious route becomes a DecisionRecord, InvariantLedger,
+BoundaryContract, BudgetVector, FailureEnvelope, ObservabilityProbe, rollback,
+and falsifier before it claims live authority.
+
+Companion sparse-route compiler source:
+`docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`
+defines how a tiny `RouteScoutSSM` proposes `SparseWakeProposal`s,
+`VerifierBudgetAuction` keeps them under budget, `QueryAwareKVSelector`
+selects history pages, and `VerifierRegretFastWeights` improves the scout
+only through proof/test/citation/trace regret. This is the L17 bridge from
+"which model brain region?" to a measured sparse wake policy.
+
+Companion Residency PatternBoost source:
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` defines how
+offline/idle construction tournaments over `UASAssemblyGenome`s discover,
+repair, fingerprint, archive, and distill reusable resident assembly motifs.
+This is the L20 bridge from one-off route guesses to a library of held-out
+winners that a live scout can use or abstain from without claiming dense 70B
+hot residency.
+
+Companion ColdStream transport source:
+`docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` defines how
+predicted cold bytes move through `TransportRunManifest`,
+`PageRunScheduler`, `SlabArena`, `MetalBufferLease`, `CodecStage`,
+`TransportTrace`, and `ColdPanicFallback` instead of surprise mmap faults.
+This is the L18 bridge from cold addressability to token-safe transport.
+
 This preserves the original no-compromise ambition but makes it physically
 honest: SSD and mmap do not become RAM; they become a cold semantic address
 space whose useful pages are predicted, promoted, verified, and evicted.
@@ -60,6 +125,62 @@ Therefore the design question is not "can a trillion parameters fit?" It is:
    needed?
 3. Which verifier proves the selected path preserved enough behavior?
 4. Which rollback path reverts the selection when it fails?
+
+### Constructive residency overlay
+
+The stronger 70B route is constructive, not merely offloaded. Epistemos should
+search for a resident assembly that earns its bytes:
+
+```text
+MissionPacket
+  -> Eidos evidence + TaskSignature
+  -> PrefixReuseRouter / KVCompatibilityFence
+  -> ResidencyConstructionGraph
+  -> CoactivationTile / ReasoningStateContinuityCard / KVPrefixUnit candidates
+  -> ColdAssemblyPlan
+  -> ProofCarryingResidencyLease
+  -> ActiveAssembly + NeuralImportanceAtlas
+  -> SCOPE-Rex / SovereignGate
+  -> RuntimeRouter
+  -> ExecutionTraceCapsule
+  -> RunEventLog + AnswerPacket
+  -> ColdMissLedger / ParetoResidencyTournament
+```
+
+The source signals are Axplorer/PatternBoost for iterative construction
+search, Lattice Deduction Transformers for tiny lattice-state control, SwiftLM
+for Apple Silicon SSD expert streaming and KV compression motifs, Letta for
+stateful continuity, and Apple LLM in a Flash / PowerInfer / vLLM / LMCache /
+KTransformers for cold layout, activation locality, paging, and cache reuse.
+
+This adds L11-Candidate, the Constructive Residency Law: local capability
+scales with the quality of the selected resident assembly, not with the
+largest parameter count simultaneously hot.
+
+### Cache-lineage and editor-math overlay
+
+The active-cold route must learn from what the app already did:
+
+```text
+Note edit / source update
+  -> EditorDeltaMonoid
+  -> ReadableProjectionFunctor
+  -> DifferentialKnowledgeView
+  -> Eidos evidence
+  -> CacheAdmissionCard and ColdAssemblyPlan updates
+```
+
+This adds L12-Candidate, the Cache-Lineage Law: persistent state is useful
+only when saved prefill/cold I/O and continuity exceed staleness,
+incompatibility, privacy, storage-wear, and verification cost.
+
+It also adds L13-Candidate, the Delta Projection Law: every visible view should
+be maintained as the smallest verified delta from a durable source, not by
+rebuilding the whole document, graph, index, or model context.
+
+It also adds L14-Candidate, the Engineering Logic Law: a mechanism enters
+architecture only when its invariant, owner, state transition, budget, failure
+mode, witness, and rollback are explicit.
 
 ## Research synthesis
 
@@ -448,6 +569,8 @@ Primary/public source handles to verify or cite when implementing:
 - GPTQ, AWQ, BitNet
 - QLoRA, DoRA, X-LoRA, Mixture-of-LoRA, S-LoRA
 - Mamba-2, TTT, Titans
+- Axiom Axplorer / PatternBoost and Lattice Deduction Transformers for
+  offline resident assembly tournaments and lattice-state abstention gates
 
 Verified spot-checks during intake:
 

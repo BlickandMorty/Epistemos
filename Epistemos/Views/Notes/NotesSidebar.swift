@@ -2335,11 +2335,6 @@ struct NotesSidebar: View {
     }
 
     private func openNewHTMLWorkspaceDocument() {
-        guard vaultSync.vaultURL != nil else {
-            creationStatusText = "Select a vault before creating an HTML workspace."
-            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
-            return
-        }
         do {
             try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
             creationStatusText = "HTML workspace created"

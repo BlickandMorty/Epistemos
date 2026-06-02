@@ -8,6 +8,8 @@ branch: codex/t3-uasacs-2026-05-16
 authority_rule: any drift between this doc and the underlying code is a §5.0 reconciliation-gate failure; fix the CODE to match this doc, never the other way (per [[feedback_plan_is_authority]]).
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # UAS-ACS Canonical Architecture (2026-05-16 lock)
 
 > **Phase A iter 2 deliverable per §4.G mission step 1.** The no-loss canonical register that consolidates every

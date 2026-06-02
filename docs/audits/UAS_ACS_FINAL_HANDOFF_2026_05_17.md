@@ -13,6 +13,15 @@ disk_state: target/ wiped via cargo clean (freed 12.9 GiB on 2026-05-17)
 > Phase A + Phase B substrate-floor scope COMPLETE for T3-unilateral work. Remaining items require
 > cross-terminal handshakes (T1 UasKind, T4 vault, T5 Scan-IR, T7 oxieml) or external substrate (Metal
 > kernel, live 8B+ model). This doc is the single pickup point for the next session.
+>
+> 2026-06-01 supersession: read this as the historical T3 UAS/AcsAnchor handoff.
+> For current UAS/AppColdStore, active model-state, sparse residency, mmap/SSD,
+> dynamic compute, or 70B-cocktail work, also read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
+> PatternBoost-derived route/layout policy is Pro Research until repair,
+> sparse fingerprint, held-out replay, abstention, rollback, and witness gates
+> pass.
 
 ## §1. Final state on remote
 

@@ -108,11 +108,15 @@ nonisolated enum SkillDiscoveryCatalog {
             roots.append(SkillDiscoveryRoot(url: codexRoot, source: .codex))
         }
 
-        let currentRoot = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-            .appendingPathComponent(".agents", isDirectory: true)
-            .appendingPathComponent("skills", isDirectory: true)
-        if fileManager.fileExists(atPath: currentRoot.path) {
-            roots.append(SkillDiscoveryRoot(url: currentRoot, source: .bundled))
+        if ProcessInfo.processInfo.environment["EPISTEMOS_ENABLE_CWD_SKILL_DISCOVERY"] == "1",
+           let workingDirectory = ProcessInfo.processInfo.environment["PWD"],
+           !workingDirectory.isEmpty {
+            let currentRoot = URL(fileURLWithPath: workingDirectory, isDirectory: true)
+                .appendingPathComponent(".agents", isDirectory: true)
+                .appendingPathComponent("skills", isDirectory: true)
+            if fileManager.fileExists(atPath: currentRoot.path) {
+                roots.append(SkillDiscoveryRoot(url: currentRoot, source: .bundled))
+            }
         }
 
         // Shipped skills bundled with the app. This is what makes note-first

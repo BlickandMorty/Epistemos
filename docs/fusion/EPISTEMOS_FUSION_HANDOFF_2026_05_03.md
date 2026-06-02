@@ -2,6 +2,15 @@
 
 > **READ FIRST — FRAMING CORRECTION (Jordan, 2026-05-03):**
 >
+> **2026-06-01 architecture supersession:** for any UAS/AppColdStore, active
+> model-state, sparse residency, mmap/SSD, dynamic compute, or 70B-cocktail
+> work, also read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. Kimi/GPT
+> motifs remain reference material; PatternBoost-derived route/layout policies
+> remain Pro Research until repair, held-out replay, abstention, rollback, and
+> witness gates pass.
+>
 > Kimi and GPT did **deep research and produced mockups**. Neither agent had access to
 > the canonical Epistemos docs/code on this disk. Their workspaces under
 > `/Users/jojo/Downloads/kimis deep research/` and `/Users/jojo/Downloads/GPT research/`

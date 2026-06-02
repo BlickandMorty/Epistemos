@@ -2,6 +2,15 @@
 
 **Purpose**: spin up 9 parallel Codex CLI terminals, each owning ONE sub-mission of the deep-investigation prompt. Branches cut from `main`. PRs back to `main` when each slice's acceptance bar is met.
 
+**2026-06-01 architecture supersession:** these terminal prompts predate
+Residency PatternBoost. Any terminal touching UAS/AppColdStore, active
+model-state, sparse residency, mmap/SSD, dynamic compute, or 70B-cocktail work
+must first read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+and `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
+PatternBoost-derived route/layout policies are Pro Research until repair,
+sparse fingerprint, held-out replay, abstention, rollback, and witness gates
+pass.
+
 **Pre-flight (run once before starting any terminal)**:
 
 ```bash
@@ -20,7 +29,7 @@ cargo test --manifest-path agent_core/Cargo.toml --lib --quiet | tail -3
 |---|---|---|---|---|
 | **T1** | §4.A Tri-Fusion MD⇄JSON⇄HTML | `codex/t1-trifusion-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t1-trifusion` | P1 |
 | **T2** | §4.E + §4.F Model Gating + Local Agent (HEART) | `codex/t2-agent-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t2-agent` | **P0** |
-| **T3** | §4.G UAS-ACS Canon + falsifier ladder | `codex/t3-uasacs-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t3-uasacs` | P1 |
+| **T3** | §4.G UAS/AcsAnchor Canon + falsifier ladder | `codex/t3-uasacs-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t3-uasacs` | P1 |
 | **T4** | §4.H F-VaultRecall-50 (vault repair) | `codex/t4-vault-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t4-vault` | **P0 — most urgent UX** |
 | **T5** | §4.I EML-IR Primitive Stack (6 IRs) | `codex/t5-emlir-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t5-emlir` | P2 |
 | **T6** | §4.C UI/UX recursive audit | `codex/t6-uiux-2026-05-16` | `/Users/jojo/Downloads/Epistemos-t6-uiux` | P1 |
@@ -32,7 +41,7 @@ cargo test --manifest-path agent_core/Cargo.toml --lib --quiet | tail -3
 
 1. **T4 first** (vault repair, most urgent UX). Let it run a few iters.
 2. **T2 second** (agent + gating — the HEART). Big mission, takes longest.
-3. **T3 third** (UAS-ACS canon — doctrine work that T2/T1/T5 will reference).
+3. **T3 third** (UAS/AcsAnchor canon — doctrine work that T2/T1/T5 will reference).
 4. **T6 fourth** (UI/UX audit on recent additions, runs continuously).
 5. **T1, T7, T5** can come online when you have bandwidth.
 6. **T9** anytime (it's a watcher, low resource).
@@ -225,7 +234,7 @@ B (iters 16-80): Implementation.
   B6. AgentBlueprint UI: name · role · model picker (with per-model badges from §4.E gating fix) · tool selection · scope · approval mode.
   B7. Run timeline UI + replay from RunEventLog.
   B8. Power-user mode Settings toggle (already wired via UserDefaults at 15cc2ced4 — just expose UI).
-C (iters 80+): Research-tier.
+C (iters 80+): Pro Research.
   C1. RL trajectory collection (atropos pattern) → bundle format for future LoRA training. Consent-gated.
   C2. Per-model LoRA adapter loading via MLX-Swift adapters API. Drop adapter in vault/adapters/ → picker shows it.
   C3. Self-evolution skill discovery (hermes-agent-self-evolution pattern). Proposed skills written to vault/.epistemos/proposed_skills/ for user review.
@@ -240,7 +249,7 @@ ACCEPTANCE BAR (V1 ship — open PR when ALL pass):
 
 COORDINATION:
 - T1 (Tri-Fusion) emits TriFusionMutations — wire them into agent_runtime tool-call surface.
-- T3 (UAS-ACS) emits typed addresses + anchors — use them in RunEventLog event identity.
+- T3 (UAS/AcsAnchor) emits typed addresses + anchors — use them in RunEventLog event identity.
 - T4 (Vault) emits prepared retrieval results — call them, never bypass.
 - T5 (EML-IR) emits Info-IR confidence values — use them in AnswerPacket.confidence field.
 - T6 (UI/UX) will audit your UI work; respond to their issues.
@@ -261,7 +270,7 @@ Go. The user has said this is the HEART. Earn it.
 
 ---
 
-## T3 — §4.G UAS-ACS Canonical Architecture (the deep dynamic kernel)
+## T3 — §4.G UAS/AcsAnchor Canonical Architecture (the deep dynamic kernel)
 
 ### Bootstrap
 
@@ -277,7 +286,7 @@ codex
 You are Codex CLI in Terminal T3 at /Users/jojo/Downloads/Epistemos-t3-uasacs
 on branch codex/t3-uasacs-2026-05-16 (cut from main).
 
-You own §4.G UAS-ACS Canonical Architecture — the deep dynamic kernel work.
+You own §4.G UAS/AcsAnchor Canonical Architecture — the deep dynamic kernel work.
 Read the §4.G hierarchy + 3 residency tiers + 12-step falsifier ladder EVERY phase.
 
 ITERATION: continuous. NO PAUSE between iters.
@@ -325,7 +334,7 @@ DON'T TOUCH:
 
 PER-ITER RITUAL:
 1. git status / git log
-2. cargo test (≥ 1671) — research-tier crates are gated behind --features research; you may add new gated modules
+2. cargo test (≥ 1671) — Pro Research crates are gated behind --features research; you may add new gated modules
 3. §5.0 reconciliation — verify every doctrine claim on disk first
 4. ONE slice
 5. Commit · HEREDOC · Co-Authored-By: Codex (T3)
@@ -485,7 +494,7 @@ ACCEPTANCE BAR (V1):
 
 COORDINATION:
 - T2 (Agent) consumes your retrieval output — agree on Tri-Fusion-compatible result shape.
-- T3 (UAS-ACS) will mark each note with a UasAddress — adopt their type when it lands.
+- T3 (UAS/AcsAnchor) will mark each note with a UasAddress — adopt their type when it lands.
 - T6 (UI/UX) will audit your provenance-card UI — respond to feedback.
 
 STOP CONDITIONS:
@@ -572,7 +581,7 @@ B (iters 9-60): MVPs.
   B5. Operator-IR — branch/trunk + Fourier transform lowering. Property test: small FNO == Operator-IR forward pass. Cite DeepONet + FNO universality.
   B6. Geometry-IR — geometric product + rotor sandwich for 3D rotations. Property test: identity rotation + composition law.
 
-C (iters 60+): research-tier.
+C (iters 60+): Pro Research.
   C1. Per-IR Lean proofs of major identities.
   C2. Integration with agent_core/src/research/hyperdynamic_schemas/ — Tri-Fusion (T1) can carry IR-typed expressions natively.
   C3. Source custody folders fully populated (PDFs · screenshots · hashes).
@@ -588,7 +597,7 @@ ACCEPTANCE BAR (V1):
 COORDINATION:
 - T1 (Tri-Fusion) carries IR-typed expressions natively — agree on type encoding.
 - T2 (Agent) uses Info-IR for AnswerPacket.confidence — expose API.
-- T3 (UAS-ACS) F-SemiseparableBlockScan-Correctness consumes Scan-IR — coordinate API.
+- T3 (UAS/AcsAnchor) F-SemiseparableBlockScan-Correctness consumes Scan-IR — coordinate API.
 
 STOP CONDITIONS:
 - User says "stop T5" → wind-down · summary · PR · end
@@ -674,7 +683,7 @@ FEATURES TO AUDIT FIRST (in this order — most recent first):
 2. F-VaultRecall-50 surface (when T4 lands the provenance card UI)
 3. Agent UI / AgentBlueprint (when T2 lands)
 4. Per-model badges (HONEST / EXPERIMENTAL / OFF) — when T2 lands
-5. UAS-ACS visualizer (if T3 surfaces one)
+5. UAS/AcsAnchor visualizer (if T3 surfaces one)
 6. EML-IR diagnostic row (if T5 surfaces one)
 7. Tri-Fusion structured-mutation surface in Epdoc (when T1 lands)
 8. Settings → Diagnostics rows added in the wave
@@ -769,7 +778,7 @@ A (iters 1-6): Audit + doctrine.
      §2 5 candidate integration sites:
         (a) Tri-Fusion ambiguity resolution (lowest-energy parse pick) — COORD WITH T1
         (b) ConfidenceRouter scoring (energy as confidence proxy) — COORD WITH T2
-        (c) ACS Kuramoto coupling tempering (energy gradient damps over-synchronization) — COORD WITH T3
+        (c) KuramotoSync / ResonanceSync coupling tempering (energy gradient damps over-synchronization) — COORD WITH T3
         (d) F-VaultRecall-50 ranking (energy-weighted result re-ranking) — COORD WITH T4
         (e) SAE cognition observatory (energy as anomaly signal)
      §3 The MVP: pick ONE site (default = Tri-Fusion ambiguity, but T1 must be far enough along; otherwise default to SAE observatory)
@@ -889,7 +898,7 @@ ACCEPTANCE BAR (V1):
 
 COORDINATION:
 - T2 (Agent) macaroons gate work overlaps — coordinate `LockedContentGate` integration.
-- T3 (UAS-ACS) UasAddress carries residency tier — lock state could be a tier extension.
+- T3 (UAS/AcsAnchor) UasAddress carries residency tier — lock state could be a tier extension.
 - T4 (Vault) retrieval filters — coordinate on locked-item exclusion semantics.
 
 STOP CONDITIONS:

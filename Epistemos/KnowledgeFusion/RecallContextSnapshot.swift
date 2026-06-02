@@ -23,11 +23,13 @@ enum RecallContextKind: String, Sendable {
 struct RecallContextSnapshot: Sendable, Hashable {
     let text: String
     let kind: RecallContextKind
+    let originDocId: String
     let originId: UUID
 
-    init(text: String, kind: RecallContextKind, originId: UUID) {
+    init(text: String, kind: RecallContextKind, originId: UUID, originDocId: String? = nil) {
         self.text = text
         self.kind = kind
         self.originId = originId
+        self.originDocId = originDocId ?? originId.uuidString
     }
 }

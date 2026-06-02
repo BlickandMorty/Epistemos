@@ -14,6 +14,8 @@ local_anchors:
   - docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Shadow Projection + Research Construction Doctrine — 2026-05-24
 
 ## 0. No-compromise boundary
@@ -25,7 +27,7 @@ It does **not** say:
 - every object is literally an EML tree
 - the Erdős result proves Epistemos is correct
 - Parameter Golf proves ternary or Sherry/Leech VQ is production-safe on the user's M2 Pro
-- research-tier ideas can skip WRV, falsifiers, SCOPE-Rex/SovereignGate admission, or App Store lane rules
+- Pro Research ideas can skip WRV, falsifiers, SCOPE-Rex/SovereignGate admission, or App Store lane rules
 
 It does say:
 
@@ -45,7 +47,7 @@ External source floor:
 Local source floor:
 
 - `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` — canonical target for addressable neural clusters, SSM routing, L3 SSD Oracle, and 70B local capability ceiling.
-- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` — UAS-ACS as one addressable, recursively governed substrate.
+- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` — legacy UAS-ACS canon, read forward as UAS + AcsAnchor in one addressable, recursively governed substrate.
 - `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` — E1-E7, H1-H17, PCF-1..10 theorem namespace and promotion discipline.
 - `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` — L3 SSD Oracle, KV-Direct, L_SE, V6.1/V6.2 falsifier framing.
 - `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` — EML, Tropical, Scan, Operator, Info, Geometry IR stack; EML is powerful but not a replacement for every domain.

@@ -414,25 +414,25 @@ Add a Research-only loader for `AppleNeuralEngine.framework` via `disable-librar
 ### Forbidden Write Set
 
 - Any private **entitlement** (`com.apple.private.*`) per doctrine §6 hard forbidden list
-- Any non-Research build configuration that loads private frameworks
+- Any MAS or non-Pro-Research configuration that loads private frameworks
 - Codex reservation set
 - Canon-in-flight docs
 
 ### Implementation Contract
 
 - Loader uses `dlopen` with the explicit framework path; no entitlement key.
-- Loader never executes in Pro or Core builds (compile flag gate + runtime guard).
-- Loader returns `nil` on failure rather than crashing — Research-only does not mean Research-only-and-fragile.
+- Loader never executes in MAS or ordinary Pro paths (compile flag gate + runtime guard).
+- Loader returns `nil` on failure rather than crashing — Pro Research-only does not mean Pro Research-only-and-fragile.
 
 ### Tests And Logs
 
 - Smoke test: load + symbol-resolve + close on a private framework that's known to exist on macOS 26.x.
-- Test that Pro and Core builds either don't compile this file or fail-soft.
+- Test that MAS and ordinary Pro paths either don't compile this file or fail-soft.
 
 ### Acceptance
 
-- Research scheme builds and runs the loader successfully on the user's host.
-- Pro and Core builds remain unaffected.
+- Pro Research lab scheme builds and runs the loader successfully on the user's host.
+- MAS and ordinary Pro paths remain unaffected.
 - Doctrine §6 hard forbidden list is not violated (no private entitlements anywhere).
 
 ### Stop Triggers
@@ -454,11 +454,11 @@ Add a Research-only loader for `AppleNeuralEngine.framework` via `disable-librar
 
 ### Goal
 
-Land a Research-only direct path to the Apple Neural Engine via `_ANEClient` loaded through L5-CARD-1's private framework loader.
+Land a Pro Research-only direct path to the Apple Neural Engine via `_ANEClient` loaded through L5-CARD-1's private framework loader.
 
 ### Tier
 
-**Research**.
+**Pro Research**.
 
 ### Dependencies
 
@@ -466,7 +466,7 @@ Land a Research-only direct path to the Apple Neural Engine via `_ANEClient` loa
 
 ### Authority To Read First
 
-- `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §3 Research tier + Annex A.11
+- `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §3 Pro Research path + Annex A.11
 - `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/EPISTEMOS_ANE_GLASS_BALL_ASSESSMENT.md`
 - L5-CARD-1's completion report
 
@@ -483,7 +483,7 @@ Land a Research-only direct path to the Apple Neural Engine via `_ANEClient` loa
 
 ### Implementation Contract
 
-- `_ANEClient` is loaded once at process start in Research builds.
+- `_ANEClient` is loaded once at process start in Pro Research lab paths.
 - Failure path returns `nil` and logs a structured warning; never crashes.
 - IOSurface is used for zero-copy I/O per doctrine §A.11.
 
@@ -494,7 +494,7 @@ Land a Research-only direct path to the Apple Neural Engine via `_ANEClient` loa
 
 ### Acceptance
 
-- Smoke test passes on Research build.
+- Smoke test passes on Pro Research lab path.
 - Latency comparison recorded.
 - Pro / Core builds unaffected.
 

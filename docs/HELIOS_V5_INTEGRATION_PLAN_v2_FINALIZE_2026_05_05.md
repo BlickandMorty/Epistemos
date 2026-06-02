@@ -3,9 +3,18 @@ state: canon (architectural decisions) + candidate (implementation slices)
 finalized_on: 2026-05-05
 covers: HELIOS V5 v2 plan FINALIZATION — closes coverage gaps + fixes PCF mapping per user audit ordering + adds anti-drift + benchmarks discipline + answers "what local files do I need"
 companion_to: docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md (which this finalizes)
+current_architecture_supersession: "2026-05-31: current product grammar is two builds only (MAS, Pro). V5 lane/tier phrases are historical lock metadata; map Research/Vault work to Pro Research / Pro Vault-Preserved."
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # HELIOS V5 Integration Plan v2 — **FINALIZE** addendum
+
+> **2026-05-31 naming supersession:** this addendum preserves the
+> original V5 lock and no-nuance-lost ambition. Current distribution is
+> **MAS** and **Pro** only. Historical L1/L2/L3/L5 and Tier-1/2/3
+> language should be mapped through the Living Index into MAS, Pro
+> Live/Gated, Pro Research, Pro Vault-Preserved, and Pro Omega.
 
 > **Purpose:** v2 of the integration plan locked the architecture
 > (Q1=C / Q2=optimal-combination / Q3=C) but had coverage gaps the
@@ -196,9 +205,9 @@ The user's question "scope rex wasn't sure if we have working" — here's the co
 |---|---|---|
 | **κ KAM** (KAM-stability of routing trajectories under perturbation) | NEW | `agent_core/src/resonance/kappa.rs` (NEW) |
 | **η evidence** (evidence-supremacy protocol; flags "edge" claims for VRM) | NEW | `agent_core/src/resonance/eta.rs` (NEW) |
-| **Research-tier wiring** | NEW | extend `agent_core/src/resonance/mod.rs` to compose Core + Pro + κ + η when `research` feature enabled |
+| **Pro Research wiring** | NEW | extend `agent_core/src/resonance/mod.rs` to compose Core + Pro + κ + η when `research` feature enabled |
 
-**Promotion gate Pro → Research:** the Research tier κ + η depend on the L6 residency tier being implemented (six-tier memory §H below) and on the H11 Sheaf-Hodge spectral substrate operational.
+**Promotion gate Pro → Pro Research:** the Pro Research κ + η depend on the L6 residency band being implemented (six-tier memory §H below) and on the H11 Sheaf-Hodge spectral substrate operational.
 
 ### Σ signature (full Resonance Gate output)
 
@@ -227,7 +236,7 @@ Currently Σ shipped = `[τ, π, λ]` (3 of 7 components). Pro promotion brings 
 | **L_SE** | Secure Enclave / sealed archive | Touch ID-bound encrypted cold | YES partial — `Epistemos/Security/CapabilityBridge.swift` SovereignGate scaffolding. L_SE mode NEW. | L1 (Sovereign Gate gates access) |
 | **L4** | Engram / compressed episodic | medium-term compressed memory (Pro) | NEW | L2 (Pro) |
 | **L5** | Adapters / LoRA store | per-skill adapter cache (Pro) | partial — `Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` (subprocess; B2 wants ported) | L2 (Pro) |
-| **L6** | Forbidden tier (opt-in) | Research tier; user must explicitly opt-in to crossing | NEW | L3 (Research opt-in) |
+| **L6** | Forbidden residency band (opt-in) | Pro Research status; user must explicitly opt-in to crossing | NEW | L3 (Pro Research opt-in) |
 | **L7** | Quarantine | poisoned artifacts; flagged but not deleted | YES — doctrine §A.3 + `agent_core/src/storage/vault.rs` quarantine path | L1 |
 
 **KV-Direct gate (Helios v3 W0):** `agent_core/src/scope_rex/kv/direct_gate.rs` (NEW per W8 slice). Gates: D_KL ≈ 0 between residual-patched and original output on Qwen3-8B-MLX-4bit at 128k context. **THE preflight per HELIOS v4 README** ("the cheaper, faster preflight; F1/F7a is the more expensive Metal kernel work"). If KV-Direct fails, re-evaluate Helios v3 substrate before touching Metal kernels.
@@ -541,9 +550,9 @@ The raw archive is preserved as **R0** (append-only, at `/Users/jojo/Library/Mob
 - **H1–H17** Helios Operational Claims (§D above) — build/canon claims; H1 is WBO-7 Master Inequality
 - **PCF-1…PCF-10** Parameter Connectome Family (§B above) — Goodfire VPD integration
 
-**Lanes (locked):** L1 MAS-add, L2 Pro-tier, L3 Research, L4 Substrate-independent (Reserved), L5 Vault. 11th classifier `helios` locked.
+**Historical V5 lanes (locked at the time):** L1 MAS-add, L2 Pro-tier, L3 Research, L4 Substrate-independent (Reserved), L5 Vault. Current docs map these into MAS / Pro status grammar. 11th classifier `helios` locked.
 
-**Three-tier MAS rule (locked):** Tier 1 ULP-equivalent ON; Tier 2 model-file-changing FLAGGED OFF; Tier 3 runtime-mutating Vault-only.
+**Historical V5 MAS-tier rule (locked at the time):** Tier 1 ULP-equivalent ON; Tier 2 model-file-changing FLAGGED OFF; Tier 3 runtime-mutating Pro Vault-Preserved / Pro Omega. New docs should phrase this as MAS-safe, Pro Gated, and Pro Vault-Preserved/Omega.
 
 **Work slices (state: candidate, held for sign-off):** W1–W26 with WRV proof + rollback per slice (§3 of v2 plan).
 
@@ -551,9 +560,9 @@ The raw archive is preserved as **R0** (append-only, at `/Users/jojo/Library/Mob
 
 **Killer demos (§F above):** 4 demos with structural acceptance criteria.
 
-**SCOPE-Rex full surface (§G above):** Core (τ + π + λ) SHIPPED; Pro (+δ + ρ) and Research (+κ + η) are NEW per their respective implementation slices.
+**SCOPE-Rex full surface (§G above):** Core (τ + π + λ) SHIPPED; Pro (+δ + ρ) and Pro Research (+κ + η) are NEW per their respective implementation slices.
 
-**Six-tier memory (§H above):** L0–L7 + L_DRAM + L_SSD + L_SE; Core L0–L3 + L7 covered; L4–L5 Pro NEW; L6 Research opt-in NEW.
+**Memory residency bands (§H above):** L0–L7 + L_DRAM + L_SSD + L_SE; Core L0–L3 + L7 covered; L4–L5 Pro NEW; L6 Pro Research opt-in NEW.
 
 **Anti-drift mechanisms (§N above):** 10 mechanisms operationalize the canon promotion protocol for build time.
 
@@ -567,7 +576,7 @@ The raw archive is preserved as **R0** (append-only, at `/Users/jojo/Library/Mob
 
 **Per-slice implementation work begins ONLY after explicit sign-off** per the canon promotion protocol (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`). The user's parallel-Claude engineering review can pressure-test §N anti-drift mechanisms + §O benchmark strategy independently. Codex verification can sign off W26 §2.5.2 compliance audit + W25 falsifier rig outputs.
 
-*Lock sealed. Five lanes, three tiers, seven-plus-three-plus-seven, one Monday. Verified Floor: `ac8c6d28`. Architecture decided. Build held for sign-off.*
+*V5 lock preserved as historical canon. Active product grammar supersedes it as: two builds, MAS and Pro; Pro contains Live/Gated/Research/Vault-Preserved/Omega statuses. Verified Floor: `ac8c6d28`. Architecture ambition preserved; current build held to WRV/falsifier discipline.*
 
 ---
 

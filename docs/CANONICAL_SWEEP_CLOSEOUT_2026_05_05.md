@@ -4,6 +4,8 @@ canon_promoted_on: 2026-05-05
 covers: 2026-05-05 canon-hardening session (post Codex verification round)
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Canonical Sweep — Close-out (2026-05-05)
 
 > **Scope.** This doc closes the 2026-05-05 canon-hardening session
@@ -189,7 +191,7 @@ The codebase uses `mmap` indirectly via:
 The canonical opportunity: `MTLBuffer` with `storageModeShared` already
 gives zero-copy CPU↔GPU on Apple Silicon UMA (doctrine §2.2 invariant
 #1). Direct mmap of model weight files into `MTLBuffer.contents()`
-is a Research-tier path (Annex A.10 KV implantation + raw memory
+is a Pro Research path (Annex A.10 KV implantation + raw memory
 inspection). Outside Research, MLX-Swift handles weight loading via
 its own zero-copy path.
 

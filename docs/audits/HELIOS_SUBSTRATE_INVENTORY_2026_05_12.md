@@ -1,8 +1,10 @@
 ---
 state: audit
 created_on: 2026-05-12
-scope: epistemos-research crate (39 .rs files, ~11,230 LOC) — what's wired into the active app, what stays research-tier, what could reasonably be ported forward
+scope: epistemos-research crate (39 .rs files, ~11,230 LOC) — what's wired into the active app, what stays Pro Research, what could reasonably be ported forward
 ---
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # HELIOS Substrate Inventory — 2026-05-12
 
@@ -29,7 +31,7 @@ That separation is intentional. Promoting a research module into the active app 
 | 5 | `cross_domain_lens.rs` | T_safety bound + 5 lenses | None (doctrine) | No — pure math substrate |
 | 6 | `donor_distillation.rs` | Training pipeline canon | None (research-only, marked) | No — explicit no-implement |
 | 7 | `engram.rs` | Memory engram doctrine | None | **Maybe** — could inform meaning-anchor system memory rep |
-| 8 | `falsifier_actions.rs` | Falsifier verdict actions | None | No — research-tier verification |
+| 8 | `falsifier_actions.rs` | Falsifier verdict actions | None | No — Pro Research verification |
 | 9 | `five_planes.rs` | Five-plane formalism | None (doctrine) | **Yes (high-value)** — five-plane vocab (Audit / Canonical / Truth / Witnessed / Verification) maps directly onto provenance ledger + agent runtime; would standardize naming |
 | 10 | `gate_action.rs` | ResonanceGate GateAction taxonomy | None | **Yes** — gate actions are real runtime decisions; could replace ad-hoc safety-gate strings in `agent_core::security` |
 | 11 | `goodfire_vpd_specs.rs` | Goodfire VPD baseline numerics | None (research-only) | No — public-baseline only |
@@ -231,7 +233,7 @@ These are HELIOS modules where porting forward would deliver concrete app value,
 9. **`acs.rs`** — diagnostics health row → ACS NOT IMPLEMENTED
    - The Settings → General → Diagnostics row exists
      (`EditorBundleHealthRow`, `SearchFusionHealthRow`, etc.), but ACS
-     itself ("Anchored Cognitive Substrate") is research-tier and has
+     itself ("Anchored Cognitive Substrate") is Pro Research and has
      no active-app implementation — there's nothing to surface yet.
    - **Verdict (2026-05-12):** deferred. Revisit if/when ACS anchors
      land in agent_core; until then the diagnostics surface should
@@ -303,7 +305,7 @@ on the research side so neither tier can change silently.
 loop ("zero direct references from active app to `epistemos_research::*`,
 hermetically isolated by design") is now bridged by 6 documented cross-
 references plus drift-gate tests that fire on either-side rename. The
-research substrate stays research-tier per canon-hardening protocol; the
+research substrate stays Pro Research per canon-hardening protocol; the
 active app gets the canonical names + status as inline doctrine without
 linking the gated crate.
 

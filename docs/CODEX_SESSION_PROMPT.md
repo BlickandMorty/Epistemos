@@ -16,6 +16,17 @@ This prompt previously treated Phase 6F and Phase 7 as unfinished. That is stale
 - Core Hermes/Omega follow-ons such as tool gates, auto-discovery, skills, cost tracking, NightBrain distillation, and stream composition already landed; check `docs/AGENT_PROGRESS.md` before assuming they are pending
 - Current net-new roadmap work is whatever remains in the master plan after those completed items, plus truly new runtime regressions and Cloud Knowledge Distillation
 
+## ARCHITECTURE OVERRIDE — 2026-06-01
+
+Before acting on local-inference, UAS/AppColdStore, active model-state,
+KV/page routing, mmap/SSD residency, dynamic compute, or 70B-cocktail language
+in this older prompt, read `docs/MASTER_SESSION_PROMPT_v2.md`,
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
+PatternBoost-derived route/layout policy is Pro Research until repair,
+sparse fingerprint, held-out replay, lattice abstention, rollback, and witness
+evidence pass.
+
 ---
 
 You are continuing work on **Epistemos** — a macOS-native cognitive exoskeleton PKM. Swift 6 + Rust (UniFFI) + Metal. 137K Swift, 94K Rust.

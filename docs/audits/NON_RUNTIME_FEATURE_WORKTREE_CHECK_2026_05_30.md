@@ -57,6 +57,10 @@ paused:
 - `ConstructionCard` binding ProblemCard, LiftChart, ProjectionPacket, Witness,
   Budget, Falsifier, Rollback, and a passed plan;
 - `ProviderReferenceManifest` shape and prompt-suite digest binding;
+- `ResidencyPatternBoost` dry-run artifacts: assembly genome, constraint
+  repair trace, sparse fingerprint, held-out replay score, elite archive
+  lineage, LatticeAbstentionGate result, ComputeResumeLease, rollback, and
+  AnswerPacket witness schema;
 - worktree/model-context inventories;
 - architecture pending-work guard;
 - AetherLink/OAS intake as addressing, contracts, ledger, verifier, and
@@ -68,6 +72,8 @@ These are not complete and must not be described as working yet:
 
 - live 70B local generation;
 - SSD-backed sparse-active 70B decode;
+- PatternBoost-derived live route/layout mutation without replay, abstention,
+  rollback, and witness evidence;
 - live MLX/GGUF local-agent streaming through System G;
 - dense PageGather primary bandwidth;
 - live 128K KV-Direct residual-patched mmap/NF4 spill;
@@ -82,7 +88,7 @@ otherwise intentionally preserved. Priority preserve/inspect surfaces:
 |---:|---|---|
 | 1 | `Epistemos-t5-emlir` | EML / Geometry / Info / Operator IR stack, directly tied to the primitive-collapse ambition. |
 | 2 | `Epistemos-t17b-lattice-wbo-register` | Lattice/WBO register path, directly tied to weight lattice and budget discipline. |
-| 3 | `Epistemos-t18b-acs-admission-field` | ACS admission field and state-contract discipline. |
+| 3 | `Epistemos-t18b-acs-admission-field` | Legacy path for SCOPE-Rex admission field and state-contract discipline. |
 | 4 | `Epistemos-terminal-s` | Hyperdynamic/schema repair loop. |
 | 5 | `Epistemos-terminal-d` | Substrate health rows and user-visible truth floor. |
 | 6 | `Epistemos-terminal-a` | Eidos citation/evidence bridge. |

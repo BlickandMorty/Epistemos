@@ -14,7 +14,7 @@ The six layers (Codex synthesis 2026-05-23):
 2. **SSD / RAM Residency** — UAS / Lattice / WBO · one governed address space across hot, compressed, shadow, SSD oracle, network cascade
 3. **Schema / Hyperdynamic loop** — `draft → schema check → proof/admission check → repair/rerun → accepted packet → next layer` (covers MissionPacket, AnswerPacket, tool calls, claims, mutations, proofs, UI artifacts)
 4. **Retrieval / Active Assembly** — Eidos + VaultRecall + page-gather as the "select the right mental tissue" step before the model speaks
-5. **ACS / Permission** — generation alone is not action; every action requires admission
+5. **SCOPE-Rex / AcsAnchor Permission** — generation alone is not action; every action requires SCOPE-Rex admission, while AcsAnchor preserves address/residency continuity
 6. **EML / Proof** — formal witnesses where the claim is computable
 
 **Authority bar (every terminal):** No fake successes. No hidden cloud fallback. WRV (Wired/Reachable/Visible/Verified) discipline. Universal Loop Block: Audit → Build → Verify → Harden → Report. Use chip-strip + honest language pattern from PR #57. Reference `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` + `docs/CANONICAL_CHRONICLE_2026_05_23.md` before any code.
@@ -23,6 +23,13 @@ The six layers (Codex synthesis 2026-05-23):
 - `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`
 - `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
 - `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`
+
+**2026-06-01 addenda (mandatory for local-inference, residency, route, 70B, or
+model-state work):**
+- `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+- `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`
+- `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
+- `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`
 
 Every terminal must classify touched work under the **Substrate Motion Invariant**:
 
@@ -39,8 +46,18 @@ Every PR must include a **No-Orphan check**:
 - WBO/error policy:
 - Witness:
 - Falsifier:
-- Tier:
+- Build/status:
 - Rollback:
+
+For PatternBoost-derived routes also include:
+
+- Assembly genome:
+- Constraint repair:
+- Sparse fingerprint:
+- Held-out replay:
+- Lattice abstention:
+- ComputeResumeLease:
+- Elite archive lineage:
 
 Every PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must also include a **Neural Substrate check**:
 
@@ -71,7 +88,7 @@ resume patch below, then add this per-terminal field to the next PR body:
 | B — VaultRecall + AnswerPacket | Project substrate trace into visible chat row | lift coordinate carried on every provenance card |
 | C — System G | Mutate/Promote mission into AnswerPacket | `construction_space_radius` stays candidate until real run path is stable |
 | D — Substrate Health | Project substrate state into Settings | each row consumes T0's honesty signal; chip flips only when production wired |
-| E — ACS Admission | Mutate/Promote verdict on every durable action | future verdicts distinguish `lift_allowed`, `lift_denied`, `lift_quarantined` |
+| E — SCOPE-Rex Admission + AcsAnchor | Mutate/Promote verdict on every durable action | future verdicts distinguish `lift_allowed`, `lift_denied`, `lift_quarantined` |
 | F — Falsifiers | Project measurement into artifact | include F-Sparse-Runtime-Split, F-KV-Direct-Gate, F-UAS-CopyCount, F-70B-Local-Cocktail in planning |
 | G — T14 UAS bridge | Lift, Project, and Mutate | owns UAS fields for `ShadowProjection` and neural substrate address sets |
 
@@ -88,7 +105,7 @@ resume patch below, then add this per-terminal field to the next PR body:
 **To wire:**
 1. Re-label `EidosHealthRow` chip strip → `"fixture path active"` until Terminal A lands the real bridge.
 2. Re-label `VaultRecallHealthRow` chip strip → `"synthetic trace · no backend binding"` until Terminal B lands the real trace.
-3. Re-label `ACSAdmissionHealthRow` chip strip → `"substrate-only · gate not installed"` until Terminal E lands `ACSRunEventLogSink`.
+3. Re-label `ACSAdmissionHealthRow` chip strip → `"substrate-only · gate not installed"` until Terminal E lands the SCOPE-Rex admission sink.
 4. Gate/rename `AgentBlueprint` "Run" button → `"Queue (no runtime consumer)"` until Terminal C lands `RealSystemGRunSeam`.
 5. Promote `VerifiedFloorChipStrip` (PR #57) to every HealthRow that doesn't already have it.
 6. Add a single tooltip per row: `"What's wired today / what's still stub / where the falsifier lives."`
@@ -139,7 +156,7 @@ resume patch below, then add this per-terminal field to the next PR body:
 - `routeProfiles()` returns ≥ 6 non-empty profiles.
 - MLX lane can be flipped OFF in Settings without breaking chat — falls through to GGUF or cloud (with honest escalation, not silent fallback).
 - F-LocalToolUse PASS for every local model in the catalog that claims `canActAsAgent = true`.
-- Apple Intelligence lane present (Tier 1) — even if its capability surface is initially narrow.
+- Apple Intelligence lane present as a MAS-safe runtime lane — even if its capability surface is initially narrow.
 
 **Why second:** the Runtime Router is the L4 layer of the canonical stack. Without it, every other terminal's work routes through a single lane and the "MLX is the architecture" assumption stays baked in. Landing the router is what lets the rest of the deck honor the no-compromise framing.
 
@@ -155,7 +172,7 @@ resume patch below, then add this per-terminal field to the next PR body:
 ```
 draft (model output)
   → schema check (typed validator)
-  → proof/admission check (ACS verdict + EML witness if applicable)
+  → proof/admission check (SCOPE-Rex verdict + EML witness if applicable)
   → if reject: repair prompt + rerun with tightened constraints (bounded retries)
   → accepted packet (typed, witnessed)
   → next layer
@@ -173,7 +190,7 @@ draft (model output)
 2. Hook into `agent_runtime_v2/mission_run.rs` (Terminal C territory) — every emitted packet runs through the loop before being appended to RunEventLog.
 3. Three concrete loop implementations:
    - **`SchemaRepairLoop`** — tool-call grammar drift → JSONSchema validate → repair prompt with explicit field list
-   - **`AdmissionRepairLoop`** — ACS verdict = `defer` or `quarantine` → repair prompt with policy hint
+   - **`AdmissionRepairLoop`** — SCOPE-Rex verdict = `defer` or `quarantine` → repair prompt with policy hint
    - **`WitnessRepairLoop`** — EML/F-ULP witness fails → repair prompt with constraint
 4. `HyperdynamicLoopHealthRow` chip strip — per-loop kind: total drafts · accepted · repaired · quarantined · avg repair count.
 5. Falsifier `F-HyperdynamicLoop-Bounded` — repair budget always terminates; no infinite loops on adversarial drift inputs.
@@ -316,28 +333,28 @@ draft (model output)
 
 ---
 
-## Terminal E — ACS Admission Production Gate (P4 + P7 + W-46/W-47/W-25)
+## Terminal E — SCOPE-Rex Admission + AcsAnchor Production Gate (P4 + P7 + W-46/W-47/W-25)
 
-**Goal:** ACS Admission becomes a REAL gate (currently `CSISafeguard` is orphan + chip strip says "substrate-only").
+**Goal:** SCOPE-Rex Admission becomes a REAL gate (currently `CSISafeguard` is orphan + chip strip says "substrate-only"). AcsAnchor carries address/residency continuity; admission is not named ACS in new docs.
 
 **Substrate already in main:**
-- `agent_core/src/acs_admission/audit_sink.rs` — `ACSAuditSink` trait + `InMemoryACSAuditSink`
+- `agent_core/src/acs_admission/audit_sink.rs` — legacy namespace carrying the SCOPE-Rex admission audit sink (`ACSAuditSink` trait + `InMemoryACSAuditSink`)
 - `agent_core/src/agent_runtime_v2/` — OpLog substrate
-- `ACSAdmissionHealthRow` chip strip ("substrate-only" + "gate not installed")
+- `ACSAdmissionHealthRow` chip strip ("substrate-only" + "gate not installed"; legacy row name, should display SCOPE-Rex admission)
 
 **To wire:**
-1. `agent_core/src/agent_runtime_v2/acs_run_event_log_sink.rs` (NEW) — `ACSRunEventLogSink: ACSAuditSink` fanning every verdict into RunEventLog (W-46)
+1. `agent_core/src/agent_runtime_v2/acs_anchor_run_event_log_sink.rs` (NEW) — SCOPE-Rex/AcsAnchor sink fanning every verdict into RunEventLog (W-46)
 2. `agent_core/src/scope_rex/admission_proof.rs` (NEW) — `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` (W-47)
 3. T11 cross-lane handoffs MUST carry `SCOPERexAdmissionProof`; signature mutation rejected at proof boundary (property test)
-4. `Provenance Console` (`Epistemos/Views/Console/ProvenanceConsoleView.swift`) — render ACS verdict column inline with claims (W-25)
-5. `ACSAdmissionHealthRow` chip strip update: "substrate-only" → "production gate active"
-6. Audit doc `docs/audits/ACS_ADMISSION_PRODUCTION_GATE_<date>.md`
+4. `Provenance Console` (`Epistemos/Views/Console/ProvenanceConsoleView.swift`) — render SCOPE-Rex verdict column inline with claims (W-25)
+5. `ACSAdmissionHealthRow` chip strip update: "substrate-only" → "production gate active" while UI copy says SCOPE-Rex admission
+6. Audit doc `docs/audits/SCOPE_REX_ADMISSION_PRODUCTION_GATE_<date>.md`
 
 **Acceptance:**
-- Every tool invocation passes through `ACSRunEventLogSink::admit_and_record`
+- Every tool invocation passes through the SCOPE-Rex admission sink
 - Forged-signature property test rejects mutation at proof boundary
-- Provenance Console UI shows ACS verdict for every entry
-- Falsifier `F-ACS-Anchor-Addressing` PASS on M2 Pro
+- Provenance Console UI shows SCOPE-Rex verdict for every entry
+- Falsifier `F-AcsAnchor-Addressing` PASS on M2 Pro
 
 ---
 
@@ -556,22 +573,22 @@ After all 10 production terminals close (T0, T1, S, A, B, C, D, E, F, G), with T
 - No-Orphan-Data invariant enforced via CI lint (catches orphan classes at PR time).
 - All 7 Laws cited in every PR description; the 8th candidate Law (Shadow Projection) tracked separately.
 - All HealthRow chip strips: orange/red → green where production-wired (honest signal).
-- Phase 2 substantially closed; Phase 3 = research-tier (Pro + V6.1 kernels + Lean proofs).
+- Phase 2 substantially closed; Phase 3 = Pro Research (V6.1 kernels + Lean proofs).
 
 **Dispatch order recommendation (per Codex 2026-05-23 consensus):**
 
 1. **Wave 1 — foundations** (no cross-conflict): **T0** (Verified Floor) · **T1** (Runtime Router) · **S** (Hyperdynamic Loop primitive) · **G** (T14 bridge)
 2. **Wave 2 — real organs** (depends on T0+T1 stable): **A** (Eidos real vault) · **B** (Vault Recall trace + citations) · **D** (Substrate Health Panel unification — consumes T0 honesty signal)
-3. **Wave 3 — agent path** (depends on T1+S+A+B stable): **C** (System G full path) · **E** (ACS Admission production gate)
+3. **Wave 3 — agent path** (depends on T1+S+A+B stable): **C** (System G full path) · **E** (SCOPE-Rex Admission production gate)
 4. **Wave 4 — research / measurement** (parallel with Wave 3): **F** (≥ 5 falsifiers PASS) · **H** (Research Construction Engine scoping only)
 5. **Continuous** — **R** (Online Research Intake) · **X** (Worktree Salvage)
 
 Hold T26 L_SE Self-Evolving and the 5 V6.1 Metal kernels for the Ceiling cycle (post-Floor close) per the no-compromise audit doc.
 
-## Doctrinal preservation (Pro + Research tiers)
+## Doctrinal preservation (MAS / Pro build + Pro Research status)
 
 Per `project_mas_first_focus_2026_05_03` + `project_app_store_first_sequencing`, terminals must:
 - **Build for MAS:** any feature that ships in MAS today
 - **Stub for Pro:** every Pro-only path gets `#[cfg(feature = "pro-build")]` / `#if PRO_BUILD` — preserve geometry, don't develop. DO NOT delete Pro hooks.
-- **Preserve for Research:** Lane-3 substrate stays in `epistemos-research/` crate. NEVER ships in MAS. Doctrine targets only. Read-only from MAS code via crate boundary.
+- **Preserve for Pro Research:** Lane-3 historical substrate stays in `epistemos-research/` crate. NEVER ships in MAS. Doctrine targets only. Read-only from MAS code via crate boundary.
 - **Vault:** preserved-speculation only (Hermes namespace in `simulation` worktree — assets-only extraction allowed; Swift Hermes files contradict 2026-05-05 purge).

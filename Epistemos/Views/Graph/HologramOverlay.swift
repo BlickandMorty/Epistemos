@@ -381,6 +381,7 @@ final class HologramOverlay {
     /// The very first open uses a longer delay to hide engine initialization.
     private var hasShownBefore = false
     private var fadeInTask: Task<Void, Never>?
+    private var graphOpenStartTask: Task<Void, Never>?
     private let firstOpenTitleHost = GraphFirstOpenTitleHost()
 
     init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
@@ -424,6 +425,7 @@ final class HologramOverlay {
 
         // Fast path: if engine is still alive from a soft-hide, just resume + show.
         if let window, let metalView {
+            prepareGraphCanvasForOpening(metalView)
             restoreImmersiveChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
             // 2026-05-19: re-apply the Shaped Graph experimental chrome
@@ -436,7 +438,6 @@ final class HologramOverlay {
             window.alphaValue = 0
             syncImmersivePointerPassthrough(for: window)
             window.orderFrontRegardless()
-            metalView.resumeEngine()
             setWindowAlpha(window, to: 1.0, duration: 0.2) { [weak self] in
                 MainActor.assumeIsolated {
                     guard let self, let window = self.window, let metalView = self.metalView else { return }
@@ -450,6 +451,7 @@ final class HologramOverlay {
                         let theme = GraphOverlayThemeStyle.resolvedTheme()
                         self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
                     }
+                    self.scheduleGraphCanvasStart(metalView, isFirstOpen: false)
                     self.startPinnedPanelTimer()
                 }
             }
@@ -460,6 +462,9 @@ final class HologramOverlay {
         createWindow()
 
         guard let window else { return }
+        if let metalView {
+            prepareGraphCanvasForOpening(metalView)
+        }
 
         prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
 
@@ -527,6 +532,9 @@ final class HologramOverlay {
                             self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
                         }
                     }
+                    if let metalView = self.metalView {
+                        self.scheduleGraphCanvasStart(metalView, isFirstOpen: isFirstOpen)
+                    }
                     self.fadeInTask = nil
                 }
             }
@@ -561,6 +569,64 @@ final class HologramOverlay {
         hiddenTeardownTask = nil
     }
 
+    private var graphCanvasOpenDelay: TimeInterval {
+        reduceMotionEnabled ? 0.0 : 0.42
+    }
+
+    private var firstGraphCanvasOpenDelay: TimeInterval {
+        reduceMotionEnabled ? 0.0 : 0.72
+    }
+
+    private var graphCanvasFadeDuration: TimeInterval {
+        reduceMotionEnabled ? 0.0 : 0.36
+    }
+
+    private func prepareGraphCanvasForOpening(_ metalView: MetalGraphNSView) {
+        graphOpenStartTask?.cancel()
+        graphOpenStartTask = nil
+        graphState.cancelOverlayPhysicsCycle()
+        metalView.pauseEngine()
+        metalView.isHidden = false
+        metalView.alphaValue = 0.0
+    }
+
+    private func scheduleGraphCanvasStart(_ metalView: MetalGraphNSView, isFirstOpen: Bool) {
+        graphOpenStartTask?.cancel()
+        let delay = isFirstOpen ? firstGraphCanvasOpenDelay : graphCanvasOpenDelay
+        let fadeDuration = graphCanvasFadeDuration
+
+        graphOpenStartTask = Task { @MainActor [weak self, weak metalView] in
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+            }
+            guard !Task.isCancelled,
+                  let self,
+                  let metalView,
+                  self.window?.isVisible == true
+            else { return }
+
+            metalView.isHidden = false
+            metalView.resumeEngine()
+            self.graphState.startOverlayPhysicsCycle()
+
+            if fadeDuration == 0 {
+                metalView.alphaValue = 1.0
+                self.graphOpenStartTask = nil
+                return
+            }
+
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = fadeDuration
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                metalView.animator().alphaValue = 1.0
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.graphOpenStartTask = nil
+                }
+            })
+        }
+    }
+
     private func scheduleHiddenTeardown() {
         cancelScheduledTeardown()
         hiddenTeardownTask = Task { @MainActor [weak self] in
@@ -582,6 +648,9 @@ final class HologramOverlay {
     func hide() {
         fadeInTask?.cancel()
         fadeInTask = nil
+        graphOpenStartTask?.cancel()
+        graphOpenStartTask = nil
+        graphState.cancelOverlayPhysicsCycle()
         switch GraphOverlayRetentionPolicy.hideAction(isMinimized: isMinimized) {
         case .teardownImmediately:
             // Minimized: fade out the mini panel and do full teardown.
@@ -610,6 +679,8 @@ final class HologramOverlay {
     /// Call when the overlay is being permanently dismissed (e.g. app quit).
     func forceClose() {
         cancelScheduledTeardown()
+        graphOpenStartTask?.cancel()
+        graphOpenStartTask = nil
         if let window {
             window.orderOut(nil)
         }
@@ -1847,6 +1918,8 @@ final class HologramOverlay {
     /// Called after the fade-out animation completes.
     private func teardown() {
         cancelScheduledTeardown()
+        graphOpenStartTask?.cancel()
+        graphOpenStartTask = nil
         // Remove note window observers.
         if let obs = noteWindowMoveObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = noteWindowResizeObserver { NotificationCenter.default.removeObserver(obs) }

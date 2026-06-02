@@ -9,6 +9,8 @@ target_phase: Phase C.G.C2
 target_rig: M2 Pro 16 GB (canonical ship target)
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-KV-Direct-Gate
 
 > Gate #7 in the §4.G falsifier ladder. **Qwen 3 8B at 128k context, KV-Direct cold-spill to SSD: peak RAM
@@ -232,7 +234,7 @@ The gate **passes** when ALL of the following are true on M2 Pro 16 GB:
 - Tier-1 W8 doctrine: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §3 W8 +
   `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` §I.
 - W8 active gate file: `agent_core/src/scope_rex/kv/direct_gate.rs`.
-- Research-tier doctrine: `epistemos-research/src/kv_direct_gate.rs`.
+- Pro Research doctrine: `epistemos-research/src/kv_direct_gate.rs`.
 - MASTER_FUSION cross-link: `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.3 (the KV-Direct gate row).
 - Sherry 1.25-bit residual codec candidate: `agent_core/src/research/sherry_lattice/`.
 - Active analog of KV cache: `Epistemos/Engine/MLXInferenceService.swift` (the live KV-cache substrate the

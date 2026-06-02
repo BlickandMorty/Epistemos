@@ -13,6 +13,13 @@ target_rig: M2 Pro 16 GB
 
 > Gate #10 in the §4.G falsifier ladder. **Ternary fire/suppress/defer router p99 dispatch latency under
 > target on M2 Pro.** Helios v6.2 §4 acceptance: **P99 < 100 µs on M2 Pro 16 GB** across a 100k-element batch.
+>
+> 2026-06-01 companion: for any PacketRouter route derived from offline/idle
+> assembly discovery, also read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. This gate
+> measures dispatch latency; it does not by itself promote PatternBoost-derived
+> route/layout policy.
 
 ## §1. Why this gate exists
 

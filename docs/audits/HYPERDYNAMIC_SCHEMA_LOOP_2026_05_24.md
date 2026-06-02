@@ -1,5 +1,7 @@
 # Hyperdynamic Schema Loop — Audit (Terminal S, 2026-05-24)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Branch:** `phase2-terminal-s-hyperdynamic-loop-2026-05-24` (worktree
 `/Users/jojo/Downloads/Epistemos-terminal-s`).
 **Spec:** `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md` §Terminal S.
@@ -63,11 +65,11 @@ the default.
 | Every typed model output passes through ≥ 1 loop kind before reaching consumer code. | `mission_run.rs` hook landed at `27af5e0418`. Two free helpers (`gate_admission_draft_through_loop`, `gate_witness_draft_through_loop<T>`) wrap `run_loop` with the appropriate concrete loop. The `_through_loop` suffix is the canonical grep marker; the unit test `hook_helpers_carry_through_loop_suffix_for_grep` enforces it via `stringify!`. Adapter call-site enforcement is a discipline gate — adapter wiring is tracked as a follow-up in §7. |
 | F-HyperdynamicLoop-Bounded PASS on a 100-prompt adversarial corpus. | Spec at `docs/falsifiers/F-HyperdynamicLoop-Bounded_2026_05_24.md`; harness at `agent_core/src/bin/falsify_hyperdynamic_loop_bounded.rs`; result at `artifacts/falsifiers/hyperdynamic_loop_bounded/result.json` (iter 4). Per-axis: `loops_run`, `max_retries_observed ≤ 3`, `max_latency_ms_observed ≤ 5000`, `total_wall_clock_ms ≤ 30000`, `outcome_partition_closed`, `seed_matches_canon`. |
 | Repair budget caps at min(3 retries, 5 s, 1024 tokens) by default; configurable per call site. | `RepairBudget::DEFAULT` carries those literals (tested in `budget_default_is_canonical_acceptance_bar`); `RepairBudget::tightened` allows call-site overrides and is tested to never loosen the default (`tightened_never_loosens_the_default`). |
-| Quarantine triggers visible in Provenance Console. | `RepairOutcome::{Quarantined, QuarantinedBudgetExhausted}` carries the reason + repairs count. `mission_run.rs` hook (iter 5) lowers them into the same `RunEventEntry` channel ACS terminal verdicts already use, which the Provenance Console already renders. |
+| Quarantine triggers visible in Provenance Console. | `RepairOutcome::{Quarantined, QuarantinedBudgetExhausted}` carries the reason + repairs count. `mission_run.rs` hook (iter 5) lowers them into the same `RunEventEntry` channel SCOPE-Rex terminal verdicts already use, which the Provenance Console already renders. |
 
 ## 4. Substrate consumed (no duplication)
 
-The Terminal S work is a **promotion** of research-tier primitives to
+The Terminal S work is a **promotion** of Pro Research primitives to
 production, not a rewrite:
 
 - `agent_core::research::hyperdynamic_schemas::repair::{Schema,
@@ -97,7 +99,7 @@ will wire it. Pre-iter-5 wirings:
 |---|---|
 | `HyperdynamicLoop` trait | `gate_admission_draft_through_loop` + `gate_witness_draft_through_loop` in `mission_run.rs` (`27af5e0418`) + the falsifier harness binary (`8b65039974`) |
 | `RepairBudget`, `run_loop`, `run_loop_with_clock` | Both hook helpers + falsifier harness |
-| `SchemaRepairLoop` | Research-feature-gated; consumed by the research-tier integration the falsifier spec carves out. The MAS hook keeps schema-side wiring as the iter-5+ follow-up |
+| `SchemaRepairLoop` | Pro Research-feature-gated; consumed by the Pro Research integration the falsifier spec carves out. The MAS hook keeps schema-side wiring as the iter-5+ follow-up |
 | `AdmissionRepairLoop` | `gate_admission_draft_through_loop` (`27af5e0418`) + falsifier harness 100-prompt run |
 | `WitnessRepairLoop<T>` | `gate_witness_draft_through_loop<T>` (`27af5e0418`) + falsifier harness 100-prompt run |
 | `HyperdynamicLoopMetrics` (Swift) | FFI bridge from `agent_core::hyperdynamic_loop::LoopCounters` (follow-up — pure transport, no shape change) |

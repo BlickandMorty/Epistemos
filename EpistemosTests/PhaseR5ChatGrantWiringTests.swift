@@ -6,7 +6,7 @@ import Testing
 //
 // Covers the Swift side of the R.5 parser hook added to
 // `ChatCoordinator.handleQuery(_:pipeline:chatState:operatingMode:)`.
-// The hook walks the current turn's `pendingContextAttachments`,
+// The hook walks the current turn's consumed context attachments,
 // filters to the ones carrying a Phase R.4 `resourceURI`, and fires
 // `permissionStoreRecordUserGrantFromStatement` (fire-and-forget) per
 // resource so consent phrasing lands as a real grant in the Rust

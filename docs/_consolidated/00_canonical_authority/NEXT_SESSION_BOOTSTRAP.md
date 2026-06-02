@@ -4,6 +4,13 @@
 > **Purpose**: Paste-as-message into a fresh Claude Code / Codex / Cowork session. This single message provides all the nuance + routing + execution discipline needed to continue work on the **current implementation cluster** without re-explaining anything.
 > **Current cluster**: CLI integration + Hermes integration + Halo Contextual Shadows + workspace dual-editor + landing wave style. **All composed with the four pillars (N1 PromptTree + N2 Concept Door + N3 Exploration Spectrum + N4 Local Analysis Mode).**
 > **Status**: This file IS the prompt. Copy from after the next `---` to the end of file. Paste into a fresh agent's first message.
+>
+> **2026-06-01 supersession:** this consolidated bootstrap is historical. Before
+> using it for UAS/AppColdStore, active model-state, sparse residency, mmap/SSD,
+> dynamic compute, or 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+> is an offline/idle Pro Research discovery lane, not live route authority.
 
 ---
 

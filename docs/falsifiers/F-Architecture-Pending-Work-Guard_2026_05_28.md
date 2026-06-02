@@ -5,6 +5,8 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 status: PRIMARY WORK-QUEUE GUARD IMPLEMENTED
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-Architecture-Pending-Work-Guard
 
 ## Purpose
@@ -64,7 +66,7 @@ Both the GGUF bench helper and app-facing local-agent loop must preserve the
 same safety rule: normal automatic local runs stay at or below `32768` context
 tokens, and anything larger requires the explicit
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` environment gate. This is an execution
-safety bit, not a demotion of the UAS/ACS/70B ambition.
+safety bit, not a demotion of the UAS/AcsAnchor/70B ambition.
 
 The GGUF bench helper must also preserve a dry-run preview mode. That preview
 is allowed to write only a manifest with `not_executed=true`,

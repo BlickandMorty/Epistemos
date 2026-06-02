@@ -4855,7 +4855,7 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("let hasExplicitContext = Self.queryContainsExplicitContext("))
         #expect(coordinator.contains("let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)"))
         #expect(coordinator.contains("let hasAttachedUserContext ="))
-        #expect(coordinator.contains("!chatState.pendingContextAttachments.isEmpty || !userAttachments.isEmpty"))
+        #expect(coordinator.contains("!turnContextAttachments.isEmpty || !userAttachments.isEmpty"))
         #expect(coordinator.contains("let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup"))
         #expect(coordinator.contains("hasExplicitContext: plannerHasExplicitContext"))
         #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
