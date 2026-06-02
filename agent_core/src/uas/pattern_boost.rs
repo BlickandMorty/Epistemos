@@ -19,6 +19,7 @@ const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admissio
 const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
     "F-ResidencyPatternBoost-NoHiddenAuthority";
 const APP_COLD_STORE_ROUTE_CARD_UAS_KIND: &str = "app_cold_store_route_card";
+const ROLLBACK_REF_PREFIX: &str = "rollback:";
 const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
 const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 4] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
@@ -114,6 +115,7 @@ impl UasAssemblyGenome {
         validate_nonempty("rollback_ref", &rollback_ref)?;
         validate_runtime_router_route("runtime_route_id", &runtime_route_id)?;
         validate_runtime_router_route("fallback_route", &fallback_route)?;
+        validate_rollback_reference(&rollback_ref)?;
 
         if selected_weight_pages.is_empty()
             && selected_kv_pages.is_empty()
@@ -349,6 +351,9 @@ pub enum UasAssemblyGenomeError {
     },
     OverlappingTransportPageRun,
     ProductBuildStatusMismatch,
+    UnsupportedRollbackReference {
+        rollback_ref: String,
+    },
     UnsupportedRuntimeRouteAuthority {
         field: &'static str,
         route: String,
@@ -406,6 +411,10 @@ impl std::fmt::Display for UasAssemblyGenomeError {
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "Residency PatternBoost genomes must stay Pro Research / capability-ceiling metadata"
+            ),
+            Self::UnsupportedRollbackReference { rollback_ref } => write!(
+                f,
+                "rollback_ref must name an explicit rollback artifact, got {rollback_ref}"
             ),
             Self::UnsupportedRuntimeRouteAuthority { field, route } => write!(
                 f,
@@ -488,15 +497,27 @@ fn validate_runtime_router_route(
 ) -> Result<(), UasAssemblyGenomeError> {
     if route
         .strip_prefix(RUNTIME_ROUTER_ROUTE_PREFIX)
-        .is_some_and(|route_id| {
-            !route_id.is_empty() && !route_id.chars().any(char::is_whitespace)
-        })
+        .is_some_and(|route_id| !route_id.is_empty() && !route_id.chars().any(char::is_whitespace))
     {
         return Ok(());
     }
     Err(UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
         field,
         route: route.to_string(),
+    })
+}
+
+fn validate_rollback_reference(rollback_ref: &str) -> Result<(), UasAssemblyGenomeError> {
+    if rollback_ref
+        .strip_prefix(ROLLBACK_REF_PREFIX)
+        .is_some_and(|artifact_id| {
+            !artifact_id.is_empty() && !artifact_id.chars().any(char::is_whitespace)
+        })
+    {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::UnsupportedRollbackReference {
+        rollback_ref: rollback_ref.to_string(),
     })
 }
 
@@ -1213,6 +1234,40 @@ mod tests {
             err,
             UasAssemblyGenomeError::MissingRequiredVerifierLane {
                 verifier: "F-NoOfflineOracleLeak"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_unscoped_rollback_reference() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "patternboost:mutate_live_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedRollbackReference {
+                rollback_ref: "patternboost:mutate_live_policy".to_string()
             }
         );
     }
