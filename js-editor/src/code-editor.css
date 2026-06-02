@@ -60,6 +60,15 @@ html[data-theme="dark"] body {
   user-select: none;
 }
 
+html[data-theme="dark"] .cm-gutters {
+  border-right-color: color-mix(
+    in srgb,
+    var(--epi-code-bg, #140f0c) 72%,
+    var(--epi-code-keyword, #d08632) 18%,
+    var(--epi-code-fg, #f2eee8) 10%
+  ) !important;
+}
+
 .cm-lineNumbers .cm-gutterElement {
   min-width: 42px;
   padding: 0 12px 0 8px;

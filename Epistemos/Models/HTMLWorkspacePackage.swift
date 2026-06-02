@@ -87,6 +87,14 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
           color: inherit;
         }
 
+        html[data-epistemos-theme="dark"] body :is(main, section, article, aside, header, footer, div, p, li, td, th, blockquote, figcaption, label, small, span, strong, em, b, i, code, pre, dd, dt, summary, caption, output, button) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .subtitle, .subtle, .secondary, .meta, .caption, [class*="muted"], [class*="secondary"], [class*="subtle"], [class*="meta"], small, figcaption, caption, td:first-child, th:first-child) {
+          color: color-mix(in srgb, var(--epistemos-workspace-fg) 84%, transparent) !important;
+        }
+
         html[data-epistemos-theme] body :is(hr, .rule, .divider) {
           border-color: var(--epistemos-workspace-border);
           background-color: var(--epistemos-workspace-border);
@@ -94,6 +102,14 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
 
         html[data-epistemos-theme] body :is(a) {
           color: var(--epistemos-workspace-accent);
+        }
+
+        html[data-epistemos-theme="dark"] body :is(a, a:visited, a span, a small, a strong, a em) {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body ::placeholder {
+          color: color-mix(in srgb, var(--epistemos-workspace-fg) 70%, transparent) !important;
         }
 
         html[data-epistemos-theme] body :is(h1, h2, .workspace-title, [data-display-title]) {

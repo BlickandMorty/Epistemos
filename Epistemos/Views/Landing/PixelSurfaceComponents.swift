@@ -802,13 +802,8 @@ struct PixelLandingCommandTile: View {
 
     private func triggerAction() {
         HapticHelper.homeCommand(haptic)
-        Task { @MainActor in
-            await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
-                pressFrame = frame
-            }
-            pressFrame = 0
-            action()
-        }
+        pressFrame = 0
+        action()
     }
 
     private func handleHover(_ hovering: Bool) {
