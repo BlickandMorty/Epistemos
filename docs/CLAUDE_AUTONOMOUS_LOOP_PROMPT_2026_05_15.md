@@ -1,5 +1,7 @@
 # Claude Autonomous Loop Prompt — 2026-05-15
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Purpose:** Single self-contained prompt that drives one full iteration of forward progress on Epistemos. Designed to be the body of a `/loop` invocation — every iteration re-reads this prompt verbatim, executes one bounded slice of work, commits, and exits. The next iteration sees a slightly-different working tree and picks the next slice.
 
 **How to use:**
@@ -243,7 +245,7 @@ Most of these are 1-2 hour doc edits closing the formalization-depth gap. Pick b
 |---|---|---|
 | 61 | M-1 | Eidos search engine (Tantivy + bge + Metal cosine) row in `MASTER_FUSION` §3.x |
 | 62 | M-2 / M-3 | Eidos Plus deliberation + Cloud-as-Teacher distillation in `HERMES_AGENT_CORE_2_0_DESIGN` §13.5 |
-| 63 | M-4 | Hopfield / hypervector memory research-tier row in `MASTER_FUSION` |
+| 63 | M-4 | Hopfield / hypervector memory Pro Research row in `MASTER_FUSION` |
 | 64 | M-5 | Reflective Loop 7-layer annotation in `HERMES_AGENT_CORE_2_0_DESIGN` §3 |
 | 65 | M-6 / M-7 | Graph + sidebar perf issues — route to audit register MEDIUM |
 | 66 | M-8 | Executive UI / NASA OpenMCT / ISA-101 — new doc `docs/EXECUTIVE_UI_OVERSIGHT_DESIGN_PRINCIPLES_2026_05_15.md` |

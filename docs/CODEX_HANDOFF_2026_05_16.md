@@ -2,9 +2,17 @@
 
 **For**: Codex (or any AI agent picking up Epistemos cold)
 **Author**: Claude Opus 4.7 (1M context), closing out a multi-day 7-terminal session
-**main tip at hand-off**: `988de854f merge(B): run-b-post-v1-research → main (V6.1 substrate + Wave I A2UI catalog 24/24 + research-tier)`
+**main tip at hand-off**: `988de854f merge(B): run-b-post-v1-research → main (V6.1 substrate + Wave I A2UI catalog 24/24 + Pro Research)`
 
 > **Addendum (2026-05-16 evening)**: After this handoff was written, three additional doc-only commits landed cherry-picked onto `main` (handoff + deep-investigation prompt + its updates). main tip is now `dc3bfda4e docs(codex-deep-investigation): Tri-Fusion + EML + UI/UX audit + biometric lock + museum-piece bar`. The user's primary build worktree at `/Users/jojo/Downloads/Epistemos` is now **on `main` directly** (no longer on `codex/research-snapshot-2026-05-08`). New default branch discipline for Codex: small / additive slices commit straight onto `main`; cut a `codex/<slice>-<date>` feature branch only for large / risky / multi-day work-streams. See §6 rule 4 + footer of `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` for the canonical statement.
+>
+> **2026-06-01 architecture supersession:** this handoff predates the current
+> Residency PatternBoost doctrine. For any UAS/AppColdStore, active model-state,
+> sparse residency, mmap/SSD, dynamic compute, or 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` before acting.
+> PatternBoost-derived policies are Pro Research until repair, sparse
+> fingerprint, held-out replay, abstention, rollback, and witness gates pass.
 
 ---
 
@@ -42,7 +50,7 @@ Plus single-file modules: `attention_sinks.rs`, `belnap.rs` (K3 Belnap 4-valued 
 - **Doctrine spine**: `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md §3.8` — 11-facet table with naming-drift disambiguation
 - **Lane 3 research-only substrate**: `epistemos-research/src/acs.rs` (6.2 KB) — `AcsAnchor` + `CmsXField` + `ACS_CANONICAL_PLANE = RuntimePlane::Episodic`. **Never ships in MAS per file:17 header.**
 - **agent_core research substrate (NEW)**: `agent_core/src/research/acs/` — 2,660 LOC across autopoiesis + governance + kuramoto + mod. This IS the J5 ACS implementation.
-- **Integration artifact**: `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` (16 KB, 10 sections) pulls all UAS-ACS surfaces into one register.
+- **Integration artifact**: `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` (16 KB, 10 sections) pulls all UAS/AcsAnchor surfaces into one register.
 
 ### 3. Kuramoto coupling — IMPLEMENTED
 
@@ -65,7 +73,7 @@ Plus single-file modules: `attention_sinks.rs`, `belnap.rs` (K3 Belnap 4-valued 
   4. No-loss cross-link map
   5. V1/V1.x/V2/never-ships sort (13 facets)
   6. Status-transition log (append-only)
-  7. 5 UAS-ACS-specific PR-discipline rules
+  7. 5 UAS/AcsAnchor-specific PR-discipline rules
   8. 4 open user-decision-gated questions
   9. Cross-references
   10. Anti-scope-creep guardrail
@@ -110,7 +118,7 @@ Plus single-file modules: `attention_sinks.rs`, `belnap.rs` (K3 Belnap 4-valued 
 
 Per the 4-advisor synthesis earlier in the session:
 
-1. **`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md`** — UAS-ACS coherence layer (no-loss register)
+1. **`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md`** — UAS/AcsAnchor coherence layer (no-loss register)
 2. **`docs/fusion/V1_SHIP_LEDGER_2026_05_16.md`** — flat-view classification: every feature → v1/v1.1/v2/never. ~85 feature rows.
 3. **`docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md`** — concrete user scenario walking through every V1-shipped surface in narrative form.
 
@@ -227,7 +235,7 @@ Read each research doc at `docs/audits/user-decisions/` and pick:
 ## Recommended next steps (in priority order)
 
 1. **Run final `xcodebuild test` on merged main** (Swift side hasn't been fully verified after all merges)
-2. **Read the 3 integration artifacts** (UAS-ACS Canon · V1 Ship Ledger · Day-in-the-Life) to orient
+2. **Read the 3 integration artifacts** (UAS/AcsAnchor Canon · V1 Ship Ledger · Day-in-the-Life) to orient
 3. **Read C's TERMINAL_HANDOFF_SNAPSHOT_2026_05_16.md** for full per-terminal verdict
 4. **Read B's ACCEPTANCE_PROOFS_V6_1_2026_05_16.md** for wave-by-wave proof of what shipped
 5. **Pick 2-3 of the 13 open user-decisions to answer** so V1.x work can start

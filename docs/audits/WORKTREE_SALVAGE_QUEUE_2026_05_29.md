@@ -1,5 +1,7 @@
 # Worktree Salvage Queue — 2026-05-29
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: audit / preservation queue. No worktree was removed. No branch was
 merged by this audit.
 
@@ -259,7 +261,7 @@ the user's non-runtime architecture surface:
 
 1. T5 EML / Geometry / Info / Operator IR stack.
 2. T17b lattice / WBO register path.
-3. T18b ACS admission field.
+3. T18b SCOPE-Rex admission field (legacy ACS path).
 4. Terminal S hyperdynamic/schema repair loop.
 5. Terminal D substrate health rows.
 6. Terminal A Eidos citation/evidence bridge.

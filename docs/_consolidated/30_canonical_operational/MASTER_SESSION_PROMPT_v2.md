@@ -8,6 +8,16 @@
 **Last Updated:** 2026-03-31
 **Paste this at the start of EVERY new Claude Code session.**
 
+**2026-06-01 architecture override:** this consolidated copy is historical.
+Before acting on the Hermes/Omega/local-inference language below, read the root
+`docs/MASTER_SESSION_PROMPT_v2.md`, then read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` for current
+UAS/AppColdStore, active model-state, route-layout, dynamic compute, mmap/SSD,
+and 70B-cocktail doctrine. PatternBoost-derived policies are Pro Research until
+repair, sparse fingerprint, held-out replay, abstention, rollback, and witness
+evidence pass.
+
 ---
 
 ## CONTEXT RESTORATION

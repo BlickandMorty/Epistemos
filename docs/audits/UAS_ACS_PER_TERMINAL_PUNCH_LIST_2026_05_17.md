@@ -7,6 +7,8 @@ authority: T3 final handoff `docs/audits/UAS_ACS_FINAL_HANDOFF_2026_05_17.md` §
 purpose: Single per-terminal punch list for work T3 deferred. Use this AFTER merging the T-terminal branches to know what's left per terminal.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # UAS-ACS Per-Terminal Punch List — 2026-05-17
 
 > Consolidates every deferred item from T3's 62-iter Phase A + Phase B work into **one punch list per

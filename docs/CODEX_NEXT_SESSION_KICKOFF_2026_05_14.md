@@ -48,11 +48,11 @@ You can't do any of A.1-A.6. Tell the user when they should run them per the pla
 - The route-capture domain has reference impl at `agent_core/src/route/variant_b_classifiers.rs` (using its own `LlmClassifier` trait — different from the typed `VariantLadder`)
 - Goal: wire the typed `VariantLadder` to `vault.search` end-to-end
 - The blocker for the full version is that `VaultBackend` trait only exposes `hybrid_search` (RRF-combined), not separate lexical-only / embedding-only entry points
-- **Approach A (small)** — Add `lexical_search` + `embedding_search` methods to `VaultBackend` trait (default impls fall through to `hybrid_search`), then wire 3 LadderVariant instances (Tier 1 Lexical / Tier 2 Embedding / Tier 3 RRF) with FLOOR_T1 ≥ 0.85, FLOOR_T2 ≥ 0.75, FLOOR_T3 ≥ 0.70 thresholds
-- **Approach B (smaller)** — Wire ONE deterministic Tier-1 backstop (vault.list path-name overlap) → fall through to existing hybrid_search as Tier-3 sentinel. Cleaner first cut, proves seam wired
-- Acceptance per doctrine §4.2: deterministic Tier-1 produces usable answer for happy path AND defers cleanly when below floor
+- **Approach A (small)** — Add `lexical_search` + `embedding_search` methods to `VaultBackend` trait (default impls fall through to `hybrid_search`), then wire 3 LadderVariant stages (Stage 1 Lexical / Stage 2 Embedding / Stage 3 RRF) with FLOOR_T1 ≥ 0.85, FLOOR_T2 ≥ 0.75, FLOOR_T3 ≥ 0.70 thresholds
+- **Approach B (smaller)** — Wire ONE deterministic Stage-1 backstop (vault.list path-name overlap) → fall through to existing hybrid_search as Stage-3 sentinel. Cleaner first cut, proves seam wired
+- Acceptance per doctrine §4.2: deterministic Stage-1 produces usable answer for happy path AND defers cleanly when below floor
 - LadderLog row writes to Provenance Console per call
-- Source-guard tests: happy-path Tier 1 exit + escalation gate proof
+- Source-guard tests: happy-path Stage-1 exit + escalation gate proof
 
 **B.4 reasoning field ≤256 token cap at GBNF compile**
 - `Epistemos/LocalAgent/LocalToolGrammar.swift:73-96` builds the grammar with `AnyTextFormat()` inside `<think>` tags — no length cap today

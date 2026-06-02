@@ -1,12 +1,19 @@
 # V1 Ship Ledger — 2026-05-16
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+> **2026-05-31 naming supersession:** this ledger is preserved as V1-era
+> shipment history. Current distributable builds are MAS and Pro only. Read
+> old `Research`/`Vault` rows as Pro Research / Pro Vault-Preserved status
+> bands, and read `UAS-ACS` as legacy UAS + AcsAnchor terminology.
+
 **Purpose:** single canonical enumeration of every feature surface in the Epistemos codebase + corpus with its V1/V1.1/V2/never-ships classification, per the 4-advisor synthesis directive: **the canon has coverage but not coherence; this ledger answers "what actually ships when?" without a 20-doc cross-read.**
 
 **Audience:** anyone (Codex, Claude, the user, App Store reviewers, future maintainers) needing to know "does feature X ship in V1?" without digging through MASTER_FUSION §3 + MAS_COMPLETE_FUSION §10 + 4 separate audit registers.
 
 **Discipline:** APPEND-ONLY for new features. Status transitions (V1.1 → V1, never → V2, etc.) update the row in place + log the transition in §6.
 
-**Cross-refs:** this ledger is integration artifact 2 of 3 per the 4-advisor synthesis. Artifact 1 = `UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` (UAS-ACS coherence layer). Artifact 3 = `DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` (concrete user scenario; iter 78 candidate).
+**Cross-refs:** this ledger is integration artifact 2 of 3 per the 4-advisor synthesis. Artifact 1 = `UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` (legacy UAS-ACS coherence layer, now read as UAS + AcsAnchor). Artifact 3 = `DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` (concrete user scenario; iter 78 candidate).
 
 ---
 
@@ -17,13 +24,13 @@
 | **V1** | Ships in first MAS submission. SHIPPED in main + verified. | `mas-build` Cargo feature, MAS entitlements |
 | **V1.x** | Post-V1 MAS update. Substrate exists or scoped; needs scope-completion work. | `mas-build` later |
 | **V2** | Pro-tier (Developer ID distribution). Feature-gated `#[cfg(feature = "pro-build")]` / `#if PRO_BUILD`. | `pro-build` |
-| **NEVER** | Research-tier or PAID-TEAM-GATED or research-only. Documented but does not ship. | Lane 3 research crate only |
+| **NEVER** | Pro Research / paid-team-gated / research-only. Documented but does not ship. | Pro Research crate only |
 
 **Ship-blocker categories:**
 - **SHIPPED** — code in main + tests passing + feature complete
 - **SCOPE** — substrate exists; feature surface incomplete (needs design / wiring / UI)
 - **DECISION** — user-decision-gated (V1 vs V1.1 routing pending user signoff)
-- **RESEARCH** — research-tier (not actionable for ship)
+- **RESEARCH** — Pro Research status (not actionable for ship)
 - **PAID-TEAM** — requires paid-team-level infra (XPC Mastery, code-signing pipelines, etc.)
 
 ---
@@ -39,8 +46,8 @@
 | `epistemos_doctrine_lint` CLI (cognitive DAG doctrine §5.1-§5.4 gates) | **V1** | SHIPPED | — | `agent_core/src/bin/epistemos_doctrine_lint.rs` |
 | In-process LSP runtime (V2.3) — `LspKernel` + tree-sitter Rust/Swift | **V1** | SHIPPED | feature-gated behind `lsp-runtime` | `agent_core/src/lsp_runtime/mod.rs` |
 | Run Ledger — per-token cryptographic attestation (B2-M14) | **NEVER** | NOT-STARTED | RESEARCH (V2 paid-team-gated for full implementation) | MASTER_FUSION §3.40 |
-| Five-plane runtime formalism — `RuntimePlane` enum (State · Episodic · Assembly · Controller · Verification) | **V1** | SHIPPED at 308 LOC research-only | RESEARCH (Lane 3 research-tier) | `epistemos-research/src/five_planes.rs` |
-| ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack) | **NEVER** | SHIPPED at 190 LOC research-only; doctrine PARTIAL | RESEARCH (Lane 3 research-tier per `acs.rs:17` doctrine comment "NEVER ships in MAS") | MASTER_FUSION §3.8 |
+| Five-plane runtime formalism — `RuntimePlane` enum (State · Episodic · Assembly · Controller · Verification) | **V1** | SHIPPED at 308 LOC research-only | RESEARCH (Pro Research) | `epistemos-research/src/five_planes.rs` |
+| AcsAnchor / legacy ACS doctrine | **NEVER** | SHIPPED at 190 LOC research-only; doctrine PARTIAL | RESEARCH (Pro Research; historical `acs.rs:17` doctrine comment says "NEVER ships in MAS") | MASTER_FUSION §3.8 |
 | Foundational Seven theorems (E1-E7) | **NEVER** | doctrine + Lean proof skeleton at 35 sorries / ≤149 budget | RESEARCH | `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` |
 
 ---

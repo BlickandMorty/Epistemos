@@ -4,6 +4,16 @@
 **Branch state:** uncommitted; all edits live on the working tree
 **Build state:** ✓ `xcodebuild` clean; ✓ Rust 774 + 45 lib tests pass
 
+**2026-06-01 architecture supersession:** this perf handoff predates the
+Residency PatternBoost and hot-path cure doctrine. Before using it for
+UAS/AppColdStore, mmap/SSD residency, active model-state, dynamic compute,
+KV/page routing, or 70B-cocktail work, read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`,
+`docs/fusion/MMAP_REPLACEMENT_AND_HOTPATH_CURE_ATLAS_2026_06_01.md`, and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. Preserve
+intentional product/UI copies; only computation, transport, proof, and backend
+hot paths are zero-copy targets by default.
+
 ---
 
 ## TL;DR — copy-paste this section to Codex

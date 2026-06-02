@@ -1,10 +1,18 @@
 # Hermes Agent Core 2.0 — Native Agent Architecture
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-15
 **Status:** v0.1 design (canonical target — sequenced after V1 MAS submission per Master Fusion plan)
 **Authority:** Doctrine doc. Lives at rank 4 of the authority chain, just below `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`. Replaces the scattered agent design notes across `IMPLEMENTATION_PLAN_FROM_ADVICE.md`, `project_helios_v5_substrate_landed.md`, and the `agent_runtime/` ad-hoc seams.
 
+> **2026-05-31 naming supersession:** this document's title is historical.
+> Current user-facing agent/runtime name is **System G / Invader Agent**;
+> code namespace is `agent_runtime_v2`. "Hermes Agent Core" below means the
+> legacy design lineage, not a live subprocess or product name.
+
 > The architecture sentence:
-> *Epistemos agents are Hermes-governed native agents whose executor can be local, cloud, MCP, or Pro CLI, but whose memory, permissions, schemas, artifacts, and audit trail always belong to Epistemos.*
+> *Epistemos agents are System-G-governed native agents whose executor can be local, cloud, MCP, or Pro CLI, but whose memory, permissions, schemas, artifacts, and audit trail always belong to Epistemos.*
 
 ---
 
@@ -145,8 +153,8 @@ pub struct AgentBlueprint {
 pub enum RuntimeTier {
     MasNative,    // App Store sandbox; HTTPS + local MLX + native tools only
     ProCli,       // Pro direct-distribution; CLI subprocess adapters allowed
-    Research,     // Pro + research-tier features (Lean, falsifier, etc.)
-    Omega,        // Pro + research + experimental simulation paths
+    ProResearch,  // Pro Research features (Lean, falsifier, etc.)
+    ProOmega,     // Pro Research + experimental simulation paths
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1374,7 +1382,7 @@ Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude 
 
 **The acceptance threshold.** LapEigvals on TriviaQA reaches **AUROC 88.9%** with top-k Laplacian eigenvalues of the attention map alone — no external retrieval, no second model. EigenTrack tightens the bound further by tracking eigenvalue *trajectories* across decode steps rather than a static snapshot. **Doctrine acceptance**: when this lands in Epistemos, the test suite pins AUROC ≥ 0.85 on a held-out trivia/factual subset as the regression floor.
 
-**Operational integration shape** (Wave 9+ research-tier — does **NOT** ship in V1):
+**Operational integration shape** (Wave 9+ Pro Research — does **NOT** ship in V1):
 
 ```
                          decode step t
@@ -1406,13 +1414,13 @@ Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude 
 - **B-3 Confidence Meter** (the simple-form `ConfidenceBadge` shipping in V1 per `MAS_COMPLETE_FUSION §10`) is the natural consumer. When the spectral gap collapses, the confidence score that backs the badge drops below 70% and the V1.1 biometric-gated re-learn fires.
 - **`ClaimLedger`** (provenance) records the spectral metric per turn so post-hoc audits can correlate spectral collapse with downstream retraction.
 
-**Why this is research-tier, not V1:**
+**Why this is Pro Research, not V1:**
 - Requires per-decode-step access to raw attention maps. Anthropic / OpenAI APIs don't expose these. Only local MLX models (Qwen 3.5 / Phi-4 / Nemotron Nano) can provide them today.
 - Even on local models, computing eigenvalues per step adds non-trivial latency unless we cache the Laplacian decomposition across steps.
 - The 88.9% AUROC is on TriviaQA — needs validation on the user's actual vault domain before being a load-bearing gate.
 
 **Scope explicitly NOT covered by this section:**
-- The full Laplace-Beltrami manifold-learning frame (broader differential-geometry treatment from `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2). That's a deeper research-tier doc; this section lands the operational technique only.
+- The full Laplace-Beltrami manifold-learning frame (broader differential-geometry treatment from `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2). That's a deeper Pro Research doc; this section lands the operational technique only.
 - Cross-attention vs self-attention monitoring strategy.
 - Per-layer vs per-head aggregation (literature uses per-head means; EigenTrack picks per-layer trajectories).
 
@@ -1592,7 +1600,7 @@ user: "research state space models and draft a brief"
   ├─ Reasoning brain (Mistral Small 7B or Phi-4 14B if RAM permits)
   │   → outline sections [planning sub-task]
   │
-  ├─ Retrieval (Tier 1-3 via Shadow + RRF)
+  ├─ Retrieval (Stage 1-3 via Shadow + RRF)
   │   → fetch top-N notes [no LLM]
   │
   ├─ Coding brain (Qwen 3.6 35B-A3B Unsloth via MLX)
@@ -1704,7 +1712,7 @@ next subgoal OR mission complete
 |---|---|---|
 | Planner | `MissionPacket.intent()` + `ProviderRouter` §13.6.5 | sub-agent Planner-graph (post-V1) |
 | Guardrail | `SovereignGate.validate_*` + §5 SCOPE-Rex governance wrapper + §7.5 Capability Lease (Pro) + §B2-H20 ephemeral tokens (request-time) | per-subagent Guardrail with parent veto |
-| Critique | `ClaimLedger` retraction propagation + §13.5.8 spectral detection (post-V1 local-only) + §3.36 SAE AUC ≥ 0.90 (research-tier) | Critique-as-second-model (cloud or larger local) |
+| Critique | `ClaimLedger` retraction propagation + §13.5.8 spectral detection (post-V1 local-only) + §3.36 SAE AUC ≥ 0.90 (Pro Research) | Critique-as-second-model (cloud or larger local) |
 | Budget | `pricing.rs::estimate_cost_usd` + Settings → Agent → Spend §B2-H14 (already shipped) | Budget-aware Planner that splits subgoals by cost |
 
 **Boundaries:**
@@ -1843,7 +1851,7 @@ None of these block V1. The doctrine row + this section anchor the design so fut
 3. **Context condenser** (OpenHands-style 6-layer compaction). Implementation lives in `agent_core/src/compaction.rs` today; needs to be wired into the `AgentExecutor` lifecycle in Week 3.
 4. **Repo map ranking** (Aider's graph-centrality algorithm). Rust port lives in `epistemos-repo-map` crate (new); Week 5 deliverable.
 5. **MCP marketplace** (OpenClaw / Goose extensions). Post-V1; needs SovereignGate consent UI.
-6. **Goodfire VPD distillation** for a custom Epistemos brain MoE. V6.1 research-tier; explicitly NOT on the V1 path.
+6. **Goodfire VPD distillation** for a custom Epistemos brain MoE. V6.1 Pro Research; explicitly NOT on the V1 path.
 
 ---
 

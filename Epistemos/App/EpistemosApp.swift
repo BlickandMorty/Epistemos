@@ -264,6 +264,108 @@ private struct HomeSceneRootContent: View {
     }
 }
 
+private struct FallbackHomeWindowContent: View {
+    let bootstrap: AppBootstrap
+    @State private var showQuickCapture = false
+
+    var body: some View {
+        HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)
+    }
+}
+
+@MainActor
+private final class HomeWindowFallbackPresenter {
+    static let shared = HomeWindowFallbackPresenter()
+
+    private static let log = Logger(subsystem: "com.epistemos", category: "HomeWindowFallback")
+    private var fallbackWindow: NSWindow?
+    private weak var bootstrap: AppBootstrap?
+    private var didSchedule = false
+
+    private init() {}
+
+    private static func viableHomeWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            HomeWindowIdentity.matches(window)
+                && window.frame.width >= WindowPresentationPolicy.mainWindowMinimumSize.width
+                && window.frame.height >= WindowPresentationPolicy.mainWindowMinimumSize.height
+        }
+    }
+
+    func schedule(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        guard !didSchedule else { return }
+        didSchedule = true
+
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(800))
+            } catch {
+                return
+            }
+            surfaceOrCreateHomeWindow()
+        }
+    }
+
+    func scheduleAfterLaunch(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        didSchedule = false
+        schedule(bootstrap: bootstrap ?? self.bootstrap)
+    }
+
+    func ensureHomeWindow(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        didSchedule = false
+        surfaceOrCreateHomeWindow()
+    }
+
+    private func surfaceOrCreateHomeWindow() {
+        if let existingWindow = Self.viableHomeWindow() {
+            surface(existingWindow)
+            return
+        }
+
+        guard let bootstrap = bootstrap ?? AppBootstrap.shared else {
+            didSchedule = false
+            schedule()
+            return
+        }
+
+        let controller = NSHostingController(
+            rootView: FallbackHomeWindowContent(bootstrap: bootstrap)
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = HomeWindowIdentity.title
+        window.isReleasedWhenClosed = false
+        window.contentViewController = controller
+        window.center()
+        HomeWindowIdentity.apply(to: window)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        fallbackWindow = window
+
+        Self.log.info("Created fallback home window after launch produced no viable scene window")
+        surface(window)
+    }
+
+    private func surface(_ window: NSWindow) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+
 #if EPISTEMOS_APP_STORE
 private struct AppStoreFallbackHomeWindowContent: View {
     let bootstrap: AppBootstrap
@@ -864,6 +966,7 @@ struct EpistemosApp: App {
             ])
             RuntimeIssueMonitor.shared.start()
             HomeWindowInputDiagnostics.shared.startIfNeeded()
+            HomeWindowFallbackPresenter.shared.schedule(bootstrap: bootstrap)
             #if EPISTEMOS_APP_STORE
                 AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)
             #endif
@@ -1159,6 +1262,8 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
                 .info("App Store applicationDidFinishLaunching reached")
             AppStoreFirstWindowPresenter.shared.scheduleAfterLaunch()
+        #else
+            HomeWindowFallbackPresenter.shared.scheduleAfterLaunch()
         #endif
     }
 
@@ -1167,7 +1272,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         #if EPISTEMOS_APP_STORE
             AppStoreFirstWindowPresenter.shared.ensureHomeWindow()
         #else
-            HomeWindowIdentity.surfaceHomeWindow()
+            HomeWindowFallbackPresenter.shared.ensureHomeWindow()
         #endif
         return true
     }

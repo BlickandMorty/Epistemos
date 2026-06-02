@@ -104,13 +104,22 @@ struct HologramNodeInspector: View {
         VStack(alignment: .leading, spacing: 0) {
             compactHeader(node)
             Divider().opacity(0.35)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    compactVitals(node)
-                    compactRelationships(node)
-                }
+            if node.type == .note, node.sourceId != nil {
+                modePicker
+                Divider().opacity(0.35)
             }
-            .scrollIndicators(.visible)
+            if node.type == .note, let pageId = node.sourceId,
+               inspectorState.inspectorMode == .editor {
+                noteEditorBody(pageId: pageId)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        compactVitals(node)
+                        compactRelationships(node)
+                    }
+                }
+                .scrollIndicators(.visible)
+            }
         }
         .frame(width: inspectorWidth)
         .frame(height: inspectorHeight, alignment: .top)
@@ -452,7 +461,7 @@ struct HologramNodeInspector: View {
                 // Prose file: original editor
                 if editorDisplay == .raw {
                     TextEditor(text: $editorText)
-                        .font(.system(size: 14))
+                        .font(AppDisplayTypography.panelFont(size: 14, theme: theme))
                         .lineSpacing(4)
                         .scrollContentBackground(.hidden)
                         .padding(16)
@@ -748,6 +757,7 @@ struct HologramNodeInspector: View {
             )
     }
 
+    @ViewBuilder
     private func previewHeadingText(
         text: String,
         role: AppHeadingRole
@@ -759,14 +769,32 @@ struct HologramNodeInspector: View {
             level: level,
             notesSpec: notesSpec
         )
-        return previewMarkdownText(
-            markdown: theme.boxedLabelText(
-                MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
-            ),
-            font: font,
-            color: MarkdownHeadingDisplay.foregroundColor(for: theme, level: level),
-            rippleEnabled: false
+        let displayText = theme.boxedLabelText(
+            MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
         )
+        let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
+        if AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: level, allowDisplayFont: notesSpec == nil) {
+            Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                displayText,
+                size: role.fontSize,
+                weight: level == 1 ? .heavy : .semibold,
+                isDark: theme.isDark
+            ))
+            .foregroundStyle(color)
+            .asciiRippleOverlay(
+                text: MarkdownRippleTextExtractor.displayText(from: displayText),
+                font: font,
+                color: color,
+                enabled: false
+            )
+        } else {
+            previewMarkdownText(
+                markdown: displayText,
+                font: font,
+                color: color,
+                rippleEnabled: false
+            )
+        }
     }
 
     private func graphPreviewHeadingFont(

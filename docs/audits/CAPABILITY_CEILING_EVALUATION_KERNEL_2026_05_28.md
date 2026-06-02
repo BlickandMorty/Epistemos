@@ -6,6 +6,8 @@ artifact: artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json
 posture: no-compromise; failures stay visible until measured gates pass
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Capability Ceiling Evaluation Kernel - 2026-05-28
 
 ## Result
@@ -61,8 +63,8 @@ Human-readable queue mirror:
 | `sparse_runtime_split_artifact_pass` | pass | `F-Sparse-Runtime-Split` now has a schema-valid primary synthetic runtime witness over 1000 prompts with `0.0` KL, `0.0176` active ratio, `0.0067` cost ratio, and EML/Geometry/Scan/Operator chart labels. |
 | `uas_copy_count_hot_path_pass` | pass | Schema-normalized primary witness passes. |
 | `acs_anchor_lookup_pass` | pass | Schema-normalized primary witness passes. |
-| `uas_acs_mmap_residency_pass` | pass | `F-UAS-ACS-MmapResidency` is a schema-valid primary witness for a 16 MiB file-backed mmap KV-page slice with UAS address round-trip, ACS projection lookup, residency lease round-trip, checksum proof, invalid-offset rejection, and zero tracked hot-path copies. It is not a live MLX or 70B proof. |
-| `all_gate_artifacts_schema_normalized` | pass | UAS copy-count, ACS lookup, and UAS/ACS mmap residency all use the shared artifact shape. |
+| `uas_acs_mmap_residency_pass` | pass | Legacy `F-UAS-ACS-MmapResidency` is a schema-valid primary witness for a 16 MiB file-backed mmap KV-page slice with UAS address round-trip, AcsAnchor projection lookup, residency lease round-trip, checksum proof, invalid-offset rejection, and zero tracked hot-path copies. It is not a live MLX or 70B proof. |
+| `all_gate_artifacts_schema_normalized` | pass | UAS copy-count, AcsAnchor lookup, and UAS/AcsAnchor mmap residency all use the shared artifact shape. |
 | `seventy_b_route_pass` | fail | 70B Local Cocktail Lite is still a failure report. |
 | `canonical_build_queue_present` | pass | The route artifact contains the ordered no-gap build queue. |
 | `unmapped_architecture_gap_count` | pass | Current value is `0`; every known remaining route gap has tier, witness, promotion condition, and rollback. |
@@ -74,8 +76,8 @@ This is the build ladder agents should use instead of inventing new labels.
 | Tier | Meaning | Current action |
 |---|---|---|
 | MAS / CurrentApp | Shippable app behavior on 16 GB without research claims. | Keep dense 36B gated at 32 GB. Do not expose 70B as product. |
-| Verified Floor | Local measured substrate facts on the M2 Pro floor. | Keep Metal ULP, ControllerKernelPack, UAS copy-count, ACS lookup, and UAS/ACS mmap residency green. |
-| Capability Ceiling | The 16 GB / 70B-class ACS/UAS route. | Advance live KV-Direct, sparse split, and chart coverage. |
+| Verified Floor | Local measured substrate facts on the M2 Pro floor. | Keep Metal ULP, ControllerKernelPack, UAS copy-count, AcsAnchor lookup, and UAS/AcsAnchor mmap residency green. |
+| Capability Ceiling | The 16 GB / 70B-class UAS/AcsAnchor route. | Advance live KV-Direct, sparse split, and chart coverage. |
 | Research Construction | Candidate primitives and public-research motifs under falsifier control. | Convert motifs into ProblemCards, ConstructionGraph rows, WBO budgets, and falsifiers. |
 | Vault / Beyond | Ambitious preserved work that may become product only after gates pass. | Keep 70B, L_SE, parameter anchors, circuits, and self-evolving adapters behind red artifacts until measured. |
 
@@ -307,7 +309,7 @@ worktree-sprawl warning system.
 
 The kernel must stay stricter than product copy. It is allowed to say "red" for
 weeks. It is not allowed to hide missing measurements behind an opt-in toggle,
-cloud lane, dense MLX route, or research-tier name.
+cloud lane, dense MLX route, or Pro Research name.
 
 Motion / UAS / Plane / Residency / WBO / Witness / Falsifier / Tier / Rollback:
 
@@ -320,5 +322,5 @@ Motion / UAS / Plane / Residency / WBO / Witness / Falsifier / Tier / Rollback:
 | WBO | Route-level approximation budget remains unpaid until live KV, PageGather dense/primary or accepted packetized policy, live sparse 70B, and 70B composition pass. |
 | Witness | `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json`. |
 | Falsifier | `F-Capability-Ceiling-Evaluation-Kernel`. |
-| Tier | Failure report; Vault/Research route only. |
+| Tier | Failure report; Pro Vault-Preserved / Pro Research route only. |
 | Rollback | Remove the route artifact from product health surfaces; keep dense MLX gates unchanged. |

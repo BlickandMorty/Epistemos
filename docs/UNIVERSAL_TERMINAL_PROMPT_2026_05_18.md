@@ -65,6 +65,8 @@ Read these files in full before writing any code:
   7. docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md        — substrate canon
   8. docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md           — only required for T21
   9. docs/audits/MULTI_TERMINAL_ARCHEOLOGY_FINDINGS_2026_05_17.md    — what prior terminals already built
+ 10. docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md      — required for local-inference/residency/model-state/70B route work
+ 11. docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md   — required companion gate for PatternBoost-derived routes
 
 You do not need to memorize all of them. You DO need to (a) confirm your
 T-prompt's acceptance bar and (b) know where the canon lives so you can recheck
@@ -189,11 +191,11 @@ STEP 7 — Canonical discipline (read this once, internalize forever)
 - Hermes naming: the Hermes agent subprocess is DEAD. Hermes prompt-format
   parity may remain in Rust under `agent_runtime_v2`. Do not resurrect the
   subprocess. Do not name a new module Hermes.
-- Forbidden product work (Vault/Research-only until falsifiers pass):
+- Forbidden product work (Pro Vault-Preserved / Pro Research only until falsifiers pass):
   ModelSurgery, Active Rank-One runtime, 70B local cocktail execution,
   runtime VPD training, p-adic or sheaf hot-path replacements, open-ended
   CLI agents in MAS, hidden cloud escalation, hidden subprocess behavior.
-- If you write docs: every table row needs lane, tier, status, evidence,
+- If you write docs: every table row needs build/status, plane, status, evidence,
   missing proof, next action, and falsifier. No runtime claims from design
   docs alone.
 

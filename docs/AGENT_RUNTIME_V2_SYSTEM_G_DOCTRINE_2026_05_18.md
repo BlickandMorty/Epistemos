@@ -1,5 +1,7 @@
 # Agent Runtime v2 — System G / Invader Agent Doctrine
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-18
 **Status:** v0.1 doctrine (T11 acceptance bar, §4 of `NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md`)
 **Authority:** Doctrine doc for the `agent_core::agent_runtime_v2::` namespace and the Swift `Epistemos/AgentRuntimeV2/` bridge.
@@ -34,7 +36,7 @@ The prior design (`docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`) supplies th
 
 - **MAS V1 → `Disabled`.** v2 is dormant. The legacy `agent_runtime::` paths serve all in-process orchestration. v2 callers MUST refuse to drive any executor when the active mode is `Disabled`. MAS cannot pivot to `IpcBounded` or `Subprocess` at runtime — flipping requires a CLAUDE.md edit + App Review re-submission (see `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` IR-1).
 - **Pro V1.x → `IpcBounded`.** Bounded, in-process executor. WBO budget + macaroon verification + `MutationEnvelope` wrapping all required. Pro CLI adapters live in this mode through hardened `Command::new` paths (see `agent_core/src/security.rs`).
-- **Pro Research → `Subprocess`.** Gated subprocess adapter path for Pro Research builds only. Must remain behind a Cargo feature; never compiled into the MAS bundle.
+- **Pro Research → `Subprocess`.** Gated subprocess adapter path for Pro Research status only. Must remain behind a Cargo feature; never compiled into the MAS bundle.
 
 ## 2. The `Para<P, A, B>` morphism
 

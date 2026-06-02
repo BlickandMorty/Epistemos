@@ -1,7 +1,7 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
-codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
+codex_continuation_update: 2026-05-05 Phase-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B3 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md (1190 lines, dated 2026-04-29)
 companion_to: B1 + B2 lift-targets briefs
@@ -11,12 +11,12 @@ companion_to: B1 + B2 lift-targets briefs
 
 > **State: candidate for runtime implementation.** Read-then-absorb pass for CANON_GAPS_AND_ADDENDA
 > bonus block B3. The source addendum is 1190 lines covering Wave 6
-> of the Quick Capture standalone canon — the Pro-tier in-process
+> of the Quick Capture standalone canon — the Pro build in-process
 > browser engine (Obscura), embedded JS execution (deno_core), and
 > a new agent-native search engine (Eidos). This brief maps each
 > section to current main, classifies what's net-new vs already-covered,
 > and recommends specific lift targets. Codex continuation landed the
-> Tier-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
+> Phase-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
 > W6 runtime work remains queued behind deliberation briefs.
 
 ## Source-doc summary (one paragraph per axis)
@@ -65,7 +65,7 @@ disappear when the engine is a library embed.
 | Stealth posture (anti-fingerprinting) | ❌ NOT in main | — | New crate-level config |
 | Tools/skills catalog additions for browser | ❌ NOT in main | — | New tool surface |
 | Resource lifecycle (zombies impossible per single-process) | ✅ doctrinally satisfied | `agent_core/src/shared_memory.rs::ShmPool` TTL eviction + memory pressure handling; doctrine §2.2 invariant #2 | The single-process commitment is already canonical; B3 just leverages it |
-| Computer-use surface (Pro tier) | ✅ partial | `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Vision/VisualVerifyLoop.swift`, `Vision/ScreenCaptureService.swift` | These cover macOS-app driving via AX + screen capture; B3's Obscura covers web driving in-process |
+| Computer-use surface (Pro build) | ✅ partial | `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Vision/VisualVerifyLoop.swift`, `Vision/ScreenCaptureService.swift` | These cover macOS-app driving via AX + screen capture; B3's Obscura covers web driving in-process |
 | Helper-binary anti-pattern doctrine | ✅ doctrinally satisfied | doctrine §2.2 invariant #2 | B3 §1.1 names three structural reasons; lifting them as a doctrine note pins the rationale |
 
 ## Anti-hype filter
@@ -78,7 +78,7 @@ Source is engineering-tight; only one line worth flagging:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
+### Stage 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
 | Target | Where | Why |
 |---|---|---|
@@ -88,9 +88,9 @@ Source is engineering-tight; only one line worth flagging:
 | **V8 dedup discipline (`[patch.crates-io]` to prevent duplicate-symbol linker errors)** | new doctrine note in §9 Canonical Code Anchors | Forward-staging contract for when Obscura + deno_core land; without the dedup discipline declared up front, the integration will hit linker errors. |
 | **Eidos thesis (local-first inversion of Exa)** | new doctrine note pairing with §4.3 (Halo) | Halo is the always-on contextual surface; Eidos is the explicit-search surface. Both project from canonical state (doctrine §2.2 #5, the C5 lift); both use the same vault HNSW + Tantivy substrate. |
 
-### Tier 2 — Build-order graph additions (queue for substantive work)
+### Stage 2 — Build-order graph additions (queue for substantive work)
 
-| Build-order entry | Tier | Depends on |
+| Build-order entry | Build/status | Depends on |
 |---|---|---|
 | Phase W6-A — Obscura library embed (`obscura-browser/net/dom/js` Cargo deps) | Pro | V8 dedup contract |
 | Phase W6-B — deno_core V8 isolate Cargo dep | Pro | W6-A V8 version match |
@@ -102,12 +102,12 @@ Source is engineering-tight; only one line worth flagging:
 | Phase W6-H — Closed-vocabulary citation grammar binding | Core | W6-E + existing RRFFusionQuery (which already returns drawer IDs) |
 | Phase W6-I — Tool/skill catalog additions (browse_url, eidos_search, ...) | Pro (browse_url) / Core (eidos_search) | W6-A through W6-H |
 
-### Tier 3 — Already canonical (no lift needed)
+### Stage 3 — Already canonical (no lift needed)
 
 | Already canonical | Note |
 |---|---|
 | Single-process commitment (no subprocess for inference) | Doctrine §2.2 invariant #2 + §6 forbidden line. B3 just leverages it. |
-| Computer-use surface (macOS app driving) | Already in `Epistemos/Omega/` (Pro tier). B3 adds a complementary web-driving surface, doesn't replace this. |
+| Computer-use surface (macOS app driving) | Already in `Epistemos/Omega/` (Pro build). B3 adds a complementary web-driving surface, doesn't replace this. |
 | ShmPool memory pressure | Already in `agent_core/src/shared_memory.rs`. B3 §1.2 commits to in-process; ShmPool is the canonical memory governance. |
 
 ## What this slice does NOT do
@@ -135,7 +135,7 @@ Source is engineering-tight; only one line worth flagging:
 - Doctrine §6 (Hard Forbidden List — hallucinated citations)
 - Doctrine Annex A.13 (Knowledge Sieve + Gap Winner Rule)
 - Existing search: `Epistemos/Engine/HaloController.swift`, `Epistemos/Engine/ShadowSearchService.swift`, `Epistemos/Sync/RRFFusionQuery.swift`, `epistemos-shadow/` crate
-- Existing computer-use (Pro tier): `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Epistemos/Omega/Vision/{VisualVerifyLoop,ScreenCaptureService,Screen2AXFusion}.swift`
+- Existing computer-use (Pro build): `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Epistemos/Omega/Vision/{VisualVerifyLoop,ScreenCaptureService,Screen2AXFusion}.swift`
 - Sister briefs: `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md`, `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md`
 
 ## Bottom line
@@ -143,14 +143,14 @@ Source is engineering-tight; only one line worth flagging:
 B3 is a 1190-line Wave-6 addendum proposing in-process browser
 (Obscura) + embedded V8 (deno_core) + agent-native search (Eidos).
 Zero of the runtime substrate is in main today; this remains net-new
-feature surface. The five Tier-1 doctrine lifts (subprocess-failure
+feature surface. The five Stage-1 doctrine lifts (subprocess-failure
 rationale, library-embed pattern, closed-vocab citations, V8 dedup
 contract, Eidos local-first inversion thesis) now codify the contracts
-before code lands. Nine Tier-2 build-order entries (Phases W6-A
+before code lands. Nine Stage-2 build-order entries (Phases W6-A
 through W6-I) queue the implementation behind sign-off.
 
 Net for the B-bonus trio (B1 + B2 + B3): three lift-targets briefs
-landed, ALL bonus blocks read-then-absorbed, Tier-1 doctrine now
+landed, ALL bonus blocks read-then-absorbed, Stage-1 doctrine now
 landed, and runtime code still unimplemented — the addenda's content
 is mapped into the canonical decision queue and any future
 implementation has the decision tree pre-staged.

@@ -66,6 +66,8 @@ struct HomeGraphEmbeddedView: View {
     @State private var controlsDragAnchor: CGSize = .zero
     @State private var embeddedRouteFreezeSnapshot: Bool?
     @State private var embeddedGraphBridge = EmbeddedGraphMetalBridge()
+    @State private var embeddedCanvasReady = false
+    @State private var embeddedCanvasStartTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
 
@@ -172,7 +174,7 @@ struct HomeGraphEmbeddedView: View {
     }
 
     private var shouldRenderCanvas: Bool {
-        graphState.currentRoute.isCanvas && scenePhase == .active
+        graphState.currentRoute.isCanvas && scenePhase == .active && embeddedCanvasReady
     }
 
     private var embeddedInspectorSize: CGSize {
@@ -309,12 +311,16 @@ struct HomeGraphEmbeddedView: View {
         // setLightMode call inside MetalGraphRepresentable handles the
         // light/dark switch; this hook is here for future per-theme
         // tweaks (cursor color, label palette overrides, etc.).
+        embeddedCanvasReady = false
         syncEmbeddedRouteState(graphState.currentRoute)
     }
 
     private func handleDisappear() {
         // Stop the overlay physics cycle so the engine can quiesce when
         // the user returns to the greeting. Mirrors HologramOverlay.hide().
+        embeddedCanvasStartTask?.cancel()
+        embeddedCanvasStartTask = nil
+        embeddedCanvasReady = false
         restoreEmbeddedRouteFreezeIfNeeded()
         graphState.cancelOverlayPhysicsCycle()
     }
@@ -322,8 +328,11 @@ struct HomeGraphEmbeddedView: View {
     private func syncEmbeddedRouteState(_ route: GraphWorkspaceRoute) {
         if route.isCanvas, scenePhase == .active {
             restoreEmbeddedRouteFreezeIfNeeded()
-            graphState.startOverlayPhysicsCycle()
+            scheduleEmbeddedCanvasStart()
         } else {
+            embeddedCanvasStartTask?.cancel()
+            embeddedCanvasStartTask = nil
+            embeddedCanvasReady = false
             if embeddedRouteFreezeSnapshot == nil {
                 embeddedRouteFreezeSnapshot = graphState.isPhysicsFrozen
             }
@@ -332,6 +341,20 @@ struct HomeGraphEmbeddedView: View {
                 graphState.physicsFrozenVersion += 1
             }
             graphState.cancelOverlayPhysicsCycle()
+        }
+    }
+
+    private func scheduleEmbeddedCanvasStart() {
+        guard !embeddedCanvasReady, embeddedCanvasStartTask == nil else { return }
+        graphState.cancelOverlayPhysicsCycle()
+        embeddedCanvasStartTask = Task { @MainActor in
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(420))
+            }
+            guard !Task.isCancelled else { return }
+            embeddedCanvasReady = true
+            graphState.startOverlayPhysicsCycle()
+            embeddedCanvasStartTask = nil
         }
     }
 
@@ -380,9 +403,21 @@ private struct MetalGraphRepresentable: NSViewRepresentable {
 
             if shouldRenderCanvas {
                 if visibilityChanged || view.isHidden || view.alphaValue < 1.0 {
+                    let shouldAnimateIn = visibilityChanged || view.isHidden
                     view.isHidden = false
-                    view.alphaValue = 1.0
+                    if shouldAnimateIn {
+                        view.alphaValue = 0.0
+                    }
                     view.resumeEngine()
+                    if shouldAnimateIn {
+                        NSAnimationContext.runAnimationGroup { context in
+                            context.duration = 0.32
+                            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                            view.animator().alphaValue = 1.0
+                        }
+                    } else {
+                        view.alphaValue = 1.0
+                    }
                 }
             } else if visibilityChanged || !view.isHidden || view.alphaValue > 0.0 {
                 view.pauseEngine()

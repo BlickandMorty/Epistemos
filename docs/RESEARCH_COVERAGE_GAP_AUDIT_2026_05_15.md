@@ -1,4 +1,7 @@
 # Research Coverage Gap Audit — 2026-05-15
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Scope:** 4 parallel agents swept the entire research corpus (`docs/fusion/` 406 docs + `docs/` 197 docs + `/Users/jojo/Documents/Epistemos-QuickCapture/` standalone canon + `docs/fusion/jordan's research/GPT Research/` Helios crates) for concepts that ARE in the research but ARE NOT in the current canonical doc cocktail.
 **Authority:** Sits at rank 5 of the authority chain, just below `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`. Each gap row is actionable.
 **Net finding:** 31 genuine gaps. **6 are V1-affecting BLOCKERS**, 11 are post-V1 HIGH-priority, 9 are MEDIUM/architecture-relevant, 5 are LOW/operational. Most striking pattern: a **complete user-product Wave 7-11 layer** (Live Files → Confidence Meter → Tamagotchi modes → Cloud-as-Teacher → Brain Export) is scattered across two QC addenda with zero canonical citations.

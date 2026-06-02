@@ -50,6 +50,14 @@ Mixtral, DeepSeekMoE, QLoRA, DoRA, MoLE, APD, SPD, LongBench, Loong, MMLU-Pro,
 GPQA, and LiveCodeBench, are intake leads unless a future PR verifies primary
 sources and pins exact claims.
 
+2026-06-01 companion source: also read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. The local
+frontier route is now explicitly allowed to use offline/idle assembly
+tournaments to discover better AppColdStore layouts, KV/page bundles, adapter
+families, verifier plans, and route motifs, but only as Pro Research until
+held-out replay and abstention gates pass.
+
 ## Architecture Sentence
 
 Epistemos is not a local model wrapper. It is an app-owned substrate runtime:
@@ -248,6 +256,7 @@ and copy overhead. Otherwise remove the scout lane or batch it.
 | `F-SemiseparableBlockScan` | controller-lane viability | Route-choice quality stays near dense-controller baseline while throughput improves on long sequences. |
 | `F-PageGather-M2Pro` | sketch -> rescore -> exact paging value | Bytes read and latency drop materially while support recall stays near exact retrieval. |
 | `F-Erdos-Lift-Optimality` | lift/project thesis | Lift/project route beats best surface-native baseline on normalized utility-per-cost across most benchmark families. |
+| `F-Residency-PatternBoost` | offline assembly discovery | PatternBoost-derived route/layout patches beat the static heuristic route on held-out tasks while preserving repair, fingerprint, abstention, rollback, and AnswerPacket witness guarantees. |
 | `F-70B-Local-Cocktail` | composition quality claim | Full system beats A/B/C and reaches the declared remote-reference fraction under RAM, latency, citation, and witness targets. |
 
 Existing PASS artifacts remain scoped to what they measured. For example, a
@@ -266,11 +275,14 @@ routing. A copy-count PASS on one route does not prove all MLX/Metal hot paths.
    accounting, compressed RAM tier, SSD-cold tier.
 5. Controller lane: small SSM/semiseparable/dense scout for route choice,
    interrupt scoring, page scheduling.
-6. Learning lanes: adapter registry, eval cards, QLoRA/DoRA-style persistent
+6. PatternBoost lane: offline/idle UAS assembly tournaments, repair kernels,
+   sparse fingerprints, elite archive, lattice abstention, distillation, and
+   rollback-bounded cold-route policy patches.
+7. Learning lanes: adapter registry, eval cards, QLoRA/DoRA-style persistent
    deltas, bounded session-local fast weights.
-7. Final integration: local cocktail / cold atlas studies only after
+8. Final integration: local cocktail / cold atlas studies only after
    measurement, evidence, support, and memory gates are stable.
-8. User-facing verification: AnswerPacket, Provenance Console, Substrate
+9. User-facing verification: AnswerPacket, Provenance Console, Substrate
    Health, RunTimeline, and manual computer-use verification of the product
    path before promotion to Pro Live.
 

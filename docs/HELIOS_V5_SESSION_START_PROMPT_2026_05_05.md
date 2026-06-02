@@ -4,6 +4,13 @@
 
 > **How to use:** copy from the `─── BEGIN PROMPT ───` line to `─── END PROMPT ───`. Paste as your first message in the new session. Optionally append your specific ask after it (e.g. *"Start with W1 AnswerPacket emission"* or *"Verify the v2 plan before any code lands"*).
 
+> **2026-06-01 architecture supersession:** HELIOS V5 lane/tier language is
+> historical. Before using it for UAS/AppColdStore, active model-state, sparse
+> residency, mmap/SSD, dynamic compute, or 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+> is an offline/idle Pro Research discovery lane, not live route authority.
+
 ---
 
 ─── BEGIN PROMPT ───

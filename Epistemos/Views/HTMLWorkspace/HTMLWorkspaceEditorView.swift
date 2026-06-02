@@ -14,9 +14,6 @@ struct HTMLWorkspaceEditorView: View {
     @State private var inspectorVisible = false
     @State private var isExportingPDF = false
     @State private var statusText: String?
-    @State private var sourceCursorLine = 1
-    @State private var sourceCursorColumn = 1
-    @State private var sourceTotalLines = 1
 
     init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
         self._package = package
@@ -269,13 +266,13 @@ struct HTMLWorkspaceEditorView: View {
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            workspaceCodeMirrorEditor(text: $package.indexHTML, language: "html")
+            workspaceCodeEditor(text: $package.indexHTML)
         case .css:
-            workspaceCodeMirrorEditor(text: $package.styleCSS, language: "css")
+            workspaceCodeEditor(text: $package.styleCSS)
         case .js:
-            workspaceCodeMirrorEditor(text: $package.scriptJS, language: "javascript")
+            workspaceCodeEditor(text: $package.scriptJS)
         case .data:
-            workspaceCodeMirrorEditor(text: $package.dataJSON, language: "json")
+            workspaceCodeEditor(text: $package.dataJSON)
         case .dom:
             readOnlySourcePane(
                 title: "DOM Outline",
@@ -319,20 +316,14 @@ struct HTMLWorkspaceEditorView: View {
         .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
-    private func workspaceCodeMirrorEditor(text: Binding<String>, language: String) -> some View {
-        WebKitCodeEditorView(
+    private func workspaceCodeEditor(text: Binding<String>) -> some View {
+        HTMLWorkspaceCodeEditor(
             text: text,
-            cursorLine: $sourceCursorLine,
-            cursorColumn: $sourceCursorColumn,
-            totalLines: $sourceTotalLines,
-            language: language,
-            theme: workspaceTheme,
-            fontSize: 13.5,
-            wrapLines: false,
-            showLineNumbers: true,
-            selectionRequest: nil
+            isEditable: true,
+            colorScheme: colorScheme,
+            theme: workspaceTheme
         )
-        .id("workspace-codemirror-\(selectedPane.rawValue)")
+        .id("workspace-code-editor-\(selectedPane.rawValue)")
         .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
@@ -341,8 +332,7 @@ struct HTMLWorkspaceEditorView: View {
             VStack(spacing: 0) {
                 previewHeader
                 Divider()
-                HTMLWorkspacePreviewView(
-                    package: previewPackage,
+                HTMLWorkspacePreviewView(package: previewPackage,
                     previewTheme: previewTheme,
                     themeGuardCSSOverride: previewThemeGuardCSS,
                     themeIdentity: workspaceThemeIdentity
@@ -528,10 +518,16 @@ struct HTMLWorkspaceEditorView: View {
             .rgbSafeForCodeEditorTheme()
             .withAlphaComponent(1.0)
             .htmlWorkspaceCSSColor
-        let foreground = workspaceTheme.resolved.foreground.nsColor
+        let foregroundSource = workspaceTheme.isDark
+            ? NSColor(deviceWhite: 0.94, alpha: 1.0)
+            : workspaceTheme.resolved.foreground.nsColor
+        let mutedSource = workspaceTheme.isDark
+            ? NSColor(deviceWhite: 0.80, alpha: 1.0)
+            : workspaceTheme.resolved.mutedForeground.nsColor
+        let foreground = foregroundSource
             .rgbSafeForCodeEditorTheme()
             .htmlWorkspaceCSSColor
-        let muted = workspaceTheme.resolved.mutedForeground.nsColor
+        let muted = mutedSource
             .rgbSafeForCodeEditorTheme()
             .htmlWorkspaceCSSColor
         let card = workspaceTheme.resolved.card.nsColor
@@ -568,7 +564,8 @@ struct HTMLWorkspaceEditorView: View {
         }
 
         html[data-epistemos-theme="dark"] body,
-        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+        html[data-epistemos-theme="dark"] body :where(*):not(svg):not(path),
+        html[data-epistemos-theme="dark"] body :is(p, li, span, div, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
           color: var(--epistemos-workspace-fg) !important;
         }
 

@@ -1,7 +1,7 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
-codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
+codex_continuation_update: 2026-05-05 Phase-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B1 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md (689 lines, dated 2026-04-29)
 ---
@@ -13,7 +13,7 @@ source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BR
 > of the Quick Capture standalone canon. This brief maps each thread
 > to current main, classifies what's net-new vs already-covered, and
 > recommends specific lift targets. Codex continuation landed the
-> Tier-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
+> Phase-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
 > Phase 21-25 runtime work remains queued behind deliberation briefs.
 
 ## Source-doc summary (one paragraph per thread)
@@ -65,7 +65,7 @@ The B1 addendum splits Waves 9–11 into three productization layers:
 | Per-agent identity model | ✅ partial | `agent_core/src/vault_registry.rs` supports multi-vault; agent identity scaffolding exists in `agent_runtime/` | Capability manifest per agent + visual avatar fields not yet present |
 | Accessory system (LoRA equipment) | ✅ partial substrate | `Epistemos/KnowledgeFusion/` has LoRA pipelines + adapter management | UX wrapper (helmet/glasses/book/armor metaphor) is new |
 | A2A "phone" channel | ❌ NOT in main | — | New sub-agent dispatch surface |
-| Computer-use supervisor mode | ✅ partial | `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Vision/VisualVerifyLoop.swift`, `Vision/ScreenCaptureService.swift` (Pro tier) | Supervisor-supervisee pairing UI is new |
+| Computer-use supervisor mode | ✅ partial | `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Vision/VisualVerifyLoop.swift`, `Vision/ScreenCaptureService.swift` (Pro build) | Supervisor-supervisee pairing UI is new |
 | Cloud-as-teacher distillation lab | ✅ partial substrate | `KnowledgeFusion/CloudKnowledgeDistillationService.swift` exists; `MoLoRAInferenceService` | "Lab" UX + PII sluice + catastrophic-forgetting eval gate are new |
 | Brain Export | ❌ NOT in main | — | New module; gated on legal review per addendum §5.4 |
 
@@ -85,7 +85,7 @@ load-bearing. The lift below honors them:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
+### Stage 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
 These doctrine-shaping additions were landed by Codex continuation
 without runtime code. They codify already-present capabilities or set
@@ -95,26 +95,26 @@ guardrails for future work.
 |---|---|---|
 | **Session Authority Token contract** | doctrine §4.2 (Sovereign Gate) addendum | The 8 always-fresh categories + the Authority/Expired/OutOfScope/WrongBinding/FreshBiometricRequired verdict enum is exactly what the existing `CapabilityBridge` plumbing needs to converge against. Lifting the contract gives implementation a target without needing to land code yet. |
 | **Confidence meter doctrine** | new doctrine Annex (A.17 candidate) | The 6 composite-confidence signals + the 70% threshold + diagnose-first re-learn + bounded-budget-per-day rules form a coherent doctrine even before code lands. Lifting now means a future implementation slice has the canonical contract to verify against. |
-| **UI mode toggle** | doctrine §4.0 (UX posture, the C4 entry) addendum | "Pixel mode vs Tactical mode" doctrine pairs naturally with the C4 "one composer, two modes" doctrine; both about the same composer/UX surface differentiated by user posture. Tier-locked: Tactical mode required for Pro/enterprise distribution; Pixel mode default for Core. |
+| **UI mode toggle** | doctrine §4.0 (UX posture, the C4 entry) addendum | "Pixel mode vs Tactical mode" doctrine pairs naturally with the C4 "one composer, two modes" doctrine; both about the same composer/UX surface differentiated by user posture. Status-locked: Tactical mode required for Pro/enterprise distribution; Pixel mode default for Core. |
 | **Accessory metaphor doctrine** | doctrine Annex A.5 (continual learning) addendum | LoRAs-as-equipment is a UX wrapper over QOFT/QDoRA/QPiSSA; the doctrine annex on continual learning can name the metaphor as the canonical visual model without changing the technology. |
-| **Brain Artifact contract** | doctrine §3 (Tier Matrix) addendum | The compiled-binary + signed-bundle + license-keyed-fingerprint contract is the explicit Pro/Research distribution model the doctrine §3 already implies. Lifting the artifact shape pins the contract before legal review begins. |
+| **Brain Artifact contract** | doctrine §3 (Build/status matrix) addendum | The compiled-binary + signed-bundle + license-keyed-fingerprint contract is the explicit Pro Research distribution model the doctrine §3 already implies. Lifting the artifact shape pins the contract before legal review begins. |
 
-### Tier 2 — Build-order graph additions (queue for substantive work)
+### Stage 2 — Build-order graph additions (queue for substantive work)
 
 These are real new features. Each gets a row in doctrine §7
 "Build-Order Dependency Graph" but no implementation lands until
 explicit sign-off + a deliberation brief per the existing Operating
 Rule.
 
-| Build-order entry | Tier | Depends on |
+| Build-order entry | Build/status | Depends on |
 |---|---|---|
 | Phase 21 — Biometric substrate (Session Authority Tokens + 8-category enforcement) | Core | existing `CapabilityBridge` + `SovereignGate` |
 | Phase 22 — Confidence meter + biometric-triggered re-learn | Core | Phase 21 + `ToolMeta.confidence` field |
 | Phase 23 — Tamagotchi + Tactical agent surface | Pro (Tactical) / Core (Pixel) | Phase 21 + per-agent identity model |
 | Phase 24 — Cloud-as-teacher distillation lab | Pro | existing `KnowledgeFusion/CloudKnowledgeDistillationService.swift` + PII sluice |
-| Phase 25 — Brain Export | Pro/Research | Phase 24 + LEGAL REVIEW |
+| Phase 25 — Brain Export | Pro Research | Phase 24 + LEGAL REVIEW |
 
-### Tier 3 — Reject (do not lift)
+### Stage 3 — Reject (do not lift)
 
 | Rejected | Reason |
 |---|---|
@@ -132,7 +132,7 @@ Rule.
 
 ## Sign-off questions for the next deliberation
 
-1. Should Tier-1 lifts land as a single doctrine PR or as 5 separate slices (one per addendum)?
+1. Should Stage-1 lifts land as a single doctrine PR or as 5 separate slices (one per addendum)?
 2. The 8 "always-fresh-biometric" categories — accept verbatim from B1 §1.3 or curate?
 3. The "Tactical mode required for Pro distribution" stance — is that the canonical default, or per-customer?
 4. Brain Export legal review — is there a recommended legal partner, or is that out of scope for this canon work?
@@ -145,7 +145,7 @@ Rule.
 - Doctrine §4.2 (Sovereign Gate)
 - Doctrine §4.0 (UX posture — C4 entry, merged 2026-05-05)
 - Doctrine Annex A.5 (continual learning)
-- Doctrine §3 (Tier Matrix)
+- Doctrine §3 (Build/status matrix)
 - Existing biometric scaffolding: `Epistemos/Security/CapabilityBridge.swift`, `KnowledgeFusionAdapterDeletionSovereignGate.swift`
 - Existing Pro substrate touched: `Epistemos/Omega/Inference/DeviceAgentService.swift`, `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift`
 - B2 + B3 absorb passes remain as future-session work (LIVE_FILES_AND_SUBSTRATE 67KB, OBSCURA_BROWSER 62KB)
@@ -154,12 +154,12 @@ Rule.
 
 B1 is a 689-line productization addendum spanning three substantial
 waves. ~50% of the substrate it requires is already partially present
-in main; ~50% is genuinely new feature surface. The Tier-1 lifts (5
+in main; ~50% is genuinely new feature surface. The Stage-1 lifts (5
 doctrine additions) are now landed — they codify the contracts before
 code lands, so any future implementation has a canonical target. The
-Tier-2 build-order entries (Phases 21–25) queue
+Stage-2 build-order entries (Phases 21–25) queue
 for explicit sign-off + deliberation briefs per the existing Operating
-Rule. Tier-3 items (patent strategy, YC pitch, hardware claims) stay
+Rule. Stage-3 items (patent strategy, YC pitch, hardware claims) stay
 out of canon.
 
-Runtime implementation remains held for sign-off; Tier-1 doctrine is landed.
+Runtime implementation remains held for sign-off; Stage-1 doctrine is landed.

@@ -1,5 +1,7 @@
 # Terminal Handoff Snapshot — 2026-05-16
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Author:** Terminal C (run-c-audit) — final closure per `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` §0 hard-stop.
 
 **Snapshot moment:** C iter 222 close (post-`3ab6b4f66`); STOP-ALL-TERMINALS directive `a18e72d65` received before C could fire iter 223.
@@ -53,7 +55,7 @@ Recommended merge sequence — each step is one PR against `main`:
 3. **F's prompt edit on `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_F_2026_05_16.md`** — commit if it's a meaningful clarification; discard otherwise.
 4. **E's 13 user-decision research docs under `docs/audits/user-decisions/`** — USER must read + answer. These decisions cannot auto-implement.
 5. **D.5↔A WASMExecXPC dependency surface** — escalation flagged from C iter 174; awaiting USER decision on (a) authorize A to exit wind-down (b) authorize D to skip D.5 (c) redirect WASMExecXPC (d) continue blocked. Surfaced in C's PASS-2 §9 register cycles iter 174-217.
-6. **Wave J research-tier entries J1-J9** — research-only; not validated against acceptance bars. USER must decide whether to promote any to V1 ship scope or keep deferred for V2.
+6. **Wave J Pro Research entries J1-J9** — Pro Research only; not validated against acceptance bars. USER must decide whether to promote any to MAS/Pro ship scope or keep deferred for V2.
 7. **Helios kernels (PageGather / SemiseparableBlockScan / LocalRecallIsland / ControllerKernelPack / PacketRouter1bit)** — declared `canonical_target_not_implemented_here` in V6.1 `KERNEL_IMPLEMENTATION_POSTURE`. USER must decide implementation timeline.
 
 ---

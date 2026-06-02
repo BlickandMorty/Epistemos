@@ -1,5 +1,7 @@
 # All Docs Index — 2026-05-02
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **NEW DOC — created 2026-05-02.** Filename: `ALL_DOCS_INDEX_2026_05_02.md`. If your session can't find it, search by name. Sister packet docs: `MASTER_RESEARCH_INDEX_2026_05_02.md`, `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_AGENT_FLEET_PROMPT_2026_05_02.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, and `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. The packet is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Open `MASTER_RESEARCH_INDEX_2026_05_02.md` first for concept/source lookup; use this file when you need absolute clickable paths.
 
 This index is **flat and link-clickable from anywhere on the machine**. Every path is absolute. Every entry has a one-line role. Use this when:

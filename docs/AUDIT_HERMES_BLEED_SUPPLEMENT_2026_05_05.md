@@ -41,13 +41,13 @@ Rust FFI happened to work for that specific call.
 The Swift boundary line at `HermesGatewayPolicy.swift:70-71` reads:
 
 ```text
-Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only.
+Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro / Pro Research only.
 ```
 
 The Rust boundary line at `prompt_format.rs:5` reads:
 
 ```text
-Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only.
+Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro / Pro Research only.
 ```
 
 **Swift was already partially de-Hermes'd** (browser+Docker swapped in
@@ -67,7 +67,7 @@ in place.
 
 ```rust
 assert!(prompt
-    .contains("Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."));
+    .contains("Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro / Pro Research only."));
 assert!(prompt.contains("Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."));
 ```
 

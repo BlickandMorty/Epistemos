@@ -1,6 +1,13 @@
 # Codex Task-Continuity Handoff — 2026-05-03
 
 > **For Codex.** Account changed mid-session. Context may not have transferred. This handoff catches you up on the **last verified state of your in-flight work** so you can resume the very next thing without re-discovering what was already done. Sister docs: `CODEX_HANDOFF_2026_05_03.md` (session 1 close), `CODEX_HANDOFF_2026_05_03_PART2.md` (session 2 close — Resonance Gate + 26 Hermes parity commands), `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md` (the new substrate vision — read AFTER this one), `CODEX_RECONCEPTUALIZATION_HANDOFF_AND_VERIFY_2026_05_03.md` (the integration ask).
+>
+> **2026-06-01 supersession:** this handoff is historical. Before applying it
+> to UAS/AppColdStore, active model-state, sparse residency, mmap/SSD, dynamic
+> compute, or 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+> is an offline/idle Pro Research discovery lane, not live route authority.
 
 ---
 

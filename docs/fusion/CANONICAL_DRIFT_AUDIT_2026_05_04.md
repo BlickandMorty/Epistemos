@@ -1,5 +1,10 @@
 # Canonical drift audit — 2026-05-04
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+> **2026-05-31 naming supersession:** this audit preserves May 4 vocabulary.
+> Read `research-tier` as Pro Research unless it quotes a historical source.
+
 Compares the original Epistemos vision (per `FINAL_SYNTHESIS.md`,
 `PLAN_V2.md`, `EPST_UNIFIED_SUBSTRATE_MASTER_PLAN_V2_SCOPE_REX_2026_05_01.md`,
 `COMPASS_ARTIFACT_2026_04_26.md`, and the user-authored `jordan's research/`

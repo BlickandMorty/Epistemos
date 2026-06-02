@@ -1,5 +1,7 @@
 # Epistemos Substrate Reconceptualization — 2026-05-03
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **NEW DOC — created 2026-05-03.** Filename: `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md`. Sister docs: `JORDANS_RESEARCH_INDEX_2026_05_03.md` (the source map), `CODEX_TASK_CONTINUITY_HANDOFF_2026_05_03.md` (keep-doing handoff), `CODEX_RECONCEPTUALIZATION_HANDOFF_AND_VERIFY_2026_05_03.md` (integration + Codex verify).
 
 > **Purpose.** Reconceptualize the Epistemos substrate around the high-signal pieces from `docs/fusion/jordan's research/` (Helios v3, MAS Core, Hermes XPC boundary, deterministicapp single-binary, SCOPE-Rex Omega) **without forking the architecture**. Same substrate, sharper center of gravity, three capability envelopes (Core / Pro / Research). Hackathon priorities (Hermes integration + Simulation Mode v1.6) ride the front of the queue.

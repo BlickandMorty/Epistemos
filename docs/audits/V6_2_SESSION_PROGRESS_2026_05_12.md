@@ -5,6 +5,8 @@ session_ref: checkpoint/helios-v6.2-2026-05-12 (tag) + main branch
 scope: 2026-05-12 session — HELIOS V6.2 substrate, V1 polish stack, UI fixes
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # HELIOS V6.2 Session Progress — 2026-05-12
 
 Reference summary of every commit shipped in this single-day session.
@@ -247,7 +249,7 @@ In priority order by visible-user-value:
    (`subsystem=com.epistemos category=AnswerPacket`), so these are
    user-driven runs against an existing log stream.
 
-5. **Research-tier kernels** (target-only per canon-hardening protocol):
+5. **Pro Research kernels** (target-only per canon-hardening protocol):
    `SemiseparableBlockScan.metal`, `LocalRecallIsland.metal`,
    `PageGather.metal`, `ControllerKernelPack.metal`,
    `PacketRouter1bit.metal`. These stay at

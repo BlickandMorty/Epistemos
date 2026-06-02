@@ -290,8 +290,8 @@ coordinating to handle a tier that no longer existed:
 - `CapabilityBridge` string mapping (`hermes_subprocess`)
 - `XPC/AgentServiceProtocol` resolver case
 - `externalTierBoundaryLine` prose: "Cloud/provider/CLI/MCP/Hermes
-  subprocess orchestration is Pro/Research only" → updated to
-  "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only"
+  subprocess orchestration is Pro / Pro Research only" → updated to
+  "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro / Pro Research only"
 - 6 test files updated (gateway evidence contract, source guards,
   overseer policy, tool-surface matrix, tool-surface policy, runtime
   validation `#if false` stub)

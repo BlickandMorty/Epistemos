@@ -1,7 +1,9 @@
 # Recursive Governance — Beer Viable Systems Model (S1-S5)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-16
-**Status:** Doctrine pointer (Wave 9+ research-tier). NOT V1.
+**Status:** Doctrine pointer (Wave 9+ Pro Research). NOT V1.
 **Authority:** Doctrine doc. Cross-referenced from `RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` B2-H9.
 **Source:** `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md` "Layer 5: Recursive Self-Governance"; Stafford Beer, *Brain of the Firm* (1972) + *The Heart of Enterprise* (1979).
 

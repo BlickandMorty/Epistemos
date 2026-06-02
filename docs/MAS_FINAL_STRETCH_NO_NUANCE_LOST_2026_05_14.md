@@ -1,4 +1,7 @@
 # MAS Final Stretch — No Nuance Lost
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-14
 **Trigger:** Paid Apple Developer Program activated → App Group restored → final stretch to MAS submission
 **Author:** Claude (Opus 4.7, 1M context)
@@ -171,7 +174,7 @@ Per `docs/audits/V6_2_SESSION_PROGRESS_2026_05_12.md`:
 | `ConnectomeAlarmSubstrateObserver` (routing stats delta) | ✅ LANDED 2026-05-12 | same |
 | Rust AnswerPacket production caller | ✅ LANDED 2026-05-12 | `agent_core/src/scope_rex/produce.rs` + `bridge::produce_answer_packet_json` |
 | `InterruptScoreCpu` Swift CPU canonical | ✅ LANDED 2026-05-12 | `Epistemos/Engine/InterruptScoreCpu.swift` |
-| 5 Helios Metal kernels (SemiseparableBlockScan / LocalRecallIsland / PageGather / ControllerKernelPack / PacketRouter1bit) | ⏳ research-tier target-only, NOT blocking MAS ship | `docs/fusion/helios v6.2.md` §1.4 |
+| 5 Helios Metal kernels (SemiseparableBlockScan / LocalRecallIsland / PageGather / ControllerKernelPack / PacketRouter1bit) | ⏳ Pro Research target-only, NOT blocking MAS ship | `docs/fusion/helios v6.2.md` §1.4 |
 | 30-task calibration corpus | ⏳ post-V1 | `helios v6.2.md` §1.5 |
 | Lean stack (4.29.1 + mathlib v4.29.0-rc6) | ⏳ post-V1 | V6.1 intake |
 | EML floor (oxieml + eml-lean + F-ULP-Oracle + morph_eval_reduced.metal v0.1) | ⏳ post-V1 | V6.1 intake |
@@ -375,7 +378,7 @@ These tighten the no-compromise architecture without needing any external unlock
 Per `POSTV1-EXCL-001`:
 
 - Wave B (V6.1 EML floor — oxieml / eml-lean / F-ULP-Oracle / morph_eval_reduced.metal v0.1)
-- Wave C (V6.2 6 Metal kernels — research-tier target-only)
+- Wave C (V6.2 6 Metal kernels — Pro Research target-only)
 - Wave E (SCOPE-Rex V2 — Sinkhorn / Brain Time Machine / 5 directional operators / 9-arm Kleene K3)
 - Wave I (A2UI catalog 24 remaining components)
 - Wave J entire research tier (ternary, KV implantation, ACS, multi-claw, OFTv2/QDoRA, ANE direct, Sherry/E8/Leech)

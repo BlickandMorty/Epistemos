@@ -5,7 +5,10 @@ covers: HELIOS V5 master theorem canon — E1-E7 Epistemos Core + H1-H17 Helios 
 companion_to: docs/HELIOS_V5_DOC_0_INDEX.md, docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md
 verified_floor: ac8c6d28
 lock_phrase: "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday"
+current_architecture_supersession: "2026-05-31: current product grammar is two builds only (MAS, Pro). V5 lane labels are historical; map L1=MAS, L2=Pro Live/Gated, L3=Pro Research, L5=Pro Vault-Preserved."
 ---
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # HELIOS V5 — DOC 6 THEOREM CANON MASTER
 
@@ -23,6 +26,12 @@ lock_phrase: "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday"
 
 > **Lane:** L1 (MAS-add) / L2 (Pro-tier) / L3 (Research) / L4
 > (Reserved, never product) / L5 (Vault).
+
+> **2026-05-31 naming supersession:** the lane column is historical V5
+> metadata, not the current product taxonomy. Current builds are
+> **MAS** and **Pro** only. Read L1 as MAS, L2 as Pro Live/Gated,
+> L3 as Pro Research, L5 as Pro Vault-Preserved, and any runtime
+> mutation/Omega work as Pro Omega until falsifiers promote it.
 
 ---
 
@@ -142,9 +151,9 @@ samples them at 1/100.
 - **State:** C · **Lane:** L3 (foundational language for E7)
 - **Statement:** Five source formalisms admit structure-preserving
   embeddings into Epi_ε. **NOT metaphysical identity.**
-- **Lean anchor:** none yet (research-tier categorical formalism).
+- **Lean anchor:** none yet (Pro Research categorical formalism).
 - **Sorry-budget:** ≤ 1.
-- **Hardware falsifier:** none (pure research-tier formalism).
+- **Hardware falsifier:** none (pure Pro Research formalism).
 - **Adversarial attack:** "metaphysical identity" misread → defense
   = doc-level lock that says "embeddings, not equality".
 - **Literature collision:** Cruttwell-Gavranović-Ghani-Wilson-Zanasi

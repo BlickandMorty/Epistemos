@@ -5,6 +5,14 @@
 > **Discipline.** Every claim cites a file+line, a commit SHA, or a prior-audit row. Where two docs disagree the chronicle either (a) cites both surfaces and names a canonical pick or (b) explicitly marks "unreconciled, surfaces both." No promotion by vibes. Prior audits (`/tmp/audit/01..04`) are inherited, not re-listed.
 >
 > **Hardware floor anchor.** M2 Pro 14" 2023 / 12-core CPU / 19-core GPU / 16 GB UMA / ~200 GB/s. Every falsifier measures here. (`docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md:18`)
+>
+> **2026-06-01 supersession note.** This chronicle is historical through
+> 2026-05-23. For current local-inference, UAS/AppColdStore, active model-state,
+> sparse residency, and 70B-cocktail doctrine, read the Master Research Index
+> plus `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+> is the current Pro Research discovery layer for candidate assemblies; old
+> rows remain evidence, not live route authority.
 
 ---
 
@@ -19,7 +27,9 @@ Vault / Eidos retrieval
       ↓
 System G (agent_runtime_v2) executor
       ↓
-UAS (Unified Address Space) / ACS (Anchored/Autopoietic Cognitive Substrate) admission
+UAS (Unified Address Space) / AcsAnchor residency
+      ↓
+SCOPE-Rex / SovereignGate admission
       ↓
 Lattice / Wyner-Ziv / WBO accounting (error-law side)
       ↓
@@ -32,9 +42,10 @@ Visible product (WRV: Wired, Reachable, Visible, Verified)
 
 Source: `/tmp/audit/01_canon_2026_05_20.md` "Spine map" §, derived from `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md:34-78` + `docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md:34-78`. (DECK = NO_COMPROMISE_ENDGAME_PROMPT_DECK; HANDOFF = CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF; BACKLOG = CROSS_TERMINAL_WIRING_BACKLOG; INDEX = MASTER_RESEARCH_INDEX.)
 
-The spine has TWO sides, both required:
+The spine has three named roles, all required:
 - **UAS** = structural / address-space view. Zero-copy, single-address-space across Swift / Rust / Metal / MLX / KV / HNSW. (`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md:13`)
-- **ACS** = dynamical / governance view. 7-scale recursion, 4 homeostatic loops, Kuramoto-coupling, MAPE-K. (same)
+- **AcsAnchor** = address/residency anchor continuity, preserving the useful legacy ACS substrate work without overloading admission.
+- **SCOPE-Rex / SovereignGate** = admission/governance view. No durable action bypasses this proof path.
 
 ### 1.2 The 7 substrate laws (canonical, from DECK:557-572)
 
@@ -55,9 +66,9 @@ The canon uses three overlapping phase vocabularies; `/tmp/audit/01_canon_2026_0
 | Phrase | What it means | Source of truth |
 |---|---|---|
 | **Phase 1 (additive hardening)** | Tracks that build NEW modules against current main — no T-branch merge required. T09, T10, T10B, T11 (new `agent_runtime_v2/`), T12 F-ULP, T13 F-KV-Direct, T17B, T18B, T21 (touches existing `vault.rs` via Fix-B/Fix-C), T22B, T23, T23B. | HANDOFF:97-100 (verbatim contract) |
-| **Phase 2 (merge-gated wiring)** | Tracks that consume merged T-branch substrate (T3 UAS-ACS, T4 vault, T1 tri-fusion). T14 Five-plane wiring, T18 Residency Governor (full), T22 Substrate Health Panel (full), T27 WRV surfacing. | HANDOFF:99-100 |
+| **Phase 2 (merge-gated wiring)** | Tracks that consume merged T-branch substrate (T3 UAS/AcsAnchor, T4 vault, T1 tri-fusion). T14 Five-plane wiring, T18 Residency Governor (full), T22 Substrate Health Panel (full), T27 WRV surfacing. | HANDOFF:99-100 |
 | **Phase E donor mining** | The salvage track. Cherry-pick additive subtrees from the May-16 cycle into main via `salvage/T<N>-...-2026-05-23` PRs. | `docs/MAY16_ARCHEOLOGY_2026_05_23.md` + commit log of #15-#35 on main |
-| **Phase F risk-gated** | Falsifier-gated work that touches production behavior (Metal kernels, KV-Direct, 70B cocktail, p-adic / sheaf hot path, ANE paths). Vault/Research only until F-* artifacts exist. | HANDOFF:104-114, DECK:572-577 |
+| **Phase F risk-gated** | Falsifier-gated work that touches production behavior (Metal kernels, KV-Direct, 70B cocktail, p-adic / sheaf hot path, ANE paths). Pro Research / Pro Vault-Preserved only until F-* artifacts exist. | HANDOFF:104-114, DECK:572-577 |
 | **Phase Δ / ε / ζ / η / θ / ι** | BACKLOG-cycle vocabulary. Δ = merge wave (now). ε = substrate-to-product wave (P0 W-rows). ζ = substrate-visibility wave (P1 W-rows). η = biometric gate opens. θ = P2 internal. ι = P3 capability ceiling. | BACKLOG:252-301 |
 
 ### 1.4 Cycles (the multi-month chronicle)
@@ -90,28 +101,26 @@ These are the canonical cycle names. Earlier names exist; later names supersede;
 | **May-22 Audits + Decompose** | 2026-05-22 | `T17B-DECOMPOSE-2026-05-22.md` (lattice_wbo 13,291L → 14 submodules + 14 test files), `T18B-DECOMPOSE-2026-05-22.md` (acs_admission 13,612L → 13 production + 7 test submodules), `T18B-NAMESPACE-PROPOSAL-2026-05-22.md` (zero collisions; reserve research::acs::anchors + acs_admission::anchor_ref). `/tmp/audit/01..04` audit pass produced. |
 | **May-23 Phase E donor mining** | 2026-05-23 | `MAY16_ARCHEOLOGY_2026_05_23.md`, `T5-PR-SPLIT-PLAN-2026-05-23.md`, salvage PRs #15-#35 on main: T8 doctrine, T9 docs, T7 EML observatory, T1 tri-fusion, T2 AgentBlueprint + LocalAgentDiagnostics + RunTimeline, T3 (uas + active_assembly + page_gather), T5 split (Operator-IR, Scan-IR, Tropical-IR, Info-IR, Geometry-IR, cross-IR), T5 Phase A docs, T5 cross-IR fixup. Plus wiring rows: t10-eidos-queryruntime, t21-vault-recall-resourceservice, t17b-lattice-wbo-oplog, t11-system-g-localagentloop, t12-f-ulp-witness, t18b-acs-admission, agent-blueprint-settings-view, localagent-diagnostics-row. |
 
-### 1.5 Lanes / Tiers / Streams (three orthogonal classifications)
+### 1.5 Builds / Pro Statuses / Planes / Residency (orthogonal classifications)
 
-Three different "five-way" classifications exist; **do not collapse them.**
+Several classifications exist; **do not collapse them.**
 
-**A. Five product lanes** (BACKLOG / DECK / HANDOFF). Distribution + safety lanes:
-1. **MAS** = current App-Store-ship app, Tier 1 ON by default.
-2. **Pro** = Direct distribution, Tier 2 bundled / OFF by default.
-3. **Research** = Helios / Omega / Vault gates.
-4. **Infrastructure / Reserved** = composition + tooling, no user feature.
-5. **Vault** = preserved-speculation only.
-6. (T09 adds **R0** = governing doctrine, not code.)
+**A. Two distributable builds** (current doctrine):
+1. **MAS** = current App-Store-ship app.
+2. **Pro** = direct Developer-ID distribution.
 
-Source: `docs/CURRENT_PRODUCT_ARCHITECTURE_LEDGER_2026_05_18.md:12`.
+No standalone Research build. No standalone Vault build. No standalone Omega build.
 
-**B. Three MAS tiers** (deployment_profiles memory):
-- Tier 1 ON by default.
-- Tier 2 bundled / OFF by default.
-- Tier 3 not MAS.
+**B. Pro status ladder**:
+- **Pro Live** = user-facing and shipped in Pro.
+- **Pro Gated** = bundled or available but off/guarded until explicit user or falsifier gate.
+- **Pro Research** = falsifier-backed research target, not product promise.
+- **Pro Vault-Preserved** = preserved speculation or high-risk work kept intact with a re-promotion gate.
+- **Pro Omega** = future substrate / no-compromise horizon; never treated as shipped.
 
-Source: HANDOFF:50, `project_deployment_profiles`.
+Historical V5 lane/tier language maps into this ladder. Do not copy old "Tier 1/2/3" product phrasing into new docs.
 
-**C. Six/seven memory tiers** (DECK:52, HANDOFF:51):
+**C. Six/seven memory residency bands** (DECK:52, HANDOFF:51):
 - L0 hot (active KV / working set).
 - L1 compressed residual.
 - L2 shadow / sketch.
@@ -121,16 +130,16 @@ Source: HANDOFF:50, `project_deployment_profiles`.
 - L_SE self-evolving.
 - L7 quarantine.
 
-Note: the cognitive_dag's `MemoryTier` enum has only 5 variants (Hot=L0, Warm=L1, Cool=L2, Cold=L3, SelfEvolving=L_SE) — see `agent_core/src/cognitive_dag/edge.rs:118`. The 3-tier gap (L4/L5/L7) is undocumented. T17B Lattice/WBO Register canonicalizes the tier vocabulary FIRST; cognitive_dag mirrors after. (W-50 in BACKLOG.)
+Note: the cognitive_dag's `MemoryTier` enum has only 5 variants (Hot=L0, Warm=L1, Cool=L2, Cold=L3, SelfEvolving=L_SE) — see `agent_core/src/cognitive_dag/edge.rs:118`. The L4/L5/L7 residency-band gap is undocumented. T17B Lattice/WBO Register canonicalizes the residency vocabulary FIRST; cognitive_dag mirrors after. (W-50 in BACKLOG.)
 
 **D. Five runtime planes** (`epistemos-research/src/five_planes.rs`, 308 LOC):
 1. State plane (Mamba-2 SSM, SemiseparableBlockScan).
-2. Episodic plane (LocalRecallIsland, PageGather, ACS anchors).
+2. Episodic plane (LocalRecallIsland, PageGather, AcsAnchor).
 3. Assembly plane (PacketRouter1bit; sparse active-support).
 4. Controller plane (ControllerKernelPack; small-state inference; ternary natural home).
 5. Verification plane (theorem-labels, F-* falsifiers).
 
-**E. Three product streams** (DECK:50, V6.2): MAS / Pro / Vault — product organization in V6.2.
+**E. Current product organization:** MAS / Pro only. V6.2's older MAS / Pro / Vault stream phrasing is preserved as history; Vault is now Pro Vault-Preserved status, not a third distributable build.
 
 ### 1.6 Substrate vs chrome vs wiring vs witnessing
 
@@ -165,7 +174,7 @@ A W-row is **DONE** only when (BACKLOG:312-317):
 From `/tmp/audit/04_donors.md` + project memory:
 
 - **Donor** = a worktree that contributes additive subtrees to main but is not itself merged. Example: simulation worktree.
-- **Primary** = a track that owns a substrate node on the canonical spine. T10 Eidos, T11 System G, T17B Lattice/WBO, T18B ACS admission, T21 vault recall, T12 F-ULP.
+- **Primary** = a track that owns a substrate node on the canonical spine. T10 Eidos, T11 System G, T17B Lattice/WBO, T18B SCOPE-Rex admission, T21 vault recall, T12 F-ULP.
 - **Spine-adjacent** = work that touches a spine node but adds bounded scope (e.g. T7 EML observatory adapter calling into eml/ from one other module).
 - **Tangential** = nice-to-have, no spine node strengthened. Simulation companion visuals (frozen). T6 audiophile chain. Five redundant `claude/*` session worktrees.
 
@@ -255,19 +264,19 @@ Both taxonomies are documented below. Every track gets: canonical name, status, 
 | **T11** | Agent Runtime v2 / System G (typed/budgeted/witnessed/capability-gated executor) | `codex/t11-agent-runtime-v2-2026-05-18` / `16e4264383` / **659 commits** — **MERGED** via PR #10 (`5109b92571`) | System G | `Para<P,A,B>` defined; `AgentRuntimeV2Capability`, `AgentRuntimeV2Mode::{Disabled,IpcBounded,Subprocess}`; WBO budget checking; macaroon verification; `MutationEnvelope` output wrapping; canonical flow `AgentBlueprint→MissionPacket→AgentEvent→approval→MutationEnvelope→RunEventLog→AnswerPacket`; forged/expired macaroon rejected; thinking-block hash identity | **MERGED + WIRED** via PR #29 (`wiring/t11-system-g-localagentloop-2026-05-23`, `73a73bfac3` on main: `feat(wiring/t11-system-g): EPISTEMOS_SYSTEM_G_V0 runtime status breadcrumb`). 31,645L / 16 files. **Aegis REJECTED.** Per `/tmp/audit/03_may18_cycle.md:42-55`: deep Phase 1 hardening; convergent loop. **lattice_wbo three-way conflict** with T17B (13,291L) + T18B (4L stub) — T11's 389L stub is subset; T17B canonical. Resolved at merge. Swift `Epistemos/AgentRuntimeV2/` README references but Swift impl missing. |
 | **T12** | F-ULP Oracle (EML fp16 floor) | `codex/t12-f-ulp-oracle-2026-05-18` / `5f6c69ff1a` / **350 commits** — **MERGED** via PR #9 (`ee23dac53a`) | EML / EML-IR | 412k log-sampled points + 2,048 stress points; ≤ 2 ULP fp16 in `[0.5, 2]`; ≤ 90 s on M2 Pro; AnswerPacket schema freeze blocked until this gate is green | **MERGED + WIRED** via PR #30 (`wiring/t12-f-ulp-witness-2026-05-23`, `306311fc04` on main: `feat(wiring/t12-f-ulp): EPISTEMOS_F_ULP_ORACLE_V0 acceptance witness visible`). 8,884L across `research/eml_ir/` (witness 6,503L, oracle 915L, fixtures 839L, mod 358L, fp16 269L). Plus parallel `research/fulp_oracle/` subdir — **duplication; T12 next step: collapse or rename.** No `agent_core/tests/f_ulp*`. Repo-wide PCF+H+E lean = 27 sorries, none T12-introduced. Per `/tmp/audit/03_may18_cycle.md:59-75`. |
 | **T13** | F-KV-Direct Gate (Qwen3-8B-MLX-4bit 128k) | `codex/t13-kv-direct-gate-2026-05-18` — **NOT MERGED** | Falsifier / ceiling | 100 prompts × 4 task classes; avg D_KL < 0.05 nats; peak RAM < 13 GB; decode ≥ 10 tok/s; wall-clock ≤ 30 min on M2 Pro | **NOT-STARTED.** Substrate exists (`agent_core/src/scope_rex/kv/direct_gate.rs` + Metal shader). End-to-end harness NOT-STARTED per `HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md`. |
-| **T14** | Five Plane UAS-ACS Wiring (typed register) | `phase2-terminal-g-t14-uas-no-orphan-2026-05-24` | UAS / state-Episodic-Assembly-Controller-Verification | `UasAddress`, `UasKind`, MAS-safe `RuntimePlane`, `ResidencyTier`, `AcsAnchor`, DAG node plane/residency fields, WBO budget hooks, live plane-placement Settings row, and No-Orphan declaration lint | ✅ **Terminal G bridge slice implemented.** Every `NodeKind` variant carries `uas`, `anchor`, `plane`, and `residency`; `substrate_health_unified_json` counts live DAG planes; F-UAS-CopyCount and F-ACS-AnchorLookup PASS with artifacts. Remaining W-22/W-44 product migrations stay open. |
+| **T14** | Five Plane UAS/AcsAnchor Wiring (typed register) | `phase2-terminal-g-t14-uas-no-orphan-2026-05-24` | UAS / state-Episodic-Assembly-Controller-Verification | `UasAddress`, `UasKind`, MAS-safe `RuntimePlane`, `ResidencyTier`, `AcsAnchor`, DAG node plane/residency fields, WBO budget hooks, live plane-placement Settings row, and No-Orphan declaration lint | ✅ **Terminal G bridge slice implemented.** Every `NodeKind` variant carries `uas`, `anchor`, `plane`, and `residency`; `substrate_health_unified_json` counts live DAG planes; F-UAS-CopyCount and F-AcsAnchor-Lookup PASS with artifacts. Remaining W-22/W-44 product migrations stay open. |
 | **T15** | Executor Trait (provider-neutral) | `codex/t15-executor-trait-2026-05-18` — **NOT MERGED** | System G (substrate) | `Executor` trait with streaming + tool use + prompt-caching capability flags; `MissionPacket`; `ExecutorEvent`; mock + adapter sketch | **NOT-STARTED on main.** Pairs with T11. |
 | **T16** | Live File Compiler (markdown intent compiles to signed LivePlan.v1) | `codex/t16-live-file-compiler-2026-05-18` — **NOT MERGED** | Spine-adjacent (quick-capture inheritance) | 10-state machine + `LivePlan.v1` schema with plan hash + capabilities + triggers + eligibility + revocation; markdown itself never executes | **NOT-STARTED on main.** Live File Compiler is FINAL_SYNTHESIS §1 BREAKTHROUGH per INDEX:195. Original Quick Capture work blocked. |
 | **T17** | Cognitive Weight Class Enforcement | `codex/t17-cognitive-weight-class-2026-05-18` — **NOT MERGED** | Schema (orthogonal) | 4 weight bands (`soft_memory [0–0.30]` / `preferred_context [0.31–0.60]` / `strong_project_anchor [0.61–0.85]` / `policy_grade [0.86–1.00]`) + 5 promotion gates; "Semantic Gravity pulls attention; Policy Authority controls action." | **NOT-STARTED on main.** Doctrine at `docs/fusion/COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md`. |
 | **T17B** | Lattice / WBO Register (error-law substrate) | `codex/t17b-lattice-wbo-register-2026-05-18` / `a3762d9333` / **564 commits** — **MERGED** via PR #3 (`08c0f983b0`) | Lattice / WBO accounting | Preserve Lattice-Wyner-Ziv / `LatticeCoder<BITS>` / WZ side info / Babai/GPTQ / Sherry / ShadowKV / QuIP/E8 / residual/sketch; define `LatticeBudget`/`LatticeCoderKind`/`LatticeErrorContribution`/`WboLedgerEntry`/`ActiveSupportBudget`/`SideInformationKind`; map memory-tier ↔ codec ↔ WBO term ↔ falsifier; weight-quant + KV-quant Hessians do not collapse | **MERGED + WIRED + DECOMPOSED.** 13,291L → 14 production + 14 test submodules per `T17B-DECOMPOSE-2026-05-22.md` (305 `#[test]` functions preserved). Wired via PR #14 (`wiring/t17b-lattice-wbo-oplog-2026-05-23`, `43313c2914` on main: `feat(wiring/t17b-lattice-wbo): always-on oplog accounting hook`). Canonical lattice_wbo per `/tmp/audit/03_may18_cycle.md:79-93`. Also adds `research/acs/mod.rs` + `scope_rex/kv/direct_gate.rs`. |
 | **T18** | Residency Governor + Rail | (gated on T3 merge) | UAS / residency | Governor input: source size, task fidelity tolerance, reversibility, privacy class, tier budget; Core cannot emit L4-L6 except explicit quarantine L7; Settings row shows tier counts + denied tier leaks | **NOT-STARTED full version.** T3 partial via salvage merge. |
-| **T18B** | ACS Admission Field (verdict layer above SCOPE-Rex) | `codex/t18b-acs-admission-field-2026-05-18` / `af78e4bfb5` / **430 commits** — **MERGED** via PR #4 (`cdd05d89ee`) | ACS admission | Define `ACSAdmissionInput`/`ACSAdmissionVerdict`/`ACSRiskVector`/`ACSPolicy`/`ACSAuditRecord`; verdicts: allow / allow-with-warning / defer / quarantine / reject; no durable memory write bypasses; all verdicts logged | **MERGED + WIRED + DECOMPOSED.** 13,612L → 13 production + 7 test submodules per `T18B-DECOMPOSE-2026-05-22.md` (379 tests preserved). Wired via PR #31 (`wiring/t18b-acs-admission-2026-05-23`, `8851f8b585` on main: `feat(wiring/t18b-acs): EPISTEMOS_ACS_ADMISSION_V0 strict policy visible`). Per `/tmp/audit/03_may18_cycle.md:96-112`. Touches `effect/receipt.rs`, `provenance/ledger.rs`, `scope_rex/answer_packet.rs`. Namespace coexists with T17B `research/acs/`: T18B = product lane (`acs_admission`) vs T17B = research lane (`research::acs`). Per `T18B-NAMESPACE-PROPOSAL-2026-05-22.md`: 0 syntactic collisions; reserve `research::acs::anchors` + `acs_admission::anchor_ref`. |
+| **T18B** | SCOPE-Rex Admission Field (legacy branch slug: `acs-admission`) | `codex/t18b-acs-admission-field-2026-05-18` / `af78e4bfb5` / **430 commits** — **MERGED** via PR #4 (`cdd05d89ee`) | SCOPE-Rex admission | Define `ACSAdmissionInput`/`ACSAdmissionVerdict`/`ACSRiskVector`/`ACSPolicy`/`ACSAuditRecord` in the legacy namespace; verdicts: allow / allow-with-warning / defer / quarantine / reject; no durable memory write bypasses; all verdicts logged | **MERGED + WIRED + DECOMPOSED.** 13,612L → 13 production + 7 test submodules per `T18B-DECOMPOSE-2026-05-22.md` (379 tests preserved). Wired via PR #31 (`wiring/t18b-acs-admission-2026-05-23`, `8851f8b585` on main: `feat(wiring/t18b-acs): EPISTEMOS_ACS_ADMISSION_V0 strict policy visible`). Per `/tmp/audit/03_may18_cycle.md:96-112`. Touches `effect/receipt.rs`, `provenance/ledger.rs`, `scope_rex/answer_packet.rs`. Namespace coexists with T17B `research/acs/`: T18B = product admission namespace (`acs_admission`, now documented as SCOPE-Rex admission) vs T17B = Pro Research AcsAnchor namespace (`research::acs`). Per `T18B-NAMESPACE-PROPOSAL-2026-05-22.md`: 0 syntactic collisions; reserve `research::acs::anchors` + `acs_admission::anchor_ref`. |
 | **T19** | Halo V1 + Eidos Control Vectors (adapter) | `codex/t19-halo-eidos-control-vectors-2026-05-18` — **NOT MERGED** | retrieval (UI adapter) | Adapter maps Eidos lexical/semantic/graph/residency signals → Halo availability state; no UI behavior change without feature flag | **NOT-STARTED on main.** |
 | **T20** | Variant Ladder Generalization | `codex/t20-variant-ladder-generalization-2026-05-18` — **NOT MERGED** | substrate | Route order: deterministic → embedding → classical → small LLM → mid LLM → cloud → defer; `escalate_on_empty` defaults false; logs each tier choice into provenance | **NOT-STARTED.** |
 | **T21** | Vault Recall Contract (F-VaultRecall-50) | `codex/t21-vault-recall-contract-2026-05-18` / `60b035b837` / **443 commits** — **MERGED** via PR #11 (`93a010f6ef`) | Vault/Eidos contract | No production path builds context from index-order `LIMIT N`; every vault retrieval checks inventory completeness, searches full manifest, retrieves 50-200 candidates, emits lexical/semantic/graph/recency/MMR trace; UI shows loaded sources/snippets/provenance; F-VaultRecall-50 fixture in diagnostics | **MERGED + WIRED.** 11,570L fixture corpus + 1,037L runner + 1,516L integration test + `retrieval_trace.rs` + `vault_search_ladder.rs`. Wired via PR #13 (`wiring/t21-vault-recall-resourceservice-2026-05-23`, `bd0273a4b8` on main: `feat(wiring/t21-vault-recall): wire EPISTEMOS_VAULT_RECALL_CONTRACT_V1 trace path`). Per `/tmp/audit/03_may18_cycle.md:115-135`: late-stage hardening; 156% past floor; circular adds non-Latin script rows. **2/5 acceptance bars met, 1 partial, 2 pending** (W-20 Brain Panel + W-19 ChatCoordinator wiring). |
-| **T22** | Substrate Health Panel | (gated on T2+T3+T4+T7 merge) | UI surface | Unified Settings panel shows agent runtime / model constellation / vault recall / EML floor / UAS-ACS / Cognitive DAG / provenance ledger / falsifier status; missing subsystem degrades to "not wired" with source doc link | **NOT-STARTED full version.** |
+| **T22** | Substrate Health Panel | (gated on T2+T3+T4+T7 merge) | UI surface | Unified Settings panel shows agent runtime / model constellation / vault recall / EML floor / UAS/AcsAnchor / Cognitive DAG / provenance ledger / falsifier status; missing subsystem degrades to "not wired" with source doc link | **NOT-STARTED full version.** |
 | **T22B** | Brain Panel Closed Citations | `codex/t22b-brain-panel-closed-citations-2026-05-18` — **NOT MERGED** | UI surface (Eidos consumer) | Chat row / Brain Panel shows "Retrieved by Eidos" with source IDs, titles, snippets, score components; fake citation rejected; missing source text cannot be displayed as cited evidence; works without cloud | **NOT-STARTED on main.** Pairs with T10. |
-| **T23** | F-70B Local Cocktail (research harness) | `codex/t23-f70b-local-cocktail-2026-05-18` — **NOT MERGED** | Falsifier / capability ceiling | 70B-class candidates × 50-prompt suite × cloud/fp16 ref path × sparse local path × M2 Pro budget. PASS: D_KL < 0.1 nats, ≥ 5 tok/s, ≤ 30s TTFT on 4k prompt, < 14 GB resident. FAIL must identify bottleneck. | **NOT-STARTED.** Vault/Research only. |
+| **T23** | F-70B Local Cocktail (research harness) | `codex/t23-f70b-local-cocktail-2026-05-18` — **NOT MERGED** | Falsifier / capability ceiling | 70B-class candidates × 50-prompt suite × cloud/fp16 ref path × sparse local path × M2 Pro budget. PASS: D_KL < 0.1 nats, ≥ 5 tok/s, ≤ 30s TTFT on 4k prompt, < 14 GB resident. FAIL must identify bottleneck. | **NOT-STARTED.** Pro Vault-Preserved / Pro Research only. |
 | **T23B** | M2 Pro Falsifier Handbook | `codex/t23b-m2pro-falsifier-handbook-2026-05-18` / `c6d45e8ed6` / **1014 commits → squashed to 1** (`1e5308253e`) — **MERGED** via PR #5 (`03197c36cc`) | Falsifier / meta | Includes 15 F-* gates (F-Eidos-ClosedCitation / F-VaultRecall-50 / F-PageGather-Baseline / F-PageGather-Scatter / F-UAS-CopyCount / F-ACS-AnchorLookup / F-InterruptScore-CPU / F-PacketRouter1bit / F-ControllerKernelPack / F-SemiseparableBlockScan / F-LocalRecallIsland / F-KV-Direct-Gate / F-WBO-DriftLedger / F-ULP-Oracle / F-70B-Local-Cocktail-Lite); each gate has purpose, current status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, expected artifact; unimplemented scripts marked NOT IMPLEMENTED | **MERGED.** Handbook (`docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md`, 333L) + 15 F-* fragments + `FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` (1,477L) + `ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md` (13,389L) + `ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md` (868L). Per `/tmp/audit/03_may18_cycle.md:140-152`: schema is real canon. 1,014→1 squash justified; pure doc spiral past iter-50. |
 | **T24** | Lean ClaimLedger Schema Authority | `codex/t24-lean-claimledger-schema-2026-05-18` — **NOT MERGED** | Witness / cert | One Lean enum/theorem family; Rust + Swift schema twins round-trip; sorry budget visible + monotonically tracked | **NOT-STARTED.** |
 | **T25** | ACS Naming + Plane Reconciliation | `codex/t25-acs-reconciliation-2026-05-18` — **NOT MERGED** | doctrine | First mention of ACS in modified docs includes parenthetical expansion; code-structure view + process-doctrine view both preserved; lint or checklist row preventing bare "ACS" drift | **NOT-STARTED on main.** `T18B-NAMESPACE-PROPOSAL-2026-05-22.md` proposes the resolution (Option 3a = grandfather both prefix styles `Acs*` + `ACS*`). Awaiting user arbitration. |
@@ -295,7 +304,7 @@ Both taxonomies are documented below. Every track gets: canonical name, status, 
 | **W-07** | EML observatory health row | T7 | NOT-STARTED | Falsifier/health | new `EmlObservatoryHealthRow.swift`; reads observatory state via FFI; auto-refreshes 1 Hz | T7 eml_integration salvaged via PR #17; Swift health-row pending |
 | **W-08** | EML potential in ConfidenceRouter | T2+T7 | NOT-STARTED | EML / System G | ConfidenceRouter reads `EmlPotential::compute(query)`; A/B routing test shows ≥ 5% accuracy improvement on fixture corpus | substrate present; integration pending |
 | **W-09** | Scan-IR ↔ SemiseparableBlockScan | T3+T5 | NOT-STARTED | EML-IR | T3's iter-53 test refactored to consume `ScanIR::SemiseparableBlock { ... }` from T5's lane | T5 Scan-IR salvaged via PR #22; T3 harness pending |
-| **W-10** | UAS-ACS substrate health row | T3 | NOT-STARTED | Falsifier/health | new `UasAcsHealthRow.swift`; reads falsifier statuses via FFI; clickable to per-gate detail; tied to docs/falsifiers/ | T3 + T23B substrate on main; Swift row pending |
+| **W-10** | UAS/AcsAnchor substrate health row | T3 | NOT-STARTED | Falsifier/health | new `UasAcsHealthRow.swift` (legacy file name; displays UAS/AcsAnchor); reads falsifier statuses via FFI; clickable to per-gate detail; tied to docs/falsifiers/ | T3 + T23B substrate on main; Swift row pending |
 
 ### 3.2 Agent + Model wirings (P0)
 
@@ -339,7 +348,7 @@ Both taxonomies are documented below. Every track gets: canonical name, status, 
 | **W-25** | Provenance Console ACS-anchor column | T3 | NOT-STARTED | new ACS-anchor column; sortable by theorem tag; clickable to per-anchor detail |
 | **W-26** | Cognitive DAG visualizer (in `Epistemos/Views/Graph/`) | T3+T6 | NOT-STARTED | live graph of NodeKinds + EdgeKinds with resonance walks; Cognitive Weight Class doctrine §4.1 tier discipline observed |
 | **W-27** | AnswerPacket badge per chat row | T2+T3+T6 | NOT-STARTED | per-row badge: claim_kind (synthesis / empirical / mathematical / causal / speculative) + confidence (verified / plausible / speculative / blocked) |
-| **W-28** | ResidencyTier indicator (Current App / Verified Floor / Capability Ceiling) | T3+T6 | PARTIAL | DAG node metadata and `PlanePlacementHealthRow` surface live plane coverage; broader research-tier badges still pending |
+| **W-28** | ResidencyTier indicator (Current App / Verified Floor / Capability Ceiling) | T3+T6 | PARTIAL | DAG node metadata and `PlanePlacementHealthRow` surface live plane coverage; broader Pro Research badges still pending |
 
 ### 3.6 UI surface unification (P1)
 
@@ -362,7 +371,7 @@ Both taxonomies are documented below. Every track gets: canonical name, status, 
 | **W-38** | Spotlight respects lock state (`SpotlightIndexer.swift` + `NoteEntitySpotlightIndexer.swift`) | T8+T6 | NOT-STARTED |
 | **W-39** | Recovery-code printable view (≥ 128 bits entropy) + Keychain rewrap | T8 | NOT-STARTED |
 
-### 3.8 Optional / Research-tier (P3)
+### 3.8 Optional / Pro Research (P3)
 
 | ID | Title | Status |
 |---|---|---|
@@ -387,7 +396,7 @@ Both taxonomies are documented below. Every track gets: canonical name, status, 
 | **W-52** | CSISafeguard wired into CloudKnowledgeDistillationService | NOT-STARTED. Class exists with 8 isolated tests; zero production callers (training-data references point to nonexistent `OmegaTrainingCoordinator.swift`) |
 | **W-53** | ModelDownloadManager `verifySnapshot` is structural-only, no SHA256 LFS hash verification | NOT-STARTED. P2 security gap; supply-chain integrity |
 
-**Note on duplicate W-46 / W-47 IDs**: BACKLOG has THREE W-46 entries (in §4b Eidos block, in §5 cognitive_dag block, in §8 research-tier block, AND in §12B T09 block). Same for W-47. This is a known doc-drift the chronicle surfaces; rows are distinguished by their owner-block.
+**Note on duplicate W-46 / W-47 IDs**: BACKLOG has THREE W-46 entries (in §4b Eidos block, in §5 cognitive_dag block, in §8 Pro Research block, AND in §12B T09 block). Same for W-47. This is a known doc-drift the chronicle surfaces; rows are distinguished by their owner-block.
 
 ### 3.10 W-row dependency graph
 
@@ -429,7 +438,7 @@ Per BACKLOG:193-249:
               W-34..W-39 (biometric lock)
 
               ╔══════════════════════════════════════╗
-              ║  Research-tier (multi-week, gated)   ║
+              ║  Pro Research (multi-week, gated)    ║
               ╚══════════════════════════════════════╝
               W-09 W-40 W-41 W-42 W-43 W-44+W-45
 ```
@@ -497,7 +506,7 @@ Per BACKLOG:193-249:
 | `wiring/t11-system-g-localagentloop-2026-05-23` | T11 System G runtime status breadcrumb | **MERGED** PR #29 |
 | `wiring/t12-f-ulp-witness-2026-05-23` | T12 F-ULP Oracle acceptance witness visible | **MERGED** PR #30 |
 | `wiring/t17b-lattice-wbo-oplog-2026-05-23` | T17B Lattice/WBO always-on oplog accounting hook | **MERGED** PR #14 |
-| `wiring/t18b-acs-admission-2026-05-23` | T18B ACS admission strict policy visible | **MERGED** PR #31 |
+| `wiring/t18b-acs-admission-2026-05-23` | T18B SCOPE-Rex admission strict policy visible | **MERGED** PR #31 |
 | `wiring/t21-vault-recall-resourceservice-2026-05-23` | T21 Vault Recall Contract trace path | **MERGED** PR #13 |
 | `wiring/agent-blueprint-settings-view-2026-05-23` | AgentBlueprintSettingsView wired into Diagnostics | **MERGED** PR #33 |
 | `wiring/localagent-diagnostics-row-2026-05-23` | LocalAgentDiagnostics rows wired into Diagnostics | **MERGED** PR #35 |
@@ -518,7 +527,7 @@ Per BACKLOG:193-249:
 | **Canon Gaps and Addenda** | `docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` | C1-C12 gap register; staged-but-not-yet-canon items | May-2 | Active |
 | **Final Doctrine** | `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` | Top-floor doctrine; §2.2 architectural invariants; §3.4 SCOPE-Rex grammar; §4 killer features; §7 build order; Annex A.1-A.12 | May-1 | Active (extended by V6.1/V6.2) |
 | **Unified Substrate Current State** | `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md` | Current code truth per spine layer | May-1 | Active |
-| **Unified Active Substrate Canon (UAS-ACS register)** | `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` | UAS-ACS coherence layer over the 6 canonical surfaces | May-16 | Active |
+| **Unified Active Substrate Canon (UAS/AcsAnchor register)** | `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` | UAS/AcsAnchor coherence layer over the 6 canonical surfaces | May-16 | Active |
 | **Substrate Track Register** | `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` | T0-T15 16-track feature register across zones A-D. Vocabulary discipline (Track/Lane/Phase/Zone). | May-3 | Active |
 | **Cognitive Kernel Doctrine** | `docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md` | Two-stage Substrate-foundational unification: Kernel Phases 1-7 collapses 5 fragmented loops into 1 Rust kernel | May-3 | Active |
 | **Cognitive DAG Doctrine** | `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` | Phase 8.A-H collapses 7 subsystems into 1 typed content-addressed DAG (10 NodeKind + 10 EdgeKind + Macaroons + Companions + Mirrors). Phase 8.A-G shipped per memory. | May-3 | Active |
@@ -546,7 +555,7 @@ Per BACKLOG:193-249:
 | **Primitive IR Stack Doctrine** | `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` | T5 doctrine: 6 IRs (EML / Tropical / Scan / Operator / Info / Geometry) with paper + primitive signature + crate + lowering target + Lean schema authority; §6 cross-IR composition lattice | May-17 | Active (Phase A complete; Phase B partial) |
 | **Cross-IR Composition Examples** | `docs/fusion/CROSS_IR_COMPOSITION_EXAMPLES_2026_05_17.md` + `CROSS_IR_LATTICE_STATUS_2026_05_17.md` | Worked examples + status | May-17 | Active |
 | **Biometric Lock Doctrine** | `docs/fusion/BIOMETRIC_LOCK_DOCTRINE_2026_05_17.md` | T8 Phase 0 doctrine; 9 sections (threat model / crypto / lockable / session / agent isolation / indexing / UI / recovery / open theorems) | May-17 | Active (Phase 0 only; Phase B GATED) |
-| **Day in the Life Power User** | `docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` | Scenario walkthrough of every shipped UAS-ACS-touching feature | May-16 | Active |
+| **Day in the Life Power User** | `docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` | Scenario walkthrough of every shipped UAS/AcsAnchor-touching feature | May-16 | Active |
 | **V1 Ship Ledger** | `docs/fusion/V1_SHIP_LEDGER_2026_05_16.md` | Every feature classified v1 ship / v1.1 defer / v2 / never | May-16 | Active |
 | **Master Hardening and Harness Plan** | `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` | Hardening + harness master plan | various | Active |
 | **Canonical Roadmap** | `docs/CANONICAL_ROADMAP_2026_05_05.md` | Roadmap canonical | May-5 | Active |
@@ -606,10 +615,10 @@ Status taxonomy (handbook §"Status Taxonomy"):
 | **F-ControllerKernelPack** | T17B | All 6 kernels (scalar-add / scalar-mul / max / argmax / copy / zero-fill) reference-equivalent under fp32 tolerance; threadgroup memory within V6.2 controller budget; explicit unsupported-case ledger | PARTIAL SUBSTRATE. CPU reference in `agent_core/src/helios/controller_pack.rs`; 6 Metal kernels in `Epistemos/Shaders/ControllerKernelPack.metal`; shader header says NOT yet wired. |
 | **F-SemiseparableBlockScan** | T5 / T3 | Core lane max-abs-diff ≤ 1e-3 fp16 over 100 seeds vs PyTorch oracle; final state included; `chunk_size=256` + `ngroups=1`; Stretch labeled non-Core | PARTIAL SUBSTRATE. `agent_core/src/helios/ssd_block_scan.rs` scalar CPU; `Epistemos/Shaders/SemiseparableBlockScan.metal` correctness-first floor, NOT wired. Run-first #7. |
 | **F-LocalRecallIsland** | T3 | Core lane peak memory ≤ 4.5 GB for model + KV/state + workspace; passkey recall ≥ 0.95; `niah_single_1` ≥ 0.95 over 250 trials; per-depth/model/context failure labels | NOT IMPLEMENTED hardware/model gate. `agent_core/src/helios/local_recall_island.rs` exact-match passkey substrate; no Metal kernel; no model runner. Run-first #8. |
-| **F-KV-Direct-Gate** | T13 | Qwen3-8B-MLX-4bit at 128k; 100 prompts (25 long-prefix / 25 multi-turn / 25 code / 25 reasoning); avg D_KL < 0.05 nats; peak RAM < 13 GB; decode ≥ 10 tok/s; suite ≤ 30 min | PARTIAL SUBSTRATE. `agent_core/src/scope_rex/kv/direct_gate.rs` + `Epistemos/Shaders/kv_direct_gate.metal` Tier-1 layout/equality contract; end-to-end harness NOT-STARTED. Run-first #6. |
+| **F-KV-Direct-Gate** | T13 | Qwen3-8B-MLX-4bit at 128k; 100 prompts (25 long-prefix / 25 multi-turn / 25 code / 25 reasoning); avg D_KL < 0.05 nats; peak RAM < 13 GB; decode ≥ 10 tok/s; suite ≤ 30 min | PARTIAL SUBSTRATE. `agent_core/src/scope_rex/kv/direct_gate.rs` + `Epistemos/Shaders/kv_direct_gate.metal` Phase-1 layout/equality contract; end-to-end harness NOT-STARTED. Run-first #6. |
 | **F-WBO-DriftLedger** | T17B | Every drift-bearing token has ledger entry with finite non-negative term values; WBO-7 pre-softmax delta-z infinity norm ≤ `T_LWZ + T_K + T_R + T_TTR + T_SE + T_DAG + T_num`; post-softmax drift ≤ 0.5 of pre-softmax envelope; missing/orphan terms fail closed | NOT IMPLEMENTED runtime falsifier. `agent_core/src/wbo6/mod.rs` + `epistemos-research/src/wbo_generations.rs` + `epistemos-research/src/theorems/e4_wbo7.rs` provide budget/envelope substrate. Per-token KL measurement not yet run. |
 | **F-ULP-Oracle** | T12 | Every comparable point in `[0.5, 2]` ≤ 2 ULP fp16; stress cases classified (denormals / ±0 / ±∞ / NaN / ln branch cuts); full run < 90 s wall-clock | PARTIAL SUBSTRATE. `Epistemos/Shaders/morph_eval_reduced.metal` + `agent_core/src/research/eml/ulp_oracle.rs` exist; shader not wired by Swift dispatcher; only 1,024-point smoke shape; full 412k + 2,048 stress fixture has not produced T23B artifact. Run-first #5. |
-| **F-70B-Local-Cocktail-Lite** | T23 | D_KL < 0.1 nats vs fp16/cloud reference over 50-prompt suite; decode ≥ 5 tok/s; TTFT ≤ 30 s on 4k prompt; resident memory < 14 GB; first run ≤ 2h, warm-cache ≤ 30 min; any miss identifies bottleneck | NOT IMPLEMENTED. W-43 keeps composition harness NOT-STARTED. Vault/Research only. |
+| **F-70B-Local-Cocktail-Lite** | T23 | D_KL < 0.1 nats vs fp16/cloud reference over 50-prompt suite; decode ≥ 5 tok/s; TTFT ≤ 30 s on 4k prompt; resident memory < 14 GB; first run ≤ 2h, warm-cache ≤ 30 min; any miss identifies bottleneck | NOT IMPLEMENTED. W-43 keeps composition harness NOT-STARTED. Pro Vault-Preserved / Pro Research only. |
 
 ### 5.4 Artifact schema
 
@@ -834,7 +843,7 @@ Definitive list of things that existed in early docs but are NO LONGER on the ca
 | 1-week sprint cadence | Forever-loop discipline (no exit unless Jojo says stop) | DISPATCH:97 §3.5 |
 | Date-gated milestones | Capability / verification / distribution / entitlement / licensing / doctrine gates | Canon Hardening Protocol §3 "no-date-gates rule" |
 | "PATCHED" status | DONE only when WRV (Wired/Reachable/Visible/Verified) end-to-end | T27 acceptance bar |
-| Single ACS naming | Dual ACS naming (Autopoietic Cognitive Stack + Anchored Cognitive Substrate; first mention parenthesized) | UAS-ACS canon §3 disambiguation |
+| Single ACS naming | Current AcsAnchor/SCOPE-Rex split: AcsAnchor for address/residency continuity; SCOPE-Rex/SovereignGate for admission/governance. Legacy ACS names require first-mention parenthetical. | UAS/AcsAnchor canon §3 disambiguation |
 
 ### 7.4 Deferred (still on the map but not on current critical path)
 
@@ -842,12 +851,12 @@ Definitive list of things that existed in early docs but are NO LONGER on the ca
 |---|---|---|
 | **XPC Mastery Phases X.1-X.5** | Requires paid Apple Developer Team | After paid Team purchase |
 | **T13 F-KV-Direct-Gate live runtime** | Heavy I/O; sequencing | After Cohort A-D done |
-| **T23 F-70B Local Cocktail composition** | Vault/Research-only | After F-* substrate gates pass |
+| **T23 F-70B Local Cocktail composition** | Pro Vault-Preserved / Pro Research-only | After F-* substrate gates pass |
 | **W-41 5 Metal kernels (Mamba-2/page-gather/etc.)** | Hardware-validation gated | After F-PageGather-Baseline + F-PageGather-Scatter on M2 Pro |
 | **L7 quarantine memory tier** | Cognitive_dag enum has 5 variants; canon names 7 | T17B canonicalizes vocabulary first |
 | **W-34..W-39 Biometric Lock implementation** | Gated on T1+T2+T6 each having PR landed | T8 self-gate; partially open |
 | **Quick Capture Phases 7/8/8-cont/11** | Diverged modules (route/heal/format/effect/undo/nightbrain) | After T11 Phase 2 typed-dispatch + Cohort A merge |
-| **Lean schemas Tier-2..6 (Tropical / Scan / Operator / Info / Geometry)** | EML-LEAN-VENDOR open blocker (`tomdif/eml-lean` not vendored) | After vendor pass |
+| **Lean schemas levels 2..6 (Tropical / Scan / Operator / Info / Geometry)** | EML-LEAN-VENDOR open blocker (`tomdif/eml-lean` not vendored) | After vendor pass |
 | **App Group entitlement restore** | Paid Developer Team | Stage F |
 | **Pro CLI passthrough** | MAS-First Focus Doctrine: Pro = feature-gated stubs | After MAS ship + paid Team |
 | **Bash / MultiEdit / WebFetch tools in MAS** | App Store First — Infinite Hardening | After Phase S 6 hard exit criteria |
@@ -1030,7 +1039,7 @@ For EVERY remaining unfinished item — minimum-viable "done" definition, effort
 | P0 (user-blocking) | W-11 / W-13 / W-14 / W-15 / W-19 / W-20 / W-46/T10-Eidos / W-47/T10-Eidos / W-48/T10-Eidos / W-27 — 10 rows | Small (UI binding) → Medium (FFI bridge) per row |
 | P1 (high-value visible) | W-01..W-10 + W-16..W-18 + W-21..W-26 + W-28..W-30 + W-32 — ~25 rows | Small-Medium per row |
 | P2 (internal substrate) | W-31 / W-33 / W-46..W-53 — ~10 rows (mostly security, doc-honesty) | Small-Medium |
-| P3 (research-tier) | W-09 / W-34..W-45 — ~13 rows | Medium-Large per row |
+| P3 (Pro Research) | W-09 / W-34..W-45 — ~13 rows | Medium-Large per row |
 
 ### 9.3 Auxiliary work still needed
 
@@ -1075,7 +1084,7 @@ For EVERY remaining unfinished item — minimum-viable "done" definition, effort
 
 Given the user's stated priority (visible product value per hour of risk; preserve wide, build narrow; MAS-first), and accounting for dependencies, ranked from highest priority to lowest:
 
-### Tier 1 — Visible product unlocks, additive, low risk
+### Priority Band 1 — Visible product unlocks, additive, low risk
 
 1. **W-13 Power-user mode Settings toggle UI.** Already-wired UserDefaults flag; one new Toggle. (P0; small effort; no dependency)
 2. **W-46/T10-Eidos: Swift `EidosBridge.swift` FFI.** Rust side ready (217 tests green); Swift mirror types declared. (P0; medium effort; unlocks W-47 + W-48)
@@ -1087,15 +1096,15 @@ Given the user's stated priority (visible product value per hour of risk; preser
 8. **W-15 AgentBlueprint end-to-end integration test.** Substrate exists; close test. (P0)
 9. **omega-mcp PTY env-leak fix (W-48 / D-09).** P1 security; self-contained; one-file fix. (P1; security; small effort)
 
-### Tier 2 — Substrate-visibility wave
+### Priority Band 2 — Substrate-visibility wave
 
 10. **W-01 UasAddress on vault notes** + **W-04 page-gather → vault retrieval** + **W-22 hybrid_search returns Vec<UasAddress>**. T3 substrate is merged via salvage PR #20.
-11. **W-07 EML observatory health row** + **W-10 UAS-ACS substrate health row** + **W-21 Vault recall health row**.
+11. **W-07 EML observatory health row** + **W-10 UAS/AcsAnchor substrate health row** + **W-21 Vault recall health row**.
 12. **W-29 unified Substrate Health panel** (consumes W-07/10/11/14/17/21).
 13. **W-25 Provenance Console ACS column** + **W-26 Cognitive DAG visualizer** + **W-28 ResidencyTier indicator**.
 14. **W-32 Experimental Features panel.**
 
-### Tier 3 — Decompose + reconcile
+### Priority Band 3 — Decompose + reconcile
 
 15. **T17B/T18B namespace arbitration (D-02).** User answer to Q1/Q2/Q3.
 16. **CLAUDE.md drift fixes (W-46/W-47/T09 ledger block).** Macaroons claim refresh + canonical alias table.
@@ -1125,7 +1134,7 @@ Given the user's stated priority (visible product value per hour of risk; preser
 34. **F-PacketRouter1bit** + **F-ControllerKernelPack** + **F-ACS-AnchorLookup** + **F-WBO-DriftLedger** (Metal kernel + harness).
 35. **F-70B-Local-Cocktail-Lite** (T23; capability ceiling).
 
-### Tier 6 — Biometric gate + research-tier
+### Priority Band 6 — Biometric gate + Pro Research
 
 36. **W-34..W-39 Biometric Lock implementation** (T1+T2+T6 gate partially open).
 37. **T10B Eidos Form Layer + T16 Live File Compiler + T17 Cognitive Weight Class Enforcement + T20 Variant Ladder.**
@@ -1169,7 +1178,7 @@ For each landed thing, the audit + hardening status (DONE vs still-needed).
 | **agent_core::research::{tropical,scan,operator,info,geometry}_ir (T5)** | per-IR property tests; `cross_ir_{tropical,info}_to_eml`; `eml_ir_corpus_round_trip` | (per-IR Lean certificate emit; not all green) | per-IR Lean schema; lake build green at iter-950; 28 sorries (budget-gated) | T5 PR split plan (`docs/T5-PR-SPLIT-PLAN-2026-05-23.md`) — 6 of 8 PRs landed | Wired (Phase 1 hardening); not yet user-visible |
 | **agent_core::tri_fusion (T1)** | 11 cargo tests + 240-doc property corpus + Swift FFI 5/5 | (none specific) | (none required) | T1 acceptance bar (CODEX_9_TERMINAL_PROMPTS T1 §) | Wired + Reachable (Swift FFI); not yet user-visible at Epdoc editor |
 | **agent_core::uas + active_assembly + page_gather (T3 subset salvaged)** | 9+ cargo tests | F-UAS-CopyCount / F-ACS-AnchorLookup / F-ShadowFirst-PageEscalation / F-PageGather-M2Pro / F-ActiveAssembly-Minimal all NOT IMPLEMENTED | (none required at this stage) | T3 acceptance bar | Substrate Wired; visible UI surfaces pending W-rows |
-| **epistemos-research::acs.rs + five_planes.rs + theorem_status.rs** | (research lane; gated behind `--features research`) | (research) | FOUNDATIONAL_SEVEN; Lean proofs partial | research-tier | NEVER ships in MAS per file:17 doctrine comment |
+| **epistemos-research::acs.rs + five_planes.rs + theorem_status.rs** | (Pro Research lane; gated behind `--features research`) | (research) | FOUNDATIONAL_SEVEN; Lean proofs partial | Pro Research | NEVER ships in MAS per file:17 doctrine comment |
 | **epistemos-shadow (Halo)** | 45 tests + 7 clippy warnings post-hardening | (none specific; W8.4+W8.7 acceptance met) | (none required) | RRF k=60; 25ms latency budget | Wired + Reachable + Visible + Verified (V0 production-mounted) |
 | **epistemos-research::v6_1.rs + v6_2.rs** | (research lane) | V6.2 8-stage falsifier order names the gates; substrate IS the canonical doctrine target | (none) | KERNEL_IMPLEMENTATION_POSTURE = "canonical_target_not_implemented_here" | Verified on Jojo's M2 Pro per `project_v6_2_laptop_audit_pass_2026_05_07`; never claimed as kernels implemented |
 | **agent_core::lsp_runtime (V2.3)** | feature-gated tests | (none specific) | (none required) | substrate-floor | LSPServerProcess subprocess deleted 2026-05-05 (commit `813c15dd`); in-process Rust LspKernel canonical |

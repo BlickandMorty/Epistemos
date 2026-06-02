@@ -481,7 +481,7 @@ Every Tool, Skill, Command, View, and FFI entry point declares its tier:
 pub enum Tier {
     Core,        // Always available; MAS + Pro
     Pro,         // Pro build only; never compiled into MAS
-    Research,    // Research builds only; behind cfg(feature = "research")
+    Research,    // Legacy enum name; maps to Pro Research feature paths only
     Both,        // Same as Core (alias for clarity at declaration sites)
     All,         // Same as Core; reserved for kernel-level entry points
 }
@@ -490,7 +490,7 @@ pub enum Tier {
 pub enum PolicyProfile {
     AppStore,    // MAS build; Tier::Core only
     Pro,         // Pro build; Tier::Core + Tier::Pro
-    Research,    // Research build; all tiers
+    Research,    // Legacy profile name; maps to Pro Research paths
 }
 ```
 

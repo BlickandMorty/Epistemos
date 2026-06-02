@@ -7,6 +7,8 @@ verdict: CONVERGED; ready for execution
 supersedes: prior graph-engine planning docs
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Canonical Graph Engine Plan — Epistemos on M2 Pro 16GB
 
 ## Status
@@ -507,7 +509,7 @@ Implementation: when a builder publishes a new immutable artifact, it atomically
 - **HELIOS V6.1 GPU kernels (SemiseparableBlockScan, LocalRecallIsland, PageGather, ControllerKernelPack, PacketRouter1bit)** — these are doctrine targets in the research substrate, NOT graph-engine work. They live in `epistemos-research` behind `--features research` and remain `KERNEL_IMPLEMENTATION_POSTURE = "canonical_target_not_implemented_here"`.
 - **Cosmograph-style fully-GPU texture pipeline** — defer until Phase C ships. Architecture is open for it but not committed.
 - **Mesh shaders, rasterization rate maps, MTLRasterizationRateMap** — defer; revisit after Phase B.
-- **Density-field / FFT / PPPM repulsion** — research-tier; UNVERIFIED public Metal implementation.
+- **Density-field / FFT / PPPM repulsion** — Pro Research; UNVERIFIED public Metal implementation.
 
 ## Open uncertainties
 

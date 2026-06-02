@@ -115,7 +115,7 @@ Per Codex's own report at session-end:
 
 > *"The Claude/fusion/new paste backlog is not all 'done.' I've been treating it according to your ordering: current-app v1 blockers first, future/research architecture after."*
 
-This matches the design — `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` is the **post-V1 backlog** (Waves A–J), with **only Wave A1 (Variant Ladder dispatcher retrofit)** suitable for picking up before V1 ship because it's the No-LLM-First doctrine debt clearance. Everything else (V6.1 floor / V6.2 kernels / SCOPE-Rex V2 / XPC Mastery / research-tier) is correctly post-V1.
+This matches the design — `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` is the **post-V1 backlog** (Waves A–J), with **only Wave A1 (Variant Ladder dispatcher retrofit)** suitable for picking up before V1 ship because it's the No-LLM-First doctrine debt clearance. Everything else (V6.1 floor / V6.2 kernels / SCOPE-Rex V2 / XPC Mastery / Pro Research) is correctly post-V1.
 
 **No drift detected** between the fusion backlog and Codex's V1 audit scope. Codex correctly excluded `POSTV1-EXCL-001` (`docs/audits/V6_2_SESSION_PROGRESS_2026_05_12.md`, `docs/future-work-audit.md`) from V1 work.
 

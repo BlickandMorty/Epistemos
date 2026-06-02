@@ -1,5 +1,7 @@
 # Autonomous Loop V3 — Terminal C (Continuous Audit + Verification)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 ## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
 
 **STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
@@ -245,7 +247,7 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` — read on sessio
 Audit responsibilities:
 - **C.7.1** — Verify every terminal's V6.1 additions land per §2 of the integration doc. Specifically:
   - Terminal A: §0 immutable rule 6 sharpening (MAS = API-only hard line)
-  - Terminal B: Phase B.0 F-ULP-Oracle (W1) gates AnswerPacket schema · J10-J14 research-tier J slices · B.6.15-B.6.20 NOT-STARTED extensions · attention-as-interrupt thesis
+  - Terminal B: Phase B.0 F-ULP-Oracle (W1) gates AnswerPacket schema · J10-J14 Pro Research J slices · B.6.15-B.6.20 NOT-STARTED extensions · attention-as-interrupt thesis
   - Terminal D: Phase D.0 Executor trait · D.2.8 Granite-4.0-H-Micro · D.7 SWE-agent ACI · D.8 Aider repo-map · D.9 Plandex plan-as-data · D.10 dual-backend MLX
   - Terminal E: E.6.3-E.6.7 new user-decision items
   - Terminal F: F.7 Codex CLI as MCP server · F.8 Claude Code MCP + ACP layer

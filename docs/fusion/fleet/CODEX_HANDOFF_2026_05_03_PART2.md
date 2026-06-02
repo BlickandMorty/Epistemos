@@ -181,7 +181,7 @@ let signature = computeStub(for: claim)
 
 **Sub-task:** add `Codable` to `ResonanceClaim`, `ResonanceClaimType`, etc. so the JSON round-trip is one-line. The Swift mirror types currently are not `Codable`; add the conformance in the same slice.
 
-**Acceptance:** the Pro/Research build path uses the Rust signature; tests still pass on Core-only builds via the stub.
+**Acceptance:** the Pro / Pro Research path uses the Rust signature; tests still pass on MAS-safe/Core paths via the stub.
 
 ### S1 — Mount Resonance signature emission into the chat token stream (L, depends on M1 + M3)
 

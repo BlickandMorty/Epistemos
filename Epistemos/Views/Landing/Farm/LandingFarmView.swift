@@ -26,6 +26,7 @@ struct LandingFarmView: View {
     var onOpenTrash: () -> Void = {}
     var onRequestEdit: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
+    var onStartChat: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -41,7 +42,8 @@ struct LandingFarmView: View {
                     isAnimationActive: isAnimationActive,
                     onActivate: { companionState.activate($0.id) },
                     onRequestEdit: onRequestEdit,
-                    onRequestDelete: onRequestDelete
+                    onRequestDelete: onRequestDelete,
+                    onStartChat: onStartChat
                 )
             }
             if !companionState.trashed.isEmpty {
@@ -64,6 +66,25 @@ struct LandingFarmView: View {
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
+                Button {
+                    onStartChat(active)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("CHAT")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .padding(.horizontal, 6)
+                    .frame(height: 20)
+                    .overlay(
+                        Rectangle()
+                            .stroke(theme.resolved.accent.color.opacity(0.5), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Chat with \(active.name)")
             }
             Text("AGENTS")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))

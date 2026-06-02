@@ -9,6 +9,8 @@ target_phase: Phase C (after KV-Direct lands)
 target_rig: M2 Pro 16 GB
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-SemiseparableBlockScan-Correctness
 
 > Gate #8 in the §4.G falsifier ladder. **Mamba-2 / SSD scan kernel matches reference scan numerically on a
@@ -77,7 +79,7 @@ let prompt = LongContextBenchmark.builder()
     .build()
 
 let qwen = try await load(.qwen3_8b_mlx())
-let mamba = try await load(.mamba2_2_8b_mlx())   // research-tier model bundle
+let mamba = try await load(.mamba2_2_8b_mlx())   // Pro Research model bundle
 
 let qwenResults = try await qwen.run(prompt, suite: .ruler_plus_babilong)
 let mambaResults = try await mamba.run(prompt, suite: .ruler_plus_babilong)
@@ -191,7 +193,7 @@ The gate **passes** when ALL of the following are true on M2 Pro 16 GB:
 
 - CPU scalar reference: `agent_core/src/helios/ssd_block_scan.rs` (lands first; already exists per audit §B.1).
 - Phase B gates 2-6 pass (Metal-dispatch overhead concern; F-PageGather provides bandwidth substrate).
-- Mamba-2 2.8B MLX bundle in `~/Library/Models/mamba2-2_8b/` (research-tier model bundle).
+- Mamba-2 2.8B MLX bundle in `~/Library/Models/mamba2-2_8b/` (Pro Research model bundle).
 - T5 coordination: Scan-IR substrate at `agent_core/src/research/scan_ir/` (gap; T5 owns) may provide
   generic SSM substrate that this gate reuses.
 

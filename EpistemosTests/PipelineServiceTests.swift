@@ -2814,6 +2814,67 @@ struct ChatCoordinatorPersistenceTests {
         #expect(fallback.vaultRecallTrace?.candidatesRetained == 0)
     }
 
+    @Test("soft vault fallback prioritizes extracted exact note titles")
+    func softVaultFallbackPrioritizesExtractedExactTitles() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "all-things-id",
+                    title: "All Things Must Go",
+                    relativePath: "Essays/All Things Must Go.md",
+                    tags: [],
+                    folderName: "Essays",
+                    wordCount: 900,
+                    snippet: "A note about change, freedom, and everything that must go.",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "entropy-id",
+                    title: "Entropy The Hidden Force Making Life Complicated",
+                    relativePath: "Science/Entropy.md",
+                    tags: [],
+                    folderName: "Science",
+                    wordCount: 600,
+                    snippet: "All things must eventually change, but this is not the requested title.",
+                    updatedAt: now.addingTimeInterval(-60),
+                    createdAt: now.addingTimeInterval(-60)
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let fallback = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "look for a note titled All Things Must Go",
+            manifest: manifest,
+            limit: 2
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "entropy-id",
+                    title: "Entropy The Hidden Force Making Life Complicated",
+                    snippet: "All things must eventually change, but this is not the requested title.",
+                    rank: 999.0
+                ),
+                SearchResult(
+                    pageId: "all-things-id",
+                    title: "All Things Must Go",
+                    snippet: "A note about change, freedom, and everything that must go.",
+                    rank: 1.0
+                )
+            ]
+        })
+
+        #expect(fallback.loadedNoteTitles.first == "All Things Must Go")
+        #expect(fallback.answer.contains("Best match: **All Things Must Go**"))
+        #expect(fallback.vaultRecallTrace?.candidates.first?.title == "All Things Must Go")
+    }
+
     @Test("all-notes context does not inject arbitrary note bodies when search misses")
     func allNotesContextDoesNotInjectArbitraryNoteBodiesWhenSearchMisses() async throws {
         let now = Date()
@@ -3395,7 +3456,8 @@ struct ChatStateContextAttachmentTests {
         let message = chatState.messages.last
         #expect(message?.role == .user)
         #expect(message?.contextAttachments == [attachment])
-        #expect(chatState.pendingContextAttachments == [attachment])
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments == [attachment])
     }
 
     @Test("streaming thinking deltas populate the main chat popover state")
@@ -3589,10 +3651,13 @@ struct ChatStateContextAttachmentTests {
         let assistant = chatState.messages.last
         #expect(assistant?.role == .assistant)
         #expect(assistant?.contextAttachments == [attachment])
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
+        #expect(chatState.loadedNoteIds.isEmpty)
     }
 
-    @Test("loading messages restores latest context attachments for follow-up turns")
-    func loadMessagesRestoresLatestContextAttachments() {
+    @Test("loading messages keeps historical context out of the next composer turn")
+    func loadMessagesDoesNotRestoreHistoricalContextIntoComposer() {
         let chatState = ChatState()
         let noteAttachment = ContextAttachment(
             kind: .note,
@@ -3618,9 +3683,10 @@ struct ChatStateContextAttachmentTests {
             )
         ])
 
-        #expect(chatState.pendingContextAttachments == [noteAttachment, vaultAttachment])
-        #expect(chatState.loadedNoteIds == ["note-2"])
-        #expect(chatState.loadedNoteTitles == ["Deep Work"])
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
+        #expect(chatState.loadedNoteIds.isEmpty)
+        #expect(chatState.loadedNoteTitles.isEmpty)
     }
 
     @Test("loading messages does not resurrect stale context from older turns")
@@ -3646,6 +3712,7 @@ struct ChatStateContextAttachmentTests {
         ])
 
         #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
         #expect(chatState.loadedNoteIds.isEmpty)
         #expect(chatState.loadedNoteTitles.isEmpty)
     }
@@ -3731,6 +3798,29 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.count == 1)
         #expect(chatState.messages.last?.role == .user)
         #expect(chatState.messages.last?.content == "/research test the handoff")
+    }
+
+    @Test("completed local assistant message finalizes fallback turns")
+    func completedLocalAssistantMessageFinalizesFallbackTurns() {
+        let chatState = ChatState()
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-fallback",
+            title: "Fallback Note",
+            subtitle: "Vault"
+        )
+
+        chatState.addContextAttachment(attachment)
+        chatState.submitQuery("look for this note")
+        chatState.startStreaming()
+        chatState.appendCompletedLocalAssistantMessage(content: "I found the note.")
+
+        #expect(!chatState.isStreaming)
+        #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.last?.role == .assistant)
+        #expect(chatState.messages.last?.contextAttachments == [attachment])
     }
 
     @Test("submit query emits the selected operating mode on the event bus")
@@ -3995,6 +4085,7 @@ struct ChatStateLocalMessageTests {
 
         #expect(chatState.pendingAttachments.isEmpty)
         #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
         #expect(chatState.loadedNoteIds.isEmpty)
         #expect(chatState.loadedNoteTitles.isEmpty)
     }
@@ -4028,6 +4119,7 @@ struct ChatStateLocalMessageTests {
 
         #expect(chatState.pendingAttachments.isEmpty)
         #expect(chatState.pendingContextAttachments.isEmpty)
+        #expect(chatState.activeTurnContextAttachments.isEmpty)
         #expect(chatState.loadedNoteIds.isEmpty)
         #expect(chatState.loadedNoteTitles.isEmpty)
     }

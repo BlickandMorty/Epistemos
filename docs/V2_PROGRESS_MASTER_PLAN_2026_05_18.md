@@ -4,6 +4,8 @@ created_on: 2026-05-18
 purpose: Continuity-of-knowledge doc. Hand this to ANY future Claude/Codex session and they can pick up the V2 substrate program without context.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # V2 Architecture — Master Progress Plan
 
 This is the durable map of the Epistemos V2 substrate program as of 2026-05-18. If Jojo loses
@@ -60,7 +62,7 @@ Each terminal has ~3 phases. The launch-order priority is set in `docs/NO_COMPRO
 4. T10B Eidos Form Layer (read-only substrate slice) — **NOT STAFFED**
 5. T22B Brain Panel closed citations — **NOT STAFFED**
 6. T11 Agent Runtime v2 / System G
-7. T14 / T17B / T18B (UAS/UASA wiring, Lattice/WBO, ACS admission)
+7. T14 / T17B / T18B (UAS/UASA wiring, Lattice/WBO, SCOPE-Rex admission + AcsAnchor provenance)
 8. T18 Residency Governor + T22 Substrate Health Panel — **NOT STAFFED**
 9. T12 F-ULP + T13 F-KV-Direct + T23 F-70B-Cocktail + T23B M2 Pro Handbook — **T13 + T23 NOT STAFFED**
 10. T27 WRV product surfacing — **NOT STAFFED**

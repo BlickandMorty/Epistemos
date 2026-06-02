@@ -1,5 +1,7 @@
 # Eidos Production Binding — Terminal A Audit (2026-05-23)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Tier:** Tier 1 (MAS-shippable).
 **Branch:** `terminal/a-eidos-bridge-2026-05-23`.
 **Closes:** W-46.1 (real vault binding), W-47 (citation gate FFI), W-48 (Brain Panel "Retrieved by Eidos" surface), W-50 (DagBackedGraphNeighborhood).
