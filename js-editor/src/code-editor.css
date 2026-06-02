@@ -25,7 +25,8 @@ html[data-theme="dark"] body {
   height: 100%;
   background: var(--epi-code-bg, #fbfbfb);
   color: var(--epi-code-fg, #202124);
-  font-family: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-family: "SF Mono", "SFMono-Regular", Menlo, Monaco, ui-monospace, Consolas, monospace;
+  font-weight: 500;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-synthesis: none;
@@ -63,6 +64,7 @@ html[data-theme="dark"] body {
   min-width: 42px;
   padding: 0 12px 0 8px;
   opacity: 0.84;
+  color: var(--epi-code-muted, #8b929c) !important;
 }
 
 .cm-foldGutter {

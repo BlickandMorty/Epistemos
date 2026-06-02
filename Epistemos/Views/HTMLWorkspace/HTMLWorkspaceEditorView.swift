@@ -108,38 +108,25 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.iconOnly)
             .help("Copy MiniChat patch context")
 
-            Button {
-                importHTML()
+            Menu {
+                Button("Import HTML", systemImage: "tray.and.arrow.down") {
+                    importHTML()
+                }
+                Button("Export HTML", systemImage: "square.and.arrow.up") {
+                    exportHTML()
+                }
+                Button("Capture Snapshot", systemImage: "camera.viewfinder") {
+                    captureSnapshot()
+                }
+                Button("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext") {
+                    exportPDF()
+                }
+                .disabled(isExportingPDF)
             } label: {
-                Label("Import HTML", systemImage: "tray.and.arrow.down")
+                Label("Artifacts", systemImage: "shippingbox.and.arrow.backward")
             }
             .labelStyle(.iconOnly)
-            .help("Import HTML into this workspace")
-
-            Button {
-                exportHTML()
-            } label: {
-                Label("Export HTML", systemImage: "square.and.arrow.up")
-            }
-            .labelStyle(.iconOnly)
-            .help("Export standalone HTML")
-
-            Button {
-                captureSnapshot()
-            } label: {
-                Label("Snapshot", systemImage: "camera.viewfinder")
-            }
-            .labelStyle(.iconOnly)
-            .help("Capture local HTML snapshot")
-
-            Button {
-                exportPDF()
-            } label: {
-                Label("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext")
-            }
-            .labelStyle(.iconOnly)
-            .disabled(isExportingPDF)
-            .help("Export preview as PDF")
+            .help("Import, export, snapshot, and PDF")
 
             Button {
                 consoleExpanded.toggle()
@@ -161,6 +148,7 @@ struct HTMLWorkspaceEditorView: View {
         .padding(.vertical, 8)
         .background(headerFill)
         .tint(workspaceTheme.resolved.accent.color)
+        .buttonStyle(HTMLWorkspaceToolbarIconButtonStyle(theme: workspaceTheme))
     }
 
     private var sourceShell: some View {
@@ -305,10 +293,46 @@ struct HTMLWorkspaceEditorView: View {
         case .data:
             workspaceCodeMirrorEditor(text: $package.dataJSON, language: "json")
         case .dom:
-            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            readOnlySourcePane(
+                title: "DOM Outline",
+                systemImage: "point.3.connected.trianglepath.dotted",
+                text: domOutlineText,
+                emptyText: "No DOM nodes parsed yet. Edit HTML to populate this outline."
+            )
         case .assets:
-            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            readOnlySourcePane(
+                title: "Assets",
+                systemImage: "shippingbox",
+                text: assetManifestText,
+                emptyText: "No assets or snapshots. Import or capture to populate this manifest."
+            )
         }
+    }
+
+    private func readOnlySourcePane(
+        title: String,
+        systemImage: String,
+        text: String,
+        emptyText: String
+    ) -> some View {
+        ScrollView([.vertical, .horizontal]) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(workspaceTheme.resolved.accent.color)
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Spacer(minLength: 0)
+                }
+                Text(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? emptyText : text)
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+        }
+        .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
     private func workspaceCodeMirrorEditor(text: Binding<String>, language: String) -> some View {
@@ -324,7 +348,7 @@ struct HTMLWorkspaceEditorView: View {
             showLineNumbers: true,
             selectionRequest: nil
         )
-        .id("workspace-codemirror-\(selectedPane.rawValue)-\(workspaceThemeIdentity)")
+        .id("workspace-codemirror-\(selectedPane.rawValue)")
         .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
@@ -553,9 +577,26 @@ struct HTMLWorkspaceEditorView: View {
         }
 
         html[data-epistemos-theme] body,
+        html[data-epistemos-theme],
         html[data-epistemos-theme] main.workspace {
           background: var(--epistemos-workspace-bg) !important;
           color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme] body :is(h1, h2, h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body a {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme] body :is(hr, table, th, td, fieldset, input, textarea, select) {
+          border-color: var(--epistemos-workspace-border) !important;
         }
 
         html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
@@ -993,6 +1034,28 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     private static func counts(for source: String) -> String {
         let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
         return "\(lines) lines / \(source.count) chars"
+    }
+}
+
+private struct HTMLWorkspaceToolbarIconButtonStyle: ButtonStyle {
+    let theme: EpistemosTheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(theme.resolved.accent.color)
+            .frame(width: 32, height: 30)
+            .contentShape(Rectangle())
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(theme.resolved.accent.color.opacity(configuration.isPressed ? 0.22 : 0.11))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.26 : 0.20), lineWidth: 0.75)
+            }
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.snappy(duration: 0.12), value: configuration.isPressed)
     }
 }
 

@@ -101,7 +101,7 @@ function themeExtension(state: CodeEditorState): Extension {
       fontSize: `${fontSize}px`,
     },
     '.cm-scroller': {
-      fontFamily: '"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
+      fontFamily: '"SF Mono", "SFMono-Regular", Menlo, Monaco, ui-monospace, Consolas, monospace',
     },
     '.cm-content': {
       minHeight: '100%',
