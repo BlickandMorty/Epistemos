@@ -792,21 +792,10 @@ struct PixelLandingCommandTile: View {
     }
 
     private var dormantCommandTitle: some View {
-        ZStack(alignment: .leading) {
-            Text(lowercasedTitle)
-                .font(commandFont)
-                .foregroundStyle(restingCommandTextColor)
-                .opacity(isLit ? 0 : 1)
-
-            if isLit {
-                PixelCommandTypewriterText(
-                    text: lowercasedTitle,
-                    font: commandFont,
-                    color: activeCommandTextColor,
-                    accent: typewriterAccentColor
-                )
-            }
-        }
+        Text(lowercasedTitle)
+            .font(commandFont)
+            .foregroundStyle(isLit ? activeCommandTextColor : restingCommandTextColor)
+            .shadow(color: isLit ? typewriterAccentColor.opacity(0.12) : .clear, radius: isLit ? 4 : 0)
         .lineLimit(1)
         .minimumScaleFactor(0.82)
     }

@@ -80,6 +80,7 @@ struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
 
     @Environment(UIState.self) private var ui
+    @Environment(NotesUIState.self) private var notesUI
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
@@ -139,6 +140,7 @@ struct LandingView: View {
     @State private var landingGreetingReturnFrame = 4
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
+    @State private var showingNewCodeFileSheet = false
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -554,6 +556,11 @@ struct LandingView: View {
                 )
             }
         }
+        .sheet(isPresented: $showingNewCodeFileSheet) {
+            CodeFileCreationSheet(theme: theme) { request in
+                createAndOpenCodeFile(request)
+            }
+        }
     }
 
     private var landingBackdrop: some View {
@@ -803,6 +810,25 @@ struct LandingView: View {
                 accent: Color(hex: 0xC985D8),
                 haptic: .document,
                 action: createAndOpenDocument
+            )
+            PixelLandingCommandTile(
+                title: "new code",
+                shortcut: "\u{2325}\u{2318}C",
+                glyph: .document,
+                theme: theme,
+                accent: Color(hex: 0x8C7AF5),
+                haptic: .document
+            ) {
+                showingNewCodeFileSheet = true
+            }
+            PixelLandingCommandTile(
+                title: "html workspace",
+                shortcut: "\u{2325}\u{2318}H",
+                glyph: .workspace,
+                theme: theme,
+                accent: Color(hex: 0xB37A3F),
+                haptic: .workspace,
+                action: createAndOpenHTMLWorkspace
             )
             PixelLandingCommandTile(
                 title: graphState.graphViewLocation == .embedded ? "home graph" : "graph",
@@ -2393,6 +2419,36 @@ struct LandingView: View {
     private func createAndOpenDocument() {
         do {
             try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func createAndOpenHTMLWorkspace() {
+        guard vaultSync.vaultURL != nil else {
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+        do {
+            try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func createAndOpenCodeFile(_ request: CodeFileCreationRequest) {
+        guard let vaultURL = vaultSync.vaultURL else {
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+        do {
+            let pageId = try CodeFileCreationController.createPage(
+                request: request,
+                vaultURL: vaultURL,
+                modelContext: modelContext,
+                graphState: graphState
+            )
+            NoteWindowManager.shared.open(pageId: pageId)
         } catch {
             NSApplication.shared.presentError(error)
         }

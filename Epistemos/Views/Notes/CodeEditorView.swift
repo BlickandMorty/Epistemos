@@ -2489,9 +2489,31 @@ struct CodeEditorView: View {
           --epistemos-workspace-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         }
 
+        html[data-epistemos-theme],
         html[data-epistemos-theme] body,
         html[data-epistemos-theme] main.workspace {
           background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme] body :is(h1, h2, h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body a {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme] body :is(hr, table, th, td, fieldset, input, textarea, select, button) {
+          border-color: var(--epistemos-workspace-border) !important;
+        }
+
+        html[data-epistemos-theme] body :is(input, textarea, select, button) {
+          background: var(--epistemos-workspace-card) !important;
           color: var(--epistemos-workspace-fg) !important;
         }
 
