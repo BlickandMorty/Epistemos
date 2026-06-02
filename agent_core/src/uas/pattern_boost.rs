@@ -347,6 +347,7 @@ pub enum UasAssemblyGenomeError {
     UnsupportedTransportPageRunSourceUri {
         source_uri: String,
     },
+    OverlappingTransportPageRun,
     ProductBuildStatusMismatch,
     UnsupportedRuntimeRouteAuthority {
         field: &'static str,
@@ -399,6 +400,9 @@ impl std::fmt::Display for UasAssemblyGenomeError {
                 f,
                 "transport page run source must be app-owned ColdStore/AppColdStore storage, got {source_uri}"
             ),
+            Self::OverlappingTransportPageRun => {
+                write!(f, "transport page runs must not overlap within a source")
+            }
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "Residency PatternBoost genomes must stay Pro Research / capability-ceiling metadata"
@@ -628,6 +632,15 @@ fn canonicalize_page_runs(
             return Err(UasAssemblyGenomeError::DuplicateString {
                 field: "transport_page_runs",
             });
+        }
+    }
+    for pair in page_runs.windows(2) {
+        let left = &pair[0];
+        let right = &pair[1];
+        if left.source_uri == right.source_uri
+            && right.byte_range.start < left.byte_range.end_exclusive()
+        {
+            return Err(UasAssemblyGenomeError::OverlappingTransportPageRun);
         }
     }
     Ok(page_runs)
@@ -1097,6 +1110,40 @@ mod tests {
                 source_uri: source_uri.to_string()
             }
         );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_overlapping_transport_page_runs() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![
+                AssemblyPageRun::new("app-support://coldstore/shared.epwp", 0, 128)
+                    .expect("page run fixture should be valid"),
+                AssemblyPageRun::new("app-support://coldstore/shared.epwp", 64, 128)
+                    .expect("page run fixture should be valid"),
+            ],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::OverlappingTransportPageRun);
     }
 
     #[test]
