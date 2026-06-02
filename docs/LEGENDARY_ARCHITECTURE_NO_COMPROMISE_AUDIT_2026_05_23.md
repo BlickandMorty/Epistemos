@@ -1,5 +1,22 @@
 # Legendary Architecture — No-Compromise Audit (2026-05-23)
 
+> **2026-05-31 naming supersession:** preserve the original no-compromise
+> ambition, but read old `research-tier`, `Vault`, and `Omega` language through
+> the current two-build grammar: `MAS` and `Pro`, with Pro statuses `Pro Live`,
+> `Pro Gated`, `Pro Research`, `Pro Vault-Preserved`, and `Pro Omega`.
+> Read old `ACS` governance language as `SCOPE-Rex` / `SovereignGate`;
+> reserve `AcsAnchor` / Anchored Cognitive Substrate for coordinate,
+> provenance, and residency anchoring.
+>
+> **2026-06-01 residency supersession:** the no-compromise ambition now includes
+> Residency PatternBoost as an offline/idle Pro Research discovery layer for
+> UAS assembly genomes, repair kernels, sparse fingerprints, elite archives,
+> lattice abstention, compute resume leases, and cold route/layout patches.
+> Read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` before using
+> this audit for active model-state, sparse residency, mmap/SSD, dynamic
+> compute, or 70B-cocktail work.
+
 User mandate, verbatim:
 
 > "no compromises so all the things i can put it in the app literally need to be there - future/pro/research-tier work. just need u to do a final check to make sure literally the app becomes legendary because of the brilliant architecture."
@@ -28,7 +45,7 @@ The 7 Laws (from [docs/CANONICAL_CHRONICLE_2026_05_23.md:43](docs/CANONICAL_CHRO
 6. **Duplex law** — hard compact and soft page-backed branches both allowed, but routing error is accounted.
 7. **Witness law** — every meaningful action is typed, permissioned, logged, replayable, and visible.
 
-Canon anchor: [docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md](docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) (182 lines, defines UAS = structural side, ACS = governance side, both faces of one substrate).
+Canon anchor: [docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md](docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) (182 lines; read forward as UAS = address fabric, AcsAnchor = coordinate/provenance anchor, SCOPE-Rex/SovereignGate = governance and admission).
 
 ---
 
@@ -56,15 +73,15 @@ Canon anchor: [docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md](docs/fu
 | **Pixels/shaders as substrate** | Partial (Metal shaders + PixelSurface) | Partial | Visual/render layer only | `Epistemos/Shaders/` |
 | **Vectors/embeddings/pages** | YES (HNSW + PageGather + ActiveAssembly) | Partial | Not in chat/runtime yet | T3 + epistemos-shadow |
 | **Lattice/WBO error law** | YES (`agent_core/src/lattice_wbo/`) | Strong (305 tests) | OpLog accounting wired | T17B salvage |
-| **ACS / five-plane coordinates** | YES (`epistemos-research/src/five_planes.rs` 308 LOC) | Partial / research-tier | NOT product-wired (T14 needed) | UAS canon §2 |
+| **AcsAnchor / five-plane coordinates** | YES (`epistemos-research/src/five_planes.rs` 308 LOC) | Partial / Pro Research | NOT product-wired (T14 needed) | UAS canon §2; legacy UAS-ACS rows map to UAS + AcsAnchor |
 | **Primitive IR stack (EML/Tropical/Scan/Operator/Info/Geometry)** | YES (T5 salvaged) | Phase 1 hardened | NOT user-visible | T5 salvage |
 | **Falsifier floor** | YES as docs (15+) | NOT enough (0/15 PASS on M2 Pro) | Mostly not implemented | `docs/falsifiers/` + T23B |
 | **Cognitive DAG (10 NodeKind + 10 EdgeKind)** | YES | Phase 8.A-G shipped | Substrate live; visualizer NOT live (W-26) | `agent_core/src/cognitive_dag/` |
 | **SCOPE-Rex (MutationEnvelope + WitnessedState + ClaimGraph + RunEventLog)** | YES | Hardened | Partial (RunEventLog wired via T11) | `agent_core/src/scope_rex/` |
-| **KV-Direct gate** | YES (290 LOC Rust + 65 LOC Metal) | Tier-1 SHIPPED | F-KV-Direct-Gate harness NOT yet runnable | `agent_core/src/scope_rex/kv/direct_gate.rs` |
+| **KV-Direct gate** | YES (290 LOC Rust + 65 LOC Metal) | MAS-safe shipped when bit-identical | F-KV-Direct-Gate harness NOT yet runnable | `agent_core/src/scope_rex/kv/direct_gate.rs` |
 | **Provenance ledger (Phase 1)** | YES | Hardened | Wired via T17B/T18B OpLog | `agent_core/src/provenance/` |
 | **5 V6.1 Metal kernels (PageGather / SemiseparableBlockScan / LocalRecallIsland / ControllerKernelPack / PacketRouter1bit)** | YES (doctrine targets) | NOT YET (target-only) | NOT live | V6.1 lock + V6.2 falsifier order |
-| **70B Local Cocktail (F-70B)** | YES (research-tier) | NOT yet | NOT yet | T23 |
+| **70B Local Cocktail (F-70B)** | YES (Pro Vault-Preserved / Pro Research) | NOT yet | NOT yet | T23 |
 | **Foundational Seven (E1-E7)** | YES (`theorem_status::FOUNDATIONAL_SEVEN`) | Doctrine | NOT yet visible | acs.rs cross-link |
 | **Goodfire VPD/SPD parameter decomposition** | YES (revalidated live 2026-05-07 per V6.2 intake) | Doctrine | NOT yet wired | V6.2 intake |
 | **Mamba-2 / SSM substrate** | YES (Phase 1A complete) | save/load/resume/staleness all wired | Local mlx-swift-lm fork ready | `project_mamba2_runtime` |
@@ -89,14 +106,14 @@ Status notation: ✅ DONE · 🟡 PARTIAL · 🔴 NOT-STARTED · ⏳ GATED. Per 
 ### W-01..W-10: Substrate-to-Product (P0/P1)
 - W-01 UasAddress on vault notes 🔴 → **Terminal A** (Eidos binding needs this)
 - W-02 UasKind on agent traces 🔴 → **Terminal C** (System G RunEventLog)
-- W-03 AcsAnchor in ClaimLedger 🔴 → **Terminal E** (ACS admission)
+- W-03 AcsAnchor in ClaimLedger 🔴 → **Terminal E** (SCOPE-Rex admission + AcsAnchor provenance)
 - W-04 page_gather → vault retrieval 🔴 → **Terminal A** + **Terminal B**
 - W-05 Active Assembly in agent_runtime 🔴 → **Terminal C** (System G consumer)
 - W-06 Tri-Fusion mutations in agent_runtime + Epdoc 🔴 → **Terminal C** + new T1 pull from `codex/t1-trifusion-2026-05-16`
 - W-07 EML observatory health row 🔴 → **Terminal D** (Substrate Health panel)
 - W-08 EML potential in ConfidenceRouter 🔴 → **Terminal D** consumer
 - W-09 Scan-IR ↔ SemiseparableBlockScan 🔴 → **Terminal F** (falsifier substrate)
-- W-10 UAS-ACS substrate health row 🔴 → **Terminal D**
+- W-10 UAS/AcsAnchor substrate health row 🔴 → **Terminal D**
 
 ### W-11..W-18: Agent + Model (P0)
 - W-11 ActiveConstellationRow live binding 🟡 → **Terminal D** consumer
@@ -117,7 +134,7 @@ Status notation: ✅ DONE · 🟡 PARTIAL · 🔴 NOT-STARTED · ⏳ GATED. Per 
 
 ### W-24..W-28: Cognitive DAG + Provenance (P1)
 - W-24 DAG node carries UasAddress + AcsAnchor 🔴 → **Terminal G** (T14 wiring)
-- W-25 Provenance Console ACS-anchor column 🔴 → **Terminal E**
+- W-25 Provenance Console AcsAnchor column 🔴 → **Terminal E**
 - W-26 Cognitive DAG visualizer 🔴 → **Terminal D** + new front-end work
 - W-27 AnswerPacket badge per chat row 🔴 → **Terminal B**
 - W-28 ResidencyTier indicator 🔴 → **Terminal G** (T14)

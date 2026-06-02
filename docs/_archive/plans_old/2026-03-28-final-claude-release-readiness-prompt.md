@@ -416,7 +416,7 @@ Must contain:
    - hybrid
    - MAS-only
 2. Why
-3. MAS blockers for the full Omega build, if any
+3. MAS blockers for the superseded full Omega path, if any
 4. Direct-distribution checklist
 5. MAS-lite checklist
 6. Privacy manifest status

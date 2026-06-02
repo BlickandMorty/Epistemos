@@ -30,6 +30,8 @@ Do not merge an entire branch. Do not delete a worktree. Do not clean generated
 6. `docs/audits/NON_RUNTIME_FEATURE_WORKTREE_CHECK_2026_05_30.md`
 7. `docs/audits/UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.md`
 8. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
+9. `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+10. `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`
 
 ## Non-Negotiables
 
@@ -50,6 +52,11 @@ Do not merge an entire branch. Do not delete a worktree. Do not clean generated
 - Keep Eidos as evidence/search/citation and route-prior selector; do not
   create `AgentSearch`, `AgentMemory`, `AgentEvidence`, or `AgentCitation` as
   separate authorities.
+- Keep ResidencyPatternBoost as an offline/idle discovery and distillation
+  layer. Donor worktrees may contribute genomes, repair kernels, fingerprints,
+  trace frames, or falsifier axes, but they must not install an ungoverned live
+  param router or mutate route policy without replay, abstention, rollback, and
+  witness fields.
 - Do not run heavy probes: no 70B, no 128K, no full Xcode, no live MLX/GGUF,
   no mmap/SSD stress.
 

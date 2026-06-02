@@ -1,5 +1,7 @@
 # Parallel Flow Doctrine — 2026-05-16
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Purpose:** Define how 6 autonomous terminals + CI + browser research + user-decisions + cron pacing all flow into a coherent feature-then-harden development process. Cross-reference: `docs/ANTI_DRIFT_SYSTEM.md` (5-layer drift defense — this doc operationalizes Layer 4 for the parallel run).
 
 **Status:** CANONICAL — read by every terminal as part of §3 mandatory reading (added via §5.7 of each prompt).

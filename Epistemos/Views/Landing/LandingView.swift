@@ -817,7 +817,7 @@ struct LandingView: View {
             PixelLandingCommandTile(
                 title: "new code",
                 shortcut: "\u{2325}\u{2318}C",
-                glyph: .document,
+                glyph: .code,
                 theme: theme,
                 accent: Color(hex: 0x8C7AF5),
                 haptic: .document
@@ -827,7 +827,7 @@ struct LandingView: View {
             PixelLandingCommandTile(
                 title: "html workspace",
                 shortcut: "\u{2325}\u{2318}H",
-                glyph: .workspace,
+                glyph: .html,
                 theme: theme,
                 accent: Color(hex: 0xB37A3F),
                 haptic: .workspace,
@@ -2428,10 +2428,6 @@ struct LandingView: View {
     }
 
     private func createAndOpenHTMLWorkspace() {
-        guard vaultSync.vaultURL != nil else {
-            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
-            return
-        }
         do {
             try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
         } catch {
@@ -2441,7 +2437,8 @@ struct LandingView: View {
 
     private func createAndOpenCodeFile(_ request: CodeFileCreationRequest) {
         guard let vaultURL = vaultSync.vaultURL else {
-            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            ui.showToast("Select a vault before creating code files.", type: .warning)
+            UtilityWindowManager.shared.show(.notes)
             return
         }
         do {

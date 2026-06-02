@@ -1,5 +1,7 @@
 # Deterministic Performance Strategy for Epistemos
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 ## Core judgment
 
 Your starting instinct is right: the deepest performance wins in Epistemos will come from replacing **runtime guessing** with **deterministic expectations**. In your own framing, the app should stop “waiting to be told” what something is and instead already know the shape of the next move. That is the correct optimization lens for this codebase. fileciteturn0file0

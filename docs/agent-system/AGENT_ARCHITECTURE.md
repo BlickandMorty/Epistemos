@@ -1,5 +1,7 @@
 # EPISTEMOS AGENT SYSTEM — CLAUDE.md
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Index status**: CANONICAL-RESEARCH — Agent system architecture (cited from CLAUDE.md). Phase D / K reference.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/agent_system/`.
 
@@ -309,7 +311,7 @@ after 2-3 tool calls. Use them as FAST SPECIALISTS:
 | Task | Model | Why |
 |---|---|---|
 | Ghost-writing / CRDT | Qwen-2.5 3B / Phi-4 Mini | Low-latency streaming |
-| Semantic embeddings | nomic-embed-text-v1.5 (137M) | Runs on ANE, zero latency |
+| Semantic embeddings | nomic-embed-text-v1.5 (137M) | Runs on ANE with no network round trip; benchmark latency before shipping |
 | Note classification | Apple Foundation Models (~3B) | On-device, private, tool-calling |
 | Request triage | Any 1-3B instruct | Simple classification |
 | Grammar-constrained dispatch | Hermes-3 8B + EBNF | 99%+ valid JSON schemas |

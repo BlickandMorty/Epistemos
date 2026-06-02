@@ -36,6 +36,59 @@ retrieved evidence into a typed `EidosRoutePrior`; the atlas should use that
 prior to choose neural support candidates. The model should not be asked to
 invent its own hidden parameter route.
 
+Constructive residency is the atlas's assembly compiler. The companion source
+`docs/fusion/CONSTRUCTIVE_RESIDENCY_PARADIGM_2026_06_01.md` defines how scored
+units become a `ResidencyConstructionGraph`, `CoactivationTile`,
+`ColdAssemblyPlan`, `ProofCarryingResidencyLease`,
+`ReasoningStateContinuityCard`, and `ColdMissLedger`. The atlas says which
+units look useful; constructive residency decides which useful units can
+actually wake under byte, I/O, verifier, and rollback constraints.
+
+Semantic working-set compilation is the atlas's execution plan. The companion
+source `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` defines how
+`SourceSignalGraph`, `TaskWorkingSetQuery`, `SemanticWorkingSetPlan`,
+`ResidencyPageTable`, `PrefetchWindow`, `WorkingSetOracleCard`,
+`ColdFaultTrace`, `MmapResidencyFence`, and `KVByteBudgetCard` turn useful
+unit predictions into a page-table-shaped route with byte budgets and
+cold-miss feedback.
+
+Cache-lineage autoresearch is the atlas's feedback memory. The companion
+source `docs/fusion/CACHE_LINEAGE_AUTORESEARCH_PARADIGM_2026_06_01.md` defines
+`KVPrefixUnit`, `KVLineageGraph`, `KVCompatibilityFence`,
+`CacheAdmissionCard`, `ExecutionTraceCapsule`, `ParetoResidencyTournament`,
+`CacheMutationPatch`, `PrefixReuseRouter`, and `TraceToPlanLearner`. The atlas
+can propose useful units, but cache lineage records which prefixes, KV pages,
+trace-derived policies, and cold-layout mutations actually helped.
+
+Residency PatternBoost is the atlas's offline discovery loop. The companion
+source `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` defines
+`ResidencyPatternBoost`, `UASAssemblyGenome`, `ConstraintRepairKernel`,
+`SparseAssemblyFingerprint`, `EliteAssemblyArchive`, `LatticeAbstentionGate`,
+`ComputeResumeLease`, and `ColdRoutePolicyPatch`. The atlas may rank candidate
+units, but PatternBoosted Residency proves which assembled routes repeatedly
+win before those motifs can seed live route policy.
+
+Substrate trace observability is the atlas's microscope. The companion source
+`docs/fusion/SUBSTRATE_TRACE_OBSERVATORY_2026_06_01.md` defines
+`CognitiveTraceGraph`, `RouteMicroscopeFrame`, `AttentionKVTrace`,
+`AlgorithmicFailureProbe`, `HeuristicNeuronCard`, `TraceComparisonDeck`,
+`TelemetryToWorkingSetPatch`, and `VisualProofCapsule`. The atlas may propose
+an important unit only as a route prior until traces, probes, byte fields,
+diagnosis, rollback, and AnswerPacket visibility show what the unit did.
+
+The note/editor substrate has its own math companion:
+`docs/fusion/MATH_AND_PORTABLE_NOTE_SYSTEMS_INTAKE_2026_06_01.md`. Its
+`EditorDeltaMonoid`, `ReadableProjectionFunctor`, `IncrementalParseForest`,
+`DifferentialKnowledgeView`, `RetentionPotentialField`, and
+`ConstrainedMutationDecode` primitives make the user's notes and projections
+cheap enough to serve as high-quality evidence and route priors.
+
+Engineering logic is the atlas's proof grammar. The companion source
+`docs/fusion/ENGINEERING_LOGIC_ARCHITECTURE_INTAKE_2026_06_01.md` defines how
+every importance route gets a DecisionRecord, InvariantLedger,
+BoundaryContract, BudgetVector, FailureEnvelope, ObservabilityProbe, rollback,
+and falsifier before it claims live model-state control.
+
 ## The law
 
 ### L10-Candidate: Counterfactual Utility Law
@@ -87,6 +140,14 @@ only because it prevents a false citation.
 | Mixture-of-Depths | dynamic token/layer compute budgets | `DepthBudgetGate` candidate under visible runtime policy. |
 | Mamba-2 / SSD | semiseparable state-space duality gives a cheap controller family | Helper SSM lane for route, interrupt, and memory decisions. |
 | Titans / test-time memory | neural memory can update during inference | Session-local memory lane only; never silent durable weight mutation. |
+| Axplorer / PatternBoost | iterative construction search finds rare high-utility objects by keeping winners and retraining/sampling around them | Run bounded tournaments over `ColdAssemblyPlan` candidates instead of trusting static residency heuristics. |
+| Lattice Deduction Transformers | a small recurrent/lattice-like controller can approximate solver-style deduction over abstract states | `LatticeStateController` route controller for wake/continue/retrieve/abstain actions. |
+| SwiftLM | Apple Silicon-native SSD expert streaming, KV compression, persistent buffers, and prefetch are plausible implementation motifs | Source-mine AppColdStore coactivation layout and prefetch patterns; no code import without license/setup/vendor gates. |
+| Letta stateful agents | useful agent memory lives outside the short context window but is managed as explicit blocks, messages, tools, and runs | `ReasoningStateContinuityCard` preserves useful state under UAS, privacy, verifier, and AnswerPacket rules. |
+| Qwen3.6 preserve thinking | preserved reasoning context can improve agent consistency and KV/cache efficiency | Preserve resumable state as cache/summary policy, never as user-visible hidden-chain proof. |
+| oMLX / TurboQuant / Tutti / KVDrive / AWS tiered KV / DeepSeek context caching | persistent or tiered KV/prefix cache can reduce repeated prefill and cold I/O when compatibility and locality are respected | `KVLineageGraph`, `KVCompatibilityFence`, `CacheAdmissionCard`, and `PrefixReuseRouter` keep cache utility measurable and non-poisoned. |
+| Browserbase browser-trace / Karpathy autoresearch / GEPA | execution traces and full trajectories can improve prompts, route policies, and search candidates through bounded experimentation | `ExecutionTraceCapsule`, `ParetoResidencyTournament`, and `CacheMutationPatch` learn from traces without mutating production policy directly. |
+| Tolaria / ProseMirror / CodeMirror / Lexical / Tree-sitter / Automerge / FSRS | mature note/editor systems encode durable files, typed deltas, projection state, incremental parsing, local-first sync, and memory scheduling | Use editor math as evidence plumbing: `EditorDeltaMonoid`, `ReadableProjectionFunctor`, `DifferentialKnowledgeView`, `RetentionPotentialField`, and `ConstrainedMutationDecode`. |
 
 ## Apple Silicon execution split
 
@@ -798,6 +859,34 @@ Primary handles used for this doctrine:
 - `arXiv:2603.15965` MoLoRA — per-token adapter routing.
 - Hugging Face PEFT Arrow / GenKnowSub — token-wise adapter routing and adapter-space purification.
 - TransformerLens / SAE Lens / OpenAI sparse_autoencoder — activation/circuit feature tooling.
+
+## 2026-06-01 companion upgrade: verifier-calibrated sparse wake
+
+`docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`
+supersedes any reading of this atlas as a single global saliency table.
+Importance is now promoted only as a verifier-calibrated sparse wake policy:
+
+- `RouteScoutSSM` proposes route family, verifier need, KV/page need, and
+  depth need while staying cheaper than the route it controls.
+- `SparseWakeProposal` names selected and rejected units with expected
+  hot/KV/cold bytes, uncertainty, and fallback.
+- `VerifierBudgetAuction` rejects over-budget or low-evidence bundles before
+  execution.
+- `QueryAwareKVSelector` chooses likely-critical KV/history pages before full
+  attention.
+- `AblationShadowRun` tests whether the claimed useful unit mattered.
+- `SparseWakeCertificate` exposes the route in AnswerPacket.
+
+`docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` supplies the
+transport counterpart: after neural importance selects a cold unit, the unit is
+not considered token-safe until a `TransportRunManifest`, lease, copy-count
+trace, stall metric, cancellation path, fallback, and rollback exist.
+
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` supplies the
+offline discovery counterpart: important-unit predictions promote only when
+resident assemblies built from them survive repair, sparse fingerprinting,
+held-out scoring, ablation, `ComputeResumeLease`, rollback, and AnswerPacket
+visibility.
 
 ## Final synthesis
 

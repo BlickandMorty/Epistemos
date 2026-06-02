@@ -1,5 +1,7 @@
 # Sanitization Loop Tracker — 2026-05-23
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Live doc tracking the autonomous-loop sanitization sweep through ALL preserved work surfaces. User mandate:
 
 > "recurvieyl on loop santitize the stashes wips and all previous work befroe we start the new terminals so bascially this should be all the work including any phase 2 wiring work that needs to be done but on loop i wnat you to truly get into all the previous brnaches and trees work"

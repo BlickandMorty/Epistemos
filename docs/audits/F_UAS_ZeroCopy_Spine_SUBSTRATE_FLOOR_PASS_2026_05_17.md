@@ -7,6 +7,8 @@ scope: Phase B iter 36 (created) · iter 56 (refresh) — substrate-floor PASS r
 authority: docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md §6 acceptance bar + iter-32 copy_counter infrastructure + per-path PASS commits.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-UAS-ZeroCopy-Spine — Substrate-Floor PASS Report (Phase B iters 36 / 56-refresh)
 
 > Created iter 36 with 3-of-6 paths PASS. Refreshed iter 56 — **5 of 6 designated hot paths** now have

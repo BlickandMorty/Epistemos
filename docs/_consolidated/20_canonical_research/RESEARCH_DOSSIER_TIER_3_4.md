@@ -1,5 +1,7 @@
 # Research Dossier — Tier 3 (R14-R16) + Tier 4 (W9.6-W9.30)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Status**: CANONICAL — research synthesis + paste-ready prompts (synthesis of `/Advice`, `/final`, `/final v2` corpora).
 > **Role**: Per-item research findings (concrete file paths + diff size + ship-in-N-PRs estimates), Bucket A/B/C/D sequencing, Common Epistemos Context block (paste into external research tools), self-contained research prompts per item. Companion to `03_EXECUTION_MAP.md` (which is the implementation gating layer).
 > **Read with**: [`docs/plan/03_EXECUTION_MAP.md`](plan/03_EXECUTION_MAP.md) (per-item DoD/WRV) + [`docs/plan/05_RESEARCH_INDEX.md`](plan/05_RESEARCH_INDEX.md) (corpus map) + [`docs/STRUCTURING_AUDIT.md`](STRUCTURING_AUDIT.md) (input pipeline).

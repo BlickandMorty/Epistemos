@@ -317,11 +317,19 @@ private struct WebKitCodeEditorPalette {
             .canvasNSColor(for: surfaceTheme)
             .rgbSafeForCodeEditorTheme()
             .withAlphaComponent(1.0)
-        let foreground = surfaceTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
-        let muted = surfaceTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+        let foreground = (surfaceTheme.isDark
+            ? NSColor(deviceWhite: 0.95, alpha: 1.0)
+            : surfaceTheme.resolved.foreground.nsColor
+        ).rgbSafeForCodeEditorTheme()
+        let muted = (surfaceTheme.isDark
+            ? NSColor(deviceWhite: 0.78, alpha: 1.0)
+            : surfaceTheme.resolved.mutedForeground.nsColor
+        ).rgbSafeForCodeEditorTheme()
         let accent = surfaceTheme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
-        let border = surfaceTheme.resolved.glassBorder.nsColor.rgbSafeForCodeEditorTheme()
-            .withAlphaComponent(surfaceTheme.isDark ? 0.58 : 0.42)
+        let border = (surfaceTheme.isDark
+            ? accent.withAlphaComponent(0.18)
+            : surfaceTheme.resolved.glassBorder.nsColor.withAlphaComponent(0.42)
+        ).rgbSafeForCodeEditorTheme()
 
         self.background = base
         self.gutter = base.editorSidebarTint(isDark: surfaceTheme.isDark)
@@ -418,8 +426,8 @@ nonisolated enum WebKitCodeEditorDocument {
           color-scheme: dark;
           --bg: #15161b;
           --fg: #f2f3f5;
-          --muted: #8f98a6;
-          --line: #262832;
+          --muted: #c8ced8;
+          --line: rgba(138, 168, 255, 0.16);
           --gutter: #111218;
           --selection: rgba(112, 151, 255, 0.28);
           --cursor-line: rgba(112, 151, 255, 0.10);
@@ -437,8 +445,9 @@ nonisolated enum WebKitCodeEditorDocument {
           color: var(--fg);
           font-family: Menlo, "SF Mono", "SFMono-Regular", ui-monospace, Monaco, Consolas, monospace;
           font-size: 15px;
-          -webkit-font-smoothing: auto;
-          text-rendering: geometricPrecision;
+          font-weight: 540;
+          -webkit-font-smoothing: subpixel-antialiased;
+          text-rendering: optimizeLegibility;
         }
 
         .shell {
@@ -469,6 +478,12 @@ nonisolated enum WebKitCodeEditorDocument {
           white-space: pre;
           line-height: 1.45;
           font-variant-numeric: tabular-nums;
+        }
+
+        html[data-theme="dark"] #gutter {
+          border-right: 0;
+          box-shadow: inset -1px 0 rgba(138, 168, 255, 0.14);
+          color: var(--muted);
         }
 
         .editor-wrap {

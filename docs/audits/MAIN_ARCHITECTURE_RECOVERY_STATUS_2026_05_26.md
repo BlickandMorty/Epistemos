@@ -1,5 +1,7 @@
 # Main Architecture Recovery Status - 2026-05-26
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: checkpoint audit after PRs `#83`-`#88`, with a later wording-only
 Living Index refresh.
 
@@ -48,7 +50,7 @@ Earlier Phase-2 floor PRs already on main:
 
 | Range | Status |
 |---|---|
-| `#66`-`#72` | Eidos real bridge, System G path, falsifiers, docs/canon fill, T14 UAS bridge, ACS gate. |
+| `#66`-`#72` | Eidos real bridge, System G path, falsifiers, docs/canon fill, T14 UAS bridge, SCOPE-Rex admission gate. |
 | `#74`-`#79` | Falsifier round 2, Hyperdynamic Loop, Runtime Router, D-prime health rows, T0 verified floor, B-prime chat provenance. |
 | Direct hotfix | `77c7efe9ea` repaired the Wave-2 main build gate after `#76`. |
 
@@ -111,7 +113,7 @@ Recovered / superseded slices:
 1. HTML Workspace source guard follow-up is archived in
    `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md` and
    guarded by `EpistemosTests/HTMLWorkspaceSourceGuardTests.swift`.
-2. UAS/ACS artifact gate follow-up is archived in
+2. UAS/AcsAnchor artifact gate follow-up is archived in
    `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md` and guarded by
    `EpistemosTests/SubstrateHealthPanelTests.swift`.
 3. Legacy diagram compatibility is archived in

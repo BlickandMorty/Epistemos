@@ -4,6 +4,10 @@ created_on: 2026-05-24
 purpose: Canonical statement of the no-compromise local-AI endgame: run larger, smarter, dense agentic models by making model internals addressable substrate objects and routing verified active neural assemblies instead of treating the LLM as an opaque language-only reasoner.
 production_status: Not a production claim. This canonizes the target architecture and vocabulary. Runtime activation of neural/component routing requires the falsifiers listed below.
 local_anchors:
+  - docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md
+  - docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md
+  - docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md
+  - docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md
   - docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md
   - docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md
   - docs/fusion/AETHERLINK_OAS_CANON_INTAKE_2026_05_30.md
@@ -18,6 +22,20 @@ local_anchors:
 ---
 
 # Addressable Neural Substrate Canon — 2026-05-24
+
+## 2026-06-01 Companion Lock
+
+This canon remains the target vocabulary for making model internals
+addressable, but current residency discovery and live-route promotion are
+governed by `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
+
+Read older "dormant brain neuron pull" and 70B-cocktail language through this
+updated rule: resident assemblies may be searched, repaired, sparsely
+fingerprinted, archived, and distilled offline or while idle, but they do not
+become live route/layout policy until held-out replay, LatticeAbstentionGate,
+ComputeResumeLease, rollback, and AnswerPacket witnesses pass. SSD/AppColdStore
+is addressable cold material, not a claim that SSD latency equals RAM.
 
 ## 0. The crux
 

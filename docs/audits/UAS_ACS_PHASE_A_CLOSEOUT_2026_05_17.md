@@ -7,6 +7,8 @@ scope: Phase A iter 20 (close-out) — affirm Phase A acceptance bar · record d
 authority: driver §4.G acceptance bar (verbatim) + this terminal's Phase A iters 1-19 deliverables.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # UAS-ACS Phase A Close-Out — 2026-05-17
 
 > Phase A iter 20 of 20. Close-out doc affirming §4.G acceptance, summarizing the 19 prior iters, and

@@ -5,13 +5,15 @@ schema_version: 2026-05-18.2
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Falsifier Artifact Schema - 2026-05-18
 
 This schema defines the canonical witness artifact contract for every T23B F-* falsifier. It generalizes the T12 [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md) witness pattern into a shared document shape. A row in the M2 Pro Verified Floor Handbook may not claim runtime evidence unless its artifact uses this contract or a documented successor.
 
 ## Canon Anchors
 
-This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_consolidated/00_canonical_authority/MASTER_FUSION.md) for the local-computer, zero-copy, and KV precision claims, and [Unified Active Substrate Canon](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) for UAS/ACS naming, V6.2 falsifier order, MAS-first sorting, and dependency discipline.
+This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_consolidated/00_canonical_authority/MASTER_FUSION.md) for the local-computer, zero-copy, and KV precision claims, and [Unified Active Substrate Canon](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) for the legacy UAS-ACS lineage. Current prose reads that lineage as UAS + AcsAnchor, with SCOPE-Rex/SovereignGate owning admission and governance.
 
 ## Initial Fields
 
@@ -232,7 +234,7 @@ Downstream falsifiers must name their upstream artifacts when a pass claim depen
 |---|---|---|
 | `F-PageGather-Scatter` | `F-PageGather-Baseline` | Scatter throughput thresholds must include `upstream_artifact` and `upstream_axis` pointing at the baseline calibration artifact. |
 | `F-LocalRecallIsland` | `F-SemiseparableBlockScan` when citing state-kernel acceleration | Any recall-island artifact that cites semiseparable acceleration must reference the block-scan correctness artifact. |
-| `F-KV-Direct-Gate` | `F-UAS-ACS-MmapResidency` for file-backed residency and `F-WBO-DriftLedger` when claiming bounded approximation debt | Any residual-patched or compressed KV pass claim must reference the mmap residency witness plus a WBO drift artifact for the same prompt class. |
+| `F-KV-Direct-Gate` | legacy-named `F-UAS-ACS-MmapResidency` for file-backed UAS/AcsAnchor residency and `F-WBO-DriftLedger` when claiming bounded approximation debt | Any residual-patched or compressed KV pass claim must reference the mmap residency witness plus a WBO drift artifact for the same prompt class. |
 | `F-70B-Local-Cocktail-Lite` | Any component falsifier it uses as a cocktail dependency, including `F-WeightBlockRangeHash-DryRun` before `F-ResidencyPlan-DryRun` and before any live 70B probe | PageGather, KV-Direct, LocalRecallIsland, WBO, range-hash, residency-plan, or provider-reference components must be linked by artifact path or provider receipt. |
 
 ## Artifact Reference Rule

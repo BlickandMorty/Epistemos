@@ -15,7 +15,7 @@
 
 **To fix**: Refactor `MLXInferenceService.generate()` to accept an optional `LogitProcessor` parameter, then pass it through to `TokenIterator.init(...)`. The architecture (protocol → processor → iterator) is correct — only the binding is missing.
 
-**Upgrade path**: `mlx-swift-structured` by @petrukha-ivan (Tier 1 full masking).
+**Upgrade path**: `mlx-swift-structured` by @petrukha-ivan (priority-1 full masking; Omega is superseded-historical, not a current build).
 
 ## Verified Patterns (Safe to Extend)
 

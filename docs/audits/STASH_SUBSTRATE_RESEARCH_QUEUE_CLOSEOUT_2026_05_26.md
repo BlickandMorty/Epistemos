@@ -1,15 +1,17 @@
 # Stash Substrate / Research Queue Closeout - 2026-05-26
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: closed for current product recovery.
 
 Sources inspected:
 
 - `stash@{2}` - Terminal E rev-2 docs before fresh main.
-- `stash@{5}` - Terminal E ACS gate pre-main rev2.
+- `stash@{5}` - Terminal E SCOPE-Rex gate pre-main rev2.
 - `stash@{7}` - ambient/settings/voice/app shell auto-stash.
 - `stash@{8}` - T12 F-ULP oracle.
 - `stash@{9}` - T11 agent runtime v2 handoff.
-- `stash@{13}` - multi-terminal ACS admission module exposure.
+- `stash@{13}` - multi-terminal SCOPE-Rex admission module exposure.
 - `stash@{14}` - T17B lattice/WBO formatting donor.
 - `stash@{18}` - large old-main UI/UX donor.
 
@@ -24,7 +26,7 @@ that should be applied to `main`. It contains either:
 1. work already represented on current `main`,
 2. stale donor code superseded by newer product architecture,
 3. documentation that is already resolved by newer closeout docs, or
-4. research-tier work that belongs in the named architecture backlog, not in a
+4. Pro Research work that belongs in the named architecture backlog, not in a
    raw stash merge.
 
 The stashes remain preserved as historical references. They are no longer

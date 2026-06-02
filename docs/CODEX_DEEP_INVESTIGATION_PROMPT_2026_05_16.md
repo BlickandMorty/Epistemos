@@ -3,6 +3,14 @@
 **For**: Codex CLI, given multi-day autonomy at `/Users/jojo/Downloads/Epistemos`
 **Mission**: Truly devour every layer of this app — Helios V5/V6.1/V6.2, SCOPE-Rex, Omera/Omega, ACS, UAS, every research theorem, every "no compromise" doc — then recursively investigate → harden → validate → surface user-facing, in alternating phases. **Never delete or remove features.** Only harden, validate, document, and add.
 
+**2026-06-01 architecture supersession:** before using this prompt for
+UAS/AppColdStore, active model-state, sparse residency, mmap/SSD, dynamic
+compute, or 70B-cocktail work, read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+is an offline/idle discovery layer for candidate assemblies, not hidden live
+route authority.
+
 ---
 
 ## Manifesto (read before you do anything else)
@@ -202,7 +210,7 @@ Goal: address findings from Phase A. **NEVER DELETE** anything.
    Examples to surface (not exhaustive):
    - The 55 audit-of-audit cycles → Provenance Console "Audit register" tab
    - The 13 user-decision queue → a "Decisions awaiting you" inbox in Settings
-   - The ACS Kuramoto coupling → visualizer in Diagnostics
+   - The KuramotoSync / ResonanceSync coupling → visualizer in Diagnostics
    - The SAE cognition observatory → optional "explain why this answer" surface
    - The Ternary kernel diagnostics → MLX power-user pane
    - Ambient Frequencies feature: cross-link with other audio + meditation surfaces
@@ -373,7 +381,7 @@ EML lives at `agent_core/src/research/eml/` (~1,232 LOC). Right now it's a resea
 1. **Investigation pass**: read every file in `agent_core/src/research/eml/`. Identify what's already implemented (energy functions? sampling? gradient routines? typed distributions?). Cite the original papers (likely LeCun et al. on energy-based models; possibly diffusion-model / EBM hybrid papers; possibly the Hinton / Welling RBM line).
 2. **Doc**: `docs/fusion/EML_INTEGRATION_DOCTRINE_<date>.md`. Sections:
    - §1 What EML provides today (typed surface).
-   - §2 Where it could plug in: (a) Tri-Fusion ambiguity resolution (when MD↔HTML round-trip has multiple valid parses, EML picks the lowest-energy one), (b) ConfidenceRouter scoring (energy as confidence proxy), (c) ACS Kuramoto coupling tempering (energy gradient damps over-synchronization), (d) F-VaultRecall-50 ranking (energy-weighted result re-ranking), (e) SAE cognition observatory (energy as anomaly signal).
+   - §2 Where it could plug in: (a) Tri-Fusion ambiguity resolution (when MD↔HTML round-trip has multiple valid parses, EML picks the lowest-energy one), (b) ConfidenceRouter scoring (energy as confidence proxy), (c) KuramotoSync / ResonanceSync coupling tempering (energy gradient damps over-synchronization), (d) F-VaultRecall-50 ranking (energy-weighted result re-ranking), (e) SAE cognition observatory (energy as anomaly signal).
    - §3 The minimal integration MVP — pick ONE site (probably Tri-Fusion ambiguity resolution since it's natively energy-shaped), wire it cleanly, prove the integration with property tests.
    - §4 Forward-staged integrations — the other four sites as candidate §3.X rows in MASTER_FUSION.
 3. **Phase-B**: implement §3 (the MVP integration). Cargo test count grows ≥ 30. Diagnostic surface in Settings → Diagnostics → "EML energy live readout" row.

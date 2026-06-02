@@ -1,5 +1,12 @@
 # Research Coverage Gap Audit — PASS 2 (2026-05-15)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+> **2026-05-31 naming supersession:** this is a historical gap-audit log.
+> Read `research-tier` as Pro Research unless the row is quoting old source
+> language; read `UAS-ACS` as legacy UAS + AcsAnchor; read ACS admission/gate
+> language as SCOPE-Rex/SovereignGate admission with legacy code names.
+
 **Sibling to:** `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md` (the 31-gap PASS 1 doc).
 **Scope:** 6 parallel agents swept regions PASS 1 undersampled — `docs/_consolidated/` (531 .md across 9 subdirs), `docs/audits/` (74 files), the full personal-research region in depth (incl. `kimis deep research/` 37 files + Hermes/SCOPE-Rex top-level), `docs/fusion/salvage/` (138 files across 7 subdirs) + `docs/fusion/{deliberation,fleet,oversight}/`, the long-tail organizational dirs (`docs/plan/` / `plans/` / `handoffs/` / `architecture/` / `superpowers/` / `knowledge-fusion/` / top-level master plans), and the older research packs + `_archive/` spot-check.
 

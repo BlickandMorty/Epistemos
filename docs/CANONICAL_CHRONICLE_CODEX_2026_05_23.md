@@ -1,5 +1,7 @@
 # Canonical Chronicle - 2026-05-23
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Purpose: preserve the local canon as a chronological control document and stop
 future agents from flattening it into slogans, branch folklore, or "file exists"
 ship claims.
@@ -75,17 +77,19 @@ Production-vs-fixture guard:
 - A docs-only control artifact can be `visible-working` as documentation while
   still making no product runtime claim.
 
-## Lanes
+## Builds And Statuses
 
-These lanes are product/safety lanes, not memory tiers. Keep them separate from
-L0/L1/L2/L3/L4/L5/L_SE/L7 residency language.
+Current distribution has two builds only: **MAS** and **Pro**. Pro carries
+internal statuses for work that is live, gated, research-only, preserved, or
+Omega/future-substrate. Keep this separate from runtime planes and from
+L0/L1/L2/L3/L4/L5/L_SE/L7 memory residency language.
 
-| Lane | Meaning | Chronicle discipline |
+| Build / status | Meaning | Chronicle discipline |
 |---|---|---|
-| Product / MAS | Current app surface inside App Store constraints. | Build narrow, default local, no hidden cloud/subprocess fallback. |
-| Pro | Developer-ID/direct distribution features such as bounded CLI/MCP/browser/tool execution. | Preserve geometry, but require real entitlement/capability gates before calling anything shipped. |
-| Research / Omega | Falsifiable substrate computer: UAS-ACS, five planes, EML/IR, KV-Direct, Metal kernels, 70B cocktail. | Research claims need falsifiers, hardware pin, and artifacts. |
-| Vault | Memory, retrieval, closed citations, Eidos, Halo, provenance over user knowledge. | Highest product credibility lane because recall failure invalidates the substrate story. |
+| MAS | Current app surface inside App Store constraints. | Build narrow, default local, no hidden cloud/subprocess fallback. |
+| Pro Live / Pro Gated | Developer-ID/direct distribution features such as bounded CLI/MCP/browser/tool execution. | Preserve geometry, but require real entitlement/capability gates before calling anything shipped. |
+| Pro Research / Pro Omega | Falsifiable substrate computer: UAS/AcsAnchor, five planes, EML/IR, KV-Direct, Metal kernels, 70B cocktail. | Research claims need falsifiers, hardware pin, and artifacts. |
+| Pro Vault-Preserved | Memory, retrieval, closed citations, Eidos, Halo, provenance, and preserved speculative branches over user knowledge. | Highest credibility work because recall failure invalidates the substrate story. |
 | Infrastructure | Ledgers, handoffs, branch salvage, falsifier handbooks, CI/build gates. | Must prevent drift; docs-only loops must not block code-bearing spine work. |
 
 ## Chronicle
@@ -97,8 +101,9 @@ L0/L1/L2/L3/L4/L5/L_SE/L7 residency language.
 - Apple Silicon zero-copy/unified memory, one in-process substrate, Rust
   ownership as a Markov boundary, logged/hashed state transitions, and canonical
   state as the source of truth.
-- Core/Pro/Research ship separation: Core/App Store, Pro/Developer-ID, and
-  Research/private-framework or experimental lanes.
+- Two-build ship separation: MAS/App Store and Pro/Developer-ID. Historical
+  Research/private-framework or experimental lanes now map to Pro Research,
+  Pro Vault-Preserved, or Pro Omega statuses.
 - SCOPE-Rex naming: product is Epistemos, Rust kernel is Rex, SCOPE-Rex is the
   full sparse-feature/claim/ontology/proof/execution/state-witness runtime.
 - ACS lineage: the recursive/autopoietic doctrine came from the Kimi research
@@ -112,12 +117,12 @@ Status: canon-index foundation, not a current implementation claim by itself.
 Missing proof:
 
 - A source-index document does not prove caller chains or UI surfaces.
-- The Pro lane has design geometry, but Pro-tier capability gating remains a
+- The Pro build has design geometry, but Pro capability gating remains a
   separate proof obligation.
 
 What would falsify this:
 
-- A future doc collapses Core/Pro/Research into one lane.
+- A future doc collapses MAS, Pro, and Pro Research/Pro Vault-Preserved/Pro Omega status into one lane.
 - A production path uses hidden subprocess/cloud behavior while claiming
   in-process/local substrate.
 - A UI projection becomes the source of truth instead of projecting canonical
@@ -130,13 +135,14 @@ What would falsify this:
 - No drift via compression: named concepts must retain source docs, status,
   code anchors, and next moves.
 - WRV is the ship test: Wired, Reachable, Visible, Verified.
-- Capability lattice, not architecture fork: one codebase with MAS/Pro/Research
-  gates.
+- Capability lattice, not architecture fork: one codebase with MAS and Pro
+  gates, plus Pro Research / Pro Vault-Preserved / Pro Omega statuses.
 - The memory/residency table and KV-Direct gate are substrate claims, but many
   rows are explicitly not started or partial.
-- ACS (Autopoietic Cognitive Stack / Anchored Cognitive Substrate) is not one
-  feature. It includes recursion, VSM/homeostasis, admission/control, and a
-  research-only Rust substrate. First mention must disambiguate the expansion.
+- Legacy ACS (Autopoietic Cognitive Stack / Anchored Cognitive Substrate) is not one
+  feature. It includes recursion and VSM/homeostasis lineage, while current
+  admission/control belongs to SCOPE-Rex/SovereignGate and current anchoring
+  belongs to AcsAnchor. Pro Research Rust substrate remains preserved.
 - Cognitive DAG and provenance ledger surfaces have real shipped pieces, but
   future docs must distinguish schema/code from user-visible proof.
 - V6.2 falsifier order and M2 Pro hardware pin make research claims measurable.
@@ -155,22 +161,23 @@ What would falsify this:
 
 - A PR changes a concept in [S2] without updating the atlas/status row.
 - A future agent claims a `PARTIAL` or `NOT-STARTED` target as shipped.
-- ACS is mentioned bare or treated as a hot-path kernel without admission and
+- ACS/AcsAnchor is mentioned bare or treated as a hot-path kernel without admission and
   governance context.
 
-### 2026-05-16 - UAS-ACS Canon and May-16 Branch Cycle
+### 2026-05-16 - UAS/AcsAnchor Canon and May-16 Branch Cycle
 
-[S3] is the coherence register for UAS-ACS. Its one-paragraph definition says
+[S3] is the coherence register for UAS/AcsAnchor. Its one-paragraph definition says
 the memory, compute, and governance fabric should behave as a single
-addressable, recursively governed system. It also distinguishes UAS as the
-address-space view and ACS as the governance/regulation view.
+addressable, recursively governed system. Current naming distinguishes UAS as
+the address-space view, AcsAnchor as the address/residency anchor continuity
+layer, and SCOPE-Rex/SovereignGate as the admission/governance view.
 
 [S3] names six canonical surfaces:
 
-- research-only ACS substrate types;
+- Pro Research AcsAnchor substrate types;
 - five-plane runtime formalism;
 - KV-Direct gate;
-- [S2] ACS doctrine row;
+- [S2] legacy ACS / AcsAnchor doctrine row;
 - HELIOS V6.1 substrate targets;
 - V6.2 falsifier order.
 
@@ -179,7 +186,7 @@ address-space view and ACS as the governance/regulation view.
 - T1 Tri-Fusion: real Rust/Swift document mutation substrate and tests, salvage.
 - T2 Agent/Blueprint: Swift blueprint and diagnostics layer, complementary to
   T11 System G, salvage after reconciliation.
-- T3 UAS/ACS: UAS, active assembly, and page-gather primitives, salvage subset.
+- T3 UAS/AcsAnchor: UAS, active assembly, and page-gather primitives, salvage subset.
 - T4 Vault recall: real retrieval contract, but superseded by T21 production
   path in current main audit context.
 - T5 EML-IR: large six-IR substrate; split per IR, do not merge as one PR.
@@ -194,7 +201,7 @@ W-rows are the critical path from substrate to app behavior.
 
 Status:
 
-- UAS-ACS doctrine: current canonical register.
+- UAS/AcsAnchor doctrine: current canonical register.
 - May-16 code: branch-local and not automatically current-wired.
 - Wiring backlog: current control document for post-merge visibility.
 
@@ -276,7 +283,7 @@ What would falsify this:
 
 [A1] turns the previous docs into a spine map:
 
-`Vault/Eidos retrieval -> System G runtime -> UAS addressing / ACS admission ->
+`Vault/Eidos retrieval -> System G runtime -> UAS addressing / SCOPE-Rex admission ->
 lattice/WBO accounting -> EML/EML-IR witness/cert layer ->
 falsifier/health gates -> visible product`
 
@@ -284,7 +291,7 @@ falsifier/health gates -> visible product`
 
 - Phase 1 hardening means additive, mostly isolated work that can land without
   May-16 branch merges: product ledger, vault contract, Eidos, Eidos Form Layer,
-  Brain Panel citations, System G, lattice/WBO, ACS admission, falsifier docs
+  Brain Panel citations, System G, lattice/WBO, SCOPE-Rex admission, AcsAnchor fields, falsifier docs
   and gates where self-contained.
 - Phase 2 wiring means post-merge work that makes substrates call each other
   and become visible: T14 five-plane UAS wiring, T18 residency governor, T22
@@ -331,7 +338,7 @@ What would falsify this:
 | Vault recall and Eidos outrank ceiling research. | [S4], [S5], [A1], [A3] | `implemented-not-wired` to `visible-broken` depending surface | ChatCoordinator/Brain Panel closed-citation wire and diagnostics | `LIMIT N` style context, irrelevant first notes, or fake citations reach a user |
 | System G is the governed executor; Aegis is rejected. | [S4], [A3] | `implemented-not-wired` | Swift bridge, production caller chain, capability/budget proof | User-facing or doc text revives Aegis, or runtime falls back to purged Hermes subprocess |
 | UAS/UASA starts with boring metadata before model/KV pages. | [S3], [S4], [A1] | `not-implemented` to `implemented-not-wired` | T14 stable `UasAddress`/`UasKind`/lease/register tests in product paths | Work jumps to KV/model addressing before notes/events/tools/retrieval hits have stable addresses |
-| ACS is admission/composition above SCOPE-Rex, not a monolithic kernel. | [S2], [S3], [S4], [A3] | `implemented-not-wired` for T18B; research-only for older ACS substrate | No durable write bypasses admission; audit records visible/replayable | Durable mutation path exists that bypasses ACS admission after a claim of ACS wiring |
+| SCOPE-Rex/SovereignGate owns admission; AcsAnchor owns address/residency anchoring and legacy ACS continuity. Neither is a monolithic hot-path kernel. | [S2], [S3], [S4], [A3] | `implemented-not-wired` for T18B; Pro Research for older ACS substrate | No durable write bypasses admission; audit records visible/replayable | Durable mutation path exists that bypasses SCOPE-Rex admission after a claim of AcsAnchor wiring |
 | Lattice/WBO is the error-accounting lane, not a speed claim. | [S4], [A3] | `implemented-not-wired` | T17B decomposition, tests, consumers in T11/T18B | Approximate/compressed representations ship without WBO/error terms |
 | Falsifier gates are M2 Pro artifact gates. | [S2], [S3], [S4], [A3] | `scaffold-only` or `implemented-not-wired` per gate | Commands, fixtures, artifacts, thresholds, failure fallback | Any F-* gate is marked PASS without repo-local command output/artifact |
 | WRV is the ship test. | [S2], [S4], [S5] | current control rule | Screenshot/visible proof for user surfaces; narrow tests for caller chain | A feature is called done because code or docs exist but the user cannot reach it |
@@ -397,7 +404,7 @@ Before changing a status to `current-wired` or `visible-working`, record:
 4. Verified: the exact test, command, screenshot, or artifact path.
 5. Fallback: behavior when feature flag is off, input is empty, IDs are stale,
    unicode appears, no result exists, or a repeated call happens.
-6. Boundary: MAS/Pro/Research/Vault/Infrastructure lane and build gate.
+6. Boundary: MAS or Pro build, plus Pro status where relevant (Live/Gated/Research/Vault-Preserved/Omega), and build gate.
 7. No hidden behavior: no silent cloud fallback, hidden subprocess, or
    aspirational caller chain.
 

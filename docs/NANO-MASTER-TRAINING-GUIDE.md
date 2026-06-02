@@ -493,7 +493,7 @@ No cloud model can replicate what this pipeline produces:
 
 2. **It gets better every night** — the ODIA flywheel continuously improves on the user's actual usage patterns, not synthetic benchmarks.
 
-3. **It runs entirely on-device** — zero cloud dependency, zero per-query cost, zero latency from network round-trips.
+3. **It runs entirely on-device** — zero cloud dependency, zero per-query cost, and no network round-trip latency.
 
 4. **It adapts to app updates instantly** — Doc-to-LoRA generates a fresh adapter in <1 second when the app ships a new version. No retraining required.
 

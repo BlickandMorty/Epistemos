@@ -10,6 +10,8 @@ authority_order:
   - this register for naming and ownership discipline
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Agent-Manageable Architecture Canon - 2026-05-30
 
 This register exists so unattended agents do not keep creating new names,
@@ -246,7 +248,7 @@ When older docs say "Helios does X", translate it before editing:
 | ProStatus / ResidencyStatus | What authority/status band the object occupies. | Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, Pro Omega, Blocked, TargetOnly, Superseded; CurrentApp, VerifiedFloor, CapabilityCeiling when the question is residency/proof maturity. | Do not promote research artifacts into product UI as shipped behavior. |
 | WBO / LatticeBudget | Error, compression, quantization, semantic, and numeric drift accounting. | Lattice/WBO, T_W/T_K/T_R/T_Q/T_S/T_SE/T_num. | Do not make lattice replace UAS, ColdStore, or AcsAnchor. |
 | AcsAnchor / Anchored Cognitive Substrate | Existing coordinate/provenance anchor layer carried by UAS objects. | AcsAnchor, AcsAnchorRegistry, F-ACS-AnchorLookup, legacy UAS-ACS docs. | Do not reinterpret existing AcsAnchor source as cold storage; migrate deliberately if needed. |
-| KuramotoSync / ResonanceSync | Research-tier phase/coherence candidate for coordinating firing subsets. | Legacy ACS/Kuramoto wording, Kuramoto cellular resonance, acs_meta_layer, sparse substrate candidates. | Do not productize it or use it as the product residency layer without falsifiers. |
+| KuramotoSync / ResonanceSync | Pro Research phase/coherence candidate for coordinating firing subsets. | Legacy ACS/Kuramoto wording, Kuramoto cellular resonance, acs_meta_layer, sparse substrate candidates. | Do not productize it or use it as the product residency layer without falsifiers. |
 | ColdStore / Cold Residency Layer | Active Cold Storage idea: dormant-but-addressable cognitive material that stays cold until selected. | SSD/disk pages, note atoms, vector pages, KV pages, adapters, weight blocks, parameter anchors, graph islands. | Do not abbreviate this as ACS; do not confuse it with AcsAnchor, admission, or ActiveAssembly. |
 | ResidencyGovernor | Policy that decides leases, residency status, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | ResidencyStatus, ResidencyLease, ResidencyPlan, WeightBlockManifest. | Do not call this ACS; make live residency claims only after falsifiers pass. |
 | SCOPE-Rex / SovereignGate | Governance and admission layer. Produces allow/warn/defer/quarantine/reject verdicts and proofs. | SCOPE-Rex Admission, SovereignGate, AdmissionGate, SCOPERexAdmissionProof. | Do not call admission "ACS"; do not let tool calls or durable changes bypass witness records. |

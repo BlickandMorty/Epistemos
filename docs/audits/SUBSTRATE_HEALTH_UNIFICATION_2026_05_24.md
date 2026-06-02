@@ -1,5 +1,7 @@
 # Substrate Health Unification Audit - 2026-05-24
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Terminal: D
 Track: P6 + T22 + W-29
 Tier: Tier 1 MAS
@@ -36,7 +38,7 @@ Rows unified under `SubstrateHealthPanel`:
 
 - Eidos, Vault Recall, Search Fusion, Editor Bundle
 - Local Agent Diagnostics, Active Constellation, System G, AnswerPacket
-- F-ULP, Lattice/WBO, ACS Admission, EML Observatory, UAS/ACS, Cognitive DAG Counts, Plane Placement, Cognitive Weight Classes, Substrate Drift Monitor
+- F-ULP, Lattice/WBO, SCOPE-Rex Admission, EML Observatory, UAS/AcsAnchor, Cognitive DAG Counts, Plane Placement, Cognitive Weight Classes, Substrate Drift Monitor
 
 ## Build
 
@@ -74,7 +76,7 @@ Honest posture rules applied:
 
 - No missing subsystem reports green.
 - EML Observatory reports FFI reachability but keeps SAE live stream unwired.
-- UAS/ACS reports taxonomy, residency, and copy counters but keeps production anchor lookup blocked.
+- UAS/AcsAnchor reports taxonomy, residency, and copy counters but keeps production anchor lookup blocked.
 - Plane Placement can show passing metric icons when Terminal G / T14 five-plane
   fields are present and counted through `substrate_health_unified_json`, but
   the chip strip remains orange because the row is read-only observability, not
@@ -87,7 +89,7 @@ Honest posture rules applied:
 ## 7 Laws
 
 - Law 1 Density: one dense panel replaces scattered diagnostic rows.
-- Law 2 Address: UAS/ACS and DAG rows expose address taxonomy, residency tiers, and root identity instead of anonymous status.
+- Law 2 Address: UAS/AcsAnchor and DAG rows expose address taxonomy, residency tiers, and root identity instead of anonymous status.
 - Law 3 Active-support: 1 Hz refresh keeps rows live without claiming active authority where only read-only probes exist.
 - Law 4 Lattice-error: Lattice/WBO and drift rows surface accounting and non-pass state.
 - Law 5 Glue: Settings links each row to its falsifier and W-row.
@@ -99,7 +101,7 @@ Honest posture rules applied:
 Data classes touched:
 
 - Settings substrate health snapshots
-- UAS/ACS taxonomy and copy counters
+- UAS/AcsAnchor taxonomy and copy counters
 - Cognitive DAG counts and Merkle root
 - Plane placement summary
 - WBO drift/accounting counters
@@ -117,7 +119,7 @@ Rev 2 invariant check:
 
 Five invariants:
 
-- UAS address: surfaced through UAS/ACS taxonomy and DAG root; no new orphan payload class is created.
+- UAS address: surfaced through UAS/AcsAnchor taxonomy and DAG root; no new orphan payload class is created.
 - Plane: PlanePlacement row counts live DAG planes after Terminal G/T14 lands;
   unavailable FFI falls back to an explicit non-green state.
 - Residency: UAS row shows `current_app`, `verified_floor`, and `capability_ceiling` residency tags.
@@ -135,8 +137,8 @@ Waiver:
 Advanced:
 
 - W-07 EML Observatory
-- W-10 UAS/ACS and Plane Placement dependency visibility
-- W-24 DAG node UAS/ACS anchor fields
+- W-10 UAS/AcsAnchor and Plane Placement dependency visibility
+- W-24 DAG node UAS/AcsAnchor anchor fields
 - W-28 live DAG plane-placement visibility
 - W-14 AnswerPacket witness channel
 - W-21 Vault Recall

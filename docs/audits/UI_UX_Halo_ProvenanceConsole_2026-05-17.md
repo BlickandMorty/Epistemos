@@ -1,5 +1,7 @@
 # UI/UX Audit — Halo panel + Provenance Console
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 - **Auditor**: Codex T6 (codex/t6-uiux-2026-05-16)
 - **Date**: 2026-05-17 (iter 4)
 - **Driver**: `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.C
@@ -157,6 +159,6 @@ reverts to 360×480. Minor UX nit.
 
 - P2/P3 above.
 - Audit backlog still gated on landings from other terminals: T4 →
-  F-VaultRecall-50, T2 → Agent UI / per-model badges, T3 → UAS-ACS
+  F-VaultRecall-50, T2 → Agent UI / per-model badges, T3 → UAS/AcsAnchor
   visualizer, T5 → EML-IR diagnostic row, T1 → Tri-Fusion mutation
   surface.

@@ -1,7 +1,7 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
-codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
+codex_continuation_update: 2026-05-05 Phase-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B2 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md (1014 lines, dated 2026-04-29)
 companion_to: B1 (BIOMETRIC_TAMAGOTCHI_BRAINEXPORT lift-targets)
@@ -15,7 +15,7 @@ companion_to: B1 (BIOMETRIC_TAMAGOTCHI_BRAINEXPORT lift-targets)
 > auto-research loops, and the substrate-unification audit (the
 > "negative app" mandate). This brief maps each section to current
 > main, classifies what's net-new vs already-covered, and recommends
-> specific lift targets. Codex continuation landed the Tier-1 doctrine
+> specific lift targets. Codex continuation landed the Phase-1 doctrine
 > lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
 > W7/W8 runtime work remains queued behind deliberation briefs.
 
@@ -66,7 +66,7 @@ The B2 addendum opens with **five load-bearing breakthroughs**:
 | Auto-research loops on user's vault | ✅ wired but partial | `Epistemos/KnowledgeFusion/Autoresearch/AutoresearchLoop.swift` exists | The Karpathy pattern is partially implemented; the "objective-metric only" discipline + tombstone semantics needs canonicalization |
 | **Subprocess audit — MoLoRA Python** | ✅ exists as subprocess in main | `Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift:53` ("communicates via stdin/stdout JSON lines") | B2 §3.1 wants this ported to MLX-Swift adapter API — major doctrine §2.2 invariant #2 reinforcement |
 | **Subprocess audit — QLoRA Python** | ✅ exists as subprocess in main | `Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift:50` (actor) | B2 §3.2 wants this ported to MLX-Swift training API |
-| **Subprocess audit — Hermes Python** | ✅ ALREADY REMOVED 2026-05-05 | (deleted in this branch) | B2 §3.3 is already closed; the Compile-Verify-Mint Tier-3 skills path is canonical |
+| **Subprocess audit — Hermes Python** | ✅ ALREADY REMOVED 2026-05-05 | (deleted in this branch) | B2 §3.3 is already closed; the Compile-Verify-Mint Stage-3 skills path is canonical |
 | **Subprocess audit — OrphanSubprocessCleanup + PythonEnvironmentManager** | ✅ partially obsolete | `Epistemos/Bridge/OrphanSubprocessCleanup.swift` (still exists per B2 reference; needs grep verification) | When MoLoRA + QLoRA port, these delete themselves |
 | CloudProviderAuthService URLSession | ✅ exists; sanctioned by B2 | `Epistemos/Cloud/CloudProviderAuthService.swift` | B2 §3.5 explicitly KEEPS this; only documentation update needed |
 | Glowing UI metabolic-state Metal shader | ❌ NOT in main | — | New visual surface (analogous to LandingWave shader) |
@@ -89,19 +89,19 @@ honor when lifting:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
+### Stage 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
 | Target | Where | Why |
 |---|---|---|
 | **Cell-organism metaphor as design generator** | doctrine Annex (A.18 candidate) | The cell metaphor isn't decoration — it generates four concrete design rules (autonomy, message-passing, apoptosis as feature, millions-of-cells homeostasis). Lifting names the metaphor as canonical-substrate-shape; future Live Files implementation has the contract. |
-| **Determinism gradient (Cognitive Weight) as canonical mechanism** | doctrine §4.0 (UX posture) addendum + §2.2 invariant #4 (tiered determinism) addendum | Pairs with the existing C4 "one composer, two modes" doctrine — same continuous-spectrum approach to user control. Lifting now positions Cognitive Weight as the canonical mechanism. |
+| **Determinism gradient (Cognitive Weight) as canonical mechanism** | doctrine §4.0 (UX posture) addendum + §2.2 invariant #4 (layered determinism) addendum | Pairs with the existing C4 "one composer, two modes" doctrine — same continuous-spectrum approach to user control. Lifting now positions Cognitive Weight as the canonical mechanism. |
 | **Stateful Rotor pattern + sub-5ms tick-budget contract** | doctrine §7 build-order graph entry + §6 forbidden ("no polling on the Live Files surface") | Polling vs FSEvents is a load-bearing battery-life invariant on Apple Silicon. Lifting names the pattern + the budget so any future polling-shaped patch fails review. |
 | **Closed-grammar conditional logic** | doctrine §6 forbidden (no `eval`/JS/Python in user-composed Live File logic) | This is the safe-by-construction guarantee. Lifting it as a forbidden line prevents drift if future Live Files implementation tempts the team to add a scripting backdoor. |
 | **Subprocess audit closure (MoLoRA + QLoRA ports)** | doctrine §2.2 invariant #2 addendum | The Hermes subprocess was already removed 2026-05-05. The B2 audit identifies MoLoRA + QLoRA as the remaining structural debt. Lifting the audit + porting plan into doctrine pins the invariant-#2 enforcement target. |
 
-### Tier 2 — Build-order graph additions (queue for substantive work)
+### Stage 2 — Build-order graph additions (queue for substantive work)
 
-| Build-order entry | Tier | Depends on |
+| Build-order entry | Build/status | Depends on |
 |---|---|---|
 | Phase W7-A — Live File state machine (Rust core, 5-state machine + FSEvents wire) | Core | (none) |
 | Phase W7-B — Stateful Rotor + sub-5ms tick discipline | Core | W7-A |
@@ -115,7 +115,7 @@ honor when lifting:
 | **Phase W7-J — OrphanSubprocessCleanup + PythonEnvironmentManager deletion** | (cleanup) | W7-H + W7-I |
 | Phase W8 — Eidos Plus auto-research deliberation engine | Pro | W7-A + AutoresearchLoop |
 
-### Tier 3 — Already canonical (no lift needed)
+### Stage 3 — Already canonical (no lift needed)
 
 | Already canonical | Note |
 |---|---|
@@ -152,11 +152,11 @@ honor when lifting:
 ## Bottom line
 
 B2 is a 1014-line Wave-7 substrate-unification addendum. Its
-Tier-1 doctrine lifts (cell-organism metaphor, determinism gradient,
+Stage-1 doctrine lifts (cell-organism metaphor, determinism gradient,
 Stateful Rotor/no-polling, closed grammar, MoLoRA/QLoRA subprocess
 debt) are now landed in final doctrine. Three
 others (Live File state machine, Cognitive Weight, dual-mode format)
-are Tier-2 build-order entries (Phases W7-A through W7-G). The
+are Stage-2 build-order entries (Phases W7-A through W7-G). The
 **subprocess audit (W7-H + W7-I)** is the most directly canon-aligned
 work — porting MoLoRA + QLoRA from Python subprocess to MLX-Swift
 in-process closes the last structural debt against doctrine §2.2

@@ -2457,10 +2457,16 @@ struct CodeEditorView: View {
             .rgbSafeForCodeEditorTheme()
             .withAlphaComponent(1.0)
             .codePreviewCSSColor
-        let foreground = surfaceTheme.resolved.foreground.nsColor
+        let foregroundSource = surfaceTheme.isDark
+            ? NSColor(deviceWhite: 0.94, alpha: 1.0)
+            : surfaceTheme.resolved.foreground.nsColor
+        let mutedSource = surfaceTheme.isDark
+            ? NSColor(deviceWhite: 0.80, alpha: 1.0)
+            : surfaceTheme.resolved.mutedForeground.nsColor
+        let foreground = foregroundSource
             .rgbSafeForCodeEditorTheme()
             .codePreviewCSSColor
-        let muted = surfaceTheme.resolved.mutedForeground.nsColor
+        let muted = mutedSource
             .rgbSafeForCodeEditorTheme()
             .codePreviewCSSColor
         let card = surfaceTheme.resolved.card.nsColor
@@ -2497,7 +2503,8 @@ struct CodeEditorView: View {
         }
 
         html[data-epistemos-theme="dark"] body,
-        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+        html[data-epistemos-theme="dark"] body :where(*):not(svg):not(path),
+        html[data-epistemos-theme="dark"] body :is(p, li, span, div, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
           color: var(--epistemos-workspace-fg) !important;
         }
 

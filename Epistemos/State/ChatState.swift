@@ -264,6 +264,7 @@ final class ChatState {
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
     var pendingContextAttachments: [ContextAttachment] = []
+    var activeTurnContextAttachments: [ContextAttachment] = []
     var pendingComposerDraft: String?
     private(set) var pendingComposerDraftRevision: UInt = 0
     var pendingGraphChatRequest: GraphChatRequest?
@@ -623,6 +624,7 @@ final class ChatState {
         loadedNoteTitles = []
         currentVaultRecallTrace = nil
         pendingContextAttachments = []
+        activeTurnContextAttachments = []
         pendingGraphChatRequest = nil
         pendingSlashCommand = nil
         // startNewChat nils the activeChatId and lets the next
@@ -662,13 +664,14 @@ final class ChatState {
             return id
         }()
 
+        activeTurnContextAttachments = pendingContextAttachments
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             chatId: chatId,
             role: .user,
             content: safeQuery,
             attachments: pendingAttachments,
-            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
+            contextAttachments: activeTurnContextAttachments.isEmpty ? nil : activeTurnContextAttachments
         )
         messages.append(userMessage)
         lastAssistantOperatingMode = operatingMode
@@ -676,6 +679,7 @@ final class ChatState {
         hasMessages = true
 
         pendingAttachments = []
+        pendingContextAttachments = []
         syncContextWindowMetrics()
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
@@ -732,6 +736,33 @@ final class ChatState {
         markTranscriptChanged()
         hasMessages = true
         syncContextWindowMetrics()
+    }
+
+    func appendCompletedLocalAssistantMessage(
+        content: String,
+        loadedNoteTitles: [String]? = nil,
+        vaultRecallTrace: VaultRecallTrace? = nil
+    ) {
+        flushThinkTagRouter()
+        flushStreamingTokens()
+        let metadata = consumeStreamingMessageMetadata()
+        appendLocalMessage(
+            role: .assistant,
+            content: content,
+            loadedNoteTitles: loadedNoteTitles ?? metadata.noteTitles,
+            vaultRecallTrace: vaultRecallTrace ?? metadata.vaultRecallTrace,
+            contextAttachments: metadata.contextAttachments
+        )
+        streamBuffer.reset(releaseCapacity: true)
+        releaseStreamingTextStorage()
+        isStreaming = false
+        pendingContentBlocks = []
+        activeToolName = nil
+        activeToolInputJson = nil
+        isAgentExecuting = false
+        lastTurnCacheHitPercent = nil
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
     }
 
     func completeProcessing(
@@ -1360,9 +1391,12 @@ final class ChatState {
             briefing: isCurrentVaultBriefing,
             noteTitles: loadedNoteTitles.isEmpty ? nil : loadedNoteTitles,
             vaultRecallTrace: currentVaultRecallTrace,
-            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
+            contextAttachments: activeTurnContextAttachments.isEmpty ? nil : activeTurnContextAttachments
         )
         isCurrentVaultBriefing = false
+        pendingContextAttachments = []
+        activeTurnContextAttachments = []
+        loadedNoteIds = []
         loadedNoteTitles = []
         currentVaultRecallTrace = nil
         return metadata
@@ -1476,6 +1510,7 @@ final class ChatState {
         showLanding = true
         pendingAttachments = []
         pendingContextAttachments = []
+        activeTurnContextAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
         currentVaultRecallTrace = nil
@@ -1501,31 +1536,15 @@ final class ChatState {
         }
     }
 
-    private func restoreConversationContext(from messages: [ChatMessage]) {
-        guard let lastMessage = messages.last else {
-            pendingContextAttachments = []
-            loadedNoteIds = []
-            loadedNoteTitles = []
-            return
-        }
-
-        pendingContextAttachments = lastMessage.contextAttachments ?? []
-        loadedNoteIds = Set(
-            pendingContextAttachments.compactMap { attachment in
-                attachment.kind == .note ? attachment.targetId : nil
-            }
-        )
-
-        guard !pendingContextAttachments.isEmpty else {
-            loadedNoteTitles = []
-            return
-        }
-
-        var restoredTitles = lastMessage.loadedNoteTitles ?? []
-        for attachment in pendingContextAttachments where attachment.kind == .note && !restoredTitles.contains(attachment.title) {
-            restoredTitles.append(attachment.title)
-        }
-        loadedNoteTitles = restoredTitles
+    private func restoreConversationContext(from _: [ChatMessage]) {
+        // Persisted message context is evidence for that historical
+        // turn, not an implicit attachment for the next composer send.
+        // Rehydrating it here makes follow-up turns keep talking about
+        // the previous note even after the user changes topic.
+        pendingContextAttachments = []
+        activeTurnContextAttachments = []
+        loadedNoteIds = []
+        loadedNoteTitles = []
     }
 
     private func serializedConversationHistoryBlock(

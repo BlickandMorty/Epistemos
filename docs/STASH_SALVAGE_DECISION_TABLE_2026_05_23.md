@@ -1,5 +1,7 @@
 # Stash Salvage Decision Table — 2026-05-23
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 This doc enumerates every entry in `git stash list` as of 2026-05-23 and
 records the disposition: **cherry-picked**, **preserved as recovery tag**,
 or **discarded**. The user said in this session:
@@ -21,7 +23,7 @@ action is taken. **No stash content is destroyed.** Tags are at
 | `stash@{2}` | `codex/t11-agent-runtime-v2-2026-05-18` | `PRE-CURSOR-HANDOFF-1779175040` | 1 file (`capability.rs`), +62 LOC | **CHERRY-PICKED** → PR #48 |
 | `stash@{3}` | `codex/t2-agent-2026-05-16` | `PRE-REMOVAL-STASH-t2-agent` | 0 source files (only `.rcgu.o` binaries) | **DISCARD-CANDIDATE** (tag preserved) — compiler artifacts only |
 | `stash@{4}` | `codex/t1-trifusion-2026-05-16` | `PRE-REMOVAL-STASH-t1-trifusion` | 0 source files (only `.rcgu.o` binaries) | **DISCARD-CANDIDATE** (tag preserved) — compiler artifacts only |
-| `stash@{5}` | `run-b-post-v1-research` | `PRE-REMOVAL-STASH-runB` | 2 files (`a2ui/accordion.rs` +130, `a2ui/carousel.rs` +60) | **PRESERVE-ONLY** — substantive research-tier additions; needs check against merged a2ui canon before reapply |
+| `stash@{5}` | `run-b-post-v1-research` | `PRE-REMOVAL-STASH-runB` | 2 files (`a2ui/accordion.rs` +130, `a2ui/carousel.rs` +60) | **PRESERVE-ONLY** — substantive Pro Research additions; needs check against merged a2ui canon before reapply |
 | `stash@{6}` | `master` | `wip-multi-terminal-recovery: lib.rs + acs_admission/ + docs/falsifiers/` | 1 file (`lib.rs` +1 line `pub mod acs_admission;`) | **DISCARD-CANDIDATE** (tag preserved) — already present in main at line 2 |
 | `stash@{7}` | `master` | `codex-preserve-t17b-lattice-format-before-t12` | 1 file (`lattice_wbo/mod.rs`, formatting tweak only) | **DISCARD-CANDIDATE** (tag preserved) — original file was decomposed into 7 submodules in T17B; target test now lives at `lattice_wbo/tests/serde_roundtrip.rs:794`; formatting tweak no longer applies |
 | `stash@{8}` | `master` | `wip-codex-graph-filters-selected-expansion` | 7 files (Swift + graph-engine), 404+/18- | **PRESERVE-ONLY** — substantive graph filter UX work; user said "i didnt need u messing with the physcsi spring stuff" earlier, so safest to leave behind tag until user decides |

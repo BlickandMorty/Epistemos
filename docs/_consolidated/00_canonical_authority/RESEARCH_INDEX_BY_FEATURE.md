@@ -1,5 +1,7 @@
 # RESEARCH_INDEX_BY_FEATURE.md — Required-reads per build phase
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Authored**: 2026-04-27.
 > **Role**: Maps every implementation phase (T+ slot) and every major feature to the **specific research files on disk** that must be read before that work begins. Agents (Claude builder + Codex auditor) MUST read the listed files before starting a new phase or session, and may pull from this index when they hit something they don't already have context for.
 > **Scope**: ~440 research files on user's disk, organized by topic. Both original locations (`~/Downloads/...`, `~/jojo/...`) and consolidated copies (`docs/_consolidated/50_research_corpus/...`) are listed; either resolves.

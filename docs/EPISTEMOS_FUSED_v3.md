@@ -1,5 +1,7 @@
 # EPISTEMOS — DEFINITIVE BUILD SPECIFICATION v3.0 (FUSED)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Index status**: SUPERSEDED-HISTORICAL — March 28, 2026 comprehensive build spec. Superseded by the current canonical stack: [`docs/architecture/PLAN_V2.md`](architecture/PLAN_V2.md) (architectural authority) + [`docs/MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (operational doctrine + queue) + [`docs/plan/01_DOCTRINE.md`](plan/01_DOCTRINE.md) (14 non-negotiables) + [`docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`](IMPLEMENTATION_PLAN_FROM_ADVICE.md) (4-model council synthesis). Cited in CLAUDE.md "Detailed Docs" — kept for historical archeology of the v3.0 fusion; **not canonical for current execution**. Classified in [`docs/_INDEX.md §9`](_INDEX.md).
 
 ## For Claude Code / Codex / Any Agentic Coding Agent

@@ -4,12 +4,10 @@
 //! same per-role policy table that backs diagnostics. This guard is intentionally
 //! light because the unattended loop must avoid Xcode/full-app test runs.
 
-const RUNTIME_EXECUTOR_SOURCE: &str =
-    include_str!("../../Epistemos/Engine/RuntimeExecutor.swift");
+const RUNTIME_EXECUTOR_SOURCE: &str = include_str!("../../Epistemos/Engine/RuntimeExecutor.swift");
 const CONFIDENCE_ROUTER_SOURCE: &str =
     include_str!("../../Epistemos/LocalAgent/ConfidenceRouter.swift");
-const RUNTIME_ROUTER_SOURCE: &str =
-    include_str!("../../Epistemos/LocalAgent/RuntimeRouter.swift");
+const RUNTIME_ROUTER_SOURCE: &str = include_str!("../../Epistemos/LocalAgent/RuntimeRouter.swift");
 const RUNTIME_LANES_SECTION_SOURCE: &str =
     include_str!("../../Epistemos/Views/Settings/RuntimeLanesSection.swift");
 const INFERENCE_ROUTE_PROFILES_SOURCE: &str =
@@ -199,7 +197,8 @@ fn runtime_lane_settings_hide_internal_stub_lane() {
         );
     }
     assert!(
-        RUNTIME_ROUTER_SOURCE.contains("snapshot.record(.init(role: role, lane: .stub, kind: .reject"),
+        RUNTIME_ROUTER_SOURCE
+            .contains("snapshot.record(.init(role: role, lane: .stub, kind: .reject"),
         "RuntimeRouter may still use .stub internally to group no-lane reject metrics"
     );
 }
@@ -215,7 +214,8 @@ fn diagnostics_route_profiles_delegate_to_runtime_router_table() {
         "InferenceState.routeProfiles must delegate to RuntimeRouter.defaultRouteProfiles"
     );
     assert!(
-        !CONFIDENCE_ROUTER_SOURCE.contains("static func routeProfiles() -> [RouteProfile] {\n        []\n    }"),
+        !CONFIDENCE_ROUTER_SOURCE
+            .contains("static func routeProfiles() -> [RouteProfile] {\n        []\n    }"),
         "ConfidenceRouter.routeProfiles must not regress to the old empty placeholder"
     );
 }

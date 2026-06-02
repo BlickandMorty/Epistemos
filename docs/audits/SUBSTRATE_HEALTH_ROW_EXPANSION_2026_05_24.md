@@ -1,5 +1,7 @@
 # Substrate Health Row Expansion Audit - 2026-05-24
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Terminal: Phase 2 Terminal D' - Substrate Health Panel Row Expansion
 Motion: Project / Compress / Recall (substrate state to Settings surface)
 
@@ -34,13 +36,13 @@ Audit:
 - Read `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`.
 - Read `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md` Terminal D.
 - Inspected the existing Settings health rows, `AnswerPacketEmitter`, W-30
-  doctrine, UAS/ACS artifacts, and unified substrate-health FFI shape.
+  doctrine, UAS/AcsAnchor artifacts, and unified substrate-health FFI shape.
 
 Build:
 - Added claim-kind counters to `AnswerPacketEmitter.Snapshot`.
 - Wired `AnswerPacketHealthRow` to the live snapshot metrics.
 - Added W-30 badge wrapping in `SubstrateHealthPanel`.
-- Added artifact-backed UAS/ACS gate rows.
+- Added artifact-backed UAS/AcsAnchor gate rows.
 - Hardened EML, W-30, and ACS chip-strip color semantics.
 
 Verify:
@@ -50,7 +52,7 @@ Verify:
 - `rustup run stable-aarch64-apple-darwin cargo test --manifest-path
   agent_core/Cargo.toml --lib --quiet`: passed, 4004 tests.
 - `xcrun swiftc -parse` on the changed Swift files: passed.
-- Swift one-shot decoder probes for both UAS/ACS artifact shapes passed:
+- Swift one-shot decoder probes for both UAS/AcsAnchor artifact shapes passed:
   `F-UAS-CopyCount PASS` and `F-ACS-AnchorLookup PASS`.
 - Swift one-shot type probes passed for the multiline `Logger.notice` message
   and `nonisolated struct` helper types.
@@ -67,13 +69,13 @@ Verify:
 
 Harden:
 - EML chip remains orange even if research FFI reports reachable observatory math.
-- UAS/ACS separates falsifier PASS artifacts from production runtime adapter
+- UAS/AcsAnchor separates falsifier PASS artifacts from production runtime adapter
   status.
 - W-30 W4 badges are labeled as weight class only; no Settings badge claims
   policy enforcement.
 - W-30 advisory mode now reports `.partial`, not `.blocked`, because visible
   badge taxonomy is not itself a failed runtime gate.
-- ACS admission substrate chip is green only when the ACS flag is on.
+- SCOPE-Rex admission substrate chip is green only when the legacy ACS flag is on.
 
 Report:
 - Live screenshot was not captured because the app build could not complete
@@ -93,7 +95,7 @@ Report:
 - Witness: `AnswerPacketEmitter.Snapshot`, unified substrate-health FFI JSON,
   `F-UAS-CopyCount` result, `F-ACS-AnchorLookup` result, and linked docs under
   `docs/falsifiers/`.
-- Falsifier: every panel surface carries a falsifier doc link; UAS/ACS also
+- Falsifier: every panel surface carries a falsifier doc link; UAS/AcsAnchor also
   links to per-gate result artifacts.
 - Tier: Settings observability only; no production policy authority or runtime
   mutation is introduced.
@@ -103,7 +105,7 @@ Report:
 ## Seven-Law Check
 
 - Density: no new model/runtime density claim.
-- Address: rows preserve stable falsifier paths and UAS/ACS artifact identifiers.
+- Address: rows preserve stable falsifier paths and UAS/AcsAnchor artifact identifiers.
 - Active-support: 1 Hz polling starts on appear and cancels on disappear.
 - Lattice-error: approximation/accounting rows stay orange unless backed by a
   PASS witness.

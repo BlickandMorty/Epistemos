@@ -66,6 +66,7 @@ enum HomeCommandHapticStyle: Sendable {
     case miniChat
     case document
     case graph
+    case agent
 }
 
 enum HapticHelper {
@@ -133,6 +134,9 @@ enum HapticHelper {
         case .graph:
             perform(.levelChange)
             performDelayed(.levelChange, after: .milliseconds(75))
+        case .agent:
+            perform(.alignment)
+            performDelayed(.generic, after: .milliseconds(70))
         }
     }
 

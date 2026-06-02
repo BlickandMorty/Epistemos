@@ -7,6 +7,13 @@ authority: docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md is the T-prompt 
 
 # Codex / Claude Terminal Dispatch — 2026-05-18
 
+2026-06-01 companion: for any terminal touching local-inference, UAS/AppColdStore,
+active model-state, sparse residency, mmap/SSD transport, dynamic compute, or
+70B-cocktail work, also read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+is an offline/idle discovery lane, not hidden live route authority.
+
 ## §1. Tool assignment rationale
 
 | | Claude Code wins when... | Codex wins when... |
@@ -26,19 +33,19 @@ authority: docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md is the T-prompt 
 | T11 | Agent Runtime v2 / System G | **Claude** | Architectural depth + Aegis-rejection discipline + cross-language |
 | T12 | F-ULP Oracle | **Codex** | Metal kernel + 412k-point fp16 ULP measurement loop |
 | T13 | F-KV-Direct Gate | **Codex** | 100-prompt corpus benchmark on Qwen3-8B-MLX-4bit |
-| T14 | Five-plane UAS-ACS Wiring | **Claude** | Plane-placement nuance + naming-drift discipline |
+| T14 | Five-plane UAS/AcsAnchor Wiring | **Claude** | Plane-placement nuance + naming-drift discipline |
 | T15 | Executor Trait | **Codex** | Rust trait + mock + adapter sketch |
 | T16 | Live File Compiler | **Codex** | 10-state machine + LivePlan.v1 schema |
 | T17 | Cognitive Weight Class Enforcement | **Codex** | Metadata enforcement rules engine |
 | T17B | Lattice / WBO Register | **Codex** | Doc-heavy + lightweight Rust types (no kernels yet) |
 | T18 | Residency Governor + Rail | **Claude** | Rust governor + Swift Settings + memory-tier policy |
-| T18B | ACS Admission Field | **Codex** | Typed policy module + verdict tests |
+| T18B | SCOPE-Rex Admission Field | **Codex** | Typed policy module + verdict tests; legacy branch slug may still say `acs-admission` |
 | T19 | Halo V1 + Eidos Control Vectors | **Claude** | Delicate Halo UI surface; needs restraint |
 | T20 | Variant Ladder Generalization | **Codex** | Mechanical one-route wiring with logged tier choices |
 | T21 | Vault Recall Contract / F-VaultRecall-50 | **Claude** | Cross-language fix + visible UX + Brain Panel diagnostics |
 | T22 | Substrate Health Panel | **Claude** | SwiftUI design + integrating multiple service health signals |
 | T22B | Brain Panel Closed Citations | **Claude** | Chat UX + visible citation truth |
-| T23 | F-70B Local Cocktail | **Codex** | Long-running measurement harness; Research-tier only |
+| T23 | F-70B Local Cocktail | **Codex** | Long-running measurement harness; Pro Research only; PatternBoost-derived routes need L20 gates |
 | T23B | M2 Pro Falsifier Handbook | **Codex** | Catalog-style doc generation |
 | T24 | Lean ClaimLedger Schema Authority | **Claude** | Lean + Rust + Swift schema generation + family-choice judgment |
 | T25 | ACS Naming Reconciliation | **Codex** | Mechanical lint + doc edits |

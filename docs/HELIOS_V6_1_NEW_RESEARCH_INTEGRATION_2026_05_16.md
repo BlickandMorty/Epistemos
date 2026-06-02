@@ -11,6 +11,15 @@
 
 **Status:** CANONICAL — read at session start for every terminal. Owner: Terminal C maintains. Cross-references: `docs/CANONICAL_DOC_INDEX_2026_05_16.md §4` adds this row.
 
+**2026-06-01 supersession:** this V6.1/V6.2 integration remains preserved
+doctrine, but all UAS/AppColdStore, active model-state, sparse residency,
+mmap/SSD, dynamic compute, route-layout, and 70B-cocktail work must now also
+read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+is an offline/idle assembly discovery layer, not live route authority. Promote
+only after repair, sparse fingerprint, held-out replay, lattice abstention,
+ComputeResumeLease, rollback, and AnswerPacket witness evidence.
+
 ---
 
 ## §1. What's NEW vs existing canon
@@ -94,9 +103,9 @@ Implementations:
 - Primary: `mlx-rs = 0.21` locked, features `["metal", "accelerate"]`
 - Fallback: `llama-cpp-2` for GGUF Q4_K_XL when F-LocalToolUse fails
 
-**Mamba-3** (arXiv:2603.15569 March 2026): exponential-trapezoidal discretization · complex-valued state for state tracking · MIMO formulation · RoPE-trick recurrence · +0.6-1.8 pts vs Gated DeltaNet at 1.5B. Research-tier Terminal B.
+**Mamba-3** (arXiv:2603.15569 March 2026): exponential-trapezoidal discretization · complex-valued state for state tracking · MIMO formulation · RoPE-trick recurrence · +0.6-1.8 pts vs Gated DeltaNet at 1.5B. Pro Research Terminal B.
 
-**Falcon-Mamba 7B** (arXiv:2410.05355): pure SSM · 5.8T tokens · Open LLM Leaderboard #1 SSLM at release. Pro-tier alternative.
+**Falcon-Mamba 7B** (arXiv:2410.05355): pure SSM · 5.8T tokens · Open LLM Leaderboard #1 SSLM at release. Pro alternative.
 
 **Phi-4-mini-flash** (arXiv:2507.06607): SambaY decoder-hybrid-decoder · GMU · up to 10× decoding throughput · 64k context. Inspiration.
 
@@ -154,7 +163,7 @@ When interrupt-logic fails: emit `STATIC_FALLBACK_ACKNOWLEDGED` ClaimKind → Re
 **Codex CLI** (Apache 2.0, Rust): already-Rust — vendor `codex-core` as dependency OR learn line-by-line:
 - `SandboxPolicy` → CLI args → helper-binary subprocess pattern
 - macOS Seatbelt sandbox · Linux Landlock + seccomp
-- Functions as MCP server via `codex mcp-server` — clean Pro-tier integration
+- Functions as MCP server via `codex mcp-server` — clean Pro build integration
 
 **Anthropic Agent SDK** (proprietary): DO NOT port. Re-implement the 600-LoC loop:
 - `messages.create` → if `stop_reason == "tool_use"` → execute tool → append `tool_result` → loop
@@ -179,7 +188,7 @@ Why:
 
 **Owner:** Terminal A sharpens §0 immutable rule 6 to make this explicit.
 
-### §1.8 Research-tier theorem hunts (Terminal B Wave J extensions)
+### §1.8 Pro Research theorem hunts (Terminal B Wave J extensions)
 
 Publishable side-quests with M2-Pro-runnable falsifiers:
 
@@ -192,9 +201,9 @@ Publishable side-quests with M2-Pro-runnable falsifiers:
 | **T-Geometric-Lowering** — metric/connection data lowers preserving geodesic + parallel-transport | F-Geo (2D Riemannian surface · geodesic integrator · parallel-transport drift bound) | <1 day | Journal of Geometry & Physics |
 | **T-Sparse-Active-Assembly** — defined sparse subset reproduces dense execution within bounded drift | F-Sparse-Runtime-Split (Granite 3B 4-bit · ≤5% logit-KL on 1000-prompt suite) | 1 week | ICLR 2027 |
 | **T-Lean-Schema-Authority** — Lean = single source of truth for IR schema + proof obligations + ClaimLedger | F-Lean-End-to-End (one theorem family · Rust type · Swift type round-trip) | 2 weeks | CAV / TACAS |
-| **T-Substrate-Independence** — BZ + sandpile + Kuramoto match silicon-LLM AR(1) Hadamard residual variance bound | F-BZ-Substrate-Independence (≤$250 BZ kit · pre-registered KL envelope) | research-tier | Foundations of Physics / PRL |
+| **T-Substrate-Independence** — BZ + sandpile + Kuramoto match silicon-LLM AR(1) Hadamard residual variance bound | F-BZ-Substrate-Independence (≤$250 BZ kit · pre-registered KL envelope) | Pro Research | Foundations of Physics / PRL |
 
-### §1.9 Additional research-tier anchors (Terminal B references)
+### §1.9 Additional Pro Research anchors (Terminal B references)
 
 - **Test-Time Regression** unification (Wang-Shi-Fox arXiv:2501.12352, v3 2025-05-02) — unifies linear attention · SSMs · fast-weight programmers · online learners · softmax attention as test-time regression parameterized by `(regression weights, regressor function class, optimization algorithm)`. Strongest public theoretical anchor for `LatticeCoder + TestTimeRegressor` traits.
 - **DoRA** (Liu et al. arXiv:2402.09353, ICML 2024 Oral) — magnitude/direction weight decomposition · right PEFT primitive for M2 Pro fine-tuning.
@@ -270,14 +279,14 @@ uniffi = "=0.28"
 
 **The third Verified Floor gate. The user's actual end-game vision.** Composes seven independently-known techniques into one falsifiable claim: a 70B-class LLM runs on M2 Pro 16 GB with acceptable quality + latency.
 
-**The load-bearing primitive: Unified Address Space (UAS).** Per `docs/_consolidated/50_research_corpus/mass_research/Architectural Hardening_ Total Victory Plan.md` (verified in tree): Swift app code + Rust agent_core + Metal compute shaders + MLX inference + KV cache + HNSW vector index + mmap'd model weights ALL share ONE address space via IOSurface zero-copy. No IPC. No marshaling. No data copies between Swift ↔ Rust ↔ Metal ↔ MLX. When sparse activation routing fires the 5-10% of neurons needed for the current token, those neurons are pulled instantaneously from SSD into UMA — no syscall, no memcpy, just a page fault that macOS handles transparently.
+**The load-bearing primitive: Unified Address Space (UAS).** Per `docs/_consolidated/50_research_corpus/mass_research/Architectural Hardening_ Total Victory Plan.md` (verified in tree): Swift app code + Rust agent_core + Metal compute shaders + MLX inference + KV cache + HNSW vector index + mmap'd model weights are addressed through one substrate coordinate system where the platform permits zero-copy paths. No IPC or marshaling in the hot path; explicit Swift ↔ Rust ↔ Metal ↔ MLX copies must be budgeted and justified. Sparse activation routing should promote the 5-10% of neurons needed for the current token before execution needs them. SSD latency does not disappear; the planner must hide it through active-support prediction, mmap/VM residency, and narrow hot patches.
 
 **This is the user's "dormant brain neuron pull" concept made concrete:**
 - 70B weights live on SSD (mmap'd, NF4-quantized, ~14 GB)
 - Only the active subset (~5-10% per token) is "awake" in UMA at any moment
-- The "wake-up" is a page-fault, served by macOS virtual memory at NVMe speed (~5 GB/s)
+- The "wake-up" is an mmap-backed residency or prefetch event; page faults are tolerated only as planner misses and remain NVMe-bound
 - Combined with sparse-active-assembly routing → 70B behaves like a sparse-MoE expert system with bounded RAM cost
-- ACS Kuramoto cellular resonance (`acs_meta_layer.md`) coordinates which subsets fire when, providing the temporal coherence
+- KuramotoSync / ResonanceSync cellular resonance (`acs_meta_layer.md`) is the Pro Research candidate for temporal coherence across active subsets
 
 **The cocktail's seven techniques (each individually known, composition not yet empirically verified):**
 
@@ -287,7 +296,7 @@ uniffi = "=0.28"
 | 2 | **Hybrid SSM 9:1 layer mix** | Granite-4.0-H-Micro (IBM, Apache 2.0, ISO 42001) · Mamba-2 SSD framework arXiv:2405.21060 | EV (Granite ships, MLX support confirmed) |
 | 3 | **L3 SSD Oracle (KV mmap)** | F-KV-Direct-Gate §1.12 · Qasim et al. arXiv:2603.19664 | substrate EV · gate experiment EB |
 | 4 | **Sparse-Active-Assembly routing** | Goodfire VPD/SPD arXiv:2506.20790 · Buzsáki cell assemblies | EB (Goodfire numerics PUBLIC-CONFIRMED 2026-05-16) |
-| 5 | **ACS Kuramoto cellular resonance** | `acs_meta_layer.md` (Maturana-Varela + Stafford Beer VSM + SiliconSwarm 6.31× speedup) · `epistemos-research/src/acs.rs` (190 LOC scaffolding) | C (full ACS); anchor substrate EV |
+| 5 | **KuramotoSync / ResonanceSync cellular resonance** | `acs_meta_layer.md` (Maturana-Varela + Stafford Beer VSM + SiliconSwarm 6.31× speedup) · `epistemos-research/src/acs.rs` (190 LOC legacy AcsAnchor scaffolding) | C (full resonance); anchor substrate EV |
 | 6 | **Speculative decoding** (3B draft + 70B verify) | `BACKEND_INTERFACE_SPEC_v1.md` · mistral.rs + Candle reference | EV in candle; EB in our stack |
 | 7 | **ANE delegation** (attention layers via `_ANEClient`) | Apple private framework + Pro entitlement `cs.disable-library-validation` | EB (Pro-only) |
 | 8 | **Network Cascade L5** (cloud fallback for outliers) | Foundation Doc Part X · Hermes-4-405B cloud · D_KL > 0.1 nats trigger | PARTIAL (cloud providers wired, cascade routing NOT-STARTED) |
@@ -319,7 +328,7 @@ uniffi = "=0.28"
 
 **Honest caveats (per §1.10 discipline):**
 - Composition of 7-8 independently-known techniques into one working system is the C (conjecture). Each component is P or EV individually.
-- ACS Kuramoto cellular resonance is research-tier; full implementation is V2 / new-repo territory
+- KuramotoSync / ResonanceSync cellular resonance is Pro Research; full implementation is V2+ / future substrate territory
 - ANE delegation requires Pro Developer ID build (already unlocked per paid Apple Developer Program)
 - 70B model weights themselves require user to download separately — substrate doesn't bundle them
 - Apple Intelligence convergence risk: Apple's on-device model may ship competing memory architecture first
@@ -328,7 +337,7 @@ uniffi = "=0.28"
 **Status tags:**
 - UAS substrate (zero-copy FFI + HNSW + usearch) = **EV** (in tree per Architectural Hardening Total Victory Plan)
 - AcsAnchor scaffolding = **EV** (190 LOC in `epistemos-research/src/acs.rs`)
-- Full ACS Kuramoto cellular resonance = **C** (research-tier)
+- Full KuramotoSync / ResonanceSync cellular resonance = **C** (Pro Research)
 - BitNet b1.58 on 70B-class model = **EB** (smaller models proven; 70B class needs verification)
 - 7-axis cocktail composing into working 70B local = **C** (the whole point of the gate)
 - MAS-shippable post-gate = **C** (conditional on gate passing)
@@ -359,7 +368,7 @@ Three Apple-Silicon-specific techniques stacked:
 **The research claim being tested:** KV-Direct (Qasim et al. arXiv:2603.19664) — *the residual stream is bit-identical sufficient*. Means: keep most KV cache cold on SSD; swap in small residual deltas to reproduce model output AS IF the full KV were hot.
 
 **Substrate state (verified 2026-05-16):**
-- ✅ `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — Tier-1 BIT-IDENTICAL contract shader, landed commit `99cab68c1` (HELIOS-V5-W6+W7+W8) · refined commit `b970f98fe`
+- ✅ `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — Phase-1 BIT-IDENTICAL contract shader, landed commit `99cab68c1` (HELIOS-V5-W6+W7+W8) · refined commit `b970f98fe`
 - ✅ `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Rust reference with `direct_path_eligible()` predicate + 7 eligibility tests
 - ✅ `agent_core/src/scope_rex/kv/mod.rs` — module entry registered
 - ❌ End-to-end harness — **NOT-STARTED** (this is what Phase B.0-KV ships)
@@ -423,7 +432,7 @@ Three Apple-Silicon-specific techniques stacked:
 - B.0.5: Verify Lean toolchain pin against public mathlib
 - B.0.6: **GATE — AnswerPacket schema freeze blocked until B.0.4 passes**
 
-**Phase B.1 J-tier additions:**
+**Phase B.1 J-series / Pro Research additions:**
 - J10 Mamba-3 (arXiv:2603.15569) — exponential-trapezoidal · complex-state MIMO · RoPE-trick
 - J11 Test-Time Regression unification (arXiv:2501.12352) — theoretical anchor for `LatticeCoder + TestTimeRegressor`
 - J12 RWKV-7 "Goose" (arXiv:2503.14456) — vault candidate
@@ -470,7 +479,7 @@ Add to `docs/CANONICAL_DOC_INDEX_2026_05_16.md §4`:
 - D.2.8 (NEW) Granite-4.0-H-Micro → `LocalMlxExecutor::granite_h_micro` — tool-use-reliable backbone routing for `ClaimKind::ToolCall`
 - D.2.9 (NEW) Qwen3-8B-MLX-4bit → `LocalMlxExecutor::qwen3_8b` — Lane-E "mouth" routing for prose
 - D.2.10 (NEW) Falcon-Mamba 7B → `LocalMlxExecutor::falcon_mamba` (Pro alternative)
-- D.2.11 (NEW) Mamba-3 → `LocalMlxExecutor::mamba3` (research-tier)
+- D.2.11 (NEW) Mamba-3 → `LocalMlxExecutor::mamba3` (Pro Research)
 - D.2.12 (NEW) Ollama HTTP → `OllamaHttpExecutor`
 - D.2.13 (NEW) LM Studio HTTP → `LmStudioHttpExecutor`
 
@@ -509,13 +518,13 @@ Add to `docs/CANONICAL_DOC_INDEX_2026_05_16.md §4`:
 
 ### Terminal F — external integrations (Phase F.7-F.8 NEW)
 
-**Phase F.7 (NEW)**: Codex CLI as MCP server (Pro tier)
+**Phase F.7 (NEW)**: Codex CLI as MCP server (Pro build)
 - F.7.1 `epikernel-codex-bridge` crate (Pro-only · `cfg(feature = "pro")`)
 - F.7.2 `codex mcp-server` mode integration
 - F.7.3 MCP-over-stdio protocol loop emitting `ExecutorEvent`
 - F.7.4 Tests: tool list cache · ping batching · cross-process call latency
 
-**Phase F.8 (NEW)**: Claude Code as MCP server (Pro tier) + ACP layer
+**Phase F.8 (NEW)**: Claude Code as MCP server (Pro build) + ACP layer
 - F.8.1 `claude-code mcp-server` mode integration (same pattern as F.7)
 - F.8.2 ACP (Agent Client Protocol) layer per Goose's bidirectional Client+Server framing
 - F.8.3 Treat Codex CLI / Claude Code as upstream "provider" agents over ACP
@@ -529,7 +538,7 @@ Add to `docs/CANONICAL_DOC_INDEX_2026_05_16.md §4`:
 3. **Thursday-Friday**: Terminal D Phase D.2.8 — Granite-4.0-H-Micro `LocalMlxExecutor` + F-LocalToolUse verification. Terminal D Phase D.7 — SWE-agent ACI tool bundle start.
 4. **Week 2**: Terminal D Phase D.8 — Aider repo-map. Terminal F Phase F.7 — Codex CLI as MCP server.
 5. **Weeks 3-4**: Terminal B Phase B.6.15 — Tropical-affine theorem hunt. Terminal B Phase B.6.16 — Action-to-EML killer demo.
-6. **Weeks 5-8**: Terminal B Wave J research-tier hunts. Terminal D Phase D.10 — dual-backend MLX hardening.
+6. **Weeks 5-8**: Terminal B Wave J Pro Research hunts. Terminal D Phase D.10 — dual-backend MLX hardening.
 
 ---
 

@@ -1,5 +1,7 @@
 # Day in the Life — Epistemos V1 Power User Scenario (2026-05-16)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Purpose:** concrete narrative grounding every V1-shipped UAS-ACS-touching surface in one user's actual day. Per the 4-advisor synthesis: **the canon has coverage + a coherence layer (UAS-ACS Canon) + a ship classification (V1 Ship Ledger); this artifact closes the trio by showing what it FEELS like to use.**
 
 **Audience:** anyone who needs to understand "does the V1 substrate actually compose into a coherent product?" Designers, App Reviewers, future maintainers, the user themselves on a hard day, and any AI agent (Claude, Codex, Kimi) that needs to ground abstract architecture in lived experience.

@@ -1,5 +1,7 @@
 # Epistemos V6.2 Laptop Manual Audit Checklist
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 VERDICT: GREEN_FOR_CURRENT_SLICE_NOT_RELEASE_READY
 
 This ledger records the current laptop evidence for the non-compromise Helios route. It is not a final release sign-off. It proves that the current Epistemos build expresses the canon honestly, compiles on Jojo's laptop, and keeps unimplemented V6.1/V6.2 kernels classified as targets until real kernel files and M2 Pro falsifiers pass.

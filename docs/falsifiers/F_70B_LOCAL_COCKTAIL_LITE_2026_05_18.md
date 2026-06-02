@@ -5,6 +5,8 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 status: PREFLIGHT FAILURE REPORT IMPLEMENTED
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-70B-Local-Cocktail-Lite
 
 Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md).
@@ -12,19 +14,19 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Field | Value |
 |---|---|
 | Purpose | Prove the 70B-class local cocktail composes enough to identify whether the capability ceiling is real on the M2 Pro floor, without presenting it as a product feature. |
-| Current status | PREFLIGHT FAILURE REPORT IMPLEMENTED. `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now emits a schema-valid failure artifact and validates it. No local 70B product claim exists yet: the harness records missing model/reference/runtime gates until prompt-level measurements replace the sentinel values. Active Assembly, Sparse Runtime Split, and UAS/ACS mmap residency now contribute component artifacts, but none replace the missing local 70B weights and live sparse 70B runtime. |
+| Current status | PREFLIGHT FAILURE REPORT IMPLEMENTED. `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now emits a schema-valid failure artifact and validates it. No local 70B product claim exists yet: the harness records missing model/reference/runtime gates until prompt-level measurements replace the sentinel values. Active Assembly, Sparse Runtime Split, and UAS/AcsAnchor mmap residency now contribute component artifacts, but none replace the missing local 70B weights and live sparse 70B runtime. |
 | Input fixture | 70B-class candidate set such as Llama-3.3-70B, Qwen2.5-72B, or Hermes-4-70B; 50-prompt suite covering MMLU-Pro subset, HumanEval, long-context reasoning, and multi-turn coherence; cloud/fp16 reference path; sparse local path using ternary/BitNet, hybrid SSM, KV-Direct, PageGather, active assembly, speculative decoding, and optional cascade. |
 | Pass threshold | On Jojo's M2 Pro 14-inch 2023, 16 GB UMA, approximately 200 GB/s memory bandwidth: D_KL < 0.1 nats versus fp16/cloud reference, decode >= 5 tok/s, TTFT <= 30 s on a 4k prompt, resident memory < 14 GB, first run <= 2 h, and warm-cache run <= 30 min; any miss must identify the bottleneck. |
 | Failure meaning | The 70B local-cocktail composition does not hold on the real floor, or the bottleneck is unknown; no local 70B product, marketing, or architecture-ceiling claim may ship. |
-| Fallback route | Publish the fail report and pivot to the next strongest cocktail, likely Granite-4.0-H-Micro plus Network Cascade for large-model outliers; keep 70B paths Vault/Research-only. |
-| Product lane | Capability Ceiling / Vault-Research only; never MAS/user-facing until the composition artifact passes and product policy is revisited. |
+| Fallback route | Publish the fail report and pivot to the next strongest cocktail, likely Granite-4.0-H-Micro plus Network Cascade for large-model outliers; keep 70B paths Pro Vault-Preserved / Pro Research only. |
+| Product lane | Capability Ceiling / Pro Vault-Preserved / Pro Research only; never MAS/user-facing until the composition artifact passes and product policy is revisited. |
 | Exact command | `Tools/falsifiers/f_70b_local_cocktail_lite.sh` |
 | Expected artifact | `artifacts/falsifiers/70b_local_cocktail_lite/result.json` with prompt-level D_KL, TTFT, tok/s, RSS, cache state, component bottleneck, and next-best-cocktail recommendation. |
 
 ## Canon Anchors
 
 - MASTER_FUSION: [§1 local-computer thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) and [§3 claim 2 honest capability gating](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because the 70B cocktail is ceiling research until the local floor proves it.
-- Unified Active Substrate Canon: [§4 Terminal B prompt cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map) and [§5 MAS-first sort](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#5-v1--v1x--v2--never-ships-sort), which keep this gate Vault/Research-only.
+- Unified Active Substrate Canon: [§4 Terminal B prompt cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map) and [§5 MAS-first sort](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#5-v1--v1x--v2--never-ships-sort), read through the current UAS/AcsAnchor naming split, which keeps this gate Pro Vault-Preserved / Pro Research only.
 
 ## Failure Criterion
 
@@ -46,7 +48,7 @@ It writes `artifacts/falsifiers/70b_local_cocktail_lite/result.json` and then
 runs `agent_core::falsifier_validator` against the artifact. The harness exits
 non-zero while the falsifier is still a failure report, but the artifact itself
 is schema-valid and names the current bottleneck. This is the guardrail the
-70B/ACS/UAS ceiling needs: every future improvement must move a named axis from
+70B/UAS/AcsAnchor ceiling needs: every future improvement must move a named axis from
 sentinel/failure to measured/pass instead of lowering the dense MLX memory gate.
 It also carries `active_assembly_artifact_available` and
 `eml_geometry_scan_chart_coverage_available` so the
@@ -63,7 +65,7 @@ Environment inputs reserved for the real prompt-level run:
   local-vs-hosted retention/data-class rules.
 
 Until those are present and the sparse 70B runtime is wired, this gate remains
-Vault/Research-only.
+Pro Vault-Preserved / Pro Research only.
 
 ## 2026-05-28 Route Kernel
 
@@ -98,7 +100,7 @@ rows exist.
 
 - `uas_acs_mmap_residency_artifact_available=true`
 
-That axis only proves file-backed UAS/ACS residency. It does not prove live
+That axis only proves file-backed UAS/AcsAnchor residency. It does not prove live
 70B token generation, residual-patched KV spill, or model-quality parity.
 
 Additional live env input reserved for promotion:

@@ -235,7 +235,6 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             )
             let rootView = HTMLWorkspaceDocumentRoot(package: binding)
             let hostingController = NSHostingController(rootView: rootView)
-            hostingController.sceneBridgingOptions = [.all]
 
             let contentController: NSViewController
             if let uiState = AppBootstrap.shared?.uiState {
@@ -247,12 +246,20 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 contentController = hostingController
             }
 
-            let window = NSWindow(contentViewController: contentController)
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1180, height: 720),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentViewController = contentController
             window.title = self.package.manifest.title.isEmpty
                 ? "HTML Workspace"
                 : self.package.manifest.title
-            window.setContentSize(NSSize(width: 1180, height: 720))
             window.minSize = NSSize(width: 520, height: 360)
+            window.center()
+            window.isReleasedWhenClosed = false
+            window.isRestorable = false
             window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable, .fullSizeContentView])
             window.tabbingMode = .preferred
             window.tabbingIdentifier = NoteWindowManager.noteTabbingIdentifier

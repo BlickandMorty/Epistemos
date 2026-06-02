@@ -5,6 +5,16 @@
 **Scope:** Single congregated doc covering every concept across deterministicapp, Helios v2/v3/v5/v6.1/v6.2, SCOPE-Rex, ACS, Halo, Quick Capture, hybrid deterministic schemas, EML, ternary, Kimi deep research, GPT research, and every doctrine doc — pointing to each source so nothing drifts away again.
 **Pair file:** `docs/CODEX_HANDOFF_2026_05_13_CHAT_TOOL_PARITY.md` — read after this one.
 
+**2026-06-01 supersession:** this remains a preservation atlas, not the final
+authority for current local-inference/residency work. For UAS/AppColdStore,
+active model-state, sparse residency, mmap/SSD, dynamic compute, route-layout,
+or 70B-cocktail claims, read `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`,
+`docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`,
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+derived policies are Pro Research until repair, sparse fingerprint, held-out
+replay, abstention, rollback, and witness gates pass.
+
 ---
 
 ## 0. Why this doc exists
@@ -136,7 +146,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **τ ternary state** (-1 contradicted / 0 pending / +1 verified) | resonance docs | MATCHES | `tau.rs` |
 | **τ Kleene K3 truth-table operators — `Truth::{not,and,or}` (B2-M7)** | `agent_core/src/resonance/tau.rs:27-65` + doctrine §4.1 pillar 1 + `docs/fusion/jordan's research/kimis deep research/ternary_spectral_architecture.md` §2.2 | MATCHES — full K3 operators shipped (`not` complements, `and` False-absorbing + Unknown-propagating, `or` True-absorbing + Unknown-propagating) | `tau.rs:27-65` |
 | **Kleene K3 epistemic-honesty invariant — Unknown is load-bearing, never collapses to bool (B2-M7)** | `tau.rs:1-8` doctrine note: "Unknown is load-bearing — collapsing to bool would lose the distinction between 'we have evidence against' (False) and 'we haven't accumulated evidence yet' (Unknown), which downstream consumers (Evidence Supremacy Protocol, Sovereign Gate) depend on." | MATCHES — invariant enforced by enum shape (no `From<Truth> for bool` impl) | `tau.rs` |
-| **Belnap FDE 4-valued extension — research-tier (Both/Contradictory beyond K3)** | Belnap 1977 *A Useful Four-Valued Logic*; ternary_spectral_architecture §2.2 footnote — handles concurrent-contradictory evidence by promoting Unknown to Both rather than collapsing to False | NOT-STARTED (V1 ships K3 only; Belnap is research-tier extension when concurrent-contradictory evidence stream is operationalized) | — |
+| **Belnap FDE 4-valued extension — Pro Research (Both/Contradictory beyond K3)** | Belnap 1977 *A Useful Four-Valued Logic*; ternary_spectral_architecture §2.2 footnote — handles concurrent-contradictory evidence by promoting Unknown to Both rather than collapsing to False | NOT-STARTED (V1 ships K3 only; Belnap is Pro Research extension when concurrent-contradictory evidence stream is operationalized) | — |
 | **π Kleene K3 claim classifier (9 classes)** | `helios v5 first.md` (Verified-Empirical/Mathematical/CodeInvariant, Plausible-Empirical/Causal, Speculative, Refuted-Empirical/Mathematical, Blocked-Safety) | PARTIAL (5-arm shipped, 9-arm doctrine target) | `pi.rs` |
 | **λ residency band** | `scope rex.md` Orthogonal Residency | PARTIAL | `lambda.rs` |
 | **5 directional operators** (Up/Down/Sideways/Inward/OnItself) on the claim graph | `ternary_reconceptualization.md`, `eml_universal_operator.md` | NOT-STARTED | — |
@@ -183,7 +193,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **Markov blanket** as computational boundary; **ViableSystem** trait | `acs_meta_layer.md` | NOT-STARTED |
 | **HealingAction** struct (diagnosis / prescription / prognosis / rollback / Z3 proof obligation) | `acs_meta_layer.md` | NOT-STARTED |
 | **MAPE-K loop**, MRAC, STR, Lyapunov certificate, Control Barrier Function | `meta_homeostasis.md` | doctrine; some maps to OverseerProtocol |
-| **Three-factor plasticity** (pre × post × modulator) as universal learning rule analog of EML | `eml_universal_operator.md`, `meta_homeostasis.md` | research-tier |
+| **Three-factor plasticity** (pre × post × modulator) as universal learning rule analog of EML | `eml_universal_operator.md`, `meta_homeostasis.md` | Pro Research |
 | **B2-M13 doctrine anchor — Rust substrate at `epistemos-research/src/acs.rs` (190 LOC, Lane 3 RESEARCH-ONLY)** | `acs.rs:1-25` doctrine comment + `HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md §M` + `source_docs/CMS_v2_Final_Definitive.md` | PARTIAL — substrate types lifted to research crate (uses `crate::five_planes::RuntimePlane` + `crate::theorem_status::FOUNDATIONAL_SEVEN`); NEVER ships in MAS per `acs.rs:17` doctrine comment. PR-discipline: any change to ACS code in `acs.rs` MUST update this row + the row above in lockstep per the B2-M12-established alignment discipline. |
 | **Naming-drift disambiguation (B2-M13)** — audit row B2-M13 in PASS 2 calls this primitive **Autopoietic Cognitive Stack** (per `acs_meta_layer.md` + `meta_homeostasis.md` original framing). HELIOS V5 preservation package (`CMS_v2_Final_Definitive.md` + `acs.rs:17`) renamed it to **Anchored Cognitive Substrate** — same acronym, different expansion. The HELIOS V5 name is the **code-canonical** expansion. The "Autopoietic Cognitive Stack" framing remains the doctrinal lineage citation; the "Anchored Cognitive Substrate" framing is what the Lane 3 research crate compiles. They describe the same primitive — recursion + autopoiesis + anchoring — from different framings (process vs structure). | naming convention + audit reference | doctrine alignment |
 | **Cross-references** — `docs/RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` (B2-H9 Beer VSM doctrine pointer, landed iter 21) treats ACS Beer-VSM-S1-S5 axis as one of ACS's six recursive anchors; §4 in that doc explicitly disambiguates VSM (5 systems, no oscillator coupling) from ACS (7 scales, Kuramoto-coupled). | `RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` lines 15, 41, 86, 89 | doctrine cross-link |
@@ -322,7 +332,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **App Group `group.com.epistemos.shared`** | `Epistemos-AppStore.entitlements` header | TEMP-FREE-TIER REMOVED (paid-team-gated restoration) |
 | **`arena.dat` file-backed mmap in App Group container** | `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md`, `plan.md` | NOT-STARTED |
 
-### 3.20 NeMoCLAW / OpenCLAW multi-claw (research-tier MAS)
+### 3.20 NeMoCLAW / OpenCLAW multi-claw (Pro Research MAS)
 
 | Concept | Source | Status |
 |---|---|---|
@@ -339,7 +349,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **Capability-grant HMAC tokens + zero-copy arena IPC + mach-port signaling** | `hermes_gateway_architecture.md`, `plan.md` | NOT-STARTED |
 | **VaultGatedSwarm** (vault unlock spawns agents; lock kills all) | `epistemos_mas_release.md`, `epistemos_capstone_unified.md` | NOT-STARTED |
 
-### 3.21 Ternary core (research-tier V3)
+### 3.21 Ternary core (Pro Research V3)
 
 | Concept | Source | Status |
 |---|---|---|
@@ -360,19 +370,19 @@ The six-tier table below is the **solution space** — each tier is a different 
 
 | Concept | Source | Status |
 |---|---|---|
-| **OSFT** (Sculpting Subspaces; SVD top-k preserved + complementary trainable; sequential SVD recompute; ~20 tasks before saturation) | `osft_deep_research.md`, `osft_psoft_coso_fusion.md`, `EPISTEMOS_FINAL_DOCTRINE` Annex A.6 | research-tier; NOT-COMPATIBLE with 4-bit/8-bit (use **OFTv2** for 4-bit NF QLoRA path) |
-| **PSOFT** (Principal Subspace OFT; Cayley parameterization; r(r-1)/2 + 2r params; bf16/bf32 only) | `psoft_deep_research.md`, `osft_psoft_coso_fusion.md` | research-tier |
-| **coSO** (Continuous Subspace Optimization; Frequent Directions sketching; replaces 60-120 s SVD recompute) | `coso_deep_research.md`, `osft_psoft_coso_fusion.md` | research-tier |
-| **OFTv2** (4-bit NF QLoRA-compatible orthogonal fine-tuning) — the real path for QLoRA | `osft_psoft_coso_fusion.md` | research-tier |
-| **QDoRA / LoftQ / QA-LoRA / PiSSA** (red-team alternatives) | `redteam_qlora_alternatives.md` | research-tier |
-| **DSC (Dynamic Subspace Composition)** (magnitude-gated simplex over PSOFT_k) | `osft_psoft_coso_fusion.md` | research-tier |
+| **OSFT** (Sculpting Subspaces; SVD top-k preserved + complementary trainable; sequential SVD recompute; ~20 tasks before saturation) | `osft_deep_research.md`, `osft_psoft_coso_fusion.md`, `EPISTEMOS_FINAL_DOCTRINE` Annex A.6 | Pro Research; NOT-COMPATIBLE with 4-bit/8-bit (use **OFTv2** for 4-bit NF QLoRA path) |
+| **PSOFT** (Principal Subspace OFT; Cayley parameterization; r(r-1)/2 + 2r params; bf16/bf32 only) | `psoft_deep_research.md`, `osft_psoft_coso_fusion.md` | Pro Research |
+| **coSO** (Continuous Subspace Optimization; Frequent Directions sketching; replaces 60-120 s SVD recompute) | `coso_deep_research.md`, `osft_psoft_coso_fusion.md` | Pro Research |
+| **OFTv2** (4-bit NF QLoRA-compatible orthogonal fine-tuning) — the real path for QLoRA | `osft_psoft_coso_fusion.md` | Pro Research |
+| **QDoRA / LoftQ / QA-LoRA / PiSSA** (red-team alternatives) | `redteam_qlora_alternatives.md` | Pro Research |
+| **DSC (Dynamic Subspace Composition)** (magnitude-gated simplex over PSOFT_k) | `osft_psoft_coso_fusion.md` | Pro Research |
 | **Forensic correction**: Annex A.6 of `EPISTEMOS_FINAL_DOCTRINE` says "use QOFT/QDoRA/QPiSSA, NOT OSFT/PSOFT/coSO with QLoRA" | doctrine | DOCTRINE |
-| **HCache** (1.93× TTFT, 5.73× vs recompute) + **KVCrush** (4× cache, <1% accuracy drop) + **MiniKV** (2-bit, 86% compression, >98.5% accuracy) + **TurboQuant** (≥6× KV reduction, 3-bit no-train) | `scope_rex_final_architecture.md`, `scope rex.md` | research-tier |
-| **MLA (Multi-Head Latent Attention) + TransMLA retrofit** — DeepSeek's low-rank KV compression with **decoupled RoPE**. Projects K/V to a much smaller latent space `c_kv` (typically 4-16× compression vs full K/V cache), then reconstructs per-head K/V via per-head down-projections at attention time. Decoupled RoPE = positional encoding stays on the un-projected query path so latent K/V is rotation-invariant and reusable across positions. **TransMLA retrofit** = the technique for converting an existing MHA / GQA / MQA model to MLA via QK-OV decomposition without full retraining (paper-cited as "TransMLA"). Composes orthogonally with KIVI/MiniKV/TurboQuant — those compress the cache *values*, MLA changes the *representation* the cache stores. **Apple Silicon implication**: 4-16× KV reduction enables longer context windows within the V1 16GB hardware lock without per-step quantize/dequantize cost. **NOT-STARTED in code** — `rg "MLA|TransMLA|MultiHeadLatentAttention"` returns zero hits across `agent_core/src/` + `Epistemos/`. Source: `docs/fusion/jordan's research/uasa.agent.final.md §3.3` + PASS 1 H-8. | `uasa.agent.final.md §3.3` + PASS 1 H-8 | research-tier (NOT-STARTED) |
-| **Titans-MAC** + **SEAL-DoRA** + immutable Qwen3-8B base | `helios v3.md` | research-tier |
-| **Universal Plasticity Gate** Δw = η · sgn(z_pre) · relu_θ(z_post) · sgn(δ) | `epistemos_final_master_specification.md` | research-tier |
-| **Never Retrain** framework (frozen base + Fast Weights + LoRA bank + CountSketch gradient archive) | `continual_learning_online.md` | research-tier |
-| **GRPO (Group-Relative Policy Optimization)** — local RL training path with **rule-based rewards** on Apple Silicon. Per `docs/fusion/jordan's research/uasa.agent.final.md §6.2.3`: groups multiple sampled trajectories per prompt, scores each against a rule-based reward function (no human-preference dataset needed), computes group-relative advantages, updates via policy gradient. MLX-Swift pseudocode in the source spec. **Pairs with OFTv2 QLoRA path** (line 352) — OFTv2 provides the parameter-efficient adapter, GRPO provides the rule-based-reward signal that drives the adapter updates. Distinct from supervised fine-tuning (no labeled targets) and from RLHF (no reward model). Currently name-dropped at `agent_core/src/scope_rex/residency.rs:81` as a "GRPO prior distilled into the policy gradient" but **NOT-STARTED in actual training infra**. PASS 1 H-7. | `uasa.agent.final.md §6.2.3` + scope_rex residency.rs:81 + PASS 1 H-7 | research-tier (NOT-STARTED) |
+| **HCache** (1.93× TTFT, 5.73× vs recompute) + **KVCrush** (4× cache, <1% accuracy drop) + **MiniKV** (2-bit, 86% compression, >98.5% accuracy) + **TurboQuant** (≥6× KV reduction, 3-bit no-train) | `scope_rex_final_architecture.md`, `scope rex.md` | Pro Research |
+| **MLA (Multi-Head Latent Attention) + TransMLA retrofit** — DeepSeek's low-rank KV compression with **decoupled RoPE**. Projects K/V to a much smaller latent space `c_kv` (typically 4-16× compression vs full K/V cache), then reconstructs per-head K/V via per-head down-projections at attention time. Decoupled RoPE = positional encoding stays on the un-projected query path so latent K/V is rotation-invariant and reusable across positions. **TransMLA retrofit** = the technique for converting an existing MHA / GQA / MQA model to MLA via QK-OV decomposition without full retraining (paper-cited as "TransMLA"). Composes orthogonally with KIVI/MiniKV/TurboQuant — those compress the cache *values*, MLA changes the *representation* the cache stores. **Apple Silicon implication**: 4-16× KV reduction enables longer context windows within the V1 16GB hardware lock without per-step quantize/dequantize cost. **NOT-STARTED in code** — `rg "MLA|TransMLA|MultiHeadLatentAttention"` returns zero hits across `agent_core/src/` + `Epistemos/`. Source: `docs/fusion/jordan's research/uasa.agent.final.md §3.3` + PASS 1 H-8. | `uasa.agent.final.md §3.3` + PASS 1 H-8 | Pro Research (NOT-STARTED) |
+| **Titans-MAC** + **SEAL-DoRA** + immutable Qwen3-8B base | `helios v3.md` | Pro Research |
+| **Universal Plasticity Gate** Δw = η · sgn(z_pre) · relu_θ(z_post) · sgn(δ) | `epistemos_final_master_specification.md` | Pro Research |
+| **Never Retrain** framework (frozen base + Fast Weights + LoRA bank + CountSketch gradient archive) | `continual_learning_online.md` | Pro Research |
+| **GRPO (Group-Relative Policy Optimization)** — local RL training path with **rule-based rewards** on Apple Silicon. Per `docs/fusion/jordan's research/uasa.agent.final.md §6.2.3`: groups multiple sampled trajectories per prompt, scores each against a rule-based reward function (no human-preference dataset needed), computes group-relative advantages, updates via policy gradient. MLX-Swift pseudocode in the source spec. **Pairs with OFTv2 QLoRA path** (line 352) — OFTv2 provides the parameter-efficient adapter, GRPO provides the rule-based-reward signal that drives the adapter updates. Distinct from supervised fine-tuning (no labeled targets) and from RLHF (no reward model). Currently name-dropped at `agent_core/src/scope_rex/residency.rs:81` as a "GRPO prior distilled into the policy gradient" but **NOT-STARTED in actual training infra**. PASS 1 H-7. | `uasa.agent.final.md §6.2.3` + scope_rex residency.rs:81 + PASS 1 H-7 | Pro Research (NOT-STARTED) |
 
 ### 3.23 Skill / procedural memory / self-evolution
 
@@ -398,7 +408,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **schemars-derived Rust JSON Schema + closed_catalog_component_names + A2UICatalogTests** | Drift Audit | MATCHES |
 | **24 components NOT-STARTED** (e.g., Table, Markdown, Chart, ProgressBar, KeyValueGrid, CapabilityChip, ProvenanceTrace, etc.) | Drift Audit | NOT-STARTED |
 
-### 3.26 KV implantation + Glass Pipe + weight surgery (Pro / Research tier)
+### 3.26 KV implantation + Glass Pipe + weight surgery (Pro / Pro Research)
 
 | Concept | Source | Status |
 |---|---|---|
@@ -523,8 +533,8 @@ Sub-3ms contextual recall across the full vault via three layered moves: binary-
 | **NightBrain integration shape** — replace fixed-interval task firing in `agent_core::nightbrain::CANONICAL_TASK_NAMES` (currently 10 tasks per `nightbrain/mod.rs:11`) with φ-spaced cadence. Pseudocode: `let t_n = base_interval * f64::powi(PHI, n);`. Prevents the all-tasks-fire-on-the-same-tick resonance pattern where `maintenance_log` · `search_index_passive_checkpoint` · `event_store_checkpoint_vacuum` · `workspace_snapshot_compaction` all land in the same idle window and compete for the same I/O budget. | Atlas Drift Log row 1 (the 10-canonical-tasks list) + audit row B2-H8 | NOT-STARTED |
 | **Distillation cadence integration** — `cloud_knowledge_distillation` task (§13.5.7 Per-model Knowledge Vault compilation) and `memory_distillation` task (per-model vault refresh) MUST run on different φ^n offsets so they don't share I/O windows. Same rule for `skill_evolution_analysis` and `session_graph_generation` if they ever land real bodies. | §13.5.7 cross-link + Atlas Drift Log | NOT-STARTED |
 | **Why this matters operationally** — observation lanes already in `agent_core::nightbrain::ObservationTask` ([B.9 4/10](#)) bucket all observation logs into the same `OBSERVATION_LANE_RING` capacity (256). When multiple observation tasks fire on the same tick, they race for ring slots and the diagnostic join key for cross-task drift detection becomes ambiguous. φ-spacing makes the timestamps unique to nanosecond resolution under any reasonable base interval. | `agent_core/src/nightbrain/*.rs` ObservationTask substrate | NOT-STARTED |
-| **Scope explicitly NOT covered** — (a) Fibonacci-time hashing for cache eviction (related but distinct from task scheduling); (b) golden-angle UI layouts (visual rather than temporal); (c) KAM theory beyond the φ-as-most-irrational property — the broader Kolmogorov-Arnold-Moser stability theory is research-tier deep, this row lands only the operational scheduling rule. | doctrine boundary | reference |
-| **V1 scope** — **research-tier, NOT V1**. The current NightBrain runs at ~36 fires/day per task with no resonance pressure observed yet. φ-spacing becomes load-bearing when the 6 NoOp task bodies (dedupe_artifacts · memory_distillation · cloud_knowledge_distillation · session_graph_generation · skill_evolution_analysis · ssm_state_pruning) ship real bodies AND start sharing I/O budgets. Wave 9+ integration target. | Implementation Log B.9 history + cadence projection | NOT-STARTED |
+| **Scope explicitly NOT covered** — (a) Fibonacci-time hashing for cache eviction (related but distinct from task scheduling); (b) golden-angle UI layouts (visual rather than temporal); (c) KAM theory beyond the φ-as-most-irrational property — the broader Kolmogorov-Arnold-Moser stability theory is Pro Research deep, this row lands only the operational scheduling rule. | doctrine boundary | reference |
+| **V1 scope** — **Pro Research, NOT V1**. The current NightBrain runs at ~36 fires/day per task with no resonance pressure observed yet. φ-spacing becomes load-bearing when the 6 NoOp task bodies (dedupe_artifacts · memory_distillation · cloud_knowledge_distillation · session_graph_generation · skill_evolution_analysis · ssm_state_pruning) ship real bodies AND start sharing I/O budgets. Wave 9+ integration target. | Implementation Log B.9 history + cadence projection | NOT-STARTED |
 
 ### 3.36 SAE Cognition Observatory — hallucination detection AUC 0.90
 
@@ -534,7 +544,7 @@ Sub-3ms contextual recall across the full vault via three layered moves: binary-
 | **Doctrine acceptance bar: AUC 0.90 on a held-out factual subset.** This is the **pin** that distinguishes the SAE Cognition Observatory from generic "SAE name-drop" — the row only counts as shipped when an SAE actually achieves AUC ≥ 0.90 on a vault-domain validation set. Below 0.90 = research, not gate. | source §SCOPE-Rex Core | NOT-STARTED |
 | **Complementary to B2-H7 LapEigvals** (Hermes 2.0 §13.5.8) — LapEigvals achieves AUROC 88.9% via Laplacian eigenvalues of attention maps; SAE achieves AUC 0.90 via sparse-autoencoder features. The two detectors use **different mechanisms** on **different signals** (attention spectrum vs feature activation), so they can stack: if either fires below confidence threshold, the turn is flagged. Composite acceptance bar = max(LapEigvals AUROC, SAE AUC) ≥ 0.90, with the lower-AUC detector providing redundant signal for the cases the higher-AUC one misses. | Hermes 2.0 §13.5.8 + Wave J2 | NOT-STARTED |
 | **Distinct from name-drops elsewhere in canon** — `MASTER_FUSION §6 Wave J2` and `SCOPE-Rex Core Components` table both reference "SAE Cognition Observatory" without pinning the AUC threshold. This row IS the pin. Future doc edits that name SAE without citing AUC ≥ 0.90 are drift. | reconciliation against §6 Wave J2 line 680 + PASS 2 audit | doctrine boundary |
-| **V1 scope** — research-tier, NOT V1. Requires SAE training on a chosen model's residual stream (local-only models exclusive — Claude/GPT residuals not accessible). Per-step SAE forward-pass adds non-trivial latency. Wave 9+ integration target, paired with B2-H7 spectral detection. | doctrine boundary | NOT-STARTED |
+| **V1 scope** — Pro Research, NOT V1. Requires SAE training on a chosen model's residual stream (local-only models exclusive — Claude/GPT residuals not accessible). Per-step SAE forward-pass adds non-trivial latency. Wave 9+ integration target, paired with B2-H7 spectral detection. | doctrine boundary | NOT-STARTED |
 | **Why this row is load-bearing** — pinning the AUC threshold turns "SAE Cognition Observatory" from a vague capability claim into a falsifiable engineering target. The team that picks up Wave J2 must achieve AUC ≥ 0.90 or the slice fails. Without this pin, any SAE that fires under any circumstance could claim to be the Cognition Observatory. | PASS 2 audit framing | reference |
 
 ### 3.37 N1 Prompt Tree — JSPF + PTF + Relocation Trick (SHIPPED)
@@ -578,7 +588,7 @@ Two related-but-distinct halves: **Adaptation Subsystem** is the session-scoped,
 | **Non-negotiable invariants** (from `AdaptationExecutor.swift:15-20`): helper-model only (never primary chat backbone) · MLX-only execution · session-scoped (no persistent silent learning) · delta-only (base weights immutable) · fail-closed on any safety-check failure. These are doctrine, enforced in code. | `AdaptationExecutor.swift:15-20` | doctrine + code-enforced |
 | **Compute Steering — schema spec** (`compute_budget`, `compute_profile`, expert-budget dispatch, per-call KV allocation, canary validation harness pre-deployment, micro-TTT loops). NOT shipped — `rg "compute_budget|compute_profile|MicroTTT|ComputeSteering"` across `agent_core/src/` + `Epistemos/` returns **zero hits**. Gap is doctrine + scaffold spec. | source `COMPUTE_STEERING_SPEC_v1.md` + §5.0 reconciliation gate verification | **NOT-STARTED** |
 | **What "Adaptation" vs "Compute Steering" means in this row.** Adaptation = *fine-tuning a helper model's deltas in a bounded session* (training-side, post-V1 polish, partially shipped). Compute Steering = *deciding which adapter / KV-cache slice / expert-budget to dispatch per call at inference time* (inference-side, NOT shipped). They compose: Compute Steering picks which adapter Adaptation produced to apply to a given turn, but they ship at different times. | doctrine boundary | reference |
-| **V1 scope.** V1 ships the Adaptation Subsystem half (already in main). Compute Steering is research-tier post-V1; do NOT touch in V1 work per loop §8 #11 ("No Helios architecture changes" — Compute Steering is V6.1+ substrate adjacent). | loop §8 #11 + V1 scope | research-tier post-V1 |
+| **V1 scope.** V1 ships the Adaptation Subsystem half (already in main). Compute Steering is Pro Research post-V1; do NOT touch in V1 work per loop §8 #11 ("No Helios architecture changes" — Compute Steering is V6.1+ substrate adjacent). | loop §8 #11 + V1 scope | Pro Research post-V1 |
 | **Why this row is canon, not just code** — PASS 1 H-5 framed both halves as missing from canon. §5.0 reconciliation showed half is shipped + half is genuinely not. Splitting the row here keeps the framing honest and prevents future agents from re-implementing the Adaptation half OR claiming Compute Steering is partial. | PASS 1 H-5 + §5.0 reconciliation gate | doctrine reconciliation |
 
 ### 3.41 Nano Model Training Recipe — 75/25 Mamba-2/Attention hybrid + MOHAWK distillation (B2-M3)
@@ -717,7 +727,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 
 | Component | State | Role of this row |
 |---|---|---|
-| `agent_core/src/auto_research/` directory | **NOT-STARTED** — `ls` returns "No such file or directory" 2026-05-16 | Doctrine row freezes the `dp.rs` API shape so when the auto-research substrate ships (Wave 9+ research-tier), the DP gate ships in the same module. |
+| `agent_core/src/auto_research/` directory | **NOT-STARTED** — `ls` returns "No such file or directory" 2026-05-16 | Doctrine row freezes the `dp.rs` API shape so when the auto-research substrate ships (Wave 9+ Pro Research), the DP gate ships in the same module. |
 | Hermes 2.0 §13.5.10 Auto-research loops | LANDED iter 36; cross-links B2-M14 in 3 places (lines 1125, 1146, 1169) | This row provides the destination for those forward cross-links — §13.5.10 was anchor-pointing to a doctrine row that didn't yet exist; now it does. |
 | ClaimLedger / ExecutionReceipt / RunEventLog / .epbundle | SHIPPED (§3.18 + Hermes 2.0 §5.1 + Run Ledger §3.40 forward-stage) | DP gate is ORTHOGONAL — those primitives attest *what happened*, the DP gate ensures *what's reported about what happened* doesn't leak. Both stay; they don't compose. |
 | Per-fetch capability tokens (B2-H20 ephemeral) | NOT-STARTED — surfaced by audit-of-audit #3 | Sibling privacy primitive at a different layer: B2-H20 gates per-fetch external access; B2-M14 gates per-aggregate reportable statistics. |
@@ -749,7 +759,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Explicit disambiguation from the 4 existing provenance primitives** (all already shipped — see `agent_core/src/scope_rex/answer_packet.rs:26-30` doctrine note): (1) **ClaimLedger** ≡ EvidenceLedger — per-claim provenance (`agent_core/src/provenance/ledger.rs`); (2) **ExecutionReceipt** §5.1 — per-tool-call signed receipt (`agent_core/src/effect/receipt.rs`, B2-H13 catch #6); (3) **RunEventLog** ≡ provenance/ledger — per-run-event log (already in main); (4) **`.epbundle`** — snapshot of all four at a session boundary (provenance ledger snapshot per `agent_core/src/provenance/replay.rs`). **Run Ledger fills the gap between RunEventLog (per-event) and `.epbundle` (per-snapshot) at the per-TOKEN granularity** — events are coarser than tokens, snapshots are at session boundary, ClaimLedger is at claim granularity, ExecutionReceipt is at tool-call granularity. | scope_rex/answer_packet.rs:26-30 + PASS 1 H-9 §"distinct from ClaimLedger and .epbundle" | doctrine boundary |
 | **Naming-collision warning.** Existing main carries "RunEventLog" as a name. Adding "Run Ledger" creates name proximity but **different concept** — RunEventLog = per-event log, Run Ledger = per-token attestation chain. Doctrine prefers the finer-grained name be **`TokenAttestationLedger`** or **`PerTokenLedger`** when implemented, to avoid the RunEventLog collision. Doc keeps "Run Ledger" as the audit's framing for cross-referencing PASS 1 H-9 but operationally the type name will be more specific. | naming convention + audit reference | reference |
 | **Why this row is canon, not just code** — H-9 is a genuine new primitive on the provenance ladder (per-token granularity below ExecutionReceipt's per-call). Without the explicit disambiguation against the 4 already-shipped primitives, a future implementer might either (a) re-implement RunEventLog under the "Run Ledger" name and break existing callers, OR (b) skip the per-token granularity entirely thinking the existing primitives cover it. Doctrine boundary written into this row prevents both failure modes. | §5.0 reconciliation gate + audit ladder | doctrine reconciliation |
-| **Apple Silicon implication + scope.** Per-token attestation has non-trivial signing cost (every token = one HMAC or Ed25519 op). MAS V1 doesn't ship — research-tier post-V1 only. Likely Pro V1.x trigger: when `.epbundle` cross-machine replay needs token-level verification rather than just event-level. Until then, the existing 4 primitives suffice. | hardware-cost analysis | research-tier post-V1 |
+| **Apple Silicon implication + scope.** Per-token attestation has non-trivial signing cost (every token = one HMAC or Ed25519 op). MAS V1 doesn't ship — Pro Research post-V1 only. Likely Pro V1.x trigger: when `.epbundle` cross-machine replay needs token-level verification rather than just event-level. Until then, the existing 4 primitives suffice. | hardware-cost analysis | Pro Research post-V1 |
 
 ---
 
@@ -781,7 +791,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Variant Ladder** | (a) `deterministicapp.md` A→B→C→D→Defer (single tool); (b) doctrine 6-tier escalation (Deterministic → Cloud); (c) route-capture `variant_{a,b,c}.rs` (specific route domain) — the doctrine is the canon |
 | **VRM / Verified Research Mode** | (a) the product mode (helios v5 §1.5 vertical slice); (b) the 4 UI labels chip (`VRMLabelView`); (c) ρ value in Resonance Signature ≠ VRM label |
 | **EML** | (a) Odrzywolek operator eml(x,y) = exp(x) − ln(y) (universal arithmetic); (b) EML Neuron (Universal Plasticity Gate proposal — different paper analogy); (c) eml-lean Lean 4 vendored crate; (d) EML-IR W1 floor work — disambiguate per context |
-| **Tier** | (a) ToolTier (None/ChatLite/ChatPro/Agent/Full — chat-mode tool exposure); (b) DeploymentTier (MasCore/Pro/Research); (c) LadderTier (Deterministic/Embedding/Classical/SmallLLM/MidLLM/Cloud); (d) verification tier T0-T4 — never collapse |
+| **Tier** | (a) ToolTier (None/ChatLite/ChatPro/Agent/Full — chat-mode tool exposure); (b) DeploymentTier (MasCore/Pro / Pro Research); (c) LadderTier (Deterministic/Embedding/Classical/SmallLLM/MidLLM/Cloud); (d) verification tier T0-T4 — never collapse |
 
 ---
 
@@ -799,7 +809,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Variant Ladder (No-LLM-First)** | DRIFTED+PARTIAL | route-capture impl + typed seam (orphan) + doctrine | — | **dispatcher.rs adoption** / 6-tier across all tool routes / FLOOR_T1-T3 thresholds / LadderLog → Provenance / escalate_on_empty gate |
 | **GBNF / structured output** | PARTIAL | LocalToolGrammar + MLXStructured + JSONSchema + soft-guidance fallback | — | per-tool `&'static str` GBNF / Tool trait JsonSchema macro / ≤256 reasoning enforcement |
 | **Hybrid MD+JSON memory** | PARTIAL | MutationEnvelope + Epdoc + ClaimLedger | — | epistemos.soul.v1 / .skill.v1 / .episode.v1 / .semantic.v1 / migration registry |
-| **ACS** | NOT-STARTED | — | research-tier | 4 homeostatic loops / VSM S1-S5 / HealingAction / Markov blanket / Hyper-Dynamic Schemas |
+| **ACS** | NOT-STARTED | — | Pro Research | 4 homeostatic loops / VSM S1-S5 / HealingAction / Markov blanket / Hyper-Dynamic Schemas |
 | **Halo V1** | PARTIAL | HaloController + Shadow{Search,Indexing}Service + Tantivy+usearch+RRF | — | 6-state FSM / Model2Vec / non-activating NSPanel / Eidos pairing |
 | **Helios Shadow Memory (KV-side)** | NOT-STARTED | — | — | ShadowPage triple-rep / Shadow-First Attention / Metal sketch scoring |
 | **Cognitive DAG (Phase 8)** | LANDED 8.A-8.G | 10×NodeKind + 10×EdgeKind + BLAKE3 Merkle + redb store + macaroons + companions + 4 DagMirrors + dispatch + epbundle CLI + doctrine-lint CLI | — | 8.H (ship + paper) |
@@ -808,17 +818,17 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Cognitive Weight Class** | DRIFTED | seam at `cognitive_weight/mod.rs` | — | W1 metadata enforcement / W2 Wave 7 policy_grade ENFORCED |
 | **Live File Compiler (Wave 7)** | NOT-STARTED | seam at `live_files/mod.rs` | indefinite (post V2.7) | full state machine + LivePlan.v1 + G1-G4 / kani verification |
 | **Honest Handle FFI** | MATCHES | epistemos-shadow + substrate-core + syntax-core | — | substrate-rt donor merge |
-| **Helios kernels (6)** | NOT-STARTED | InterruptScore Swift CPU LANDED + 3 substrate observers LANDED | research-tier target-only | 5 Metal kernels (SemiseparableBlockScan / LocalRecallIsland / PageGather / ControllerKernelPack / PacketRouter1bit) |
+| **Helios kernels (6)** | NOT-STARTED | InterruptScore Swift CPU LANDED + 3 substrate observers LANDED | Pro Research target-only | 5 Metal kernels (SemiseparableBlockScan / LocalRecallIsland / PageGather / ControllerKernelPack / PacketRouter1bit) |
 | **AnswerPacket ladder** | LANDED rendered | Swift schema + Rust producer + FFI + bubble chip + 3 observers | — | populated→canonical (signed JSON-Lines) |
 | **Provenance ledger** | MATCHES | ClaimLedger + ReplayBundle + Merkle + retraction propagation + epbundle CLI | — | per-tool authority verification |
 | **Capability lattice + XPC** | NOT-STARTED (paid-team-gated) | Cargo features + Xcode configs + entitlements split (TEMP-FREE-TIER) | until $99 Apple Developer | 5-service decomposition + App Group restoration + IOSurface zero-copy + capability HMAC tokens |
-| **NeMoCLAW / OpenCLAW MAS** | NOT-STARTED | — | research-tier | 6-factor agent model + 4 orchestration topologies + GodMode workflows + Evidence Supremacy Protocol + multi-claw |
-| **Ternary core** | NOT-STARTED | research-tier | research-tier (V3.1) | 3 backends + decode-first kernel portfolio + control room UI |
-| **Continual learning** | NOT-STARTED | research-tier | research-tier | OSFT/PSOFT/coSO/DSC corrected stack + OFTv2 4-bit path + HCache / KVCrush / Titans-MAC / SEAL-DoRA / Never Retrain |
+| **NeMoCLAW / OpenCLAW MAS** | NOT-STARTED | — | Pro Research | 6-factor agent model + 4 orchestration topologies + GodMode workflows + Evidence Supremacy Protocol + multi-claw |
+| **Ternary core** | NOT-STARTED | Pro Research | Pro Research (V3.1) | 3 backends + decode-first kernel portfolio + control room UI |
+| **Continual learning** | NOT-STARTED | Pro Research | Pro Research | OSFT/PSOFT/coSO/DSC corrected stack + OFTv2 4-bit path + HCache / KVCrush / Titans-MAC / SEAL-DoRA / Never Retrain |
 | **Skill / procedural / self-evolution** | LANDED | agent_runtime ships all three | — | A-MEM atomic notes + corrections.jsonl + background re-routing |
 | **NightBrain** | PARTIAL | 10 task names registered | — | task bodies (NoOp placeholders today) |
 | **A2UI catalog** | PARTIAL | NoteCard seed (1 of ~25) | — | 24 other components |
-| **KV implantation / Glass Pipe / Weight Surgery** | NOT-STARTED | — | research-tier (V3.2) | full memory control room |
+| **KV implantation / Glass Pipe / Weight Surgery** | NOT-STARTED | — | Pro Research (V3.2) | full memory control room |
 | **Simulation v1.6 → v1.7+** | PARTIAL | v1.6 Slice 3 LANDED (LandingFarm + Companion lifecycle + AgentProvenanceEvent + EventStore + biometric SovereignGate) | post V2.5 | full 13-state machine / sprite atlas / IOSurface / LoRA hot-swap |
 | **Hermes positioning** | DOCTRINE | architectural positioning preserved | UI overlay PURGED 2026-05-05 | full L7 Cloud Gateway + capability HMAC tokens (XPC) |
 | **Quick Capture** | PARTIAL | QC view + 25-file salvage triaged | — | 4-variant routing ladder / 6 OTHER salvage subdirs |
@@ -933,7 +943,7 @@ Unblocks when $99 Apple Developer Program subscription clears.
 |---|---|---|
 | I1-I24 | **24 components** (Table, Markdown, Chart, ProgressBar, KeyValueGrid, CapabilityChip, ProvenanceTrace, etc.) with schemars-derived schemas + Swift mirrors + Validator tests | Drift Audit A2UI row, `Epistemos/A2UI/` |
 
-### Wave J — Research tier (V3, awaits "RESUME RESEARCH TIER")
+### Wave J — Pro Research (V3, awaits "RESUME PRO RESEARCH")
 
 J1 Ternary core (3 backends + decode-first kernel portfolio) · J2 KV implantation + Glass Pipe + Weight Surgery + SAE Cognition Observatory · J3 Continual learning suite (OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain) · J4 NeMoCLAW / OpenCLAW multi-claw MAS · J5 Hyper-Dynamic Schemas (Meta-Schemas that repair themselves) · J6 ACS recursive self-governance · J7 Sherry 1.25-bit + E8/Leech lattice VQ · J8 ANE Direct (`_ANEClient` via disable-library-validation) · J9 MLSys / NeurIPS papers.
 

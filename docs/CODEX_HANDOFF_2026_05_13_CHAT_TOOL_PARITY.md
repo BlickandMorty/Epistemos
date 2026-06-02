@@ -1,4 +1,7 @@
 # Codex Handoff — Chat Tool Parity + MAS Readiness Red-Team
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-13
 **Branch:** `codex/research-snapshot-2026-05-08`
 **From:** Claude (this session)
@@ -249,11 +252,11 @@ Per `docs/audits/V6_2_SESSION_PROGRESS_2026_05_12.md` "Remaining V6.2 work":
 | connectomeAlarm substrate hook | ✅ LANDED `ConnectomeAlarmSubstrateObserver` on routing-stats deltas |
 | Rust AnswerPacket production caller | ✅ LANDED `agent_core::scope_rex::produce::produce_turn_completion_packet` + `bridge::produce_answer_packet_json` |
 | Manual smoke tests | ⏳ Operator task — needs live vault on M2 Pro |
-| 5 research-tier Metal kernels | ⏳ Target-only per canon (NOT blocking ship) — `SemiseparableBlockScan`, `LocalRecallIsland`, `PageGather`, `ControllerKernelPack`, `PacketRouter1bit` |
+| 5 Pro Research Metal kernels | ⏳ Target-only per canon (NOT blocking ship) — `SemiseparableBlockScan`, `LocalRecallIsland`, `PageGather`, `ControllerKernelPack`, `PacketRouter1bit` |
 
 V6.2 §S3 Migration Stage (production cut) is gated on Stages 0–2 (Lean
 verification stack), which haven't been started — that's a separate
-research-tier workstream. **MAS Tier-1 ship gate does NOT require Stages 0–2.**
+Pro Research workstream. **The MAS default ship gate does NOT require Stages 0–2.**
 
 **Codex: spot-check** `Epistemos/Engine/InterruptScoreCpu.swift` line 272–274
 to confirm all three substrate observers (`WBOSubstrateObserver`,
