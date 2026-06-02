@@ -28,16 +28,36 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f6e9970ef852731b88a58020b2d6ab5f314978f7",
+  "commit_sha": "627569d11b4db1cf3503ea8563602ca9ad097a59",
   "fixture_id": "residency_patternboost_no_hidden_authority_v1",
-  "timestamp_utc": "2026-06-02T08:09:30Z",
-  "result_digest": "sha256:cfd56216836146cfed8b5b75378f1d64d02cf9fb05cda44901cd591731910d75",
+  "timestamp_utc": "2026-06-02T08:43:42Z",
+  "result_digest": "sha256:df6bdeaa2f8168d319bee47a1f3929bfd1c37a6faa69604d076339520a5ac459",
   "measurements": {
+    "cold_route_policy_patch_kill_switch_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shadow_scoped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shape_valid": {
+      "value": true,
+      "unit": "bool"
+    },
     "direct_live_authority_rejected": {
       "value": true,
       "unit": "bool"
     },
     "fallback_route_is_static_or_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_patch_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -66,6 +86,10 @@
       "unit": "bool"
     },
     "required_no_hidden_authority_guard_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_ref_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -100,15 +124,44 @@
     "transport_page_runs": {
       "value": 1,
       "unit": "count"
+    },
+    "unscoped_policy_patch_rejected": {
+      "value": true,
+      "unit": "bool"
     }
   },
   "acceptance_thresholds": {
+    "cold_route_policy_patch_kill_switch_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shadow_scoped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_route_policy_patch_shape_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "direct_live_authority_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "fallback_route_is_static_or_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_patch_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -148,6 +201,11 @@
       "value": true,
       "unit": "bool"
     },
+    "route_card_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "run_event_log_and_answer_packet_refs_visible": {
       "operator": "==",
       "value": true,
@@ -177,11 +235,21 @@
       "operator": "==",
       "value": 0,
       "unit": "bytes"
+    },
+    "unscoped_policy_patch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     }
   },
   "pass_per_axis": {
+    "cold_route_policy_patch_kill_switch_bound": true,
+    "cold_route_policy_patch_rollback_bound": true,
+    "cold_route_policy_patch_shadow_scoped": true,
+    "cold_route_policy_patch_shape_valid": true,
     "direct_live_authority_rejected": true,
     "fallback_route_is_static_or_baseline": true,
+    "live_policy_patch_rejected": true,
     "live_runtime_router_route_rejected": true,
     "mas_promotion_rejected": true,
     "missing_no_hidden_authority_falsifier_rejected": true,
@@ -189,12 +257,14 @@
     "network_transport_rejected": true,
     "pro_research_capability_ceiling_only": true,
     "required_no_hidden_authority_guard_present": true,
+    "route_card_ref_bound": true,
     "run_event_log_and_answer_packet_refs_visible": true,
     "runtime_model_bytes_loaded": true,
     "runtime_model_peak_uma_bytes": true,
     "runtime_router_shadow_route_only": true,
     "shadow_genome_constructed": true,
-    "ssd_read_bytes": true
+    "ssd_read_bytes": true,
+    "unscoped_policy_patch_rejected": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",

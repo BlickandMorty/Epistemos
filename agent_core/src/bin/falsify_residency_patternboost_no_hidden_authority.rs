@@ -21,6 +21,7 @@ const FIXTURE_ID: &str = "residency_patternboost_no_hidden_authority_v1";
 const COMMAND: &str = "Tools/falsifiers/f_residency_patternboost_no_hidden_authority.sh";
 const RESULT: &str = "artifacts/falsifiers/residency_patternboost_no_hidden_authority/result.json";
 const ANSWER_PACKET_CAVEAT_REF: &str = "answer_packet_caveat:patternboost-dry-run-only";
+const APP_COLD_STORE_ROUTE_CARD_KIND: &str = "app_cold_store_route_card";
 const KILL_SWITCH_REF: &str = "kill_switch:patternboost_shadow_patch";
 const RUN_EVENT_LOG_SPAN_REF: &str = "run_event_log:patternboost-shadow-span";
 const ROLLBACK_REF: &str = "rollback:static_route_policy";
@@ -295,6 +296,16 @@ fn build_report(
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "route_card_ref_bound",
+        matches!(
+            &genome.route_card_ref.kind,
+            UasKind::Other(kind) if kind == APP_COLD_STORE_ROUTE_CARD_KIND
+        ),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "required_no_hidden_authority_guard_present",
         genome
             .selected_verifier_lanes
@@ -522,7 +533,7 @@ fn addr(kind: UasKind, label: &[u8]) -> UasAddress {
 
 fn route_card_ref() -> UasAddress {
     addr(
-        UasKind::Other("app_cold_store_route_card".to_string()),
+        UasKind::Other(APP_COLD_STORE_ROUTE_CARD_KIND.to_string()),
         b"route-card",
     )
 }
@@ -623,6 +634,7 @@ mod tests {
             report.pass_per_axis.get("runtime_model_bytes_loaded"),
             Some(&true)
         );
+        assert_eq!(report.pass_per_axis.get("route_card_ref_bound"), Some(&true));
         assert_eq!(
             report.pass_per_axis.get("model_inference_runs"),
             Some(&true)
