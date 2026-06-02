@@ -18,6 +18,7 @@ const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admissio
 const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
     "F-ResidencyPatternBoost-NoHiddenAuthority";
 const APP_COLD_STORE_ROUTE_CARD_UAS_KIND: &str = "app_cold_store_route_card";
+const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
 const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 3] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
     PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID,
@@ -109,6 +110,8 @@ impl UasAssemblyGenome {
         validate_nonempty("depth_policy", &depth_policy)?;
         validate_nonempty("fallback_route", &fallback_route)?;
         validate_nonempty("rollback_ref", &rollback_ref)?;
+        validate_runtime_router_route("runtime_route_id", &runtime_route_id)?;
+        validate_runtime_router_route("fallback_route", &fallback_route)?;
 
         if selected_weight_pages.is_empty()
             && selected_kv_pages.is_empty()
@@ -343,6 +346,10 @@ pub enum UasAssemblyGenomeError {
         source_uri: String,
     },
     ProductBuildStatusMismatch,
+    UnsupportedRuntimeRouteAuthority {
+        field: &'static str,
+        route: String,
+    },
     DuplicateAddress {
         field: &'static str,
     },
@@ -393,6 +400,10 @@ impl std::fmt::Display for UasAssemblyGenomeError {
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "Residency PatternBoost genomes must stay Pro Research / capability-ceiling metadata"
+            ),
+            Self::UnsupportedRuntimeRouteAuthority { field, route } => write!(
+                f,
+                "{field} must route through RuntimeRouter, got {route}"
             ),
             Self::DuplicateAddress { field } => {
                 write!(f, "{field} must not contain duplicate UAS addresses")
@@ -463,6 +474,19 @@ fn validate_nonempty(field: &'static str, value: &str) -> Result<(), UasAssembly
         return Err(UasAssemblyGenomeError::FieldContainsControlCharacter { field });
     }
     Ok(())
+}
+
+fn validate_runtime_router_route(
+    field: &'static str,
+    route: &str,
+) -> Result<(), UasAssemblyGenomeError> {
+    if route.starts_with(RUNTIME_ROUTER_ROUTE_PREFIX) {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+        field,
+        route: route.to_string(),
+    })
 }
 
 fn missing_field_error(field: &'static str) -> UasAssemblyGenomeError {
@@ -826,6 +850,73 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, UasAssemblyGenomeError::MissingRuntimeRoute);
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_direct_runtime_authority() {
+        let runtime_route_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "patternboost:direct_live_policy",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            runtime_route_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: "patternboost:direct_live_policy".to_string()
+            }
+        );
+
+        let fallback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "patternboost:override_static_route",
+            "rollback:static_route_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            fallback_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: "patternboost:override_static_route".to_string()
+            }
+        );
     }
 
     #[test]
