@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "caf98aca341a4a85446f8a4de96b7573854d9ec4",
+  "commit_sha": "82b27ef64d29736ca0735fad7376dbd7a9861999",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T12:42:24Z",
-  "result_digest": "sha256:0952d4aa50bb1e68372f09921c42691f54ac85c2b5cb3d2168a7ffb630930b5c",
+  "timestamp_utc": "2026-06-03T12:47:44Z",
+  "result_digest": "sha256:46a93ccb4d2c8b708e4ad53bbcaddfde862b1f752d03279c44d274c5ccc0b578",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -333,7 +333,7 @@
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "missing_fp16_or_provider_reference",
+      "value": "missing_provider_reference_env",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -351,6 +351,10 @@
     "provider_reference_manifest_dry_run_available": {
       "value": true,
       "unit": "bool"
+    },
+    "provider_reference_prompt_level_primary_blocker": {
+      "value": "missing_provider_reference_env",
+      "unit": "label"
     },
     "provider_reference_prompt_level_readiness_witness_available": {
       "value": true,
@@ -563,5 +567,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=missing_fp16_or_provider_reference; heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=missing_provider_reference_env; heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
