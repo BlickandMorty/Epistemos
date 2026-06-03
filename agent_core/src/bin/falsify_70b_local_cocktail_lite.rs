@@ -32,6 +32,8 @@ const WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH: &str =
 const RESIDENCY_PLAN_DRY_RUN_PATH: &str = "artifacts/falsifiers/residency_plan_dry_run/result.json";
 const KV_DIRECT_GATE_PATH: &str = "artifacts/falsifiers/kv_direct_gate/result.json";
 const SPARSE_RUNTIME_SPLIT_PATH: &str = "artifacts/falsifiers/sparse_runtime_split/result.json";
+const RETAINED_SHAPE_ONLY_PROVIDER_REFERENCE_MANIFEST_PATH: &str =
+    "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json";
 
 fn main() {
     let report = build_report();
@@ -369,6 +371,17 @@ fn build_report() -> PreflightReport {
         },
     );
     measurements.insert(
+        "provider_reference_manifest_source".to_string(),
+        Measurement {
+            value: serde_json::Value::String(
+                provider_reference_status
+                    .source_path
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            unit: "path".to_string(),
+        },
+    );
+    measurements.insert(
         "sparse_runtime_path_env".to_string(),
         Measurement {
             value: serde_json::Value::String(
@@ -460,6 +473,7 @@ struct ProviderReferenceStatus {
     manifest_valid: bool,
     replay_files_valid: bool,
     label: String,
+    source_path: Option<String>,
 }
 
 fn provider_reference_status(path: Option<&str>) -> ProviderReferenceStatus {
@@ -467,22 +481,33 @@ fn provider_reference_status(path: Option<&str>) -> ProviderReferenceStatus {
 }
 
 fn provider_reference_status_at(path: Option<&str>, base_dir: &Path) -> ProviderReferenceStatus {
-    let Some(path) = path else {
-        return ProviderReferenceStatus {
-            prompt_level_available: false,
-            manifest_valid: false,
-            replay_files_valid: false,
-            label: "env_unset".to_string(),
-        };
-    };
-    if !Path::new(path).exists() {
+    if let Some(path) = path {
+        return provider_reference_status_from_path(Path::new(path), base_dir);
+    }
+    let retained_shape_manifest = base_dir.join(RETAINED_SHAPE_ONLY_PROVIDER_REFERENCE_MANIFEST_PATH);
+    if retained_shape_manifest.exists() {
+        return provider_reference_status_from_path(&retained_shape_manifest, base_dir);
+    }
+    ProviderReferenceStatus {
+        prompt_level_available: false,
+        manifest_valid: false,
+        replay_files_valid: false,
+        label: "env_unset".to_string(),
+        source_path: None,
+    }
+}
+
+fn provider_reference_status_from_path(path: &Path, base_dir: &Path) -> ProviderReferenceStatus {
+    let source_path = path.display().to_string();
+    if !path.exists() {
         return ProviderReferenceStatus {
             prompt_level_available: false,
             manifest_valid: false,
             replay_files_valid: false,
             label: "path_missing".to_string(),
+            source_path: Some(source_path),
         };
-    }
+    };
     match ProviderReferenceManifest::from_path(path) {
         Ok(manifest) => {
             let replay_result = manifest.validate_replay_files_at(base_dir);
@@ -502,6 +527,7 @@ fn provider_reference_status_at(path: Option<&str>, base_dir: &Path) -> Provider
                 manifest_valid: true,
                 replay_files_valid,
                 label,
+                source_path: Some(source_path),
             }
         }
         Err(error) => ProviderReferenceStatus {
@@ -509,6 +535,7 @@ fn provider_reference_status_at(path: Option<&str>, base_dir: &Path) -> Provider
             manifest_valid: false,
             replay_files_valid: false,
             label: format!("invalid_manifest:{error}"),
+            source_path: Some(source_path),
         },
     }
 }
@@ -827,10 +854,34 @@ mod tests {
         assert!(!missing.prompt_level_available);
         assert!(!missing.manifest_valid);
         assert_eq!(missing.label, "path_missing");
-        let unset = provider_reference_status(None);
+        let temp = tempfile::tempdir().unwrap();
+        let unset = provider_reference_status_at(None, temp.path());
         assert!(!unset.prompt_level_available);
         assert!(!unset.manifest_valid);
         assert_eq!(unset.label, "env_unset");
+    }
+
+    #[test]
+    fn provider_reference_uses_retained_shape_fixture_when_env_is_unset() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest_path = write_provider_reference_fixture(
+            temp.path(),
+            ReferenceEvidenceScope::ShapeOnlyFixture,
+            1,
+            true,
+        );
+        let retained_manifest_path = temp.path().join(
+            "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json",
+        );
+        std::fs::create_dir_all(retained_manifest_path.parent().unwrap()).unwrap();
+        std::fs::rename(manifest_path, retained_manifest_path).unwrap();
+
+        let status = provider_reference_status_at(None, temp.path());
+
+        assert!(status.manifest_valid);
+        assert!(status.replay_files_valid);
+        assert!(!status.prompt_level_available);
+        assert_eq!(status.label, "shape_only_manifest");
     }
 
     #[test]

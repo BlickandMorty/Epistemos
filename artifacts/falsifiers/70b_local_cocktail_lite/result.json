@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "2bf3ff4e87cefbc97381fb6f4aafa33a1fb6563d",
+  "commit_sha": "cb27190322455cc02cd5d5e5512e3e332beead57",
   "fixture_id": "70b_cocktail_lite_preflight_v1",
-  "timestamp_utc": "2026-05-30T12:35:34Z",
-  "result_digest": "sha256:f58be667a50e4570eca47aec33e910ef409b12aaf6aa46c3a4fc5e1338177671",
+  "timestamp_utc": "2026-06-03T12:17:53Z",
+  "result_digest": "sha256:6af3a66b0db9ff2384d60cb54b932439fab38feff94c87b4e4dec0087c344e21",
   "measurements": {
     "active_assembly_artifact_available": {
       "value": true,
@@ -102,16 +102,20 @@
       "value": "EPISTEMOS_70B_PROVIDER_REFERENCE=unset",
       "unit": "path_or_env"
     },
+    "provider_reference_manifest_source": {
+      "value": "./artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json",
+      "unit": "path"
+    },
     "provider_reference_manifest_valid": {
-      "value": false,
+      "value": true,
       "unit": "bool"
     },
     "provider_reference_replay_files_valid": {
-      "value": false,
+      "value": true,
       "unit": "bool"
     },
     "provider_reference_status": {
-      "value": "env_unset",
+      "value": "shape_only_manifest",
       "unit": "label"
     },
     "residency_plan_dry_run_available": {
@@ -288,8 +292,8 @@
     "model_weights_available": true,
     "page_gather_packetized_artifact_available": true,
     "provider_reference_available": false,
-    "provider_reference_manifest_valid": false,
-    "provider_reference_replay_files_valid": false,
+    "provider_reference_manifest_valid": true,
+    "provider_reference_replay_files_valid": true,
     "residency_plan_dry_run_available": true,
     "resident_memory_gb": false,
     "sparse_70b_runtime_available": false,

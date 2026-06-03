@@ -5,7 +5,7 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 status: PREFLIGHT FAILURE REPORT IMPLEMENTED
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # F-70B-Local-Cocktail-Lite
 
@@ -228,9 +228,11 @@ The shape-only dry-run is now retained at:
 artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json
 ```
 
-When the 70B preflight is pointed at that fixture, it reports:
+When `EPISTEMOS_70B_PROVIDER_REFERENCE` is unset, the 70B preflight now
+auto-consumes that retained fixture and reports:
 
 ```text
+provider_reference_manifest_source=artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json
 provider_reference_manifest_valid=true
 provider_reference_replay_files_valid=true
 provider_reference_available=false
@@ -239,4 +241,6 @@ primary_bottleneck=missing_fp16_or_provider_reference
 ```
 
 That is the desired behavior: ABI shape can be tested without falsely advancing
-the actual fp16/provider comparison gate.
+the actual fp16/provider comparison gate. An explicit
+`EPISTEMOS_70B_PROVIDER_REFERENCE` path still overrides this default and must
+validate its own retained replay files.
