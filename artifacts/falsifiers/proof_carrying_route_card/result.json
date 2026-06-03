@@ -1,0 +1,340 @@
+{
+  "falsifier_id": "F-ProofCarryingRouteCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_proof_carrying_route_card.sh",
+  "command_digest": "sha256:46bd126b43241beb0efbadfbbfbcb4310044990fdfbd75481259a3921e7bad13",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9a1d223726965d150e89de075a963261543e778c",
+  "fixture_id": "proof_carrying_route_card_v1",
+  "timestamp_utc": "2026-06-03T18:43:46Z",
+  "result_digest": "sha256:a9d641e04f1e888e8665c0905846118d2eb1b636db8518cd583b6ceac118ecd6",
+  "measurements": {
+    "allowed_mutations_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_increase_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_route_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "value": 268435456,
+      "unit": "count"
+    },
+    "max_cold_io_byte_limit": {
+      "value": 536870912,
+      "unit": "count"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_artifact_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_postconditions_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_preconditions_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_toolchain_version_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "postconditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "preconditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_model_check_artifact_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_route_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_handle_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_address": {
+      "value": "uas:route-card:50d71586af9c33b985b925f9e59818851d4b5615a4154856fda8ce404a7d7bd6",
+      "unit": "uas_address"
+    },
+    "route_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "route_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_schema_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "state_transition_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unpinned_toolchain_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "allowed_mutations_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_increase_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_route_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "operator": "<=",
+      "value": 536870912,
+      "unit": "count"
+    },
+    "max_cold_io_byte_limit": {
+      "operator": "<=",
+      "value": 1073741824,
+      "unit": "count"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_artifact_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_postconditions_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_preconditions_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_toolchain_version_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "postconditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "preconditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_model_check_artifact_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_route_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_handle_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "route_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "count"
+    },
+    "route_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_schema_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "state_transition_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unpinned_toolchain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "allowed_mutations_bound": true,
+    "answer_packet_ref_bound": true,
+    "answer_packet_required_fields_bound": true,
+    "budget_increase_rejected": true,
+    "budget_invariants_bound": true,
+    "duplicate_route_card_rejected": true,
+    "hidden_live_mutation_rejected": true,
+    "max_active_byte_limit": true,
+    "max_cold_io_byte_limit": true,
+    "missing_answer_packet_rejected": true,
+    "missing_artifact_ref_rejected": true,
+    "missing_postconditions_rejected": true,
+    "missing_preconditions_rejected": true,
+    "missing_rollback_rejected": true,
+    "mission_ids_bound": true,
+    "no_runtime_bytes_loaded": true,
+    "pinned_toolchain_version_bound": true,
+    "postconditions_bound": true,
+    "preconditions_bound": true,
+    "proof_or_model_check_artifact_bound": true,
+    "proof_route_cards_present": true,
+    "rollback_handle_bound": true,
+    "route_card_address": true,
+    "route_card_address_deterministic": true,
+    "route_card_count": true,
+    "route_ids_bound": true,
+    "route_schema_complete": true,
+    "state_transition_bound": true,
+    "unpinned_toolchain_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only proof route-card registry; no Lean runtime, live route mutation, model bytes, or product promotion executed"
+    }
+  ],
+  "notes": "Proves proof-carrying route cards bind route contracts, rollback, pinned proof/toolchain identity, and AnswerPacket fields before route execution may cite them."
+}

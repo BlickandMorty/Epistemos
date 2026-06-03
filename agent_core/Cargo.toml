@@ -163,6 +163,10 @@ name = "falsify_meta_breakthrough_card_registry"
 path = "src/bin/falsify_meta_breakthrough_card_registry.rs"
 
 [[bin]]
+name = "falsify_proof_carrying_route_card"
+path = "src/bin/falsify_proof_carrying_route_card.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

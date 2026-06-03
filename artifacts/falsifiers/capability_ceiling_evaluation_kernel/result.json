@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "8c213ac6e19b217dc880d568c9a553c0cb8c2269",
+  "commit_sha": "9a1d223726965d150e89de075a963261543e778c",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T18:17:59Z",
-  "result_digest": "sha256:dfba9182cec71312cd5b1d80cc6e518fb27798ab28914e477174b1b5b676c36d",
+  "timestamp_utc": "2026-06-03T18:43:47Z",
+  "result_digest": "sha256:a8a8b9614e77ac5de41734667f577411a7237ab9c98c4545c1ddec50eec52ce5",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -250,7 +250,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "proof_carrying_route_card",
+      "value": "rust_route_kernel_model_check",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -469,11 +469,21 @@
           "order": 21,
           "gap_id": "proof_carrying_route_card",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ProofCarryingRouteCard",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Proof-carrying route cards must reject missing preconditions, rollback, artifact refs, or unpinned proof/toolchain versions before route execution can cite them.",
           "rollback": "Route cards remain schema/proof witnesses until rollback, artifact refs, pinned proof/toolchain identity, and AnswerPacket visibility are verified."
+        },
+        {
+          "order": 22,
+          "gap_id": "rust_route_kernel_model_check",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-RustRouteKernel-ModelCheck",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Bounded route-state and unsafe/FFI invariants must model-check before proof-carrying routes can approach live execution.",
+          "rollback": "Keep route execution shadow-only until model-check evidence, rollback, pinned toolchain identity, and AnswerPacket visibility are verified."
         }
       ],
       "unit": "queue"
@@ -537,6 +547,22 @@
     "proof_carrying_residency_lease_summary": {
       "value": {
         "path": "artifacts/falsifiers/proof_carrying_residency_lease/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "proof_carrying_route_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_carrying_route_card_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/proof_carrying_route_card/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -834,6 +860,11 @@
       "value": true,
       "unit": "bool"
     },
+    "proof_carrying_route_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "reasoning_state_continuity_pass": {
       "operator": "==",
       "value": true,
@@ -926,6 +957,7 @@
     "page_gather_packetized_floor_pass": true,
     "page_gather_packetized_policy_acceptance_pass": true,
     "proof_carrying_residency_lease_pass": true,
+    "proof_carrying_route_card_pass": true,
     "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
     "seventy_b_bottleneck_identified": true,
@@ -956,8 +988,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "proof_carrying_route_card"
+      "detail": "rust_route_kernel_model_check"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=proof_carrying_route_card; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=rust_route_kernel_model_check; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

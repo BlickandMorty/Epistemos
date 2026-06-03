@@ -58,10 +58,11 @@ witnesses with artifacts under
 `artifacts/falsifiers/cold_miss_ledger/result.json`, and
 `artifacts/falsifiers/swiftlm_source_intake/result.json`.
 
-The downstream MetaBreakthrough registry is now implemented. The next Meta Control cursor is:
+The downstream MetaBreakthrough registry and proof-carrying route-card witness
+are now implemented. The next Meta Control cursor is:
 
 ```text
-F-ProofCarryingRouteCard
+F-RustRouteKernel-ModelCheck
 ```
 
 ## Axis Floor

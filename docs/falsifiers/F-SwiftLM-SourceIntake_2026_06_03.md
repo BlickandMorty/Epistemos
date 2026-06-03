@@ -53,7 +53,7 @@ F-MetaBreakthrough-CardRegistry
 The current cursor is:
 
 ```text
-F-ProofCarryingRouteCard
+F-RustRouteKernel-ModelCheck
 ```
 
 This preserves the large-local-model and 70B cold-assembly research thread

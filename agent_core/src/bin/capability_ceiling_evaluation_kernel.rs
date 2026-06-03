@@ -51,6 +51,8 @@ const COLD_MISS_LEDGER_PATH: &str = "artifacts/falsifiers/cold_miss_ledger/resul
 const SWIFTLM_SOURCE_INTAKE_PATH: &str = "artifacts/falsifiers/swiftlm_source_intake/result.json";
 const META_BREAKTHROUGH_CARD_REGISTRY_PATH: &str =
     "artifacts/falsifiers/meta_breakthrough_card_registry/result.json";
+const PROOF_CARRYING_ROUTE_CARD_PATH: &str =
+    "artifacts/falsifiers/proof_carrying_route_card/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -111,6 +113,7 @@ fn build_report() -> KernelReport {
     let cold_miss_ledger = GateArtifact::read(COLD_MISS_LEDGER_PATH);
     let swiftlm_source_intake = GateArtifact::read(SWIFTLM_SOURCE_INTAKE_PATH);
     let meta_breakthrough_card_registry = GateArtifact::read(META_BREAKTHROUGH_CARD_REGISTRY_PATH);
+    let proof_carrying_route_card = GateArtifact::read(PROOF_CARRYING_ROUTE_CARD_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -136,6 +139,7 @@ fn build_report() -> KernelReport {
         &cold_miss_ledger,
         &swiftlm_source_intake,
         &meta_breakthrough_card_registry,
+        &proof_carrying_route_card,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -456,6 +460,34 @@ fn build_report() -> KernelReport {
             "hidden_live_authority_rejected",
             "no_runtime_bytes_loaded",
         ]);
+    let proof_carrying_route_card_pass = proof_carrying_route_card.overall_pass
+        && proof_carrying_route_card.all_axes_true(&[
+            "proof_route_cards_present",
+            "route_ids_bound",
+            "mission_ids_bound",
+            "preconditions_bound",
+            "postconditions_bound",
+            "budget_invariants_bound",
+            "state_transition_bound",
+            "allowed_mutations_bound",
+            "rollback_handle_bound",
+            "proof_or_model_check_artifact_bound",
+            "pinned_toolchain_version_bound",
+            "answer_packet_ref_bound",
+            "answer_packet_required_fields_bound",
+            "route_schema_complete",
+            "route_card_address_deterministic",
+            "duplicate_route_card_rejected",
+            "missing_preconditions_rejected",
+            "missing_postconditions_rejected",
+            "missing_rollback_rejected",
+            "missing_artifact_ref_rejected",
+            "unpinned_toolchain_rejected",
+            "missing_answer_packet_rejected",
+            "budget_increase_rejected",
+            "hidden_live_mutation_rejected",
+            "no_runtime_bytes_loaded",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -481,6 +513,7 @@ fn build_report() -> KernelReport {
         &cold_miss_ledger,
         &swiftlm_source_intake,
         &meta_breakthrough_card_registry,
+        &proof_carrying_route_card,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -504,6 +537,7 @@ fn build_report() -> KernelReport {
         cold_miss_ledger_pass,
         swiftlm_source_intake_pass,
         meta_breakthrough_card_registry_pass,
+        proof_carrying_route_card_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -543,6 +577,7 @@ fn build_report() -> KernelReport {
         cold_miss_ledger_pass,
         swiftlm_source_intake_pass,
         meta_breakthrough_card_registry_pass,
+        proof_carrying_route_card_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -586,6 +621,7 @@ fn build_report() -> KernelReport {
         cold_miss_ledger_pass,
         swiftlm_source_intake_pass,
         meta_breakthrough_card_registry_pass,
+        proof_carrying_route_card_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -865,6 +901,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "proof_carrying_route_card_pass",
+        proof_carrying_route_card_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -987,6 +1030,11 @@ fn build_report() -> KernelReport {
         "meta_breakthrough_card_registry",
         &meta_breakthrough_card_registry,
     );
+    add_gate_summary(
+        &mut measurements,
+        "proof_carrying_route_card",
+        &proof_carrying_route_card,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1011,6 +1059,7 @@ fn build_report() -> KernelReport {
         cold_miss_ledger_pass,
         swiftlm_source_intake_pass,
         meta_breakthrough_card_registry_pass,
+        proof_carrying_route_card_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1268,6 +1317,7 @@ fn classify_route(
     cold_miss_ledger_pass: bool,
     swiftlm_source_intake_pass: bool,
     meta_breakthrough_card_registry_pass: bool,
+    proof_carrying_route_card_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1286,6 +1336,7 @@ fn classify_route(
         && cold_miss_ledger_pass
         && swiftlm_source_intake_pass
         && meta_breakthrough_card_registry_pass
+        && proof_carrying_route_card_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1338,6 +1389,7 @@ fn next_bottleneck(
     cold_miss_ledger_pass: bool,
     swiftlm_source_intake_pass: bool,
     meta_breakthrough_card_registry_pass: bool,
+    proof_carrying_route_card_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1410,8 +1462,10 @@ fn next_bottleneck(
             "swiftlm_source_intake".to_string()
         } else if !meta_breakthrough_card_registry_pass {
             "meta_breakthrough_card_registry".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !proof_carrying_route_card_pass {
             "proof_carrying_route_card".to_string()
+        } else if !seventy_b_route_pass {
+            "rust_route_kernel_model_check".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1462,6 +1516,7 @@ fn build_ordered_gap_queue(
     cold_miss_ledger_pass: bool,
     swiftlm_source_intake_pass: bool,
     meta_breakthrough_card_registry_pass: bool,
+    proof_carrying_route_card_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1802,7 +1857,9 @@ fn build_ordered_gap_queue(
             21,
             "proof_carrying_route_card",
             "Meta Control",
-            if meta_breakthrough_card_registry_pass
+            if proof_carrying_route_card_pass {
+                "completed"
+            } else if meta_breakthrough_card_registry_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -1814,6 +1871,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
             "Proof-carrying route cards must reject missing preconditions, rollback, artifact refs, or unpinned proof/toolchain versions before route execution can cite them.",
             "Route cards remain schema/proof witnesses until rollback, artifact refs, pinned proof/toolchain identity, and AnswerPacket visibility are verified.",
+        ),
+        queue_item(
+            22,
+            "rust_route_kernel_model_check",
+            "Meta Control",
+            if proof_carrying_route_card_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_proof_carrying_route_card"
+            },
+            "F-RustRouteKernel-ModelCheck",
+            "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+            "Bounded route-state and unsafe/FFI invariants must model-check before proof-carrying routes can approach live execution.",
+            "Keep route execution shadow-only until model-check evidence, rollback, pinned toolchain identity, and AnswerPacket visibility are verified.",
         ),
     ]
 }
@@ -1938,6 +2012,7 @@ fn build_anomalies(
     cold_miss_ledger_pass: bool,
     swiftlm_source_intake_pass: bool,
     meta_breakthrough_card_registry_pass: bool,
+    proof_carrying_route_card_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2084,6 +2159,15 @@ fn build_anomalies(
             "detail": "Research Construction has SwiftLM source intake, but F-MetaBreakthrough-CardRegistry must pass before proof-carrying route-card work can advance."
         }));
     }
+    if meta_breakthrough_card_registry_pass
+        && !proof_carrying_route_card_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "proof_carrying_route_card_missing",
+            "detail": "Meta Control has a card registry, but F-ProofCarryingRouteCard must pass before Rust route-kernel model-check work can advance."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2210,28 +2294,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2280,21 +2364,22 @@ mod tests {
         const COLD_MISS_LEDGER: usize = 30;
         const SWIFTLM_SOURCE_INTAKE: usize = 31;
         const META_BREAKTHROUGH_CARD_REGISTRY: usize = 32;
-        const SEVENTY_B: usize = 33;
+        const PROOF_CARRYING_ROUTE_CARD: usize = 33;
+        const SEVENTY_B: usize = 34;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 34] {
-            let mut values = [false; 34];
+        let flags = |true_indexes: &[usize]| -> [bool; 35] {
+            let mut values = [false; 35];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 34], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 35], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2332,11 +2417,12 @@ mod tests {
                 values[31],
                 values[32],
                 values[33],
+                values[34],
                 &missing,
             )
         };
-        let nb = |values: [bool; 34]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 34]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 35]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 35]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -2849,6 +2935,40 @@ mod tests {
             "proof_carrying_route_card"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+            ]))),
+            "rust_route_kernel_model_check"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -2902,6 +3022,7 @@ mod tests {
                 COLD_MISS_LEDGER,
                 SWIFTLM_SOURCE_INTAKE,
                 META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"
