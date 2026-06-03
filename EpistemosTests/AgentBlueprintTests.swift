@@ -448,6 +448,62 @@ struct AgentBlueprintTests {
         #expect(timeline.last?.detail.contains(answerPacket.id) == true)
     }
 
+    @Test("RunEventLog replay snapshot exposes AnswerPacket display fields")
+    func runEventLogReplaySnapshotExposesAnswerPacketDisplayFields() throws {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Replay visible packet fields.",
+            model: .autoConstellation,
+            toolNames: ["vault.search"],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        ).missionPacket(id: "mission-visible-replay", createdAt: Date(timeIntervalSince1970: 30))
+        let record = AgentBlueprintRunRecord(
+            packet: packet,
+            queuedAt: Date(timeIntervalSince1970: 31)
+        )
+        var log = RunEventLog(missionId: "run-visible-replay")
+        log.append(.planStart(turnId: "turn-visible", plan: "show replay proof"))
+        log.append(.tokenChunk(turnId: "turn-visible", text: "Visible replay proof."))
+        log.append(.complete(turnId: "turn-visible", answerPacketId: "packet-visible-replay"))
+
+        let answerPacket = AnswerPacket(
+            id: "packet-visible-replay",
+            claims: [
+                Claim(
+                    id: "claim-visible-replay",
+                    text: "Replay proof is visible.",
+                    status: .active,
+                    createdAtMs: 30_000,
+                    kind: .empirical
+                )
+            ],
+            residencySignals: [.neutral],
+            uiLabel: .verified,
+            attentionMode: .dynamic,
+            interruptBucket: .high,
+            witnessedStateRef: "run_event_log:run-visible-replay;answer_packet:packet-visible-replay;events:3",
+            mutationEnvelopeRef: "run_event_log:run-visible-replay"
+        )
+
+        let events = try AgentBlueprintRunEventProjector.events(
+            packet: packet,
+            log: log,
+            answerPacket: answerPacket
+        )
+        let snapshot = try #require(record.replaySnapshot(
+            from: events,
+            packets: [answerPacket]
+        ))
+
+        #expect(snapshot.replayStatus == .verified)
+        #expect(snapshot.answerPacketUILabel == VRMLabel.verified.rawValue)
+        #expect(snapshot.answerPacketAttentionMode == AttentionMode.dynamic.rawValue)
+        #expect(snapshot.answerPacketInterruptBucket == InterruptBucket.high.rawValue)
+        #expect(snapshot.answerPacketReplayDetail == "verified · dynamic · high")
+    }
+
     @Test("RunEventLog replay status fails explicit instead of promoting missing or invalid evidence")
     func runEventLogReplayStatusFailsExplicitInsteadOfPromotingMissingOrInvalidEvidence() throws {
         let packet = AgentBlueprintDraft(

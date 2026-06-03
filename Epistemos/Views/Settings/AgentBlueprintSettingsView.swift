@@ -426,6 +426,13 @@ struct AgentBlueprintSettingsView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if let replayDetail = replaySnapshot.answerPacketReplayDetail {
+                    Text(replayDetail)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             } else {
                 Text("waiting for committed events · \(record.packet.id.prefix(8))")
                     .font(.caption2.monospaced())
