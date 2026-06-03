@@ -1,0 +1,310 @@
+{
+  "falsifier_id": "F-SwiftLM-SourceIntake",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_swiftlm_source_intake.sh",
+  "command_digest": "sha256:9be47d674c9d6131ed845e1c7d183e506271dd6fa71530df8d64e4c2da772960",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "f252c9f144bb27df64cd6f1e4a77bffae4ab1dbc",
+  "fixture_id": "swiftlm_source_intake_v1",
+  "timestamp_utc": "2026-06-03T17:41:50Z",
+  "result_digest": "sha256:6ae6e4a468cf2d257828e5d92fbcd101051f69cc1ca704fcb5036ba3a2204ad5",
+  "measurements": {
+    "benchmark_caveat_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "implementation_import_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_compression_motif_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "license_note_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_test_plan_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "local_test_plan_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_benchmark_caveat_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_local_test_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "no_code_import_declared": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_dependency_declared": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_buffer_motif_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_motif_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "setup_note_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "source_cards_sorted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_address": {
+      "value": "source_signal_graph:17bee5b565d488f16bce2878df0afda02dd24d4ea893dbee96c59508893fc014@1779010000000",
+      "unit": "uas_address"
+    },
+    "source_graph_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_edges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_route_affinity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_streaming_motif_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swiftlm_repo_card_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swiftlm_source_cards_present": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "benchmark_caveat_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "implementation_import_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_compression_motif_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "license_note_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_test_plan_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "local_test_plan_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_benchmark_caveat_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_local_test_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "no_code_import_declared": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_dependency_declared": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_buffer_motif_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_motif_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "setup_note_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "source_cards_sorted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "source_graph_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_edges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_route_affinity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_streaming_motif_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swiftlm_repo_card_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swiftlm_source_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "benchmark_caveat_present": true,
+    "duplicate_source_rejected": true,
+    "implementation_import_rejected": true,
+    "kv_compression_motif_captured": true,
+    "license_note_present": true,
+    "local_test_plan_count": true,
+    "local_test_plan_present": true,
+    "missing_benchmark_caveat_rejected": true,
+    "missing_license_rejected": true,
+    "missing_local_test_plan_rejected": true,
+    "motif_count": true,
+    "no_code_import_declared": true,
+    "no_product_dependency_declared": true,
+    "no_runtime_bytes_loaded": true,
+    "persistent_buffer_motif_captured": true,
+    "prefetch_motif_captured": true,
+    "setup_note_present": true,
+    "source_card_count": true,
+    "source_cards_sorted": true,
+    "source_graph_address": true,
+    "source_graph_address_deterministic": true,
+    "source_graph_edges_bound": true,
+    "source_graph_route_affinity_bound": true,
+    "ssd_streaming_motif_captured": true,
+    "swiftlm_repo_card_present": true,
+    "swiftlm_source_cards_present": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only SwiftLM source intake; no repo fetch, no source import, no model bytes, no route mutation, and no product dependency executed"
+    }
+  ],
+  "notes": "Proves SwiftLM SSD-streaming/KV-compression/persistent-buffer/prefetch motifs are source-carded with license, setup, benchmark caveat, and local test-plan metadata before any implementation import."
+}

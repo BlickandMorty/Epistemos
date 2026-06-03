@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f31e4121cfa9fbd6c7c893c3c0bc228a4caa226b",
+  "commit_sha": "f252c9f144bb27df64cd6f1e4a77bffae4ab1dbc",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T17:23:05Z",
-  "result_digest": "sha256:4919830b674a455c55f48a8b232caf8a51fdc1d35f5b85ea7140698d2c4cd2ff",
+  "timestamp_utc": "2026-06-03T17:42:35Z",
+  "result_digest": "sha256:7d7ffd3b97c376f16e7b89ddfada4a3c432b3c84ba8ff83ff03a9aaf60735a46",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -234,7 +234,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "swiftlm_source_intake",
+      "value": "meta_breakthrough_card_registry",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -433,11 +433,21 @@
           "order": 19,
           "gap_id": "swiftlm_source_intake",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-SwiftLM-SourceIntake",
           "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
           "promotion_condition": "SwiftLM SSD-streaming and KV-compression motifs must be captured as source cards, license/setup notes, benchmark caveats, and local test plans before any implementation import.",
           "rollback": "SwiftLM is source-mining discipline, not a product dependency or code import path."
+        },
+        {
+          "order": 20,
+          "gap_id": "meta_breakthrough_card_registry",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-MetaBreakthrough-CardRegistry",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Every meta-control card must bind UAS address, source, budget, rollback, proof/falsifier state, and AnswerPacket visibility before controlling route policy.",
+          "rollback": "Meta-control cards remain research-only until source, budget, rollback, proof, and AnswerPacket visibility are witnessed."
         }
       ],
       "unit": "queue"
@@ -577,6 +587,22 @@
     "sparse_runtime_split_summary": {
       "value": {
         "path": "artifacts/falsifiers/sparse_runtime_split/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "swiftlm_source_intake_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swiftlm_source_intake_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/swiftlm_source_intake/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -807,6 +833,11 @@
       "value": true,
       "unit": "bool"
     },
+    "swiftlm_source_intake_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "uas_acs_mmap_residency_pass": {
       "operator": "==",
       "value": true,
@@ -869,6 +900,7 @@
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
     "sparse_runtime_split_artifact_pass": true,
+    "swiftlm_source_intake_pass": true,
     "uas_acs_mmap_residency_pass": true,
     "uas_copy_count_hot_path_pass": true,
     "uas_zero_copy_spine_pass": true,
@@ -892,8 +924,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "swiftlm_source_intake"
+      "detail": "meta_breakthrough_card_registry"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=swiftlm_source_intake; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=meta_breakthrough_card_registry; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

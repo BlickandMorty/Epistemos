@@ -50,11 +50,14 @@ Qwen/GGUF and provider-reference prompt-level probes remain opt-in heavy work.
 `F-ColdMissLedger` is now implemented as
 `docs/falsifiers/F-ColdMissLedger_2026_06_03.md` with artifact
 `artifacts/falsifiers/cold_miss_ledger/result.json`.
+`F-SwiftLM-SourceIntake` is now implemented as
+`docs/falsifiers/F-SwiftLM-SourceIntake_2026_06_03.md` with artifact
+`artifacts/falsifiers/swiftlm_source_intake/result.json`.
 
 The next default Research Construction cursor is:
 
 ```text
-F-SwiftLM-SourceIntake
+F-MetaBreakthrough-CardRegistry
 ```
 
 ## Axis Floor

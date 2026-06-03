@@ -40,6 +40,10 @@ artifacts/falsifiers/cold_miss_ledger/result.json
 
 ## Current Meaning
 
+`F-SwiftLM-SourceIntake` is now implemented as
+`docs/falsifiers/F-SwiftLM-SourceIntake_2026_06_03.md` with artifact
+`artifacts/falsifiers/swiftlm_source_intake/result.json`.
+
 The default main-only architecture cursor moves from:
 
 ```text
@@ -49,7 +53,7 @@ F-ColdMissLedger
 to:
 
 ```text
-F-SwiftLM-SourceIntake
+F-MetaBreakthrough-CardRegistry
 ```
 
 This keeps the 70B / UAS / ColdStore architecture path intact while keeping
