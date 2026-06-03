@@ -5,7 +5,7 @@ schema_version: 2026-05-18.2
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # Falsifier Artifact Schema - 2026-05-18
 
@@ -183,6 +183,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-ColdFaultTrace-Learning` | `Tools/falsifiers/f_cold_fault_trace_learning.sh` |
 | `F-WorkingSetOracle-Baseline` | `Tools/falsifiers/f_working_set_oracle_baseline.sh` |
 | `F-ProviderReferenceManifest-DryRun` | `Tools/falsifiers/f_provider_reference_manifest_dry_run.sh` |
+| `F-ProviderReferencePromptLevel-Readiness` | `Tools/falsifiers/f_provider_reference_prompt_level_readiness.sh` |
 | `F-WeightBlockRangeHash-DryRun` | `Tools/falsifiers/f_weight_block_range_hash_dry_run.sh` |
 | `F-70B-Local-Cocktail-Lite` | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
 | `F-Agent-Local-Model-Runtime-Bridge` | `tools/falsifiers/f_agent_local_model_runtime_bridge.sh` |
@@ -293,6 +294,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-ColdFaultTrace-Learning` | `artifacts/falsifiers/cold_fault_trace_learning/` |
 | `F-WorkingSetOracle-Baseline` | `artifacts/falsifiers/working_set_oracle_baseline/` |
 | `F-ProviderReferenceManifest-DryRun` | `artifacts/falsifiers/provider_reference_manifest_dry_run/` |
+| `F-ProviderReferencePromptLevel-Readiness` | `artifacts/falsifiers/provider_reference_prompt_level_readiness/` |
 | `F-WeightBlockRangeHash-DryRun` | `artifacts/falsifiers/weight_block_range_hash_dry_run/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
 | `F-Agent-Local-Model-Runtime-Bridge` | `artifacts/falsifiers/agent_local_model_runtime_bridge/` |
@@ -478,6 +480,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-ColdFaultTrace-Learning` | `traces_emitted`, `repeated_misses_required`, `trace_address_deterministic`, `missing_unit_bound`, `expected_unit_bound`, `stall_ms_reported`, `cold_io_bytes_reported`, `fallback_used_visible`, `answer_effect_visible`, `source_or_cache_cause_visible`, `layout_patch_generated`, `patch_address_deterministic`, `changed_tiles_bounded`, `expected_cold_miss_delta_improves`, `observed_cold_miss_delta_improves`, `held_out_improvement_visible`, `rollback_bound`, `promotion_status_shadow_candidate`, `production_mutation_blocked`, `no_improvement_rejected`, `missing_rollback_rejected`, `storage_wear_bounded`, `storage_wear_unbounded_rejected`, `zero_stall_trace_rejected`, `empty_changed_tiles_rejected`, `held_out_cold_miss_delta`, `trace_count`, `changed_tile_count`, `storage_wear_cost`, `patch_address` |
 | `F-WorkingSetOracle-Baseline` | `oracle_card_created`, `oracle_address_deterministic`, `inputs_bound`, `predicted_units_bound`, `confidence_reported`, `abstain_condition_named`, `baseline_policy_coverage`, `beats_random_policy`, `beats_recency_policy`, `beats_file_order_policy`, `held_out_quality_beats_baselines`, `held_out_evidence_validity_beats_baselines`, `held_out_cold_misses_below_baselines`, `held_out_active_bytes_below_baselines`, `regret_update_key_bound`, `status_beats_baselines`, `low_confidence_abstains`, `baseline_loss_abstains`, `missing_abstain_rejected`, `no_baseline_rejected`, `empty_inputs_rejected`, `empty_predicted_units_rejected`, `high_confidence_rejected`, `score_out_of_range_rejected`, `duplicate_baseline_rejected`, `confidence_bps`, `predicted_unit_count`, `baseline_policy_count`, `held_out_quality_bps`, `best_baseline_quality_bps`, `held_out_evidence_validity_bps`, `best_baseline_evidence_validity_bps`, `held_out_cold_misses`, `min_baseline_cold_misses`, `held_out_active_bytes`, `min_baseline_active_bytes`, `oracle_status`, `oracle_address` |
 | `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `replay_files_valid`, `prompt_suite_bound`, `no_provider_call` |
+| `F-ProviderReferencePromptLevel-Readiness` | `provider_reference_env_set`, `manifest_file_exists`, `manifest_valid`, `prompt_level_scope`, `prompt_count_floor`, `replay_files_valid`, `prompt_level_reference_available` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `provider_reference_replay_files_valid`, `weight_block_range_hash_dry_run_available` |
 | `F-Agent-Local-Model-Runtime-Bridge` | `local_model_catalog_available`, `provider_policy_local_mlx_available`, `system_g_event_seam_available`, `local_agent_adapter_dispatch_wired`, `system_g_local_model_provider_dispatch_wired`, `live_local_model_answerpacket_provenance_wired`, `live_agent_local_model_prompt_suite_passed` |
@@ -800,6 +803,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-ColdFaultTrace-Learning",
         "F-WorkingSetOracle-Baseline",
         "F-ProviderReferenceManifest-DryRun",
+        "F-ProviderReferencePromptLevel-Readiness",
         "F-WeightBlockRangeHash-DryRun",
         "F-70B-Local-Cocktail-Lite",
         "F-Agent-Local-Model-Runtime-Bridge"
@@ -1713,6 +1717,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] },
           "acceptance_thresholds": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] },
           "pass_per_axis": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-ProviderReferencePromptLevel-Readiness" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["provider_reference_env_set", "manifest_file_exists", "manifest_valid", "prompt_level_scope", "prompt_count_floor", "replay_files_valid", "prompt_level_reference_available"] },
+          "acceptance_thresholds": { "required": ["provider_reference_env_set", "manifest_file_exists", "manifest_valid", "prompt_level_scope", "prompt_count_floor", "replay_files_valid", "prompt_level_reference_available"] },
+          "pass_per_axis": { "required": ["provider_reference_env_set", "manifest_file_exists", "manifest_valid", "prompt_level_scope", "prompt_count_floor", "replay_files_valid", "prompt_level_reference_available"] }
         }
       }
     },

@@ -69,7 +69,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
-**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
+**Canonical distinction.** This is canon as the target architecture and vocabulary. ACS (Anchored Cognitive Substrate) naming remains scoped to AcsAnchor lineage and related legacy witness IDs. This is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
 **Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
 
@@ -150,6 +150,10 @@ The 70B preflight consumes the range-hash artifact as
 `residency_plan_dry_run_available=true`, and remains red on
 `missing_fp16_or_provider_reference` until prompt-level comparison evidence
 exists.
+`F-ProviderReferencePromptLevel-Readiness` now audits that exact blocker:
+current default state is `primary_blocker=missing_provider_reference_env`, with
+shape-only fixtures still barred from satisfying prompt-level reference
+evidence.
 
 **Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,
 Research Construction Engine, ShadowProjection, OAS, ColdStore, AcsAnchor, or the 70B local

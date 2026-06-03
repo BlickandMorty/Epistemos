@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb27190322455cc02cd5d5e5512e3e332beead57",
+  "commit_sha": "caf98aca341a4a85446f8a4de96b7573854d9ec4",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T12:18:12Z",
-  "result_digest": "sha256:08990d827b2a76c9948b2c31b97454529e2f79e2a32efa9fdfef0c112a6a87a1",
+  "timestamp_utc": "2026-06-03T12:42:24Z",
+  "result_digest": "sha256:0952d4aa50bb1e68372f09921c42691f54ac85c2b5cb3d2168a7ffb630930b5c",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -77,6 +77,12 @@
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
+          },
+          "provider_reference_prompt_level_readiness": {
+            "path": "artifacts/falsifiers/provider_reference_prompt_level_readiness/result.json",
+            "witness_available": true,
+            "overall_pass": false,
+            "primary_blocker": "missing_provider_reference_env"
           },
           "local_70b_cocktail_preflight": {
             "path": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
@@ -346,6 +352,10 @@
       "value": true,
       "unit": "bool"
     },
+    "provider_reference_prompt_level_readiness_witness_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "queue_duplicate_gap_id_count": {
       "value": 0,
       "unit": "count"
@@ -472,6 +482,11 @@
       "value": true,
       "unit": "bool"
     },
+    "provider_reference_prompt_level_readiness_witness_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "queue_gap_ids_unique": {
       "operator": "==",
       "value": true,
@@ -520,6 +535,7 @@
     "ordered_queue_available": true,
     "pending_work_cursor_available": true,
     "provider_reference_manifest_dry_run_available": true,
+    "provider_reference_prompt_level_readiness_witness_available": true,
     "queue_gap_ids_unique": true,
     "queue_orders_unique": true,
     "queue_required_fields_present": true,

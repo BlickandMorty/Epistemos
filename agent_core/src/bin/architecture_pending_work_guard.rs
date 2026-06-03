@@ -32,6 +32,8 @@ const WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH: &str =
 const RESIDENCY_PLAN_DRY_RUN_PATH: &str = "artifacts/falsifiers/residency_plan_dry_run/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
+const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
+    "artifacts/falsifiers/provider_reference_prompt_level_readiness/result.json";
 const LOCAL_70B_COCKTAIL_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
 const LOCAL_WORKTREE_INVENTORY_PATH: &str =
     "docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json";
@@ -150,6 +152,24 @@ fn build_report() -> GuardReport {
             "no_provider_call",
         ],
     );
+    let provider_reference_prompt_level_readiness =
+        read_json(Path::new(PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH));
+    let provider_reference_prompt_level_readiness_witness_available =
+        artifact_has_axes(
+            &provider_reference_prompt_level_readiness,
+            &[
+                "provider_reference_env_set",
+                "manifest_file_exists",
+                "manifest_valid",
+                "prompt_level_scope",
+                "prompt_count_floor",
+                "replay_files_valid",
+                "prompt_level_reference_available",
+            ],
+        ) && provider_reference_prompt_level_readiness
+            .as_ref()
+            .and_then(|value| measurement_string_value(value, "primary_blocker"))
+            .is_some();
     let local_70b_cocktail = read_json(Path::new(LOCAL_70B_COCKTAIL_PATH));
     let local_70b_cocktail_honest_red = local_70b_cocktail.as_ref().is_some_and(|value| {
         !artifact_overall_pass_value(value)
@@ -192,6 +212,7 @@ fn build_report() -> GuardReport {
         && weight_block_range_hash_dry_run_available
         && residency_plan_dry_run_available
         && provider_reference_manifest_dry_run_available
+        && provider_reference_prompt_level_readiness_witness_available
         && local_70b_cocktail_honest_red
         && worktree_inventory.is_some()
         && model_context_inventory.is_some()
@@ -294,6 +315,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "provider_reference_prompt_level_readiness_witness_available",
+        provider_reference_prompt_level_readiness_witness_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -535,6 +563,17 @@ fn build_report() -> GuardReport {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
                 },
+                "provider_reference_prompt_level_readiness": {
+                    "path": PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH,
+                    "witness_available": provider_reference_prompt_level_readiness_witness_available,
+                    "overall_pass": provider_reference_prompt_level_readiness
+                        .as_ref()
+                        .is_some_and(artifact_overall_pass_value),
+                    "primary_blocker": provider_reference_prompt_level_readiness
+                        .as_ref()
+                        .and_then(|value| measurement_string_value(value, "primary_blocker"))
+                        .unwrap_or_else(|| "missing_provider_reference_prompt_level_readiness_artifact".to_string())
+                },
                 "local_70b_cocktail_preflight": {
                     "path": LOCAL_70B_COCKTAIL_PATH,
                     "honest_red": local_70b_cocktail_honest_red,
@@ -604,6 +643,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_provider_reference_manifest_dry_run",
             "detail": "70B reference evidence must have a digest-bound manifest ABI before prompt-level comparisons can be trusted."
+        }));
+    }
+    if !provider_reference_prompt_level_readiness_witness_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_provider_reference_prompt_level_readiness",
+            "detail": "The active provider/fp16 reference bottleneck needs an explicit readiness artifact that audits env, manifest scope, prompt count, and replay-file validity."
         }));
     }
     if !local_70b_cocktail_honest_red {
@@ -1154,6 +1199,16 @@ fn artifact_all_axes_true(value: &Option<serde_json::Value>, axes: &[&str]) -> b
     })
 }
 
+fn artifact_has_axes(value: &Option<serde_json::Value>, axes: &[&str]) -> bool {
+    value.as_ref().is_some_and(|artifact| {
+        let Some(pass_per_axis) = artifact.get("pass_per_axis").and_then(|axes| axes.as_object())
+        else {
+            return false;
+        };
+        axes.iter().all(|axis| pass_per_axis.contains_key(*axis))
+    })
+}
+
 fn artifact_overall_pass_value(value: &serde_json::Value) -> bool {
     value
         .get("overall_pass")
@@ -1387,6 +1442,24 @@ mod tests {
             ),
             "heavy_long_context_deferred_by_default"
         );
+    }
+
+    #[test]
+    fn already_mapped_work_includes_provider_reference_prompt_level_readiness() {
+        let report = build_report();
+        let already_mapped_work = report
+            .artifact
+            .measurements
+            .get("already_mapped_work")
+            .expect("already_mapped_work measurement")
+            .value
+            .get("large_model_non_runtime_rungs")
+            .expect("large_model_non_runtime_rungs object")
+            .clone();
+
+        assert!(already_mapped_work
+            .get("provider_reference_prompt_level_readiness")
+            .is_some());
     }
 
     #[test]

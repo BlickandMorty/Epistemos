@@ -62,9 +62,10 @@ These rungs are allowed while runtime-heavy probes are paused:
 | `F-WeightBlockRangeHash-DryRun` | green | The `WeightBlockManifest` byte-range hashing ABI rejects over-budget ranges before reading and supports known-hash manifests without touching model files. |
 | `F-ResidencyPlan-DryRun` | green | A deterministic `ResidencyPlan` can represent a model-shaped 72 GiB cold body with a bounded hot/warm active set, rollback, WBO, and Sherry/Leech/NF4 route labels while loading zero model bytes. |
 | `F-ProviderReferenceManifest-DryRun` | green | The provider/reference manifest ABI is digest-bound and prompt-suite-bound, but shape-only fixtures cannot advance the 70B comparison gate. |
+| `F-ProviderReferencePromptLevel-Readiness` | honest red | The real prompt-level reference path is audited separately from the shape fixture; current blocker is `missing_provider_reference_env`. |
 | `F-70B-Local-Cocktail-Lite` | honest red | The route has the safe planner rungs but still blocks on real prompt-level fp16/provider reference evidence and live runtime proof. |
 
-The pending-work guard now requires all four states above. This keeps the
+The pending-work guard now requires all five states above. This keeps the
 no-compromise SSD/UMA/UAS/ColdStore/AcsAnchor ambition alive without letting a
 loop accidentally relaunch the heavy runtime path that can destabilize the
 laptop.
