@@ -159,6 +159,10 @@ name = "falsify_swiftlm_source_intake"
 path = "src/bin/falsify_swiftlm_source_intake.rs"
 
 [[bin]]
+name = "falsify_meta_breakthrough_card_registry"
+path = "src/bin/falsify_meta_breakthrough_card_registry.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -1,0 +1,290 @@
+{
+  "falsifier_id": "F-MetaBreakthrough-CardRegistry",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_meta_breakthrough_card_registry.sh",
+  "command_digest": "sha256:b693ca4f82972341e834d52625a4f678923e82dbfe7d39a6ebd708a7deb24736",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8c213ac6e19b217dc880d568c9a553c0cb8c2269",
+  "fixture_id": "meta_breakthrough_card_registry_v1",
+  "timestamp_utc": "2026-06-03T18:17:52Z",
+  "result_digest": "sha256:08abc957a02c9e32c29339b624634a8e3fc35764e895bc36926c046508e2258a",
+  "measurements": {
+    "answer_packet_visibility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_vectors_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "card_kind_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "card_kinds_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_bytes": {
+      "value": 134217728,
+      "unit": "count"
+    },
+    "max_cold_io_bytes": {
+      "value": 536870912,
+      "unit": "count"
+    },
+    "meta_card_registry_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_state_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_falsifier_state_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "registry_address": {
+      "value": "uas:meta:721f17fb3fdfc58389e3c3d6cc4af735f98d8bc05f09881b0a2cb4fbe6b440c5",
+      "unit": "uas_address"
+    },
+    "registry_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_handles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_visibility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_vectors_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "card_kind_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "card_kinds_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_bytes": {
+      "operator": "<=",
+      "value": 536870912,
+      "unit": "count"
+    },
+    "max_cold_io_bytes": {
+      "operator": "<=",
+      "value": 1073741824,
+      "unit": "count"
+    },
+    "meta_card_registry_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_state_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_falsifier_state_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "registry_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "registry_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_handles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_visibility_bound": true,
+    "budget_vectors_bound": true,
+    "card_count": true,
+    "card_kind_count": true,
+    "card_kinds_coverage": true,
+    "duplicate_card_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "max_active_bytes": true,
+    "max_cold_io_bytes": true,
+    "meta_card_registry_present": true,
+    "missing_answer_packet_rejected": true,
+    "missing_budget_rejected": true,
+    "missing_proof_state_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_source_rejected": true,
+    "missing_uas_address_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "proof_or_falsifier_state_bound": true,
+    "registry_address": true,
+    "registry_address_deterministic": true,
+    "rollback_handles_bound": true,
+    "route_authority_shadow_only": true,
+    "source_refs_bound": true,
+    "uas_addresses_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only meta-breakthrough registry; no live route authority, no runtime mutation, no model bytes, and no product promotion executed"
+    }
+  ],
+  "notes": "Proves meta-control cards are address/source/budget/rollback/proof/AnswerPacket-bound before future route policy may cite them."
+}

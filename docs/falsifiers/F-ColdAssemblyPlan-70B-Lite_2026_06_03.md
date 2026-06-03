@@ -58,10 +58,10 @@ witnesses with artifacts under
 `artifacts/falsifiers/cold_miss_ledger/result.json`, and
 `artifacts/falsifiers/swiftlm_source_intake/result.json`.
 
-The next default Research Construction cursor is:
+The downstream MetaBreakthrough registry is now implemented. The next Meta Control cursor is:
 
 ```text
-F-MetaBreakthrough-CardRegistry
+F-ProofCarryingRouteCard
 ```
 
 ## Axis Floor

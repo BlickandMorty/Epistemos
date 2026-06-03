@@ -38,16 +38,22 @@ artifacts/falsifiers/swiftlm_source_intake/result.json
 
 ## Current Meaning
 
-The default main-only architecture cursor moves from:
+The default main-only architecture cursor moved from:
 
 ```text
 F-SwiftLM-SourceIntake
 ```
 
-to:
+to the now-implemented:
 
 ```text
 F-MetaBreakthrough-CardRegistry
+```
+
+The current cursor is:
+
+```text
+F-ProofCarryingRouteCard
 ```
 
 This preserves the large-local-model and 70B cold-assembly research thread

@@ -58,6 +58,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ReasoningStateContinuity",
     "F-ColdMissLedger",
     "F-SwiftLM-SourceIntake",
+    "F-MetaBreakthrough-CardRegistry",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

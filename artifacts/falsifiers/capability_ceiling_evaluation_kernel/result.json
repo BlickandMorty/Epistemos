@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f252c9f144bb27df64cd6f1e4a77bffae4ab1dbc",
+  "commit_sha": "8c213ac6e19b217dc880d568c9a553c0cb8c2269",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T17:42:35Z",
-  "result_digest": "sha256:7d7ffd3b97c376f16e7b89ddfada4a3c432b3c84ba8ff83ff03a9aaf60735a46",
+  "timestamp_utc": "2026-06-03T18:17:59Z",
+  "result_digest": "sha256:dfba9182cec71312cd5b1d80cc6e518fb27798ab28914e477174b1b5b676c36d",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -233,8 +233,24 @@
       },
       "unit": "object"
     },
+    "meta_breakthrough_card_registry_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "meta_breakthrough_card_registry_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/meta_breakthrough_card_registry/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "next_bottleneck": {
-      "value": "meta_breakthrough_card_registry",
+      "value": "proof_carrying_route_card",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -443,11 +459,21 @@
           "order": 20,
           "gap_id": "meta_breakthrough_card_registry",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-MetaBreakthrough-CardRegistry",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Every meta-control card must bind UAS address, source, budget, rollback, proof/falsifier state, and AnswerPacket visibility before controlling route policy.",
           "rollback": "Meta-control cards remain research-only until source, budget, rollback, proof, and AnswerPacket visibility are witnessed."
+        },
+        {
+          "order": 21,
+          "gap_id": "proof_carrying_route_card",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ProofCarryingRouteCard",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Proof-carrying route cards must reject missing preconditions, rollback, artifact refs, or unpinned proof/toolchain versions before route execution can cite them.",
+          "rollback": "Route cards remain schema/proof witnesses until rollback, artifact refs, pinned proof/toolchain identity, and AnswerPacket visibility are verified."
         }
       ],
       "unit": "queue"
@@ -778,6 +804,11 @@
       "value": true,
       "unit": "bool"
     },
+    "meta_breakthrough_card_registry_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "page_gather_dense_primary_pass": {
       "operator": "==",
       "value": true,
@@ -889,6 +920,7 @@
     "kv_direct_spill_trace_contract_pass": false,
     "kv_direct_tier1_preflight_pass": true,
     "lattice_state_controller_pass": true,
+    "meta_breakthrough_card_registry_pass": true,
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
@@ -924,8 +956,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "meta_breakthrough_card_registry"
+      "detail": "proof_carrying_route_card"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=meta_breakthrough_card_registry; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=proof_carrying_route_card; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

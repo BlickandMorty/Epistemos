@@ -118,4 +118,4 @@ A future artifact fails immediately if it:
 - Frontier local reasoning: `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
 - Neural importance atlas: `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 - Existing dry-run witness: `docs/falsifiers/F-ResidencyPlan-DryRun_2026_05_30.md`
-- Current active cursor after the 2026-06-03 SwiftLM source-intake witness: `F-MetaBreakthrough-CardRegistry`
+- Current active cursor after the 2026-06-03 MetaBreakthrough registry witness: `F-ProofCarryingRouteCard`
