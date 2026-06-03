@@ -177,6 +177,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-SemanticWorkingSetPlan-Budget` | `Tools/falsifiers/f_semantic_working_set_plan_budget.sh` |
 | `F-ResidencyPageTable-Addressability` | `Tools/falsifiers/f_residency_page_table_addressability.sh` |
 | `F-MmapResidencyFence-CopyCount` | `Tools/falsifiers/f_mmap_residency_fence_copy_count.sh` |
+| `F-PrefetchWindow-ColdMiss` | `Tools/falsifiers/f_prefetch_window_cold_miss.sh` |
 | `F-ProviderReferenceManifest-DryRun` | `Tools/falsifiers/f_provider_reference_manifest_dry_run.sh` |
 | `F-WeightBlockRangeHash-DryRun` | `Tools/falsifiers/f_weight_block_range_hash_dry_run.sh` |
 | `F-70B-Local-Cocktail-Lite` | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
@@ -282,6 +283,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-SemanticWorkingSetPlan-Budget` | `artifacts/falsifiers/semantic_working_set_plan_budget/` |
 | `F-ResidencyPageTable-Addressability` | `artifacts/falsifiers/residency_page_table_addressability/` |
 | `F-MmapResidencyFence-CopyCount` | `artifacts/falsifiers/mmap_residency_fence_copy_count/` |
+| `F-PrefetchWindow-ColdMiss` | `artifacts/falsifiers/prefetch_window_cold_miss/` |
 | `F-ProviderReferenceManifest-DryRun` | `artifacts/falsifiers/provider_reference_manifest_dry_run/` |
 | `F-WeightBlockRangeHash-DryRun` | `artifacts/falsifiers/weight_block_range_hash_dry_run/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
@@ -462,6 +464,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-SemanticWorkingSetPlan-Budget` | `task_query_deterministic`, `plan_address_deterministic`, `accepted_plan_fit_for_dry_run`, `over_budget_rejected_before_runtime`, `page_table_addressability`, `kv_budget_separate`, `mmap_mapped_untouched_not_hot`, `hidden_live_route_rejected`, `mas_live_promotion_rejected`, `run_event_log_visible`, `answer_packet_visible`, `rollback_present`, `selected_unit_count`, `hot_bytes`, `active_executed_bytes`, `kv_bytes`, `plan_address` |
 | `F-ResidencyPageTable-Addressability` | `entry_count_matches_selected`, `page_table_status_fit`, `semantic_unit_ids_present`, `uas_addresses_present`, `uas_addresses_unique`, `byte_ranges_nonempty`, `entry_identity_unique`, `storage_tier_coverage`, `unit_kind_coverage`, `codec_coverage`, `checksum_coverage`, `compatibility_fence_coverage`, `lease_or_expiry_coverage`, `prefetch_priority_coverage`, `entry_order_deterministic`, `unit_to_entry_round_trip`, `invalid_byte_range_rejected`, `missing_checksum_rejected`, `bad_checksum_rejected`, `missing_compatibility_fence_rejected`, `bad_compatibility_fence_rejected`, `duplicate_uas_address_rejected`, `unavailable_unit_rejected`, `page_table_entry_count`, `selected_unit_count`, `cold_page_count` |
 | `F-MmapResidencyFence-CopyCount` | `mapped_touched_resident_passes`, `mapped_untouched_counted_hot_fails`, `under_resident_counted_hot_fails`, `unmapped_counted_hot_fails`, `cold_unmapped_zero_hot_passes`, `resident_estimate_reported`, `faults_reported`, `copy_count_reported`, `copy_count_not_hot_bytes`, `byte_range_bound`, `invalid_byte_range_rejected`, `missing_file_id_rejected`, `pass_requires_mapped_touched_resident`, `resident_estimate_bytes`, `major_faults`, `minor_faults`, `copy_count`, `byte_range_len` |
+| `F-PrefetchWindow-ColdMiss` | `prefetch_window_present`, `prefetch_window_cold_only`, `prefetch_order_priority_sorted`, `prefetch_window_deterministic`, `compiled_beats_file_order_misses`, `compiled_beats_recency_misses`, `compiled_beats_random_misses`, `compiled_stall_ms_below_baselines`, `compiled_byte_waste_below_baselines`, `max_bytes_bound`, `cancellation_rule_present`, `fallback_on_miss_visible`, `measurement_ref_visible`, `zero_cold_units_empty_window`, `compiled_misses`, `file_order_misses`, `recency_order_misses`, `random_order_misses`, `compiled_stall_ms`, `compiled_byte_waste`, `prefetch_budget_bytes`, `compiled_prefetched_needed`, `compiled_bytes_prefetched` |
 | `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `replay_files_valid`, `prompt_suite_bound`, `no_provider_call` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `provider_reference_replay_files_valid`, `weight_block_range_hash_dry_run_available` |
@@ -779,6 +782,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-SemanticWorkingSetPlan-Budget",
         "F-ResidencyPageTable-Addressability",
         "F-MmapResidencyFence-CopyCount",
+        "F-PrefetchWindow-ColdMiss",
         "F-ProviderReferenceManifest-DryRun",
         "F-WeightBlockRangeHash-DryRun",
         "F-70B-Local-Cocktail-Lite",
@@ -1615,6 +1619,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["mapped_touched_resident_passes", "mapped_untouched_counted_hot_fails", "under_resident_counted_hot_fails", "unmapped_counted_hot_fails", "cold_unmapped_zero_hot_passes", "resident_estimate_reported", "faults_reported", "copy_count_reported", "copy_count_not_hot_bytes", "byte_range_bound", "invalid_byte_range_rejected", "missing_file_id_rejected", "pass_requires_mapped_touched_resident", "resident_estimate_bytes", "major_faults", "minor_faults", "copy_count", "byte_range_len"] },
           "acceptance_thresholds": { "required": ["mapped_touched_resident_passes", "mapped_untouched_counted_hot_fails", "under_resident_counted_hot_fails", "unmapped_counted_hot_fails", "cold_unmapped_zero_hot_passes", "resident_estimate_reported", "faults_reported", "copy_count_reported", "copy_count_not_hot_bytes", "byte_range_bound", "invalid_byte_range_rejected", "missing_file_id_rejected", "pass_requires_mapped_touched_resident", "resident_estimate_bytes", "major_faults", "minor_faults", "copy_count", "byte_range_len"] },
           "pass_per_axis": { "required": ["mapped_touched_resident_passes", "mapped_untouched_counted_hot_fails", "under_resident_counted_hot_fails", "unmapped_counted_hot_fails", "cold_unmapped_zero_hot_passes", "resident_estimate_reported", "faults_reported", "copy_count_reported", "copy_count_not_hot_bytes", "byte_range_bound", "invalid_byte_range_rejected", "missing_file_id_rejected", "pass_requires_mapped_touched_resident", "resident_estimate_bytes", "major_faults", "minor_faults", "copy_count", "byte_range_len"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PrefetchWindow-ColdMiss" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["prefetch_window_present", "prefetch_window_cold_only", "prefetch_order_priority_sorted", "prefetch_window_deterministic", "compiled_beats_file_order_misses", "compiled_beats_recency_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "max_bytes_bound", "cancellation_rule_present", "fallback_on_miss_visible", "measurement_ref_visible", "zero_cold_units_empty_window", "compiled_misses", "file_order_misses", "recency_order_misses", "random_order_misses", "compiled_stall_ms", "compiled_byte_waste", "prefetch_budget_bytes", "compiled_prefetched_needed", "compiled_bytes_prefetched"] },
+          "acceptance_thresholds": { "required": ["prefetch_window_present", "prefetch_window_cold_only", "prefetch_order_priority_sorted", "prefetch_window_deterministic", "compiled_beats_file_order_misses", "compiled_beats_recency_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "max_bytes_bound", "cancellation_rule_present", "fallback_on_miss_visible", "measurement_ref_visible", "zero_cold_units_empty_window", "compiled_misses", "file_order_misses", "recency_order_misses", "random_order_misses", "compiled_stall_ms", "compiled_byte_waste", "prefetch_budget_bytes", "compiled_prefetched_needed", "compiled_bytes_prefetched"] },
+          "pass_per_axis": { "required": ["prefetch_window_present", "prefetch_window_cold_only", "prefetch_order_priority_sorted", "prefetch_window_deterministic", "compiled_beats_file_order_misses", "compiled_beats_recency_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "max_bytes_bound", "cancellation_rule_present", "fallback_on_miss_visible", "measurement_ref_visible", "zero_cold_units_empty_window", "compiled_misses", "file_order_misses", "recency_order_misses", "random_order_misses", "compiled_stall_ms", "compiled_byte_waste", "prefetch_budget_bytes", "compiled_prefetched_needed", "compiled_bytes_prefetched"] }
         }
       }
     },

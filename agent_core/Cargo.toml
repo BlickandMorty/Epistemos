@@ -155,6 +155,10 @@ name = "falsify_mmap_residency_fence_copy_count"
 path = "src/bin/falsify_mmap_residency_fence_copy_count.rs"
 
 [[bin]]
+name = "falsify_prefetch_window_cold_miss"
+path = "src/bin/falsify_prefetch_window_cold_miss.rs"
+
+[[bin]]
 name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 

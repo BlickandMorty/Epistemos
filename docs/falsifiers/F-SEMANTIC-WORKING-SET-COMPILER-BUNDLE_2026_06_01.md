@@ -92,10 +92,15 @@ failure_reason
 - `F-MmapResidencyFence-CopyCount` is implemented as a primary witness at
   `artifacts/falsifiers/mmap_residency_fence_copy_count/result.json` and
   documented in `docs/falsifiers/F-MmapResidencyFence-CopyCount_2026_06_03.md`.
-- Remaining bundle work starts with prefetch/cold-miss fixtures. Source intake,
-  deterministic query emission, budget rejection, page-table addressability,
-  and mmap-residency-fence copy-count semantics no longer need to be rebuilt
-  from scratch.
+- `F-PrefetchWindow-ColdMiss` is implemented as a primary witness at
+  `artifacts/falsifiers/prefetch_window_cold_miss/result.json` and documented
+  in `docs/falsifiers/F-PrefetchWindow-ColdMiss_2026_06_03.md`.
+- Remaining bundle work starts with cold-fault learning, KV byte budget card
+  coverage, working-set oracle baseline, and source-to-residency no-poison
+  promotion guards. Source intake, deterministic query emission, budget
+  rejection, page-table addressability, mmap-residency-fence copy-count
+  semantics, and prefetch/cold-miss ordering no longer need to be rebuilt from
+  scratch.
 
 ## Required fixture families
 
@@ -127,7 +132,8 @@ failure_reason
    and `KVByteBudgetCard`. `SourceSignalGraph` and
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan` budget rejection, and
    `ResidencyPageTable` addressability, and `MmapResidencyFence` copy-count
-   semantics now have primary witnesses.
+   semantics, and `PrefetchWindow` cold-miss ordering now have primary
+   witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
    `F-SourceSignalGraph-Intake`.

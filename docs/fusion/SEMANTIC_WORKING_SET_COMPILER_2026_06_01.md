@@ -457,9 +457,11 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 `F-TaskWorkingSetQuery-Determinism`, and
 `F-SemanticWorkingSetPlan-Budget`, and
 `F-ResidencyPageTable-Addressability`, and
-`F-MmapResidencyFence-CopyCount` now have primary local witnesses on main.
-Continue this bundle with prefetch/cold-miss fixtures; do not reinstall model
-assets or fetch live sources for these metadata-only gates.
+`F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss` now have
+primary local witnesses on main. Continue this bundle with cold-fault learning,
+KV byte budget card coverage, working-set oracle baseline, and
+source-to-residency no-poison guards; do not reinstall model assets or fetch
+live sources for these metadata-only gates.
 
 ## Product locks
 

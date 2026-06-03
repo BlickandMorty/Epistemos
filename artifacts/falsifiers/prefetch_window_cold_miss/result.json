@@ -1,0 +1,280 @@
+{
+  "falsifier_id": "F-PrefetchWindow-ColdMiss",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_prefetch_window_cold_miss.sh",
+  "command_digest": "sha256:04f36d7289b848bccce91c7d2d2af7cbff36e6c2302e938b766ffff968aba2e5",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "c1918e306931ce9308fa02c2af950afb02aa51f3",
+  "fixture_id": "prefetch_window_cold_miss_v1",
+  "timestamp_utc": "2026-06-03T09:02:03Z",
+  "result_digest": "sha256:381613e024da827da77cd005d885cef6b8eb6b9a5fd7ca242aa20e92e735ff70",
+  "measurements": {
+    "cancellation_rule_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_file_order_misses": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_random_misses": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_recency_misses": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_byte_waste": {
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_byte_waste_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_bytes_prefetched": {
+      "value": 131072,
+      "unit": "count_or_bytes"
+    },
+    "compiled_misses": {
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_prefetched_needed": {
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "compiled_stall_ms": {
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_stall_ms_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_on_miss_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_misses": {
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "max_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "measurement_ref_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_budget_bytes": {
+      "value": 131072,
+      "unit": "count_or_bytes"
+    },
+    "prefetch_order_priority_sorted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_cold_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "random_order_misses": {
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "recency_order_misses": {
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "zero_cold_units_empty_window": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "cancellation_rule_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_file_order_misses": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_random_misses": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_recency_misses": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_byte_waste": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_byte_waste_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_bytes_prefetched": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "count_or_bytes"
+    },
+    "compiled_misses": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_prefetched_needed": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "compiled_stall_ms": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count_or_bytes"
+    },
+    "compiled_stall_ms_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_on_miss_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "max_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "measurement_ref_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_budget_bytes": {
+      "operator": "==",
+      "value": 131072,
+      "unit": "count_or_bytes"
+    },
+    "prefetch_order_priority_sorted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_cold_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_window_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "random_order_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "recency_order_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "zero_cold_units_empty_window": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "cancellation_rule_present": true,
+    "compiled_beats_file_order_misses": true,
+    "compiled_beats_random_misses": true,
+    "compiled_beats_recency_misses": true,
+    "compiled_byte_waste": true,
+    "compiled_byte_waste_below_baselines": true,
+    "compiled_bytes_prefetched": true,
+    "compiled_misses": true,
+    "compiled_prefetched_needed": true,
+    "compiled_stall_ms": true,
+    "compiled_stall_ms_below_baselines": true,
+    "fallback_on_miss_visible": true,
+    "file_order_misses": true,
+    "max_bytes_bound": true,
+    "measurement_ref_visible": true,
+    "prefetch_budget_bytes": true,
+    "prefetch_order_priority_sorted": true,
+    "prefetch_window_cold_only": true,
+    "prefetch_window_deterministic": true,
+    "prefetch_window_present": true,
+    "random_order_misses": true,
+    "recency_order_misses": true,
+    "zero_cold_units_empty_window": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only PrefetchWindow cold-miss simulation; no real prefetch, file read, mmap, model decode, MLX/Metal, or route mutation executed"
+    }
+  ],
+  "notes": "Proves compiled cold-unit priority ordering beats deterministic file-order, recency, and random baselines on misses, stall time, and byte waste under a synthetic prefetch byte budget, with visible cancellation, fallback, and measurement refs."
+}

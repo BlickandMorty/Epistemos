@@ -47,9 +47,11 @@ witnesses pass.
 ## Queue Effect
 
 `F-SourceSignalGraph-Intake` closes the first schema-only source intake item
-from the Semantic Working-Set Compiler build order. The next work in that
-bundle has moved to prefetch/cold-miss fixtures;
-`F-TaskWorkingSetQuery-Determinism`, `F-SemanticWorkingSetPlan-Budget`, and
-`F-ResidencyPageTable-Addressability`, and
-`F-MmapResidencyFence-CopyCount` now cover deterministic query emission, budget
-rejection, page-table addressability, and mmap fence copy-count semantics.
+from the Semantic Working-Set Compiler build order.
+`F-TaskWorkingSetQuery-Determinism`, `F-SemanticWorkingSetPlan-Budget`,
+`F-ResidencyPageTable-Addressability`, `F-MmapResidencyFence-CopyCount`, and
+`F-PrefetchWindow-ColdMiss` now cover deterministic query emission, budget
+rejection, page-table addressability, mmap fence copy-count semantics, and the
+first prefetch/cold-miss fixture. The next unfinished gates are cold-fault
+learning, KV byte-budget cards, oracle baselines, and source-to-residency
+no-poison propagation.
