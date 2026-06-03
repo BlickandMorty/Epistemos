@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb27190322455cc02cd5d5e5512e3e332beead57",
+  "commit_sha": "13eba91a75405add8de5b8ba7303e4a57513c5b0",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T12:18:23Z",
-  "result_digest": "sha256:089c2ba84b4904dd356a5b13579794324ad6c0443b21d5041f911d5fab3ba4e8",
+  "timestamp_utc": "2026-06-03T13:21:28Z",
+  "result_digest": "sha256:6c79c166384e2951708f24bff6b7491affb0cf2b764bd4f64cbc768c51977ceb",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -170,7 +170,7 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "missing_fp16_or_provider_reference",
+      "value": "research_construction_engine",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -279,27 +279,27 @@
           "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
-          "status": "pending_live_model_runtime",
+          "status": "large_model_provider_reference_deferred_by_mlx_route",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
-          "promotion_condition": "Provide local 70B weights, provider/fp16 reference, live sparse runtime trace, and live chart rows for weights/layers/KV/kernels.",
-          "rollback": "Keep 70B route Vault/Research-only; dense MLX must not impersonate ACS/UAS."
+          "promotion_condition": "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research.",
+          "rollback": "Keep 70B route Vault/Research-only; practical MLX routes must not impersonate ACS/UAS."
         },
         {
           "order": 11,
           "gap_id": "seventy_b_prompt_level_cocktail",
           "tier": "Vault / Beyond",
-          "status": "missing_fp16_or_provider_reference",
+          "status": "large_model_provider_reference_deferred_by_mlx_route",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
-          "promotion_condition": "Prompt-level D_KL, TTFT, tok/s, RSS, cache state, bottleneck attribution, and rollback all pass.",
-          "rollback": "Publish failure report and route to smaller/cascade model; do not expose 70B as product."
+          "promotion_condition": "No active provider-reference prompt-level work is required for the MLX route.",
+          "rollback": "Route active local inference through MLX; do not expose 70B as product."
         },
         {
           "order": 12,
           "gap_id": "research_construction_engine",
           "tier": "Research Construction",
-          "status": "planned_after_measured_runtime_gates",
+          "status": "next_active_architecture_cursor",
           "falsifier_or_gate": "RCE / ProblemCard / ConstructionGraph / AnswerPacket",
           "witness": "docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md",
           "promotion_condition": "Open research motifs become ProblemCards with WBO budget, falsifier, witness, tier, and rollback.",
@@ -663,13 +663,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "seventy_b_route_red",
-      "detail": "70B Local Cocktail Lite remains a failure report; dense MLX must not impersonate the ACS/UAS capability ceiling route."
+      "kind": "seventy_b_route_deferred_by_mlx_route",
+      "detail": "70B/GGUF/provider-reference work is not an active requirement while the app is routed through practical MLX local inference."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "missing_fp16_or_provider_reference"
+      "detail": "research_construction_engine"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=missing_fp16_or_provider_reference; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=research_construction_engine; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

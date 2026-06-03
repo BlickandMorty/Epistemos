@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "82b27ef64d29736ca0735fad7376dbd7a9861999",
+  "commit_sha": "13eba91a75405add8de5b8ba7303e4a57513c5b0",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T12:47:44Z",
-  "result_digest": "sha256:46a93ccb4d2c8b708e4ad53bbcaddfde862b1f752d03279c44d274c5ccc0b578",
+  "timestamp_utc": "2026-06-03T13:21:58Z",
+  "result_digest": "sha256:5edd04d75ce49712943612066f139d090905e6932881f2e3595ffe07a9bc8dfe",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -88,7 +88,8 @@
             "path": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
             "honest_red": true,
             "primary_bottleneck": "missing_fp16_or_provider_reference"
-          }
+          },
+          "provider_reference_route_required": false
         }
       },
       "unit": "object"
@@ -296,6 +297,10 @@
       "value": true,
       "unit": "bool"
     },
+    "large_model_provider_reference_required": {
+      "value": false,
+      "unit": "bool"
+    },
     "local_70b_cocktail_honest_red": {
       "value": true,
       "unit": "bool"
@@ -329,11 +334,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "missing_fp16_or_provider_reference",
+      "value": "research_construction_engine",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "missing_provider_reference_env",
+      "value": "research_construction_engine",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -567,5 +572,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=missing_provider_reference_env; heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=research_construction_engine; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

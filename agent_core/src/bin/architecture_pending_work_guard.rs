@@ -217,8 +217,9 @@ fn build_report() -> GuardReport {
         && weight_block_range_hash_dry_run_available
         && residency_plan_dry_run_available
         && provider_reference_manifest_dry_run_available
-        && provider_reference_prompt_level_readiness_witness_available
-        && local_70b_cocktail_honest_red
+        && (!heavy_long_context_enabled
+            || provider_reference_prompt_level_readiness_witness_available)
+        && (!heavy_long_context_enabled || local_70b_cocktail_honest_red)
         && worktree_inventory.is_some()
         && model_context_inventory.is_some()
         && next_existing_work != "unset";
@@ -502,6 +503,11 @@ fn build_report() -> GuardReport {
         "heavy_long_context_enabled",
         heavy_long_context_enabled,
     );
+    add_bool_measurement(
+        &mut measurements,
+        "large_model_provider_reference_required",
+        heavy_long_context_enabled,
+    );
     add_label(&mut measurements, "next_bottleneck", &next_bottleneck);
     add_label(
         &mut measurements,
@@ -589,7 +595,8 @@ fn build_report() -> GuardReport {
                         .as_ref()
                         .and_then(|value| measurement_string_value(value, "primary_bottleneck"))
                         .unwrap_or_else(|| "missing_70b_preflight_artifact".to_string())
-                }
+                },
+                "provider_reference_route_required": heavy_long_context_enabled
             }
         }),
     );
@@ -653,13 +660,13 @@ fn build_report() -> GuardReport {
             "detail": "70B reference evidence must have a digest-bound manifest ABI before prompt-level comparisons can be trusted."
         }));
     }
-    if !provider_reference_prompt_level_readiness_witness_available {
+    if heavy_long_context_enabled && !provider_reference_prompt_level_readiness_witness_available {
         anomalies.push(serde_json::json!({
             "kind": "missing_provider_reference_prompt_level_readiness",
             "detail": "The active provider/fp16 reference bottleneck needs an explicit readiness artifact that audits env, manifest scope, prompt count, and replay-file validity."
         }));
     }
-    if !local_70b_cocktail_honest_red {
+    if heavy_long_context_enabled && !local_70b_cocktail_honest_red {
         anomalies.push(serde_json::json!({
             "kind": "missing_honest_70b_preflight_red_artifact",
             "detail": "The 70B preflight should remain red on missing prompt-level reference/runtime evidence while the safe metadata gates are green."
@@ -706,7 +713,7 @@ fn build_report() -> GuardReport {
     } else {
         format!(
             "pending_work_guard; next_existing_work={next_existing_work}; \
-             heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; \
+             heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; \
              continue non-heavy architecture work before creating new long-context surfaces"
         )
     };
@@ -1150,6 +1157,9 @@ fn derive_next_existing_work(
     provider_reference_prompt_level_blocker: Option<&str>,
     heavy_long_context_enabled: bool,
 ) -> String {
+    if !heavy_long_context_enabled && next_bottleneck == "missing_fp16_or_provider_reference" {
+        return "large_model_provider_reference_deferred_by_mlx_route".to_string();
+    }
     if next_bottleneck == "missing_fp16_or_provider_reference" {
         if let Some(blocker) = provider_reference_prompt_level_blocker {
             if blocker != "ready_for_70b_prompt_level_comparison" {
@@ -1449,7 +1459,7 @@ mod tests {
                 None,
                 false,
             ),
-            "missing_fp16_or_provider_reference"
+            "large_model_provider_reference_deferred_by_mlx_route"
         );
         assert_eq!(
             derive_next_existing_work(
@@ -1467,7 +1477,7 @@ mod tests {
     }
 
     #[test]
-    fn next_work_uses_provider_reference_readiness_blocker_when_available() {
+    fn next_work_defers_provider_reference_when_heavy_context_is_off() {
         let shards = ShardSummary::default();
         assert_eq!(
             derive_next_existing_work(
@@ -1479,6 +1489,19 @@ mod tests {
                 "missing_fp16_or_provider_reference",
                 Some("missing_provider_reference_env"),
                 false,
+            ),
+            "large_model_provider_reference_deferred_by_mlx_route"
+        );
+        assert_eq!(
+            derive_next_existing_work(
+                true,
+                true,
+                &shards,
+                &ContractStatus::Missing,
+                false,
+                "missing_fp16_or_provider_reference",
+                Some("missing_provider_reference_env"),
+                true,
             ),
             "missing_provider_reference_env"
         );

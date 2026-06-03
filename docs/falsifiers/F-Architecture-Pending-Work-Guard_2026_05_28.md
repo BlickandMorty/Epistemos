@@ -83,14 +83,15 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-missing_fp16_or_provider_reference
+research_construction_engine
 ```
 
-That means the canonical KV prompt suite and full-suite run plan remain
-preserved, but 128K Qwen/GGUF/KV shard work is deferred by default. Do not
-repair or rerun KV shards unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set
-for an explicit long-context probe. Continue the non-heavy architecture cursor
-first.
+That means the canonical KV prompt suite, full-suite run plan, and 70B/provider
+reference failure reports remain preserved as research evidence, but 128K
+Qwen/GGUF/KV shard work and provider-reference work are deferred by default. Do
+not repair or rerun KV shards or create provider-reference manifests unless
+`EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
+probe. Continue Research Construction / non-heavy architecture first.
 
 ## Guard Axes
 
@@ -117,6 +118,7 @@ first.
 - `residency_plan_dry_run_available`
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
+- `large_model_provider_reference_required`
 
 The `residency_plan_dry_run_available` axis includes the
 `overlapping_ranges_rejected` sub-axis from `F-ResidencyPlan-DryRun`; a planner

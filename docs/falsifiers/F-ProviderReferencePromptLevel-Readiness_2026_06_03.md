@@ -36,8 +36,9 @@ primary_blocker=missing_provider_reference_env
 prompt_level_reference_available=false
 ```
 
-That is the correct red state until a real prompt-level local-fp16 or
-zero-retention hosted reference manifest exists.
+That is the correct red state when the heavy/provider-reference lane is active.
+It is deferred by default while the app is routed through practical MLX local
+inference.
 
 ## Minimum Axes
 
@@ -64,6 +65,6 @@ The invariant is:
 ```text
 shape-only manifest ABI can be green
   -> prompt-level readiness remains red without a real manifest
-  -> F-70B-Local-Cocktail-Lite stays on missing_fp16_or_provider_reference
+  -> F-70B-Local-Cocktail-Lite stays on missing_fp16_or_provider_reference only when that lane is re-enabled
   -> only digest-valid prompt-level replay evidence advances the comparison gate
 ```

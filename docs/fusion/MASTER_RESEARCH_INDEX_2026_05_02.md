@@ -147,12 +147,12 @@ fp16/cloud/local reference can count. Prompt-level references also require at
 least 50 prompts.
 The 70B preflight consumes the range-hash artifact as
 `weight_block_range_hash_dry_run_available=true`, then the planner artifact as
-`residency_plan_dry_run_available=true`, and remains red on
-`missing_fp16_or_provider_reference` until prompt-level comparison evidence
-exists.
-`F-ProviderReferencePromptLevel-Readiness` now audits that exact blocker:
-current default state is `primary_blocker=missing_provider_reference_env`, with
-shape-only fixtures still barred from satisfying prompt-level reference
+`residency_plan_dry_run_available=true`, and remains red research evidence
+until prompt-level comparison evidence exists. That provider-reference lane is
+not the default architecture cursor while the app is routed through practical
+MLX local inference. `F-ProviderReferencePromptLevel-Readiness` still audits the
+exact blocker when the heavy/provider-reference lane is explicitly re-enabled;
+shape-only fixtures remain barred from satisfying prompt-level reference
 evidence.
 
 **Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,

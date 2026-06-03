@@ -22,7 +22,7 @@ invent a parallel roadmap.
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `missing_fp16_or_provider_reference` |
+| Next bottleneck | `research_construction_engine` |
 | Canonical queue present | `true` |
 | Unmapped architecture gap count | `0` |
 
@@ -34,6 +34,11 @@ not mean the route is green.
 2026-06-03 update: 128K Qwen/GGUF/KV-Direct work is deferred by default. It
 remains available only for explicit heavy long-context probes with
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1`.
+
+2026-06-03 update: 70B/GGUF/provider-reference work is no longer the active
+architecture cursor while the app is routed through practical MLX local
+inference. The preserved 70B artifacts stay honest red research evidence, but
+they must not block the default loop or force a provider-reference manifest.
 
 ## Ordered Queue
 
@@ -49,9 +54,9 @@ remains available only for explicit heavy long-context probes with
 | 7 | Agent local-model runtime bridge | Pro / Agent Runtime | `ready_for_capability_ceiling_recheck` | `F-Agent-Local-Model-Runtime-Bridge` is now a schema-valid primary witness for the guarded local-model bridge slice: LocalAgent adapter dispatch is wired, Rust emits a `LocalMlx` handoff, Swift consumes it through the registered local client, a retained live prompt-suite artifact records token streaming from `Qwen/Qwen3-8B-MLX-4bit`, and AnswerPacket local-model provenance is present. This does not promote 70B, 128K, or KV-Direct. |
 | 8 | Active Assembly runtime floor | Capability Ceiling | completed | Synthetic runtime witness proves small support with bounded drift. |
 | 9 | Sparse Runtime Split floor | Capability Ceiling | completed | Synthetic sparse/reference split passes KL, active-ratio, cost-ratio, and chart-label axes. |
-| 10 | Live sparse 70B runtime + chart coverage | Pro Vault-Preserved / Capability Ceiling | pending live model runtime | Local 70B weights, reference, live sparse runtime trace, and live chart rows exist. |
-| 11 | 70B prompt-level cocktail | Pro Omega / Beyond | `missing_local_70b_model_weights` | Prompt-level D_KL, TTFT, tok/s, RSS, cache state, bottleneck attribution, and rollback pass. |
-| 12 | Research Construction Engine | Pro Research | planned after measured runtime gates | Motifs become ProblemCards with WBO budget, falsifier, witness, ProductBuild, ProStatus/ResidencyStatus, and rollback. |
+| 10 | Live sparse 70B runtime + chart coverage | Pro Vault-Preserved / Capability Ceiling | `large_model_provider_reference_deferred_by_mlx_route` | Deferred under the active MLX route unless explicitly re-enabled for research. |
+| 11 | 70B prompt-level cocktail | Pro Omega / Beyond | `large_model_provider_reference_deferred_by_mlx_route` | No active provider-reference prompt-level work is required for the MLX route. |
+| 12 | Research Construction Engine | Pro Research | `next_active_architecture_cursor` | Motifs become ProblemCards with WBO budget, falsifier, witness, ProductBuild, ProStatus/ResidencyStatus, and rollback. |
 
 ## Safe Non-Runtime 70B Rungs
 
@@ -62,10 +67,11 @@ These rungs are allowed while runtime-heavy probes are paused:
 | `F-WeightBlockRangeHash-DryRun` | green | The `WeightBlockManifest` byte-range hashing ABI rejects over-budget ranges before reading and supports known-hash manifests without touching model files. |
 | `F-ResidencyPlan-DryRun` | green | A deterministic `ResidencyPlan` can represent a model-shaped 72 GiB cold body with a bounded hot/warm active set, rollback, WBO, and Sherry/Leech/NF4 route labels while loading zero model bytes. |
 | `F-ProviderReferenceManifest-DryRun` | green | The provider/reference manifest ABI is digest-bound and prompt-suite-bound, but shape-only fixtures cannot advance the 70B comparison gate. |
-| `F-ProviderReferencePromptLevel-Readiness` | honest red | The real prompt-level reference path is audited separately from the shape fixture; current blocker is `missing_provider_reference_env`. |
-| `F-70B-Local-Cocktail-Lite` | honest red | The route has the safe planner rungs but still blocks on real prompt-level fp16/provider reference evidence and live runtime proof. |
+| `F-ProviderReferencePromptLevel-Readiness` | deferred red | Preserved as research evidence only; not required by the default MLX architecture cursor. |
+| `F-70B-Local-Cocktail-Lite` | deferred red | The route has safe planner rungs but remains non-product research unless explicitly re-enabled for heavy long-context/provider-reference work. |
 
-The pending-work guard now requires all five states above. This keeps the
+The pending-work guard now requires the safe planner states above only when the
+large-model/provider-reference route is an explicit active cursor. This keeps the
 no-compromise SSD/UMA/UAS/ColdStore/AcsAnchor ambition alive without letting a
 loop accidentally relaunch the heavy runtime path that can destabilize the
 laptop.
@@ -73,6 +79,9 @@ laptop.
 ## Non-Drift Rules
 
 - Do not lower the dense 36B RAM gate to make the 70B story look green.
+- Do not require 70B/GGUF/provider-reference setup while the active local route
+  is MLX; keep it deferred unless the user explicitly re-enables that research
+  lane.
 - Do not treat synthetic Active Assembly or synthetic Sparse Runtime Split as
   live model proofs.
 - Do not treat KV-Direct QK equality as the 128K SSD-spill gate.
