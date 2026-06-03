@@ -21,7 +21,7 @@ use agent_core::falsifier_artifacts::{
 
 const FALSIFIER_ID: &str = "F-T21-RetrievalContract-Capstone";
 const FIXTURE_ID: &str = "t21_retrieval_contract_capstone_v1";
-const COMMAND: &str = "cargo run --release --bin falsify_t21_retrieval_contract_capstone";
+const COMMAND: &str = "Tools/falsifiers/f_t21_retrieval_contract_capstone.sh";
 const OUTPUT_PATH: &str = "artifacts/falsifiers/t21_retrieval_contract_capstone/result.json";
 
 const VAULT_RECALL_PATH: &str = "artifacts/falsifiers/vault_recall_50/result.json";
