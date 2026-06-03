@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
-  <meta name="epistemos-artifact-cursor" content="neural_control_card_ablation">
+  <meta name="epistemos-artifact-cursor" content="verifier_regret_ledger">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -825,9 +825,9 @@ The next architecture lock is small cumulative control. A tiny proof card, premi
     <tr><td>RustRouteKernelModelCheck</td><td>Bounded route-state transitions, rollback reachability, budget monotonicity, abstention, stale-toolchain rejection, and hidden-live-mutation rejection.</td><td>F-RustRouteKernel-ModelCheck artifact plus AnswerPacket-visible route cards.</td></tr>
     <tr><td>BrainRouteCard</td><td>Which local model, verifier, tool, embedding engine, adapter family, or model stack wakes.</td><td>F-BrainRouteCard-MultiModel PASS: quality/evidence/verifier/latency/active-byte wins, rollback, AnswerPacket visibility, shadow-only authority.</td></tr>
     <tr><td>FeatureAtlasCard</td><td>SAE or mechanistic feature handles as route priors.</td><td>Source examples, ambiguity notes, ablation gate.</td></tr>
-    <tr><td>FeatureInterventionCard</td><td>Bounded activation or representation steering.</td><td>Baseline, intervention, ablation, rollback.</td></tr>
+    <tr><td>FeatureInterventionCard</td><td>Bounded activation or representation steering.</td><td>F-NeuralControlCard-Ablation PASS: baseline/intervention/ablation, RunEventLog, rollback, AnswerPacket, side-effect budget, and shadow-only authority bound.</td></tr>
     <tr><td>KVPageControlCard</td><td>KV pages to retain, evict, restore, compress, or prewarm.</td><td>F-KVPageControl-QueryAware PASS: query-aware beats recency/random/file-order, stale and incompatible pages reject, rollback and AnswerPacket visibility bound.</td></tr>
-    <tr><td>VerifierRegretLedger</td><td>Whether the tiny control actually helped.</td><td>Verifier delta updates future route selection.</td></tr>
+    <tr><td>VerifierRegretLedger</td><td>Whether the tiny control actually helped.</td><td>Next active cursor: prove held-out regret reduction before route utility updates promote.</td></tr>
   </tbody>
 </table>
 <div class="note">

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "453c34be371e0dfa564d51c52be6939b2dbd6f50",
+  "commit_sha": "88f408904d5abbceb84adb052e9dc6082f5eb3a4",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T20:27:23Z",
-  "result_digest": "sha256:d0121b29f766a8a070ff96f38df5ce3f43dadb4c919d33dce310f88686842a63",
+  "timestamp_utc": "2026-06-03T20:59:55Z",
+  "result_digest": "sha256:cd982880ff0eb1f13a6dd4eee97cee71f57985aece4fa39dfa56577a0f86b031",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -281,8 +281,24 @@
       },
       "unit": "object"
     },
+    "neural_control_card_ablation_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_card_ablation_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/neural_control_card_ablation/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "next_bottleneck": {
-      "value": "neural_control_card_ablation",
+      "value": "verifier_regret_ledger",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -541,11 +557,21 @@
           "order": 25,
           "gap_id": "neural_control_card_ablation",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-NeuralControlCard-Ablation",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Bounded neural/feature control cards must improve target behavior versus baseline and ablation without unacceptable side effects, hidden route authority, or live mutation.",
           "rollback": "Keep neural control cards shadow-only until baseline, intervention, ablation, rollback, RunEventLog, and AnswerPacket evidence pass."
+        },
+        {
+          "order": 26,
+          "gap_id": "verifier_regret_ledger",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-VerifierRegretLedger",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Verifier regret updates must change later route selection and reduce regret over held-out prompt/task sets without hidden route authority.",
+          "rollback": "Keep regret updates shadow-only until held-out regret reduction, rollback, RunEventLog, and AnswerPacket evidence pass."
         }
       ],
       "unit": "queue"
@@ -923,6 +949,11 @@
       "value": true,
       "unit": "bool"
     },
+    "neural_control_card_ablation_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "page_gather_dense_primary_pass": {
       "operator": "==",
       "value": true,
@@ -1047,6 +1078,7 @@
     "kv_page_control_query_aware_pass": true,
     "lattice_state_controller_pass": true,
     "meta_breakthrough_card_registry_pass": true,
+    "neural_control_card_ablation_pass": true,
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
@@ -1084,8 +1116,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "neural_control_card_ablation"
+      "detail": "verifier_regret_ledger"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=neural_control_card_ablation; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_regret_ledger; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

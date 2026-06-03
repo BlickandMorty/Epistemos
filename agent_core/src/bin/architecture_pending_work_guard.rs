@@ -54,6 +54,8 @@ const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
     "artifacts/falsifiers/brain_route_card_multi_model/result.json";
 const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
     "artifacts/falsifiers/kv_page_control_query_aware/result.json";
+const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
+    "artifacts/falsifiers/neural_control_card_ablation/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -169,6 +171,60 @@ const KV_PAGE_CONTROL_QUERY_AWARE_AXES: &[&str] = &[
     "verifier_bypass_rejected",
     "cloud_page_rejected",
     "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+];
+const NEURAL_CONTROL_CARD_ABLATION_AXES: &[&str] = &[
+    "upstream_kv_page_control_pass",
+    "neural_control_cards_present",
+    "intervention_ids_bound",
+    "feature_or_direction_ids_bound",
+    "model_ids_bound",
+    "layer_or_hook_bound",
+    "token_ranges_bound",
+    "strength_bounded",
+    "start_stop_conditions_bound",
+    "expected_effect_bound",
+    "baseline_run_bound",
+    "intervention_run_bound",
+    "ablation_run_bound",
+    "run_event_log_bound",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "failure_signature_bound",
+    "side_effect_budget_bound",
+    "active_byte_budget_bound",
+    "no_base_weight_mutation",
+    "neural_control_shadow_only",
+    "route_around_guard_bound",
+    "feature_ambiguity_bound",
+    "baseline_beaten",
+    "ablation_beaten",
+    "side_effects_within_budget",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "latency_non_regression",
+    "active_byte_budget_respected",
+    "hidden_chain_not_exposed",
+    "no_hidden_cloud",
+    "neural_control_address_deterministic",
+    "duplicate_intervention_rejected",
+    "missing_baseline_rejected",
+    "missing_intervention_rejected",
+    "missing_ablation_rejected",
+    "missing_run_event_log_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "base_weight_mutation_rejected",
+    "hidden_live_authority_rejected",
+    "over_strength_rejected",
+    "over_budget_side_effect_rejected",
+    "active_byte_budget_rejected",
+    "route_around_rejected",
+    "ambiguous_feature_rejected",
+    "unbeaten_baseline_rejected",
+    "unbeaten_ablation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_intervention_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -581,6 +637,11 @@ fn build_report() -> GuardReport {
         &kv_page_control_query_aware,
         KV_PAGE_CONTROL_QUERY_AWARE_AXES,
     );
+    let neural_control_card_ablation = read_json(Path::new(NEURAL_CONTROL_CARD_ABLATION_PATH));
+    let neural_control_card_ablation_available = artifact_all_axes_true(
+        &neural_control_card_ablation,
+        NEURAL_CONTROL_CARD_ABLATION_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -674,6 +735,7 @@ fn build_report() -> GuardReport {
         && rust_route_kernel_model_check_available
         && brain_route_card_multi_model_available
         && kv_page_control_query_aware_available
+        && neural_control_card_ablation_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -863,6 +925,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "kv_page_control_query_aware_available",
         kv_page_control_query_aware_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "neural_control_card_ablation_available",
+        neural_control_card_ablation_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1174,6 +1243,10 @@ fn build_report() -> GuardReport {
                     "path": KV_PAGE_CONTROL_QUERY_AWARE_PATH,
                     "available": kv_page_control_query_aware_available
                 },
+                "neural_control_card_ablation": {
+                    "path": NEURAL_CONTROL_CARD_ABLATION_PATH,
+                    "available": neural_control_card_ablation_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1331,6 +1404,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_kv_page_control_query_aware",
             "detail": "Meta Control has BrainRouteCard routing proof, but needs F-KVPageControl-QueryAware before the next non-heavy architecture cursor advances."
+        }));
+    }
+    if kv_page_control_query_aware_available && !neural_control_card_ablation_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_neural_control_card_ablation",
+            "detail": "Meta Control has query-aware KV/page proof, but needs F-NeuralControlCard-Ablation before verifier-regret work can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2230,6 +2309,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("kv_page_control_query_aware")
+            .is_some());
+        assert!(already_mapped_work
+            .get("neural_control_card_ablation")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
