@@ -350,12 +350,17 @@ The bridge from source research to candidate layout/route changes.
 
 ```text
 SourceToResidencyPatch {
+  patch_address
+  source_graph_address
   source_signal
+  source_digest
+  patch_kind
   proposed_unit_or_policy
   affected_organs
   import_gate
   falsifier_required
   rollback
+  promotion_status
 }
 ```
 
@@ -451,7 +456,7 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 | `F-MmapResidencyFence-CopyCount` | Proves mmap mapping, touching, resident estimate, major/minor faults, and copy count are not conflated. |
 | `F-KVByteBudgetCard` | Proves KV bytes, hit/miss tokens, codec, compatibility failures, and quality caveat are reported separately from weight bytes. |
 | `F-WorkingSetOracle-Baseline` | Proves the oracle beats random, recency, and static file-order policies or abstains. |
-| `F-SourceToResidency-NoPoison` | Proves prompt-injection, stale-source, license-blocked, and low-credibility sources cannot promote layout or route patches. |
+| `F-SourceToResidency-NoPoison` | Proves prompt-injection, stale/corrupted, private, license-blocked, and low-credibility sources cannot promote layout/cache/route/prompt patches. |
 | `F-70B-Cocktail-WorkingSet-Lite` | Proves a small-hot compiled plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. |
 
 **2026-06-03 status.** `F-SourceSignalGraph-Intake`,
@@ -459,10 +464,10 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 `F-SemanticWorkingSetPlan-Budget`, and
 `F-ResidencyPageTable-Addressability`, and
 `F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss`, and
-`F-KVByteBudgetCard` now have primary local witnesses on main. Continue this
-bundle with cold-fault learning, working-set oracle baseline, and
-source-to-residency no-poison guards; do not reinstall model assets or fetch live
-sources for these metadata-only gates.
+`F-KVByteBudgetCard`, and `F-SourceToResidency-NoPoison` now have primary local
+witnesses on main. Continue this bundle with cold-fault learning and working-set
+oracle baseline; do not reinstall model assets or fetch live sources for these
+metadata-only gates.
 
 ## Product locks
 

@@ -48,5 +48,6 @@ the Semantic Working-Set Compiler build order. `F-ResidencyPageTable-Addressabil
 now covers the first page-table gate, and `F-MmapResidencyFence-CopyCount`
 covers mmap fence copy-count semantics. `F-PrefetchWindow-ColdMiss` now covers
 the first prefetch/cold-miss fixture, and `F-KVByteBudgetCard` now covers KV
-byte-budget cards. The next unfinished bundle work is cold-fault learning,
-oracle baselines, and source-to-residency no-poison propagation.
+byte-budget cards. `F-SourceToResidency-NoPoison` now covers source-to-residency
+no-poison propagation. The next unfinished bundle work is cold-fault learning
+and oracle baselines.

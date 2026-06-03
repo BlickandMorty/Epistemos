@@ -163,6 +163,10 @@ name = "falsify_kv_byte_budget_card"
 path = "src/bin/falsify_kv_byte_budget_card.rs"
 
 [[bin]]
+name = "falsify_source_to_residency_no_poison"
+path = "src/bin/falsify_source_to_residency_no_poison.rs"
+
+[[bin]]
 name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 
