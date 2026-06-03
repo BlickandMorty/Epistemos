@@ -448,12 +448,20 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
             .sorted(by: Self.eventSortAscending)
         let latestEvent = runEvents.last ?? latestMissionEvent
         let answerPacketID = Self.latestAnswerPacketID(in: runEvents)
+        let answerPacketDisplay = Self.answerPacketDisplayFields(
+            in: runEvents,
+            packets: packets,
+            answerPacketID: answerPacketID
+        )
         return AgentBlueprintRunReplaySnapshot(
             runID: runID,
             eventCount: runEvents.count,
             latestEventKind: latestEvent.kind.rawValue,
             latestOccurredAt: Date(timeIntervalSince1970: Double(latestEvent.occurredAtMs) / 1_000),
             answerPacketId: answerPacketID,
+            answerPacketUILabel: answerPacketDisplay.uiLabel,
+            answerPacketAttentionMode: answerPacketDisplay.attentionMode,
+            answerPacketInterruptBucket: answerPacketDisplay.interruptBucket,
             replayStatus: Self.replayStatus(
                 runID: runID,
                 runEvents: runEvents,
@@ -478,6 +486,35 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
 
     private static func latestAnswerPacketID(in events: [AgentProvenanceEvent]) -> String? {
         events.reversed().compactMap { clean($0.metadata["answer_packet_id"]) }.first
+    }
+
+    private static func answerPacketDisplayFields(
+        in events: [AgentProvenanceEvent],
+        packets: [AnswerPacket],
+        answerPacketID: String?
+    ) -> (uiLabel: String?, attentionMode: String?, interruptBucket: String?) {
+        let matchingPacket = answerPacketID.flatMap { id in
+            packets.first { $0.id == id }
+        }
+        let matchingEvents = events.reversed().filter { event in
+            guard let answerPacketID else { return true }
+            return clean(event.metadata["answer_packet_id"]) == answerPacketID
+        }
+        return (
+            uiLabel: firstMetadataValue("answer_packet_ui_label", in: matchingEvents)
+                ?? matchingPacket?.uiLabel.rawValue,
+            attentionMode: firstMetadataValue("answer_packet_attention_mode", in: matchingEvents)
+                ?? matchingPacket?.attentionMode.rawValue,
+            interruptBucket: firstMetadataValue("answer_packet_interrupt_bucket", in: matchingEvents)
+                ?? matchingPacket?.interruptBucket.rawValue
+        )
+    }
+
+    private static func firstMetadataValue(
+        _ key: String,
+        in events: [AgentProvenanceEvent]
+    ) -> String? {
+        events.compactMap { clean($0.metadata[key]) }.first
     }
 
     private static func replayStatus(
@@ -566,6 +603,9 @@ nonisolated struct AgentBlueprintRunReplaySnapshot: Sendable, Equatable {
     let latestEventKind: String
     let latestOccurredAt: Date
     let answerPacketId: String?
+    let answerPacketUILabel: String?
+    let answerPacketAttentionMode: String?
+    let answerPacketInterruptBucket: String?
     let replayStatus: AgentBlueprintReplayStatus
 
     var shortRunID: String {
@@ -574,6 +614,19 @@ nonisolated struct AgentBlueprintRunReplaySnapshot: Sendable, Equatable {
 
     var summary: String {
         "\(eventCount) events · \(replayStatus.summaryLabel)"
+    }
+
+    var answerPacketReplayDetail: String? {
+        let parts = [
+            answerPacketUILabel,
+            answerPacketAttentionMode,
+            answerPacketInterruptBucket
+        ].compactMap { value in
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ")
     }
 }
 
