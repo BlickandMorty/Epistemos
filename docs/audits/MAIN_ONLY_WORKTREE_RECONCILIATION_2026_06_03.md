@@ -152,10 +152,13 @@ the next-work gate.
 Preferred next work, from current main:
 
 1. T21 retrieval contract unification over Eidos, VaultRecall, and PageGather.
-2. A small `SemanticWorkingSetPlan` dry-run module using existing UAS /
-   AppColdStore / PatternBoost types.
-3. Metadata-only falsifier fixtures for residency page-table addressability and
-   deterministic task working sets.
+2. `F-SourceSignalGraph-Intake` and `F-SemanticWorkingSetPlan-Budget` are now
+   present as primary witnesses on main:
+   `artifacts/falsifiers/source_signal_graph_intake/result.json` and
+   `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`.
+3. Metadata-only falsifier fixtures still needed next:
+   `F-TaskWorkingSetQuery-Determinism` and
+   `F-ResidencyPageTable-Addressability`.
 4. T25 naming cleanup only as current-main source/doc guard work: ColdStore for
    dormant residency, AcsAnchor for coordinate/provenance anchoring, and
    SCOPE-Rex/SovereignGate for admission.

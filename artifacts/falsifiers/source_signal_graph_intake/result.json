@@ -1,0 +1,290 @@
+{
+  "falsifier_id": "F-SourceSignalGraph-Intake",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_source_signal_graph_intake.sh",
+  "command_digest": "sha256:5738ca30ce6ae900c294896db68fbc517a45428b78995f96fe1e8a8f065c4280",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "771f634e5a6ed1c32301aaed53491e7158e1d24b",
+  "fixture_id": "source_signal_graph_intake_v1",
+  "timestamp_utc": "2026-06-03T08:10:06Z",
+  "result_digest": "sha256:d69cddb98b6d2f6a02322605630278c1256d65b208c18f413706b9adc941c3b7",
+  "measurements": {
+    "bad_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bookmark_source_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "credibility_rank_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "digest_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "doc_source_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "graph_address": {
+      "value": "source_signal_graph:b1fbd336afc73264c1042652f138db60bd9f793e1309cddbe26a6247924b4186@1779000000000",
+      "unit": "uas_address"
+    },
+    "graph_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "license_usage_note_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_poison_status_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "paper_source_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "poison_edges_dropped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "poison_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_source_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "repo_source_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_affinity_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "route_affinity_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "source_cards_sorted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_type_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_edge_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "x_source_present": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "bad_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bookmark_source_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "credibility_rank_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "digest_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "doc_source_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "graph_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "graph_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "license_usage_note_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_poison_status_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "paper_source_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "poison_edges_dropped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "poison_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_source_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "repo_source_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_affinity_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "route_affinity_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "source_cards_sorted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_type_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_edge_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "x_source_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "bad_digest_rejected": true,
+    "bookmark_source_present": true,
+    "credibility_rank_coverage": true,
+    "digest_coverage": true,
+    "doc_source_present": true,
+    "duplicate_source_rejected": true,
+    "edge_count": true,
+    "graph_address": true,
+    "graph_address_deterministic": true,
+    "license_usage_note_coverage": true,
+    "no_poison_status_coverage": true,
+    "paper_source_present": true,
+    "poison_edges_dropped": true,
+    "poison_source_rejected": true,
+    "privacy_class_coverage": true,
+    "rejected_source_count": true,
+    "repo_source_present": true,
+    "route_affinity_count": true,
+    "route_affinity_coverage": true,
+    "source_card_count": true,
+    "source_cards_sorted": true,
+    "source_type_coverage": true,
+    "unknown_edge_rejected": true,
+    "x_source_present": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only SourceSignalGraph intake; no browser fetch, source import, model decode, route mutation, or source-derived promotion executed"
+    }
+  ],
+  "notes": "Proves bookmark, repo, paper, doc, and X bookmark source cards carry digest, credibility, license/usage note, privacy, route affinity, no-poison status, deterministic graph addressing, blocked-source rejection, and endpoint validation before working-set planning."
+}

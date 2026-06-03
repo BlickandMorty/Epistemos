@@ -51,6 +51,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-UAS-ACS-MmapResidency",
     "F-ResidencyPlan-DryRun",
     "F-AppColdStore-Layout",
+    "F-SourceSignalGraph-Intake",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ProviderReferenceManifest-DryRun",
     "F-WeightBlockRangeHash-DryRun",

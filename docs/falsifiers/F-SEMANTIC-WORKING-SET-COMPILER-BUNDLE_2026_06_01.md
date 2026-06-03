@@ -74,6 +74,18 @@ failure_reason
 | `F-SourceToResidency-NoPoison` | Prompt-injection, stale-source, license-blocked, private-source, corrupted-digest, and low-credibility fixtures cannot promote layout, cache, route, or prompt patches. | Source poisoning, license drift, stale evidence reuse, and private trace leakage. |
 | `F-70B-Cocktail-WorkingSet-Lite` | A small-hot compiled plan beats dense-local, RAG-only, and static-route baselines on quality, evidence validity, active bytes, cold stalls, and visible proof without hidden cloud or dense-resident overclaim. | "70B local" claims without active/hot/cold/KV accounting, fallback, and proof. |
 
+## Implementation status - 2026-06-03
+
+- `F-SourceSignalGraph-Intake` is implemented as a primary witness at
+  `artifacts/falsifiers/source_signal_graph_intake/result.json` and documented
+  in `docs/falsifiers/F-SourceSignalGraph-Intake_2026_06_03.md`.
+- `F-SemanticWorkingSetPlan-Budget` is implemented as a primary witness at
+  `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`.
+- Remaining schema-only bundle work starts with
+  `F-TaskWorkingSetQuery-Determinism` and
+  `F-ResidencyPageTable-Addressability`; source intake and budget rejection no
+  longer need to be rebuilt from scratch.
+
 ## Required fixture families
 
 1. **Bookmark source.** A saved browser source becomes a `SourceCard` with
@@ -101,9 +113,12 @@ failure_reason
 1. Add schema-only artifacts for `SourceSignalGraph`,
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan`, `ResidencyPageTable`,
    `PrefetchWindow`, `ColdFaultTrace`, `LayoutPatch`, `MmapResidencyFence`,
-   and `KVByteBudgetCard`.
-2. Wire synthetic fixtures for source intake and deterministic query emission.
-3. Add budget rejection before any runtime wake path.
+   and `KVByteBudgetCard`. `SourceSignalGraph` and
+   `SemanticWorkingSetPlan` budget rejection now have primary witnesses.
+2. Wire synthetic fixtures for deterministic query emission. Source intake is
+   already wired through `F-SourceSignalGraph-Intake`.
+3. Budget rejection before any runtime wake path is covered by
+   `F-SemanticWorkingSetPlan-Budget`.
 4. Add page-table and mmap fence fixtures.
 5. Add KV budget and compatibility fixtures.
 6. Add cold-miss learning fixtures with rollback-only layout patches.

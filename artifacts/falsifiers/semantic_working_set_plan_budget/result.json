@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "432da1f4d116e6e3255552dff52d55accabd9d7e",
+  "commit_sha": "771f634e5a6ed1c32301aaed53491e7158e1d24b",
   "fixture_id": "semantic_working_set_plan_budget_v1",
-  "timestamp_utc": "2026-06-03T05:47:03Z",
+  "timestamp_utc": "2026-06-03T07:46:05Z",
   "result_digest": "sha256:d2aac5cfd995ea5d66d9d99dc8f36806d614848e5e4b24ed7f5a332b5170d6cc",
   "measurements": {
     "accepted_plan_fit_for_dry_run": {
