@@ -38,6 +38,8 @@ const PROOF_CARRYING_RESIDENCY_LEASE_PATH: &str =
     "artifacts/falsifiers/proof_carrying_residency_lease/result.json";
 const COLD_ASSEMBLY_PLAN_70B_LITE_PATH: &str =
     "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json";
+const LATTICE_STATE_CONTROLLER_PATH: &str =
+    "artifacts/falsifiers/lattice_state_controller/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -247,6 +249,42 @@ fn build_report() -> GuardReport {
             "missing_lease_rejected",
         ],
     );
+    let lattice_state_controller = read_json(Path::new(LATTICE_STATE_CONTROLLER_PATH));
+    let lattice_state_controller_available = artifact_all_axes_true(
+        &lattice_state_controller,
+        &[
+            "lattice_controller_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "abstract_route_state_bound",
+            "candidate_actions_bound",
+            "selected_action_bound",
+            "static_policy_action_bound",
+            "monotone_progress_metric_bound",
+            "uncertainty_bound",
+            "conflict_signal_bound",
+            "abstain_condition_bound",
+            "verifier_feedback_bound",
+            "abstains_when_uncertain",
+            "beats_static_policy_baseline",
+            "beats_random_policy_baseline",
+            "beats_always_retrieve_baseline",
+            "quality_delta_positive",
+            "evidence_validity_delta_positive",
+            "verifier_delta_positive",
+            "route_success_delta_positive",
+            "abstention_delta_positive",
+            "fallback_bound",
+            "rollback_verified",
+            "answer_packet_ref_bound",
+            "no_hidden_live_route_authority",
+            "hidden_chain_not_exposed",
+            "high_uncertainty_non_abstain_rejected",
+            "unbeaten_static_policy_rejected",
+            "no_runtime_bytes_loaded",
+            "controller_address_deterministic",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -331,6 +369,7 @@ fn build_report() -> GuardReport {
         && coactivation_tile_prefetch_available
         && proof_carrying_residency_lease_available
         && cold_assembly_plan_70b_lite_available
+        && lattice_state_controller_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -457,6 +496,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "cold_assembly_plan_70b_lite_available",
         cold_assembly_plan_70b_lite_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "lattice_state_controller_available",
+        lattice_state_controller_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -732,6 +778,10 @@ fn build_report() -> GuardReport {
                     "path": COLD_ASSEMBLY_PLAN_70B_LITE_PATH,
                     "available": cold_assembly_plan_70b_lite_available
                 },
+                "lattice_state_controller": {
+                    "path": LATTICE_STATE_CONTROLLER_PATH,
+                    "available": lattice_state_controller_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -835,6 +885,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_cold_assembly_plan_70b_lite",
             "detail": "Research Construction has proof-carrying leases, but needs F-ColdAssemblyPlan-70B-Lite before LatticeStateController work continues."
+        }));
+    }
+    if cold_assembly_plan_70b_lite_available && !lattice_state_controller_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_lattice_state_controller",
+            "detail": "Research Construction has a cold 70B assembly plan, but needs F-LatticeStateController before reasoning-state continuity work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1711,6 +1767,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("cold_assembly_plan_70b_lite")
+            .is_some());
+        assert!(already_mapped_work
+            .get("lattice_state_controller")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

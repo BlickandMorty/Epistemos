@@ -290,7 +290,7 @@ Companion cache and editor/projection gates:
 | `F-CoactivationTile-Prefetch` | Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. |
 | `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |
-| `F-LatticeStateController` | Proves a small recurrent/lattice controller improves route decisions versus static policy and abstains when uncertain. |
+| `F-LatticeStateController` | PASS metadata-only witness on main, 2026-06-03. Proves a small recurrent/lattice controller improves route decisions versus static, random, and always-retrieve baselines; abstains under high uncertainty/conflict; rejects hidden live route authority, hidden-chain exposure, missing rollback, missing AnswerPacket, and unbeaten static-policy baselines. Artifact: `artifacts/falsifiers/lattice_state_controller/result.json`. |
 | `F-ReasoningStateContinuity` | Proves resumable state improves continuity/cache utility without leaking hidden reasoning or bypassing verification. |
 | `F-ColdMissLedger` | Proves cold misses update future prefetch/route policy and reduce repeated stalls on held-out tasks. |
 | `F-SwiftLM-SourceIntake` | Proves SwiftLM motifs are captured as source cards, license notes, benchmark caveats, and local test plans before any implementation import. |

@@ -45,7 +45,7 @@ Companion 2026-06-01 gates:
 | `F-CoactivationTile-Prefetch` | Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste. | PASS as metadata-only dry-run tile witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`, `artifacts/falsifiers/coactivation_tile_prefetch/result.json`. |
 | `F-ProofCarryingResidencyLease` | No cold byte wakes without UAS address, reason, byte cost, proof/falsifier reference, expiry, fallback, and rollback. | PASS as metadata-only dry-run lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`, `artifacts/falsifiers/proof_carrying_residency_lease/result.json`. |
 | `F-ColdAssemblyPlan-70B-Lite` | A small-hot plus cold-selected plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. | PASS as metadata-only dry-run cold assembly witness: `docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md`, `artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json`. |
-| `F-LatticeStateController` | A tiny recurrent/lattice controller improves route decisions over static policy and abstains when uncertain. | Route-controller lane. |
+| `F-LatticeStateController` | A tiny recurrent/lattice controller improves route decisions over static policy and abstains when uncertain. | PASS as metadata-only route-controller witness: `docs/falsifiers/F-LatticeStateController_2026_06_03.md`, `artifacts/falsifiers/lattice_state_controller/result.json`. |
 | `F-ReasoningStateContinuity` | Preserved cache/summary/tool state improves continuity or cache utility without exposing hidden chain-of-thought or bypassing verification. | Stateful memory lane. |
 | `F-ColdMissLedger` | Cold misses update later prefetch/route policy and reduce repeated stalls on held-out tasks. | Runtime learning loop. |
 | `F-SwiftLM-SourceIntake` | SwiftLM motifs are captured as source cards with license, setup, benchmark caveats, and local test plans before any code import. | Source-mining discipline. |
@@ -121,4 +121,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current active cursor after 2026-06-03 cold assembly witness: `F-LatticeStateController`
+- Current active cursor after the 2026-06-03 lattice controller witness: `F-ReasoningStateContinuity`

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "06e147d82ed39b7897172dcaf951552a18272a2e",
+  "commit_sha": "8fadea3d840e9e4742dbe2a5f83df84a9d342ea4",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T15:37:03Z",
-  "result_digest": "sha256:c2f2f48143796c0e19c40a2349d4af76c14ed8658bab9afa925553f9848b1843",
+  "timestamp_utc": "2026-06-03T16:14:22Z",
+  "result_digest": "sha256:45b1bca9b1367e5ed9e6bad6dfaa0799d5f46a7e41700241cc615b2eeedab142",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -88,6 +88,10 @@
           },
           "cold_assembly_plan_70b_lite": {
             "path": "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json",
+            "available": true
+          },
+          "lattice_state_controller": {
+            "path": "artifacts/falsifiers/lattice_state_controller/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -325,6 +329,10 @@
       "value": false,
       "unit": "bool"
     },
+    "lattice_state_controller_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "local_70b_cocktail_honest_red": {
       "value": true,
       "unit": "bool"
@@ -358,11 +366,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "lattice_state_controller",
+      "value": "reasoning_state_continuity",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "lattice_state_controller",
+      "value": "reasoning_state_continuity",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -406,7 +414,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 17,
+      "value": 18,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -489,6 +497,11 @@
       "unit": "bool"
     },
     "kv_prompt_suite_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_state_controller_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -590,6 +603,7 @@
     "kv_plan_output_dirs_unique": true,
     "kv_plan_prompt_ids_unique": true,
     "kv_prompt_suite_available": true,
+    "lattice_state_controller_available": true,
     "local_70b_cocktail_honest_red": true,
     "local_worktree_current_repo_present": true,
     "local_worktree_inventory_available": true,
@@ -628,5 +642,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=lattice_state_controller; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=reasoning_state_continuity; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

@@ -69,6 +69,9 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
+ACS (Anchored Cognitive Substrate) naming is preserved in this mirror's legacy
+falsifier labels.
+
 **Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
 **Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
@@ -620,7 +623,7 @@ MissionPacket
 | `F-CoactivationTile-Prefetch` | Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. |
 | `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |
-| `F-LatticeStateController` | Proves a small recurrent/lattice controller improves route decisions versus static policy and abstains when uncertain. |
+| `F-LatticeStateController` | PASS metadata-only witness on main, 2026-06-03. Proves a small recurrent/lattice controller improves route decisions versus static, random, and always-retrieve baselines; abstains under high uncertainty/conflict; rejects hidden live route authority, hidden-chain exposure, missing rollback, missing AnswerPacket, and unbeaten static-policy baselines. Artifact: `artifacts/falsifiers/lattice_state_controller/result.json`. |
 | `F-ReasoningStateContinuity` | Proves resumable state improves continuity/cache utility without leaking hidden reasoning or bypassing verification. |
 | `F-ColdMissLedger` | Proves cold misses update future prefetch/route policy and reduce repeated stalls on held-out tasks. |
 | `F-SwiftLM-SourceIntake` | Proves SwiftLM motifs are captured as source cards, license notes, benchmark caveats, and local test plans before any implementation import. |

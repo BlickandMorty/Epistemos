@@ -1,0 +1,450 @@
+{
+  "falsifier_id": "F-LatticeStateController",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_lattice_state_controller.sh",
+  "command_digest": "sha256:1bd8ce70ca1797daa2c4534840b8f982d2b2009a1cc7a209ca1218a5710061e0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8fadea3d840e9e4742dbe2a5f83df84a9d342ea4",
+  "fixture_id": "lattice_state_controller_v1",
+  "timestamp_utc": "2026-06-03T16:14:04Z",
+  "result_digest": "sha256:e49329528e24ddfae157a6c3ae325415f0414662f8ffede9edd37d60e28cb3a1",
+  "measurements": {
+    "abstain_condition_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstains_when_uncertain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_accuracy_bps": {
+      "value": 8700,
+      "unit": "bps"
+    },
+    "abstention_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstract_route_state_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "value": 256000,
+      "unit": "bytes"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_always_retrieve_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_random_policy_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_policy_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_action_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "candidate_actions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_stall_ms": {
+      "value": 25,
+      "unit": "ms"
+    },
+    "conflict_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "controller_address": {
+      "value": "lattice_state_controller:bd050259a911002c6ee0934ce3d10d05fd4a613b05f0b9152a6dd4880272162e@1779400000000",
+      "unit": "string"
+    },
+    "controller_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "controller_score_bps": {
+      "value": 8720,
+      "unit": "bps"
+    },
+    "evidence_validity_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_non_abstain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_controller_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "monotone_progress_metric_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_live_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_success_bps": {
+      "value": 8850,
+      "unit": "bps"
+    },
+    "route_success_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_action": {
+      "value": "verify",
+      "unit": "string"
+    },
+    "selected_action_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "static_policy_action_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_static_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_feedback_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_condition_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstains_when_uncertain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_accuracy_bps": {
+      "operator": ">",
+      "value": 6500,
+      "unit": "bps"
+    },
+    "abstention_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstract_route_state_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "operator": "<",
+      "value": 600000,
+      "unit": "bytes"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_always_retrieve_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_random_policy_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_policy_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_action_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "count"
+    },
+    "candidate_actions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_stall_ms": {
+      "operator": "<",
+      "value": 80,
+      "unit": "ms"
+    },
+    "conflict_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "controller_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "string"
+    },
+    "controller_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "controller_score_bps": {
+      "operator": ">",
+      "value": 7620,
+      "unit": "bps"
+    },
+    "evidence_validity_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_non_abstain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_controller_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "monotone_progress_metric_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_live_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_success_bps": {
+      "operator": ">",
+      "value": 7600,
+      "unit": "bps"
+    },
+    "route_success_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_action": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "string"
+    },
+    "selected_action_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "static_policy_action_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_static_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_feedback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_condition_bound": true,
+    "abstains_when_uncertain": true,
+    "abstention_accuracy_bps": true,
+    "abstention_delta_positive": true,
+    "abstract_route_state_bound": true,
+    "active_executed_bytes": true,
+    "answer_packet_ref_bound": true,
+    "baseline_count": true,
+    "beats_always_retrieve_baseline": true,
+    "beats_random_policy_baseline": true,
+    "beats_static_policy_baseline": true,
+    "candidate_action_count": true,
+    "candidate_actions_bound": true,
+    "cold_stall_ms": true,
+    "conflict_signal_bound": true,
+    "controller_address": true,
+    "controller_address_deterministic": true,
+    "controller_score_bps": true,
+    "evidence_validity_delta_positive": true,
+    "fallback_bound": true,
+    "hidden_chain_not_exposed": true,
+    "high_uncertainty_non_abstain_rejected": true,
+    "lattice_controller_present": true,
+    "monotone_progress_metric_bound": true,
+    "no_hidden_live_route_authority": true,
+    "no_runtime_bytes_loaded": true,
+    "quality_delta_positive": true,
+    "rollback_verified": true,
+    "route_success_bps": true,
+    "route_success_delta_positive": true,
+    "selected_action": true,
+    "selected_action_bound": true,
+    "source_card_count": true,
+    "source_card_ids_bound": true,
+    "static_policy_action_bound": true,
+    "task_signature_bound": true,
+    "unbeaten_static_policy_rejected": true,
+    "uncertainty_bound": true,
+    "verifier_delta_positive": true,
+    "verifier_feedback_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only lattice state controller fixture; no live route authority, hidden chain exposure, model decode, MLX, Metal, provider call, or production policy mutation executed"
+    }
+  ],
+  "notes": "Proves a bounded lattice route controller beats static/random/always-retrieve baselines and abstains on high uncertainty; live route authority remains a separate gate."
+}
