@@ -151,6 +151,10 @@ name = "falsify_reasoning_state_continuity"
 path = "src/bin/falsify_reasoning_state_continuity.rs"
 
 [[bin]]
+name = "falsify_cold_miss_ledger"
+path = "src/bin/falsify_cold_miss_ledger.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

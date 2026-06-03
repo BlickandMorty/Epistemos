@@ -31,6 +31,7 @@ pub mod anchor_registry;
 pub mod app_cold_store;
 pub mod coactivation_tile;
 pub mod cold_assembly_plan;
+pub mod cold_miss_ledger;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
@@ -61,6 +62,7 @@ pub use cold_assembly_plan::{
     ColdAssemblyBaseline, ColdAssemblyPlan, ColdAssemblyPlanError, ColdAssemblyTileRef,
     ColdAssemblyTileRole,
 };
+pub use cold_miss_ledger::{ColdMissLedger, ColdMissLedgerEntry, ColdMissLedgerError};
 pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,
 };

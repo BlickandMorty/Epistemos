@@ -55,10 +55,14 @@ architecture track remains active as proof-carrying cold assembly, route
 control, and continuity-card work, while deferred Qwen/GGUF and
 provider-reference prompt-level probes stay opt-in heavy work.
 
+`F-ColdMissLedger` is also implemented as
+`docs/falsifiers/F-ColdMissLedger_2026_06_03.md` with artifact
+`artifacts/falsifiers/cold_miss_ledger/result.json`.
+
 The next default Research Construction cursor is:
 
 ```text
-F-ColdMissLedger
+F-SwiftLM-SourceIntake
 ```
 
 ## Axis Floor

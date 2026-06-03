@@ -1,0 +1,420 @@
+{
+  "falsifier_id": "F-ColdMissLedger",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_cold_miss_ledger.sh",
+  "command_digest": "sha256:1bb782ed94876162f0d7867f2c3d1e688293ea59002ad16e864b053ada943cd2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "f31e4121cfa9fbd6c7c893c3c0bc228a4caa226b",
+  "fixture_id": "cold_miss_ledger_v1",
+  "timestamp_utc": "2026-06-03T17:22:51Z",
+  "result_digest": "sha256:265979877073da5f10edf6231f43a73e8392989a294537a92e0b6653c3ae0990",
+  "measurements": {
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_bytes_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_miss_ledger_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_used_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_miss_delta": {
+      "value": -3,
+      "unit": "bps_or_delta"
+    },
+    "held_out_misses_reduced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "high_wear_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_address": {
+      "value": "cold_miss_ledger:e2e207dc5d9c319ea17ebe179e0dea9cbe5930d8797aa96ab269b2523a1082f5@1779000000000",
+      "unit": "label"
+    },
+    "ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_entry_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "miss_time_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missed_unit_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_policy_patch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_prefetch_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_improvement_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_address": {
+      "value": "cold_route_policy_patch:d6960b129dfb3c107a2177ffab2d34ed2e955873a1788d655af63c6c7d8b3abc@1779000000000",
+      "unit": "label"
+    },
+    "policy_patch_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_shadow_scoped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "production_mutation_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_misses_recorded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_stall_delta_ms": {
+      "value": -72,
+      "unit": "bps_or_delta"
+    },
+    "repeated_stall_reduced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "single_miss_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stall_ms_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bytes": {
+      "value": 32768,
+      "unit": "count"
+    },
+    "task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_cold_io_bytes": {
+      "value": 131072,
+      "unit": "count"
+    },
+    "verifier_delta_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_total_bps": {
+      "value": -240,
+      "unit": "bps_or_delta"
+    },
+    "zero_stall_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_bytes_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_miss_ledger_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_used_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_miss_delta": {
+      "operator": "<=",
+      "value": -1,
+      "unit": "bps_or_delta"
+    },
+    "held_out_misses_reduced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "high_wear_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "label"
+    },
+    "ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_entry_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "miss_time_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missed_unit_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_policy_patch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_prefetch_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_improvement_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "label"
+    },
+    "policy_patch_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_shadow_scoped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "production_mutation_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_misses_recorded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_stall_delta_ms": {
+      "operator": "<=",
+      "value": -1,
+      "unit": "bps_or_delta"
+    },
+    "repeated_stall_reduced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "single_miss_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stall_ms_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bytes": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "count"
+    },
+    "task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_cold_io_bytes": {
+      "operator": "==",
+      "value": 131072,
+      "unit": "count"
+    },
+    "verifier_delta_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_total_bps": {
+      "operator": "<=",
+      "value": -1,
+      "unit": "bps_or_delta"
+    },
+    "zero_stall_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_ref_bound": true,
+    "cold_io_bytes_reported": true,
+    "cold_miss_ledger_present": true,
+    "fallback_used_visible": true,
+    "held_out_cold_miss_delta": true,
+    "held_out_misses_reduced": true,
+    "high_wear_rejected": true,
+    "ledger_address": true,
+    "ledger_address_deterministic": true,
+    "ledger_entry_count": true,
+    "miss_time_bound": true,
+    "missed_unit_bound": true,
+    "missing_policy_patch_rejected": true,
+    "missing_rollback_rejected": true,
+    "next_prefetch_policy_bound": true,
+    "no_improvement_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "policy_patch_address": true,
+    "policy_patch_ref_bound": true,
+    "policy_patch_shadow_scoped": true,
+    "production_mutation_blocked": true,
+    "repeated_misses_recorded": true,
+    "repeated_stall_delta_ms": true,
+    "repeated_stall_reduced": true,
+    "rollback_bound": true,
+    "route_id_bound": true,
+    "run_event_log_bound": true,
+    "single_miss_rejected": true,
+    "source_card_ids_bound": true,
+    "stall_ms_reported": true,
+    "storage_wear_bounded": true,
+    "storage_wear_bytes": true,
+    "task_signature_bound": true,
+    "total_cold_io_bytes": true,
+    "verifier_delta_reported": true,
+    "verifier_delta_total_bps": true,
+    "zero_stall_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only ColdMissLedger and shadow ColdRoutePolicyPatch; no live route mutation, model load, mmap, prefetch, MLX/Metal, or production policy change executed"
+    }
+  ],
+  "notes": "Proves repeated cold misses bind route id, missed UAS units, stall/cold-I/O costs, fallback, verifier delta, next prefetch policy, rollback, run log, AnswerPacket, and a shadow ColdRoutePolicyPatch; held-out misses and repeated stalls improve, high-wear and live-mutation cases reject, and runtime/model bytes loaded remain zero."
+}

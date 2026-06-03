@@ -63,6 +63,7 @@ artifacts/falsifiers/proof_carrying_residency_lease/result.json
 artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json
 artifacts/falsifiers/lattice_state_controller/result.json
 artifacts/falsifiers/reasoning_state_continuity/result.json
+artifacts/falsifiers/cold_miss_ledger/result.json
 artifacts/falsifiers/provider_reference_manifest_dry_run/result.json
 artifacts/falsifiers/70b_local_cocktail_lite/result.json
 ```
@@ -89,21 +90,20 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-cold_miss_ledger
+swiftlm_source_intake
 ```
 
 That means the canonical KV prompt suite, full-suite run plan, coactivation
 tile prefetch witness, proof-carrying residency lease witness, 70B-lite cold
 assembly witness, lattice-state-controller witness, reasoning-state-continuity
-witness, and 70B/provider-reference failure reports remain preserved as
-research evidence,
-but 128K Qwen/GGUF/KV shard work and provider-reference work are deferred by
-default. Do not repair or rerun KV shards or create provider-reference
-manifests unless
+witness, cold-miss-ledger witness, and 70B/provider-reference failure reports
+remain preserved as research evidence, but 128K Qwen/GGUF/KV shard work and
+provider-reference work are deferred by default. Do not repair or rerun KV
+shards or create provider-reference manifests unless
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
-probe. Continue `F-ColdMissLedger` as the default architecture path after the
-reasoning-state continuity witness without treating the Qwen/GGUF shard route
-as active.
+probe. Continue `F-SwiftLM-SourceIntake` as the default architecture path after
+the cold-miss-ledger witness without treating the Qwen/GGUF shard route as
+active.
 
 ## Guard Axes
 
@@ -134,6 +134,7 @@ as active.
 - `cold_assembly_plan_70b_lite_available`
 - `lattice_state_controller_available`
 - `reasoning_state_continuity_available`
+- `cold_miss_ledger_available`
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
 - `large_model_provider_reference_required`

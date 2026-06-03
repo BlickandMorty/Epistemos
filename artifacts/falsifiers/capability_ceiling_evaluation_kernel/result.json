@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "c6a5a8a54eed590f808862df649de1411bdec5ed",
+  "commit_sha": "f31e4121cfa9fbd6c7c893c3c0bc228a4caa226b",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T16:45:50Z",
-  "result_digest": "sha256:8863f61c0d5f7ef26426d63af5e1ba4c554e777d11e5206bdaf77d0bee985213",
+  "timestamp_utc": "2026-06-03T17:23:05Z",
+  "result_digest": "sha256:4919830b674a455c55f48a8b232caf8a51fdc1d35f5b85ea7140698d2c4cd2ff",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -112,6 +112,22 @@
     "cold_assembly_plan_70b_lite_summary": {
       "value": {
         "path": "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "cold_miss_ledger_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_miss_ledger_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/cold_miss_ledger/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -218,7 +234,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "cold_miss_ledger",
+      "value": "swiftlm_source_intake",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -407,11 +423,21 @@
           "order": 18,
           "gap_id": "cold_miss_ledger",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ColdMissLedger",
           "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
           "promotion_condition": "Cold-miss traces must update later prefetch and route policy while proving held-out repeated-stall reduction.",
           "rollback": "Cold-miss learning stays shadow-policy only until storage-wear, rollback, held-out improvement, and AnswerPacket visibility pass."
+        },
+        {
+          "order": 19,
+          "gap_id": "swiftlm_source_intake",
+          "tier": "Research Construction",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-SwiftLM-SourceIntake",
+          "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+          "promotion_condition": "SwiftLM SSD-streaming and KV-compression motifs must be captured as source cards, license/setup notes, benchmark caveats, and local test plans before any implementation import.",
+          "rollback": "SwiftLM is source-mining discipline, not a product dependency or code import path."
         }
       ],
       "unit": "queue"
@@ -646,6 +672,11 @@
       "value": true,
       "unit": "bool"
     },
+    "cold_miss_ledger_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "kv_direct_full_suite_run_plan_available": {
       "operator": "==",
       "value": true,
@@ -811,6 +842,7 @@
     "canonical_build_queue_present": true,
     "coactivation_tile_prefetch_pass": true,
     "cold_assembly_plan_70b_lite_pass": true,
+    "cold_miss_ledger_pass": true,
     "kv_direct_full_suite_run_plan_available": true,
     "kv_direct_live_128k_pass": false,
     "kv_direct_live_contract_present": true,
@@ -860,8 +892,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "cold_miss_ledger"
+      "detail": "swiftlm_source_intake"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=cold_miss_ledger; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=swiftlm_source_intake; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
