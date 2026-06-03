@@ -9,6 +9,8 @@ status: architecture doctrine; no product promotion without falsifiers, route ca
 
 # Meta-Breakthrough Control Surfaces - 2026-06-01
 
+North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
 ## Thesis
 
 A meta-breakthrough is a small control surface that compounds. It is not one
@@ -553,7 +555,7 @@ latency, proofability, and rollback.
 |---|---|
 | `F-MetaBreakthrough-CardRegistry` | PASS metadata-only witness on 2026-06-03. Proves every meta-control card binds UAS address, source, budget, rollback, proof/falsifier state, AnswerPacket visibility, and shadow-only route authority before future route policy can cite it. Artifact: `artifacts/falsifiers/meta_breakthrough_card_registry/result.json`. |
 | `F-ProofCarryingRouteCard` | PASS metadata-only witness on 2026-06-03. Proves route cards reject missing preconditions, missing postconditions, missing rollback, missing artifact refs, unpinned proof/toolchain versions, missing AnswerPacket refs, budget increases, and hidden live mutations. Artifact: `artifacts/falsifiers/proof_carrying_route_card/result.json`. |
-| `F-RustRouteKernel-ModelCheck` | Uses Kani/Verus/Aeneas/hax path where appropriate to check bounded route-state and unsafe/FFI invariants. |
+| `F-RustRouteKernel-ModelCheck` | PASS metadata-only witness on 2026-06-03. Proves a bounded Rust route-state kernel checks 147 validate/admit/execute/rollback/abstain/reject/hidden-mutation transitions across three proof-carrying route cards; rejects invalid transitions, missing rollback, missing AnswerPacket, stale toolchain pins, hidden live mutations, and high-uncertainty/high-conflict execution; artifact: `artifacts/falsifiers/rust_route_kernel_model_check/result.json`. |
 | `F-ResidencyConstructionGraph` | PASS metadata-only witness on 2026-06-03. Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. |
 | `F-CoactivationTile-Prefetch` | PASS metadata-only witness on 2026-06-03. Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. Artifact: `artifacts/falsifiers/coactivation_tile_prefetch/result.json`. |
 | `F-ProofCarryingResidencyLease` | PASS metadata-only witness on 2026-06-03. Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, fallback, and rollback. Artifact: `artifacts/falsifiers/proof_carrying_residency_lease/result.json`. |

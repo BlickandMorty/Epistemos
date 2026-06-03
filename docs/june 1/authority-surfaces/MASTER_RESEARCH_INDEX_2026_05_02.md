@@ -7,6 +7,8 @@ covers: load-bearing concept index across 7 worktrees + 5 unindexed Downloads re
 
 # Master Research Index — 2026-05-02
 
+North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
 > **NEW DOC — created 2026-05-02.** Filename: `MASTER_RESEARCH_INDEX_2026_05_02.md`. Search by name if older session indexes don't list it. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Next-session execution bootstrap: `NEXT_SESSION_PROMPT_2026_05_04.md` (loads context, treats dirty files as active work surface, and drives the full canonical plan forward). Mirrored into the active worktree.
 
 > **Purpose.** When Codex hits any concept, feature, mini-task, or term — look it up here. This index maps every load-bearing concept to (a) its canonical source on disk, (b) supporting / cross-reference docs, (c) code anchors with absolute paths, (d) tier classification, and (e) one load-bearing claim quoted verbatim. **Compiled from 8 parallel deep-scans** of all 7 worktrees + 5 unindexed Downloads research roots + the Quick Capture standalone canon (~470 KB) + ~60 external research files.
@@ -560,7 +562,7 @@ MInference.
 |---|---|
 | `F-MetaBreakthrough-CardRegistry` | PASS metadata-only witness on 2026-06-03. Proves every meta-control card binds UAS address, source, budget, rollback, proof/falsifier state, AnswerPacket visibility, and shadow-only route authority before future route policy can cite it. Artifact: `artifacts/falsifiers/meta_breakthrough_card_registry/result.json`. |
 | `F-ProofCarryingRouteCard` | PASS metadata-only witness on 2026-06-03. Proves route cards reject missing preconditions, missing postconditions, missing rollback, missing artifact refs, unpinned proof/toolchain versions, missing AnswerPacket refs, budget increases, and hidden live mutations. Artifact: `artifacts/falsifiers/proof_carrying_route_card/result.json`. |
-| `F-RustRouteKernel-ModelCheck` | Checks bounded route-state and unsafe/FFI invariants with Kani/Verus/Aeneas/hax-style routes where appropriate. |
+| `F-RustRouteKernel-ModelCheck` | PASS metadata-only witness on 2026-06-03. Checks 147 bounded Rust route-state transitions, rejects invalid/unsafe route mutations, proves rollback and abstention discipline, and keeps model/runtime bytes at zero. Artifact: `artifacts/falsifiers/rust_route_kernel_model_check/result.json`. |
 | `F-BrainRouteCard-MultiModel` | Proves learned/task-shaped routing beats static routing on quality, evidence validity, latency, and active-byte cost. |
 | `F-KVPageControl-QueryAware` | Proves query-aware page selection beats recency-only and random page policies under active-byte and quality budgets. |
 | `F-FeatureAtlas-Prior` | Proves feature handles improve route selection as priors without arbitrary neuron-control claims. |

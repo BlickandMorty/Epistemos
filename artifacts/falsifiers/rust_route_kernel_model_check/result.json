@@ -1,0 +1,280 @@
+{
+  "falsifier_id": "F-RustRouteKernel-ModelCheck",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_rust_route_kernel_model_check.sh",
+  "command_digest": "sha256:acf7f41e740751680f31ad20780596f2ffacc67343fa2f6d02e00ef3da73645e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "4996dbcd9f189b3b537ee9174e56bfaac93efd26",
+  "fixture_id": "rust_route_kernel_model_check_v1",
+  "timestamp_utc": "2026-06-03T19:18:24Z",
+  "result_digest": "sha256:2946266bcb8ce21cb3cc7cd9dd87340d98bf65a4e74657a4db8db6721d413c4d",
+  "measurements": {
+    "abstain_on_uncertainty_or_conflict": {
+      "value": true,
+      "unit": "bool"
+    },
+    "action_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "admit_requires_preconditions": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bounded_state_space_enumerated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_monotonic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "checked_transition_count": {
+      "value": 147,
+      "unit": "count"
+    },
+    "deterministic_model_check_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_answer_packet": {
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_pinned_toolchain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_rollback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_case_count": {
+      "value": 105,
+      "unit": "count"
+    },
+    "invalid_transition_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_check_address": {
+      "value": "uas:route-kernel-model-check:a592a79f16d37cb7aeb2acf887b4994fdde54115b1518fb036ae2059fe13448a",
+      "unit": "uas_address"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_always_reachable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_toolchain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "state_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "transition_relation_total": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_ffi_surface_audited": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_ffi_surface_empty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_card_artifact_pass": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_on_uncertainty_or_conflict": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "action_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "count"
+    },
+    "admit_requires_preconditions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bounded_state_space_enumerated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_monotonic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "checked_transition_count": {
+      "operator": "==",
+      "value": 147,
+      "unit": "count"
+    },
+    "deterministic_model_check_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_answer_packet": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_pinned_toolchain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "execute_requires_rollback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_case_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "invalid_transition_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_check_address": {
+      "operator": "contains",
+      "value": "uas:route-kernel-model-check:",
+      "unit": "uas_address"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_always_reachable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_toolchain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "state_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "count"
+    },
+    "transition_relation_total": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_ffi_surface_audited": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_ffi_surface_empty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_card_artifact_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_on_uncertainty_or_conflict": true,
+    "action_count": true,
+    "admit_requires_preconditions": true,
+    "bounded_state_space_enumerated": true,
+    "budget_monotonic": true,
+    "checked_transition_count": true,
+    "deterministic_model_check_address": true,
+    "execute_requires_answer_packet": true,
+    "execute_requires_pinned_toolchain": true,
+    "execute_requires_rollback": true,
+    "hidden_live_mutation_rejected": true,
+    "invalid_case_count": true,
+    "invalid_transition_rejected": true,
+    "missing_route_card_rejected": true,
+    "model_check_address": true,
+    "no_runtime_bytes_loaded": true,
+    "rollback_always_reachable": true,
+    "stale_toolchain_rejected": true,
+    "state_count": true,
+    "transition_relation_total": true,
+    "unsafe_ffi_surface_audited": true,
+    "unsafe_ffi_surface_empty": true,
+    "upstream_route_card_artifact_pass": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "bounded Rust route-kernel model-check witness; no Kani binary, live route mutation, unsafe FFI call, model bytes, or product promotion executed"
+    }
+  ],
+  "notes": "Bounded Rust exhaustive route-state harness; official Kani/Verus/Aeneas/hax routes remain future proof-toolchain expansion while this witness checks the current route kernel invariants locally."
+}
