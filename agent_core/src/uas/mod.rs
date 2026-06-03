@@ -35,6 +35,7 @@ pub mod copy_counter;
 pub mod five_planes;
 pub mod kind;
 pub mod pattern_boost;
+pub mod proof_carrying_residency_lease;
 pub mod provider_reference;
 pub mod residency_construction_graph;
 pub mod residency_lease;
@@ -61,6 +62,10 @@ pub use kind::UasKind;
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,
     UasAssemblyGenomeError,
+};
+pub use proof_carrying_residency_lease::{
+    authorize_cold_byte_wake, AuthorizedColdByteWake, ProofCarryingResidencyLease,
+    ProofCarryingResidencyLeaseError,
 };
 pub use provider_reference::{
     ProviderReferenceKind, ProviderReferenceManifest, ProviderReferenceManifestError,

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "7d5680a8fe47fe1b2bc88a4b3f3ff79b81634620",
+  "commit_sha": "247887c6ad52ffd7980b6c321f81deb4b03b39d7",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T14:26:43Z",
-  "result_digest": "sha256:c85457adaeb373aa036368944973fce23db60f5723613198243baa22ab450516",
+  "timestamp_utc": "2026-06-03T15:01:30Z",
+  "result_digest": "sha256:ac42efa937aaf7b22635dc27f60e8f039b7aacb95fe9b3d683b5d915f1a8f905",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -186,7 +186,7 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "proof_carrying_residency_lease",
+      "value": "cold_assembly_plan_70b_lite",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -335,11 +335,21 @@
           "order": 14,
           "gap_id": "proof_carrying_residency_lease",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ProofCarryingResidencyLease",
           "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
           "promotion_condition": "Residency leases carry verifier, rollback, abstention, and budget evidence before any live cold assembly can claim promotion.",
           "rollback": "Treat any lease without proof packet evidence as research-only and fail closed."
+        },
+        {
+          "order": 15,
+          "gap_id": "cold_assembly_plan_70b_lite",
+          "tier": "Research Construction",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ColdAssemblyPlan-70B-Lite",
+          "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+          "promotion_condition": "A small-hot plus cold-selected plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim.",
+          "rollback": "Keep cold assembly research-only until baseline comparisons, route witness, rollback, and no-hidden-cloud evidence pass."
         }
       ],
       "unit": "queue"
@@ -393,6 +403,22 @@
         "status_pass": false,
         "pass_axes_all_true": false,
         "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "proof_carrying_residency_lease_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_carrying_residency_lease_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/proof_carrying_residency_lease/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
       },
       "unit": "object"
     },
@@ -627,6 +653,11 @@
       "value": true,
       "unit": "bool"
     },
+    "proof_carrying_residency_lease_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "residency_construction_graph_pass": {
       "operator": "==",
       "value": true,
@@ -704,6 +735,7 @@
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
     "page_gather_packetized_policy_acceptance_pass": true,
+    "proof_carrying_residency_lease_pass": true,
     "residency_construction_graph_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
@@ -732,8 +764,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "proof_carrying_residency_lease"
+      "detail": "cold_assembly_plan_70b_lite"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=proof_carrying_residency_lease; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=cold_assembly_plan_70b_lite; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
