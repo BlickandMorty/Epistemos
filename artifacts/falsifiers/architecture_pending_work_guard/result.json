@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f128f69bd55edcfb7e6d5315fb5966c6cbd5dec6",
+  "commit_sha": "377e399eef9ac6c4deac268cd199b5a4d2ca1f5a",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T06:52:26Z",
-  "result_digest": "sha256:aced7ab494a48fb78773bffe51031e4f99852b64bad1c094f9f3a3ccf5324f40",
+  "timestamp_utc": "2026-06-03T07:39:51Z",
+  "result_digest": "sha256:262fa0ac0625f532c7796dc9d1ab392c781e1661997ba5fde7eb44823e7ec052",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -363,7 +363,7 @@
       "unit": "bool"
     },
     "queue_pending_item_count": {
-      "value": 5,
+      "value": 4,
       "unit": "count"
     },
     "queue_required_fields_present": {

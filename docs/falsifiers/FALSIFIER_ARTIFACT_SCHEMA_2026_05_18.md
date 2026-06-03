@@ -158,6 +158,8 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-VaultRecall-50` | `tools/falsifiers/f_vault_recall_50.sh` |
 | `F-PageGather-Baseline` | `tools/falsifiers/f_page_gather_baseline.sh` |
 | `F-PageGather-Scatter` | `tools/falsifiers/f_page_gather_scatter.sh` |
+| `F-PageGather-Packetized-Caller` | `Tools/falsifiers/f_page_gather_packetized_caller.sh` |
+| `F-PageGather-Packetized-Policy-Acceptance` | `Tools/falsifiers/f_page_gather_packetized_policy_acceptance.sh` |
 | `F-UAS-CopyCount` | `tools/falsifiers/f_uas_copy_count.sh` |
 | `F-ACS-AnchorLookup` | `tools/falsifiers/f_acs_anchor_lookup.sh` |
 | `F-UAS-ACS-MmapResidency` | `tools/falsifiers/f_uas_acs_mmap_residency.sh` |
@@ -256,6 +258,8 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-VaultRecall-50` | `artifacts/falsifiers/f_vault_recall_50/` |
 | `F-PageGather-Baseline` | `artifacts/falsifiers/page_gather/baseline/` |
 | `F-PageGather-Scatter` | `artifacts/falsifiers/page_gather/scatter/` |
+| `F-PageGather-Packetized-Caller` | `artifacts/falsifiers/page_gather_packetized_caller/` |
+| `F-PageGather-Packetized-Policy-Acceptance` | `artifacts/falsifiers/page_gather_packetized_policy_acceptance/` |
 | `F-UAS-CopyCount` | `artifacts/falsifiers/uas_copy_count/` |
 | `F-ACS-AnchorLookup` | `artifacts/falsifiers/acs_anchor_lookup/` |
 | `F-UAS-ACS-MmapResidency` | `artifacts/falsifiers/uas_acs_mmap_residency/` |
@@ -429,6 +433,8 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-VaultRecall-50` | `target_recall`, `distractor_suppression`, `candidate_count`, `trace_components`, `weak_evidence_behavior` |
 | `F-PageGather-Baseline` | `median_bw_256mb`, `median_bw_512mb`, `median_bw_1gb`, `window_seconds` |
 | `F-PageGather-Scatter` | `scatter_bw_256mb`, `scatter_bw_512mb`, `baseline_ratio`, `correctness_digest`, `window_seconds` |
+| `F-PageGather-Packetized-Caller` | `page_gather_trace_present`, `packetized_caller_consumed`, `packets_match_results`, `dense_restore_deferred`, `schedule_block_sorted`, `measurement_status_deferred`, `candidate_pool_broad`, `retained_limit_honored` |
+| `F-PageGather-Packetized-Policy-Acceptance` | `packetized_floor_available`, `packetized_floor_zero_violations`, `packetized_floor_stream_ratio`, `packetized_caller_available`, `packetized_caller_consumed`, `dense_restore_deferred`, `retained_limit_honored`, `policy_scope_retrieval_and_witness_only`, `dense_primary_not_promoted`, `rollback_keeps_dense_gate_red` |
 | `F-UAS-CopyCount` | `tensor_copy_count`, `data_copy_bytes`, `metadata_copy_ledger`, `stack_label_coverage` |
 | `F-ACS-AnchorLookup` | `round_trip_field_digest`, `invalid_theorem_rejection`, `projection_integrity` |
 | `F-UAS-ACS-MmapResidency` | `mmap_backed_bytes`, `file_len_matches_mmap`, `uas_address_round_trip`, `acs_projection_lookup`, `residency_lease_round_trip`, `sampled_page_checksum_match`, `invalid_offset_rejection`, `hot_path_tracked_copies`, `hot_path_data_copy_bytes` |
@@ -739,6 +745,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-VaultRecall-50",
         "F-PageGather-Baseline",
         "F-PageGather-Scatter",
+        "F-PageGather-Packetized-Caller",
+        "F-PageGather-Packetized-Policy-Acceptance",
         "F-UAS-CopyCount",
         "F-ACS-AnchorLookup",
         "F-UAS-ACS-MmapResidency",
@@ -1340,6 +1348,32 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] },
           "acceptance_thresholds": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] },
           "pass_per_axis": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PageGather-Packetized-Caller" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["page_gather_trace_present", "packetized_caller_consumed", "packets_match_results", "dense_restore_deferred", "schedule_block_sorted", "measurement_status_deferred", "candidate_pool_broad", "retained_limit_honored"] },
+          "acceptance_thresholds": { "required": ["page_gather_trace_present", "packetized_caller_consumed", "packets_match_results", "dense_restore_deferred", "schedule_block_sorted", "measurement_status_deferred", "candidate_pool_broad", "retained_limit_honored"] },
+          "pass_per_axis": { "required": ["page_gather_trace_present", "packetized_caller_consumed", "packets_match_results", "dense_restore_deferred", "schedule_block_sorted", "measurement_status_deferred", "candidate_pool_broad", "retained_limit_honored"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PageGather-Packetized-Policy-Acceptance" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["packetized_floor_available", "packetized_floor_zero_violations", "packetized_floor_stream_ratio", "packetized_caller_available", "packetized_caller_consumed", "dense_restore_deferred", "retained_limit_honored", "policy_scope_retrieval_and_witness_only", "dense_primary_not_promoted", "rollback_keeps_dense_gate_red"] },
+          "acceptance_thresholds": { "required": ["packetized_floor_available", "packetized_floor_zero_violations", "packetized_floor_stream_ratio", "packetized_caller_available", "packetized_caller_consumed", "dense_restore_deferred", "retained_limit_honored", "policy_scope_retrieval_and_witness_only", "dense_primary_not_promoted", "rollback_keeps_dense_gate_red"] },
+          "pass_per_axis": { "required": ["packetized_floor_available", "packetized_floor_zero_violations", "packetized_floor_stream_ratio", "packetized_caller_available", "packetized_caller_consumed", "dense_restore_deferred", "retained_limit_honored", "policy_scope_retrieval_and_witness_only", "dense_primary_not_promoted", "rollback_keeps_dense_gate_red"] }
         }
       }
     },

@@ -1,0 +1,162 @@
+{
+  "falsifier_id": "F-PageGather-Packetized-Policy-Acceptance",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_page_gather_packetized_policy_acceptance.sh",
+  "command_digest": "sha256:9fb70ad118a41ecc0c58ee1477d32beacfcd711dd4cecb29be7b0b52ddca3324",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "377e399eef9ac6c4deac268cd199b5a4d2ca1f5a",
+  "fixture_id": "page_gather_packetized_policy_acceptance_v1",
+  "timestamp_utc": "2026-06-03T07:36:54Z",
+  "result_digest": "sha256:0ae4b758afae76da834076d36df561878078e4b87ad6bb21276f78b1817c6e6a",
+  "measurements": {
+    "dense_primary_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_restore_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_consumed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_stream_ratio": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_zero_violations": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_scheduled_stream_ratio_256mb": {
+      "value": 0.7292065220011585,
+      "unit": "ratio"
+    },
+    "packetized_scheduled_stream_ratio_512mb": {
+      "value": 0.7522192801184965,
+      "unit": "ratio"
+    },
+    "policy_scope": {
+      "value": "retrieval_and_witness_packetized_surfaces_only",
+      "unit": "label"
+    },
+    "policy_scope_retrieval_and_witness_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_limit_honored": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_keeps_dense_gate_red": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "dense_primary_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_restore_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_consumed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_stream_ratio": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_floor_zero_violations": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_scope_retrieval_and_witness_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_limit_honored": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_keeps_dense_gate_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "dense_primary_not_promoted": true,
+    "dense_restore_deferred": true,
+    "packetized_caller_available": true,
+    "packetized_caller_consumed": true,
+    "packetized_floor_available": true,
+    "packetized_floor_stream_ratio": true,
+    "packetized_floor_zero_violations": true,
+    "policy_scope_retrieval_and_witness_only": true,
+    "retained_limit_honored": true,
+    "rollback_keeps_dense_gate_red": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "dense_primary_not_promoted",
+      "detail": "This accepts packetized PageGather only for retrieval and witness surfaces; dense F-PageGather-M2Pro remains red until its measured primary gate passes."
+    }
+  ],
+  "notes": "fallback_witness; packetized PageGather policy accepted for retrieval/witness surfaces only; dense primary gate remains separate"
+}

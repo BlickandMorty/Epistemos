@@ -270,7 +270,7 @@
       "satisfies_required_context": false
     }
   ],
-  "generated_at_utc": "2026-06-03T06:51:31Z",
+  "generated_at_utc": "2026-06-03T07:39:41Z",
   "non_destructive": true,
   "required_context_tokens": 128000,
   "skips_non_kv_direct_weight_formats": true,

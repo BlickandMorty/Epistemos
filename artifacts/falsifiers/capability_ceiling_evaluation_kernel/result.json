@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f128f69bd55edcfb7e6d5315fb5966c6cbd5dec6",
+  "commit_sha": "377e399eef9ac6c4deac268cd199b5a4d2ca1f5a",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T06:51:55Z",
-  "result_digest": "sha256:0fb2f8568cc4e9f38e914fe9f84721bc916a4010a599a7f09dc4c6d5c2064617",
+  "timestamp_utc": "2026-06-03T07:39:06Z",
+  "result_digest": "sha256:059a844962dfed7ac2ac11524f1aa488033a8f53100336abeddd4012e56e38d0",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -217,9 +217,9 @@
           "order": 5,
           "gap_id": "pagegather_dense_primary_or_policy_acceptance",
           "tier": "Capability Ceiling",
-          "status": "pending",
-          "falsifier_or_gate": "F-PageGather-M2Pro",
-          "witness": "artifacts/falsifiers/page_gather/locality_probe_result.json",
+          "status": "completed",
+          "falsifier_or_gate": "F-PageGather-M2Pro + F-PageGather-Packetized-Policy-Acceptance",
+          "witness": "artifacts/falsifiers/page_gather/locality_probe_result.json; artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json",
           "promotion_condition": "Either dense primary PageGather clears the STREAM bar or canon explicitly accepts a packetized policy for the relevant product route.",
           "rollback": "Use packetized caller path as fallback; keep dense scatter off hot product claims until measured."
         },
@@ -319,6 +319,22 @@
     "page_gather_packetized_floor_pass": {
       "value": true,
       "unit": "bool"
+    },
+    "page_gather_packetized_policy_acceptance_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_policy_acceptance_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Fallback"
+      },
+      "unit": "object"
     },
     "page_gather_summary": {
       "value": {
@@ -537,6 +553,11 @@
       "value": true,
       "unit": "bool"
     },
+    "page_gather_packetized_policy_acceptance_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "seventy_b_bottleneck_identified": {
       "operator": "==",
       "value": true,
@@ -607,6 +628,7 @@
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
+    "page_gather_packetized_policy_acceptance_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
@@ -621,8 +643,8 @@
   "fallback_tier": "Fail",
   "anomalies": [
     {
-      "kind": "page_gather_dense_route_red",
-      "detail": "PageGather packetized scheduled output clears the 0.70x mitigation floor, but dense restore remains below the primary stream-ratio gate."
+      "kind": "page_gather_dense_primary_deferred_by_policy",
+      "detail": "Dense PageGather remains below the primary stream-ratio gate; the packetized policy artifact accepts only retrieval/witness packet surfaces and does not promote dense restore."
     },
     {
       "kind": "kv_direct_live_gate_red",
