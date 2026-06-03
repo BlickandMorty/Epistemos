@@ -85,9 +85,14 @@ failure_reason
   `docs/falsifiers/F-TaskWorkingSetQuery-Determinism_2026_06_03.md`.
 - `F-SemanticWorkingSetPlan-Budget` is implemented as a primary witness at
   `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`.
-- Remaining schema-only bundle work starts with
-  `F-ResidencyPageTable-Addressability`; source intake, deterministic query
-  emission, and budget rejection no longer need to be rebuilt from scratch.
+- `F-ResidencyPageTable-Addressability` is implemented as a primary witness at
+  `artifacts/falsifiers/residency_page_table_addressability/result.json` and
+  documented in
+  `docs/falsifiers/F-ResidencyPageTable-Addressability_2026_06_03.md`.
+- Remaining bundle work starts with prefetch/cold-miss and
+  mmap-residency-fence fixtures. Source intake, deterministic query emission,
+  budget rejection, and page-table addressability no longer need to be rebuilt
+  from scratch.
 
 ## Required fixture families
 
@@ -117,13 +122,15 @@ failure_reason
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan`, `ResidencyPageTable`,
    `PrefetchWindow`, `ColdFaultTrace`, `LayoutPatch`, `MmapResidencyFence`,
    and `KVByteBudgetCard`. `SourceSignalGraph` and
-   `SemanticWorkingSetPlan` budget rejection now have primary witnesses.
+   `TaskWorkingSetQuery`, `SemanticWorkingSetPlan` budget rejection, and
+   `ResidencyPageTable` addressability now have primary witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
    `F-SourceSignalGraph-Intake`.
 3. Budget rejection before any runtime wake path is covered by
    `F-SemanticWorkingSetPlan-Budget`.
-4. Add page-table and mmap fence fixtures.
+4. Page-table addressability is covered by
+   `F-ResidencyPageTable-Addressability`; continue with mmap fence fixtures.
 5. Add KV budget and compatibility fixtures.
 6. Add cold-miss learning fixtures with rollback-only layout patches.
 7. Add oracle baseline comparison.

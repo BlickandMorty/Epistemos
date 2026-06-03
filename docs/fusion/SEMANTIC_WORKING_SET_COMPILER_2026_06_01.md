@@ -455,9 +455,11 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 
 **2026-06-03 status.** `F-SourceSignalGraph-Intake`,
 `F-TaskWorkingSetQuery-Determinism`, and
-`F-SemanticWorkingSetPlan-Budget` now have primary local witnesses on main.
-Continue this bundle with residency page-table addressability; do not reinstall
-model assets or fetch live sources for these metadata-only gates.
+`F-SemanticWorkingSetPlan-Budget`, and
+`F-ResidencyPageTable-Addressability` now have primary local witnesses on main.
+Continue this bundle with prefetch/cold-miss and mmap-residency-fence fixtures;
+do not reinstall model assets or fetch live sources for these metadata-only
+gates.
 
 ## Product locks
 

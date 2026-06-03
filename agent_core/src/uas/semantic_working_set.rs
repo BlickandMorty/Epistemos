@@ -1731,6 +1731,55 @@ mod tests {
     }
 
     #[test]
+    fn residency_page_table_entries_round_trip_selected_units() {
+        let plan = compile(
+            fixture_query(2 * 1024 * 1024, 4 * 1024 * 1024),
+            vec![
+                unit(
+                    "evidence",
+                    WorkingSetUnitKind::EvidencePage,
+                    UasKind::VaultNote,
+                    WorkingSetStorageTier::Hot,
+                    0,
+                    64 * 1024,
+                    10,
+                ),
+                unit(
+                    "kv",
+                    WorkingSetUnitKind::KvPage,
+                    UasKind::KvPage,
+                    WorkingSetStorageTier::Warm,
+                    0,
+                    512 * 1024,
+                    60,
+                ),
+                unit(
+                    "weight",
+                    WorkingSetUnitKind::WeightPage,
+                    UasKind::ModelComponent,
+                    WorkingSetStorageTier::Cold,
+                    1024 * 1024,
+                    1024 * 1024,
+                    90,
+                ),
+            ],
+        );
+
+        assert_eq!(plan.page_table.len(), plan.selected_units.len());
+        for (unit, entry) in plan.selected_units.iter().zip(&plan.page_table) {
+            assert_eq!(entry.semantic_unit_id, unit.semantic_unit_id);
+            assert_eq!(entry.uas_address, unit.uas_address);
+            assert_eq!(entry.storage_tier, unit.storage_tier);
+            assert_eq!(entry.byte_range, unit.byte_range);
+            assert_eq!(entry.codec, unit.codec);
+            assert_eq!(entry.checksum, unit.checksum);
+            assert_eq!(entry.compatibility_fence, unit.compatibility_fence);
+            assert_eq!(entry.lease_or_expiry, unit.lease_or_expiry);
+            assert_eq!(entry.prefetch_priority, unit.prefetch_priority);
+        }
+    }
+
+    #[test]
     fn mmap_fence_never_counts_mapped_untouched_range_as_hot() {
         let fence = MmapResidencyFence::evaluate(
             "model.gguf",

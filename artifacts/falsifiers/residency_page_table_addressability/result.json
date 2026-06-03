@@ -1,0 +1,310 @@
+{
+  "falsifier_id": "F-ResidencyPageTable-Addressability",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_residency_page_table_addressability.sh",
+  "command_digest": "sha256:719869971878d4b55fbe733c97e36bf5c61bf4e4c5fcd43a486569cffaa56676",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "234af84f72d4a9d02dfb715492d2e92da78c7567",
+  "fixture_id": "residency_page_table_addressability_v1",
+  "timestamp_utc": "2026-06-03T08:31:21Z",
+  "result_digest": "sha256:a035076b82a0b395bc76aea7889dd02ee1580297b6b5c35bae5ed44a0cc2d30c",
+  "measurements": {
+    "bad_checksum_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_ranges_nonempty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "checksum_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_page_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "compatibility_fence_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_uas_address_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_count_matches_selected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_identity_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_order_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_byte_range_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_or_expiry_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_checksum_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_table_entry_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "page_table_status_fit": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_priority_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "semantic_unit_ids_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_tier_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unavailable_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_kind_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_to_entry_round_trip": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "bad_checksum_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_ranges_nonempty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "checksum_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_page_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "compatibility_fence_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_uas_address_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_count_matches_selected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_identity_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "entry_order_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_byte_range_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_or_expiry_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_checksum_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_table_entry_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "count"
+    },
+    "page_table_status_fit": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_priority_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "count"
+    },
+    "semantic_unit_ids_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_tier_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unavailable_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_kind_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_to_entry_round_trip": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "bad_checksum_rejected": true,
+    "bad_compatibility_fence_rejected": true,
+    "byte_ranges_nonempty": true,
+    "checksum_coverage": true,
+    "codec_coverage": true,
+    "cold_page_count": true,
+    "compatibility_fence_coverage": true,
+    "duplicate_uas_address_rejected": true,
+    "entry_count_matches_selected": true,
+    "entry_identity_unique": true,
+    "entry_order_deterministic": true,
+    "invalid_byte_range_rejected": true,
+    "lease_or_expiry_coverage": true,
+    "missing_checksum_rejected": true,
+    "missing_compatibility_fence_rejected": true,
+    "page_table_entry_count": true,
+    "page_table_status_fit": true,
+    "prefetch_priority_coverage": true,
+    "selected_unit_count": true,
+    "semantic_unit_ids_present": true,
+    "storage_tier_coverage": true,
+    "uas_addresses_present": true,
+    "uas_addresses_unique": true,
+    "unavailable_unit_rejected": true,
+    "unit_kind_coverage": true,
+    "unit_to_entry_round_trip": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only residency page table; no cold byte movement, prefetch, mmap stress, model decode, MLX/Metal, or route mutation executed"
+    }
+  ],
+  "notes": "Proves selected semantic units round-trip into deterministic residency page-table entries with UAS address, storage tier, byte range, codec, checksum, compatibility fence, lease/expiry, and prefetch priority, while invalid ranges, checksum/fence gaps, duplicate addresses, and unavailable selected units fail closed."
+}

@@ -44,5 +44,6 @@ policy. It only proves the mission-shaped query contract that later
 ## Queue Effect
 
 `F-TaskWorkingSetQuery-Determinism` closes the deterministic query item from
-the Semantic Working-Set Compiler build order. The next schema-only gate in
-this bundle is `F-ResidencyPageTable-Addressability`.
+the Semantic Working-Set Compiler build order. `F-ResidencyPageTable-Addressability`
+now covers the first page-table gate, so the next bundle work moves to
+prefetch/cold-miss and mmap-residency-fence fixtures.
