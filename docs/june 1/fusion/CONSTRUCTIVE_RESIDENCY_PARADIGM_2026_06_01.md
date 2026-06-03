@@ -291,7 +291,7 @@ Companion cache and editor/projection gates:
 | `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |
 | `F-LatticeStateController` | PASS metadata-only witness on main, 2026-06-03. Proves a small recurrent/lattice controller improves route decisions versus static, random, and always-retrieve baselines; abstains under high uncertainty/conflict; rejects hidden live route authority, hidden-chain exposure, missing rollback, missing AnswerPacket, and unbeaten static-policy baselines. Artifact: `artifacts/falsifiers/lattice_state_controller/result.json`. |
-| `F-ReasoningStateContinuity` | Proves resumable state improves continuity/cache utility without leaking hidden reasoning or bypassing verification. |
+| `F-ReasoningStateContinuity` | PASS metadata-only witness on 2026-06-03. Proves visible, privacy-scoped resumable state improves continuity/cache utility versus no-state, naive-cache, and static-summary baselines; rejects hidden-chain exposure, verifier bypass, stale-state reuse, missing purge policy, incompatible compatibility fence, missing AnswerPacket, and unbeaten naive-cache baselines. Artifact: `artifacts/falsifiers/reasoning_state_continuity/result.json`. |
 | `F-ColdMissLedger` | Proves cold misses update future prefetch/route policy and reduce repeated stalls on held-out tasks. |
 | `F-SwiftLM-SourceIntake` | Proves SwiftLM motifs are captured as source cards, license notes, benchmark caveats, and local test plans before any implementation import. |
 

@@ -40,6 +40,8 @@ const COLD_ASSEMBLY_PLAN_70B_LITE_PATH: &str =
     "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json";
 const LATTICE_STATE_CONTROLLER_PATH: &str =
     "artifacts/falsifiers/lattice_state_controller/result.json";
+const REASONING_STATE_CONTINUITY_PATH: &str =
+    "artifacts/falsifiers/reasoning_state_continuity/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -285,6 +287,46 @@ fn build_report() -> GuardReport {
             "controller_address_deterministic",
         ],
     );
+    let reasoning_state_continuity = read_json(Path::new(REASONING_STATE_CONTINUITY_PATH));
+    let reasoning_state_continuity_available = artifact_all_axes_true(
+        &reasoning_state_continuity,
+        &[
+            "reasoning_state_card_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "session_id_bound",
+            "model_id_bound",
+            "preserved_state_kind_bound",
+            "privacy_class_bound",
+            "visible_summary_present",
+            "cache_key_bound",
+            "restore_policy_bound",
+            "compatibility_fence_bound",
+            "verifier_caveat_bound",
+            "purge_policy_bound",
+            "compute_resume_lease_bound",
+            "fallback_bound",
+            "rollback_verified",
+            "answer_packet_ref_bound",
+            "beats_no_state_baseline",
+            "beats_naive_cache_baseline",
+            "beats_static_summary_baseline",
+            "continuity_delta_positive",
+            "cache_utility_delta_positive",
+            "verifier_delta_positive",
+            "latency_delta_positive",
+            "active_bytes_delta_positive",
+            "hidden_chain_not_exposed",
+            "verifier_bypass_rejected",
+            "stale_state_reuse_rejected",
+            "missing_purge_policy_rejected",
+            "incompatible_fence_rejected",
+            "missing_answer_packet_rejected",
+            "unbeaten_naive_cache_rejected",
+            "no_runtime_bytes_loaded",
+            "continuity_card_address_deterministic",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -370,6 +412,7 @@ fn build_report() -> GuardReport {
         && proof_carrying_residency_lease_available
         && cold_assembly_plan_70b_lite_available
         && lattice_state_controller_available
+        && reasoning_state_continuity_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -503,6 +546,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "lattice_state_controller_available",
         lattice_state_controller_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "reasoning_state_continuity_available",
+        reasoning_state_continuity_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -782,6 +832,10 @@ fn build_report() -> GuardReport {
                     "path": LATTICE_STATE_CONTROLLER_PATH,
                     "available": lattice_state_controller_available
                 },
+                "reasoning_state_continuity": {
+                    "path": REASONING_STATE_CONTINUITY_PATH,
+                    "available": reasoning_state_continuity_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -891,6 +945,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_lattice_state_controller",
             "detail": "Research Construction has a cold 70B assembly plan, but needs F-LatticeStateController before reasoning-state continuity work continues."
+        }));
+    }
+    if lattice_state_controller_available && !reasoning_state_continuity_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_reasoning_state_continuity",
+            "detail": "Research Construction has a lattice controller, but needs F-ReasoningStateContinuity before cold-miss ledger work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1770,6 +1830,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("lattice_state_controller")
+            .is_some());
+        assert!(already_mapped_work
+            .get("reasoning_state_continuity")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
