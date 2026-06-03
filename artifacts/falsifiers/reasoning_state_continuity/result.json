@@ -1,0 +1,490 @@
+{
+  "falsifier_id": "F-ReasoningStateContinuity",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_reasoning_state_continuity.sh",
+  "command_digest": "sha256:d219841895cf3d75e50ac9ced0df8685b642b8e443dac82d702329f9e97d7f7e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "c6a5a8a54eed590f808862df649de1411bdec5ed",
+  "fixture_id": "reasoning_state_continuity_v1",
+  "timestamp_utc": "2026-06-03T16:45:50Z",
+  "result_digest": "sha256:1c6bfc61fda1025b4e95339de94740b8451ba3a02571a9fba8f164b0afa45f50",
+  "measurements": {
+    "active_bytes_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "value": 24576,
+      "unit": "bytes"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_naive_cache_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_state_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_summary_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_key_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_utility_bps": {
+      "value": 8120,
+      "unit": "bps"
+    },
+    "cache_utility_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_address": {
+      "value": "reasoning_state_continuity:758173a41f6b982da3ef7c6daf02f90831bc70133e8e117ef42ab1ea24582bef@1779400200000",
+      "unit": "label"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compute_resume_lease_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_score_bps": {
+      "value": 8290,
+      "unit": "bps"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_ms": {
+      "value": 420,
+      "unit": "ms"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_purge_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "preserved_state_kind": {
+      "value": "reasoning_summary",
+      "unit": "label"
+    },
+    "preserved_state_kind_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class": {
+      "value": "vault_private",
+      "unit": "label"
+    },
+    "privacy_class_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "purge_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reasoning_state_card_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "restore_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "session_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_state_reuse_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_naive_cache_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bps": {
+      "value": 8300,
+      "unit": "bps"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_caveat_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_present": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_bytes_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "operator": "<",
+      "value": 49152,
+      "unit": "bytes"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_naive_cache_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_state_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_summary_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_key_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_utility_bps": {
+      "operator": ">",
+      "value": 6900,
+      "unit": "bps"
+    },
+    "cache_utility_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_address": {
+      "operator": "==",
+      "value": "reasoning_state_continuity:758173a41f6b982da3ef7c6daf02f90831bc70133e8e117ef42ab1ea24582bef@1779400200000",
+      "unit": "label"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compute_resume_lease_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "continuity_score_bps": {
+      "operator": ">",
+      "value": 5333,
+      "unit": "bps"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_ms": {
+      "operator": "<",
+      "value": 720,
+      "unit": "ms"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_purge_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "preserved_state_kind": {
+      "operator": "==",
+      "value": "reasoning_summary",
+      "unit": "label"
+    },
+    "preserved_state_kind_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class": {
+      "operator": "==",
+      "value": "vault_private",
+      "unit": "label"
+    },
+    "privacy_class_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "purge_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reasoning_state_card_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "restore_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "session_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_state_reuse_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_naive_cache_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bps": {
+      "operator": ">",
+      "value": 7100,
+      "unit": "bps"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_caveat_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_bytes_delta_positive": true,
+    "active_executed_bytes": true,
+    "answer_packet_ref_bound": true,
+    "baseline_count": true,
+    "beats_naive_cache_baseline": true,
+    "beats_no_state_baseline": true,
+    "beats_static_summary_baseline": true,
+    "cache_key_bound": true,
+    "cache_utility_bps": true,
+    "cache_utility_delta_positive": true,
+    "card_address": true,
+    "compatibility_fence_bound": true,
+    "compute_resume_lease_bound": true,
+    "continuity_card_address_deterministic": true,
+    "continuity_delta_positive": true,
+    "continuity_score_bps": true,
+    "fallback_bound": true,
+    "hidden_chain_not_exposed": true,
+    "incompatible_fence_rejected": true,
+    "latency_delta_positive": true,
+    "latency_ms": true,
+    "missing_answer_packet_rejected": true,
+    "missing_purge_policy_rejected": true,
+    "model_id_bound": true,
+    "no_runtime_bytes_loaded": true,
+    "preserved_state_kind": true,
+    "preserved_state_kind_bound": true,
+    "privacy_class": true,
+    "privacy_class_bound": true,
+    "purge_policy_bound": true,
+    "reasoning_state_card_present": true,
+    "restore_policy_bound": true,
+    "rollback_verified": true,
+    "session_id_bound": true,
+    "source_card_count": true,
+    "source_card_ids_bound": true,
+    "stale_state_reuse_rejected": true,
+    "task_signature_bound": true,
+    "unbeaten_naive_cache_rejected": true,
+    "verifier_bps": true,
+    "verifier_bypass_rejected": true,
+    "verifier_caveat_bound": true,
+    "verifier_delta_positive": true,
+    "visible_summary_present": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only reasoning-state continuity fixture; no hidden chain exposure, verifier bypass, stale-state reuse, model decode, MLX, Metal, provider call, or production cache mutation executed"
+    }
+  ],
+  "notes": "metadata-only reasoning continuity witness; preserved state is visible summary/cache policy, not hidden chain-of-thought proof; no runtime/model bytes loaded"
+}

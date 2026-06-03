@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "8fadea3d840e9e4742dbe2a5f83df84a9d342ea4",
+  "commit_sha": "c6a5a8a54eed590f808862df649de1411bdec5ed",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T16:14:14Z",
-  "result_digest": "sha256:27008ec56db416d18588973e12fcca6d0c4561ab0ded26e6ff5d555d7f3647ec",
+  "timestamp_utc": "2026-06-03T16:45:50Z",
+  "result_digest": "sha256:8863f61c0d5f7ef26426d63af5e1ba4c554e777d11e5206bdaf77d0bee985213",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -218,7 +218,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "reasoning_state_continuity",
+      "value": "cold_miss_ledger",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -397,11 +397,21 @@
           "order": 17,
           "gap_id": "reasoning_state_continuity",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ReasoningStateContinuity",
           "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
           "promotion_condition": "Preserved cache, summary, route, and verifier state must improve continuity without exposing hidden reasoning or bypassing AnswerPacket verification.",
           "rollback": "Resumable reasoning state stays witness-only until hidden-chain leakage, stale-state reuse, verifier bypass, and rollback failures are rejected."
+        },
+        {
+          "order": 18,
+          "gap_id": "cold_miss_ledger",
+          "tier": "Research Construction",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ColdMissLedger",
+          "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+          "promotion_condition": "Cold-miss traces must update later prefetch and route policy while proving held-out repeated-stall reduction.",
+          "rollback": "Cold-miss learning stays shadow-policy only until storage-wear, rollback, held-out improvement, and AnswerPacket visibility pass."
         }
       ],
       "unit": "queue"
@@ -465,6 +475,22 @@
     "proof_carrying_residency_lease_summary": {
       "value": {
         "path": "artifacts/falsifiers/proof_carrying_residency_lease/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "reasoning_state_continuity_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reasoning_state_continuity_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/reasoning_state_continuity/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -720,6 +746,11 @@
       "value": true,
       "unit": "bool"
     },
+    "reasoning_state_continuity_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "residency_construction_graph_pass": {
       "operator": "==",
       "value": true,
@@ -800,6 +831,7 @@
     "page_gather_packetized_floor_pass": true,
     "page_gather_packetized_policy_acceptance_pass": true,
     "proof_carrying_residency_lease_pass": true,
+    "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
@@ -828,8 +860,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "reasoning_state_continuity"
+      "detail": "cold_miss_ledger"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=reasoning_state_continuity; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=cold_miss_ledger; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

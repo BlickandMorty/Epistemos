@@ -45,6 +45,8 @@ const COLD_ASSEMBLY_PLAN_70B_LITE_PATH: &str =
     "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json";
 const LATTICE_STATE_CONTROLLER_PATH: &str =
     "artifacts/falsifiers/lattice_state_controller/result.json";
+const REASONING_STATE_CONTINUITY_PATH: &str =
+    "artifacts/falsifiers/reasoning_state_continuity/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -101,6 +103,7 @@ fn build_report() -> KernelReport {
     let proof_carrying_residency_lease = GateArtifact::read(PROOF_CARRYING_RESIDENCY_LEASE_PATH);
     let cold_assembly_plan_70b_lite = GateArtifact::read(COLD_ASSEMBLY_PLAN_70B_LITE_PATH);
     let lattice_state_controller = GateArtifact::read(LATTICE_STATE_CONTROLLER_PATH);
+    let reasoning_state_continuity = GateArtifact::read(REASONING_STATE_CONTINUITY_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -122,6 +125,7 @@ fn build_report() -> KernelReport {
         &proof_carrying_residency_lease,
         &cold_assembly_plan_70b_lite,
         &lattice_state_controller,
+        &reasoning_state_continuity,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -326,6 +330,43 @@ fn build_report() -> KernelReport {
             "no_runtime_bytes_loaded",
             "controller_address_deterministic",
         ]);
+    let reasoning_state_continuity_pass = reasoning_state_continuity.overall_pass
+        && reasoning_state_continuity.all_axes_true(&[
+            "reasoning_state_card_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "session_id_bound",
+            "model_id_bound",
+            "preserved_state_kind_bound",
+            "privacy_class_bound",
+            "visible_summary_present",
+            "cache_key_bound",
+            "restore_policy_bound",
+            "compatibility_fence_bound",
+            "verifier_caveat_bound",
+            "purge_policy_bound",
+            "compute_resume_lease_bound",
+            "fallback_bound",
+            "rollback_verified",
+            "answer_packet_ref_bound",
+            "beats_no_state_baseline",
+            "beats_naive_cache_baseline",
+            "beats_static_summary_baseline",
+            "continuity_delta_positive",
+            "cache_utility_delta_positive",
+            "verifier_delta_positive",
+            "latency_delta_positive",
+            "active_bytes_delta_positive",
+            "hidden_chain_not_exposed",
+            "verifier_bypass_rejected",
+            "stale_state_reuse_rejected",
+            "missing_purge_policy_rejected",
+            "incompatible_fence_rejected",
+            "missing_answer_packet_rejected",
+            "unbeaten_naive_cache_rejected",
+            "no_runtime_bytes_loaded",
+            "continuity_card_address_deterministic",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -347,6 +388,7 @@ fn build_report() -> KernelReport {
         &proof_carrying_residency_lease,
         &cold_assembly_plan_70b_lite,
         &lattice_state_controller,
+        &reasoning_state_continuity,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -366,6 +408,7 @@ fn build_report() -> KernelReport {
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
         lattice_state_controller_pass,
+        reasoning_state_continuity_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -401,6 +444,7 @@ fn build_report() -> KernelReport {
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
         lattice_state_controller_pass,
+        reasoning_state_continuity_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -440,6 +484,7 @@ fn build_report() -> KernelReport {
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
         lattice_state_controller_pass,
+        reasoning_state_continuity_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -691,6 +736,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "reasoning_state_continuity_pass",
+        reasoning_state_continuity_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -797,6 +849,11 @@ fn build_report() -> KernelReport {
         "lattice_state_controller",
         &lattice_state_controller,
     );
+    add_gate_summary(
+        &mut measurements,
+        "reasoning_state_continuity",
+        &reasoning_state_continuity,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -817,6 +874,7 @@ fn build_report() -> KernelReport {
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
         lattice_state_controller_pass,
+        reasoning_state_continuity_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1070,6 +1128,7 @@ fn classify_route(
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
     lattice_state_controller_pass: bool,
+    reasoning_state_continuity_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1084,6 +1143,7 @@ fn classify_route(
         && proof_carrying_residency_lease_pass
         && cold_assembly_plan_70b_lite_pass
         && lattice_state_controller_pass
+        && reasoning_state_continuity_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1132,6 +1192,7 @@ fn next_bottleneck(
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
     lattice_state_controller_pass: bool,
+    reasoning_state_continuity_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1196,8 +1257,10 @@ fn next_bottleneck(
             "cold_assembly_plan_70b_lite".to_string()
         } else if !lattice_state_controller_pass {
             "lattice_state_controller".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !reasoning_state_continuity_pass {
             "reasoning_state_continuity".to_string()
+        } else if !seventy_b_route_pass {
+            "cold_miss_ledger".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1244,6 +1307,7 @@ fn build_ordered_gap_queue(
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
     lattice_state_controller_pass: bool,
+    reasoning_state_continuity_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1511,7 +1575,9 @@ fn build_ordered_gap_queue(
             17,
             "reasoning_state_continuity",
             "Research Construction",
-            if lattice_state_controller_pass
+            if reasoning_state_continuity_pass {
+                "completed"
+            } else if lattice_state_controller_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -1523,6 +1589,23 @@ fn build_ordered_gap_queue(
             "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
             "Preserved cache, summary, route, and verifier state must improve continuity without exposing hidden reasoning or bypassing AnswerPacket verification.",
             "Resumable reasoning state stays witness-only until hidden-chain leakage, stale-state reuse, verifier bypass, and rollback failures are rejected.",
+        ),
+        queue_item(
+            18,
+            "cold_miss_ledger",
+            "Research Construction",
+            if reasoning_state_continuity_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_reasoning_state_continuity"
+            },
+            "F-ColdMissLedger",
+            "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+            "Cold-miss traces must update later prefetch and route policy while proving held-out repeated-stall reduction.",
+            "Cold-miss learning stays shadow-policy only until storage-wear, rollback, held-out improvement, and AnswerPacket visibility pass.",
         ),
     ]
 }
@@ -1643,6 +1726,7 @@ fn build_anomalies(
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
     lattice_state_controller_pass: bool,
+    reasoning_state_continuity_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1757,6 +1841,15 @@ fn build_anomalies(
         anomalies.push(serde_json::json!({
             "kind": "lattice_state_controller_missing",
             "detail": "Research Construction has a cold 70B assembly plan, but F-LatticeStateController must pass before resumable reasoning-state work can advance."
+        }));
+    }
+    if lattice_state_controller_pass
+        && !reasoning_state_continuity_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "reasoning_state_continuity_missing",
+            "detail": "Research Construction has a lattice route controller, but F-ReasoningStateContinuity must pass before cold-miss learning can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -1885,28 +1978,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true,
+                true, true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false,
+                false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false,
+                false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true,
+                true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -1951,21 +2044,22 @@ mod tests {
         const PROOF_CARRYING_RESIDENCY_LEASE: usize = 26;
         const COLD_ASSEMBLY_PLAN_70B_LITE: usize = 27;
         const LATTICE_STATE_CONTROLLER: usize = 28;
-        const SEVENTY_B: usize = 29;
+        const REASONING_STATE_CONTINUITY: usize = 29;
+        const SEVENTY_B: usize = 30;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 30] {
-            let mut values = [false; 30];
+        let flags = |true_indexes: &[usize]| -> [bool; 31] {
+            let mut values = [false; 31];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 30], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 31], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1999,11 +2093,12 @@ mod tests {
                 values[27],
                 values[28],
                 values[29],
+                values[30],
                 &missing,
             )
         };
-        let nb = |values: [bool; 30]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 30]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 31]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 31]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -2390,6 +2485,36 @@ mod tests {
             "reasoning_state_continuity"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+            ]))),
+            "cold_miss_ledger"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -2439,6 +2564,7 @@ mod tests {
                 PROOF_CARRYING_RESIDENCY_LEASE,
                 COLD_ASSEMBLY_PLAN_70B_LITE,
                 LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

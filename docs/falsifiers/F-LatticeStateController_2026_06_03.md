@@ -46,14 +46,19 @@ non-abstention, and an unbeaten static-policy baseline.
 ## Meaning
 
 This finishes the default Research Construction cursor that came after
-`F-ColdAssemblyPlan-70B-Lite`. The 70B architecture track remains active as
-proof-carrying cold assembly and route-control work, while deferred Qwen/GGUF
-and provider-reference prompt-level probes stay opt-in heavy work.
+`F-ColdAssemblyPlan-70B-Lite`.
+
+`F-ReasoningStateContinuity` is now implemented as
+`docs/falsifiers/F-ReasoningStateContinuity_2026_06_03.md` with artifact
+`artifacts/falsifiers/reasoning_state_continuity/result.json`. The 70B
+architecture track remains active as proof-carrying cold assembly, route
+control, and continuity-card work, while deferred Qwen/GGUF and
+provider-reference prompt-level probes stay opt-in heavy work.
 
 The next default Research Construction cursor is:
 
 ```text
-F-ReasoningStateContinuity
+F-ColdMissLedger
 ```
 
 ## Axis Floor

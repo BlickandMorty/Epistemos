@@ -55,6 +55,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ProofCarryingResidencyLease",
     "F-ColdAssemblyPlan-70B-Lite",
     "F-LatticeStateController",
+    "F-ReasoningStateContinuity",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

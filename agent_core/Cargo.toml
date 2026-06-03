@@ -147,6 +147,10 @@ name = "falsify_lattice_state_controller"
 path = "src/bin/falsify_lattice_state_controller.rs"
 
 [[bin]]
+name = "falsify_reasoning_state_continuity"
+path = "src/bin/falsify_reasoning_state_continuity.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
