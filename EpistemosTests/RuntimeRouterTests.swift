@@ -255,6 +255,36 @@ struct RuntimeRouterTests {
         router.setLaneEnabled(.mlx, true)
     }
 
+    @Test("tool-caller requests exhaust GGUF before cloud when MLX is disabled")
+    func toolCallerKeepsGGUFBeforeCloudFallback() {
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        router._testResetMetrics()
+        router.setLaneEnabled(.mlx, false)
+        defer {
+            router.setLaneEnabled(.mlx, true)
+        }
+
+        let packet = MissionPacket(
+            uasAddress: "uas:test:tool-caller-local-first",
+            role: .toolCaller,
+            objective: "Call vault.search for related notes.",
+            requiresTools: true,
+            requiresGrammar: true
+        )
+        let verdict = router.route(packet)
+
+        if case .accept(let lane, _) = verdict {
+            #expect(lane == .gguf, "tool-caller fallback must use GGUF before cloud; got \(lane.stableID)")
+        } else {
+            Issue.record("expected .accept on GGUF fallback, got \(verdict)")
+        }
+
+        #expect(router.metrics.tally(for: .mlx).escalations == 1)
+        #expect(router.metrics.tally(for: .gguf).accepts == 1)
+        #expect(router.metrics.tally(for: .cloud(provider: "claude")).accepts == 0)
+        #expect(router.metrics.tally(for: .cloud(provider: "openai")).accepts == 0)
+    }
+
     @Test("privacy-sensitive request rejects when no local lane is available")
     func privacySensitiveRejectsWhenLocalDisabled() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
