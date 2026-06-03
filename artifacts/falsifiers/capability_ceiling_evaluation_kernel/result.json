@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "6d82ba00b2af7d10ea8d970101343484196e3c54",
+  "commit_sha": "453c34be371e0dfa564d51c52be6939b2dbd6f50",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T19:56:27Z",
-  "result_digest": "sha256:2423e89a127cb71a63b79a7ee39560ca919c13f71d78697d34be402f456ddb7c",
+  "timestamp_utc": "2026-06-03T20:27:23Z",
+  "result_digest": "sha256:d0121b29f766a8a070ff96f38df5ce3f43dadb4c919d33dce310f88686842a63",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -233,6 +233,22 @@
       "value": true,
       "unit": "bool"
     },
+    "kv_page_control_query_aware_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_control_query_aware_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/kv_page_control_query_aware/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "lattice_state_controller_pass": {
       "value": true,
       "unit": "bool"
@@ -266,7 +282,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "kv_page_control_query_aware",
+      "value": "neural_control_card_ablation",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -515,11 +531,21 @@
           "order": 24,
           "gap_id": "kv_page_control_query_aware",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-KVPageControl-QueryAware",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Query-aware KV/page control must beat recency-only and random selection under active-byte, quality, verifier, and AnswerPacket visibility budgets.",
           "rollback": "Keep KV/page control shadow-only until stale/incompatible units, budget overflow, missing rollback, and verifier bypass cases reject."
+        },
+        {
+          "order": 25,
+          "gap_id": "neural_control_card_ablation",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-NeuralControlCard-Ablation",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Bounded neural/feature control cards must improve target behavior versus baseline and ablation without unacceptable side effects, hidden route authority, or live mutation.",
+          "rollback": "Keep neural control cards shadow-only until baseline, intervention, ablation, rollback, RunEventLog, and AnswerPacket evidence pass."
         }
       ],
       "unit": "queue"
@@ -882,6 +908,11 @@
       "value": true,
       "unit": "bool"
     },
+    "kv_page_control_query_aware_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "lattice_state_controller_pass": {
       "operator": "==",
       "value": true,
@@ -1013,6 +1044,7 @@
     "kv_direct_spill_trace_available": true,
     "kv_direct_spill_trace_contract_pass": false,
     "kv_direct_tier1_preflight_pass": true,
+    "kv_page_control_query_aware_pass": true,
     "lattice_state_controller_pass": true,
     "meta_breakthrough_card_registry_pass": true,
     "page_gather_dense_primary_pass": false,
@@ -1052,8 +1084,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "kv_page_control_query_aware"
+      "detail": "neural_control_card_ablation"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=kv_page_control_query_aware; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=neural_control_card_ablation; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

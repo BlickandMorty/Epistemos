@@ -1,0 +1,560 @@
+{
+  "falsifier_id": "F-KVPageControl-QueryAware",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_page_control_query_aware.sh",
+  "command_digest": "sha256:2bdb1cab032e425fff42faa7a38679d27f2f9ad6a451d4d1b8a8b77e2f3a1ad0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "453c34be371e0dfa564d51c52be6939b2dbd6f50",
+  "fixture_id": "kv_page_control_query_aware_v1",
+  "timestamp_utc": "2026-06-03T20:27:15Z",
+  "result_digest": "sha256:8925f51f657e0301f0d4c1769eff6c13a0a7d1fca28c8b57518704dcbed818d4",
+  "measurements": {
+    "active_byte_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_page_count": {
+      "value": 15,
+      "unit": "count"
+    },
+    "cloud_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "criticality_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eviction_decisions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_control_card_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "kv_page_control_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_ranges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "value": 67108864,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_selection_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_control_address": {
+      "value": "uas:kv-page-control:98b9d3a1305af59437c429a7ac4935555d85270954546e0ca0d32e648bb63b01",
+      "unit": "uas_address"
+    },
+    "page_control_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_control_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_file_order": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_random": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_recency": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_dependence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_signatures_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ranking_signals_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "restore_decisions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retention_decisions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_page_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "selected_pages_fit_active_byte_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sink_or_heavy_hitter_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_page_ranges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_brain_route_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_byte_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_page_count": {
+      "operator": ">=",
+      "value": 12,
+      "unit": "count"
+    },
+    "cloud_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "criticality_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eviction_decisions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_control_card_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "kv_page_control_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_ranges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "operator": "<=",
+      "value": 100663296,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_selection_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_control_address": {
+      "operator": "contains",
+      "value": "uas:kv-page-control:",
+      "unit": "uas_address"
+    },
+    "page_control_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_control_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_file_order": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_random": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_recency": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_dependence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_signatures_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ranking_signals_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "restore_decisions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retention_decisions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_page_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "count"
+    },
+    "selected_pages_fit_active_byte_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sink_or_heavy_hitter_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_page_ranges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_brain_route_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_byte_delta_positive": true,
+    "answer_packet_ref_bound": true,
+    "candidate_page_count": true,
+    "cloud_page_rejected": true,
+    "compatibility_fences_bound": true,
+    "criticality_signal_bound": true,
+    "duplicate_page_rejected": true,
+    "duplicate_policy_rejected": true,
+    "eviction_decisions_bound": true,
+    "hidden_live_mutation_rejected": true,
+    "incompatible_fence_rejected": true,
+    "kv_page_control_card_count": true,
+    "kv_page_control_cards_present": true,
+    "latency_delta_positive": true,
+    "layer_ranges_bound": true,
+    "max_active_byte_limit": true,
+    "missing_answer_packet_rejected": true,
+    "missing_digest_rejected": true,
+    "missing_rollback_rejected": true,
+    "mission_ids_bound": true,
+    "model_ids_bound": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_selection_rejected": true,
+    "page_control_address": true,
+    "page_control_address_deterministic": true,
+    "page_control_shadow_only": true,
+    "page_digests_bound": true,
+    "privacy_classes_bound": true,
+    "quality_delta_positive": true,
+    "query_aware_beats_file_order": true,
+    "query_aware_beats_random": true,
+    "query_aware_beats_recency": true,
+    "query_dependence_bound": true,
+    "query_signatures_bound": true,
+    "ranking_signals_bound": true,
+    "restore_decisions_bound": true,
+    "retention_decisions_bound": true,
+    "rollback_bound": true,
+    "route_card_ref_bound": true,
+    "selected_page_count": true,
+    "selected_pages_fit_active_byte_budget": true,
+    "sink_or_heavy_hitter_bound": true,
+    "stale_page_rejected": true,
+    "token_page_ranges_bound": true,
+    "uas_page_addresses_bound": true,
+    "unbeaten_baseline_rejected": true,
+    "upstream_brain_route_card_pass": true,
+    "upstream_route_refs_bound": true,
+    "verifier_bypass_rejected": true,
+    "verifier_delta_positive": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only KVPageControlCard witness; no live KV mutation, no model/runtime bytes, no hidden cloud, no SSD-as-RAM claim, and no product promotion executed"
+    }
+  ],
+  "notes": "Proves query-aware KV/page selection beats recency-only, random, and file-order page policies under active-byte, quality, verifier, rollback, and AnswerPacket visibility budgets while preserving shadow-only authority."
+}

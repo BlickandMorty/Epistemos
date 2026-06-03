@@ -175,6 +175,10 @@ name = "falsify_brain_route_card_multi_model"
 path = "src/bin/falsify_brain_route_card_multi_model.rs"
 
 [[bin]]
+name = "falsify_kv_page_control_query_aware"
+path = "src/bin/falsify_kv_page_control_query_aware.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

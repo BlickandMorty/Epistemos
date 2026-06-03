@@ -57,6 +57,8 @@ const RUST_ROUTE_KERNEL_MODEL_CHECK_PATH: &str =
     "artifacts/falsifiers/rust_route_kernel_model_check/result.json";
 const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
     "artifacts/falsifiers/brain_route_card_multi_model/result.json";
+const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
+    "artifacts/falsifiers/kv_page_control_query_aware/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -122,6 +124,54 @@ const BRAIN_ROUTE_CARD_MULTI_MODEL_AXES: &[&str] = &[
     "over_budget_route_rejected",
     "no_runtime_bytes_loaded",
 ];
+const KV_PAGE_CONTROL_QUERY_AWARE_AXES: &[&str] = &[
+    "upstream_brain_route_card_pass",
+    "kv_page_control_cards_present",
+    "query_signatures_bound",
+    "mission_ids_bound",
+    "model_ids_bound",
+    "upstream_route_refs_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "layer_ranges_bound",
+    "token_page_ranges_bound",
+    "compatibility_fences_bound",
+    "query_dependence_bound",
+    "criticality_signal_bound",
+    "sink_or_heavy_hitter_bound",
+    "ranking_signals_bound",
+    "privacy_classes_bound",
+    "retention_decisions_bound",
+    "eviction_decisions_bound",
+    "restore_decisions_bound",
+    "selected_pages_fit_active_byte_budget",
+    "query_aware_beats_recency",
+    "query_aware_beats_random",
+    "query_aware_beats_file_order",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "latency_delta_positive",
+    "active_byte_delta_positive",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "route_card_ref_bound",
+    "page_control_shadow_only",
+    "no_hidden_cloud",
+    "page_control_address_deterministic",
+    "duplicate_policy_rejected",
+    "duplicate_page_rejected",
+    "stale_page_rejected",
+    "incompatible_fence_rejected",
+    "missing_digest_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "over_budget_selection_rejected",
+    "hidden_live_mutation_rejected",
+    "verifier_bypass_rejected",
+    "cloud_page_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+];
 
 fn main() {
     let report = build_report();
@@ -179,6 +229,7 @@ fn build_report() -> KernelReport {
     let proof_carrying_route_card = GateArtifact::read(PROOF_CARRYING_ROUTE_CARD_PATH);
     let rust_route_kernel_model_check = GateArtifact::read(RUST_ROUTE_KERNEL_MODEL_CHECK_PATH);
     let brain_route_card_multi_model = GateArtifact::read(BRAIN_ROUTE_CARD_MULTI_MODEL_PATH);
+    let kv_page_control_query_aware = GateArtifact::read(KV_PAGE_CONTROL_QUERY_AWARE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -207,6 +258,7 @@ fn build_report() -> KernelReport {
         &proof_carrying_route_card,
         &rust_route_kernel_model_check,
         &brain_route_card_multi_model,
+        &kv_page_control_query_aware,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -559,6 +611,8 @@ fn build_report() -> KernelReport {
         && rust_route_kernel_model_check.all_axes_true(RUST_ROUTE_KERNEL_MODEL_CHECK_AXES);
     let brain_route_card_multi_model_pass = brain_route_card_multi_model.overall_pass
         && brain_route_card_multi_model.all_axes_true(BRAIN_ROUTE_CARD_MULTI_MODEL_AXES);
+    let kv_page_control_query_aware_pass = kv_page_control_query_aware.overall_pass
+        && kv_page_control_query_aware.all_axes_true(KV_PAGE_CONTROL_QUERY_AWARE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -587,6 +641,7 @@ fn build_report() -> KernelReport {
         &proof_carrying_route_card,
         &rust_route_kernel_model_check,
         &brain_route_card_multi_model,
+        &kv_page_control_query_aware,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -613,6 +668,7 @@ fn build_report() -> KernelReport {
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
+        kv_page_control_query_aware_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -655,6 +711,7 @@ fn build_report() -> KernelReport {
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
+        kv_page_control_query_aware_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -701,6 +758,7 @@ fn build_report() -> KernelReport {
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
+        kv_page_control_query_aware_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1001,6 +1059,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "kv_page_control_query_aware_pass",
+        kv_page_control_query_aware_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1138,6 +1203,11 @@ fn build_report() -> KernelReport {
         "brain_route_card_multi_model",
         &brain_route_card_multi_model,
     );
+    add_gate_summary(
+        &mut measurements,
+        "kv_page_control_query_aware",
+        &kv_page_control_query_aware,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1165,6 +1235,7 @@ fn build_report() -> KernelReport {
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
+        kv_page_control_query_aware_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1425,6 +1496,7 @@ fn classify_route(
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
+    kv_page_control_query_aware_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1446,6 +1518,7 @@ fn classify_route(
         && proof_carrying_route_card_pass
         && rust_route_kernel_model_check_pass
         && brain_route_card_multi_model_pass
+        && kv_page_control_query_aware_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1501,6 +1574,7 @@ fn next_bottleneck(
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
+    kv_page_control_query_aware_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1579,8 +1653,10 @@ fn next_bottleneck(
             "rust_route_kernel_model_check".to_string()
         } else if !brain_route_card_multi_model_pass {
             "brain_route_card_multi_model".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !kv_page_control_query_aware_pass {
             "kv_page_control_query_aware".to_string()
+        } else if !seventy_b_route_pass {
+            "neural_control_card_ablation".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1634,6 +1710,7 @@ fn build_ordered_gap_queue(
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
+    kv_page_control_query_aware_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2028,7 +2105,9 @@ fn build_ordered_gap_queue(
             24,
             "kv_page_control_query_aware",
             "Meta Control",
-            if brain_route_card_multi_model_pass
+            if kv_page_control_query_aware_pass {
+                "completed"
+            } else if brain_route_card_multi_model_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -2040,6 +2119,21 @@ fn build_ordered_gap_queue(
             "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
             "Query-aware KV/page control must beat recency-only and random selection under active-byte, quality, verifier, and AnswerPacket visibility budgets.",
             "Keep KV/page control shadow-only until stale/incompatible units, budget overflow, missing rollback, and verifier bypass cases reject.",
+        ),
+        queue_item(
+            25,
+            "neural_control_card_ablation",
+            "Meta Control",
+            if kv_page_control_query_aware_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_kv_page_control_query_aware"
+            },
+            "F-NeuralControlCard-Ablation",
+            "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+            "Bounded neural/feature control cards must improve target behavior versus baseline and ablation without unacceptable side effects, hidden route authority, or live mutation.",
+            "Keep neural control cards shadow-only until baseline, intervention, ablation, rollback, RunEventLog, and AnswerPacket evidence pass.",
         ),
     ]
 }
@@ -2167,6 +2261,7 @@ fn build_anomalies(
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
+    kv_page_control_query_aware_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2340,6 +2435,15 @@ fn build_anomalies(
             "detail": "Meta Control has a bounded route-kernel model check, but F-BrainRouteCard-MultiModel must pass before query-aware KV/page control work can advance."
         }));
     }
+    if brain_route_card_multi_model_pass
+        && !kv_page_control_query_aware_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "kv_page_control_query_aware_missing",
+            "detail": "Meta Control has BrainRouteCard routing proof, but F-KVPageControl-QueryAware must pass before neural control-card work can advance."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2466,28 +2570,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2539,21 +2643,22 @@ mod tests {
         const PROOF_CARRYING_ROUTE_CARD: usize = 33;
         const RUST_ROUTE_KERNEL_MODEL_CHECK: usize = 34;
         const BRAIN_ROUTE_CARD_MULTI_MODEL: usize = 35;
-        const SEVENTY_B: usize = 36;
+        const KV_PAGE_CONTROL_QUERY_AWARE: usize = 36;
+        const SEVENTY_B: usize = 37;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 37] {
-            let mut values = [false; 37];
+        let flags = |true_indexes: &[usize]| -> [bool; 38] {
+            let mut values = [false; 38];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 37], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 38], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2594,11 +2699,12 @@ mod tests {
                 values[34],
                 values[35],
                 values[36],
+                values[37],
                 &missing,
             )
         };
-        let nb = |values: [bool; 37]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 37]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 38]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 38]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -3216,6 +3322,43 @@ mod tests {
             "kv_page_control_query_aware"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+            ]))),
+            "neural_control_card_ablation"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -3272,6 +3415,7 @@ mod tests {
                 PROOF_CARRYING_ROUTE_CARD,
                 RUST_ROUTE_KERNEL_MODEL_CHECK,
                 BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"
