@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
-  <meta name="epistemos-artifact-cursor" content="verifier_regret_ledger">
+  <meta name="epistemos-artifact-cursor" content="route_scout_ssm_baseline">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -827,7 +827,7 @@ The next architecture lock is small cumulative control. A tiny proof card, premi
     <tr><td>FeatureAtlasCard</td><td>SAE or mechanistic feature handles as route priors.</td><td>Source examples, ambiguity notes, ablation gate.</td></tr>
     <tr><td>FeatureInterventionCard</td><td>Bounded activation or representation steering.</td><td>F-NeuralControlCard-Ablation PASS: baseline/intervention/ablation, RunEventLog, rollback, AnswerPacket, side-effect budget, and shadow-only authority bound.</td></tr>
     <tr><td>KVPageControlCard</td><td>KV pages to retain, evict, restore, compress, or prewarm.</td><td>F-KVPageControl-QueryAware PASS: query-aware beats recency/random/file-order, stale and incompatible pages reject, rollback and AnswerPacket visibility bound.</td></tr>
-    <tr><td>VerifierRegretLedger</td><td>Whether the tiny control actually helped.</td><td>Next active cursor: prove held-out regret reduction before route utility updates promote.</td></tr>
+    <tr><td>VerifierRegretLedger</td><td>Whether the tiny control actually helped.</td><td>F-VerifierRegretLedger PASS: changed shadow route selection, held-out regret reduction, rollback, RunEventLog, AnswerPacket, policy patch, no live mutation, and no runtime bytes.</td></tr>
   </tbody>
 </table>
 <div class="note">
@@ -853,7 +853,7 @@ Residency PatternBoost adds the discovery loop above that runtime path: generate
     <tr><td>LatticeAbstentionGate</td><td>Small lattice-state gate for wake, retrieve, continue, pause, resume, verify, or abstain.</td><td>Lattice Deduction Transformer controller signal, not hidden proof authority.</td></tr>
     <tr><td>ComputeResumeLease</td><td>Compatibility proof for pausing compute, fetching missing support, and resuming safely.</td><td>Dynamic depth plus KV/page/transport compatibility.</td></tr>
     <tr><td>ColdRoutePolicyPatch</td><td>Rollback-safe tournament-derived patch into route or layout policy.</td><td>Only after held-out wins and kill-switch proof.</td></tr>
-    <tr><td>RouteScoutSSM</td><td>Tiny always-hot selector that proposes route family, verifier need, KV/page need, depth need, and abstention/escalation.</td><td>Axiom/PatternBoost tournaments, RouteLLM routing, Mamba-2 style state controllers.</td></tr>
+    <tr><td>RouteScoutSSM</td><td>Tiny always-hot selector that proposes route family, verifier need, KV/page need, depth need, and abstention/escalation.</td><td>Next active cursor: prove scout predictions beat static, random, recency, and embedding-only baselines before sparse wake routing advances.</td></tr>
     <tr><td>TwoStageRouteScout</td><td>Separates cheap route-family choice from family-specific KV/depth/proof/adapter selection.</td><td>Keeps the scout small enough to falsify instead of becoming another hidden model.</td></tr>
     <tr><td>BudgetedUncertaintyEscalator</td><td>Escalates or abstains when calibration, byte budget, latency budget, or coverage is weak.</td><td>Turns uncertainty into a visible route decision.</td></tr>
     <tr><td>SparseWakeProposal</td><td>Selected and rejected units, expected hot/KV/cold bytes, verifier delta, uncertainty, and fallback.</td><td>The typed form of "which weights, KV pages, neurons, params, tools, and proof lanes should wake?"</td></tr>

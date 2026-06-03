@@ -183,6 +183,10 @@ name = "falsify_neural_control_card_ablation"
 path = "src/bin/falsify_neural_control_card_ablation.rs"
 
 [[bin]]
+name = "falsify_verifier_regret_ledger"
+path = "src/bin/falsify_verifier_regret_ledger.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

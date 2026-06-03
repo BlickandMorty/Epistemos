@@ -56,6 +56,8 @@ const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
     "artifacts/falsifiers/kv_page_control_query_aware/result.json";
 const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
     "artifacts/falsifiers/neural_control_card_ablation/result.json";
+const VERIFIER_REGRET_LEDGER_PATH: &str =
+    "artifacts/falsifiers/verifier_regret_ledger/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -225,6 +227,55 @@ const NEURAL_CONTROL_CARD_ABLATION_AXES: &[&str] = &[
     "unbeaten_ablation_rejected",
     "hidden_chain_exposure_rejected",
     "cloud_intervention_rejected",
+    "no_runtime_bytes_loaded",
+];
+const VERIFIER_REGRET_LEDGER_AXES: &[&str] = &[
+    "upstream_neural_control_pass",
+    "regret_entries_present",
+    "unit_ids_bound",
+    "route_ids_bound",
+    "task_signatures_bound",
+    "baseline_scores_bound",
+    "intervention_scores_bound",
+    "quality_delta_positive",
+    "verifier_delta_bound",
+    "evidence_validity_delta_bound",
+    "latency_delta_bound",
+    "active_byte_delta_bound",
+    "failure_modes_bound",
+    "regret_updates_bound",
+    "next_policy_bound",
+    "held_out_task_set_bound",
+    "later_route_selection_changed",
+    "held_out_regret_reduced",
+    "route_utility_update_shadow_only",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "policy_patch_bound",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "policy_version_advances",
+    "upstream_neural_refs_bound",
+    "active_byte_budget_respected",
+    "regret_address_deterministic",
+    "duplicate_entry_rejected",
+    "missing_held_out_rejected",
+    "missing_regret_update_rejected",
+    "missing_next_policy_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "no_route_change_rejected",
+    "no_regret_reduction_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "over_budget_update_rejected",
+    "stale_policy_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -642,6 +693,11 @@ fn build_report() -> GuardReport {
         &neural_control_card_ablation,
         NEURAL_CONTROL_CARD_ABLATION_AXES,
     );
+    let verifier_regret_ledger = read_json(Path::new(VERIFIER_REGRET_LEDGER_PATH));
+    let verifier_regret_ledger_available = artifact_all_axes_true(
+        &verifier_regret_ledger,
+        VERIFIER_REGRET_LEDGER_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -736,6 +792,7 @@ fn build_report() -> GuardReport {
         && brain_route_card_multi_model_available
         && kv_page_control_query_aware_available
         && neural_control_card_ablation_available
+        && verifier_regret_ledger_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -932,6 +989,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "neural_control_card_ablation_available",
         neural_control_card_ablation_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "verifier_regret_ledger_available",
+        verifier_regret_ledger_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1247,6 +1311,10 @@ fn build_report() -> GuardReport {
                     "path": NEURAL_CONTROL_CARD_ABLATION_PATH,
                     "available": neural_control_card_ablation_available
                 },
+                "verifier_regret_ledger": {
+                    "path": VERIFIER_REGRET_LEDGER_PATH,
+                    "available": verifier_regret_ledger_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1410,6 +1478,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_neural_control_card_ablation",
             "detail": "Meta Control has query-aware KV/page proof, but needs F-NeuralControlCard-Ablation before verifier-regret work can advance."
+        }));
+    }
+    if neural_control_card_ablation_available && !verifier_regret_ledger_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_verifier_regret_ledger",
+            "detail": "Meta Control has NeuralControlCard ablation proof, but needs F-VerifierRegretLedger before route utility updates can cite regret learning."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2312,6 +2386,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("neural_control_card_ablation")
+            .is_some());
+        assert!(already_mapped_work
+            .get("verifier_regret_ledger")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
