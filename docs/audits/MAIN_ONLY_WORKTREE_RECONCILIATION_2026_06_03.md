@@ -156,8 +156,8 @@ Preferred next work, from current main:
    `F-SemanticWorkingSetPlan-Budget`, and
    `F-ResidencyPageTable-Addressability`, and
    `F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss`, and
-   `F-KVByteBudgetCard`, and `F-SourceToResidency-NoPoison` are now present as
-   primary witnesses on main:
+   `F-KVByteBudgetCard`, and `F-SourceToResidency-NoPoison`, and
+   `F-ColdFaultTrace-Learning` are now present as primary witnesses on main:
    `artifacts/falsifiers/source_signal_graph_intake/result.json`,
    `artifacts/falsifiers/task_working_set_query_determinism/result.json`, and
    `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`, and
@@ -165,9 +165,10 @@ Preferred next work, from current main:
    `artifacts/falsifiers/mmap_residency_fence_copy_count/result.json`, and
    `artifacts/falsifiers/prefetch_window_cold_miss/result.json`, and
    `artifacts/falsifiers/kv_byte_budget_card/result.json`, and
-   `artifacts/falsifiers/source_to_residency_no_poison/result.json`.
-3. Metadata-only falsifier fixtures still needed next:
-   `F-ColdFaultTrace-Learning` and `F-WorkingSetOracle-Baseline`.
+   `artifacts/falsifiers/source_to_residency_no_poison/result.json`, and
+   `artifacts/falsifiers/cold_fault_trace_learning/result.json`.
+3. Metadata-only falsifier fixture still needed next:
+   `F-WorkingSetOracle-Baseline`.
 4. T25 naming cleanup only as current-main source/doc guard work: ColdStore for
    dormant residency, AcsAnchor for coordinate/provenance anchoring, and
    SCOPE-Rex/SovereignGate for admission.

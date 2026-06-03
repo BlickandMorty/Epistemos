@@ -50,9 +50,9 @@ Continue the full-architecture loop in this order:
    `F-SemanticWorkingSetPlan-Budget` and
    `F-ResidencyPageTable-Addressability` and
    `F-MmapResidencyFence-CopyCount` and `F-PrefetchWindow-ColdMiss` and
-   `F-KVByteBudgetCard` and `F-SourceToResidency-NoPoison` now have primary
-   witnesses on main. Continue with cold-fault learning and working-set oracle
-   fixtures.
+   `F-KVByteBudgetCard` and `F-SourceToResidency-NoPoison` and
+   `F-ColdFaultTrace-Learning` now have primary witnesses on main. Continue
+   with working-set oracle fixtures.
 2. **Secondary lane: ColdStream manifest shape, not transport.**
    Only after a working-set plan exists, add a metadata-only
    `TransportRunManifest` completeness check. Do not benchmark, prefetch,

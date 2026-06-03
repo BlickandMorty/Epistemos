@@ -102,12 +102,15 @@ failure_reason
   `artifacts/falsifiers/source_to_residency_no_poison/result.json` and
   documented in
   `docs/falsifiers/F-SourceToResidency-NoPoison_2026_06_03.md`.
-- Remaining bundle work starts with cold-fault learning and working-set oracle
-  baseline. Source intake, deterministic query emission, budget
+- `F-ColdFaultTrace-Learning` is implemented as a primary witness at
+  `artifacts/falsifiers/cold_fault_trace_learning/result.json` and documented
+  in `docs/falsifiers/F-ColdFaultTrace-Learning_2026_06_03.md`.
+- Remaining bundle work starts with working-set oracle baseline. Source intake,
+  deterministic query emission, budget
   rejection, page-table addressability, mmap-residency-fence copy-count
   semantics, prefetch/cold-miss ordering, KV byte-budget cards, and
-  source-to-residency no-poison promotion guards no longer need to be rebuilt
-  from scratch.
+  source-to-residency no-poison promotion guards, and cold-fault learning no
+  longer need to be rebuilt from scratch.
 
 ## Required fixture families
 
@@ -140,7 +143,8 @@ failure_reason
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan` budget rejection, and
    `ResidencyPageTable` addressability, and `MmapResidencyFence` copy-count
    semantics, and `PrefetchWindow` cold-miss ordering, and `KVByteBudgetCard`
-   accounting, and `SourceToResidencyPatch` no-poison guards now have primary
+   accounting, and `SourceToResidencyPatch` no-poison guards, and
+   `ColdFaultTrace` / `LayoutPatch` cold-fault learning now have primary
    witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
@@ -150,7 +154,8 @@ failure_reason
 4. Page-table addressability is covered by
    `F-ResidencyPageTable-Addressability`; mmap fence copy-count semantics are
    covered by `F-MmapResidencyFence-CopyCount`.
-5. Add cold-miss learning fixtures with rollback-only layout patches.
+5. Cold-miss learning fixtures with rollback-only layout patches are covered by
+   `F-ColdFaultTrace-Learning`.
 6. Add oracle baseline comparison.
 7. Only after synthetic gates pass, connect dry-run plans to existing
    constructive-residency and cache-lineage artifacts.

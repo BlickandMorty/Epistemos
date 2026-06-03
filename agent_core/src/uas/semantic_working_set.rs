@@ -12,9 +12,13 @@ use crate::uas::{ByteRange, ProStatus, ProductBuild, ResidencyTier, UasAddress, 
 const PLAN_UAS_KIND: &str = "semantic_working_set_plan";
 const QUERY_UAS_KIND: &str = "task_working_set_query";
 const SOURCE_TO_RESIDENCY_PATCH_UAS_KIND: &str = "source_to_residency_patch";
+const COLD_FAULT_TRACE_UAS_KIND: &str = "cold_fault_trace";
+const LAYOUT_PATCH_UAS_KIND: &str = "layout_patch";
 const ROLLBACK_PREFIX: &str = "rollback:";
+const HELD_OUT_PREFIX: &str = "held_out:";
 const FALSIFIER_PREFIX: &str = "F-";
 const MAX_SOURCE_PROMOTION_CREDIBILITY_RANK: u8 = 3;
+const MAX_LAYOUT_PATCH_STORAGE_WEAR_COST: u64 = 128 * 1024;
 const FALLBACK_ROUTE_PREFIXES: [&str; 2] = ["runtime_router:fallback_", "runtime_router:static_"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -580,6 +584,196 @@ impl SemanticWorkingSetUnit {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ColdFaultTrace {
+    pub trace_address: UasAddress,
+    pub mission_id: String,
+    pub missing_unit: UasAddress,
+    pub expected_unit: UasAddress,
+    pub stall_ms: u64,
+    pub cold_io_bytes: u64,
+    pub fallback_used: String,
+    pub answer_effect: String,
+    pub source_or_cache_cause: String,
+    pub next_layout_patch: String,
+}
+
+impl ColdFaultTrace {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        mission_id: impl Into<String>,
+        missing_unit: UasAddress,
+        expected_unit: UasAddress,
+        stall_ms: u64,
+        cold_io_bytes: u64,
+        fallback_used: impl Into<String>,
+        answer_effect: impl Into<String>,
+        source_or_cache_cause: impl Into<String>,
+        next_layout_patch: impl Into<String>,
+        created_at_ms: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let mission_id = mission_id.into();
+        let fallback_used = fallback_used.into();
+        let answer_effect = answer_effect.into();
+        let source_or_cache_cause = source_or_cache_cause.into();
+        let next_layout_patch = next_layout_patch.into();
+        validate_nonempty("mission_id", &mission_id)?;
+        validate_nonempty("fallback_route", &fallback_used)?;
+        validate_nonempty("answer_effect", &answer_effect)?;
+        validate_nonempty("source_or_cache_cause", &source_or_cache_cause)?;
+        validate_nonempty("next_layout_patch", &next_layout_patch)?;
+        if stall_ms == 0 || cold_io_bytes == 0 {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "zero_stall_or_cold_io".to_string(),
+            });
+        }
+        let trace_address = cold_fault_trace_address(
+            &mission_id,
+            &missing_unit,
+            &expected_unit,
+            stall_ms,
+            cold_io_bytes,
+            &fallback_used,
+            &answer_effect,
+            &source_or_cache_cause,
+            &next_layout_patch,
+            created_at_ms,
+        );
+        Ok(Self {
+            trace_address,
+            mission_id,
+            missing_unit,
+            expected_unit,
+            stall_ms,
+            cold_io_bytes,
+            fallback_used,
+            answer_effect,
+            source_or_cache_cause,
+            next_layout_patch,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayoutPatchPromotionStatus {
+    ShadowCandidate,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LayoutPatch {
+    pub patch_address: UasAddress,
+    pub patch_id: String,
+    pub target_layout: String,
+    pub baseline_layout: String,
+    pub changed_tiles: Vec<String>,
+    pub expected_cold_miss_delta: i64,
+    pub observed_cold_miss_delta: i64,
+    pub storage_wear_cost: u64,
+    pub rollback_ref: String,
+    pub held_out_metrics_ref: String,
+    pub promotion_status: LayoutPatchPromotionStatus,
+    pub production_mutation: bool,
+    pub trace_addresses: Vec<UasAddress>,
+}
+
+impl LayoutPatch {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_repeated_cold_faults(
+        patch_id: impl Into<String>,
+        traces: Vec<ColdFaultTrace>,
+        target_layout: impl Into<String>,
+        baseline_layout: impl Into<String>,
+        changed_tiles: Vec<String>,
+        expected_cold_miss_delta: i64,
+        observed_cold_miss_delta: i64,
+        storage_wear_cost: u64,
+        rollback_ref: impl Into<String>,
+        held_out_metrics_ref: impl Into<String>,
+        production_mutation: bool,
+        created_at_ms: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let patch_id = patch_id.into();
+        let target_layout = target_layout.into();
+        let baseline_layout = baseline_layout.into();
+        let rollback_ref = rollback_ref.into();
+        let held_out_metrics_ref = held_out_metrics_ref.into();
+        validate_nonempty("patch_id", &patch_id)?;
+        validate_nonempty("target_layout", &target_layout)?;
+        validate_nonempty("baseline_layout", &baseline_layout)?;
+        validate_nonempty("rollback_ref", &rollback_ref)?;
+        validate_nonempty("held_out_metrics_ref", &held_out_metrics_ref)?;
+        let changed_tiles = canonicalize_strings(
+            "changed_tiles",
+            changed_tiles,
+            SemanticWorkingSetError::MissingChangedTile,
+        )?;
+        if traces.len() < 2 {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "repeated_misses_required".to_string(),
+            });
+        }
+        if expected_cold_miss_delta >= 0 || observed_cold_miss_delta >= 0 {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "held_out_improvement_required".to_string(),
+            });
+        }
+        if storage_wear_cost > MAX_LAYOUT_PATCH_STORAGE_WEAR_COST {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "storage_wear_cost_unbounded".to_string(),
+            });
+        }
+        if !rollback_ref.starts_with(ROLLBACK_PREFIX) {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "missing_rollback".to_string(),
+            });
+        }
+        if !held_out_metrics_ref.starts_with(HELD_OUT_PREFIX) {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "held_out_metrics_required".to_string(),
+            });
+        }
+        if production_mutation {
+            return Err(SemanticWorkingSetError::ColdFaultLearningRejected {
+                reason: "production_mutation_forbidden".to_string(),
+            });
+        }
+        let mut trace_addresses = traces
+            .iter()
+            .map(|trace| trace.trace_address.clone())
+            .collect::<Vec<_>>();
+        trace_addresses.sort_by_key(|address| address.to_string());
+        let patch_address = layout_patch_address(
+            &patch_id,
+            &target_layout,
+            &baseline_layout,
+            &changed_tiles,
+            expected_cold_miss_delta,
+            observed_cold_miss_delta,
+            storage_wear_cost,
+            &rollback_ref,
+            &held_out_metrics_ref,
+            &trace_addresses,
+            created_at_ms,
+        );
+        Ok(Self {
+            patch_address,
+            patch_id,
+            target_layout,
+            baseline_layout,
+            changed_tiles,
+            expected_cold_miss_delta,
+            observed_cold_miss_delta,
+            storage_wear_cost,
+            rollback_ref,
+            held_out_metrics_ref,
+            promotion_status: LayoutPatchPromotionStatus::ShadowCandidate,
+            production_mutation,
+            trace_addresses,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResidencyPageTableEntry {
     pub semantic_unit_id: String,
     pub uas_address: UasAddress,
@@ -1006,6 +1200,7 @@ pub enum SemanticWorkingSetError {
     MissingRouteAffinity,
     MissingSourceRelation,
     MissingAffectedOrgan,
+    MissingChangedTile,
     MissingSemanticUnitId,
     MissingCodec,
     MissingChecksum,
@@ -1050,6 +1245,9 @@ pub enum SemanticWorkingSetError {
         source_id: String,
         reason: String,
     },
+    ColdFaultLearningRejected {
+        reason: String,
+    },
     InvalidKvBudget,
     ByteTotalOverflow,
 }
@@ -1070,6 +1268,7 @@ impl std::fmt::Display for SemanticWorkingSetError {
             Self::MissingRouteAffinity => write!(f, "route_affinities are required"),
             Self::MissingSourceRelation => write!(f, "source relation is required"),
             Self::MissingAffectedOrgan => write!(f, "affected_organs are required"),
+            Self::MissingChangedTile => write!(f, "changed_tiles are required"),
             Self::MissingSemanticUnitId => write!(f, "semantic_unit_id is required"),
             Self::MissingCodec => write!(f, "codec is required"),
             Self::MissingChecksum => write!(f, "checksum is required"),
@@ -1120,6 +1319,9 @@ impl std::fmt::Display for SemanticWorkingSetError {
                     f,
                     "{source_id} cannot promote source-to-residency patch: {reason}"
                 )
+            }
+            Self::ColdFaultLearningRejected { reason } => {
+                write!(f, "cold-fault learning rejected: {reason}")
             }
             Self::InvalidKvBudget => write!(f, "KV budget must carry non-empty positive values"),
             Self::ByteTotalOverflow => write!(f, "working-set byte total overflowed"),
@@ -1383,6 +1585,88 @@ fn source_license_blocks_promotion(license_or_usage_note: &str) -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
+fn cold_fault_trace_address(
+    mission_id: &str,
+    missing_unit: &UasAddress,
+    expected_unit: &UasAddress,
+    stall_ms: u64,
+    cold_io_bytes: u64,
+    fallback_used: &str,
+    answer_effect: &str,
+    source_or_cache_cause: &str,
+    next_layout_patch: &str,
+    created_at_ms: u64,
+) -> UasAddress {
+    let mut preimage = String::new();
+    preimage.push_str("cold_fault_trace_v1\n");
+    push_preimage(&mut preimage, "mission_id", mission_id);
+    push_preimage(&mut preimage, "missing_unit", &missing_unit.to_string());
+    push_preimage(&mut preimage, "expected_unit", &expected_unit.to_string());
+    push_preimage(&mut preimage, "stall_ms", &stall_ms.to_string());
+    push_preimage(&mut preimage, "cold_io_bytes", &cold_io_bytes.to_string());
+    push_preimage(&mut preimage, "fallback_used", fallback_used);
+    push_preimage(&mut preimage, "answer_effect", answer_effect);
+    push_preimage(
+        &mut preimage,
+        "source_or_cache_cause",
+        source_or_cache_cause,
+    );
+    push_preimage(&mut preimage, "next_layout_patch", next_layout_patch);
+    UasAddress::new(
+        UasKind::Other(COLD_FAULT_TRACE_UAS_KIND.to_string()),
+        preimage.as_bytes(),
+        created_at_ms,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn layout_patch_address(
+    patch_id: &str,
+    target_layout: &str,
+    baseline_layout: &str,
+    changed_tiles: &[String],
+    expected_cold_miss_delta: i64,
+    observed_cold_miss_delta: i64,
+    storage_wear_cost: u64,
+    rollback_ref: &str,
+    held_out_metrics_ref: &str,
+    trace_addresses: &[UasAddress],
+    created_at_ms: u64,
+) -> UasAddress {
+    let mut preimage = String::new();
+    preimage.push_str("layout_patch_v1\n");
+    push_preimage(&mut preimage, "patch_id", patch_id);
+    push_preimage(&mut preimage, "target_layout", target_layout);
+    push_preimage(&mut preimage, "baseline_layout", baseline_layout);
+    push_string_list_preimage(&mut preimage, "changed_tiles", changed_tiles);
+    push_preimage(
+        &mut preimage,
+        "expected_cold_miss_delta",
+        &expected_cold_miss_delta.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "observed_cold_miss_delta",
+        &observed_cold_miss_delta.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "storage_wear_cost",
+        &storage_wear_cost.to_string(),
+    );
+    push_preimage(&mut preimage, "rollback_ref", rollback_ref);
+    push_preimage(&mut preimage, "held_out_metrics_ref", held_out_metrics_ref);
+    for trace_address in trace_addresses {
+        push_preimage(&mut preimage, "trace_address", &trace_address.to_string());
+    }
+    UasAddress::new(
+        UasKind::Other(LAYOUT_PATCH_UAS_KIND.to_string()),
+        preimage.as_bytes(),
+        created_at_ms,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
 fn plan_address(
     query: &TaskWorkingSetQuery,
     selected_units: &[SemanticWorkingSetUnit],
@@ -1534,6 +1818,7 @@ fn missing_field_error(field: &'static str) -> SemanticWorkingSetError {
         "route_affinities" => SemanticWorkingSetError::MissingRouteAffinity,
         "source_relation" => SemanticWorkingSetError::MissingSourceRelation,
         "affected_organs" => SemanticWorkingSetError::MissingAffectedOrgan,
+        "changed_tiles" => SemanticWorkingSetError::MissingChangedTile,
         "semantic_unit_id" => SemanticWorkingSetError::MissingSemanticUnitId,
         "codec" => SemanticWorkingSetError::MissingCodec,
         "checksum" => SemanticWorkingSetError::MissingChecksum,
@@ -1890,6 +2175,89 @@ mod tests {
                 SemanticWorkingSetError::SourcePromotionBlocked { .. }
             ));
         }
+    }
+
+    #[test]
+    fn cold_fault_traces_generate_shadow_layout_patch_only_with_held_out_improvement() {
+        let traces = fixture_cold_fault_traces();
+        let reversed = traces.iter().cloned().rev().collect::<Vec<_>>();
+        let patch = fixture_layout_patch(traces.clone()).unwrap();
+        let reversed_patch = fixture_layout_patch(reversed).unwrap();
+        assert_eq!(patch.patch_address, reversed_patch.patch_address);
+        assert_eq!(patch.trace_addresses.len(), 2);
+        assert_eq!(patch.expected_cold_miss_delta, -2);
+        assert_eq!(patch.observed_cold_miss_delta, -1);
+        assert_eq!(
+            patch.promotion_status,
+            LayoutPatchPromotionStatus::ShadowCandidate
+        );
+        assert!(!patch.production_mutation);
+        assert!(patch.rollback_ref.starts_with("rollback:"));
+        assert!(patch.held_out_metrics_ref.starts_with("held_out:"));
+
+        let single_trace = fixture_layout_patch(vec![traces[0].clone()]).unwrap_err();
+        assert!(matches!(
+            single_trace,
+            SemanticWorkingSetError::ColdFaultLearningRejected { .. }
+        ));
+
+        let no_improvement = LayoutPatch::from_repeated_cold_faults(
+            "layout-patch:no-improvement",
+            traces.clone(),
+            "layout:coactivated",
+            "layout:file-order",
+            vec!["tile:module-5".to_string()],
+            0,
+            0,
+            4096,
+            "rollback:cold-fault-layout",
+            "held_out:module-5",
+            false,
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            no_improvement,
+            SemanticWorkingSetError::ColdFaultLearningRejected { .. }
+        ));
+
+        let live_mutation = LayoutPatch::from_repeated_cold_faults(
+            "layout-patch:live-mutation",
+            traces,
+            "layout:coactivated",
+            "layout:file-order",
+            vec!["tile:module-5".to_string()],
+            -2,
+            -1,
+            4096,
+            "rollback:cold-fault-layout",
+            "held_out:module-5",
+            true,
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            live_mutation,
+            SemanticWorkingSetError::ColdFaultLearningRejected { .. }
+        ));
+
+        let zero_stall = ColdFaultTrace::new(
+            "mission:module-5",
+            address(UasKind::ModelComponent, b"missing"),
+            address(UasKind::ModelComponent, b"expected"),
+            0,
+            64 * 1024,
+            "runtime_router:fallback_static_route",
+            "answer_delayed",
+            "source:prefetch-window-miss",
+            "layout-patch:module-5",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            zero_stall,
+            SemanticWorkingSetError::ColdFaultLearningRejected { .. }
+        ));
     }
 
     #[test]
@@ -2356,6 +2724,53 @@ mod tests {
             CREATED_AT_MS,
         )
         .unwrap()
+    }
+
+    fn fixture_cold_fault_traces() -> Vec<ColdFaultTrace> {
+        vec![
+            cold_fault_trace("missing-weight-a", "expected-weight-a", 18, 64 * 1024),
+            cold_fault_trace("missing-weight-b", "expected-weight-b", 22, 64 * 1024),
+        ]
+    }
+
+    fn cold_fault_trace(
+        missing_unit: &str,
+        expected_unit: &str,
+        stall_ms: u64,
+        cold_io_bytes: u64,
+    ) -> ColdFaultTrace {
+        ColdFaultTrace::new(
+            "mission:module-5-adversarial-thinking",
+            address(UasKind::ModelComponent, missing_unit.as_bytes()),
+            address(UasKind::ModelComponent, expected_unit.as_bytes()),
+            stall_ms,
+            cold_io_bytes,
+            "runtime_router:fallback_static_route",
+            "answer_delayed_not_wrong",
+            "source:prefetch-window-miss",
+            "layout-patch:module-5-coactivation",
+            CREATED_AT_MS,
+        )
+        .unwrap()
+    }
+
+    fn fixture_layout_patch(
+        traces: Vec<ColdFaultTrace>,
+    ) -> Result<LayoutPatch, SemanticWorkingSetError> {
+        LayoutPatch::from_repeated_cold_faults(
+            "layout-patch:module-5-coactivation",
+            traces,
+            "layout:module-5-coactivated",
+            "layout:file-order",
+            vec!["tile:module-5".to_string(), "tile:assessment".to_string()],
+            -2,
+            -1,
+            4096,
+            "rollback:cold-fault-layout",
+            "held_out:module-5-fixtures",
+            false,
+            CREATED_AT_MS,
+        )
     }
 
     fn fixture_query(max_hot_bytes: u64, max_kv_bytes: u64) -> TaskWorkingSetQuery {

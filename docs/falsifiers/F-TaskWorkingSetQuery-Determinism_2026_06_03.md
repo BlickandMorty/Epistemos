@@ -49,5 +49,5 @@ now covers the first page-table gate, and `F-MmapResidencyFence-CopyCount`
 covers mmap fence copy-count semantics. `F-PrefetchWindow-ColdMiss` now covers
 the first prefetch/cold-miss fixture, and `F-KVByteBudgetCard` now covers KV
 byte-budget cards. `F-SourceToResidency-NoPoison` now covers source-to-residency
-no-poison propagation. The next unfinished bundle work is cold-fault learning
-and oracle baselines.
+no-poison propagation. The next unfinished bundle work is working-set oracle
+baseline.
