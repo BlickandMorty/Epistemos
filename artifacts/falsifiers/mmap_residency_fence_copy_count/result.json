@@ -1,0 +1,230 @@
+{
+  "falsifier_id": "F-MmapResidencyFence-CopyCount",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_mmap_residency_fence_copy_count.sh",
+  "command_digest": "sha256:11c6e5e87c9c0434650c36283d2d05fe3ae575a66127c3704bf2a45de95ca18d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "3cced0f90ca6c3727299c0aabe2143d5697fc617",
+  "fixture_id": "mmap_residency_fence_copy_count_v1",
+  "timestamp_utc": "2026-06-03T08:42:58Z",
+  "result_digest": "sha256:f47634034f26ce5185c33228f48ae30964ccdd6ff6fda4959b35d5783683299f",
+  "measurements": {
+    "byte_range_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_range_len": {
+      "value": 65536,
+      "unit": "count_or_bytes"
+    },
+    "cold_unmapped_zero_hot_passes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count": {
+      "value": 3,
+      "unit": "count_or_bytes"
+    },
+    "copy_count_not_hot_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "faults_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_byte_range_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "major_faults": {
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "mapped_touched_resident_passes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mapped_untouched_counted_hot_fails": {
+      "value": true,
+      "unit": "bool"
+    },
+    "minor_faults": {
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "missing_file_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pass_requires_mapped_touched_resident": {
+      "value": true,
+      "unit": "bool"
+    },
+    "resident_estimate_bytes": {
+      "value": 65536,
+      "unit": "count_or_bytes"
+    },
+    "resident_estimate_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "under_resident_counted_hot_fails": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unmapped_counted_hot_fails": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "byte_range_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_range_len": {
+      "operator": "==",
+      "value": 65536,
+      "unit": "count_or_bytes"
+    },
+    "cold_unmapped_zero_hot_passes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count_or_bytes"
+    },
+    "copy_count_not_hot_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "faults_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_byte_range_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "major_faults": {
+      "operator": "==",
+      "value": 1,
+      "unit": "count_or_bytes"
+    },
+    "mapped_touched_resident_passes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mapped_untouched_counted_hot_fails": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "minor_faults": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "missing_file_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pass_requires_mapped_touched_resident": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "resident_estimate_bytes": {
+      "operator": "==",
+      "value": 65536,
+      "unit": "count_or_bytes"
+    },
+    "resident_estimate_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "under_resident_counted_hot_fails": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unmapped_counted_hot_fails": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "byte_range_bound": true,
+    "byte_range_len": true,
+    "cold_unmapped_zero_hot_passes": true,
+    "copy_count": true,
+    "copy_count_not_hot_bytes": true,
+    "copy_count_reported": true,
+    "faults_reported": true,
+    "invalid_byte_range_rejected": true,
+    "major_faults": true,
+    "mapped_touched_resident_passes": true,
+    "mapped_untouched_counted_hot_fails": true,
+    "minor_faults": true,
+    "missing_file_id_rejected": true,
+    "pass_requires_mapped_touched_resident": true,
+    "resident_estimate_bytes": true,
+    "resident_estimate_reported": true,
+    "under_resident_counted_hot_fails": true,
+    "unmapped_counted_hot_fails": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only mmap residency fence; no mmap call, page-fault probe, SSD/RAM benchmark, model decode, MLX/Metal, or route mutation executed"
+    }
+  ],
+  "notes": "Proves mmap mapping, touching, resident estimate, faults, copy count, and counted-hot bytes remain separate fixture labels; counted-hot bytes fail unless mapped, touched, and resident, while cold uncounted bytes do not claim hot residency."
+}

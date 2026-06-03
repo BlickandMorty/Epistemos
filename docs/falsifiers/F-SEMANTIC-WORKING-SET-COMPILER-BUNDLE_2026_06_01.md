@@ -89,9 +89,12 @@ failure_reason
   `artifacts/falsifiers/residency_page_table_addressability/result.json` and
   documented in
   `docs/falsifiers/F-ResidencyPageTable-Addressability_2026_06_03.md`.
-- Remaining bundle work starts with prefetch/cold-miss and
-  mmap-residency-fence fixtures. Source intake, deterministic query emission,
-  budget rejection, and page-table addressability no longer need to be rebuilt
+- `F-MmapResidencyFence-CopyCount` is implemented as a primary witness at
+  `artifacts/falsifiers/mmap_residency_fence_copy_count/result.json` and
+  documented in `docs/falsifiers/F-MmapResidencyFence-CopyCount_2026_06_03.md`.
+- Remaining bundle work starts with prefetch/cold-miss fixtures. Source intake,
+  deterministic query emission, budget rejection, page-table addressability,
+  and mmap-residency-fence copy-count semantics no longer need to be rebuilt
   from scratch.
 
 ## Required fixture families
@@ -123,14 +126,16 @@ failure_reason
    `PrefetchWindow`, `ColdFaultTrace`, `LayoutPatch`, `MmapResidencyFence`,
    and `KVByteBudgetCard`. `SourceSignalGraph` and
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan` budget rejection, and
-   `ResidencyPageTable` addressability now have primary witnesses.
+   `ResidencyPageTable` addressability, and `MmapResidencyFence` copy-count
+   semantics now have primary witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
    `F-SourceSignalGraph-Intake`.
 3. Budget rejection before any runtime wake path is covered by
    `F-SemanticWorkingSetPlan-Budget`.
 4. Page-table addressability is covered by
-   `F-ResidencyPageTable-Addressability`; continue with mmap fence fixtures.
+   `F-ResidencyPageTable-Addressability`; mmap fence copy-count semantics are
+   covered by `F-MmapResidencyFence-CopyCount`.
 5. Add KV budget and compatibility fixtures.
 6. Add cold-miss learning fixtures with rollback-only layout patches.
 7. Add oracle baseline comparison.

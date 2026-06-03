@@ -55,6 +55,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-TaskWorkingSetQuery-Determinism",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ResidencyPageTable-Addressability",
+    "F-MmapResidencyFence-CopyCount",
     "F-ProviderReferenceManifest-DryRun",
     "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",

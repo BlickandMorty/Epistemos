@@ -46,5 +46,6 @@ addressability and fail-closed schema witness only.
 
 `F-ResidencyPageTable-Addressability` closes the first page-table
 addressability item from the Semantic Working-Set Compiler build order. The
-next bundle gates move to prefetch/cold-miss and mmap-residency-fence work,
-which must remain fixture-only until their own witnesses pass.
+next bundle gate moves to prefetch/cold-miss work; mmap-residency-fence
+copy-count semantics are now covered by
+`F-MmapResidencyFence-CopyCount`.

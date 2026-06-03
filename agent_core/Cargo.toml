@@ -151,6 +151,10 @@ name = "falsify_residency_page_table_addressability"
 path = "src/bin/falsify_residency_page_table_addressability.rs"
 
 [[bin]]
+name = "falsify_mmap_residency_fence_copy_count"
+path = "src/bin/falsify_mmap_residency_fence_copy_count.rs"
+
+[[bin]]
 name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 

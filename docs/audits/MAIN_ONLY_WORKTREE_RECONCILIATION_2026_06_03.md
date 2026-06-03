@@ -154,14 +154,16 @@ Preferred next work, from current main:
 1. T21 retrieval contract unification over Eidos, VaultRecall, and PageGather.
 2. `F-SourceSignalGraph-Intake`, `F-TaskWorkingSetQuery-Determinism`,
    `F-SemanticWorkingSetPlan-Budget`, and
-   `F-ResidencyPageTable-Addressability` are now present as primary witnesses
-   on main:
+   `F-ResidencyPageTable-Addressability`, and
+   `F-MmapResidencyFence-CopyCount` are now present as primary witnesses on
+   main:
    `artifacts/falsifiers/source_signal_graph_intake/result.json`,
    `artifacts/falsifiers/task_working_set_query_determinism/result.json`, and
    `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`, and
-   `artifacts/falsifiers/residency_page_table_addressability/result.json`.
+   `artifacts/falsifiers/residency_page_table_addressability/result.json`, and
+   `artifacts/falsifiers/mmap_residency_fence_copy_count/result.json`.
 3. Metadata-only falsifier fixtures still needed next:
-   `F-PrefetchWindow-ColdMiss` and `F-MmapResidencyFence-CopyCount`.
+   `F-PrefetchWindow-ColdMiss`.
 4. T25 naming cleanup only as current-main source/doc guard work: ColdStore for
    dormant residency, AcsAnchor for coordinate/provenance anchoring, and
    SCOPE-Rex/SovereignGate for admission.

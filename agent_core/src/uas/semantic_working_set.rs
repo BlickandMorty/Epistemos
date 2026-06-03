@@ -1827,6 +1827,54 @@ mod tests {
     }
 
     #[test]
+    fn mmap_fence_distinguishes_mapping_touch_residency_and_copy_count() {
+        let passing = MmapResidencyFence::evaluate(
+            "model.gguf",
+            0,
+            64 * 1024,
+            true,
+            true,
+            64 * 1024,
+            1,
+            2,
+            3,
+            64 * 1024,
+        )
+        .unwrap();
+        assert!(passing.pass_or_fail);
+        assert_eq!(passing.major_faults, 1);
+        assert_eq!(passing.minor_faults, 2);
+        assert_eq!(passing.copy_count, 3);
+
+        let under_resident = MmapResidencyFence::evaluate(
+            "model.gguf",
+            0,
+            64 * 1024,
+            true,
+            true,
+            32 * 1024,
+            0,
+            0,
+            0,
+            64 * 1024,
+        )
+        .unwrap();
+        assert!(!under_resident.pass_or_fail);
+
+        let cold_only =
+            MmapResidencyFence::evaluate("model.gguf", 0, 64 * 1024, false, false, 0, 0, 0, 0, 0)
+                .unwrap();
+        assert!(cold_only.pass_or_fail);
+
+        let bad_range = MmapResidencyFence::evaluate("model.gguf", 0, 0, true, true, 0, 0, 0, 0, 0)
+            .unwrap_err();
+        assert!(matches!(
+            bad_range,
+            SemanticWorkingSetError::InvalidByteRange
+        ));
+    }
+
+    #[test]
     fn kv_budget_is_reported_separately_from_weight_bytes() {
         let plan = compile(
             fixture_query(2 * 1024 * 1024, 4 * 1024 * 1024),
