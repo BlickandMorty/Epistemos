@@ -96,8 +96,10 @@ That gate proves cold byte wakeups carry UAS address, reason, byte cost,
 verifier/proof reference, expiry, fallback, and rollback evidence before any
 live cold assembly route advances.
 
-The active next large-local-model architecture cursor is now:
+`F-ColdAssemblyPlan-70B-Lite` is now implemented as
+`docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md`. The active next
+large-local-model architecture cursor is now:
 
 ```text
-F-ColdAssemblyPlan-70B-Lite
+F-LatticeStateController
 ```
