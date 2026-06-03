@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f252c9f144bb27df64cd6f1e4a77bffae4ab1dbc",
+  "commit_sha": "8c213ac6e19b217dc880d568c9a553c0cb8c2269",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T17:42:59Z",
-  "result_digest": "sha256:93f5c302bf1cb347a25a92a47fc25420b80654264dc5453e5a8454ebb6ecf32e",
+  "timestamp_utc": "2026-06-03T18:18:06Z",
+  "result_digest": "sha256:a367c31a90e3bd293c0c320780381785f06355e725edf4bf886b221e1e7818ee",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -104,6 +104,10 @@
           },
           "swiftlm_source_intake": {
             "path": "artifacts/falsifiers/swiftlm_source_intake/result.json",
+            "available": true
+          },
+          "meta_breakthrough_card_registry": {
+            "path": "artifacts/falsifiers/meta_breakthrough_card_registry/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -381,12 +385,16 @@
       "value": true,
       "unit": "bool"
     },
+    "meta_breakthrough_card_registry_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "next_bottleneck": {
-      "value": "meta_breakthrough_card_registry",
+      "value": "proof_carrying_route_card",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "meta_breakthrough_card_registry",
+      "value": "proof_carrying_route_card",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -430,7 +438,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 21,
+      "value": 22,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -555,6 +563,11 @@
       "value": true,
       "unit": "bool"
     },
+    "meta_breakthrough_card_registry_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "no_duplicate_rebuild_risk": {
       "operator": "==",
       "value": true,
@@ -648,6 +661,7 @@
     "local_worktree_current_repo_present": true,
     "local_worktree_inventory_available": true,
     "local_worktree_inventory_non_destructive": true,
+    "meta_breakthrough_card_registry_available": true,
     "no_duplicate_rebuild_risk": true,
     "ordered_queue_available": true,
     "pending_work_cursor_available": true,
@@ -684,5 +698,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=meta_breakthrough_card_registry; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=proof_carrying_route_card; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
