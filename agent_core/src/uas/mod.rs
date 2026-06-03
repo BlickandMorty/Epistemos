@@ -64,12 +64,13 @@ pub use provider_reference::{
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;
 pub use semantic_working_set::{
-    EvidenceNeed, KVByteBudgetCard, MmapResidencyFence, PrefetchWindow, PrivacyClass,
-    ResidencyPageTableEntry, SemanticWorkingSetError, SemanticWorkingSetPlan,
-    SemanticWorkingSetPlanStatus, SemanticWorkingSetUnit, SemanticWorkingSetViolation, SourceCard,
-    SourceNoPoisonStatus, SourceSignalEdge, SourceSignalGraph, SourceSignalType,
-    SourceToResidencyPatch, SourceToResidencyPatchKind, SourceToResidencyPromotionStatus,
-    TaskWorkingSetQuery, VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+    ColdFaultTrace, EvidenceNeed, KVByteBudgetCard, LayoutPatch, LayoutPatchPromotionStatus,
+    MmapResidencyFence, PrefetchWindow, PrivacyClass, ResidencyPageTableEntry,
+    SemanticWorkingSetError, SemanticWorkingSetPlan, SemanticWorkingSetPlanStatus,
+    SemanticWorkingSetUnit, SemanticWorkingSetViolation, SourceCard, SourceNoPoisonStatus,
+    SourceSignalEdge, SourceSignalGraph, SourceSignalType, SourceToResidencyPatch,
+    SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
+    VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

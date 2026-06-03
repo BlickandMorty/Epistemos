@@ -44,7 +44,7 @@ requires ColdStream no-hidden-authority and transport-run witnesses.
 ## Queue Effect
 
 `F-PrefetchWindow-ColdMiss` closes the first prefetch/cold-miss fixture in the
-Semantic Working-Set Compiler bundle. Remaining bundle gates include cold-fault
-learning and working-set oracle baseline. KV byte-budget card coverage is now
+Semantic Working-Set Compiler bundle. The remaining bundle gate is working-set
+oracle baseline. KV byte-budget card coverage is now
 closed by `F-KVByteBudgetCard`; source-to-residency no-poison promotion guards
 are now closed by `F-SourceToResidency-NoPoison`.

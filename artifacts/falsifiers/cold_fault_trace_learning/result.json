@@ -1,0 +1,350 @@
+{
+  "falsifier_id": "F-ColdFaultTrace-Learning",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_cold_fault_trace_learning.sh",
+  "command_digest": "sha256:b1b592ed5f6232f3e0d7dbbbaa7a7930f30c17bafbf73ea3f972ec856f26f59f",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0eb32644b5f2a64039e5304383e14d326c1ed003",
+  "fixture_id": "cold_fault_trace_learning_v1",
+  "timestamp_utc": "2026-06-03T09:53:03Z",
+  "result_digest": "sha256:a0225004248074ddaa40551d085cf1cc6997c94ea4be45d45115cb8a0209e72b",
+  "measurements": {
+    "answer_effect_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "changed_tile_count": {
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "changed_tiles_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_bytes_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_changed_tiles_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_cold_miss_delta_improves": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_unit_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_used_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_miss_delta": {
+      "value": -2,
+      "unit": "signed_count"
+    },
+    "held_out_improvement_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layout_patch_generated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_unit_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_improvement_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_cold_miss_delta_improves": {
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_address": {
+      "value": "layout_patch:4c50f8403e8916133204b2f71b9b6ea4de51e43ba61df6abca442dbd78a081b9@1779000000000",
+      "unit": "string"
+    },
+    "patch_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "production_mutation_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_status_shadow_candidate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_misses_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_or_cache_cause_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stall_ms_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_cost": {
+      "value": 4096,
+      "unit": "count_or_bytes"
+    },
+    "storage_wear_unbounded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_count": {
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "traces_emitted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_stall_trace_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_effect_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "changed_tile_count": {
+      "operator": "<=",
+      "value": 4,
+      "unit": "count_or_bytes"
+    },
+    "changed_tiles_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_bytes_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_changed_tiles_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_cold_miss_delta_improves": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_unit_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_used_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_miss_delta": {
+      "operator": "<=",
+      "value": -1,
+      "unit": "signed_count"
+    },
+    "held_out_improvement_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layout_patch_generated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_unit_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_improvement_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_cold_miss_delta_improves": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "patch_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "production_mutation_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_status_shadow_candidate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "repeated_misses_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_or_cache_cause_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stall_ms_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_wear_cost": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "count_or_bytes"
+    },
+    "storage_wear_unbounded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "traces_emitted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_stall_trace_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_effect_visible": true,
+    "changed_tile_count": true,
+    "changed_tiles_bounded": true,
+    "cold_io_bytes_reported": true,
+    "empty_changed_tiles_rejected": true,
+    "expected_cold_miss_delta_improves": true,
+    "expected_unit_bound": true,
+    "fallback_used_visible": true,
+    "held_out_cold_miss_delta": true,
+    "held_out_improvement_visible": true,
+    "layout_patch_generated": true,
+    "missing_rollback_rejected": true,
+    "missing_unit_bound": true,
+    "no_improvement_rejected": true,
+    "observed_cold_miss_delta_improves": true,
+    "patch_address": true,
+    "patch_address_deterministic": true,
+    "production_mutation_blocked": true,
+    "promotion_status_shadow_candidate": true,
+    "repeated_misses_required": true,
+    "rollback_bound": true,
+    "source_or_cache_cause_visible": true,
+    "stall_ms_reported": true,
+    "storage_wear_bounded": true,
+    "storage_wear_cost": true,
+    "storage_wear_unbounded_rejected": true,
+    "trace_address_deterministic": true,
+    "trace_count": true,
+    "traces_emitted": true,
+    "zero_stall_trace_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only cold-fault learning; no byte movement, layout rewrite, prefetch, model decode, MLX/Metal, route mutation, or production policy mutation executed"
+    }
+  ],
+  "notes": "Proves repeated cold misses emit deterministic ColdFaultTrace records and generate a bounded rollback-only shadow LayoutPatch that improves held-out cold-miss fixtures while rejecting one-trace, no-improvement, missing-rollback, high-wear, zero-stall, empty-tile, and live-mutation cases."
+}

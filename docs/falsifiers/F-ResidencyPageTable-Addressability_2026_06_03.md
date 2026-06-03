@@ -51,4 +51,4 @@ first prefetch/cold-miss fixture is now covered by
 covered by `F-MmapResidencyFence-CopyCount`; KV byte-budget cards are now
 covered by `F-KVByteBudgetCard`; source-to-residency no-poison propagation is
 now covered by `F-SourceToResidency-NoPoison`. The next unfinished gates are
-cold-fault learning and oracle baselines.
+working-set oracle baseline.
