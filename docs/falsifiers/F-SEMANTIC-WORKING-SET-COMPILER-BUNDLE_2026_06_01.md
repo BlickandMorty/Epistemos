@@ -79,12 +79,15 @@ failure_reason
 - `F-SourceSignalGraph-Intake` is implemented as a primary witness at
   `artifacts/falsifiers/source_signal_graph_intake/result.json` and documented
   in `docs/falsifiers/F-SourceSignalGraph-Intake_2026_06_03.md`.
+- `F-TaskWorkingSetQuery-Determinism` is implemented as a primary witness at
+  `artifacts/falsifiers/task_working_set_query_determinism/result.json` and
+  documented in
+  `docs/falsifiers/F-TaskWorkingSetQuery-Determinism_2026_06_03.md`.
 - `F-SemanticWorkingSetPlan-Budget` is implemented as a primary witness at
   `artifacts/falsifiers/semantic_working_set_plan_budget/result.json`.
 - Remaining schema-only bundle work starts with
-  `F-TaskWorkingSetQuery-Determinism` and
-  `F-ResidencyPageTable-Addressability`; source intake and budget rejection no
-  longer need to be rebuilt from scratch.
+  `F-ResidencyPageTable-Addressability`; source intake, deterministic query
+  emission, and budget rejection no longer need to be rebuilt from scratch.
 
 ## Required fixture families
 
@@ -115,8 +118,9 @@ failure_reason
    `PrefetchWindow`, `ColdFaultTrace`, `LayoutPatch`, `MmapResidencyFence`,
    and `KVByteBudgetCard`. `SourceSignalGraph` and
    `SemanticWorkingSetPlan` budget rejection now have primary witnesses.
-2. Wire synthetic fixtures for deterministic query emission. Source intake is
-   already wired through `F-SourceSignalGraph-Intake`.
+2. Synthetic fixtures for deterministic query emission are covered by
+   `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
+   `F-SourceSignalGraph-Intake`.
 3. Budget rejection before any runtime wake path is covered by
    `F-SemanticWorkingSetPlan-Budget`.
 4. Add page-table and mmap fence fixtures.
