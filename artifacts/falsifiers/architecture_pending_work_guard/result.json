@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "49a4c763dc5187a5e99c0dd8045bcfc3b46059be",
+  "commit_sha": "7d5680a8fe47fe1b2bc88a4b3f3ff79b81634620",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T13:50:54Z",
-  "result_digest": "sha256:0f12bb74c817ed216a606ae2a658fd49d772f5437130d0b6629f0a3c6a476024",
+  "timestamp_utc": "2026-06-03T14:26:51Z",
+  "result_digest": "sha256:073aaffd48e553b43e9d11811ff2b050de10ea68726a83b34ccc048dabca478c",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -78,6 +78,10 @@
             "path": "artifacts/falsifiers/residency_construction_graph/result.json",
             "available": true
           },
+          "coactivation_tile_prefetch": {
+            "path": "artifacts/falsifiers/coactivation_tile_prefetch/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -99,6 +103,10 @@
       "unit": "object"
     },
     "capability_kernel_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_tile_prefetch_available": {
       "value": true,
       "unit": "bool"
     },
@@ -338,11 +346,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "coactivation_tile_prefetch",
+      "value": "proof_carrying_residency_lease",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "coactivation_tile_prefetch",
+      "value": "proof_carrying_residency_lease",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -382,7 +390,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 14,
+      "value": 15,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -420,6 +428,11 @@
   },
   "acceptance_thresholds": {
     "capability_kernel_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_tile_prefetch_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -542,6 +555,7 @@
   },
   "pass_per_axis": {
     "capability_kernel_artifact_available": true,
+    "coactivation_tile_prefetch_available": true,
     "kv_full_suite_run_plan_available": true,
     "kv_full_suite_run_plan_shape_ok": true,
     "kv_model_context_inventory_available": true,
@@ -586,5 +600,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=coactivation_tile_prefetch; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=proof_carrying_residency_lease; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

@@ -42,7 +42,7 @@ Companion 2026-06-01 gates:
 | Gate | What it must prove | Promotion target |
 |---|---|---|
 | `F-ResidencyConstructionGraph` | Candidate units, coactivation edges, incompatibilities, verifier edges, and cold-miss history produce deterministic plan scores and reject invalid assemblies. | PASS as metadata-only dry-run planner witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`, `artifacts/falsifiers/residency_construction_graph/result.json`. |
-| `F-CoactivationTile-Prefetch` | Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste. | AppColdStore layout bench. |
+| `F-CoactivationTile-Prefetch` | Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste. | PASS as metadata-only dry-run tile witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`, `artifacts/falsifiers/coactivation_tile_prefetch/result.json`. |
 | `F-ProofCarryingResidencyLease` | No cold byte wakes without UAS address, reason, byte cost, proof/falsifier reference, expiry, fallback, and rollback. | SCOPE-Rex/SovereignGate admission. |
 | `F-ColdAssemblyPlan-70B-Lite` | A small-hot plus cold-selected plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. | Pro Research capability ceiling. |
 | `F-LatticeStateController` | A tiny recurrent/lattice controller improves route decisions over static policy and abstains when uncertain. | Route-controller lane. |
@@ -119,3 +119,5 @@ A future artifact fails immediately if it:
 - Neural importance atlas: `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 - Existing dry-run witness: `docs/falsifiers/F-ResidencyPlan-DryRun_2026_05_30.md`
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
+- Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
+- Current active cursor after 2026-06-03: `F-ProofCarryingResidencyLease`

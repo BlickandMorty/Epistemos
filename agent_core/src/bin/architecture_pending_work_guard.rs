@@ -32,6 +32,8 @@ const WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH: &str =
 const RESIDENCY_PLAN_DRY_RUN_PATH: &str = "artifacts/falsifiers/residency_plan_dry_run/result.json";
 const RESIDENCY_CONSTRUCTION_GRAPH_PATH: &str =
     "artifacts/falsifiers/residency_construction_graph/result.json";
+const COACTIVATION_TILE_PREFETCH_PATH: &str =
+    "artifacts/falsifiers/coactivation_tile_prefetch/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -156,6 +158,26 @@ fn build_report() -> GuardReport {
             "no_runtime_bytes_loaded",
         ],
     );
+    let coactivation_tile_prefetch = read_json(Path::new(COACTIVATION_TILE_PREFETCH_PATH));
+    let coactivation_tile_prefetch_available = artifact_all_axes_true(
+        &coactivation_tile_prefetch,
+        &[
+            "coactivation_tiles_present",
+            "tile_address_deterministic",
+            "tile_units_bound",
+            "byte_ranges_nonempty",
+            "codec_coverage",
+            "verifier_history_bound",
+            "rollback_required",
+            "prefetch_cost_bounded",
+            "compiled_order_priority_sorted",
+            "compiled_beats_file_order_misses",
+            "compiled_beats_random_misses",
+            "compiled_stall_ms_below_baselines",
+            "compiled_byte_waste_below_baselines",
+            "no_runtime_bytes_loaded",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -237,6 +259,7 @@ fn build_report() -> GuardReport {
         && weight_block_range_hash_dry_run_available
         && residency_plan_dry_run_available
         && residency_construction_graph_available
+        && coactivation_tile_prefetch_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -342,6 +365,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "residency_construction_graph_available",
         residency_construction_graph_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "coactivation_tile_prefetch_available",
+        coactivation_tile_prefetch_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -605,6 +635,10 @@ fn build_report() -> GuardReport {
                     "path": RESIDENCY_CONSTRUCTION_GRAPH_PATH,
                     "available": residency_construction_graph_available
                 },
+                "coactivation_tile_prefetch": {
+                    "path": COACTIVATION_TILE_PREFETCH_PATH,
+                    "available": coactivation_tile_prefetch_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -690,6 +724,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_residency_construction_graph",
             "detail": "Research Construction must prove candidate-unit scoring, evidence edges, budget rejection, and rollback discipline before coactivation tile prefetch continues."
+        }));
+    }
+    if residency_construction_graph_available && !coactivation_tile_prefetch_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_coactivation_tile_prefetch",
+            "detail": "Research Construction has a graph witness, but needs F-CoactivationTile-Prefetch before proof-carrying residency lease work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1546,7 +1586,7 @@ mod tests {
     }
 
     #[test]
-    fn already_mapped_work_includes_provider_reference_prompt_level_readiness() {
+    fn already_mapped_work_includes_constructive_and_provider_rungs() {
         let report = build_report();
         let already_mapped_work = report
             .artifact
@@ -1558,6 +1598,9 @@ mod tests {
             .expect("large_model_non_runtime_rungs object")
             .clone();
 
+        assert!(already_mapped_work
+            .get("coactivation_tile_prefetch")
+            .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

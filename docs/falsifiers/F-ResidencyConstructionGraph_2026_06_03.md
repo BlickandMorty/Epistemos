@@ -80,11 +80,18 @@ This gate implements the first candidate target named by:
 - `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
 - `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
 
-The active next architecture cursor after this gate is:
+The coactivation tile cursor after this gate is now complete:
 
 ```text
 F-CoactivationTile-Prefetch
 ```
 
-That next gate should prove tile packing/prefetch beats file-order and random
-cold fetch baselines before any cold assembly route is promoted.
+The active next architecture cursor is now:
+
+```text
+F-ProofCarryingResidencyLease
+```
+
+That next gate should prove cold byte wakeups carry UAS address, reason, byte
+cost, verifier/proof reference, expiry, fallback, and rollback evidence before
+any cold assembly route is promoted.
