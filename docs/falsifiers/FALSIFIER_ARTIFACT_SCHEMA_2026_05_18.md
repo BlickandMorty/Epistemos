@@ -173,6 +173,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-ULP-Oracle` | `tools/falsifiers/f_ulp_oracle.sh` |
 | `F-ResidencyPlan-DryRun` | `Tools/falsifiers/f_residency_plan_dry_run.sh` |
 | `F-ResidencyConstructionGraph` | `Tools/falsifiers/f_residency_construction_graph.sh` |
+| `F-CoactivationTile-Prefetch` | `Tools/falsifiers/f_coactivation_tile_prefetch.sh` |
 | `F-SourceSignalGraph-Intake` | `Tools/falsifiers/f_source_signal_graph_intake.sh` |
 | `F-TaskWorkingSetQuery-Determinism` | `Tools/falsifiers/f_task_working_set_query_determinism.sh` |
 | `F-SemanticWorkingSetPlan-Budget` | `Tools/falsifiers/f_semantic_working_set_plan_budget.sh` |
@@ -285,6 +286,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
 | `F-ResidencyPlan-DryRun` | `artifacts/falsifiers/residency_plan_dry_run/` |
 | `F-ResidencyConstructionGraph` | `artifacts/falsifiers/residency_construction_graph/` |
+| `F-CoactivationTile-Prefetch` | `artifacts/falsifiers/coactivation_tile_prefetch/` |
 | `F-SourceSignalGraph-Intake` | `artifacts/falsifiers/source_signal_graph_intake/` |
 | `F-TaskWorkingSetQuery-Determinism` | `artifacts/falsifiers/task_working_set_query_determinism/` |
 | `F-SemanticWorkingSetPlan-Budget` | `artifacts/falsifiers/semantic_working_set_plan_budget/` |
@@ -472,6 +474,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
 | `F-ResidencyConstructionGraph` | `candidate_units_present`, `source_card_ids_bound`, `task_signature_bound`, `graph_address_deterministic`, `coactivation_edges_bound`, `incompatibility_edges_bound`, `verifier_edges_bound`, `cold_miss_history_bound`, `budget_enforced`, `invalid_assemblies_rejected`, `rollback_required`, `no_runtime_bytes_loaded`, `selected_unit_count`, `rejected_unit_count`, `hot_resident_bytes`, `warm_bytes`, `cold_bytes`, `cold_miss_count`, `cold_stall_ms`, `assembly_score_bps`, `graph_address` |
+| `F-CoactivationTile-Prefetch` | `coactivation_tiles_present`, `tile_address_deterministic`, `tile_units_bound`, `byte_ranges_nonempty`, `codec_coverage`, `verifier_history_bound`, `rollback_required`, `prefetch_cost_bounded`, `compiled_order_priority_sorted`, `compiled_beats_file_order_misses`, `compiled_beats_random_misses`, `compiled_stall_ms_below_baselines`, `compiled_byte_waste_below_baselines`, `no_runtime_bytes_loaded`, `selected_tile_count`, `compiled_misses`, `file_order_misses`, `random_order_misses`, `compiled_stall_ms`, `file_order_stall_ms`, `random_order_stall_ms`, `compiled_byte_waste`, `file_order_byte_waste`, `random_order_byte_waste`, `compiled_prefetch_bytes`, `prefetch_budget_bytes`, `tile_address` |
 | `F-SourceSignalGraph-Intake` | `graph_address_deterministic`, `source_cards_sorted`, `source_type_coverage`, `bookmark_source_present`, `repo_source_present`, `paper_source_present`, `doc_source_present`, `x_source_present`, `digest_coverage`, `credibility_rank_coverage`, `license_usage_note_coverage`, `privacy_class_coverage`, `no_poison_status_coverage`, `route_affinity_coverage`, `poison_source_rejected`, `poison_edges_dropped`, `duplicate_source_rejected`, `bad_digest_rejected`, `unknown_edge_rejected`, `source_card_count`, `edge_count`, `route_affinity_count`, `rejected_source_count`, `graph_address` |
 | `F-TaskWorkingSetQuery-Determinism` | `query_address_deterministic`, `source_refs_canonical`, `duplicate_source_refs_deduped`, `mission_id_bound`, `task_signature_bound`, `privacy_class_bound`, `deadline_bound`, `quality_target_bound`, `evidence_need_bound`, `verifier_need_bound`, `hot_budget_bounded`, `kv_budget_bounded`, `cold_io_budget_bounded`, `auxiliary_budgets_bounded`, `empty_source_refs_rejected`, `zero_budget_rejected`, `zero_deadline_rejected`, `privacy_drift_changes_address`, `quality_drift_changes_address`, `query_address_present`, `source_ref_count`, `max_hot_bytes`, `max_kv_bytes`, `max_cold_io_bytes`, `query_address` |
 | `F-SemanticWorkingSetPlan-Budget` | `task_query_deterministic`, `plan_address_deterministic`, `accepted_plan_fit_for_dry_run`, `over_budget_rejected_before_runtime`, `page_table_addressability`, `kv_budget_separate`, `mmap_mapped_untouched_not_hot`, `hidden_live_route_rejected`, `mas_live_promotion_rejected`, `run_event_log_visible`, `answer_packet_visible`, `rollback_present`, `selected_unit_count`, `hot_bytes`, `active_executed_bytes`, `kv_bytes`, `plan_address` |
@@ -796,6 +799,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-ULP-Oracle",
         "F-ResidencyPlan-DryRun",
         "F-ResidencyConstructionGraph",
+        "F-CoactivationTile-Prefetch",
         "F-SourceSignalGraph-Intake",
         "F-TaskWorkingSetQuery-Determinism",
         "F-SemanticWorkingSetPlan-Budget",
@@ -1591,6 +1595,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["candidate_units_present", "source_card_ids_bound", "task_signature_bound", "graph_address_deterministic", "coactivation_edges_bound", "incompatibility_edges_bound", "verifier_edges_bound", "cold_miss_history_bound", "budget_enforced", "invalid_assemblies_rejected", "rollback_required", "no_runtime_bytes_loaded", "selected_unit_count", "rejected_unit_count", "hot_resident_bytes", "warm_bytes", "cold_bytes", "cold_miss_count", "cold_stall_ms", "assembly_score_bps", "graph_address"] },
           "acceptance_thresholds": { "required": ["candidate_units_present", "source_card_ids_bound", "task_signature_bound", "graph_address_deterministic", "coactivation_edges_bound", "incompatibility_edges_bound", "verifier_edges_bound", "cold_miss_history_bound", "budget_enforced", "invalid_assemblies_rejected", "rollback_required", "no_runtime_bytes_loaded", "selected_unit_count", "rejected_unit_count", "hot_resident_bytes", "warm_bytes", "cold_bytes", "cold_miss_count", "cold_stall_ms", "assembly_score_bps", "graph_address"] },
           "pass_per_axis": { "required": ["candidate_units_present", "source_card_ids_bound", "task_signature_bound", "graph_address_deterministic", "coactivation_edges_bound", "incompatibility_edges_bound", "verifier_edges_bound", "cold_miss_history_bound", "budget_enforced", "invalid_assemblies_rejected", "rollback_required", "no_runtime_bytes_loaded", "selected_unit_count", "rejected_unit_count", "hot_resident_bytes", "warm_bytes", "cold_bytes", "cold_miss_count", "cold_stall_ms", "assembly_score_bps", "graph_address"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-CoactivationTile-Prefetch" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["coactivation_tiles_present", "tile_address_deterministic", "tile_units_bound", "byte_ranges_nonempty", "codec_coverage", "verifier_history_bound", "rollback_required", "prefetch_cost_bounded", "compiled_order_priority_sorted", "compiled_beats_file_order_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "no_runtime_bytes_loaded", "selected_tile_count", "compiled_misses", "file_order_misses", "random_order_misses", "compiled_stall_ms", "file_order_stall_ms", "random_order_stall_ms", "compiled_byte_waste", "file_order_byte_waste", "random_order_byte_waste", "compiled_prefetch_bytes", "prefetch_budget_bytes", "tile_address"] },
+          "acceptance_thresholds": { "required": ["coactivation_tiles_present", "tile_address_deterministic", "tile_units_bound", "byte_ranges_nonempty", "codec_coverage", "verifier_history_bound", "rollback_required", "prefetch_cost_bounded", "compiled_order_priority_sorted", "compiled_beats_file_order_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "no_runtime_bytes_loaded", "selected_tile_count", "compiled_misses", "file_order_misses", "random_order_misses", "compiled_stall_ms", "file_order_stall_ms", "random_order_stall_ms", "compiled_byte_waste", "file_order_byte_waste", "random_order_byte_waste", "compiled_prefetch_bytes", "prefetch_budget_bytes", "tile_address"] },
+          "pass_per_axis": { "required": ["coactivation_tiles_present", "tile_address_deterministic", "tile_units_bound", "byte_ranges_nonempty", "codec_coverage", "verifier_history_bound", "rollback_required", "prefetch_cost_bounded", "compiled_order_priority_sorted", "compiled_beats_file_order_misses", "compiled_beats_random_misses", "compiled_stall_ms_below_baselines", "compiled_byte_waste_below_baselines", "no_runtime_bytes_loaded", "selected_tile_count", "compiled_misses", "file_order_misses", "random_order_misses", "compiled_stall_ms", "file_order_stall_ms", "random_order_stall_ms", "compiled_byte_waste", "file_order_byte_waste", "random_order_byte_waste", "compiled_prefetch_bytes", "prefetch_budget_bytes", "tile_address"] }
         }
       }
     },

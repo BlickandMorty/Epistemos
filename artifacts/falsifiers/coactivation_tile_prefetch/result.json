@@ -1,0 +1,320 @@
+{
+  "falsifier_id": "F-CoactivationTile-Prefetch",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_coactivation_tile_prefetch.sh",
+  "command_digest": "sha256:4ffdfe6611361b6a57fb400ae5ef49e6fe40be3649d37af68f056f82e9b02d47",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "7d5680a8fe47fe1b2bc88a4b3f3ff79b81634620",
+  "fixture_id": "coactivation_tile_prefetch_v1",
+  "timestamp_utc": "2026-06-03T14:26:36Z",
+  "result_digest": "sha256:5db18bf0e455c474648bcaacc5ceda090c4dabc0cba908024662fec748d7076b",
+  "measurements": {
+    "byte_ranges_nonempty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_tiles_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_file_order_misses": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_random_misses": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_byte_waste": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "compiled_byte_waste_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_misses": {
+      "value": 0,
+      "unit": "count"
+    },
+    "compiled_order_priority_sorted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_prefetch_bytes": {
+      "value": 81920,
+      "unit": "bytes"
+    },
+    "compiled_stall_ms": {
+      "value": 0,
+      "unit": "ms"
+    },
+    "compiled_stall_ms_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_byte_waste": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "file_order_misses": {
+      "value": 2,
+      "unit": "count"
+    },
+    "file_order_stall_ms": {
+      "value": 14,
+      "unit": "ms"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_budget_bytes": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "prefetch_cost_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "random_order_byte_waste": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "random_order_misses": {
+      "value": 2,
+      "unit": "count"
+    },
+    "random_order_stall_ms": {
+      "value": 14,
+      "unit": "ms"
+    },
+    "rollback_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_tile_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "tile_address": {
+      "value": "coactivation_tile:08a1d491006ae942d8e57ec36d307ef94688c4244703e68cf219acbc4e76a0de@1779000000000",
+      "unit": "string"
+    },
+    "tile_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tile_units_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_history_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "byte_ranges_nonempty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_tiles_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_file_order_misses": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_beats_random_misses": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_byte_waste": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "compiled_byte_waste_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_misses": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "compiled_order_priority_sorted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiled_prefetch_bytes": {
+      "operator": "<=",
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "compiled_stall_ms": {
+      "operator": "==",
+      "value": 0,
+      "unit": "ms"
+    },
+    "compiled_stall_ms_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_byte_waste": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "file_order_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "file_order_stall_ms": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "ms"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_budget_bytes": {
+      "operator": "==",
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "prefetch_cost_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "random_order_byte_waste": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "random_order_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "random_order_stall_ms": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "ms"
+    },
+    "rollback_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_tile_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "tile_address": {
+      "operator": "==",
+      "value": "coactivation_tile:08a1d491006ae942d8e57ec36d307ef94688c4244703e68cf219acbc4e76a0de@1779000000000",
+      "unit": "string"
+    },
+    "tile_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tile_units_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_history_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "byte_ranges_nonempty": true,
+    "coactivation_tiles_present": true,
+    "codec_coverage": true,
+    "compiled_beats_file_order_misses": true,
+    "compiled_beats_random_misses": true,
+    "compiled_byte_waste": true,
+    "compiled_byte_waste_below_baselines": true,
+    "compiled_misses": true,
+    "compiled_order_priority_sorted": true,
+    "compiled_prefetch_bytes": true,
+    "compiled_stall_ms": true,
+    "compiled_stall_ms_below_baselines": true,
+    "file_order_byte_waste": true,
+    "file_order_misses": true,
+    "file_order_stall_ms": true,
+    "no_runtime_bytes_loaded": true,
+    "prefetch_budget_bytes": true,
+    "prefetch_cost_bounded": true,
+    "random_order_byte_waste": true,
+    "random_order_misses": true,
+    "random_order_stall_ms": true,
+    "rollback_required": true,
+    "selected_tile_count": true,
+    "tile_address": true,
+    "tile_address_deterministic": true,
+    "tile_units_bound": true,
+    "verifier_history_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only coactivation tile prefetch fixture; no byte transport, mmap, model decode, MLX, Metal, KV, provider call, or live route policy mutation executed"
+    }
+  ],
+  "notes": "Proves coactivation tile packing/prefetch beats file-order and deterministic-random cold baselines in a dry-run fixture; proof-carrying lease and runtime cold assembly remain separate gates."
+}

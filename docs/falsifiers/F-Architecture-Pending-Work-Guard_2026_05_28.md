@@ -83,15 +83,16 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-coactivation_tile_prefetch
+proof_carrying_residency_lease
 ```
 
-That means the canonical KV prompt suite, full-suite run plan, and 70B/provider
-reference failure reports remain preserved as research evidence, but 128K
-Qwen/GGUF/KV shard work and provider-reference work are deferred by default. Do
-not repair or rerun KV shards or create provider-reference manifests unless
+That means the canonical KV prompt suite, full-suite run plan, coactivation
+tile prefetch witness, and 70B/provider-reference failure reports remain
+preserved as research evidence, but 128K Qwen/GGUF/KV shard work and
+provider-reference work are deferred by default. Do not repair or rerun KV
+shards or create provider-reference manifests unless
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
-probe. Continue Coactivation Tile Prefetch / non-heavy architecture first.
+probe. Continue Proof-Carrying Residency Lease / non-heavy architecture first.
 
 ## Guard Axes
 
