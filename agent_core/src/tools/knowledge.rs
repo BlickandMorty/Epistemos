@@ -888,7 +888,10 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("vault-note:vault_note:"));
-        assert_eq!(results[0]["why_matched"], json!("matched by lexical"));
+        assert_eq!(
+            results[0]["why_matched"],
+            json!("matched by default vault lexical result")
+        );
         assert_eq!(parsed["trace"]["signal_summary"][0], json!("lexical"));
     }
 

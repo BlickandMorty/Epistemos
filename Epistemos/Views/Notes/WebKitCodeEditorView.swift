@@ -443,7 +443,7 @@ nonisolated enum WebKitCodeEditorDocument {
           overflow: hidden;
           background: var(--bg);
           color: var(--fg);
-          font-family: Menlo, "SF Mono", "SFMono-Regular", ui-monospace, Monaco, Consolas, monospace;
+          font-family: Menlo, "SF Mono", "SFMono-Regular", Monaco, ui-monospace, Consolas, monospace;
           font-size: 15px;
           font-weight: 540;
           -webkit-font-smoothing: subpixel-antialiased;

@@ -206,7 +206,7 @@ struct ThemePairTests {
             #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.matrixBoldDisplayFontName)
             #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
             #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.coralDisplayFontName)
+            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.matrixBoldDisplayFontName)
 
             defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
             #expect(EpistemosTheme.tan.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
@@ -244,7 +244,7 @@ struct ThemePairTests {
             #expect(LandingCommandTypography.heroFontName(for: .platinumVioletDark) == "Charybdis")
 
             UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.coralDisplayFontName)
+            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.matrixBoldDisplayFontName)
         }
     }
 
@@ -636,8 +636,8 @@ struct ThemePairTests {
             #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
             #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
             #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-            #expect(AppDisplayTypography.displayFontName(isDark: false) == "MatrixTypeDisplay-Regular")
-            #expect(AppDisplayTypography.displayFontName(isDark: true) == "MatrixTypeDisplay-Regular")
+            #expect(AppDisplayTypography.displayFontName(isDark: false) == "MatrixTypeDisplay-Bold")
+            #expect(AppDisplayTypography.displayFontName(isDark: true) == "MatrixTypeDisplay-Bold")
             #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.0)
             #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
             #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Bold")
@@ -723,18 +723,61 @@ struct ThemePairTests {
         #expect(!liquidGreeting.contains("[.classic, .platinumViolet].contains(theme.themePair)"))
     }
 
-    @Test("Classic landing greeting stays Coral Pixels and all caps while headings use Matrix Bold")
-    func classicLandingGreetingUsesCoralPixelsAndAllCaps() throws {
+    @Test("Classic landing greeting keeps the Epistemos-Latest Matrix Type Bold face")
+    func classicLandingGreetingUsesLatestMatrixTypeBoldFace() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
-        #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
+        #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
         #expect(EpistemosTheme.light.headingFontName(level: 1) == "MatrixTypeDisplay-Bold")
         #expect(EpistemosTheme.light.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
         #expect(EpistemosTheme.light.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
         #expect(pixelComponents.contains("case .classic:"))
-        #expect(pixelComponents.contains("return AppDisplayTypography.coralDisplayFontName"))
+        #expect(pixelComponents.contains("return AppDisplayTypography.matrixBoldDisplayFontName"))
+        #expect(!pixelComponents.contains("return AppDisplayTypography.coralDisplayFontName"))
         #expect(liquidGreeting.contains("theme.themePair == .classic"))
+    }
+
+    @Test("Bundled font registrations preserve the Epistemos-Latest font inventory")
+    func bundledFontRegistrationsPreserveLatestInventory() throws {
+        let fontRegistration = try loadTextFile("Epistemos/Theme/EpistemosFont.swift")
+        let expectedFonts = [
+            ("Atlantis-RegularSmallCaps", "otf"),
+            ("AtlantisHeadline-Bold", "otf"),
+            ("AtlantisText-Bold", "otf"),
+            ("AtlantisText-Regular", "ttf"),
+            ("BitPap", "ttf"),
+            ("Charybdis", "ttf"),
+            ("ChonkyPixels", "ttf"),
+            ("CodersCrux", "ttf"),
+            ("ColorBasic-Regular", "otf"),
+            ("CoralPixels-Regular", "ttf"),
+            ("Delicatus", "ttf"),
+            ("DisposableDroidBB", "ttf"),
+            ("DisposableDroidBB-Bold", "ttf"),
+            ("DisposableDroidBB-BoldItalic", "ttf"),
+            ("DisposableDroidBB-Italic", "ttf"),
+            ("Dotemp-8bit2", "ttf"),
+            ("EXEPixelPerfect", "ttf"),
+            ("GNF", "ttf"),
+            ("Inter-Regular", "ttf"),
+            ("JetBrainsMono-Regular", "ttf"),
+            ("LEDDisplay7", "ttf"),
+            ("LunchtimeDoublySoReg", "ttf"),
+            ("MatrixDotsDemoRegular", "ttf"),
+            ("MatrixTypeDisplay-Bold", "otf"),
+            ("MatrixtypeDisplay-9MyE5", "ttf"),
+            ("Pixelon", "otf"),
+            ("RetroByte", "ttf"),
+            ("RetroGaming", "ttf"),
+            ("ReturnOfGanonReg", "ttf"),
+            ("VTFMisterPixel", "otf"),
+            ("VTFMisterPixel-Tools", "otf"),
+        ]
+
+        for (name, ext) in expectedFonts {
+            #expect(fontRegistration.contains(#"registerFont(named: "\#(name)", extension: "\#(ext)")"#))
+        }
     }
 
     @Test("Classic softened OLED follows the same assistant glass path as old Classic dark")
@@ -1870,17 +1913,18 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains(".preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)"))
     }
 
-    @Test("landing typography follows the Classic Matrix Bold heading mapping")
+    @Test("landing typography follows the Epistemos-Latest Classic Matrix Bold mapping")
     func landingTypographyFollowsGlobalClassicMapping() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
         let theme = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
 
-        #expect(theme.contains("case .classic:        return AppDisplayTypography.matrixDisplayFontName"))
+        #expect(theme.contains("case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName"))
         #expect(theme.contains("? AppDisplayTypography.matrixBoldDisplayFontName"))
         #expect(theme.contains("case .h1, .h2, .h3: return matrixBoldDisplayFontName"))
         #expect(liquidGreeting.contains("LandingCommandTypography.heroFontName(for: theme)"))
         #expect(liquidGreeting.contains(".weight(.heavy)"))
+        #expect(pixelComponents.contains("return AppDisplayTypography.matrixBoldDisplayFontName"))
         #expect(pixelComponents.contains("theme.displayFontName"))
         #expect(pixelComponents.contains("theme.headingFontName(level: 2)"))
         #expect(pixelComponents.contains("return .system(size: size, weight: .semibold, design: .rounded)"))
@@ -1914,7 +1958,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         let searchStageSource = landingView[searchStageStart.lowerBound..<searchStageEnd.lowerBound]
         #expect(!searchStageSource.contains("GeometryReader { proxy in"))
         #expect(!searchStageSource.contains(".position(x: centerX"))
-        #expect(landingView.contains("PixelPanelTitle(text: \"Search\""))
+        #expect(!landingView.contains("PixelPanelTitle(text: \"Search\""))
         #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
         #expect(!landingView.contains("landingSearchLiquidReveal(frame: landingSearchRevealFrame"))
         #expect(landingView.contains("RoundedRectangle(cornerRadius: 22, style: .continuous)"))
@@ -1940,7 +1984,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("insertLandingMentionToken()"))
         #expect(landingView.contains("toggleLandingAllNotesContext()"))
         #expect(landingView.contains("ChatCapabilityPill("))
-        #expect(landingView.contains("ContextualShadowsButton()"))
+        #expect(landingView.contains("ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)"))
     }
 
     @Test("landing search attachments keep the revealed input chrome visible")

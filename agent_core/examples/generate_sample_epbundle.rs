@@ -35,6 +35,7 @@ use agent_core::cognitive_dag::storage::{DagStore, InMemoryDagStore};
 use agent_core::mutations::types::{MutationActor, Reversibility, Sensitivity, SourceOp};
 use agent_core::mutations::MutationEnvelope;
 use agent_core::provenance::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId, ReplayBundle};
+use agent_core::uas::{ResidencyTier, RuntimePlane};
 
 /// Pinned timestamp so the bundle bytes are deterministic across runs.
 const FIXED_T_MS: i64 = 1_745_000_000_000;
@@ -73,6 +74,10 @@ fn seed_dag_snapshot() -> agent_core::cognitive_dag::storage::DagSnapshot {
 
     let note = Node::new_at(
         NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: RuntimePlane::Episodic,
+            residency: ResidencyTier::CurrentApp,
             body: "sample fixture for verify-replay CI gate".into(),
             author: AuthorRef("epistemos-trace-fixture".into()),
             mime: MimeType("text/markdown".into()),
@@ -81,6 +86,10 @@ fn seed_dag_snapshot() -> agent_core::cognitive_dag::storage::DagSnapshot {
     );
     let claim = Node::new_at(
         NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: RuntimePlane::Episodic,
+            residency: ResidencyTier::CurrentApp,
             proposition: "verify-replay binary closes the doctrine §10 contract".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("canonical_upgrade_audit_b2".into()),
@@ -89,6 +98,10 @@ fn seed_dag_snapshot() -> agent_core::cognitive_dag::storage::DagSnapshot {
     );
     let evidence = Node::new_at(
         NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: RuntimePlane::Episodic,
+            residency: ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(b"doctrine-section-10-payload".to_vec()),
             captured_at: Timestamp(1_050),

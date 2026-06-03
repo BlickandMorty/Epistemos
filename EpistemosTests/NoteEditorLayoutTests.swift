@@ -331,6 +331,12 @@ struct NoteEditorLayoutTests {
         #expect(bridgeSource.contains("window.addEventListener('pagehide'"))
         #expect(!bridgeSource.contains("window.setTimeout(() => {\n    const doc = editor.state.doc;"))
         #expect(bridgeCSS.contains(".cm-content"))
+        #expect(bridgeCSS.contains("font-family: Menlo, \"SF Mono\", \"SFMono-Regular\", Monaco, ui-monospace, Consolas, monospace;"))
+        #expect(bridgeCSS.contains("font-weight: 540;"))
+        #expect(bridgeCSS.contains("-webkit-font-smoothing: subpixel-antialiased;"))
+        #expect(bridgeCSS.contains("text-rendering: optimizeLegibility;"))
+        #expect(!bridgeCSS.contains("font-weight: 500;"))
+        #expect(!bridgeCSS.contains("-webkit-font-smoothing: auto;"))
         #expect(bridgeCSS.contains("color: var(--epi-code-fg, #202124);"))
         #expect(bridgeCSS.contains("background: var(--epi-code-gutter, #f7f8fa) !important"))
     }

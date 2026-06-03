@@ -596,8 +596,7 @@ private struct SettingsSidebarRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
-            SettingsPixelGlyphBadge(
-                systemImage: section.icon,
+            SettingsPixelGlyphBadge(systemImage: section.icon,
                 theme: theme,
                 tint: iconTint,
                 size: 24

@@ -405,14 +405,14 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     /// Display (hero/H1) font name resolved by theme pair.
     /// Classic intentionally no longer uses the legacy RetroGaming face:
-    /// it now shares Platinum's heavier Matrix identity while retaining
+    /// it now uses the distinct Matrix Type Bold identity while retaining
     /// Classic's stable custom light/dark color pair.
     nonisolated var displayFontName: String {
         if AppCustomTheme.isActive {
             return AppDisplayTypography.headingFontOverride(level: 1) ?? AppDisplayTypography.matrixDisplayFontName
         }
         switch themePair {
-        case .classic:        return AppDisplayTypography.matrixDisplayFontName
+        case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName
         case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
         case .ember:          return "ColorBasic-Regular"
         case .custom:         return AppDisplayTypography.matrixDisplayFontName
@@ -1913,7 +1913,7 @@ enum AppDisplayTypography: Sendable {
     /// theme's identity face without each call site needing a theme
     /// parameter.
     ///
-    /// Classic now uses the Matrix display face across both modes.
+    /// Classic now uses the Matrix Type Bold display face across both modes.
     /// RetroGaming remains a registered compatibility asset, but it is
     /// no longer the Classic theme identity.
     nonisolated static func displayFontName(isDark: Bool) -> String {
@@ -1921,7 +1921,7 @@ enum AppDisplayTypography: Sendable {
         switch activeThemePair() {
         case .platinumViolet: return matrixDisplayFontName
         case .ember:          return "ColorBasic-Regular"
-        case .classic:        return matrixDisplayFontName
+        case .classic:        return matrixBoldDisplayFontName
         case .custom:         return headingFontOverride(level: 1) ?? matrixDisplayFontName
         }
     }

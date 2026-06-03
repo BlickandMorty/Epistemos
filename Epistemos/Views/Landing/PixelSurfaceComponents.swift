@@ -14,8 +14,14 @@ enum LandingCommandThemeTreatment: Equatable {
             return .classicNative
         }
         switch theme.themePair {
-        case .platinumViolet, .classic, .custom, .ember:
+        case .platinumViolet:
             return .platinumBlock
+        case .classic:
+            return .classicNative
+        case .ember:
+            return .emberHybrid
+        case .custom:
+            return .classicNative
         }
     }
 
@@ -46,7 +52,7 @@ enum LandingCommandTypography {
         }
         switch theme.themePair {
         case .classic:
-            return AppDisplayTypography.matrixDisplayFontName
+            return AppDisplayTypography.matrixBoldDisplayFontName
         case .custom:
             return AppDisplayTypography.storedHeadingFontOverride(level: 1)
                 ?? AppDisplayTypography.matrixDisplayFontName
@@ -725,7 +731,7 @@ struct PixelLandingCommandTile: View {
             dormantCommandLabel
                 .opacity(isLit ? 1 : (treatment == .classicNative ? 0.78 : 0.62))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 56, alignment: .leading)
+                .frame(height: 52, alignment: .leading)
                 .contentShape(Rectangle())
                 .scaleEffect(PixelStepMotion.scale(for: pressFrame == 0 ? 3 : pressFrame))
                 .offset(y: PixelStepMotion.yOffset(for: pressFrame == 0 ? 3 : pressFrame))
@@ -796,12 +802,22 @@ struct PixelLandingCommandTile: View {
     }
 
     private var dormantCommandTitle: some View {
-        Text(lowercasedTitle)
-            .font(commandFont)
-            .foregroundStyle(isLit ? activeCommandTextColor : restingCommandTextColor)
-            .shadow(color: isLit ? typewriterAccentColor.opacity(0.12) : .clear, radius: isLit ? 4 : 0)
-        .lineLimit(1)
-        .minimumScaleFactor(0.82)
+        Group {
+            if isLit {
+                PixelCommandTypewriterText(
+                    text: lowercasedTitle,
+                    font: commandFont,
+                    color: activeCommandTextColor,
+                    accent: typewriterAccentColor
+                )
+            } else {
+                Text(lowercasedTitle)
+                    .font(commandFont)
+                    .foregroundStyle(restingCommandTextColor)
+            }
+        }
+            .lineLimit(1)
+            .minimumScaleFactor(0.82)
     }
 
     private func triggerAction() {
