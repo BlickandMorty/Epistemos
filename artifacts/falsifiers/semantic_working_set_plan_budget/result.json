@@ -1,0 +1,320 @@
+{
+  "falsifier_id": "F-SemanticWorkingSetPlan-Budget",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_semantic_working_set_plan_budget.sh",
+  "command_digest": "sha256:00df27b6353171fec6d123da2b05adbd776fec343bf6b927650393f74766db40",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "432da1f4d116e6e3255552dff52d55accabd9d7e",
+  "fixture_id": "semantic_working_set_plan_budget_v1",
+  "timestamp_utc": "2026-06-03T05:47:03Z",
+  "result_digest": "sha256:d2aac5cfd995ea5d66d9d99dc8f36806d614848e5e4b24ed7f5a332b5170d6cc",
+  "measurements": {
+    "accepted_plan_fit_for_dry_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "value": 753664,
+      "unit": "bytes_or_count"
+    },
+    "adapter_bytes": {
+      "value": 131072,
+      "unit": "bytes_or_count"
+    },
+    "answer_packet_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "cold_io_bytes": {
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "cold_miss_count": {
+      "value": 1,
+      "unit": "bytes_or_count"
+    },
+    "evidence_bytes": {
+      "value": 65536,
+      "unit": "bytes_or_count"
+    },
+    "hidden_live_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_bytes": {
+      "value": 98304,
+      "unit": "bytes_or_count"
+    },
+    "kv_budget_separate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes": {
+      "value": 786432,
+      "unit": "bytes_or_count"
+    },
+    "mas_live_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_mapped_untouched_not_hot": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_rejected_before_runtime": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_table_addressability": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address": {
+      "value": "semantic_working_set_plan:096eff5f323b88822e70cb83539ff3bf620d1848733a3f10541ae75b98e9c877@1779000000000",
+      "unit": "uas_address"
+    },
+    "plan_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_hit_tokens": {
+      "value": 128,
+      "unit": "bytes_or_count"
+    },
+    "prompt_cache_miss_tokens": {
+      "value": 32,
+      "unit": "bytes_or_count"
+    },
+    "rollback_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scratch_bytes": {
+      "value": 0,
+      "unit": "bytes_or_count"
+    },
+    "selected_unit_count": {
+      "value": 5,
+      "unit": "bytes_or_count"
+    },
+    "task_query_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bytes": {
+      "value": 32768,
+      "unit": "bytes_or_count"
+    },
+    "warm_bytes": {
+      "value": 655360,
+      "unit": "bytes_or_count"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_plan_fit_for_dry_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_executed_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes_or_count"
+    },
+    "adapter_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "answer_packet_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "operator": "<=",
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "cold_io_bytes": {
+      "operator": "<=",
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "cold_miss_count": {
+      "operator": "<=",
+      "value": 4,
+      "unit": "bytes_or_count"
+    },
+    "evidence_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "hidden_live_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes_or_count"
+    },
+    "kv_budget_separate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes": {
+      "operator": "<=",
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "mas_live_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_mapped_untouched_not_hot": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_rejected_before_runtime": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_table_addressability": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "plan_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_hit_tokens": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes_or_count"
+    },
+    "prompt_cache_miss_tokens": {
+      "operator": "<=",
+      "value": 512,
+      "unit": "bytes_or_count"
+    },
+    "rollback_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scratch_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "selected_unit_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes_or_count"
+    },
+    "task_query_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes_or_count"
+    },
+    "warm_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes_or_count"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_plan_fit_for_dry_run": true,
+    "active_executed_bytes": true,
+    "adapter_bytes": true,
+    "answer_packet_visible": true,
+    "cold_bytes": true,
+    "cold_io_bytes": true,
+    "cold_miss_count": true,
+    "evidence_bytes": true,
+    "hidden_live_route_rejected": true,
+    "hot_bytes": true,
+    "kv_budget_separate": true,
+    "kv_bytes": true,
+    "mas_live_promotion_rejected": true,
+    "mmap_mapped_untouched_not_hot": true,
+    "over_budget_rejected_before_runtime": true,
+    "page_table_addressability": true,
+    "plan_address": true,
+    "plan_address_deterministic": true,
+    "prompt_cache_hit_tokens": true,
+    "prompt_cache_miss_tokens": true,
+    "rollback_present": true,
+    "run_event_log_visible": true,
+    "scratch_bytes": true,
+    "selected_unit_count": true,
+    "task_query_deterministic": true,
+    "verifier_bytes": true,
+    "warm_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "schema-only SemanticWorkingSetPlan; no mmap, model decode, MLX, Metal, KV restore, route mutation, or 70B runtime executed"
+    }
+  ],
+  "notes": "Proves mission-shaped working-set budget rejection, page-table addressability, KV accounting, mmap-hotness fence, visible witness refs, and rollback refs as a dry run only."
+}

@@ -1314,11 +1314,13 @@ struct QueryRuntimeTests {
     func eidosFullTextUsesProductionVaultRetrievalWhenOpen() throws {
         EidosBridge.closeVaultIndex()
         EidosMetrics.shared.reset()
+        VaultRecallMetrics.shared.reset()
         UserDefaults.standard.set(true, forKey: EidosFlags.userDefaultsKey)
         defer {
             UserDefaults.standard.removeObject(forKey: EidosFlags.userDefaultsKey)
             EidosBridge.closeVaultIndex()
             EidosMetrics.shared.reset()
+            VaultRecallMetrics.shared.reset()
         }
 
         let store = GraphStore()
@@ -1344,6 +1346,10 @@ struct QueryRuntimeTests {
 
         #expect(result.map(\.id) == ["note-eidos"])
         #expect(EidosMetrics.shared.snapshot().lastBackend == .real)
+        let vaultSnapshot = VaultRecallMetrics.shared.snapshot()
+        #expect(vaultSnapshot.lastBackend == .real)
+        #expect(vaultSnapshot.lastCandidatesRetained == 1)
+        #expect(vaultSnapshot.lastPageGather?.source == "QueryRuntime.Eidos")
     }
 
     @Test("combined complement returns graph nodes outside the excluded set")

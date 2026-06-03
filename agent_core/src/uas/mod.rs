@@ -37,6 +37,7 @@ pub mod pattern_boost;
 pub mod provider_reference;
 pub mod residency_lease;
 pub mod residency_tier;
+pub mod semantic_working_set;
 pub mod weight_block;
 pub mod witness;
 
@@ -62,6 +63,12 @@ pub use provider_reference::{
 };
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;
+pub use semantic_working_set::{
+    EvidenceNeed, KVByteBudgetCard, MmapResidencyFence, PrefetchWindow, PrivacyClass,
+    ResidencyPageTableEntry, SemanticWorkingSetError, SemanticWorkingSetPlan,
+    SemanticWorkingSetPlanStatus, SemanticWorkingSetUnit, SemanticWorkingSetViolation,
+    TaskWorkingSetQuery, VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+};
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,
     ResidencyPlanTotals, ResidencyPlanViolation, WeightBlockEncoding, WeightBlockIrChart,

@@ -91,6 +91,26 @@ struct VaultRecallWiringTests {
         #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
     }
 
+    @Test("VaultRecallBridge.detectedBackend reads .stub for eidos-fixture ladder tiers")
+    func vaultRecallBridgeDetectsStubBackendFromEidosFixtureLadderTier() throws {
+        let json = """
+        {
+          "query": "test",
+          "effective_query": "test",
+          "ladder_tier": "eidos-fixture-v0",
+          "candidate_pool_size": 0,
+          "candidates_retained": 0,
+          "candidates": [],
+          "signal_summary": [],
+          "generated_at_ms": 0,
+          "notes": [],
+          "all_chatter_fallback": false
+        }
+        """
+        let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: Data(json.utf8))
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .stub)
+    }
+
     @Test("VaultRecallTrace decodes honest PageGather escalation metadata")
     func vaultRecallTraceDecodesPageGatherEscalationMetadata() throws {
         let json = """

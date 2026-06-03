@@ -37,8 +37,9 @@ import os
 // VaultBackend wire, no Rust change required to flip Swift to `.real`):
 //
 //   - `scaffold-lexical` ladder tier         → `.stub`
+//   - `eidos-fixture-*` ladder tier          → `.stub`
 //   - any `vault-*` / `helios-*` ladder tier → `.real`
-//   - missing or unrecognized               → `.unknown`
+//   - missing or unrecognized                → `.unknown`
 //
 // When Terminal 2 lands the real backend, the Rust side emits a tier
 // name keyed off the deployed retriever ("vault-hybrid-v1",
@@ -479,6 +480,7 @@ nonisolated public enum VaultRecallBridge {
     public static func detectedBackend(from trace: VaultRecallTrace) -> VaultRecallBackend {
         guard let tier = trace.ladderTier else { return .unknown }
         if tier == "scaffold-lexical" { return .stub }
+        if tier.hasPrefix("eidos-fixture-") { return .stub }
         if tier.hasPrefix("vault-")   { return .real }
         if tier.hasPrefix("helios-")  { return .real }
         return .unknown
