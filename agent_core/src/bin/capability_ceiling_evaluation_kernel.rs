@@ -43,6 +43,8 @@ const PROOF_CARRYING_RESIDENCY_LEASE_PATH: &str =
     "artifacts/falsifiers/proof_carrying_residency_lease/result.json";
 const COLD_ASSEMBLY_PLAN_70B_LITE_PATH: &str =
     "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json";
+const LATTICE_STATE_CONTROLLER_PATH: &str =
+    "artifacts/falsifiers/lattice_state_controller/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -98,6 +100,7 @@ fn build_report() -> KernelReport {
     let coactivation_tile_prefetch = GateArtifact::read(COACTIVATION_TILE_PREFETCH_PATH);
     let proof_carrying_residency_lease = GateArtifact::read(PROOF_CARRYING_RESIDENCY_LEASE_PATH);
     let cold_assembly_plan_70b_lite = GateArtifact::read(COLD_ASSEMBLY_PLAN_70B_LITE_PATH);
+    let lattice_state_controller = GateArtifact::read(LATTICE_STATE_CONTROLLER_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -118,6 +121,7 @@ fn build_report() -> KernelReport {
         &coactivation_tile_prefetch,
         &proof_carrying_residency_lease,
         &cold_assembly_plan_70b_lite,
+        &lattice_state_controller,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -289,6 +293,39 @@ fn build_report() -> KernelReport {
             "unscheduled_cold_wake_rejected",
             "missing_lease_rejected",
         ]);
+    let lattice_state_controller_pass = lattice_state_controller.overall_pass
+        && lattice_state_controller.all_axes_true(&[
+            "lattice_controller_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "abstract_route_state_bound",
+            "candidate_actions_bound",
+            "selected_action_bound",
+            "static_policy_action_bound",
+            "monotone_progress_metric_bound",
+            "uncertainty_bound",
+            "conflict_signal_bound",
+            "abstain_condition_bound",
+            "verifier_feedback_bound",
+            "abstains_when_uncertain",
+            "beats_static_policy_baseline",
+            "beats_random_policy_baseline",
+            "beats_always_retrieve_baseline",
+            "quality_delta_positive",
+            "evidence_validity_delta_positive",
+            "verifier_delta_positive",
+            "route_success_delta_positive",
+            "abstention_delta_positive",
+            "fallback_bound",
+            "rollback_verified",
+            "answer_packet_ref_bound",
+            "no_hidden_live_route_authority",
+            "hidden_chain_not_exposed",
+            "high_uncertainty_non_abstain_rejected",
+            "unbeaten_static_policy_rejected",
+            "no_runtime_bytes_loaded",
+            "controller_address_deterministic",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -309,6 +346,7 @@ fn build_report() -> KernelReport {
         &coactivation_tile_prefetch,
         &proof_carrying_residency_lease,
         &cold_assembly_plan_70b_lite,
+        &lattice_state_controller,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -327,6 +365,7 @@ fn build_report() -> KernelReport {
         coactivation_tile_prefetch_pass,
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
+        lattice_state_controller_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -361,6 +400,7 @@ fn build_report() -> KernelReport {
         coactivation_tile_prefetch_pass,
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
+        lattice_state_controller_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -399,6 +439,7 @@ fn build_report() -> KernelReport {
         coactivation_tile_prefetch_pass,
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
+        lattice_state_controller_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -643,6 +684,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "lattice_state_controller_pass",
+        lattice_state_controller_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -744,6 +792,11 @@ fn build_report() -> KernelReport {
         "cold_assembly_plan_70b_lite",
         &cold_assembly_plan_70b_lite,
     );
+    add_gate_summary(
+        &mut measurements,
+        "lattice_state_controller",
+        &lattice_state_controller,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -763,6 +816,7 @@ fn build_report() -> KernelReport {
         coactivation_tile_prefetch_pass,
         proof_carrying_residency_lease_pass,
         cold_assembly_plan_70b_lite_pass,
+        lattice_state_controller_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1015,6 +1069,7 @@ fn classify_route(
     coactivation_tile_prefetch_pass: bool,
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
+    lattice_state_controller_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1028,6 +1083,7 @@ fn classify_route(
         && coactivation_tile_prefetch_pass
         && proof_carrying_residency_lease_pass
         && cold_assembly_plan_70b_lite_pass
+        && lattice_state_controller_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1075,6 +1131,7 @@ fn next_bottleneck(
     coactivation_tile_prefetch_pass: bool,
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
+    lattice_state_controller_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1137,8 +1194,10 @@ fn next_bottleneck(
             "proof_carrying_residency_lease".to_string()
         } else if !cold_assembly_plan_70b_lite_pass {
             "cold_assembly_plan_70b_lite".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !lattice_state_controller_pass {
             "lattice_state_controller".to_string()
+        } else if !seventy_b_route_pass {
+            "reasoning_state_continuity".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1184,6 +1243,7 @@ fn build_ordered_gap_queue(
     coactivation_tile_prefetch_pass: bool,
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
+    lattice_state_controller_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1432,7 +1492,9 @@ fn build_ordered_gap_queue(
             16,
             "lattice_state_controller",
             "Research Construction",
-            if cold_assembly_plan_70b_lite_pass
+            if lattice_state_controller_pass {
+                "completed"
+            } else if cold_assembly_plan_70b_lite_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -1444,6 +1506,23 @@ fn build_ordered_gap_queue(
             "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
             "Bound the lattice controller that admits, abstains, or rolls back proof-carrying cold assemblies before live route authority.",
             "No PatternBoost or cold assembly may become hidden live route authority without controller-state witness evidence.",
+        ),
+        queue_item(
+            17,
+            "reasoning_state_continuity",
+            "Research Construction",
+            if lattice_state_controller_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_lattice_state_controller"
+            },
+            "F-ReasoningStateContinuity",
+            "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+            "Preserved cache, summary, route, and verifier state must improve continuity without exposing hidden reasoning or bypassing AnswerPacket verification.",
+            "Resumable reasoning state stays witness-only until hidden-chain leakage, stale-state reuse, verifier bypass, and rollback failures are rejected.",
         ),
     ]
 }
@@ -1563,6 +1642,7 @@ fn build_anomalies(
     coactivation_tile_prefetch_pass: bool,
     proof_carrying_residency_lease_pass: bool,
     cold_assembly_plan_70b_lite_pass: bool,
+    lattice_state_controller_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1668,6 +1748,15 @@ fn build_anomalies(
         anomalies.push(serde_json::json!({
             "kind": "cold_assembly_plan_70b_lite_missing",
             "detail": "Research Construction has proof-carrying leases, but F-ColdAssemblyPlan-70B-Lite must pass before LatticeStateController work can advance."
+        }));
+    }
+    if cold_assembly_plan_70b_lite_pass
+        && !lattice_state_controller_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "lattice_state_controller_missing",
+            "detail": "Research Construction has a cold 70B assembly plan, but F-LatticeStateController must pass before resumable reasoning-state work can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -1796,28 +1885,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true,
+                true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false,
+                false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false,
+                false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true,
+                true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -1861,21 +1950,22 @@ mod tests {
         const COACTIVATION_TILE_PREFETCH: usize = 25;
         const PROOF_CARRYING_RESIDENCY_LEASE: usize = 26;
         const COLD_ASSEMBLY_PLAN_70B_LITE: usize = 27;
-        const SEVENTY_B: usize = 28;
+        const LATTICE_STATE_CONTROLLER: usize = 28;
+        const SEVENTY_B: usize = 29;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 29] {
-            let mut values = [false; 29];
+        let flags = |true_indexes: &[usize]| -> [bool; 30] {
+            let mut values = [false; 30];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 29], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 30], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1908,11 +1998,12 @@ mod tests {
                 values[26],
                 values[27],
                 values[28],
+                values[29],
                 &missing,
             )
         };
-        let nb = |values: [bool; 29]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 29]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 30]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 30]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -2270,6 +2361,35 @@ mod tests {
             "lattice_state_controller"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+            ]))),
+            "reasoning_state_continuity"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -2318,6 +2438,7 @@ mod tests {
                 COACTIVATION_TILE_PREFETCH,
                 PROOF_CARRYING_RESIDENCY_LEASE,
                 COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

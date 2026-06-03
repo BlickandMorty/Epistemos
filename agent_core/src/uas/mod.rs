@@ -29,12 +29,13 @@ pub mod acs_anchor;
 pub mod address;
 pub mod anchor_registry;
 pub mod app_cold_store;
-pub mod cold_assembly_plan;
 pub mod coactivation_tile;
+pub mod cold_assembly_plan;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
 pub mod kind;
+pub mod lattice_state_controller;
 pub mod pattern_boost;
 pub mod proof_carrying_residency_lease;
 pub mod provider_reference;
@@ -52,18 +53,22 @@ pub use app_cold_store::{
     AppColdStorePlacement, AppColdStoreRouteCard, AppColdStoreRouteCardError,
     AppColdStoreRouteCardTotals, AppColdStoreUnit,
 };
+pub use coactivation_tile::{
+    CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,
+};
 pub use cold_assembly_plan::{
     ColdAssemblyBaseline, ColdAssemblyPlan, ColdAssemblyPlanError, ColdAssemblyTileRef,
     ColdAssemblyTileRole,
-};
-pub use coactivation_tile::{
-    CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,
 };
 pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,
 };
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use kind::UasKind;
+pub use lattice_state_controller::{
+    LatticeControllerBaseline, LatticeRouteAction, LatticeStateController,
+    LatticeStateControllerError,
+};
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,
     UasAssemblyGenomeError,

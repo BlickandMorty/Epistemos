@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "06e147d82ed39b7897172dcaf951552a18272a2e",
+  "commit_sha": "8fadea3d840e9e4742dbe2a5f83df84a9d342ea4",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T15:36:40Z",
-  "result_digest": "sha256:d83c15b79a3b03e8d7f77f869730152032577587e5dca29a356096effb1a7439",
+  "timestamp_utc": "2026-06-03T16:14:14Z",
+  "result_digest": "sha256:27008ec56db416d18588973e12fcca6d0c4561ab0ded26e6ff5d555d7f3647ec",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -201,8 +201,24 @@
       "value": true,
       "unit": "bool"
     },
+    "lattice_state_controller_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_state_controller_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/lattice_state_controller/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "next_bottleneck": {
-      "value": "lattice_state_controller",
+      "value": "reasoning_state_continuity",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -371,11 +387,21 @@
           "order": 16,
           "gap_id": "lattice_state_controller",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-LatticeStateController",
           "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
           "promotion_condition": "Bound the lattice controller that admits, abstains, or rolls back proof-carrying cold assemblies before live route authority.",
           "rollback": "No PatternBoost or cold assembly may become hidden live route authority without controller-state witness evidence."
+        },
+        {
+          "order": 17,
+          "gap_id": "reasoning_state_continuity",
+          "tier": "Research Construction",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ReasoningStateContinuity",
+          "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+          "promotion_condition": "Preserved cache, summary, route, and verifier state must improve continuity without exposing hidden reasoning or bypassing AnswerPacket verification.",
+          "rollback": "Resumable reasoning state stays witness-only until hidden-chain leakage, stale-state reuse, verifier bypass, and rollback failures are rejected."
         }
       ],
       "unit": "queue"
@@ -664,6 +690,11 @@
       "value": true,
       "unit": "bool"
     },
+    "lattice_state_controller_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "page_gather_dense_primary_pass": {
       "operator": "==",
       "value": true,
@@ -763,6 +794,7 @@
     "kv_direct_spill_trace_available": true,
     "kv_direct_spill_trace_contract_pass": false,
     "kv_direct_tier1_preflight_pass": true,
+    "lattice_state_controller_pass": true,
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
@@ -796,8 +828,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "lattice_state_controller"
+      "detail": "reasoning_state_continuity"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=lattice_state_controller; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=reasoning_state_continuity; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

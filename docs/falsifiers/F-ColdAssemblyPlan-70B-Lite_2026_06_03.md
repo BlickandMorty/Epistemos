@@ -48,10 +48,14 @@ work. It does not require the deferred 128K Qwen/GGUF/KV shard lane or
 provider-reference prompt-level lane unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1`
 is set for an explicit heavy probe.
 
+`F-LatticeStateController` is now implemented as
+`docs/falsifiers/F-LatticeStateController_2026_06_03.md` with artifact
+`artifacts/falsifiers/lattice_state_controller/result.json`.
+
 The next default Research Construction cursor is:
 
 ```text
-F-LatticeStateController
+F-ReasoningStateContinuity
 ```
 
 ## Axis Floor

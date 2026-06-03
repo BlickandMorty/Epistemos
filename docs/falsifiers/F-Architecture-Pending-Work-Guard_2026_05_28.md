@@ -61,6 +61,7 @@ artifacts/falsifiers/residency_construction_graph/result.json
 artifacts/falsifiers/coactivation_tile_prefetch/result.json
 artifacts/falsifiers/proof_carrying_residency_lease/result.json
 artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json
+artifacts/falsifiers/lattice_state_controller/result.json
 artifacts/falsifiers/provider_reference_manifest_dry_run/result.json
 artifacts/falsifiers/70b_local_cocktail_lite/result.json
 ```
@@ -87,19 +88,19 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-lattice_state_controller
+reasoning_state_continuity
 ```
 
 That means the canonical KV prompt suite, full-suite run plan, coactivation
 tile prefetch witness, proof-carrying residency lease witness, 70B-lite cold
-assembly witness, and 70B/provider-reference failure reports remain preserved
-as research evidence,
+assembly witness, lattice-state-controller witness, and 70B/provider-reference
+failure reports remain preserved as research evidence,
 but 128K Qwen/GGUF/KV shard work and provider-reference work are deferred by
 default. Do not repair or rerun KV shards or create provider-reference
 manifests unless
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
-probe. Continue `F-LatticeStateController` as the default architecture path
-after the 70B cold assembly witness without treating the Qwen/GGUF shard route
+probe. Continue `F-ReasoningStateContinuity` as the default architecture path
+after the lattice controller witness without treating the Qwen/GGUF shard route
 as active.
 
 ## Guard Axes
@@ -129,6 +130,7 @@ as active.
 - `coactivation_tile_prefetch_available`
 - `proof_carrying_residency_lease_available`
 - `cold_assembly_plan_70b_lite_available`
+- `lattice_state_controller_available`
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
 - `large_model_provider_reference_required`

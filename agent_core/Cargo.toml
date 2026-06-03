@@ -143,6 +143,10 @@ name = "falsify_cold_assembly_plan_70b_lite"
 path = "src/bin/falsify_cold_assembly_plan_70b_lite.rs"
 
 [[bin]]
+name = "falsify_lattice_state_controller"
+path = "src/bin/falsify_lattice_state_controller.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -88,12 +88,16 @@ The immediate next architecture gate after this lease witness was
 `docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md` with artifact
 `artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json`.
 
-The active default architecture cursor after that cold assembly witness is:
+`F-LatticeStateController` is now implemented by
+`docs/falsifiers/F-LatticeStateController_2026_06_03.md` with artifact
+`artifacts/falsifiers/lattice_state_controller/result.json`.
+
+The active default architecture cursor after that lattice witness is:
 
 ```text
-F-LatticeStateController
+F-ReasoningStateContinuity
 ```
 
-That next gate should prove a tiny recurrent/lattice controller can improve
-route decisions versus static policy and abstain when uncertain, without
-letting cold assembly or PatternBoost become hidden live route authority.
+That next gate should prove resumable cache/summary/tool/route state improves
+continuity without hidden-chain leakage, verifier bypass, stale-state reuse, or
+missing rollback evidence.

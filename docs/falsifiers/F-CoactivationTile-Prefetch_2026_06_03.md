@@ -97,9 +97,11 @@ verifier/proof reference, expiry, fallback, and rollback evidence before any
 live cold assembly route advances.
 
 `F-ColdAssemblyPlan-70B-Lite` is now implemented as
-`docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md`. The active next
+`docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md`, and
+`F-LatticeStateController` is now implemented as
+`docs/falsifiers/F-LatticeStateController_2026_06_03.md`. The active next
 large-local-model architecture cursor is now:
 
 ```text
-F-LatticeStateController
+F-ReasoningStateContinuity
 ```
