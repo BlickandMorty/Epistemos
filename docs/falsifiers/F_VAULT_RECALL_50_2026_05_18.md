@@ -2,7 +2,7 @@
 falsifier: F-VaultRecall-50
 created_on: 2026-05-18
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
-status: PARTIAL EVIDENCE, NOT FULLY PASSED
+status: PRIMARY EXACT/ADVERSARIAL WITNESS; T21 SEMANTIC CAPSTONE STILL OPEN
 ---
 
 > **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
@@ -14,14 +14,14 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Field | Value |
 |---|---|
 | Purpose | Prove topical vault recall does not return the first irrelevant index-order notes and surfaces enough candidates plus trace to make retrieval honesty visible. |
-| Current status | PARTIAL EVIDENCE, NOT FULLY PASSED. `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` records Fix B at commit `2281c73f0` and `cargo test --manifest-path agent_core/Cargo.toml --lib` -> 1194 passed, plus `strip_query_chatter` 4/4. The broader T21 contract still requires full-manifest inventory, 50-200 candidate retrieval, and visible lexical/semantic/graph/recency/MMR trace across entry points. No T23B script exists. |
+| Current status | CURRENT-MAIN SPLIT STATUS. `docs/falsifiers/F-VaultRecall-50_2026_05_17.md` records the Round 2 primary witness at `artifacts/falsifiers/vault_recall_50/result.json`: `overall_pass=true`, top-1 exact-title `0.9726 (213/219)`, adversarial reject `1.0 (51/51)`, fixture rows `370`, and paraphrase `0/50` informational. T21 is therefore not missing, but the full semantic capstone remains open until Eidos semantic recall is wired into `VaultBackend` and the paraphrase threshold is raised from informational `0.0` to the real F' bar. See `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`. |
 | Input fixture | Vault fixture with at least 50 notes: 7 distractor notes matching chatty terms, 3+ residency-governance target notes, unicode notes, stopword-only query, single-word query, multi-paragraph query, and no-result query. |
 | Pass threshold | On Jojo's M2 Pro 14-inch 2023, 16 GB UMA, approximately 200 GB/s memory bandwidth: for `Pull my notes on residency governance`, top packed context includes the residency-governance targets, never just index-order distractors; retrieval considers the full manifest, gathers 50-200 candidates before packing, emits trace components, and weak evidence asks/broadens instead of pretending. |
 | Failure meaning | The app still cannot be trusted to find the user's own notes; ceiling research and closed citations become decoration over broken recall. |
-| Fallback route | Keep Fix B query-chatter stripping; block ship claims on full vault context until T21 proves inventory completeness, trace visibility, and broad candidate retrieval. |
+| Fallback route | Keep current exact/adversarial VaultRecall witness and trace guards; block full T21 semantic-recall claims until the Eidos/RRF semantic lane is wired into `VaultBackend` and paraphrase rows pass as a real threshold. |
 | Product lane | Core / V1 credibility gate. |
-| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_vault_recall_50.sh` |
-| Expected artifact | `artifacts/falsifiers/f_vault_recall_50/trace.jsonl`, candidate manifest, packed context, and source-trace summary. |
+| Exact command | `cargo run --release --bin falsify_vault_recall_50` |
+| Expected artifact | `artifacts/falsifiers/vault_recall_50/result.json` plus the retained T21 reconciliation note. |
 
 ## Canon Anchors
 
