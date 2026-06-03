@@ -340,6 +340,7 @@ KVByteBudgetCard {
   prompt_cache_hit_tokens
   prompt_cache_miss_tokens
   quality_caveat
+  compatibility_failures
 }
 ```
 
@@ -448,7 +449,7 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 | `F-PrefetchWindow-ColdMiss` | Proves compiled prefetch beats random/recency/file-order baselines on cold misses and stall time. |
 | `F-ColdFaultTrace-Learning` | Proves cold faults create bounded layout/route patches and improve held-out routes. |
 | `F-MmapResidencyFence-CopyCount` | Proves mmap mapping, touching, resident estimate, major/minor faults, and copy count are not conflated. |
-| `F-KVByteBudgetCard` | Proves KV bytes, hit/miss tokens, codec, and quality caveat are reported separately from weight bytes. |
+| `F-KVByteBudgetCard` | Proves KV bytes, hit/miss tokens, codec, compatibility failures, and quality caveat are reported separately from weight bytes. |
 | `F-WorkingSetOracle-Baseline` | Proves the oracle beats random, recency, and static file-order policies or abstains. |
 | `F-SourceToResidency-NoPoison` | Proves prompt-injection, stale-source, license-blocked, and low-credibility sources cannot promote layout or route patches. |
 | `F-70B-Cocktail-WorkingSet-Lite` | Proves a small-hot compiled plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. |
@@ -457,11 +458,11 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 `F-TaskWorkingSetQuery-Determinism`, and
 `F-SemanticWorkingSetPlan-Budget`, and
 `F-ResidencyPageTable-Addressability`, and
-`F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss` now have
-primary local witnesses on main. Continue this bundle with cold-fault learning,
-KV byte budget card coverage, working-set oracle baseline, and
-source-to-residency no-poison guards; do not reinstall model assets or fetch
-live sources for these metadata-only gates.
+`F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss`, and
+`F-KVByteBudgetCard` now have primary local witnesses on main. Continue this
+bundle with cold-fault learning, working-set oracle baseline, and
+source-to-residency no-poison guards; do not reinstall model assets or fetch live
+sources for these metadata-only gates.
 
 ## Product locks
 

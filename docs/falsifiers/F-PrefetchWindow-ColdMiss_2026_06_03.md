@@ -45,5 +45,6 @@ requires ColdStream no-hidden-authority and transport-run witnesses.
 
 `F-PrefetchWindow-ColdMiss` closes the first prefetch/cold-miss fixture in the
 Semantic Working-Set Compiler bundle. Remaining bundle gates include cold-fault
-learning, KV byte budget card coverage, working-set oracle baseline, and
-source-to-residency no-poison promotion guards.
+learning, working-set oracle baseline, and source-to-residency no-poison
+promotion guards. KV byte-budget card coverage is now closed by
+`F-KVByteBudgetCard`.

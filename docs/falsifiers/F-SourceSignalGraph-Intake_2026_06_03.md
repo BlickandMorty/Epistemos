@@ -53,5 +53,5 @@ from the Semantic Working-Set Compiler build order.
 `F-PrefetchWindow-ColdMiss` now cover deterministic query emission, budget
 rejection, page-table addressability, mmap fence copy-count semantics, and the
 first prefetch/cold-miss fixture. The next unfinished gates are cold-fault
-learning, KV byte-budget cards, oracle baselines, and source-to-residency
-no-poison propagation.
+learning, oracle baselines, and source-to-residency no-poison propagation; KV
+byte-budget cards are now covered by `F-KVByteBudgetCard`.

@@ -57,6 +57,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ResidencyPageTable-Addressability",
     "F-MmapResidencyFence-CopyCount",
     "F-PrefetchWindow-ColdMiss",
+    "F-KVByteBudgetCard",
     "F-ProviderReferenceManifest-DryRun",
     "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",
