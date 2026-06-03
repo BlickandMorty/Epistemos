@@ -171,6 +171,10 @@ name = "falsify_rust_route_kernel_model_check"
 path = "src/bin/falsify_rust_route_kernel_model_check.rs"
 
 [[bin]]
+name = "falsify_brain_route_card_multi_model"
+path = "src/bin/falsify_brain_route_card_multi_model.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

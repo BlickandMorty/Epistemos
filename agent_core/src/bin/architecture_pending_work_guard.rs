@@ -50,6 +50,8 @@ const PROOF_CARRYING_ROUTE_CARD_PATH: &str =
     "artifacts/falsifiers/proof_carrying_route_card/result.json";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_PATH: &str =
     "artifacts/falsifiers/rust_route_kernel_model_check/result.json";
+const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
+    "artifacts/falsifiers/brain_route_card_multi_model/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -78,6 +80,45 @@ const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "deterministic_model_check_address",
     "missing_route_card_rejected",
     "stale_toolchain_rejected",
+    "no_runtime_bytes_loaded",
+];
+const BRAIN_ROUTE_CARD_MULTI_MODEL_AXES: &[&str] = &[
+    "upstream_route_kernel_model_check_pass",
+    "brain_route_cards_present",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "candidate_brains_bound",
+    "selected_stack_bound",
+    "fallback_brain_bound",
+    "model_roles_bound",
+    "privacy_classes_bound",
+    "baseline_static_route_bound",
+    "route_kernel_compatibility_bound",
+    "quality_delta_positive",
+    "evidence_validity_delta_positive",
+    "verifier_delta_positive",
+    "latency_delta_positive",
+    "active_byte_delta_positive",
+    "route_success_delta_positive",
+    "static_baseline_beaten",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "regret_update_key_bound",
+    "route_authority_shadow_only",
+    "no_hidden_multi_model_authority",
+    "hidden_chain_not_exposed",
+    "no_hidden_cloud",
+    "uncertainty_abstention_bound",
+    "route_card_address_deterministic",
+    "duplicate_route_card_rejected",
+    "missing_candidate_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_multi_model_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "unbeaten_static_baseline_rejected",
+    "over_budget_route_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -480,6 +521,11 @@ fn build_report() -> GuardReport {
         &rust_route_kernel_model_check,
         RUST_ROUTE_KERNEL_MODEL_CHECK_AXES,
     );
+    let brain_route_card_multi_model = read_json(Path::new(BRAIN_ROUTE_CARD_MULTI_MODEL_PATH));
+    let brain_route_card_multi_model_available = artifact_all_axes_true(
+        &brain_route_card_multi_model,
+        BRAIN_ROUTE_CARD_MULTI_MODEL_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -571,6 +617,7 @@ fn build_report() -> GuardReport {
         && meta_breakthrough_card_registry_available
         && proof_carrying_route_card_available
         && rust_route_kernel_model_check_available
+        && brain_route_card_multi_model_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -746,6 +793,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "rust_route_kernel_model_check_available",
         rust_route_kernel_model_check_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "brain_route_card_multi_model_available",
+        brain_route_card_multi_model_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1049,6 +1103,10 @@ fn build_report() -> GuardReport {
                     "path": RUST_ROUTE_KERNEL_MODEL_CHECK_PATH,
                     "available": rust_route_kernel_model_check_available
                 },
+                "brain_route_card_multi_model": {
+                    "path": BRAIN_ROUTE_CARD_MULTI_MODEL_PATH,
+                    "available": brain_route_card_multi_model_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1194,6 +1252,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_rust_route_kernel_model_check",
             "detail": "Meta Control has proof-carrying route cards, but needs F-RustRouteKernel-ModelCheck before BrainRouteCard routing work continues."
+        }));
+    }
+    if rust_route_kernel_model_check_available && !brain_route_card_multi_model_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_brain_route_card_multi_model",
+            "detail": "Meta Control has a bounded route-kernel model check, but needs F-BrainRouteCard-MultiModel before query-aware KV/page control work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2087,6 +2151,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("rust_route_kernel_model_check")
+            .is_some());
+        assert!(already_mapped_work
+            .get("brain_route_card_multi_model")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

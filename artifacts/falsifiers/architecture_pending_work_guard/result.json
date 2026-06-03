@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4996dbcd9f189b3b537ee9174e56bfaac93efd26",
+  "commit_sha": "6d82ba00b2af7d10ea8d970101343484196e3c54",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T19:18:32Z",
-  "result_digest": "sha256:9e2d37692151e22b1d8a4ab805a1f35ac4d35ff6ea2e06fdd2f817bcf6d6d758",
+  "timestamp_utc": "2026-06-03T19:56:34Z",
+  "result_digest": "sha256:d3a5c782fc2161c9c643055f0a6870328554ceab1cab76c98f4d128936b66322",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -118,6 +118,10 @@
             "path": "artifacts/falsifiers/rust_route_kernel_model_check/result.json",
             "available": true
           },
+          "brain_route_card_multi_model": {
+            "path": "artifacts/falsifiers/brain_route_card_multi_model/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -137,6 +141,10 @@
         }
       },
       "unit": "object"
+    },
+    "brain_route_card_multi_model_available": {
+      "value": true,
+      "unit": "bool"
     },
     "capability_kernel_artifact_available": {
       "value": true,
@@ -398,11 +406,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "brain_route_card_multi_model",
+      "value": "kv_page_control_query_aware",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "brain_route_card_multi_model",
+      "value": "kv_page_control_query_aware",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -450,7 +458,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 24,
+      "value": 25,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -499,6 +507,11 @@
     }
   },
   "acceptance_thresholds": {
+    "brain_route_card_multi_model_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "capability_kernel_artifact_available": {
       "operator": "==",
       "value": true,
@@ -671,6 +684,7 @@
     }
   },
   "pass_per_axis": {
+    "brain_route_card_multi_model_available": true,
     "capability_kernel_artifact_available": true,
     "coactivation_tile_prefetch_available": true,
     "cold_assembly_plan_70b_lite_available": true,
@@ -726,5 +740,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=brain_route_card_multi_model; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=kv_page_control_query_aware; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
