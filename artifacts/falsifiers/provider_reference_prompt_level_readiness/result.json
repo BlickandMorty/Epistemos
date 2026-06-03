@@ -1,0 +1,165 @@
+{
+  "falsifier_id": "F-ProviderReferencePromptLevel-Readiness",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_provider_reference_prompt_level_readiness.sh",
+  "command_digest": "sha256:75f3759fd5a55066c5c86e5a3df6986b0026e31aab2842c6dd341719203539fa",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "caf98aca341a4a85446f8a4de96b7573854d9ec4",
+  "fixture_id": "provider_reference_prompt_level_readiness_v1",
+  "timestamp_utc": "2026-06-03T12:42:35Z",
+  "result_digest": "sha256:124cd0436e6adf3167b95985e6de9dd7afc5d1f2f18b07ba6a969ec4d6781e09",
+  "measurements": {
+    "artifact_ref": {
+      "value": "unknown",
+      "unit": "label"
+    },
+    "evidence_scope": {
+      "value": "unknown",
+      "unit": "label"
+    },
+    "manifest_error": {
+      "value": "missing_provider_reference_env",
+      "unit": "label"
+    },
+    "manifest_file_exists": {
+      "value": false,
+      "unit": "bool"
+    },
+    "manifest_valid": {
+      "value": false,
+      "unit": "bool"
+    },
+    "primary_blocker": {
+      "value": "missing_provider_reference_env",
+      "unit": "label"
+    },
+    "prompt_count": {
+      "value": 0,
+      "unit": "prompts"
+    },
+    "prompt_count_floor": {
+      "value": false,
+      "unit": "bool"
+    },
+    "prompt_level_reference_available": {
+      "value": false,
+      "unit": "bool"
+    },
+    "prompt_level_scope": {
+      "value": false,
+      "unit": "bool"
+    },
+    "prompt_suite_artifact_ref": {
+      "value": "unknown",
+      "unit": "label"
+    },
+    "provider_reference_candidate_path": {
+      "value": "EPISTEMOS_70B_PROVIDER_REFERENCE=unset",
+      "unit": "label"
+    },
+    "provider_reference_env_set": {
+      "value": false,
+      "unit": "bool"
+    },
+    "provider_reference_status": {
+      "value": "env_unset",
+      "unit": "label"
+    },
+    "reference_kind": {
+      "value": "unknown",
+      "unit": "label"
+    },
+    "replay_error": {
+      "value": "none",
+      "unit": "label"
+    },
+    "replay_files_valid": {
+      "value": false,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "manifest_file_exists": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_count": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "prompts"
+    },
+    "prompt_count_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_reference_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_scope": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_env_set": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "replay_files_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "manifest_file_exists": false,
+    "manifest_valid": false,
+    "prompt_count_floor": false,
+    "prompt_level_reference_available": false,
+    "prompt_level_scope": false,
+    "provider_reference_env_set": false,
+    "replay_files_valid": false
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "anomalies": [
+    {
+      "kind": "prompt_level_reference_not_ready",
+      "detail": "primary_blocker=missing_provider_reference_env; EPISTEMOS_70B_PROVIDER_REFERENCE must point to a prompt-level ProviderReferenceManifest with digest-valid retained replay files before F-70B-Local-Cocktail-Lite can advance."
+    }
+  ],
+  "notes": "prompt_level_provider_reference_readiness; primary_blocker=missing_provider_reference_env; shape-only fixtures do not satisfy this gate"
+}

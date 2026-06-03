@@ -244,3 +244,31 @@ That is the desired behavior: ABI shape can be tested without falsely advancing
 the actual fp16/provider comparison gate. An explicit
 `EPISTEMOS_70B_PROVIDER_REFERENCE` path still overrides this default and must
 validate its own retained replay files.
+
+## 2026-06-03 Prompt-Level Reference Readiness Gate
+
+`F-ProviderReferencePromptLevel-Readiness` now makes the next blocker
+executable instead of vague. The gate reads `EPISTEMOS_70B_PROVIDER_REFERENCE`
+and audits whether it points to a real prompt-level `ProviderReferenceManifest`
+with at least 50 prompts and digest-valid retained replay files.
+
+Current state:
+
+```text
+artifact=artifacts/falsifiers/provider_reference_prompt_level_readiness/result.json
+overall_pass=false
+primary_blocker=missing_provider_reference_env
+prompt_level_reference_available=false
+```
+
+This does not call a provider, run MLX, or generate fp16 logits. It only proves
+that the app can now distinguish:
+
+- shape-only ABI evidence: green for `F-ProviderReferenceManifest-DryRun`, never
+  enough for the 70B comparison gate
+- prompt-level readiness evidence: red until `EPISTEMOS_70B_PROVIDER_REFERENCE`
+  names a digest-valid prompt-level replay manifest
+
+So `F-70B-Local-Cocktail-Lite` remains correctly red on
+`missing_fp16_or_provider_reference`, but the exact missing input is now
+auditable.

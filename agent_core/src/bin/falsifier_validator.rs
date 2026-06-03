@@ -62,6 +62,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ColdFaultTrace-Learning",
     "F-WorkingSetOracle-Baseline",
     "F-ProviderReferenceManifest-DryRun",
+    "F-ProviderReferencePromptLevel-Readiness",
     "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",
     "F-ACS-Anchor-Addressing",

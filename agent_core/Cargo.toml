@@ -179,6 +179,10 @@ name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 
 [[bin]]
+name = "falsify_provider_reference_prompt_level_readiness"
+path = "src/bin/falsify_provider_reference_prompt_level_readiness.rs"
+
+[[bin]]
 name = "falsify_weight_block_range_hash_dry_run"
 path = "src/bin/falsify_weight_block_range_hash_dry_run.rs"
 
