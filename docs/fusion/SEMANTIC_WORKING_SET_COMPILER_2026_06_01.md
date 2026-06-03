@@ -465,9 +465,10 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 `F-ResidencyPageTable-Addressability`, and
 `F-MmapResidencyFence-CopyCount`, and `F-PrefetchWindow-ColdMiss`, and
 `F-KVByteBudgetCard`, and `F-SourceToResidency-NoPoison`, and
-`F-ColdFaultTrace-Learning` now have primary local witnesses on main. Continue
-this bundle with working-set oracle baseline; do not reinstall model assets or
-fetch live sources for these metadata-only gates.
+`F-ColdFaultTrace-Learning`, and `F-WorkingSetOracle-Baseline` now have primary
+local witnesses on main. The Semantic Working-Set Compiler metadata-only bundle
+is closed for these gates; do not reinstall model assets or fetch live sources
+for follow-on architecture work.
 
 ## Product locks
 

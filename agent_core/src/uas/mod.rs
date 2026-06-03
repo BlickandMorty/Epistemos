@@ -70,7 +70,8 @@ pub use semantic_working_set::{
     SemanticWorkingSetUnit, SemanticWorkingSetViolation, SourceCard, SourceNoPoisonStatus,
     SourceSignalEdge, SourceSignalGraph, SourceSignalType, SourceToResidencyPatch,
     SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
-    VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+    VerifierNeed, WorkingSetOracleBaselineScore, WorkingSetOracleCard, WorkingSetOracleScore,
+    WorkingSetOracleStatus, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

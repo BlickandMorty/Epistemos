@@ -171,6 +171,10 @@ name = "falsify_cold_fault_trace_learning"
 path = "src/bin/falsify_cold_fault_trace_learning.rs"
 
 [[bin]]
+name = "falsify_working_set_oracle_baseline"
+path = "src/bin/falsify_working_set_oracle_baseline.rs"
+
+[[bin]]
 name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 

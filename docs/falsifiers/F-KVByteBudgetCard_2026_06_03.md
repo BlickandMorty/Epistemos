@@ -45,6 +45,7 @@ route policy. It is an accounting and schema witness only. Live KV-Direct or
 ## Queue Effect
 
 `F-KVByteBudgetCard` closes the KV byte-budget fixture from the Semantic
-Working-Set Compiler build order. The remaining unfinished gates in this bundle
-are cold-fault learning, working-set oracle baseline, and source-to-residency
-no-poison promotion guards.
+Working-Set Compiler build order. Cold-fault learning, working-set oracle
+baseline, and source-to-residency no-poison promotion guards now have primary
+witnesses too, so this bundle's metadata-only gates no longer need to be rebuilt
+from scratch.

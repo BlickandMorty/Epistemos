@@ -105,12 +105,16 @@ failure_reason
 - `F-ColdFaultTrace-Learning` is implemented as a primary witness at
   `artifacts/falsifiers/cold_fault_trace_learning/result.json` and documented
   in `docs/falsifiers/F-ColdFaultTrace-Learning_2026_06_03.md`.
-- Remaining bundle work starts with working-set oracle baseline. Source intake,
+- `F-WorkingSetOracle-Baseline` is implemented as a primary witness at
+  `artifacts/falsifiers/working_set_oracle_baseline/result.json` and documented
+  in `docs/falsifiers/F-WorkingSetOracle-Baseline_2026_06_03.md`.
+- The metadata-only bundle gates above are now closed. Source intake,
   deterministic query emission, budget
   rejection, page-table addressability, mmap-residency-fence copy-count
   semantics, prefetch/cold-miss ordering, KV byte-budget cards, and
   source-to-residency no-poison promotion guards, and cold-fault learning no
-  longer need to be rebuilt from scratch.
+  longer need to be rebuilt from scratch; oracle baseline comparison is covered
+  too.
 
 ## Required fixture families
 
@@ -144,8 +148,8 @@ failure_reason
    `ResidencyPageTable` addressability, and `MmapResidencyFence` copy-count
    semantics, and `PrefetchWindow` cold-miss ordering, and `KVByteBudgetCard`
    accounting, and `SourceToResidencyPatch` no-poison guards, and
-   `ColdFaultTrace` / `LayoutPatch` cold-fault learning now have primary
-   witnesses.
+   `ColdFaultTrace` / `LayoutPatch` cold-fault learning, and
+   `WorkingSetOracleCard` baseline comparison now have primary witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
    `F-SourceSignalGraph-Intake`.
@@ -156,7 +160,7 @@ failure_reason
    covered by `F-MmapResidencyFence-CopyCount`.
 5. Cold-miss learning fixtures with rollback-only layout patches are covered by
    `F-ColdFaultTrace-Learning`.
-6. Add oracle baseline comparison.
+6. Oracle baseline comparison is covered by `F-WorkingSetOracle-Baseline`.
 7. Only after synthetic gates pass, connect dry-run plans to existing
    constructive-residency and cache-lineage artifacts.
 

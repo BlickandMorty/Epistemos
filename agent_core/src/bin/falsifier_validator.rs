@@ -60,6 +60,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-KVByteBudgetCard",
     "F-SourceToResidency-NoPoison",
     "F-ColdFaultTrace-Learning",
+    "F-WorkingSetOracle-Baseline",
     "F-ProviderReferenceManifest-DryRun",
     "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",

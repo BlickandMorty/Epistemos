@@ -39,12 +39,13 @@ layout, cache, prompt, or route policy can mutate.
 This falsifier does not fetch sources, import code, rewrite layout, mutate cache
 state, mutate route policy, alter prompts, decode model/KV pages, call
 MLX/Metal, or promote a live source-derived policy. It is a schema and safety
-gate only. Runtime source-derived policy still needs working-set oracle
-baseline, rollback, RunEventLog, and AnswerPacket evidence; the cold-fault
-learning witness now exists but remains non-promotional.
+gate only. Runtime source-derived policy still needs rollback, RunEventLog, and
+AnswerPacket evidence; the cold-fault and working-set oracle witnesses now exist
+but remain non-promotional.
 
 ## Queue Effect
 
 `F-SourceToResidency-NoPoison` closes the source-to-residency no-poison fixture
-from the Semantic Working-Set Compiler build order. The remaining unfinished
-gate in this bundle is working-set oracle baseline.
+from the Semantic Working-Set Compiler build order. Cold-fault learning and
+working-set oracle baseline now have primary witnesses too, so this bundle's
+metadata-only gates are closed.

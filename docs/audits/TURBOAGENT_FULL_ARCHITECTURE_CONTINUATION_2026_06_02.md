@@ -51,8 +51,8 @@ Continue the full-architecture loop in this order:
    `F-ResidencyPageTable-Addressability` and
    `F-MmapResidencyFence-CopyCount` and `F-PrefetchWindow-ColdMiss` and
    `F-KVByteBudgetCard` and `F-SourceToResidency-NoPoison` and
-   `F-ColdFaultTrace-Learning` now have primary witnesses on main. Continue
-   with working-set oracle fixtures.
+   `F-ColdFaultTrace-Learning` and `F-WorkingSetOracle-Baseline` now have
+   primary witnesses on main. This metadata-only primary lane is closed.
 2. **Secondary lane: ColdStream manifest shape, not transport.**
    Only after a working-set plan exists, add a metadata-only
    `TransportRunManifest` completeness check. Do not benchmark, prefetch,
