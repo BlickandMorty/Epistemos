@@ -5,7 +5,7 @@
 //! mmap files, mutate route policy, run MLX/Metal, or promote PatternBoost.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::uas::{ByteRange, ProStatus, ProductBuild, ResidencyTier, UasAddress, UasKind};
 
@@ -38,6 +38,208 @@ pub enum VerifierNeed {
     Schema,
     Test,
     Lean,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceSignalType {
+    Bookmark,
+    Repo,
+    Paper,
+    Doc,
+    XBookmark,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceNoPoisonStatus {
+    Clear,
+    Blocked,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceCard {
+    pub source_id: String,
+    pub source_type: SourceSignalType,
+    pub locator: String,
+    pub digest: String,
+    pub credibility_rank: u8,
+    pub license_or_usage_note: String,
+    pub privacy_class: PrivacyClass,
+    pub no_poison_status: SourceNoPoisonStatus,
+    pub route_affinities: Vec<String>,
+}
+
+impl SourceCard {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        source_id: impl Into<String>,
+        source_type: SourceSignalType,
+        locator: impl Into<String>,
+        digest: impl Into<String>,
+        credibility_rank: u8,
+        license_or_usage_note: impl Into<String>,
+        privacy_class: PrivacyClass,
+        no_poison_status: SourceNoPoisonStatus,
+        route_affinities: Vec<String>,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let source_id = source_id.into();
+        let locator = locator.into();
+        let digest = digest.into();
+        let license_or_usage_note = license_or_usage_note.into();
+        validate_nonempty("source_id", &source_id)?;
+        validate_nonempty("source_locator", &locator)?;
+        validate_nonempty("source_digest", &digest)?;
+        validate_nonempty("license_or_usage_note", &license_or_usage_note)?;
+        if !is_blake3_digest(&digest) {
+            return Err(SemanticWorkingSetError::InvalidSourceDigest { source_id });
+        }
+        if credibility_rank == 0 {
+            return Err(SemanticWorkingSetError::InvalidCredibilityRank { source_id });
+        }
+        let route_affinities = canonicalize_strings(
+            "route_affinities",
+            route_affinities,
+            SemanticWorkingSetError::MissingRouteAffinity,
+        )?;
+        Ok(Self {
+            source_id,
+            source_type,
+            locator,
+            digest,
+            credibility_rank,
+            license_or_usage_note,
+            privacy_class,
+            no_poison_status,
+            route_affinities,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceSignalEdge {
+    pub from_source_id: String,
+    pub to_source_id: String,
+    pub relation: String,
+}
+
+impl SourceSignalEdge {
+    pub fn new(
+        from_source_id: impl Into<String>,
+        to_source_id: impl Into<String>,
+        relation: impl Into<String>,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let from_source_id = from_source_id.into();
+        let to_source_id = to_source_id.into();
+        let relation = relation.into();
+        validate_nonempty("source_id", &from_source_id)?;
+        validate_nonempty("source_id", &to_source_id)?;
+        validate_nonempty("source_relation", &relation)?;
+        Ok(Self {
+            from_source_id,
+            to_source_id,
+            relation,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceSignalGraph {
+    pub graph_address: UasAddress,
+    pub source_cards: Vec<SourceCard>,
+    pub edges: Vec<SourceSignalEdge>,
+    pub route_affinities: Vec<String>,
+    pub rejected_source_ids: Vec<String>,
+}
+
+impl SourceSignalGraph {
+    pub fn intake(
+        source_cards: Vec<SourceCard>,
+        edges: Vec<SourceSignalEdge>,
+        created_at_ms: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        if source_cards.is_empty() {
+            return Err(SemanticWorkingSetError::MissingSourceCard);
+        }
+
+        let mut accepted = Vec::with_capacity(source_cards.len());
+        let mut rejected_source_ids = Vec::new();
+        let mut seen_ids = HashSet::new();
+        let mut route_affinity_set = BTreeSet::new();
+
+        for card in source_cards {
+            if !seen_ids.insert(card.source_id.clone()) {
+                return Err(SemanticWorkingSetError::DuplicateSourceId {
+                    source_id: card.source_id,
+                });
+            }
+            if card.no_poison_status == SourceNoPoisonStatus::Blocked {
+                rejected_source_ids.push(card.source_id);
+                continue;
+            }
+            for route in &card.route_affinities {
+                route_affinity_set.insert(route.clone());
+            }
+            accepted.push(card);
+        }
+
+        if accepted.is_empty() {
+            return Err(SemanticWorkingSetError::MissingSourceCard);
+        }
+
+        accepted.sort_by(|a, b| a.source_id.cmp(&b.source_id));
+        rejected_source_ids.sort();
+        let accepted_ids = accepted
+            .iter()
+            .map(|card| card.source_id.as_str())
+            .collect::<HashSet<_>>();
+        let rejected_ids = rejected_source_ids
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        let mut accepted_edges = Vec::with_capacity(edges.len());
+        for edge in edges {
+            let from_accepted = accepted_ids.contains(edge.from_source_id.as_str());
+            let to_accepted = accepted_ids.contains(edge.to_source_id.as_str());
+            if from_accepted && to_accepted {
+                accepted_edges.push(edge);
+                continue;
+            }
+            let touches_rejected = rejected_ids.contains(edge.from_source_id.as_str())
+                || rejected_ids.contains(edge.to_source_id.as_str());
+            if touches_rejected {
+                continue;
+            }
+            return Err(SemanticWorkingSetError::UnknownSourceEdgeEndpoint {
+                from_source_id: edge.from_source_id,
+                to_source_id: edge.to_source_id,
+            });
+        }
+        accepted_edges.sort_by(|a, b| {
+            (&a.from_source_id, &a.to_source_id, &a.relation).cmp(&(
+                &b.from_source_id,
+                &b.to_source_id,
+                &b.relation,
+            ))
+        });
+        accepted_edges.dedup();
+        let route_affinities = route_affinity_set.into_iter().collect::<Vec<_>>();
+        let graph_address = source_signal_graph_address(
+            &accepted,
+            &accepted_edges,
+            &route_affinities,
+            &rejected_source_ids,
+            created_at_ms,
+        );
+
+        Ok(Self {
+            graph_address,
+            source_cards: accepted,
+            edges: accepted_edges,
+            route_affinities,
+            rejected_source_ids,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -628,7 +830,14 @@ impl SemanticWorkingSetPlan {
 pub enum SemanticWorkingSetError {
     MissingMissionId,
     MissingTaskSignature,
+    MissingSourceCard,
+    MissingSourceId,
     MissingSourceSignalRef,
+    MissingSourceLocator,
+    MissingSourceDigest,
+    MissingLicenseOrUsageNote,
+    MissingRouteAffinity,
+    MissingSourceRelation,
     MissingSemanticUnitId,
     MissingCodec,
     MissingChecksum,
@@ -642,12 +851,33 @@ pub enum SemanticWorkingSetError {
     MissingRollbackRef,
     MissingRunEventLogVisibility,
     MissingAnswerPacketVisibility,
-    FieldHasSurroundingWhitespace { field: &'static str },
-    FieldContainsControlCharacter { field: &'static str },
+    FieldHasSurroundingWhitespace {
+        field: &'static str,
+    },
+    FieldContainsControlCharacter {
+        field: &'static str,
+    },
     InvalidQueryBudget,
     InvalidByteRange,
-    InvalidChecksum { unit_id: String },
-    InvalidCompatibilityFence { unit_id: String },
+    InvalidChecksum {
+        unit_id: String,
+    },
+    InvalidCompatibilityFence {
+        unit_id: String,
+    },
+    InvalidSourceDigest {
+        source_id: String,
+    },
+    InvalidCredibilityRank {
+        source_id: String,
+    },
+    DuplicateSourceId {
+        source_id: String,
+    },
+    UnknownSourceEdgeEndpoint {
+        from_source_id: String,
+        to_source_id: String,
+    },
     InvalidKvBudget,
     ByteTotalOverflow,
 }
@@ -657,7 +887,16 @@ impl std::fmt::Display for SemanticWorkingSetError {
         match self {
             Self::MissingMissionId => write!(f, "mission_id is required"),
             Self::MissingTaskSignature => write!(f, "task_signature is required"),
+            Self::MissingSourceCard => write!(f, "at least one source card is required"),
+            Self::MissingSourceId => write!(f, "source_id is required"),
             Self::MissingSourceSignalRef => write!(f, "source_signal_refs are required"),
+            Self::MissingSourceLocator => write!(f, "source locator is required"),
+            Self::MissingSourceDigest => write!(f, "source digest is required"),
+            Self::MissingLicenseOrUsageNote => {
+                write!(f, "source license_or_usage_note is required")
+            }
+            Self::MissingRouteAffinity => write!(f, "route_affinities are required"),
+            Self::MissingSourceRelation => write!(f, "source relation is required"),
             Self::MissingSemanticUnitId => write!(f, "semantic_unit_id is required"),
             Self::MissingCodec => write!(f, "codec is required"),
             Self::MissingChecksum => write!(f, "checksum is required"),
@@ -687,6 +926,22 @@ impl std::fmt::Display for SemanticWorkingSetError {
             Self::InvalidCompatibilityFence { unit_id } => {
                 write!(f, "{unit_id} compatibility fence must use compat:<id> form")
             }
+            Self::InvalidSourceDigest { source_id } => {
+                write!(f, "{source_id} digest must use blake3:<64hex> form")
+            }
+            Self::InvalidCredibilityRank { source_id } => {
+                write!(f, "{source_id} credibility rank must be nonzero")
+            }
+            Self::DuplicateSourceId { source_id } => {
+                write!(f, "duplicate source_id `{source_id}`")
+            }
+            Self::UnknownSourceEdgeEndpoint {
+                from_source_id,
+                to_source_id,
+            } => write!(
+                f,
+                "source edge `{from_source_id}` -> `{to_source_id}` references an unknown source"
+            ),
             Self::InvalidKvBudget => write!(f, "KV budget must carry non-empty positive values"),
             Self::ByteTotalOverflow => write!(f, "working-set byte total overflowed"),
         }
@@ -845,6 +1100,62 @@ fn query_address(
     )
 }
 
+fn source_signal_graph_address(
+    source_cards: &[SourceCard],
+    edges: &[SourceSignalEdge],
+    route_affinities: &[String],
+    rejected_source_ids: &[String],
+    created_at_ms: u64,
+) -> UasAddress {
+    let mut preimage = String::new();
+    preimage.push_str("source_signal_graph_v1\n");
+    for card in source_cards {
+        push_preimage(&mut preimage, "source_id", &card.source_id);
+        push_preimage(
+            &mut preimage,
+            "source_type",
+            &format!("{:?}", card.source_type),
+        );
+        push_preimage(&mut preimage, "locator", &card.locator);
+        push_preimage(&mut preimage, "digest", &card.digest);
+        push_preimage(
+            &mut preimage,
+            "credibility_rank",
+            &card.credibility_rank.to_string(),
+        );
+        push_preimage(
+            &mut preimage,
+            "license_or_usage_note",
+            &card.license_or_usage_note,
+        );
+        push_preimage(
+            &mut preimage,
+            "privacy_class",
+            &format!("{:?}", card.privacy_class),
+        );
+        push_preimage(
+            &mut preimage,
+            "no_poison_status",
+            &format!("{:?}", card.no_poison_status),
+        );
+        for route in &card.route_affinities {
+            push_preimage(&mut preimage, "route_affinity", route);
+        }
+    }
+    for edge in edges {
+        push_preimage(&mut preimage, "edge_from", &edge.from_source_id);
+        push_preimage(&mut preimage, "edge_to", &edge.to_source_id);
+        push_preimage(&mut preimage, "edge_relation", &edge.relation);
+    }
+    push_string_list_preimage(&mut preimage, "route_affinities", route_affinities);
+    push_string_list_preimage(&mut preimage, "rejected_source_ids", rejected_source_ids);
+    UasAddress::new(
+        UasKind::Other("source_signal_graph".to_string()),
+        preimage.as_bytes(),
+        created_at_ms,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn plan_address(
     query: &TaskWorkingSetQuery,
@@ -950,11 +1261,27 @@ fn validate_nonempty(field: &'static str, value: &str) -> Result<(), SemanticWor
     Ok(())
 }
 
+fn is_blake3_digest(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix("blake3:") else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 fn missing_field_error(field: &'static str) -> SemanticWorkingSetError {
     match field {
         "mission_id" => SemanticWorkingSetError::MissingMissionId,
         "task_signature" => SemanticWorkingSetError::MissingTaskSignature,
+        "source_id" => SemanticWorkingSetError::MissingSourceId,
         "source_signal_refs" => SemanticWorkingSetError::MissingSourceSignalRef,
+        "source_locator" => SemanticWorkingSetError::MissingSourceLocator,
+        "source_digest" => SemanticWorkingSetError::MissingSourceDigest,
+        "license_or_usage_note" => SemanticWorkingSetError::MissingLicenseOrUsageNote,
+        "route_affinities" => SemanticWorkingSetError::MissingRouteAffinity,
+        "source_relation" => SemanticWorkingSetError::MissingSourceRelation,
         "semantic_unit_id" => SemanticWorkingSetError::MissingSemanticUnitId,
         "codec" => SemanticWorkingSetError::MissingCodec,
         "checksum" => SemanticWorkingSetError::MissingChecksum,
@@ -1015,6 +1342,198 @@ mod tests {
     use super::*;
 
     const CREATED_AT_MS: u64 = 1_779_000_000_000;
+
+    #[test]
+    fn source_signal_graph_intake_is_order_stable_and_rejects_poison() {
+        let cards = fixture_source_cards();
+        let edges = vec![
+            SourceSignalEdge::new(
+                "source:bookmark:karpathy-autoresearch",
+                "source:repo:agent-loop",
+                "supports",
+            )
+            .unwrap(),
+            SourceSignalEdge::new(
+                "source:repo:agent-loop",
+                "source:paper:working-set",
+                "implements_motif",
+            )
+            .unwrap(),
+            SourceSignalEdge::new(
+                "source:paper:working-set",
+                "source:doc:semantic-working-set",
+                "grounds",
+            )
+            .unwrap(),
+            SourceSignalEdge::new(
+                "source:x:kv-cache-thread",
+                "source:doc:semantic-working-set",
+                "suggests_route_prior",
+            )
+            .unwrap(),
+            SourceSignalEdge::new(
+                "source:poison:prompt-injection",
+                "source:doc:semantic-working-set",
+                "must_not_promote",
+            )
+            .unwrap(),
+        ];
+        let graph = SourceSignalGraph::intake(cards.clone(), edges.clone(), CREATED_AT_MS).unwrap();
+        let reversed = SourceSignalGraph::intake(
+            cards.into_iter().rev().collect(),
+            edges.into_iter().rev().collect(),
+            CREATED_AT_MS,
+        )
+        .unwrap();
+
+        assert_eq!(graph.graph_address, reversed.graph_address);
+        assert_eq!(graph.source_cards.len(), 5);
+        assert_eq!(
+            graph
+                .source_cards
+                .iter()
+                .map(|card| card.source_id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "source:bookmark:karpathy-autoresearch",
+                "source:doc:semantic-working-set",
+                "source:paper:working-set",
+                "source:repo:agent-loop",
+                "source:x:kv-cache-thread",
+            ]
+        );
+        assert_eq!(
+            graph.rejected_source_ids,
+            vec!["source:poison:prompt-injection"]
+        );
+        assert_eq!(
+            graph.route_affinities,
+            vec![
+                "autoresearch",
+                "evidence_routing",
+                "semantic_working_set",
+                "verification",
+            ]
+        );
+        assert_eq!(graph.edges.len(), 4);
+        assert!(!graph.edges.iter().any(|edge| {
+            edge.from_source_id == "source:poison:prompt-injection"
+                || edge.to_source_id == "source:poison:prompt-injection"
+        }));
+
+        let source_types = graph
+            .source_cards
+            .iter()
+            .map(|card| card.source_type)
+            .collect::<HashSet<_>>();
+        assert!(source_types.contains(&SourceSignalType::Bookmark));
+        assert!(source_types.contains(&SourceSignalType::Repo));
+        assert!(source_types.contains(&SourceSignalType::Paper));
+        assert!(source_types.contains(&SourceSignalType::Doc));
+        assert!(source_types.contains(&SourceSignalType::XBookmark));
+    }
+
+    #[test]
+    fn source_signal_graph_rejects_duplicate_and_unknown_edge_sources() {
+        let duplicate = vec![
+            source_card(
+                "source:doc:semantic-working-set",
+                SourceSignalType::Doc,
+                "docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md",
+                "semantic-working-set-doc",
+                1,
+                PrivacyClass::VaultPrivate,
+                SourceNoPoisonStatus::Clear,
+                &["semantic_working_set"],
+            ),
+            source_card(
+                "source:doc:semantic-working-set",
+                SourceSignalType::Doc,
+                "docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md",
+                "semantic-working-set-doc-duplicate",
+                2,
+                PrivacyClass::VaultPrivate,
+                SourceNoPoisonStatus::Clear,
+                &["semantic_working_set"],
+            ),
+        ];
+        let duplicate_error =
+            SourceSignalGraph::intake(duplicate, Vec::new(), CREATED_AT_MS).unwrap_err();
+        assert!(matches!(
+            duplicate_error,
+            SemanticWorkingSetError::DuplicateSourceId { .. }
+        ));
+
+        let unknown_edge_error = SourceSignalGraph::intake(
+            fixture_source_cards(),
+            vec![SourceSignalEdge::new(
+                "source:doc:semantic-working-set",
+                "source:missing",
+                "references",
+            )
+            .unwrap()],
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            unknown_edge_error,
+            SemanticWorkingSetError::UnknownSourceEdgeEndpoint { .. }
+        ));
+    }
+
+    #[test]
+    fn source_cards_reject_bad_digest_rank_and_empty_affinity() {
+        let bad_digest = SourceCard::new(
+            "source:bad-digest",
+            SourceSignalType::Doc,
+            "docs/bad.md",
+            "blake3:ABC",
+            1,
+            "fixture only",
+            PrivacyClass::VaultPrivate,
+            SourceNoPoisonStatus::Clear,
+            vec!["semantic_working_set".to_string()],
+        )
+        .unwrap_err();
+        assert!(matches!(
+            bad_digest,
+            SemanticWorkingSetError::InvalidSourceDigest { .. }
+        ));
+
+        let bad_rank = SourceCard::new(
+            "source:bad-rank",
+            SourceSignalType::Doc,
+            "docs/bad.md",
+            digest("bad-rank"),
+            0,
+            "fixture only",
+            PrivacyClass::VaultPrivate,
+            SourceNoPoisonStatus::Clear,
+            vec!["semantic_working_set".to_string()],
+        )
+        .unwrap_err();
+        assert!(matches!(
+            bad_rank,
+            SemanticWorkingSetError::InvalidCredibilityRank { .. }
+        ));
+
+        let empty_affinity = SourceCard::new(
+            "source:empty-affinity",
+            SourceSignalType::Doc,
+            "docs/bad.md",
+            digest("empty-affinity"),
+            1,
+            "fixture only",
+            PrivacyClass::VaultPrivate,
+            SourceNoPoisonStatus::Clear,
+            Vec::new(),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            empty_affinity,
+            SemanticWorkingSetError::MissingRouteAffinity
+        ));
+    }
 
     #[test]
     fn semantic_working_set_plan_is_order_stable_and_research_only() {
@@ -1301,5 +1820,101 @@ mod tests {
 
     fn address(kind: UasKind, bytes: &[u8]) -> UasAddress {
         UasAddress::new(kind, bytes, CREATED_AT_MS)
+    }
+
+    fn fixture_source_cards() -> Vec<SourceCard> {
+        vec![
+            source_card(
+                "source:bookmark:karpathy-autoresearch",
+                SourceSignalType::Bookmark,
+                "arc://bookmark/karpathy-autoresearch",
+                "karpathy-autoresearch-bookmark",
+                1,
+                PrivacyClass::LocalPrivate,
+                SourceNoPoisonStatus::Clear,
+                &["autoresearch", "semantic_working_set"],
+            ),
+            source_card(
+                "source:repo:agent-loop",
+                SourceSignalType::Repo,
+                "https://github.com/fixture/agent-loop",
+                "agent-loop-repo",
+                2,
+                PrivacyClass::PublicResearch,
+                SourceNoPoisonStatus::Clear,
+                &["autoresearch", "verification"],
+            ),
+            source_card(
+                "source:paper:working-set",
+                SourceSignalType::Paper,
+                "paper://denning-working-set-model",
+                "denning-working-set-paper",
+                1,
+                PrivacyClass::PublicResearch,
+                SourceNoPoisonStatus::Clear,
+                &["semantic_working_set"],
+            ),
+            source_card(
+                "source:doc:semantic-working-set",
+                SourceSignalType::Doc,
+                "docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md",
+                "semantic-working-set-doc",
+                1,
+                PrivacyClass::VaultPrivate,
+                SourceNoPoisonStatus::Clear,
+                &["semantic_working_set", "evidence_routing"],
+            ),
+            source_card(
+                "source:x:kv-cache-thread",
+                SourceSignalType::XBookmark,
+                "x-bookmark://fixture/kv-cache-thread",
+                "kv-cache-x-thread",
+                3,
+                PrivacyClass::LocalPrivate,
+                SourceNoPoisonStatus::Clear,
+                &["semantic_working_set", "verification"],
+            ),
+            source_card(
+                "source:poison:prompt-injection",
+                SourceSignalType::Bookmark,
+                "arc://bookmark/prompt-injection-fixture",
+                "prompt-injection-fixture",
+                5,
+                PrivacyClass::LocalPrivate,
+                SourceNoPoisonStatus::Blocked,
+                &["semantic_working_set"],
+            ),
+        ]
+    }
+
+    fn source_card(
+        source_id: &str,
+        source_type: SourceSignalType,
+        locator: &str,
+        digest_seed: &str,
+        credibility_rank: u8,
+        privacy_class: PrivacyClass,
+        no_poison_status: SourceNoPoisonStatus,
+        route_affinities: &[&str],
+    ) -> SourceCard {
+        SourceCard::new(
+            source_id,
+            source_type,
+            locator,
+            digest(digest_seed),
+            credibility_rank,
+            "fixture-only source; motif mining permitted, no raw merge",
+            privacy_class,
+            no_poison_status,
+            route_affinities
+                .iter()
+                .map(|route| (*route).to_string())
+                .collect(),
+        )
+        .unwrap()
+    }
+
+    fn digest(seed: &str) -> String {
+        format!("blake3:{}", blake3::hash(seed.as_bytes()).to_hex())
     }
 }

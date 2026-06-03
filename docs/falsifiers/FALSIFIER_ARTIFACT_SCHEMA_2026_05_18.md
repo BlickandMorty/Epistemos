@@ -172,6 +172,8 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-WBO-DriftLedger` | `tools/falsifiers/f_wbo_drift_ledger.sh` |
 | `F-ULP-Oracle` | `tools/falsifiers/f_ulp_oracle.sh` |
 | `F-ResidencyPlan-DryRun` | `Tools/falsifiers/f_residency_plan_dry_run.sh` |
+| `F-SourceSignalGraph-Intake` | `Tools/falsifiers/f_source_signal_graph_intake.sh` |
+| `F-SemanticWorkingSetPlan-Budget` | `Tools/falsifiers/f_semantic_working_set_plan_budget.sh` |
 | `F-ProviderReferenceManifest-DryRun` | `Tools/falsifiers/f_provider_reference_manifest_dry_run.sh` |
 | `F-WeightBlockRangeHash-DryRun` | `Tools/falsifiers/f_weight_block_range_hash_dry_run.sh` |
 | `F-70B-Local-Cocktail-Lite` | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
@@ -272,6 +274,8 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-WBO-DriftLedger` | `artifacts/falsifiers/wbo_drift_ledger/` |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
 | `F-ResidencyPlan-DryRun` | `artifacts/falsifiers/residency_plan_dry_run/` |
+| `F-SourceSignalGraph-Intake` | `artifacts/falsifiers/source_signal_graph_intake/` |
+| `F-SemanticWorkingSetPlan-Budget` | `artifacts/falsifiers/semantic_working_set_plan_budget/` |
 | `F-ProviderReferenceManifest-DryRun` | `artifacts/falsifiers/provider_reference_manifest_dry_run/` |
 | `F-WeightBlockRangeHash-DryRun` | `artifacts/falsifiers/weight_block_range_hash_dry_run/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
@@ -447,6 +451,8 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
+| `F-SourceSignalGraph-Intake` | `graph_address_deterministic`, `source_cards_sorted`, `source_type_coverage`, `bookmark_source_present`, `repo_source_present`, `paper_source_present`, `doc_source_present`, `x_source_present`, `digest_coverage`, `credibility_rank_coverage`, `license_usage_note_coverage`, `privacy_class_coverage`, `no_poison_status_coverage`, `route_affinity_coverage`, `poison_source_rejected`, `poison_edges_dropped`, `duplicate_source_rejected`, `bad_digest_rejected`, `unknown_edge_rejected`, `source_card_count`, `edge_count`, `route_affinity_count`, `rejected_source_count`, `graph_address` |
+| `F-SemanticWorkingSetPlan-Budget` | `task_query_deterministic`, `plan_address_deterministic`, `accepted_plan_fit_for_dry_run`, `over_budget_rejected_before_runtime`, `page_table_addressability`, `kv_budget_separate`, `mmap_mapped_untouched_not_hot`, `hidden_live_route_rejected`, `mas_live_promotion_rejected`, `run_event_log_visible`, `answer_packet_visible`, `rollback_present`, `selected_unit_count`, `hot_bytes`, `active_executed_bytes`, `kv_bytes`, `plan_address` |
 | `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `replay_files_valid`, `prompt_suite_bound`, `no_provider_call` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `provider_reference_replay_files_valid`, `weight_block_range_hash_dry_run_available` |
@@ -759,6 +765,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-WBO-DriftLedger",
         "F-ULP-Oracle",
         "F-ResidencyPlan-DryRun",
+        "F-SourceSignalGraph-Intake",
+        "F-SemanticWorkingSetPlan-Budget",
         "F-ProviderReferenceManifest-DryRun",
         "F-WeightBlockRangeHash-DryRun",
         "F-70B-Local-Cocktail-Lite",
@@ -1530,6 +1538,32 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] },
           "acceptance_thresholds": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] },
           "pass_per_axis": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-SourceSignalGraph-Intake" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["graph_address_deterministic", "source_cards_sorted", "source_type_coverage", "bookmark_source_present", "repo_source_present", "paper_source_present", "doc_source_present", "x_source_present", "digest_coverage", "credibility_rank_coverage", "license_usage_note_coverage", "privacy_class_coverage", "no_poison_status_coverage", "route_affinity_coverage", "poison_source_rejected", "poison_edges_dropped", "duplicate_source_rejected", "bad_digest_rejected", "unknown_edge_rejected", "source_card_count", "edge_count", "route_affinity_count", "rejected_source_count", "graph_address"] },
+          "acceptance_thresholds": { "required": ["graph_address_deterministic", "source_cards_sorted", "source_type_coverage", "bookmark_source_present", "repo_source_present", "paper_source_present", "doc_source_present", "x_source_present", "digest_coverage", "credibility_rank_coverage", "license_usage_note_coverage", "privacy_class_coverage", "no_poison_status_coverage", "route_affinity_coverage", "poison_source_rejected", "poison_edges_dropped", "duplicate_source_rejected", "bad_digest_rejected", "unknown_edge_rejected", "source_card_count", "edge_count", "route_affinity_count", "rejected_source_count", "graph_address"] },
+          "pass_per_axis": { "required": ["graph_address_deterministic", "source_cards_sorted", "source_type_coverage", "bookmark_source_present", "repo_source_present", "paper_source_present", "doc_source_present", "x_source_present", "digest_coverage", "credibility_rank_coverage", "license_usage_note_coverage", "privacy_class_coverage", "no_poison_status_coverage", "route_affinity_coverage", "poison_source_rejected", "poison_edges_dropped", "duplicate_source_rejected", "bad_digest_rejected", "unknown_edge_rejected", "source_card_count", "edge_count", "route_affinity_count", "rejected_source_count", "graph_address"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-SemanticWorkingSetPlan-Budget" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["task_query_deterministic", "plan_address_deterministic", "accepted_plan_fit_for_dry_run", "over_budget_rejected_before_runtime", "page_table_addressability", "kv_budget_separate", "mmap_mapped_untouched_not_hot", "hidden_live_route_rejected", "mas_live_promotion_rejected", "run_event_log_visible", "answer_packet_visible", "rollback_present", "selected_unit_count", "hot_bytes", "active_executed_bytes", "kv_bytes", "plan_address"] },
+          "acceptance_thresholds": { "required": ["task_query_deterministic", "plan_address_deterministic", "accepted_plan_fit_for_dry_run", "over_budget_rejected_before_runtime", "page_table_addressability", "kv_budget_separate", "mmap_mapped_untouched_not_hot", "hidden_live_route_rejected", "mas_live_promotion_rejected", "run_event_log_visible", "answer_packet_visible", "rollback_present", "selected_unit_count", "hot_bytes", "active_executed_bytes", "kv_bytes", "plan_address"] },
+          "pass_per_axis": { "required": ["task_query_deterministic", "plan_address_deterministic", "accepted_plan_fit_for_dry_run", "over_budget_rejected_before_runtime", "page_table_addressability", "kv_budget_separate", "mmap_mapped_untouched_not_hot", "hidden_live_route_rejected", "mas_live_promotion_rejected", "run_event_log_visible", "answer_packet_visible", "rollback_present", "selected_unit_count", "hot_bytes", "active_executed_bytes", "kv_bytes", "plan_address"] }
         }
       }
     },

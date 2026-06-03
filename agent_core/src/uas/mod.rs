@@ -66,7 +66,8 @@ pub use residency_tier::ResidencyTier;
 pub use semantic_working_set::{
     EvidenceNeed, KVByteBudgetCard, MmapResidencyFence, PrefetchWindow, PrivacyClass,
     ResidencyPageTableEntry, SemanticWorkingSetError, SemanticWorkingSetPlan,
-    SemanticWorkingSetPlanStatus, SemanticWorkingSetUnit, SemanticWorkingSetViolation,
+    SemanticWorkingSetPlanStatus, SemanticWorkingSetUnit, SemanticWorkingSetViolation, SourceCard,
+    SourceNoPoisonStatus, SourceSignalEdge, SourceSignalGraph, SourceSignalType,
     TaskWorkingSetQuery, VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
 };
 pub use weight_block::{
