@@ -18,6 +18,18 @@ fn route_body() -> &'static str {
     &RUNTIME_ROUTER_SOURCE[start..end]
 }
 
+fn default_preferred_lanes_body() -> &'static str {
+    let start = index_of(
+        RUNTIME_ROUTER_SOURCE,
+        "nonisolated public static func defaultPreferredLanes(for role: RuntimeRole) -> [RuntimeLane]",
+    );
+    let end = index_of(
+        RUNTIME_ROUTER_SOURCE,
+        "nonisolated private static func defaultLocalPolicy(for role: RuntimeRole)",
+    );
+    &RUNTIME_ROUTER_SOURCE[start..end]
+}
+
 #[test]
 fn route_rejects_invalid_policy_inputs_before_any_lane_walk() {
     let route = route_body();
@@ -77,5 +89,25 @@ fn preferred_lane_hint_only_reorders_the_governed_chain() {
     assert!(
         invalid_gate < lane_walk,
         "Preferred lane hints must not start executor routing before policy validation"
+    );
+}
+
+#[test]
+fn tool_caller_chain_keeps_gguf_local_before_cloud_fallback() {
+    let lanes = default_preferred_lanes_body();
+    let tool_caller = {
+        let start = index_of(lanes, "case .toolCaller:");
+        let end = index_of(&lanes[start..], "case .trivial:");
+        &lanes[start..start + end]
+    };
+    let mlx = index_of(tool_caller, ".mlx");
+    let gguf = index_of(tool_caller, ".gguf");
+    let cloud_claude = index_of(tool_caller, ".cloud(provider: \"claude\")");
+    let cloud_openai = index_of(tool_caller, ".cloud(provider: \"openai\")");
+
+    assert!(mlx < gguf, "tool-caller routes must try MLX before GGUF");
+    assert!(
+        gguf < cloud_claude && gguf < cloud_openai,
+        "tool-caller routes must exhaust local GGUF before cloud fallback"
     );
 }

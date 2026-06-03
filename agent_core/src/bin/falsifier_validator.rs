@@ -66,6 +66,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ULP-Oracle",
     "F-70B-Local-Cocktail-Lite",
     "F-Agent-Local-Model-Runtime-Bridge",
+    "F-LocalToolUse",
     "F-ShadowFirst-PageEscalation",
     "F-ActiveAssembly-Minimal",
     "F-Sparse-Runtime-Split",

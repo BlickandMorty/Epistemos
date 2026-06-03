@@ -1,0 +1,257 @@
+{
+  "falsifier_id": "F-LocalToolUse",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_local_tool_use.sh",
+  "command_digest": "sha256:170952df2d1ea9df5a3b5d36ea3ac56836503c3e776d99285fa69cc1fa4903b1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "81f46ff2f4e5dd81e97f59a5ed05ff0fb9a5920b",
+  "fixture_id": "local_tool_use_source_witness_v1",
+  "timestamp_utc": "2026-06-03T06:31:26Z",
+  "result_digest": "sha256:fc94661fec1e54bf3ed86f78d26d4fa44aae433f6a424e55f66be428431b076b",
+  "measurements": {
+    "agent_capable_catalog_not_empty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_capable_model_count": {
+      "value": 24,
+      "unit": "count"
+    },
+    "agent_capable_models": {
+      "value": [
+        "deepseekR1Distill7B",
+        "falconH1R_7B4Bit",
+        "jamba3B",
+        "lfm2_24BA2B4Bit",
+        "lfm2_2B4Bit",
+        "lfm2_8BA1B3Bit",
+        "llama4Scout17B16E4Bit",
+        "localAgent43_36B3Bit",
+        "localAgent43_36B4Bit",
+        "qwen25Coder7B",
+        "qwen35_27B4Bit",
+        "qwen35_35BA3B4Bit",
+        "qwen35_4B4Bit",
+        "qwen35_9B4Bit",
+        "qwen36_35BA3B4Bit",
+        "qwen36_35BA3B_DWQ4Bit",
+        "qwen36_35BA3B_Unsloth4Bit",
+        "qwen3Coder30BA3B4Bit",
+        "qwen3CoderNext4Bit",
+        "qwen3_4B4Bit",
+        "qwen3_8B4Bit",
+        "qwopus27Bv3",
+        "qwopusMoE35BA3B",
+        "qwqFlagship32B4Bit"
+      ],
+      "unit": "list"
+    },
+    "badge_data_uses_catalog_and_lane_capability": {
+      "value": true,
+      "unit": "bool"
+    },
+    "f_local_tool_use_tests_source": {
+      "value": {
+        "path": "EpistemosTests/FLocalToolUseTests.swift",
+        "exists": true,
+        "bytes": 5482
+      },
+      "unit": "object"
+    },
+    "gguf_lane_keeps_soft_guidance_tool_path": {
+      "value": true,
+      "unit": "bool"
+    },
+    "inference_state_source": {
+      "value": {
+        "path": "Epistemos/State/InferenceState.swift",
+        "exists": true,
+        "bytes": 218200
+      },
+      "unit": "object"
+    },
+    "local_tool_grammar_source": {
+      "value": {
+        "path": "Epistemos/LocalAgent/LocalToolGrammar.swift",
+        "exists": true,
+        "bytes": 11762
+      },
+      "unit": "object"
+    },
+    "mlx_lane_supports_agent_tool_grammars": {
+      "value": true,
+      "unit": "bool"
+    },
+    "native_grammar_resolver_covers_current_agent_families": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_order_guard_source": {
+      "value": {
+        "path": "agent_core/tests/runtime_router_policy_order_source_guard.rs",
+        "exists": true,
+        "bytes": 4182
+      },
+      "unit": "object"
+    },
+    "runtime_guard_pins_tool_caller_local_first": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_router_source": {
+      "value": {
+        "path": "Epistemos/LocalAgent/RuntimeRouter.swift",
+        "exists": true,
+        "bytes": 36265
+      },
+      "unit": "object"
+    },
+    "runtime_router_tests_source": {
+      "value": {
+        "path": "EpistemosTests/RuntimeRouterTests.swift",
+        "exists": true,
+        "bytes": 19261
+      },
+      "unit": "object"
+    },
+    "runtime_swift_test_pins_tool_caller_local_first": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_files_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_blocks_silent_cloud_escalation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_checks_native_grammar": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_suite_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_caller_chain_keeps_gguf_before_cloud": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "agent_capable_catalog_not_empty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_capable_model_count": {
+      "operator": ">=",
+      "value": 20,
+      "unit": "count"
+    },
+    "badge_data_uses_catalog_and_lane_capability": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_lane_keeps_soft_guidance_tool_path": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_lane_supports_agent_tool_grammars": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "native_grammar_resolver_covers_current_agent_families": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_guard_pins_tool_caller_local_first": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_swift_test_pins_tool_caller_local_first": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_files_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_blocks_silent_cloud_escalation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_checks_native_grammar": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_flocaltooluse_suite_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_caller_chain_keeps_gguf_before_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "agent_capable_catalog_not_empty": true,
+    "agent_capable_model_count": true,
+    "badge_data_uses_catalog_and_lane_capability": true,
+    "gguf_lane_keeps_soft_guidance_tool_path": true,
+    "mlx_lane_supports_agent_tool_grammars": true,
+    "native_grammar_resolver_covers_current_agent_families": true,
+    "runtime_guard_pins_tool_caller_local_first": true,
+    "runtime_swift_test_pins_tool_caller_local_first": true,
+    "source_files_present": true,
+    "swift_flocaltooluse_blocks_silent_cloud_escalation": true,
+    "swift_flocaltooluse_checks_native_grammar": true,
+    "swift_flocaltooluse_suite_present": true,
+    "tool_caller_chain_keeps_gguf_before_cloud": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "fallback_witness",
+      "detail": "Rust proves source, router order, Swift falsifier, and grammar guards; the primary route behavior remains the Swift FLocalToolUse test suite."
+    }
+  ],
+  "notes": "local_tool_use_source_witness; agent_capable_models=24; proves the missing Terminal T1 Rust-side artifact without claiming live inference."
+}

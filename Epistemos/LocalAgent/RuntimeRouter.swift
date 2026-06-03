@@ -461,7 +461,7 @@ public final class RuntimeRouter {
         case .quick:
             return [.appleIntelligence, .mlx, .gguf, .cloud(provider: "claude"), .stub]
         case .toolCaller:
-            return [.mlx, .cloud(provider: "claude"), .cloud(provider: "openai"), .gguf, .appleIntelligence, .stub]
+            return [.mlx, .gguf, .cloud(provider: "claude"), .cloud(provider: "openai"), .appleIntelligence, .stub]
         case .trivial:
             return [.appleIntelligence, .mlx, .gguf, .stub]
         case .vision:
