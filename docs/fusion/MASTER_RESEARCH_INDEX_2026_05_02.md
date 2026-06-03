@@ -622,7 +622,7 @@ MissionPacket
 |---|---|
 | `F-ResidencyConstructionGraph` | PASS metadata-only dry-run witness on 2026-06-03. Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. Artifact: `artifacts/falsifiers/residency_construction_graph/result.json`. |
 | `F-CoactivationTile-Prefetch` | PASS metadata-only dry-run witness on 2026-06-03. Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. Artifact: `artifacts/falsifiers/coactivation_tile_prefetch/result.json`. |
-| `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
+| `F-ProofCarryingResidencyLease` | PASS metadata-only dry-run witness on 2026-06-03. Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, fallback, and rollback. Artifact: `artifacts/falsifiers/proof_carrying_residency_lease/result.json`. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |
 | `F-LatticeStateController` | Proves a small recurrent/lattice controller improves route decisions versus static policy and abstains when uncertain. |
 | `F-ReasoningStateContinuity` | Proves resumable state improves continuity/cache utility without leaking hidden reasoning or bypassing verification. |

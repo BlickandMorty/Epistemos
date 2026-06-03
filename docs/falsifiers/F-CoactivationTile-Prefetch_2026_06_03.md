@@ -86,12 +86,18 @@ This gate implements the second candidate target named by:
 - `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
 - `docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md`
 
-The active next architecture cursor after this gate is:
+The proof-carrying lease cursor after this gate is now complete:
 
 ```text
 F-ProofCarryingResidencyLease
 ```
 
-That next gate should prove cold byte wakeups carry UAS address, reason, byte
-cost, verifier/proof reference, expiry, fallback, and rollback evidence before
-any live cold assembly route advances.
+That gate proves cold byte wakeups carry UAS address, reason, byte cost,
+verifier/proof reference, expiry, fallback, and rollback evidence before any
+live cold assembly route advances.
+
+The active next large-local-model architecture cursor is now:
+
+```text
+F-ColdAssemblyPlan-70B-Lite
+```

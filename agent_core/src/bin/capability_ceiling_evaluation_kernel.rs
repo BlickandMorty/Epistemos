@@ -39,6 +39,8 @@ const RESIDENCY_CONSTRUCTION_GRAPH_PATH: &str =
     "artifacts/falsifiers/residency_construction_graph/result.json";
 const COACTIVATION_TILE_PREFETCH_PATH: &str =
     "artifacts/falsifiers/coactivation_tile_prefetch/result.json";
+const PROOF_CARRYING_RESIDENCY_LEASE_PATH: &str =
+    "artifacts/falsifiers/proof_carrying_residency_lease/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -92,6 +94,7 @@ fn build_report() -> KernelReport {
     let sparse_runtime = GateArtifact::read(SPARSE_RUNTIME_SPLIT_PATH);
     let residency_construction_graph = GateArtifact::read(RESIDENCY_CONSTRUCTION_GRAPH_PATH);
     let coactivation_tile_prefetch = GateArtifact::read(COACTIVATION_TILE_PREFETCH_PATH);
+    let proof_carrying_residency_lease = GateArtifact::read(PROOF_CARRYING_RESIDENCY_LEASE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -110,6 +113,7 @@ fn build_report() -> KernelReport {
         &sparse_runtime,
         &residency_construction_graph,
         &coactivation_tile_prefetch,
+        &proof_carrying_residency_lease,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -222,6 +226,30 @@ fn build_report() -> KernelReport {
             "compiled_byte_waste_below_baselines",
             "no_runtime_bytes_loaded",
         ]);
+    let proof_carrying_residency_lease_pass = proof_carrying_residency_lease.overall_pass
+        && proof_carrying_residency_lease.all_axes_true(&[
+            "proof_carrying_leases_present",
+            "uas_addresses_bound",
+            "lease_reasons_bound",
+            "active_byte_costs_bound",
+            "expected_utility_bound",
+            "proof_or_falsifier_refs_bound",
+            "expiry_bound",
+            "fallback_bound",
+            "rollback_bound",
+            "lease_tier_capability_ceiling",
+            "lease_address_deterministic",
+            "cold_wakes_authorized",
+            "wake_without_lease_rejected",
+            "missing_reason_rejected",
+            "missing_proof_rejected",
+            "missing_fallback_rejected",
+            "missing_rollback_rejected",
+            "expired_lease_rejected",
+            "over_budget_wake_rejected",
+            "wrong_lease_rejected",
+            "no_runtime_bytes_loaded",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -240,6 +268,7 @@ fn build_report() -> KernelReport {
         &sparse_runtime,
         &residency_construction_graph,
         &coactivation_tile_prefetch,
+        &proof_carrying_residency_lease,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -256,6 +285,7 @@ fn build_report() -> KernelReport {
         active_assembly_runtime_artifact_pass,
         sparse_runtime_split_artifact_pass,
         coactivation_tile_prefetch_pass,
+        proof_carrying_residency_lease_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -288,6 +318,7 @@ fn build_report() -> KernelReport {
         sparse_runtime_split_artifact_pass,
         residency_construction_graph_pass,
         coactivation_tile_prefetch_pass,
+        proof_carrying_residency_lease_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -324,6 +355,7 @@ fn build_report() -> KernelReport {
         sparse_runtime_split_artifact_pass,
         residency_construction_graph_pass,
         coactivation_tile_prefetch_pass,
+        proof_carrying_residency_lease_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -554,6 +586,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "proof_carrying_residency_lease_pass",
+        proof_carrying_residency_lease_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -645,6 +684,11 @@ fn build_report() -> KernelReport {
         "coactivation_tile_prefetch",
         &coactivation_tile_prefetch,
     );
+    add_gate_summary(
+        &mut measurements,
+        "proof_carrying_residency_lease",
+        &proof_carrying_residency_lease,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -662,6 +706,7 @@ fn build_report() -> KernelReport {
         sparse_runtime_split_artifact_pass,
         residency_construction_graph_pass,
         coactivation_tile_prefetch_pass,
+        proof_carrying_residency_lease_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -912,6 +957,7 @@ fn classify_route(
     active_assembly_runtime_artifact_pass: bool,
     sparse_runtime_split_artifact_pass: bool,
     coactivation_tile_prefetch_pass: bool,
+    proof_carrying_residency_lease_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -923,6 +969,7 @@ fn classify_route(
         && active_assembly_runtime_artifact_pass
         && sparse_runtime_split_artifact_pass
         && coactivation_tile_prefetch_pass
+        && proof_carrying_residency_lease_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -968,6 +1015,7 @@ fn next_bottleneck(
     sparse_runtime_split_artifact_pass: bool,
     residency_construction_graph_pass: bool,
     coactivation_tile_prefetch_pass: bool,
+    proof_carrying_residency_lease_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1026,8 +1074,10 @@ fn next_bottleneck(
             "build_residency_construction_graph_dry_run".to_string()
         } else if !coactivation_tile_prefetch_pass {
             "coactivation_tile_prefetch".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !proof_carrying_residency_lease_pass {
             "proof_carrying_residency_lease".to_string()
+        } else if !seventy_b_route_pass {
+            "cold_assembly_plan_70b_lite".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1071,6 +1121,7 @@ fn build_ordered_gap_queue(
     sparse_runtime_split_artifact_pass: bool,
     residency_construction_graph_pass: bool,
     coactivation_tile_prefetch_pass: bool,
+    proof_carrying_residency_lease_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1281,7 +1332,11 @@ fn build_ordered_gap_queue(
             14,
             "proof_carrying_residency_lease",
             "Research Construction",
-            if coactivation_tile_prefetch_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if proof_carrying_residency_lease_pass {
+                "completed"
+            } else if coactivation_tile_prefetch_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -1291,6 +1346,23 @@ fn build_ordered_gap_queue(
             "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
             "Residency leases carry verifier, rollback, abstention, and budget evidence before any live cold assembly can claim promotion.",
             "Treat any lease without proof packet evidence as research-only and fail closed.",
+        ),
+        queue_item(
+            15,
+            "cold_assembly_plan_70b_lite",
+            "Research Construction",
+            if proof_carrying_residency_lease_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_proof_carrying_residency_lease"
+            },
+            "F-ColdAssemblyPlan-70B-Lite",
+            "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+            "A small-hot plus cold-selected plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim.",
+            "Keep cold assembly research-only until baseline comparisons, route witness, rollback, and no-hidden-cloud evidence pass.",
         ),
     ]
 }
@@ -1408,6 +1480,7 @@ fn build_anomalies(
     sparse_runtime_split_artifact_pass: bool,
     residency_construction_graph_pass: bool,
     coactivation_tile_prefetch_pass: bool,
+    proof_carrying_residency_lease_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1495,6 +1568,15 @@ fn build_anomalies(
         anomalies.push(serde_json::json!({
             "kind": "coactivation_tile_prefetch_missing",
             "detail": "Research Construction has a scored graph, but F-CoactivationTile-Prefetch must pass before proof-carrying residency leases can advance."
+        }));
+    }
+    if coactivation_tile_prefetch_pass
+        && !proof_carrying_residency_lease_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "proof_carrying_residency_lease_missing",
+            "detail": "Research Construction has coactivation tiles, but F-ProofCarryingResidencyLease must pass before any cold assembly plan can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -1623,26 +1705,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
+                true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false,
+                false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false,
+                false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
+                true,
             ),
             "ready_for_product_route"
         );
@@ -1684,21 +1768,22 @@ mod tests {
         const SPARSE_RUNTIME: usize = 23;
         const RESIDENCY_CONSTRUCTION_GRAPH: usize = 24;
         const COACTIVATION_TILE_PREFETCH: usize = 25;
-        const SEVENTY_B: usize = 26;
+        const PROOF_CARRYING_RESIDENCY_LEASE: usize = 26;
+        const SEVENTY_B: usize = 27;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 27] {
-            let mut values = [false; 27];
+        let flags = |true_indexes: &[usize]| -> [bool; 28] {
+            let mut values = [false; 28];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 27], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 28], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1729,11 +1814,12 @@ mod tests {
                 values[24],
                 values[25],
                 values[26],
+                values[27],
                 &missing,
             )
         };
-        let nb = |values: [bool; 27]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 27]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 28]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 28]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -2036,6 +2122,33 @@ mod tests {
             "proof_carrying_residency_lease"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+            ]))),
+            "cold_assembly_plan_70b_lite"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -2082,6 +2195,7 @@ mod tests {
                 SPARSE_RUNTIME,
                 RESIDENCY_CONSTRUCTION_GRAPH,
                 COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

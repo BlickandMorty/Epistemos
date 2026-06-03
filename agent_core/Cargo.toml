@@ -135,6 +135,10 @@ name = "falsify_coactivation_tile_prefetch"
 path = "src/bin/falsify_coactivation_tile_prefetch.rs"
 
 [[bin]]
+name = "falsify_proof_carrying_residency_lease"
+path = "src/bin/falsify_proof_carrying_residency_lease.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -1,0 +1,320 @@
+{
+  "falsifier_id": "F-ProofCarryingResidencyLease",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_proof_carrying_residency_lease.sh",
+  "command_digest": "sha256:6a63da9668919426f97a92087bc8352c3d70e63e81e81c5ecc3e8011a3b538d1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "247887c6ad52ffd7980b6c321f81deb4b03b39d7",
+  "fixture_id": "proof_carrying_residency_lease_v1",
+  "timestamp_utc": "2026-06-03T15:01:10Z",
+  "result_digest": "sha256:865b3b248f5001c561d27530548896b7e2dcfba056b11e912fe0c4916f9855a6",
+  "measurements": {
+    "accepted_wake_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "active_byte_costs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_total": {
+      "value": 40960,
+      "unit": "bytes"
+    },
+    "cold_wakes_authorized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_utility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expired_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expiry_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_address": {
+      "value": "proof_carrying_residency_lease:09921138e7265a8fa4a6a8cf3acea9bb86329b1017459da0139373e0e7ffcc35@1779200000000",
+      "unit": "string"
+    },
+    "lease_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_reasons_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_tier_capability_ceiling": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_cost": {
+      "value": 32768,
+      "unit": "bytes"
+    },
+    "min_ttl_ms": {
+      "value": 90000,
+      "unit": "ms"
+    },
+    "missing_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reason_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_wake_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_carrying_leases_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_falsifier_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_wake_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wake_without_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_wake_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "active_byte_costs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_total": {
+      "operator": "<=",
+      "value": 65536,
+      "unit": "bytes"
+    },
+    "cold_wakes_authorized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_utility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expired_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expiry_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_address": {
+      "operator": "==",
+      "value": "proof_carrying_residency_lease:09921138e7265a8fa4a6a8cf3acea9bb86329b1017459da0139373e0e7ffcc35@1779200000000",
+      "unit": "string"
+    },
+    "lease_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_reasons_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_tier_capability_ceiling": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_cost": {
+      "operator": "<=",
+      "value": 65536,
+      "unit": "bytes"
+    },
+    "min_ttl_ms": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "ms"
+    },
+    "missing_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reason_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_wake_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_carrying_leases_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_falsifier_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_wake_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wake_without_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_wake_count": true,
+    "active_byte_costs_bound": true,
+    "active_byte_total": true,
+    "cold_wakes_authorized": true,
+    "expected_utility_bound": true,
+    "expired_lease_rejected": true,
+    "expiry_bound": true,
+    "fallback_bound": true,
+    "lease_address": true,
+    "lease_address_deterministic": true,
+    "lease_reasons_bound": true,
+    "lease_tier_capability_ceiling": true,
+    "max_active_byte_cost": true,
+    "min_ttl_ms": true,
+    "missing_fallback_rejected": true,
+    "missing_proof_rejected": true,
+    "missing_reason_rejected": true,
+    "missing_rollback_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_wake_rejected": true,
+    "proof_carrying_leases_present": true,
+    "proof_or_falsifier_refs_bound": true,
+    "rejected_wake_count": true,
+    "rollback_bound": true,
+    "uas_addresses_bound": true,
+    "wake_without_lease_rejected": true,
+    "wrong_lease_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only proof-carrying residency lease fixture; no cold bytes, mmap, model decode, MLX, Metal, KV, provider call, or live route policy mutation executed"
+    }
+  ],
+  "notes": "Proves cold-byte wake proposals require proof-carrying residency leases with UAS address, reason, byte cost, proof/falsifier ref, expiry, fallback, and rollback; cold assembly runtime remains a separate gate."
+}

@@ -34,6 +34,8 @@ const RESIDENCY_CONSTRUCTION_GRAPH_PATH: &str =
     "artifacts/falsifiers/residency_construction_graph/result.json";
 const COACTIVATION_TILE_PREFETCH_PATH: &str =
     "artifacts/falsifiers/coactivation_tile_prefetch/result.json";
+const PROOF_CARRYING_RESIDENCY_LEASE_PATH: &str =
+    "artifacts/falsifiers/proof_carrying_residency_lease/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -178,6 +180,33 @@ fn build_report() -> GuardReport {
             "no_runtime_bytes_loaded",
         ],
     );
+    let proof_carrying_residency_lease = read_json(Path::new(PROOF_CARRYING_RESIDENCY_LEASE_PATH));
+    let proof_carrying_residency_lease_available = artifact_all_axes_true(
+        &proof_carrying_residency_lease,
+        &[
+            "proof_carrying_leases_present",
+            "uas_addresses_bound",
+            "lease_reasons_bound",
+            "active_byte_costs_bound",
+            "expected_utility_bound",
+            "proof_or_falsifier_refs_bound",
+            "expiry_bound",
+            "fallback_bound",
+            "rollback_bound",
+            "lease_tier_capability_ceiling",
+            "lease_address_deterministic",
+            "cold_wakes_authorized",
+            "wake_without_lease_rejected",
+            "missing_reason_rejected",
+            "missing_proof_rejected",
+            "missing_fallback_rejected",
+            "missing_rollback_rejected",
+            "expired_lease_rejected",
+            "over_budget_wake_rejected",
+            "wrong_lease_rejected",
+            "no_runtime_bytes_loaded",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -260,6 +289,7 @@ fn build_report() -> GuardReport {
         && residency_plan_dry_run_available
         && residency_construction_graph_available
         && coactivation_tile_prefetch_available
+        && proof_carrying_residency_lease_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -372,6 +402,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "coactivation_tile_prefetch_available",
         coactivation_tile_prefetch_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "proof_carrying_residency_lease_available",
+        proof_carrying_residency_lease_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -639,6 +676,10 @@ fn build_report() -> GuardReport {
                     "path": COACTIVATION_TILE_PREFETCH_PATH,
                     "available": coactivation_tile_prefetch_available
                 },
+                "proof_carrying_residency_lease": {
+                    "path": PROOF_CARRYING_RESIDENCY_LEASE_PATH,
+                    "available": proof_carrying_residency_lease_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -730,6 +771,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_coactivation_tile_prefetch",
             "detail": "Research Construction has a graph witness, but needs F-CoactivationTile-Prefetch before proof-carrying residency lease work continues."
+        }));
+    }
+    if coactivation_tile_prefetch_available && !proof_carrying_residency_lease_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_proof_carrying_residency_lease",
+            "detail": "Research Construction has a coactivation witness, but needs F-ProofCarryingResidencyLease before cold assembly plan work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1600,6 +1647,9 @@ mod tests {
 
         assert!(already_mapped_work
             .get("coactivation_tile_prefetch")
+            .is_some());
+        assert!(already_mapped_work
+            .get("proof_carrying_residency_lease")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

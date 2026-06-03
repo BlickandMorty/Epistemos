@@ -86,12 +86,18 @@ The coactivation tile cursor after this gate is now complete:
 F-CoactivationTile-Prefetch
 ```
 
-The active next architecture cursor is now:
+The proof-carrying lease cursor after this gate is now complete:
 
 ```text
 F-ProofCarryingResidencyLease
 ```
 
-That next gate should prove cold byte wakeups carry UAS address, reason, byte
-cost, verifier/proof reference, expiry, fallback, and rollback evidence before
-any cold assembly route is promoted.
+That gate proves cold byte wakeups carry UAS address, reason, byte cost,
+verifier/proof reference, expiry, fallback, and rollback evidence before any
+cold assembly route is promoted.
+
+The active next large-local-model architecture cursor is now:
+
+```text
+F-ColdAssemblyPlan-70B-Lite
+```
