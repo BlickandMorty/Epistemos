@@ -22,7 +22,7 @@ invent a parallel roadmap.
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `research_construction_engine` |
+| Next bottleneck | `coactivation_tile_prefetch` |
 | Canonical queue present | `true` |
 | Unmapped architecture gap count | `0` |
 
@@ -40,6 +40,10 @@ architecture cursor while the app is routed through practical MLX local
 inference. The preserved 70B artifacts stay honest red research evidence, but
 they must not block the default loop or force a provider-reference manifest.
 
+2026-06-03 update: `F-ResidencyConstructionGraph` is now a schema-valid primary
+Research Construction witness. Row 12 is completed and the active non-heavy
+architecture cursor is row 13, `coactivation_tile_prefetch`.
+
 ## Ordered Queue
 
 | Order | Gap | Build/status | Current status | Promotion condition |
@@ -50,13 +54,14 @@ they must not block the default loop or force a provider-reference manifest.
 | 3 | UAS / AcsAnchor / ColdStore hot-path floor | Verified Floor | completed | `F-UAS-CopyCount`, `F-ACS-AnchorLookup`, and legacy-named `F-UAS-ACS-MmapResidency` pass as schema witnesses. |
 | 4 | PageGather packetized floor + caller | Capability Ceiling | completed | Packetized PageGather mitigation and caller-path packet consumption pass. |
 | 5 | PageGather dense primary or accepted packet policy | Capability Ceiling | completed | `F-PageGather-Packetized-Policy-Acceptance` accepts packetized PageGather only for retrieval/witness packet surfaces while dense primary remains red. |
-| 6 | KV-Direct live 128K inputs | Capability Ceiling | pending 128K context model | Canonical Qwen3-8B MLX identity is now explicitly guarded and passes (`Qwen/Qwen3-8B-MLX-4bit`), and the canonical prompt suite, smoke logits, file-backed prompt-cache reload, restartable prompt shards, shard merger, and 100 one-prompt shard full-suite run plan exist. The resolved local model config still declares only `40960` context tokens and `rope_scaling = none`. Resolve a canonical model asset/config with `model_context_window_tokens >= 128000`, then repair or rerun the preserved `shard_000_000` failure and produce paired logits, metrics JSON, `>=100` prompts, `>=128000` context tokens, and `>=256` decode tokens per prompt; the spill trace must prove `residual_patched_mmap_nf4_ssd_spill` with residual patching, mmap-backed cold KV, NF4/equivalent storage, and positive cold bytes. Candidate plans for noncanonical long-context models are allowed only as research evidence. |
-| 7 | Agent local-model runtime bridge | Pro / Agent Runtime | `ready_for_capability_ceiling_recheck` | `F-Agent-Local-Model-Runtime-Bridge` is now a schema-valid primary witness for the guarded local-model bridge slice: LocalAgent adapter dispatch is wired, Rust emits a `LocalMlx` handoff, Swift consumes it through the registered local client, a retained live prompt-suite artifact records token streaming from `Qwen/Qwen3-8B-MLX-4bit`, and AnswerPacket local-model provenance is present. This does not promote 70B, 128K, or KV-Direct. |
+| 6 | KV-Direct live 128K inputs | Capability Ceiling | deferred heavy long-context opt-in | Canonical Qwen3-8B MLX identity is guarded and the canonical prompt suite, smoke logits, file-backed prompt-cache reload, restartable prompt shards, shard merger, and full-suite run plan exist. This lane is deferred unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1`; it must not be repaired by default. |
+| 7 | Agent local-model runtime bridge | Pro / Agent Runtime | completed | `F-Agent-Local-Model-Runtime-Bridge` is now a schema-valid primary witness for the guarded local-model bridge slice: LocalAgent adapter dispatch is wired, Rust emits a `LocalMlx` handoff, Swift consumes it through the registered local client, a retained live prompt-suite artifact records token streaming from `Qwen/Qwen3-8B-MLX-4bit`, and AnswerPacket local-model provenance is present. This does not promote 70B, 128K, or KV-Direct. |
 | 8 | Active Assembly runtime floor | Capability Ceiling | completed | Synthetic runtime witness proves small support with bounded drift. |
 | 9 | Sparse Runtime Split floor | Capability Ceiling | completed | Synthetic sparse/reference split passes KL, active-ratio, cost-ratio, and chart-label axes. |
 | 10 | Live sparse 70B runtime + chart coverage | Pro Vault-Preserved / Capability Ceiling | `large_model_provider_reference_deferred_by_mlx_route` | Deferred under the active MLX route unless explicitly re-enabled for research. |
 | 11 | 70B prompt-level cocktail | Pro Omega / Beyond | `large_model_provider_reference_deferred_by_mlx_route` | No active provider-reference prompt-level work is required for the MLX route. |
-| 12 | Research Construction Engine | Pro Research | `next_active_architecture_cursor` | Motifs become ProblemCards with WBO budget, falsifier, witness, ProductBuild, ProStatus/ResidencyStatus, and rollback. |
+| 12 | Research Construction Engine | Research Construction | completed | `F-ResidencyConstructionGraph` proves source-card-backed candidate units, coactivation/incompatibility/verifier/cold-miss edges, deterministic score, rollback rejection, and zero runtime bytes. |
+| 13 | Coactivation Tile Prefetch | Research Construction | `next_active_architecture_cursor` | Tile packing and prefetch must beat original file order or random fetch on cold misses, stall time, and byte waste. |
 
 ## Safe Non-Runtime 70B Rungs
 
@@ -66,6 +71,7 @@ These rungs are allowed while runtime-heavy probes are paused:
 |---|---|---|
 | `F-WeightBlockRangeHash-DryRun` | green | The `WeightBlockManifest` byte-range hashing ABI rejects over-budget ranges before reading and supports known-hash manifests without touching model files. |
 | `F-ResidencyPlan-DryRun` | green | A deterministic `ResidencyPlan` can represent a model-shaped 72 GiB cold body with a bounded hot/warm active set, rollback, WBO, and Sherry/Leech/NF4 route labels while loading zero model bytes. |
+| `F-ResidencyConstructionGraph` | green | The first Research Construction graph scores source-card-backed candidate assemblies deterministically and rejects invalid/over-budget/rollback-missing plans while loading zero runtime bytes. |
 | `F-ProviderReferenceManifest-DryRun` | green | The provider/reference manifest ABI is digest-bound and prompt-suite-bound, but shape-only fixtures cannot advance the 70B comparison gate. |
 | `F-ProviderReferencePromptLevel-Readiness` | deferred red | Preserved as research evidence only; not required by the default MLX architecture cursor. |
 | `F-70B-Local-Cocktail-Lite` | deferred red | The route has safe planner rungs but remains non-product research unless explicitly re-enabled for heavy long-context/provider-reference work. |
@@ -105,9 +111,9 @@ laptop.
 - Do not treat `F-WeightBlockRangeHash-DryRun`,
   `F-ResidencyPlan-DryRun`, or `F-ProviderReferenceManifest-DryRun` as live
   generation proof; they are the safe manifest/planner floor before runtime.
-- Do not move Research Construction ahead of the measured runtime gates unless
-  it produces a falsifier-backed candidate artifact and stays Pro Research /
-  candidate status.
+- Do not move beyond Coactivation Tile Prefetch until it produces a
+  falsifier-backed candidate artifact and stays Pro Research / candidate
+  status.
 
 ## Loop Rule
 

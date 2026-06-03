@@ -20,7 +20,7 @@ local falsifier artifacts and emits one route verdict:
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `research_construction_engine` |
+| Next bottleneck | `coactivation_tile_prefetch` |
 | Command | `Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh` |
 | Artifact | `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` |
 | Ordered queue | `measurements.ordered_build_queue` |
@@ -219,7 +219,9 @@ worktree-sprawl warning system.
      prefill-step retry was stopped after about 14 minutes with zero completed
      prompt rows. That evidence stays on disk, but the pending-work guard now
      defers KV shard repair unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is
-     set. The default active cursor is `research_construction_engine`.
+     set. The default active cursor is `coactivation_tile_prefetch` because
+     `F-ResidencyConstructionGraph` is now a green metadata-only primary
+     witness.
      Do not redirect this row into the removed optional candidate route.
    - Next after the model/context axis is green: run the full 100-prompt
      reference/test logits with an SSD-spill route, not merely the current

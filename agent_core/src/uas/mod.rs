@@ -35,6 +35,7 @@ pub mod five_planes;
 pub mod kind;
 pub mod pattern_boost;
 pub mod provider_reference;
+pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
@@ -60,6 +61,11 @@ pub use pattern_boost::{
 pub use provider_reference::{
     ProviderReferenceKind, ProviderReferenceManifest, ProviderReferenceManifestError,
     ReferenceDataSentClass, ReferenceEvidenceScope, ReferenceRetentionClaim,
+};
+pub use residency_construction_graph::{
+    AssemblyScore, CoactivationEdge, ColdMissRecord, IncompatibilityEdge,
+    ResidencyConstructionBudget, ResidencyConstructionGraph, ResidencyConstructionGraphError,
+    ResidencyConstructionUnit, VerifierEdge,
 };
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;

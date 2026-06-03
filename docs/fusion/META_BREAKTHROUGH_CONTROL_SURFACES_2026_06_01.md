@@ -554,7 +554,7 @@ latency, proofability, and rollback.
 | `F-MetaBreakthrough-CardRegistry` | Proves every meta-control card binds UAS address, source, budget, rollback, proof/falsifier state, and AnswerPacket visibility. |
 | `F-ProofCarryingRouteCard` | Proves route cards reject missing preconditions, missing rollback, missing artifact refs, or unpinned proof/toolchain versions. |
 | `F-RustRouteKernel-ModelCheck` | Uses Kani/Verus/Aeneas/hax path where appropriate to check bounded route-state and unsafe/FFI invariants. |
-| `F-ResidencyConstructionGraph` | Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. |
+| `F-ResidencyConstructionGraph` | PASS metadata-only witness on 2026-06-03. Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. |
 | `F-CoactivationTile-Prefetch` | Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. |
 | `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |

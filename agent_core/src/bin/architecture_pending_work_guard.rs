@@ -30,6 +30,8 @@ const KV_DIRECT_RESULT_PATH: &str = "artifacts/falsifiers/kv_direct_gate/result.
 const WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/weight_block_range_hash_dry_run/result.json";
 const RESIDENCY_PLAN_DRY_RUN_PATH: &str = "artifacts/falsifiers/residency_plan_dry_run/result.json";
+const RESIDENCY_CONSTRUCTION_GRAPH_PATH: &str =
+    "artifacts/falsifiers/residency_construction_graph/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -136,6 +138,24 @@ fn build_report() -> GuardReport {
             "sherry_and_leech_codec_names_present",
         ],
     );
+    let residency_construction_graph = read_json(Path::new(RESIDENCY_CONSTRUCTION_GRAPH_PATH));
+    let residency_construction_graph_available = artifact_all_axes_true(
+        &residency_construction_graph,
+        &[
+            "candidate_units_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "graph_address_deterministic",
+            "coactivation_edges_bound",
+            "incompatibility_edges_bound",
+            "verifier_edges_bound",
+            "cold_miss_history_bound",
+            "budget_enforced",
+            "invalid_assemblies_rejected",
+            "rollback_required",
+            "no_runtime_bytes_loaded",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -216,6 +236,7 @@ fn build_report() -> GuardReport {
         && plan_summary.available
         && weight_block_range_hash_dry_run_available
         && residency_plan_dry_run_available
+        && residency_construction_graph_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -314,6 +335,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "residency_plan_dry_run_available",
         residency_plan_dry_run_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "residency_construction_graph_available",
+        residency_construction_graph_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -573,6 +601,10 @@ fn build_report() -> GuardReport {
                     "path": RESIDENCY_PLAN_DRY_RUN_PATH,
                     "available": residency_plan_dry_run_available
                 },
+                "residency_construction_graph": {
+                    "path": RESIDENCY_CONSTRUCTION_GRAPH_PATH,
+                    "available": residency_construction_graph_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -652,6 +684,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_residency_plan_dry_run",
             "detail": "Large-model construction must prove the active set fits the 16 GB floor before any runtime probe."
+        }));
+    }
+    if !residency_construction_graph_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_residency_construction_graph",
+            "detail": "Research Construction must prove candidate-unit scoring, evidence edges, budget rejection, and rollback discipline before coactivation tile prefetch continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {

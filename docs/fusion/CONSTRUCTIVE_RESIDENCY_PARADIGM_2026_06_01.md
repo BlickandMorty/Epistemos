@@ -286,7 +286,7 @@ Companion cache and editor/projection gates:
 
 | Falsifier | Purpose |
 |---|---|
-| `F-ResidencyConstructionGraph` | Proves the graph can score candidate assemblies under memory/I/O/verifier constraints and reject invalid plans. |
+| `F-ResidencyConstructionGraph` | PASS metadata-only witness on 2026-06-03. Proves the graph can score candidate assemblies under memory/I/O/verifier constraints and reject invalid plans. |
 | `F-CoactivationTile-Prefetch` | Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. |
 | `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
 | `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |

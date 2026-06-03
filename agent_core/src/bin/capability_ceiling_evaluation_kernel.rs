@@ -35,13 +35,14 @@ const ACTIVE_ASSEMBLY_TEST_PATH: &str = "agent_core/tests/active_assembly_minima
 const ACTIVE_ASSEMBLY_ARTIFACT_PATH: &str =
     "artifacts/falsifiers/active_assembly_minimal/result.json";
 const SPARSE_RUNTIME_SPLIT_PATH: &str = "artifacts/falsifiers/sparse_runtime_split/result.json";
+const RESIDENCY_CONSTRUCTION_GRAPH_PATH: &str =
+    "artifacts/falsifiers/residency_construction_graph/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
 const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
 const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED: &str =
     "large_model_provider_reference_deferred_by_mlx_route";
-const RESEARCH_CONSTRUCTION_ENGINE_CURSOR: &str = "research_construction_engine";
 
 fn main() {
     let report = build_report();
@@ -87,6 +88,7 @@ fn build_report() -> KernelReport {
     let cocktail = GateArtifact::read(COCKTAIL_LITE_PATH);
     let active_assembly = GateArtifact::read(ACTIVE_ASSEMBLY_ARTIFACT_PATH);
     let sparse_runtime = GateArtifact::read(SPARSE_RUNTIME_SPLIT_PATH);
+    let residency_construction_graph = GateArtifact::read(RESIDENCY_CONSTRUCTION_GRAPH_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -103,6 +105,7 @@ fn build_report() -> KernelReport {
         &controller,
         &cocktail,
         &sparse_runtime,
+        &residency_construction_graph,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -183,6 +186,21 @@ fn build_report() -> KernelReport {
         .unwrap_or_else(|| "missing_agent_local_model_runtime_bridge_artifact".to_string());
     let active_assembly_runtime_artifact_pass = active_assembly.overall_pass;
     let sparse_runtime_split_artifact_pass = sparse_runtime.overall_pass;
+    let residency_construction_graph_pass = residency_construction_graph.overall_pass
+        && residency_construction_graph.all_axes_true(&[
+            "candidate_units_present",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "graph_address_deterministic",
+            "coactivation_edges_bound",
+            "incompatibility_edges_bound",
+            "verifier_edges_bound",
+            "cold_miss_history_bound",
+            "budget_enforced",
+            "invalid_assemblies_rejected",
+            "rollback_required",
+            "no_runtime_bytes_loaded",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -199,6 +217,7 @@ fn build_report() -> KernelReport {
         &controller,
         &cocktail,
         &sparse_runtime,
+        &residency_construction_graph,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -244,6 +263,7 @@ fn build_report() -> KernelReport {
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
         sparse_runtime_split_artifact_pass,
+        residency_construction_graph_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -278,6 +298,7 @@ fn build_report() -> KernelReport {
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
         sparse_runtime_split_artifact_pass,
+        residency_construction_graph_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -494,6 +515,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "residency_construction_graph_pass",
+        residency_construction_graph_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -575,6 +603,11 @@ fn build_report() -> KernelReport {
         &agent_local_model_bridge,
     );
     add_gate_summary(&mut measurements, "sparse_runtime_split", &sparse_runtime);
+    add_gate_summary(
+        &mut measurements,
+        "residency_construction_graph",
+        &residency_construction_graph,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -590,6 +623,7 @@ fn build_report() -> KernelReport {
         agent_local_model_runtime_bridge_pass,
         active_assembly_runtime_artifact_pass,
         sparse_runtime_split_artifact_pass,
+        residency_construction_graph_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -892,6 +926,7 @@ fn next_bottleneck(
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
     sparse_runtime_split_artifact_pass: bool,
+    residency_construction_graph_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -946,7 +981,11 @@ fn next_bottleneck(
     } else if !sparse_runtime_split_artifact_pass {
         "add_sparse_runtime_split_artifact".to_string()
     } else if !seventy_b_route_pass && !heavy_long_context_enabled {
-        RESEARCH_CONSTRUCTION_ENGINE_CURSOR.to_string()
+        if residency_construction_graph_pass {
+            "coactivation_tile_prefetch".to_string()
+        } else {
+            "build_residency_construction_graph_dry_run".to_string()
+        }
     } else if !seventy_b_route_pass {
         cocktail
             .measurement_string("primary_bottleneck")
@@ -985,6 +1024,7 @@ fn build_ordered_gap_queue(
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
     sparse_runtime_split_artifact_pass: bool,
+    residency_construction_graph_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1160,15 +1200,34 @@ fn build_ordered_gap_queue(
             12,
             "research_construction_engine",
             "Research Construction",
-            if !heavy_long_context_enabled && !seventy_b_route_pass {
+            if residency_construction_graph_pass {
+                "completed"
+            } else if !heavy_long_context_enabled && !seventy_b_route_pass {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_measured_runtime_gates"
             },
-            "RCE / ProblemCard / ConstructionGraph / AnswerPacket",
-            "docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md",
-            "Open research motifs become ProblemCards with WBO budget, falsifier, witness, tier, and rollback.",
+            "F-ResidencyConstructionGraph",
+            "artifacts/falsifiers/residency_construction_graph/result.json",
+            "Problem/task signatures become source-card-backed ResidencyConstructionGraphs with deterministic assembly scores, verifier/cold-miss evidence, rollback, and zero runtime/model-byte loads.",
             "Keep candidate laws and public-research motifs candidate-only until local falsifiers pass.",
+        ),
+        queue_item(
+            13,
+            "coactivation_tile_prefetch",
+            "Research Construction",
+            if residency_construction_graph_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_research_construction_graph"
+            },
+            "F-CoactivationTile-Prefetch",
+            "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+            "Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste.",
+            "Keep cold layout/prefetch as shadow planner evidence until held-out cold-miss and stall reductions pass.",
         ),
     ]
 }
@@ -1284,6 +1343,7 @@ fn build_anomalies(
     agent_local_model_runtime_bridge_pass: bool,
     active_assembly_runtime_artifact_pass: bool,
     sparse_runtime_split_artifact_pass: bool,
+    residency_construction_graph_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1356,6 +1416,12 @@ fn build_anomalies(
         anomalies.push(serde_json::json!({
             "kind": "sparse_runtime_split_artifact_missing",
             "detail": "No schema-valid F-Sparse-Runtime-Split artifact proves selected sparse execution reproduces dense/reference logits within bounded drift."
+        }));
+    }
+    if !residency_construction_graph_pass && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "residency_construction_graph_missing",
+            "detail": "The active Research Construction cursor needs F-ResidencyConstructionGraph before coactivation tile prefetch or proof-carrying lease work can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -1541,21 +1607,22 @@ mod tests {
         const AGENT_LOCAL_BRIDGE: usize = 21;
         const ACTIVE_ASSEMBLY: usize = 22;
         const SPARSE_RUNTIME: usize = 23;
-        const SEVENTY_B: usize = 24;
+        const RESIDENCY_CONSTRUCTION_GRAPH: usize = 24;
+        const SEVENTY_B: usize = 25;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 25] {
-            let mut values = [false; 25];
+        let flags = |true_indexes: &[usize]| -> [bool; 26] {
+            let mut values = [false; 26];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 25], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 26], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1584,11 +1651,12 @@ mod tests {
                 values[22],
                 values[23],
                 values[24],
+                values[25],
                 &missing,
             )
         };
-        let nb = |values: [bool; 25]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 25]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 26]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 26]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -1837,7 +1905,32 @@ mod tests {
                 ACTIVE_ASSEMBLY,
                 SPARSE_RUNTIME,
             ]))),
-            "research_construction_engine"
+            "build_residency_construction_graph_dry_run"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+            ]))),
+            "coactivation_tile_prefetch"
         );
         assert_eq!(
             nb_heavy(flags(&with_floor(&[
