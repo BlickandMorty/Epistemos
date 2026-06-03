@@ -47,13 +47,10 @@ pub struct FVaultRecallRowOutcome {
     pub expected_missed: Vec<String>,
     pub forbidden_present: Vec<String>,
     pub top_paths: Vec<String>,
-    /// T21 iter-68: snapshot of `trace.has_only_lexical_signals()` from
-    /// the retrieval that produced this outcome. Today every
-    /// `VaultBackend` impl produces `true` here (Q2 gap — see
-    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8). When
-    /// epistemos-shadow integration lands, this surface flips per-row
-    /// and the W-21 diagnostics can show "lexical-only" chips next to
-    /// rows that didn't get a multi-signal retrieval.
+    /// Snapshot of `trace.has_only_lexical_signals()` from the retrieval that
+    /// produced this outcome. Rows resolved through VaultStore's semantic
+    /// fallback flip this to `false`; lexical rows keep the chip so W-21 can
+    /// show which cases used the multi-signal path.
     pub lexical_only: bool,
     /// Lowercase [`EvidenceStrength`] slug captured from the retrieval
     /// trace. This makes weak-evidence regressions visible in runner
@@ -213,10 +210,8 @@ pub struct FVaultRecallSummary {
     /// Categories sorted by name for deterministic JSON output. The
     /// W-21 surface can re-sort as it likes.
     pub by_category: Vec<FVaultRecallCategoryStats>,
-    /// T21 iter-68: count of outcomes whose retrieval ran against a
-    /// Q2-gap backend (Lexical-only `signal_summary`). Today every
-    /// sweep equals `total`; when epistemos-shadow integration lands
-    /// this count drops and the W-21 surface can render
+    /// Count of outcomes whose retrieval stayed lexical-only. Semantic
+    /// fallback rows reduce this count, and the W-21 surface can render
     /// "lexical-only: N/T" alongside the pass-rate label.
     pub lexical_only_count: usize,
     /// Count of row outcomes whose trace classified the evidence as
@@ -230,11 +225,10 @@ impl FVaultRecallSummary {
     /// T21 iter-35: human-readable one-line render of the summary.
     /// Mirrors `FVaultRecallRowOutcome::verdict_line()`. Format:
     /// `"P/T passing (R%) — Cat1 N/M, Cat2 P/Q, …"`. When at least
-    /// one outcome was retrieved from a Q2-gap (lexical-only) backend
-    /// (iter-68 / iter-69), the line gains a trailing chip
+    /// one outcome stayed lexical-only (iter-68 / iter-69), the line gains a
+    /// trailing chip
     /// `" [lexical-only: K/T]"`. The chip disappears when
-    /// `lexical_only_count == 0` — that's the natural signal that
-    /// epistemos-shadow multi-signal wiring is live.
+    /// `lexical_only_count == 0`.
     ///
     /// Used by log output, CLI verbose mode, and the W-21 surface's
     /// terse summary label. The full structured breakdown remains
@@ -759,12 +753,9 @@ mod tests {
     /// T21 iter-68: `run_row` MUST snapshot
     /// `trace.has_only_lexical_signals()` into the outcome's
     /// `lexical_only` field, and `summarize` MUST count those flags
-    /// into `FVaultRecallSummary::lexical_only_count`. Today every
-    /// `VaultBackend` impl is in the Q2-gap state, so `lexical_only`
-    /// is `true` for every produced outcome and the summary count
-    /// equals `outcomes.len()`. When epistemos-shadow integration
-    /// lands and the multi-signal trace ships, this assertion breaks
-    /// loudly — that's the desired alarm.
+    /// into `FVaultRecallSummary::lexical_only_count`. This fixture uses an
+    /// empty lexical-only vault, so every outcome remains lexical-only and the
+    /// summary count equals `outcomes.len()`.
     #[tokio::test]
     async fn run_row_snapshots_lexical_only_and_summary_aggregates() {
         let vault_root = tempfile::tempdir().expect("temp vault");
@@ -943,7 +934,7 @@ mod tests {
         // Pass/fail flag pinned at top level (not nested under
         // "verdict" or similar — Swift code reads it directly).
         assert_eq!(parsed["passed"], false);
-        // Q2-gap row flag pinned (iter-68).
+        // Lexical-only row flag pinned (iter-68).
         assert_eq!(parsed["lexical_only"], true);
         // Weak-evidence row verdict pinned (iter-438).
         assert_eq!(parsed["evidence_strength"], "weak");

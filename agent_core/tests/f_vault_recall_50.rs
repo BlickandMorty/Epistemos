@@ -5,9 +5,9 @@
 //! fixture row's contract, runs the iter-7 runner across the whole
 //! fixture, and asserts that the known-passing categories
 //! (`ChattyPrefix`, `SignalOnly`, `Unicode`, `Synthesis`) pass under
-//! the current lexical-only retrieval, while the known-failing
-//! `Paraphrase` row fails as designed — pinning the Fix-C deferred
-//! semantic-recall work (per
+//! the current lexical retrieval and semantic fallback path. Paraphrase rows
+//! now require the real top-5 semantic-recall floor rather than pinning a
+//! deliberately failing Fix-C gap (per
 //! `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` §4 Fix C).
 //!
 //! This is the WRV-floor test for T21: one execution exercises
@@ -1293,7 +1293,7 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
 
 /// End-to-end: every fixture row evaluated against a synthetic vault
 /// that satisfies its pass contract. Known-passing categories must
-/// pass; the Paraphrase row must fail (pins Fix-C deferred work).
+/// pass; Paraphrase rows must clear the T21 semantic-recall floor.
 #[tokio::test]
 async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
     let vault_root = tempfile::tempdir().expect("temp vault");
@@ -1314,16 +1314,19 @@ async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
     }
 
     // Categorize expected results.
-    // Must-pass under lexical-only retrieval, Fix-B + Fix-C in place:
+    // Must-pass under lexical retrieval + semantic fallback:
     //   ChattyPrefix, SignalOnly, Unicode, Synthesis.
-    // May-fail rows (still pin V1.x semantic/fuzzy recall work):
-    //   Paraphrase. Some typo/alias variants can pass through existing
-    //   title/path fallback; failures must remain confined to Paraphrase.
+    // Paraphrase may still carry individual hard misses, but the category
+    // must clear the real F' top-5 floor.
     let required_pass_count = fixture
         .iter()
         .filter(|r| r.category != FVaultRecallCategory::Paraphrase)
         .count();
-    let paraphrase_failure_count = failed_rows
+    let paraphrase_total = fixture
+        .iter()
+        .filter(|r| r.category == FVaultRecallCategory::Paraphrase)
+        .count();
+    let paraphrase_pass_count = passed_rows
         .iter()
         .filter(|(category, _, _)| *category == FVaultRecallCategory::Paraphrase)
         .count();
@@ -1344,37 +1347,20 @@ async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
             .collect::<Vec<_>>()
     );
     assert!(
-        paraphrase_failure_count > 0,
-        "at least one Paraphrase row must remain failing to pin the \
-         deferred semantic/fuzzy recall gap"
+        paraphrase_pass_count * 100 >= paraphrase_total * 80,
+        "Paraphrase rows must clear the semantic top-5 floor; got {}/{} passing",
+        paraphrase_pass_count,
+        paraphrase_total
     );
 
-    // Every failing row MUST be Paraphrase. If a different category
-    // fails, something regressed.
+    // Every failing row MUST be Paraphrase. If a different category fails,
+    // something regressed.
     assert!(
         failed_rows
             .iter()
             .all(|(c, _, _)| *c == FVaultRecallCategory::Paraphrase),
-        "only Paraphrase rows may fail under lexical-only retrieval; \
-         got failures in: {:?}",
+        "only Paraphrase rows may fail; got failures in: {:?}",
         failed_rows.iter().map(|(c, _, _)| *c).collect::<Vec<_>>()
-    );
-
-    // At least one Paraphrase row MUST report its missed expected path
-    // (notes/mamba_ssm_cache.md) — the row exists to document exactly
-    // this miss.
-    let paraphrase_outcome = failed_rows
-        .first()
-        .map(|(_, _, o)| o.clone())
-        .expect("at least one failing row must be Paraphrase");
-    assert!(
-        paraphrase_outcome
-            .expected_missed
-            .iter()
-            .any(|p| p == "notes/mamba_ssm_cache.md"),
-        "Paraphrase row must report mamba_ssm_cache.md as expected_missed; \
-         got expected_missed = {:?}",
-        paraphrase_outcome.expected_missed
     );
 }
 
@@ -1438,8 +1424,8 @@ async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
 /// Asserts:
 /// - `summary.total` == fixture row count (10 today).
 /// - `summary.passed` + `summary.failed` == total.
-/// - Any failing row is Paraphrase, and at least one Paraphrase row
-///   still pins the deferred semantic/fuzzy-recall gap.
+/// - Any failing row is Paraphrase, and the Paraphrase category clears
+///   the semantic/fuzzy-recall floor.
 /// - `summary.pass_rate` matches `passed / total`.
 /// - `by_category` is non-empty AND sorted alphabetically (deterministic
 ///   JSON output for the W-21 row).
@@ -1469,11 +1455,6 @@ async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
         .iter()
         .filter(|r| r.category == FVaultRecallCategory::Paraphrase)
         .count();
-    assert!(
-        summary.failed > 0,
-        "at least one Paraphrase row must remain failing to pin the \
-         deferred semantic/fuzzy recall gap"
-    );
     let failed_non_paraphrase: Vec<_> = outcomes
         .iter()
         .filter(|outcome| !outcome.passed && outcome.category != "Paraphrase")
@@ -1520,10 +1501,10 @@ async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
     );
 
     // Paraphrase category breakdown — load-bearing for the W-21 row's
-    // deferred Fix-C rendering. The count derives from the fixture so adding
+    // semantic-recall rendering. The count derives from the fixture so adding
     // more Paraphrase rows doesn't break the test; what's load-bearing is that
-    // at least one Paraphrase row still fails while non-Paraphrase categories
-    // remain clean.
+    // the category clears the real 80% top-5 floor while non-Paraphrase
+    // categories remain clean.
     let paraphrase_stats = summary
         .by_category
         .iter()
@@ -1535,7 +1516,9 @@ async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
         .count();
     assert_eq!(paraphrase_stats.total, expected_paraphrase_count);
     assert!(
-        paraphrase_stats.passed < paraphrase_stats.total,
-        "at least one Paraphrase row must fail under lexical-only retrieval (pins Fix-C deferred)"
+        paraphrase_stats.passed * 100 >= paraphrase_stats.total * 80,
+        "Paraphrase rows must clear the semantic floor; got {}/{} passing",
+        paraphrase_stats.passed,
+        paraphrase_stats.total
     );
 }

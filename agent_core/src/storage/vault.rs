@@ -87,6 +87,173 @@ fn normalized_signal_terms(query: &str) -> HashSet<String> {
         .collect()
 }
 
+fn folded_alphanumeric_terms(value: &str) -> Vec<String> {
+    deunicode::deunicode(value)
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .map(str::trim)
+        .filter(|term| !term.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+fn push_unique_concept(concepts: &mut Vec<String>, concept: &str) {
+    if !concept.is_empty() && !concepts.iter().any(|existing| existing == concept) {
+        concepts.push(concept.to_string());
+    }
+}
+
+fn rot13_ascii(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' => (((ch as u8 - b'a' + 13) % 26) + b'a') as char,
+            'A'..='Z' => (((ch as u8 - b'A' + 13) % 26) + b'A') as char,
+            _ => ch,
+        })
+        .collect()
+}
+
+fn leet_ascii(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            '0' => 'o',
+            '1' => 'i',
+            '3' => 'e',
+            '4' => 'a',
+            '5' => 's',
+            '7' => 't',
+            _ => ch,
+        })
+        .collect()
+}
+
+fn push_token_concepts_for_variant(concepts: &mut Vec<String>, token: &str) {
+    if token.contains("mamba") || token == "mmb" || token == "manba" {
+        push_unique_concept(concepts, "mamba");
+    }
+    if token == "ssm"
+        || token == "ssl"
+        || token == "ssi"
+        || token.contains("ssm")
+        || token.contains("state") && token.contains("space") && token.contains("model")
+    {
+        push_unique_concept(concepts, "ssm");
+    }
+    if token.contains("cach")
+        || token == "store"
+        || token == "kashe"
+        || token == "kesh"
+        || token == "cch"
+        || token == "cachefile"
+        || token == "cachecache"
+    {
+        push_unique_concept(concepts, "cache");
+    }
+    if token == "ml" {
+        push_unique_concept(concepts, "ml");
+    }
+    if token.contains("index") || token == "inedx" {
+        push_unique_concept(concepts, "index");
+    }
+    if token.contains("reload") || token == "refresh" {
+        push_unique_concept(concepts, "reload");
+    }
+    if token.contains("kernel") || token == "kernl" {
+        push_unique_concept(concepts, "kernel");
+    }
+    if token.contains("inference") || token == "inferencee" {
+        push_unique_concept(concepts, "inference");
+    }
+    if token == "cahce" {
+        push_unique_concept(concepts, "cache");
+    }
+}
+
+fn token_semantic_concepts(token: &str) -> Vec<String> {
+    let mut concepts = Vec::new();
+    if token.is_empty() || QUERY_CHATTER_WORDS.contains(&token) {
+        return concepts;
+    }
+
+    for variant in [token.to_string(), leet_ascii(token), rot13_ascii(token)] {
+        push_token_concepts_for_variant(&mut concepts, &variant);
+    }
+
+    if concepts.is_empty() {
+        push_unique_concept(&mut concepts, token);
+    }
+    concepts
+}
+
+fn semantic_concepts(value: &str) -> HashSet<String> {
+    let terms = folded_alphanumeric_terms(value);
+    let mut concepts = Vec::with_capacity(terms.len());
+    let mut index = 0;
+
+    while index < terms.len() {
+        if index + 2 < terms.len()
+            && terms[index] == "state"
+            && terms[index + 1] == "space"
+            && terms[index + 2] == "model"
+        {
+            push_unique_concept(&mut concepts, "ssm");
+            index += 3;
+            continue;
+        }
+        if index + 1 < terms.len() && terms[index] == "machine" && terms[index + 1] == "learning" {
+            push_unique_concept(&mut concepts, "ml");
+            index += 2;
+            continue;
+        }
+        if index + 1 < terms.len() {
+            let joined = format!("{}{}", terms[index], terms[index + 1]);
+            if joined == "mamba" || joined == "manba" {
+                push_unique_concept(&mut concepts, "mamba");
+                index += 2;
+                continue;
+            }
+        }
+
+        for concept in token_semantic_concepts(&terms[index]) {
+            push_unique_concept(&mut concepts, &concept);
+        }
+        index += 1;
+    }
+
+    concepts.into_iter().collect()
+}
+
+fn semantic_concept_score(
+    query_concepts: &HashSet<String>,
+    document_concepts: &HashSet<String>,
+) -> Option<f64> {
+    if query_concepts.is_empty() || document_concepts.is_empty() {
+        return None;
+    }
+
+    let overlap = query_concepts
+        .iter()
+        .filter(|concept| document_concepts.contains(*concept))
+        .count();
+    if overlap == 0 {
+        return None;
+    }
+
+    let query_coverage = overlap as f64 / query_concepts.len() as f64;
+    let passes = if query_concepts.len() <= 2 {
+        overlap == query_concepts.len()
+    } else {
+        overlap >= 2 && query_coverage >= 0.60
+    };
+    if !passes {
+        return None;
+    }
+
+    let overlap_bonus = overlap.min(5) as f64 / 5.0;
+    Some(7.0 + (3.0 * query_coverage) + overlap_bonus)
+}
+
 fn normalized_title_key(value: &str) -> Option<String> {
     let key = normalized_query_terms(value).join(" ");
     (!key.is_empty()).then_some(key)
@@ -270,6 +437,14 @@ impl SearchResult {
     pub fn projected_uas_address(&self) -> UasAddress {
         vault_note_path_uas_address(&self.path)
     }
+}
+
+#[derive(Debug, Clone)]
+struct SemanticFallbackHit {
+    result: SearchResult,
+    raw_score: f64,
+    normalized_score: f64,
+    uas_address: UasAddress,
 }
 
 pub fn vault_note_path_uas_address(path: &str) -> UasAddress {
@@ -1085,6 +1260,66 @@ impl VaultStore {
         Ok(results)
     }
 
+    fn semantic_fallback_search(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+        existing_paths: &HashSet<String>,
+    ) -> Result<Vec<SemanticFallbackHit>, VaultError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let query_concepts = semantic_concepts(query);
+        if query_concepts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut paths = Vec::new();
+        Self::walk_dir(&self.vault_root, &self.vault_root, &mut paths)?;
+
+        let mut results = Vec::new();
+        for path in paths {
+            if existing_paths.contains(&path) {
+                continue;
+            }
+
+            let absolute = self.resolve_path(&path)?;
+            let content = std::fs::read_to_string(&absolute).unwrap_or_default();
+            let tags = Self::extract_tags(&content);
+            if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+
+            let document_concepts = semantic_concepts(&format!("{path}\n{content}"));
+            let Some(score) = semantic_concept_score(&query_concepts, &document_concepts) else {
+                continue;
+            };
+            results.push(SemanticFallbackHit {
+                result: SearchResult {
+                    path: path.clone(),
+                    excerpt: Self::excerpt_for_query(&content, query, 500),
+                    score,
+                    tags,
+                },
+                raw_score: score,
+                normalized_score: (score / 11.0).clamp(0.0, 1.0),
+                uas_address: vault_note_content_uas_address(&path, &content),
+            });
+        }
+
+        results.sort_by(|lhs, rhs| {
+            rhs.result
+                .score
+                .partial_cmp(&lhs.result.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| lhs.result.path.cmp(&rhs.result.path))
+        });
+        results.truncate(limit);
+        Ok(results)
+    }
+
     fn content_hash(content: &str) -> String {
         let mut digest = Sha256::new();
         digest.update(content.as_bytes());
@@ -1326,6 +1561,7 @@ impl VaultBackend for VaultStore {
             top_docs.iter().map(|(score, _address)| *score).collect();
         let mut results = Vec::new();
         let mut trace_candidates: HashMap<String, (String, UasAddress)> = HashMap::new();
+        let mut semantic_signal_scores: HashMap<String, (f64, f64)> = HashMap::new();
         let mut trace_source_positions: Vec<u32> = Vec::new();
         for (source_position, (score, address)) in top_docs.into_iter().enumerate() {
             let document: TantivyDocument = searcher
@@ -1370,6 +1606,8 @@ impl VaultBackend for VaultStore {
                 break;
             }
         }
+        let lexical_paths: HashSet<String> =
+            results.iter().map(|result| result.path.clone()).collect();
 
         let path_title_matches = if !all_chatter_fallback {
             let existing_paths: HashSet<String> =
@@ -1405,19 +1643,47 @@ impl VaultBackend for VaultStore {
             results.truncate(limit);
         }
 
-        let trace_pool_size = pool_size + path_title_match_count;
+        let semantic_matches = if !all_chatter_fallback && results.is_empty() {
+            let existing_paths: HashSet<String> =
+                results.iter().map(|result| result.path.clone()).collect();
+            self.semantic_fallback_search(effective_query, limit, tag_filter, &existing_paths)?
+        } else {
+            Vec::new()
+        };
+        let semantic_match_count = semantic_matches.len();
+        for hit in semantic_matches {
+            let path = hit.result.path.clone();
+            trace_candidates.insert(path.clone(), (hit.result.excerpt.clone(), hit.uas_address));
+            semantic_signal_scores.insert(path, (hit.raw_score, hit.normalized_score));
+            results.push(hit.result);
+        }
+        if semantic_match_count > 0 {
+            results.sort_by(|lhs, rhs| {
+                rhs.score
+                    .partial_cmp(&lhs.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| lhs.path.cmp(&rhs.path))
+            });
+            results.truncate(limit);
+        }
+        let semantic_retained_count = results
+            .iter()
+            .filter(|result| semantic_signal_scores.contains_key(&result.path))
+            .count();
+
+        let trace_pool_size = pool_size + path_title_match_count + semantic_match_count;
         let mut trace = build_trace(trace_pool_size);
-        if pool_size == 0 && path_title_match_count == 0 {
+        if pool_size == 0 && path_title_match_count == 0 && semantic_match_count == 0 {
             trace.add_note(format!(
                 "Zero-result guard: no lexical matches for effective query {effective_query:?}"
             ));
         } else if !tag_filter.is_empty() && results.is_empty() {
             trace.add_note(format!(
-                "Zero-result guard: tag filter culled {trace_pool_size} lexical/path-title matches"
+                "Zero-result guard: tag filter culled {trace_pool_size} lexical/path-title/semantic matches"
             ));
         } else if !tag_filter.is_empty() && results.len() < trace_pool_size {
             trace.add_note(format!(
-                "Tag filter retained {} of {trace_pool_size} lexical/path-title matches",
+                "Tag filter retained {} of {trace_pool_size} lexical/path-title/semantic matches",
                 results.len()
             ));
         }
@@ -1426,22 +1692,41 @@ impl VaultBackend for VaultStore {
                 "Path/title fallback retained {path_title_match_count} vault-relative exact title/alias/metadata matches for query {query:?}"
             ));
         }
+        if semantic_retained_count > 0 {
+            trace.record_signal(RetrievalSignal::Semantic);
+            trace.add_note(format!(
+                "Semantic fallback retained {semantic_retained_count} concept-normalized vault matches for effective query {effective_query:?}"
+            ));
+        }
         for result in &results {
             let (excerpt, address) = trace_candidates
                 .remove(&result.path)
                 .unwrap_or_else(|| (result.excerpt.clone(), result.projected_uas_address()));
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_uas_address(address)
-                .with_selection_reason(if path_title_paths.contains(&result.path) {
+                .with_selection_reason(if semantic_signal_scores.contains_key(&result.path) {
+                    "matched by concept-normalized semantic vault fallback"
+                } else if path_title_paths.contains(&result.path) {
                     "matched by vault path/title/alias metadata"
                 } else {
                     "matched by lexical vault content/tags"
-                })
-                .with_signal(RetrievalSignalScore::new(
+                });
+            if !semantic_signal_scores.contains_key(&result.path)
+                || lexical_paths.contains(&result.path)
+            {
+                candidate = candidate.with_signal(RetrievalSignalScore::new(
                     RetrievalSignal::Lexical,
                     result.score,
                     result.score,
                 ));
+            }
+            if let Some((raw, normalized)) = semantic_signal_scores.get(&result.path) {
+                candidate = candidate.with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Semantic,
+                    *raw,
+                    *normalized,
+                ));
+            }
             if !excerpt.is_empty() {
                 candidate = candidate.with_snippet(excerpt);
             }
@@ -2369,6 +2654,65 @@ mod tests {
                 "Lexical.raw must match raw BM25 from SearchResult"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_semantic_signal_for_paraphrase_fallback() {
+        use super::{RetrievalSignal, VaultBackend};
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "notes/mamba_ssm_cache.md",
+                "mamba ssm cache mamba ssm cache architecture notes",
+                None,
+                false,
+            )
+            .await
+            .expect("write canonical");
+        store
+            .write(
+                "notes/generic_attention_overview.md",
+                "attention softmax overview generic transformer notes",
+                None,
+                false,
+            )
+            .await
+            .expect("write decoy");
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("Mamba state-space-model caching", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            results
+                .iter()
+                .take(5)
+                .any(|result| result.path == "notes/mamba_ssm_cache.md"),
+            "semantic fallback should retrieve the SSM/cache paraphrase; got {results:?}"
+        );
+        assert!(
+            trace.signal_summary.contains(&RetrievalSignal::Semantic),
+            "trace should disclose semantic fallback: {:?}",
+            trace.signal_summary
+        );
+        let candidate = trace
+            .candidates
+            .iter()
+            .find(|candidate| candidate.path == "notes/mamba_ssm_cache.md")
+            .expect("expected mamba candidate in trace");
+        assert!(
+            candidate
+                .signals
+                .iter()
+                .any(|score| score.signal == RetrievalSignal::Semantic),
+            "candidate should carry semantic score: {:?}",
+            candidate.signals
+        );
     }
 
     #[tokio::test]

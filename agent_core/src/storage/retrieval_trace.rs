@@ -32,28 +32,22 @@ use crate::uas::UasAddress;
 /// diagnostics) can render "Retrieved by …" without re-deriving the
 /// signal breakdown.
 ///
-/// `Lexical` and `Semantic` are always emitted by the hybrid path;
-/// `Graph`, `Recency`, and `Mmr` are emitted when their respective
-/// pipelines are wired (graph: link/cluster edges; recency: time-decay
-/// reweighting; MMR: diversity-aware reranking).
+/// `Lexical` is emitted by the BM25 path. `Semantic` is emitted when
+/// VaultStore's concept-normalized semantic fallback supplies a retained
+/// candidate; denser embedding/HNSW semantics can replace that score behind
+/// the same signal later. `Graph`, `Recency`, and `Mmr` are emitted when their
+/// respective pipelines are wired (graph: link/cluster edges; recency:
+/// time-decay reweighting; MMR: diversity-aware reranking).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RetrievalSignal {
     /// BM25 / Tantivy keyword score. Raw, unclamped (see Fix C in the
     /// F-VaultRecall-50 diagnosis).
     Lexical,
-    /// Cosine / inner-product score over an embedding (Model2Vec / HNSW
-    /// in `epistemos-shadow`, or a future agent-side embedding seam).
-    ///
-    /// **T21 Q2 — INTEGRATION PATH PENDING.** No `VaultBackend` impl
-    /// populates this signal today because `epistemos-shadow` lives as
-    /// a separate `cdylib` crate for Swift FFI; its public Rust API
-    /// isn't exposed for non-Swift in-process callers. Three integration
-    /// options under consideration (cargo dep / FFI from Rust /
-    /// pure-Rust core carve-out) — see
-    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q2 for the full
-    /// research-question writeup. Until resolved, the 5-signal
-    /// retrieval trace ships Lexical-only.
+    /// Semantic/conceptual score. VaultStore currently populates this via a
+    /// deterministic concept-normalized fallback for empty lexical/path-title
+    /// retrievals; future Model2Vec/HNSW or Eidos adapters should use this
+    /// same signal rather than adding another provenance channel.
     Semantic,
     /// Reachability / link-edge score over the note graph (e.g. a note
     /// linked from a high-confidence hit gets a bump).
@@ -448,12 +442,9 @@ impl RetrievalTrace {
 
     /// T21 iter-65: returns `true` when the trace's `signal_summary` is
     /// exactly `[RetrievalSignal::Lexical]` — i.e. no Semantic / Graph /
-    /// Recency / Mmr signals have been emitted. This is the Q2-gap state:
-    /// every current `VaultBackend` impl populates Lexical only because
-    /// epistemos-shadow integration hasn't been wired through the trait
-    /// yet. The W-19 Brain Panel uses this to render a "lexical-only"
-    /// chip; the F-VaultRecall-50 runner uses it to short-circuit
-    /// Semantic-presence assertions until the wiring lands. See
+    /// Recency / Mmr signals have been emitted. The W-19 Brain Panel uses this
+    /// to render a "lexical-only" chip; the F-VaultRecall-50 runner uses it to
+    /// count rows that did not need or did not enter semantic fallback. See
     /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q2.
     pub fn has_only_lexical_signals(&self) -> bool {
         self.signal_summary.len() == 1 && self.signal_summary[0] == RetrievalSignal::Lexical
@@ -882,11 +873,8 @@ mod tests {
     }
 
     /// T21 iter-65: `RetrievalTrace::has_only_lexical_signals()` returns
-    /// true iff `signal_summary == [Lexical]`. Pins the Q2-gap predicate:
-    /// every current `VaultBackend` impl is in this state, and the test
-    /// must break loudly when multi-signal wiring (epistemos-shadow)
-    /// lands. Covers four shapes: empty, lexical-only, lexical+other,
-    /// non-lexical-only.
+    /// true iff `signal_summary == [Lexical]`. Covers four shapes: empty,
+    /// lexical-only, lexical+other, non-lexical-only.
     #[test]
     fn trace_has_only_lexical_signals_returns_true_iff_singleton_lexical() {
         let mut empty = RetrievalTrace::new("q", "q");
@@ -898,7 +886,7 @@ mod tests {
         empty.signal_summary.push(RetrievalSignal::Lexical);
         assert!(
             empty.has_only_lexical_signals(),
-            "[Lexical] must pass — Q2-gap state"
+            "[Lexical] must pass as the lexical-only state"
         );
 
         empty.signal_summary.push(RetrievalSignal::Semantic);
