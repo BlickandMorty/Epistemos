@@ -1,0 +1,360 @@
+{
+  "falsifier_id": "F-KVByteBudgetCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_byte_budget_card.sh",
+  "command_digest": "sha256:ba404685ad49d070ac6809f207455554581b0d3f12f2c011604409ed26842723",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "440f446a04b6d53fd501c8936c7ccc7da8be3e96",
+  "fixture_id": "kv_byte_budget_card_v1",
+  "timestamp_utc": "2026-06-03T09:16:03Z",
+  "result_digest": "sha256:243e4792842b61dfa06ccdcc00135be0d84b10e0c06f5449888022fdf02ec33d",
+  "measurements": {
+    "compatibility_failure_changes_plan_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_failure_count": {
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "compatibility_failures_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatible_has_no_failures": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatible_plan_address": {
+      "value": "semantic_working_set_plan:d6f827820b34ee01d30bf558b2c211556c6884864ecd87fbffbc10b6dd9e1228@1779000000000",
+      "unit": "string"
+    },
+    "context_tokens": {
+      "value": 8192,
+      "unit": "count_or_bytes"
+    },
+    "context_tokens_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_compatibility_failure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_miss_tokens_separate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_tokens_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_observed": {
+      "value": 327680,
+      "unit": "count_or_bytes"
+    },
+    "kv_bytes_predicted": {
+      "value": 393216,
+      "unit": "count_or_bytes"
+    },
+    "kv_bytes_separate_from_weight_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_codec": {
+      "value": "kivi-q4-dry-run",
+      "unit": "string"
+    },
+    "kv_codec_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "miss_tokens_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_codec_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_quality_caveat_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_id_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_kv_bytes_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_kv_bytes_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_kv_totals_keep_separate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "predicted_kv_bytes_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_hit_tokens": {
+      "value": 768,
+      "unit": "count_or_bytes"
+    },
+    "prompt_cache_miss_tokens": {
+      "value": 96,
+      "unit": "count_or_bytes"
+    },
+    "quality_caveat": {
+      "value": "dry-run fixture; no KV page loaded; codec may change answer quality",
+      "unit": "string"
+    },
+    "quality_caveat_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_bytes": {
+      "value": 2097152,
+      "unit": "count_or_bytes"
+    },
+    "zero_context_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_predicted_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "compatibility_failure_changes_plan_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_failure_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count_or_bytes"
+    },
+    "compatibility_failures_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatible_has_no_failures": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatible_plan_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "context_tokens": {
+      "operator": "==",
+      "value": 8192,
+      "unit": "count_or_bytes"
+    },
+    "context_tokens_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_compatibility_failure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_miss_tokens_separate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_tokens_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_observed": {
+      "operator": "==",
+      "value": 327680,
+      "unit": "count_or_bytes"
+    },
+    "kv_bytes_predicted": {
+      "operator": "==",
+      "value": 393216,
+      "unit": "count_or_bytes"
+    },
+    "kv_bytes_separate_from_weight_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_codec": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "kv_codec_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "miss_tokens_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_codec_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_quality_caveat_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_id_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_kv_bytes_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_kv_bytes_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_kv_totals_keep_separate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "predicted_kv_bytes_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_hit_tokens": {
+      "operator": "==",
+      "value": 768,
+      "unit": "count_or_bytes"
+    },
+    "prompt_cache_miss_tokens": {
+      "operator": "==",
+      "value": 96,
+      "unit": "count_or_bytes"
+    },
+    "quality_caveat": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "quality_caveat_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_bytes": {
+      "operator": "==",
+      "value": 2097152,
+      "unit": "count_or_bytes"
+    },
+    "zero_context_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_predicted_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "compatibility_failure_changes_plan_address": true,
+    "compatibility_failure_count": true,
+    "compatibility_failures_reported": true,
+    "compatible_has_no_failures": true,
+    "compatible_plan_address": true,
+    "context_tokens": true,
+    "context_tokens_reported": true,
+    "empty_compatibility_failure_rejected": true,
+    "hit_miss_tokens_separate": true,
+    "hit_tokens_reported": true,
+    "kv_bytes_observed": true,
+    "kv_bytes_predicted": true,
+    "kv_bytes_separate_from_weight_bytes": true,
+    "kv_codec": true,
+    "kv_codec_reported": true,
+    "miss_tokens_reported": true,
+    "missing_codec_rejected": true,
+    "missing_model_id_rejected": true,
+    "missing_quality_caveat_rejected": true,
+    "model_id_reported": true,
+    "observed_kv_bytes_bounded": true,
+    "observed_kv_bytes_reported": true,
+    "plan_kv_totals_keep_separate": true,
+    "predicted_kv_bytes_reported": true,
+    "prompt_cache_hit_tokens": true,
+    "prompt_cache_miss_tokens": true,
+    "quality_caveat": true,
+    "quality_caveat_reported": true,
+    "weight_bytes": true,
+    "zero_context_rejected": true,
+    "zero_predicted_bytes_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only KVByteBudgetCard accounting; no KV restore, model decode, MLX/Metal, live prompt cache, or route mutation executed"
+    }
+  ],
+  "notes": "Proves KV budget cards report predicted/observed KV bytes, prompt-cache hit/miss tokens, codec, quality caveat, and compatibility failures separately from weight bytes, with missing core fields rejected before runtime."
+}

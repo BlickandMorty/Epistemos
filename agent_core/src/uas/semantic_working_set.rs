@@ -477,6 +477,7 @@ pub struct KVByteBudgetCard {
     pub prompt_cache_hit_tokens: u32,
     pub prompt_cache_miss_tokens: u32,
     pub quality_caveat: String,
+    pub compatibility_failures: Vec<String>,
 }
 
 impl KVByteBudgetCard {
@@ -509,7 +510,20 @@ impl KVByteBudgetCard {
             prompt_cache_hit_tokens,
             prompt_cache_miss_tokens,
             quality_caveat,
+            compatibility_failures: Vec::new(),
         })
+    }
+
+    pub fn with_compatibility_failures(
+        mut self,
+        failures: Vec<String>,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        self.compatibility_failures = canonicalize_strings(
+            "compatibility_failure",
+            failures,
+            SemanticWorkingSetError::InvalidKvBudget,
+        )?;
+        Ok(self)
     }
 }
 
@@ -1214,9 +1228,34 @@ fn plan_address(
     push_preimage(&mut preimage, "kv_model_id", &kv_budget.model_id);
     push_preimage(
         &mut preimage,
+        "kv_context_tokens",
+        &kv_budget.context_tokens.to_string(),
+    );
+    push_preimage(&mut preimage, "kv_codec", &kv_budget.kv_codec);
+    push_preimage(
+        &mut preimage,
         "kv_bytes_predicted",
         &kv_budget.kv_bytes_predicted.to_string(),
     );
+    push_preimage(
+        &mut preimage,
+        "kv_bytes_observed",
+        &kv_budget.kv_bytes_observed.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "prompt_cache_hit_tokens",
+        &kv_budget.prompt_cache_hit_tokens.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "prompt_cache_miss_tokens",
+        &kv_budget.prompt_cache_miss_tokens.to_string(),
+    );
+    push_preimage(&mut preimage, "quality_caveat", &kv_budget.quality_caveat);
+    for failure in &kv_budget.compatibility_failures {
+        push_preimage(&mut preimage, "kv_compatibility_failure", failure);
+    }
     push_preimage(&mut preimage, "mmap_file_id", &mmap_fence.file_id);
     push_preimage(&mut preimage, "fallback_route", fallback_route);
     push_preimage(&mut preimage, "rollback_ref", rollback_ref);
@@ -1290,6 +1329,7 @@ fn missing_field_error(field: &'static str) -> SemanticWorkingSetError {
         "model_id" => SemanticWorkingSetError::MissingModelId,
         "kv_codec" => SemanticWorkingSetError::MissingKvCodec,
         "quality_caveat" => SemanticWorkingSetError::MissingQualityCaveat,
+        "compatibility_failure" => SemanticWorkingSetError::InvalidKvBudget,
         "file_id" => SemanticWorkingSetError::MissingFileId,
         "fallback_route" => SemanticWorkingSetError::MissingFallbackRoute,
         "rollback_ref" => SemanticWorkingSetError::MissingRollbackRef,
@@ -1950,7 +1990,22 @@ mod tests {
         assert_eq!(plan.totals.kv_bytes, 768 * 1024);
         assert_eq!(plan.kv_budget.prompt_cache_hit_tokens, 128);
         assert_eq!(plan.kv_budget.prompt_cache_miss_tokens, 32);
+        assert!(plan.kv_budget.compatibility_failures.is_empty());
         assert_eq!(plan.prefetch_window.ordered_units.len(), 1);
+
+        let incompatible = fixture_kv_budget()
+            .with_compatibility_failures(vec![
+                "rope-scale-mismatch".to_string(),
+                "prefix-digest-mismatch".to_string(),
+            ])
+            .unwrap();
+        assert_eq!(
+            incompatible.compatibility_failures,
+            vec![
+                "prefix-digest-mismatch".to_string(),
+                "rope-scale-mismatch".to_string()
+            ]
+        );
     }
 
     fn compile(

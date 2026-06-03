@@ -47,6 +47,6 @@ policy. It only proves the mission-shaped query contract that later
 the Semantic Working-Set Compiler build order. `F-ResidencyPageTable-Addressability`
 now covers the first page-table gate, and `F-MmapResidencyFence-CopyCount`
 covers mmap fence copy-count semantics. `F-PrefetchWindow-ColdMiss` now covers
-the first prefetch/cold-miss fixture, so the next unfinished bundle work is
-cold-fault learning, KV byte-budget cards, oracle baselines, and
-source-to-residency no-poison propagation.
+the first prefetch/cold-miss fixture, and `F-KVByteBudgetCard` now covers KV
+byte-budget cards. The next unfinished bundle work is cold-fault learning,
+oracle baselines, and source-to-residency no-poison propagation.
