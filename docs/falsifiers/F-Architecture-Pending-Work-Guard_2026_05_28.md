@@ -45,35 +45,11 @@ KV-Direct plan against a model that cannot satisfy the context floor. It also
 keeps alternate long-context model candidates separate from the canonical
 Qwen3-8B falsifier identity.
 
-The guard also reads the separate GGUF candidate artifact:
-
-```text
-artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json
-```
-
-That route is tracked so agents do not create a second GGUF fallback scaffold,
-but it is deliberately not allowed to satisfy the canonical MLX
-`F-KV-Direct-Gate`.
-
 The model-resolution audit
 `docs/audits/KV_DIRECT_CANONICAL_MODEL_RESOLUTION_2026_05_28.md` records the
 public/local conclusion: exact canonical Qwen3-8B MLX identity is present but
 context-red; 128K alternatives are candidate-tier unless the falsifier is
 explicitly retargeted.
-
-The guard also verifies that known-crashy long-context probes are opt-in only.
-Both the GGUF bench helper and app-facing local-agent loop must preserve the
-same safety rule: normal automatic local runs stay at or below `32768` context
-tokens, and anything larger requires the explicit
-`EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` environment gate. This is an execution
-safety bit, not a demotion of the UAS/AcsAnchor/70B ambition.
-
-The GGUF bench helper must also preserve a dry-run preview mode. That preview
-is allowed to write only a manifest with `not_executed=true`,
-`falsifier_green_capable=false`, command shape, and opt-in requirements. It
-must not launch `llama.cpp`, touch the model file, submit Metal work, or write
-metrics. This gives agents a safe way to inspect the next runtime command while
-the crash-prone 128K/70B route remains gated.
 
 The guard now also consumes the safe non-runtime large-model rungs that must
 exist before another 128K/70B runtime probe:
@@ -107,21 +83,15 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-repair_qwen3_8b_128k_gguf_metal_stall
+resolve_qwen3_8b_128k_context_model_assets_for_kv_direct
 ```
 
 That means the canonical KV prompt suite and full-suite run plan already
-exist, the preserved first-shard failure should not be rerun against the
-context-red canonical MLX asset, and the already-mapped GGUF fallback split is
-the active non-duplicate runtime route. The local GGUF file and 131,072-token
-metadata are present. The new 128K q4_0/flash-attn probe manifest shows the
-run reached Metal residency but exited without metrics after waiting on a
-Metal command buffer. The 2026-05-29 probe ladder further narrows the issue:
-best successful local GGUF probe is 32K/256 with f16 KV; quantized KV fails
-context creation without flash-attention; flash-attention times out even at
-8K; disabling KV offload is not a repair. The next agent should repair or
-bypass that specific GGUF backend/cache policy stall before creating any new
-prompt suite, planner, or parallel scaffold.
+exist, but the canonical `Qwen/Qwen3-8B-MLX-4bit` model asset remains
+context-red for the 128K KV-Direct gate. Do not create a GGUF fallback scaffold
+for this row. Either resolve a canonical MLX asset/config that honestly
+supports the 128K context floor, or keep KV-Direct 128K red and continue other
+non-heavy architecture rows.
 
 ## Guard Axes
 
@@ -144,9 +114,6 @@ prompt suite, planner, or parallel scaffold.
 - `kv_model_context_inventory_available`
 - `kv_model_context_inventory_non_destructive`
 - `kv_model_context_canonical_context_ok`
-- `qwen3_8b_128k_gguf_candidate_artifact_available`
-- `heavy_long_context_guard_present`
-- `qwen3_gguf_bench_dry_run_guard_present`
 - `weight_block_range_hash_dry_run_available`
 - `residency_plan_dry_run_available`
 - `provider_reference_manifest_dry_run_available`

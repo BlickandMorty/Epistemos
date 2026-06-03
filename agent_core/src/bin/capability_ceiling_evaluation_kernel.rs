@@ -27,8 +27,6 @@ const PAGE_GATHER_CALLER_PATH: &str =
 const KV_DIRECT_PATH: &str = "artifacts/falsifiers/kv_direct_gate/result.json";
 const KV_DIRECT_FULL_SUITE_RUN_PLAN_PATH: &str =
     "artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json";
-const QWEN3_8B_128K_GGUF_ROUTE_PATH: &str =
-    "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json";
 const AGENT_LOCAL_MODEL_RUNTIME_BRIDGE_PATH: &str =
     "artifacts/falsifiers/agent_local_model_runtime_bridge/result.json";
 const ACTIVE_ASSEMBLY_TEST_PATH: &str = "agent_core/tests/active_assembly_minimal.rs";
@@ -76,7 +74,6 @@ fn build_report() -> KernelReport {
     let page_gather = GateArtifact::read(PAGE_GATHER_PATH);
     let page_gather_caller = GateArtifact::read(PAGE_GATHER_CALLER_PATH);
     let kv_direct = GateArtifact::read(KV_DIRECT_PATH);
-    let qwen3_gguf = GateArtifact::read(QWEN3_8B_128K_GGUF_ROUTE_PATH);
     let agent_local_model_bridge = GateArtifact::read(AGENT_LOCAL_MODEL_RUNTIME_BRIDGE_PATH);
     let fulp_oracle = GateArtifact::read(FULP_ORACLE_PATH);
     let controller = GateArtifact::read(CONTROLLER_KERNEL_PATH);
@@ -93,7 +90,6 @@ fn build_report() -> KernelReport {
         &page_gather,
         &page_gather_caller,
         &kv_direct,
-        &qwen3_gguf,
         &agent_local_model_bridge,
         &fulp_oracle,
         &controller,
@@ -159,12 +155,6 @@ fn build_report() -> KernelReport {
         && kv_direct.axis_true("context_window_tokens")
         && kv_direct.axis_true("decode_tokens_per_prompt");
     let kv_direct_live_128k_pass = kv_direct.overall_pass;
-    let qwen3_8b_128k_gguf_candidate_artifact_available =
-        qwen3_gguf.exists && qwen3_gguf.schema_normalized;
-    let qwen3_8b_128k_gguf_route_pass = qwen3_gguf.overall_pass;
-    let qwen3_8b_128k_gguf_next_bottleneck = qwen3_gguf
-        .measurement_string("next_bottleneck")
-        .unwrap_or_else(|| "missing_qwen3_8b_128k_gguf_candidate_artifact".to_string());
     let agent_local_model_runtime_bridge_pass = agent_local_model_bridge.overall_pass;
     let agent_local_model_runtime_bridge_next_bottleneck = agent_local_model_bridge
         .measurement_string("next_bottleneck")
@@ -181,7 +171,6 @@ fn build_report() -> KernelReport {
         &page_gather,
         &page_gather_caller,
         &kv_direct,
-        &qwen3_gguf,
         &agent_local_model_bridge,
         &fulp_oracle,
         &controller,
@@ -225,9 +214,6 @@ fn build_report() -> KernelReport {
         kv_direct_spill_trace_contract_pass,
         kv_direct_live_shape_floor_pass,
         kv_direct_live_128k_pass,
-        qwen3_8b_128k_gguf_candidate_artifact_available,
-        qwen3_8b_128k_gguf_route_pass,
-        &qwen3_8b_128k_gguf_next_bottleneck,
         agent_local_model_runtime_bridge_pass,
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
@@ -260,9 +246,6 @@ fn build_report() -> KernelReport {
         kv_direct_spill_trace_contract_pass,
         kv_direct_live_shape_floor_pass,
         kv_direct_live_128k_pass,
-        qwen3_8b_128k_gguf_candidate_artifact_available,
-        qwen3_8b_128k_gguf_route_pass,
-        &qwen3_8b_128k_gguf_next_bottleneck,
         agent_local_model_runtime_bridge_pass,
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
@@ -448,20 +431,6 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
-        "qwen3_8b_128k_gguf_candidate_artifact_available",
-        qwen3_8b_128k_gguf_candidate_artifact_available,
-    );
-    measurements.insert(
-        "qwen3_8b_128k_gguf_route_pass".to_string(),
-        Measurement {
-            value: serde_json::Value::Bool(qwen3_8b_128k_gguf_route_pass),
-            unit: "bool_observed_candidate".to_string(),
-        },
-    );
-    add_bool_axis(
-        &mut measurements,
-        &mut thresholds,
-        &mut pass_per_axis,
         "agent_local_model_runtime_bridge_pass",
         agent_local_model_runtime_bridge_pass,
     );
@@ -549,7 +518,6 @@ fn build_report() -> KernelReport {
         &page_gather_caller,
     );
     add_gate_summary(&mut measurements, "kv_direct", &kv_direct);
-    add_gate_summary(&mut measurements, "qwen3_8b_128k_gguf_route", &qwen3_gguf);
     add_gate_summary(
         &mut measurements,
         "agent_local_model_runtime_bridge",
@@ -863,9 +831,6 @@ fn next_bottleneck(
     kv_direct_spill_trace_contract_pass: bool,
     kv_direct_live_shape_floor_pass: bool,
     kv_direct_live_128k_pass: bool,
-    qwen3_8b_128k_gguf_candidate_artifact_available: bool,
-    qwen3_8b_128k_gguf_route_pass: bool,
-    qwen3_8b_128k_gguf_next_bottleneck: &str,
     agent_local_model_runtime_bridge_pass: bool,
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
@@ -892,12 +857,7 @@ fn next_bottleneck(
             } else if !kv_direct_model_identity_matches_canonical {
                 "resolve_canonical_qwen3_8b_model_identity_for_kv_direct".to_string()
             } else if !kv_direct_model_context_supports_required_context {
-                if qwen3_8b_128k_gguf_candidate_artifact_available && !qwen3_8b_128k_gguf_route_pass
-                {
-                    qwen3_8b_128k_gguf_next_bottleneck.to_string()
-                } else {
-                    "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct".to_string()
-                }
+                "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct".to_string()
             } else if !kv_direct_prompt_suite_manifest_available
                 || !kv_direct_prompt_suite_shape_pass
             {
@@ -958,9 +918,6 @@ fn build_ordered_gap_queue(
     kv_direct_spill_trace_contract_pass: bool,
     kv_direct_live_shape_floor_pass: bool,
     kv_direct_live_128k_pass: bool,
-    qwen3_8b_128k_gguf_candidate_artifact_available: bool,
-    qwen3_8b_128k_gguf_route_pass: bool,
-    qwen3_8b_128k_gguf_next_bottleneck: &str,
     agent_local_model_runtime_bridge_pass: bool,
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
@@ -1059,22 +1016,6 @@ fn build_ordered_gap_queue(
         ),
         queue_item(
             7,
-            "qwen3_8b_128k_gguf_candidate_split",
-            "Research / Capability Candidate",
-            if qwen3_8b_128k_gguf_route_pass {
-                "fallback_witness_complete"
-            } else if qwen3_8b_128k_gguf_candidate_artifact_available {
-                qwen3_8b_128k_gguf_next_bottleneck
-            } else {
-                "pending_candidate_artifact"
-            },
-            "F-Qwen3-8B-128K-GGUF-Route",
-            "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
-            "Separate GGUF 128K route either passes as fallback witness with model file, context metadata, runner, paired logits, and live metrics, or stays a red candidate split. It never satisfies the canonical MLX KV gate.",
-            "Keep F-KV-Direct-Gate pinned to Qwen/Qwen3-8B-MLX-4bit; remove/disable this candidate if it cannot meet 16 GB floor metrics.",
-        ),
-        queue_item(
-            8,
             "agent_local_model_runtime_bridge",
             "Pro / Agent Runtime",
             if agent_local_model_runtime_bridge_pass {
@@ -1088,7 +1029,7 @@ fn build_ordered_gap_queue(
             "Keep AgentRuntimeV2 provider dispatch fail-closed/scaffold-labeled until live local generation and provenance pass; do not claim frontier-replacement local agents from catalog metadata alone.",
         ),
         queue_item(
-            9,
+            8,
             "active_assembly_runtime_floor",
             "Capability Ceiling",
             status(active_assembly_runtime_artifact_pass),
@@ -1098,7 +1039,7 @@ fn build_ordered_gap_queue(
             "Treat live model packet routing as a later promotion, not implied by the synthetic fixture.",
         ),
         queue_item(
-            10,
+            9,
             "sparse_runtime_split_floor",
             "Capability Ceiling",
             status(sparse_runtime_split_artifact_pass),
@@ -1108,7 +1049,7 @@ fn build_ordered_gap_queue(
             "Keep live sparse 70B runtime and live chart coverage red until model-backed rows exist.",
         ),
         queue_item(
-            11,
+            10,
             "live_sparse_70b_runtime_and_chart_coverage",
             "Vault / Capability Ceiling",
             if seventy_b_route_pass {
@@ -1122,7 +1063,7 @@ fn build_ordered_gap_queue(
             "Keep 70B route Vault/Research-only; dense MLX must not impersonate ACS/UAS.",
         ),
         queue_item(
-            12,
+            11,
             "seventy_b_prompt_level_cocktail",
             "Vault / Beyond",
             if seventy_b_route_pass {
@@ -1136,7 +1077,7 @@ fn build_ordered_gap_queue(
             "Publish failure report and route to smaller/cascade model; do not expose 70B as product.",
         ),
         queue_item(
-            13,
+            12,
             "research_construction_engine",
             "Research Construction",
             "planned_after_measured_runtime_gates",
@@ -1511,42 +1452,6 @@ mod tests {
                 values[17],
                 values[18],
                 values[19],
-                false,
-                false,
-                "missing_qwen3_8b_128k_gguf_candidate_artifact",
-                values[20],
-                "wire_local_agent_adapter_dispatch",
-                values[21],
-                values[22],
-                values[23],
-                &missing,
-            )
-        };
-        let nb_with_gguf_candidate = |values: [bool; 24]| -> String {
-            next_bottleneck(
-                values[0],
-                values[1],
-                values[2],
-                values[3],
-                values[4],
-                values[5],
-                values[6],
-                values[7],
-                values[8],
-                values[9],
-                values[10],
-                values[11],
-                values[12],
-                values[13],
-                values[14],
-                values[15],
-                values[16],
-                values[17],
-                values[18],
-                values[19],
-                true,
-                false,
-                "download_or_register_qwen3_8b_128k_gguf_model_file",
                 values[20],
                 "wire_local_agent_adapter_dispatch",
                 values[21],
@@ -1605,16 +1510,6 @@ mod tests {
                 MODEL_IDENTITY,
             ]))),
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
-        );
-        assert_eq!(
-            nb_with_gguf_candidate(flags(&with_floor(&[
-                PAGE_PACKETIZED,
-                PAGE_CALLER,
-                KV_CONTRACT,
-                MODEL_ASSETS,
-                MODEL_IDENTITY,
-            ]))),
-            "download_or_register_qwen3_8b_128k_gguf_model_file"
         );
         assert_eq!(
             nb(flags(&with_floor(&[

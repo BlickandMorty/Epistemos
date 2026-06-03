@@ -20,7 +20,7 @@ local falsifier artifacts and emits one route verdict:
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `repair_qwen3_8b_128k_gguf_metal_stall` |
+| Next bottleneck | `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct` |
 | Command | `Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh` |
 | Artifact | `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` |
 | Ordered queue | `measurements.ordered_build_queue` |
@@ -55,8 +55,6 @@ Human-readable queue mirror:
 | `kv_direct_spill_trace_contract_pass` | fail | The trace must name `residual_patched_mmap_nf4_ssd_spill`, prove residual patching, mmap-backed cold KV, NF4/equivalent quantized storage, and `cold_kv_bytes > 0`; prompt-cache reload cannot satisfy this. |
 | `kv_direct_live_shape_floor_pass` | fail | The live fixture has not yet proven `>=100` prompts, `>=128000` context tokens, and `>=256` decode tokens per prompt. |
 | `kv_direct_live_128k_pass` | fail | Qwen3-8B 128K SSD-spill D_KL/RSS/tok/s metrics are not measured yet; the 2026-05-28 harness contract exists, can run smoke logits, supports restartable prompt shards, refuses undersized fixtures, and now refuses model configs that do not support the target context. |
-| `qwen3_8b_128k_gguf_candidate_artifact_available` | pass | Separate GGUF candidate split exists at `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json`. |
-| `qwen3_8b_128k_gguf_route_pass` | observed fail | Candidate route is red with next bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`; the local GGUF file, 131,072-token metadata, llama.cpp runner, smoke bench metrics, smoke KL witness, and 128K q4_0/flash-attn probe manifest exist. The 128K probe reached Metal residency but emitted no metrics, so this remains fallback/candidate evidence only. |
 | `agent_local_model_runtime_bridge_pass` | pass | `F-Agent-Local-Model-Runtime-Bridge` exists as a schema-valid primary witness for the guarded local-model bridge slice. The model catalog, MLX client, GGUF client, `ProviderPolicy::LocalMlx`, System G event seam, Rust LocalAgent adapter dispatch, Rust-to-Swift local-model handoff, registered local client consumption, retained live prompt-suite artifact, and AnswerPacket local-model provenance are present. This does not promote KV-Direct, 128K, or 70B capability-ceiling routes. Current bridge bottleneck: `ready_for_capability_ceiling_recheck`. |
 | `active_assembly_shape_proof_available` | pass | Shape proof/test exists. |
 | `active_assembly_runtime_artifact_pass` | pass | `F-ActiveAssembly-Minimal` now has a schema-valid primary synthetic runtime witness: 0 output-bound violations, `0.0021` cost ratio, `0.0322` firing ratio, and `117.709 us` p99 wall time. |
@@ -204,51 +202,13 @@ worktree-sprawl warning system.
      `mlx-community/Qwen3-Coder-Next-4bit` and records
      `model_identity_matches_canonical=false`, so it is useful for runtime
      exploration but cannot satisfy the canonical Qwen3-8B falsifier.
-   - `Tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` now emits
-     `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json` for the
-     separate GGUF split targeting `unsloth/Qwen3-8B-128K-GGUF`. The Q4_K_M
-     model file is local, the config proves `131072` context tokens, llama.cpp
-     9370 is installed, `Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.sh`
-     emits smoke throughput/RSS metrics, and
-     `Tools/falsifiers/run_qwen3_8b_128k_gguf_kl.sh` emits a smoke
-     f16-KV-vs-q4_0-KV KL witness (`average_d_kl_nats=0.000402`). The route
-     remains a schema-valid failure report because the live fixture shape is
-     only 1 prompt / 32768 context / 256 decode for bench and 1 prompt / 128
-     context for KL. The current bench point uses f16 K/V cache and measured
-     `9.26873779296875` GB peak RSS, `133.530438` prefill tok/s, and
-     `32.445546` decode tok/s. A future pass here would be a fallback witness
-     only, not a canonical MLX KV pass.
-   - A full-context GGUF probe was attempted with `128000` context,
-     `1` decode token, q4_0 K/V cache, and flash attention enabled. It reached
-     the Metal backend with unified memory, shared buffers, and residency sets,
-     but emitted no JSON result after `1549.18` seconds and was stopped. The
-     failure manifest is
-     `artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_bench_128k_q4_0_fa_probe/manifest.json`;
-     peak RSS was `10352017408` bytes. Sampling placed the process in
-     `llama_decode` waiting on `ggml_metal_synchronize`, so this is recorded
-     as a runtime/residency stall witness, not a 128K pass. The GGUF route
-     artifact now consumes that manifest directly and reports current
-     bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`. The GGUF bench runner
-     now has `--timeout-seconds` and removes stale metrics when a probe fails
-     or times out. It also has a dry-run preview path that writes a
-     `not_executed=true` / `falsifier_green_capable=false` manifest for the
-     dangerous 128K command without launching llama.cpp, reading the model
-     file, submitting Metal work, or writing metrics.
-   - The 2026-05-29 probe ladder is now part of the route artifact. It reads
-     10 local shape-probe manifests. Best successful probe is `32768` context /
-     `256` decode with `ctk=f16 ctv=f16 flash_attn=false`. Quantized KV
-     (`q4_0`/`q8_0`) without flash-attention fails context creation, while
-     flash-attention times out even at 8K. Disabling KV offload also fails or
-     times out, so it is not the repair path. That makes the active blocker a
-     backend/cache-policy repair, not another prompt-suite or fixture-shape
-     task.
    - `shard_000_000` now has failure evidence: the `2048` prefill-step attempt
      aborted with a Metal interactivity command-buffer error, and the `512`
      prefill-step retry was stopped after about 14 minutes with zero completed
      prompt rows. That evidence stays on disk, but the pending-work guard now
-     reports `repair_qwen3_8b_128k_gguf_metal_stall` because the canonical MLX
-     model remains context-red and the existing GGUF split is the next
-     non-duplicate executable route.
+     reports `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct`
+     because the canonical MLX model remains context-red. Do not redirect this
+     row into the removed optional candidate route.
    - Next after the model/context axis is green: run the full 100-prompt
      reference/test logits with an SSD-spill route, not merely the current
      KV-quantized or prompt-cache-reload development routes.

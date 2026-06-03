@@ -29,7 +29,8 @@ CONTEXT_KEYS = [
     "context_length",
     "model_max_length",
 ]
-WEIGHT_SUFFIXES = {".safetensors", ".gguf", ".npz"}
+KV_DIRECT_WEIGHT_SUFFIXES = {".safetensors", ".npz"}
+NON_KV_DIRECT_WEIGHT_SUFFIXES = {".gguf"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +60,7 @@ def main() -> int:
         "required_context_tokens": args.required_context,
         "canonical_repo_id": CANONICAL_REPO_ID,
         "canonical_slug": CANONICAL_SLUG,
+        "skips_non_kv_direct_weight_formats": True,
         "summary": summary,
         "entries": entries,
     }
@@ -112,7 +114,10 @@ def scan_model_configs(roots: list[Path]) -> list[dict[str, Any]]:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
-            entries.append(entry_from_config(model_dir, config))
+            entry = entry_from_config(model_dir, config)
+            if entry["has_non_kv_direct_weights"] and not entry["has_local_weights"]:
+                continue
+            entries.append(entry)
     return entries
 
 
@@ -121,7 +126,9 @@ def entry_from_config(model_dir: Path, config: dict[str, Any]) -> dict[str, Any]
     rope_label, rope_effective = rope_effective_context(config.get("rope_scaling"), declared_context)
     effective_context = max(declared_context, rope_effective or 0)
     repo_id = infer_repo_id(model_dir)
-    has_weights = any(path.suffix in WEIGHT_SUFFIXES for path in model_dir.iterdir() if path.is_file())
+    weight_suffixes = {path.suffix for path in model_dir.iterdir() if path.is_file()}
+    has_weights = any(suffix in KV_DIRECT_WEIGHT_SUFFIXES for suffix in weight_suffixes)
+    has_non_kv_direct_weights = any(suffix in NON_KV_DIRECT_WEIGHT_SUFFIXES for suffix in weight_suffixes)
     is_canonical = repo_id == CANONICAL_REPO_ID or CANONICAL_SLUG in str(model_dir)
     model_type = str(config.get("model_type", "unknown"))
     is_text_generation_candidate = model_type not in {"model2vec"}
@@ -138,6 +145,7 @@ def entry_from_config(model_dir: Path, config: dict[str, Any]) -> dict[str, Any]
         ),
         "rope_scaling": rope_label,
         "has_local_weights": has_weights,
+        "has_non_kv_direct_weights": has_non_kv_direct_weights,
         "is_text_generation_candidate": is_text_generation_candidate,
         "satisfies_required_context": effective_context >= REQUIRED_CONTEXT_TOKENS,
         "is_canonical_kv_direct_model": is_canonical,

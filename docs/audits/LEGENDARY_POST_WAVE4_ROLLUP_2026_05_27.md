@@ -150,14 +150,10 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
     name `residual_patched_mmap_nf4_ssd_spill`, set residual patching and
     mmap-backed cold KV evidence, label NF4/equivalent storage, and report
     positive cold-KV bytes. Prompt-cache reload cannot satisfy this axis.
-- Qwen3-8B 128K GGUF candidate split
-  - `Tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` now writes and validates
-    `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json` as a
-    schema-valid red failure report for the separate
-    `unsloth/Qwen3-8B-128K-GGUF` fallback lane. Current bottleneck is
-    `download_or_register_qwen3_8b_128k_gguf_model_file`. This route is
-    fallback/candidate only and does not satisfy the canonical MLX
-    `F-KV-Direct-Gate`.
+- Optional non-MLX long-context candidate split
+  - Removed from the active architecture queue on 2026-06-03 at user request.
+    It does not satisfy the canonical MLX `F-KV-Direct-Gate`, and future work
+    should not recreate this split unless canon explicitly retargets the gate.
 
 ## Main / PR State
 

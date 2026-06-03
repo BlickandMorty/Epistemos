@@ -167,7 +167,6 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-SemiseparableBlockScan` | `tools/falsifiers/f_semiseparable_block_scan.sh` |
 | `F-LocalRecallIsland` | `tools/falsifiers/f_local_recall_island.sh` |
 | `F-KV-Direct-Gate` | `tools/falsifiers/f_kv_direct_gate.sh` |
-| `F-Qwen3-8B-128K-GGUF-Route` | `tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` |
 | `F-WBO-DriftLedger` | `tools/falsifiers/f_wbo_drift_ledger.sh` |
 | `F-ULP-Oracle` | `tools/falsifiers/f_ulp_oracle.sh` |
 | `F-ResidencyPlan-DryRun` | `Tools/falsifiers/f_residency_plan_dry_run.sh` |
@@ -266,7 +265,6 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-SemiseparableBlockScan` | `artifacts/falsifiers/semiseparable_block_scan/` |
 | `F-LocalRecallIsland` | `artifacts/falsifiers/local_recall_island/` |
 | `F-KV-Direct-Gate` | `artifacts/falsifiers/kv_direct_gate/` |
-| `F-Qwen3-8B-128K-GGUF-Route` | `artifacts/falsifiers/qwen3_8b_128k_gguf_route/` |
 | `F-WBO-DriftLedger` | `artifacts/falsifiers/wbo_drift_ledger/` |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
 | `F-ResidencyPlan-DryRun` | `artifacts/falsifiers/residency_plan_dry_run/` |
@@ -440,7 +438,6 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-SemiseparableBlockScan` | `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, `stretch_labeling` |
 | `F-LocalRecallIsland` | `peak_memory_gb`, `passkey_recall`, `niah_single_1`, `depth_failure_labels` |
 | `F-KV-Direct-Gate` | `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, `spill_labeling` |
-| `F-Qwen3-8B-128K-GGUF-Route` | `model_identity_matches_gguf_target`, `model_context_window_tokens`, `dry_run_preview_manifest_available`, `dry_run_preview_not_executed`, `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min` |
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
@@ -751,7 +748,6 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-SemiseparableBlockScan",
         "F-LocalRecallIsland",
         "F-KV-Direct-Gate",
-        "F-Qwen3-8B-128K-GGUF-Route",
         "F-WBO-DriftLedger",
         "F-ULP-Oracle",
         "F-ResidencyPlan-DryRun",
@@ -1461,19 +1457,6 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] },
           "acceptance_thresholds": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] },
           "pass_per_axis": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": { "falsifier_id": { "const": "F-Qwen3-8B-128K-GGUF-Route" } },
-        "required": ["falsifier_id"]
-      },
-      "then": {
-        "properties": {
-          "measurements": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
-          "acceptance_thresholds": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
-          "pass_per_axis": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] }
         }
       }
     },

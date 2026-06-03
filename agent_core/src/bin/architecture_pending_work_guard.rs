@@ -33,10 +33,6 @@ const RESIDENCY_PLAN_DRY_RUN_PATH: &str = "artifacts/falsifiers/residency_plan_d
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const LOCAL_70B_COCKTAIL_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
-const QWEN3_8B_128K_GGUF_ROUTE_PATH: &str =
-    "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json";
-const QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH: &str =
-    "Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.py";
 const LOCAL_WORKTREE_INVENTORY_PATH: &str =
     "docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json";
 const KV_MODEL_CONTEXT_INVENTORY_PATH: &str =
@@ -108,7 +104,6 @@ fn build_report() -> GuardReport {
         .and_then(|v| measurement_string(v, "next_bottleneck"))
         .unwrap_or_else(|| "missing_capability_kernel_next_bottleneck".to_string());
     let kv_result = read_json(Path::new(KV_DIRECT_RESULT_PATH));
-    let qwen3_gguf_route = read_json(Path::new(QWEN3_8B_128K_GGUF_ROUTE_PATH));
     let weight_block_range_hash_dry_run =
         read_json(Path::new(WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH));
     let weight_block_range_hash_dry_run_available = artifact_all_axes_true(
@@ -159,25 +154,6 @@ fn build_report() -> GuardReport {
             && artifact_axis_true_value(value, "residency_plan_dry_run_available")
             && !artifact_axis_true_value(value, "provider_reference_available")
     });
-    let gguf_bench_runner_source =
-        std::fs::read_to_string(QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH).ok();
-    let heavy_long_context_guard_present =
-        gguf_bench_runner_source.as_ref().is_some_and(|source| {
-            source.contains("EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT")
-                && source.contains("SAFE_CONTEXT_TOKENS")
-                && source.contains("refusing >")
-        });
-    let qwen3_gguf_bench_dry_run_guard_present =
-        gguf_bench_runner_source.as_ref().is_some_and(|source| {
-            source.contains("--dry-run")
-                && source.contains("not_executed")
-                && source.contains("falsifier_green_capable")
-                && source.contains("dry-run command preview only")
-        });
-    let qwen3_gguf_next_bottleneck = qwen3_gguf_route
-        .as_ref()
-        .and_then(|v| measurement_string(v, "next_bottleneck"))
-        .unwrap_or_else(|| "missing_qwen3_8b_128k_gguf_candidate_artifact".to_string());
     let kv_fixture_logits_available = kv_result
         .as_ref()
         .and_then(|v| v.get("pass_per_axis"))
@@ -198,8 +174,6 @@ fn build_report() -> GuardReport {
         &merged_summary,
         kv_fixture_logits_available,
         &next_bottleneck,
-        qwen3_gguf_route.is_some(),
-        &qwen3_gguf_next_bottleneck,
     );
     let duplicate_risk_count = queue_summary.duplicate_gap_ids
         + queue_summary.duplicate_orders
@@ -209,13 +183,10 @@ fn build_report() -> GuardReport {
         && !queue_items.is_empty()
         && Path::new(KV_PROMPT_SUITE_PATH).exists()
         && plan_summary.available
-        && qwen3_gguf_route.is_some()
         && weight_block_range_hash_dry_run_available
         && residency_plan_dry_run_available
         && provider_reference_manifest_dry_run_available
         && local_70b_cocktail_honest_red
-        && heavy_long_context_guard_present
-        && qwen3_gguf_bench_dry_run_guard_present
         && worktree_inventory.is_some()
         && model_context_inventory.is_some()
         && next_existing_work != "unset";
@@ -301,13 +272,6 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
-        "qwen3_8b_128k_gguf_candidate_artifact_available",
-        qwen3_gguf_route.is_some(),
-    );
-    add_bool_axis(
-        &mut measurements,
-        &mut thresholds,
-        &mut pass_per_axis,
         "weight_block_range_hash_dry_run_available",
         weight_block_range_hash_dry_run_available,
     );
@@ -331,20 +295,6 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "local_70b_cocktail_honest_red",
         local_70b_cocktail_honest_red,
-    );
-    add_bool_axis(
-        &mut measurements,
-        &mut thresholds,
-        &mut pass_per_axis,
-        "heavy_long_context_guard_present",
-        heavy_long_context_guard_present,
-    );
-    add_bool_axis(
-        &mut measurements,
-        &mut thresholds,
-        &mut pass_per_axis,
-        "qwen3_gguf_bench_dry_run_guard_present",
-        qwen3_gguf_bench_dry_run_guard_present,
     );
     add_bool_axis(
         &mut measurements,
@@ -507,11 +457,6 @@ fn build_report() -> GuardReport {
         "kv_model_context_canonical_context_ok",
         model_context_summary.canonical_context_ok,
     );
-    add_label(
-        &mut measurements,
-        "qwen3_8b_128k_gguf_next_bottleneck",
-        &qwen3_gguf_next_bottleneck,
-    );
     add_label(&mut measurements, "next_bottleneck", &next_bottleneck);
     add_label(&mut measurements, "next_existing_work", &next_existing_work);
     add_label(
@@ -560,14 +505,6 @@ fn build_report() -> GuardReport {
                 "canonical_context_ok": model_context_summary.canonical_context_ok,
                 "required_text_candidate_count": model_context_summary.required_context_text_model_candidate_count,
                 "best_required_context_candidate_repo_id": model_context_summary.best_required_context_candidate_repo_id
-            },
-            "qwen3_8b_128k_gguf_candidate_route": {
-                "path": QWEN3_8B_128K_GGUF_ROUTE_PATH,
-                "exists": qwen3_gguf_route.is_some(),
-                "heavy_run_guard_path": QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH,
-                "heavy_long_context_guard_present": heavy_long_context_guard_present,
-                "dry_run_guard_present": qwen3_gguf_bench_dry_run_guard_present,
-                "next_bottleneck": qwen3_gguf_next_bottleneck
             },
             "large_model_non_runtime_rungs": {
                 "weight_block_range_hash_dry_run": {
@@ -635,18 +572,6 @@ fn build_report() -> GuardReport {
             "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
         }));
     }
-    if !heavy_long_context_guard_present {
-        anomalies.push(serde_json::json!({
-            "kind": "missing_heavy_long_context_guard",
-            "detail": "Long-context GGUF probes above the known-safe envelope must require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 so the loop cannot accidentally repeat a watchdog-triggering Metal stall."
-        }));
-    }
-    if !qwen3_gguf_bench_dry_run_guard_present {
-        anomalies.push(serde_json::json!({
-            "kind": "missing_qwen3_gguf_bench_dry_run_guard",
-            "detail": "The GGUF bench helper must retain a dry-run preview path that writes not_executed=true and falsifier_green_capable=false without launching llama.cpp, reading the model file, or writing metrics."
-        }));
-    }
     if !weight_block_range_hash_dry_run_available {
         anomalies.push(serde_json::json!({
             "kind": "missing_weight_block_range_hash_dry_run",
@@ -699,19 +624,6 @@ fn build_report() -> GuardReport {
                 "Canonical Qwen3-8B 128K context is not satisfied, but {} local text-generation candidates meet the context floor. Best candidate: {}. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model.",
                 model_context_summary.required_context_text_model_candidate_count,
                 model_context_summary.best_required_context_candidate_repo_id
-            )
-        }));
-    }
-    if matches!(
-        next_bottleneck.as_str(),
-        "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
-    ) && qwen3_gguf_route.is_some()
-        && next_existing_work == qwen3_gguf_next_bottleneck
-    {
-        anomalies.push(serde_json::json!({
-            "kind": "canonical_mlx_context_redirected_to_existing_candidate_split",
-            "detail": format!(
-                "The canonical MLX KV gate remains context-red, so the loop continues the already-mapped GGUF candidate split at `{qwen3_gguf_next_bottleneck}` instead of recreating KV prompt/shard work."
             )
         }));
     }
@@ -1158,8 +1070,6 @@ fn derive_next_existing_work(
     merged: &ContractStatus,
     kv_fixture_logits_available: bool,
     next_bottleneck: &str,
-    qwen3_gguf_route_exists: bool,
-    qwen3_gguf_next_bottleneck: &str,
 ) -> String {
     if matches!(
         next_bottleneck,
@@ -1168,19 +1078,7 @@ fn derive_next_existing_work(
         return next_bottleneck.to_string();
     }
     if next_bottleneck == "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct" {
-        if qwen3_gguf_route_exists
-            && !qwen3_gguf_next_bottleneck.is_empty()
-            && qwen3_gguf_next_bottleneck != "missing_qwen3_8b_128k_gguf_candidate_artifact"
-        {
-            return qwen3_gguf_next_bottleneck.to_string();
-        }
         return next_bottleneck.to_string();
-    }
-    if qwen3_gguf_route_exists
-        && next_bottleneck == qwen3_gguf_next_bottleneck
-        && !qwen3_gguf_next_bottleneck.is_empty()
-    {
-        return qwen3_gguf_next_bottleneck.to_string();
     }
     if !prompt_suite_exists {
         return "create_kv_direct_prompt_suite".to_string();
@@ -1366,12 +1264,10 @@ mod tests {
                 true,
                 true,
                 &shards,
-                &ContractStatus::Missing,
-                false,
-                "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
-                false,
-                "missing_qwen3_8b_128k_gguf_candidate_artifact",
-            ),
+            &ContractStatus::Missing,
+            false,
+            "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
+        ),
             "continue_kv_direct_shard:shard_000_024"
         );
     }
@@ -1394,69 +1290,11 @@ mod tests {
                 true,
                 true,
                 &shards,
-                &ContractStatus::Missing,
-                false,
-                "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
-                false,
-                "missing_qwen3_8b_128k_gguf_candidate_artifact",
-            ),
+            &ContractStatus::Missing,
+            false,
+            "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+        ),
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
-        );
-    }
-
-    #[test]
-    fn next_work_continues_existing_gguf_split_when_canonical_mlx_context_is_red() {
-        let shards = ShardSummary {
-            total: 4,
-            complete: 0,
-            partial: 1,
-            failed: 1,
-            missing: 3,
-            first_incomplete: Some("shard_000_000".to_string()),
-            first_incomplete_status: Some("failed".to_string()),
-            incomplete_shards: vec!["shard_000_000".to_string()],
-            failed_shards: vec!["shard_000_000".to_string()],
-        };
-        assert_eq!(
-            derive_next_existing_work(
-                true,
-                true,
-                &shards,
-                &ContractStatus::Missing,
-                false,
-                "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
-                true,
-                "download_or_register_qwen3_8b_128k_gguf_model_file",
-            ),
-            "download_or_register_qwen3_8b_128k_gguf_model_file"
-        );
-    }
-
-    #[test]
-    fn next_work_prioritizes_active_gguf_bottleneck_before_legacy_failed_shard() {
-        let shards = ShardSummary {
-            total: 4,
-            complete: 0,
-            partial: 1,
-            failed: 1,
-            missing: 3,
-            first_incomplete: Some("shard_000_000".to_string()),
-            first_incomplete_status: Some("failed".to_string()),
-            incomplete_shards: vec!["shard_000_000".to_string()],
-            failed_shards: vec!["shard_000_000".to_string()],
-        };
-        assert_eq!(
-            derive_next_existing_work(
-                true,
-                true,
-                &shards,
-                &ContractStatus::Missing,
-                false,
-                "download_or_register_qwen3_8b_128k_gguf_model_file",
-                true,
-                "download_or_register_qwen3_8b_128k_gguf_model_file",
-            ),
-            "download_or_register_qwen3_8b_128k_gguf_model_file"
         );
     }
 
