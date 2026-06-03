@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "9a1d223726965d150e89de075a963261543e778c",
+  "commit_sha": "4996dbcd9f189b3b537ee9174e56bfaac93efd26",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T18:43:47Z",
-  "result_digest": "sha256:a8a8b9614e77ac5de41734667f577411a7237ab9c98c4545c1ddec50eec52ce5",
+  "timestamp_utc": "2026-06-03T19:18:32Z",
+  "result_digest": "sha256:4c1852d76a618aa9edeb225736fd47ff6d3d6d541745045ea8210ebd7787015f",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -250,7 +250,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "rust_route_kernel_model_check",
+      "value": "brain_route_card_multi_model",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -479,11 +479,21 @@
           "order": 22,
           "gap_id": "rust_route_kernel_model_check",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-RustRouteKernel-ModelCheck",
-          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "witness": "artifacts/falsifiers/rust_route_kernel_model_check/result.json",
           "promotion_condition": "Bounded route-state and unsafe/FFI invariants must model-check before proof-carrying routes can approach live execution.",
           "rollback": "Keep route execution shadow-only until model-check evidence, rollback, pinned toolchain identity, and AnswerPacket visibility are verified."
+        },
+        {
+          "order": 23,
+          "gap_id": "brain_route_card_multi_model",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-BrainRouteCard-MultiModel",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Learned or task-shaped BrainRouteCard routing must beat static route policy on quality, evidence, latency, active bytes, and verifier outcomes without hidden multi-model route authority.",
+          "rollback": "Keep BrainRouteCard route priors shadow-only until AnswerPacket-visible evidence, rollback, held-out wins, and route-kernel compatibility pass."
         }
       ],
       "unit": "queue"
@@ -607,6 +617,22 @@
     "route_status": {
       "value": "vault_research_route_with_packetized_mitigation",
       "unit": "label"
+    },
+    "rust_route_kernel_model_check_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_route_kernel_model_check_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/rust_route_kernel_model_check/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     },
     "seventy_b_bottleneck_identified": {
       "value": true,
@@ -875,6 +901,11 @@
       "value": true,
       "unit": "bool"
     },
+    "rust_route_kernel_model_check_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "seventy_b_bottleneck_identified": {
       "operator": "==",
       "value": true,
@@ -960,6 +991,7 @@
     "proof_carrying_route_card_pass": true,
     "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
+    "rust_route_kernel_model_check_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
@@ -988,8 +1020,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "rust_route_kernel_model_check"
+      "detail": "brain_route_card_multi_model"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=rust_route_kernel_model_check; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=brain_route_card_multi_model; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

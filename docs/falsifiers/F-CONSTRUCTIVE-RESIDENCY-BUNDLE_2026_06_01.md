@@ -9,6 +9,8 @@ status: backlog spec only; not an artifact-schema migration and not a pass claim
 
 # F-Constructive-Residency Bundle - 2026-06-01
 
+North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
 ## Purpose
 
 This bundle turns the constructive residency doctrine into buildable falsifier
@@ -121,4 +123,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current active cursor after the 2026-06-03 proof-carrying route-card witness: `F-RustRouteKernel-ModelCheck`
+- Current active cursor after the 2026-06-03 Rust route-kernel model-check witness: `F-BrainRouteCard-MultiModel`

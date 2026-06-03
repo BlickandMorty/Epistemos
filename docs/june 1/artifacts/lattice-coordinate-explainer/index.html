@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
+  <meta name="epistemos-artifact-cursor" content="brain_route_card_multi_model">
+  <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
     @font-face {
@@ -707,6 +709,10 @@ The architecture stops feeling chaotic when the names are kept at four levels. T
   <strong>Build lock.</strong> Epistemos has two distributable builds: MAS and Pro. MAS is the App Store-safe public floor. Pro is the direct-distribution power build. Research, Vault, Omega, heavy runtime, future substrate work, and speculative theorems are internal Pro status bands, not separate app builds.
 </div>
 
+<div class="note">
+  <strong>North-star sentence.</strong> Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+</div>
+
 <h3>Nested tree view</h3>
 <div class="file">Epistemos
 ├─ Builds
@@ -816,6 +822,7 @@ The next architecture lock is small cumulative control. A tiny proof card, premi
   <thead><tr><th>Card</th><th>What it controls</th><th>Visible proof</th></tr></thead>
   <tbody>
     <tr><td>ProofCarryingRouteCard</td><td>Route legality, proof/toolchain pin, budget invariants, rollback.</td><td>Lean/model-check artifact plus AnswerPacket ref.</td></tr>
+    <tr><td>RustRouteKernelModelCheck</td><td>Bounded route-state transitions, rollback reachability, budget monotonicity, abstention, stale-toolchain rejection, and hidden-live-mutation rejection.</td><td>F-RustRouteKernel-ModelCheck artifact plus AnswerPacket-visible route cards.</td></tr>
     <tr><td>BrainRouteCard</td><td>Which local model, verifier, tool, embedding engine, adapter family, or model stack wakes.</td><td>Quality/evidence/latency/active-byte comparison.</td></tr>
     <tr><td>FeatureAtlasCard</td><td>SAE or mechanistic feature handles as route priors.</td><td>Source examples, ambiguity notes, ablation gate.</td></tr>
     <tr><td>FeatureInterventionCard</td><td>Bounded activation or representation steering.</td><td>Baseline, intervention, ablation, rollback.</td></tr>
@@ -1942,7 +1949,7 @@ The mmap replacement layer generalizes ColdStream into a hot-path doctrine. Back
     <tr><td>SpatialDirtyWindow</td><td>Graph/editor geometry updates refine affected regions instead of forcing full-state rebuilds by default.</td><td>F-SpatialDirtyWindow</td></tr>
     <tr><td>ProtocolEdgeJsonWaiver</td><td>JSON remains valid at provider/tool/UI/artifact edges but cannot secretly steer per-token/per-frame active routing.</td><td>F-ProtocolEdgeJsonWaiver</td></tr>
     <tr><td>HotTraceBinarySummary</td><td>Hot control paths use fixed counters/records; JSON remains a cold witness.</td><td>F-VaultRecallHotTrace-NoJSON</td></tr>
-    <tr><td>ProofHarnessCard</td><td>Lean/Verus/Kani/Aeneas prove state-machine invariants while benchmarks prove speed.</td><td>F-ProofHarness-RustLean-StateMachine</td></tr>
+    <tr><td>ProofHarnessCard</td><td>Lean/Verus/Kani/Aeneas prove state-machine invariants while benchmarks prove speed.</td><td>F-ProofHarness-RustLean-StateMachine; current bounded route-state instance: F-RustRouteKernel-ModelCheck</td></tr>
   </tbody>
 </table>
 

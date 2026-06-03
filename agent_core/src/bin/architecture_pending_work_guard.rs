@@ -48,6 +48,8 @@ const META_BREAKTHROUGH_CARD_REGISTRY_PATH: &str =
     "artifacts/falsifiers/meta_breakthrough_card_registry/result.json";
 const PROOF_CARRYING_ROUTE_CARD_PATH: &str =
     "artifacts/falsifiers/proof_carrying_route_card/result.json";
+const RUST_ROUTE_KERNEL_MODEL_CHECK_PATH: &str =
+    "artifacts/falsifiers/rust_route_kernel_model_check/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -58,6 +60,26 @@ const LOCAL_WORKTREE_INVENTORY_PATH: &str =
 const KV_MODEL_CONTEXT_INVENTORY_PATH: &str =
     "docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json";
 const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
+const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
+    "upstream_route_card_artifact_pass",
+    "bounded_state_space_enumerated",
+    "transition_relation_total",
+    "invalid_transition_rejected",
+    "admit_requires_preconditions",
+    "execute_requires_rollback",
+    "execute_requires_answer_packet",
+    "execute_requires_pinned_toolchain",
+    "abstain_on_uncertainty_or_conflict",
+    "rollback_always_reachable",
+    "budget_monotonic",
+    "hidden_live_mutation_rejected",
+    "unsafe_ffi_surface_audited",
+    "unsafe_ffi_surface_empty",
+    "deterministic_model_check_address",
+    "missing_route_card_rejected",
+    "stale_toolchain_rejected",
+    "no_runtime_bytes_loaded",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -453,6 +475,11 @@ fn build_report() -> GuardReport {
             "no_runtime_bytes_loaded",
         ],
     );
+    let rust_route_kernel_model_check = read_json(Path::new(RUST_ROUTE_KERNEL_MODEL_CHECK_PATH));
+    let rust_route_kernel_model_check_available = artifact_all_axes_true(
+        &rust_route_kernel_model_check,
+        RUST_ROUTE_KERNEL_MODEL_CHECK_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -543,6 +570,7 @@ fn build_report() -> GuardReport {
         && swiftlm_source_intake_available
         && meta_breakthrough_card_registry_available
         && proof_carrying_route_card_available
+        && rust_route_kernel_model_check_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -711,6 +739,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "proof_carrying_route_card_available",
         proof_carrying_route_card_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "rust_route_kernel_model_check_available",
+        rust_route_kernel_model_check_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1010,6 +1045,10 @@ fn build_report() -> GuardReport {
                     "path": PROOF_CARRYING_ROUTE_CARD_PATH,
                     "available": proof_carrying_route_card_available
                 },
+                "rust_route_kernel_model_check": {
+                    "path": RUST_ROUTE_KERNEL_MODEL_CHECK_PATH,
+                    "available": rust_route_kernel_model_check_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1149,6 +1188,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_proof_carrying_route_card",
             "detail": "Meta Control has a card registry, but needs F-ProofCarryingRouteCard before Rust route-kernel model-check work continues."
+        }));
+    }
+    if proof_carrying_route_card_available && !rust_route_kernel_model_check_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_rust_route_kernel_model_check",
+            "detail": "Meta Control has proof-carrying route cards, but needs F-RustRouteKernel-ModelCheck before BrainRouteCard routing work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2039,6 +2084,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("proof_carrying_route_card")
+            .is_some());
+        assert!(already_mapped_work
+            .get("rust_route_kernel_model_check")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
