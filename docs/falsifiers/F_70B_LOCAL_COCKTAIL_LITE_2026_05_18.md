@@ -178,6 +178,12 @@ quality/reference/runtime gates remain honest. No product or live 70B inference
 claim may ship until the prompt-level run replaces the sentinel D_KL, tok/s,
 TTFT, and RSS values.
 
+2026-06-03 default-loop update: this red 70B/GGUF/provider-reference lane is
+not the active architecture cursor while the app is routed through practical
+MLX local inference. It remains preserved research evidence and can only become
+the next work again when the heavy long-context/provider-reference lane is
+explicitly re-enabled.
+
 ## 2026-05-30 Provider Reference Manifest Gate
 
 The next bottleneck is now stricter than "file exists." The preflight reads
@@ -270,5 +276,5 @@ that the app can now distinguish:
   names a digest-valid prompt-level replay manifest
 
 So `F-70B-Local-Cocktail-Lite` remains correctly red on
-`missing_fp16_or_provider_reference`, but the exact missing input is now
-auditable.
+`missing_fp16_or_provider_reference` if the 70B/provider-reference lane is
+explicitly re-enabled, but it does not block the default MLX architecture loop.

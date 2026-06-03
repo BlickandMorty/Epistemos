@@ -39,6 +39,9 @@ const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
 const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
+const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED: &str =
+    "large_model_provider_reference_deferred_by_mlx_route";
+const RESEARCH_CONSTRUCTION_ENGINE_CURSOR: &str = "research_construction_engine";
 
 fn main() {
     let report = build_report();
@@ -529,11 +532,7 @@ fn build_report() -> KernelReport {
         "agent_local_model_runtime_bridge_next_bottleneck",
         &agent_local_model_runtime_bridge_next_bottleneck,
     );
-    add_bool_measurement(
-        &mut measurements,
-        "heavy_long_context_guard_present",
-        true,
-    );
+    add_bool_measurement(&mut measurements, "heavy_long_context_guard_present", true);
     add_bool_measurement(
         &mut measurements,
         "heavy_long_context_enabled",
@@ -946,6 +945,8 @@ fn next_bottleneck(
         "promote_active_assembly_from_shape_proof_to_runtime_artifact".to_string()
     } else if !sparse_runtime_split_artifact_pass {
         "add_sparse_runtime_split_artifact".to_string()
+    } else if !seventy_b_route_pass && !heavy_long_context_enabled {
+        RESEARCH_CONSTRUCTION_ENGINE_CURSOR.to_string()
     } else if !seventy_b_route_pass {
         cocktail
             .measurement_string("primary_bottleneck")
@@ -1121,13 +1122,19 @@ fn build_ordered_gap_queue(
             "Vault / Capability Ceiling",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled {
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
             } else {
                 "pending_live_model_runtime"
             },
             "F-70B-Local-Cocktail-Lite",
             "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
-            "Provide local 70B weights, provider/fp16 reference, live sparse runtime trace, and live chart rows for weights/layers/KV/kernels.",
-            "Keep 70B route Vault/Research-only; dense MLX must not impersonate ACS/UAS.",
+            if heavy_long_context_enabled {
+                "Provide local 70B weights, provider/fp16 reference, live sparse runtime trace, and live chart rows for weights/layers/KV/kernels."
+            } else {
+                "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research."
+            },
+            "Keep 70B route Vault/Research-only; practical MLX routes must not impersonate ACS/UAS.",
         ),
         queue_item(
             11,
@@ -1135,19 +1142,29 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled {
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
             } else {
                 cocktail_primary_bottleneck
             },
             "F-70B-Local-Cocktail-Lite",
             "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
-            "Prompt-level D_KL, TTFT, tok/s, RSS, cache state, bottleneck attribution, and rollback all pass.",
-            "Publish failure report and route to smaller/cascade model; do not expose 70B as product.",
+            if heavy_long_context_enabled {
+                "Prompt-level D_KL, TTFT, tok/s, RSS, cache state, bottleneck attribution, and rollback all pass."
+            } else {
+                "No active provider-reference prompt-level work is required for the MLX route."
+            },
+            "Route active local inference through MLX; do not expose 70B as product.",
         ),
         queue_item(
             12,
             "research_construction_engine",
             "Research Construction",
-            "planned_after_measured_runtime_gates",
+            if !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_measured_runtime_gates"
+            },
             "RCE / ProblemCard / ConstructionGraph / AnswerPacket",
             "docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md",
             "Open research motifs become ProblemCards with WBO budget, falsifier, witness, tier, and rollback.",
@@ -1341,7 +1358,12 @@ fn build_anomalies(
             "detail": "No schema-valid F-Sparse-Runtime-Split artifact proves selected sparse execution reproduces dense/reference logits within bounded drift."
         }));
     }
-    if !seventy_b_route_pass {
+    if !seventy_b_route_pass && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "seventy_b_route_deferred_by_mlx_route",
+            "detail": "70B/GGUF/provider-reference work is not an active requirement while the app is routed through practical MLX local inference."
+        }));
+    } else if !seventy_b_route_pass {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_red",
             "detail": "70B Local Cocktail Lite remains a failure report; dense MLX must not impersonate the ACS/UAS capability ceiling route."
@@ -1415,11 +1437,7 @@ fn add_label(measurements: &mut BTreeMap<String, Measurement>, key: &str, value:
     );
 }
 
-fn add_bool_measurement(
-    measurements: &mut BTreeMap<String, Measurement>,
-    key: &str,
-    value: bool,
-) {
+fn add_bool_measurement(measurements: &mut BTreeMap<String, Measurement>, key: &str, value: bool) {
     measurements.insert(
         key.to_string(),
         Measurement {
@@ -1569,12 +1587,8 @@ mod tests {
                 &missing,
             )
         };
-        let nb = |values: [bool; 25]| -> String {
-            nb_with_heavy(values, false)
-        };
-        let nb_heavy = |values: [bool; 25]| -> String {
-            nb_with_heavy(values, true)
-        };
+        let nb = |values: [bool; 25]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 25]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -1803,6 +1817,30 @@ mod tests {
         );
         assert_eq!(
             nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+            ]))),
+            "research_construction_engine"
+        );
+        assert_eq!(
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
