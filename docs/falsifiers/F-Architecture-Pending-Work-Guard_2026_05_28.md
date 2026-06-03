@@ -57,6 +57,10 @@ exist before another 128K/70B runtime probe:
 ```text
 artifacts/falsifiers/weight_block_range_hash_dry_run/result.json
 artifacts/falsifiers/residency_plan_dry_run/result.json
+artifacts/falsifiers/residency_construction_graph/result.json
+artifacts/falsifiers/coactivation_tile_prefetch/result.json
+artifacts/falsifiers/proof_carrying_residency_lease/result.json
+artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json
 artifacts/falsifiers/provider_reference_manifest_dry_run/result.json
 artifacts/falsifiers/70b_local_cocktail_lite/result.json
 ```
@@ -83,18 +87,20 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-cold_assembly_plan_70b_lite
+lattice_state_controller
 ```
 
 That means the canonical KV prompt suite, full-suite run plan, coactivation
-tile prefetch witness, proof-carrying residency lease witness, and
-70B/provider-reference failure reports remain preserved as research evidence,
+tile prefetch witness, proof-carrying residency lease witness, 70B-lite cold
+assembly witness, and 70B/provider-reference failure reports remain preserved
+as research evidence,
 but 128K Qwen/GGUF/KV shard work and provider-reference work are deferred by
 default. Do not repair or rerun KV shards or create provider-reference
 manifests unless
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
-probe. Continue the 70B-lite cold assembly planning cursor as the large local
-model architecture path without treating the Qwen/GGUF shard route as active.
+probe. Continue `F-LatticeStateController` as the default architecture path
+after the 70B cold assembly witness without treating the Qwen/GGUF shard route
+as active.
 
 ## Guard Axes
 
@@ -119,6 +125,10 @@ model architecture path without treating the Qwen/GGUF shard route as active.
 - `kv_model_context_canonical_context_ok`
 - `weight_block_range_hash_dry_run_available`
 - `residency_plan_dry_run_available`
+- `residency_construction_graph_available`
+- `coactivation_tile_prefetch_available`
+- `proof_carrying_residency_lease_available`
+- `cold_assembly_plan_70b_lite_available`
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
 - `large_model_provider_reference_required`

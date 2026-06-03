@@ -83,12 +83,17 @@ This gate implements the third candidate target named by:
 - `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
 - `docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md`
 
-The active next architecture cursor after this gate is:
+The immediate next architecture gate after this lease witness was
+`F-ColdAssemblyPlan-70B-Lite`, now implemented by
+`docs/falsifiers/F-ColdAssemblyPlan-70B-Lite_2026_06_03.md` with artifact
+`artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json`.
+
+The active default architecture cursor after that cold assembly witness is:
 
 ```text
-F-ColdAssemblyPlan-70B-Lite
+F-LatticeStateController
 ```
 
-That next gate should prove a small-hot plus cold-selected plan beats
-dense-local, RAG-only, and static-route baselines without hidden cloud or
-dense-resident overclaim.
+That next gate should prove a tiny recurrent/lattice controller can improve
+route decisions versus static policy and abstain when uncertain, without
+letting cold assembly or PatternBoost become hidden live route authority.

@@ -36,6 +36,8 @@ const COACTIVATION_TILE_PREFETCH_PATH: &str =
     "artifacts/falsifiers/coactivation_tile_prefetch/result.json";
 const PROOF_CARRYING_RESIDENCY_LEASE_PATH: &str =
     "artifacts/falsifiers/proof_carrying_residency_lease/result.json";
+const COLD_ASSEMBLY_PLAN_70B_LITE_PATH: &str =
+    "artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -207,6 +209,44 @@ fn build_report() -> GuardReport {
             "no_runtime_bytes_loaded",
         ],
     );
+    let cold_assembly_plan_70b_lite = read_json(Path::new(COLD_ASSEMBLY_PLAN_70B_LITE_PATH));
+    let cold_assembly_plan_70b_lite_available = artifact_all_axes_true(
+        &cold_assembly_plan_70b_lite,
+        &[
+            "cold_assembly_plan_present",
+            "mission_id_bound",
+            "construction_graph_ref_bound",
+            "active_tiles_bound",
+            "warm_tiles_bound",
+            "cold_tiles_bound",
+            "hot_bytes_bound",
+            "warm_bytes_bound",
+            "cold_bytes_bound",
+            "active_executed_bytes_bound",
+            "kv_bytes_bound",
+            "adapter_bytes_bound",
+            "peak_rss_bound",
+            "prefetch_order_bound",
+            "proof_leases_bound",
+            "all_cold_wakes_scheduled_or_skipped",
+            "verifier_stack_bound",
+            "fallback_bound",
+            "rollback_verified",
+            "answer_packet_ref_bound",
+            "beats_dense_local_baseline",
+            "beats_rag_only_baseline",
+            "beats_static_route_baseline",
+            "no_hidden_cloud",
+            "no_dense_resident_overclaim",
+            "no_runtime_bytes_loaded",
+            "plan_address_deterministic",
+            "quality_delta_positive",
+            "evidence_validity_delta_positive",
+            "verifier_delta_positive",
+            "unscheduled_cold_wake_rejected",
+            "missing_lease_rejected",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -290,6 +330,7 @@ fn build_report() -> GuardReport {
         && residency_construction_graph_available
         && coactivation_tile_prefetch_available
         && proof_carrying_residency_lease_available
+        && cold_assembly_plan_70b_lite_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -409,6 +450,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "proof_carrying_residency_lease_available",
         proof_carrying_residency_lease_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_assembly_plan_70b_lite_available",
+        cold_assembly_plan_70b_lite_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -680,6 +728,10 @@ fn build_report() -> GuardReport {
                     "path": PROOF_CARRYING_RESIDENCY_LEASE_PATH,
                     "available": proof_carrying_residency_lease_available
                 },
+                "cold_assembly_plan_70b_lite": {
+                    "path": COLD_ASSEMBLY_PLAN_70B_LITE_PATH,
+                    "available": cold_assembly_plan_70b_lite_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -777,6 +829,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_proof_carrying_residency_lease",
             "detail": "Research Construction has a coactivation witness, but needs F-ProofCarryingResidencyLease before cold assembly plan work continues."
+        }));
+    }
+    if proof_carrying_residency_lease_available && !cold_assembly_plan_70b_lite_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_cold_assembly_plan_70b_lite",
+            "detail": "Research Construction has proof-carrying leases, but needs F-ColdAssemblyPlan-70B-Lite before LatticeStateController work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1650,6 +1708,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("proof_carrying_residency_lease")
+            .is_some());
+        assert!(already_mapped_work
+            .get("cold_assembly_plan_70b_lite")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

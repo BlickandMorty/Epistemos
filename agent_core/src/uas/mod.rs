@@ -29,6 +29,7 @@ pub mod acs_anchor;
 pub mod address;
 pub mod anchor_registry;
 pub mod app_cold_store;
+pub mod cold_assembly_plan;
 pub mod coactivation_tile;
 pub mod construction_card;
 pub mod copy_counter;
@@ -50,6 +51,10 @@ pub use anchor_registry::AcsAnchorRegistry;
 pub use app_cold_store::{
     AppColdStorePlacement, AppColdStoreRouteCard, AppColdStoreRouteCardError,
     AppColdStoreRouteCardTotals, AppColdStoreUnit,
+};
+pub use cold_assembly_plan::{
+    ColdAssemblyBaseline, ColdAssemblyPlan, ColdAssemblyPlanError, ColdAssemblyTileRef,
+    ColdAssemblyTileRole,
 };
 pub use coactivation_tile::{
     CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,

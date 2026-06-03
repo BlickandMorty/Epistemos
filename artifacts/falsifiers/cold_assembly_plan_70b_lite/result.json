@@ -1,0 +1,500 @@
+{
+  "falsifier_id": "F-ColdAssemblyPlan-70B-Lite",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_cold_assembly_plan_70b_lite.sh",
+  "command_digest": "sha256:b58281d978db4dfe8c96e2b9494c88e0964eaea38a88b8ca531f0bd35e5f5f0f",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "06e147d82ed39b7897172dcaf951552a18272a2e",
+  "fixture_id": "cold_assembly_plan_70b_lite_v1",
+  "timestamp_utc": "2026-06-03T15:36:09Z",
+  "result_digest": "sha256:887967f1dc07a966548011246097b4c810daa56eae083813fbbf0411d80e53f7",
+  "measurements": {
+    "active_executed_bytes": {
+      "value": 114688,
+      "unit": "bytes"
+    },
+    "active_executed_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_tiles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "adapter_bytes": {
+      "value": 16384,
+      "unit": "bytes"
+    },
+    "adapter_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "all_cold_wakes_scheduled_or_skipped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_dense_local_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_rag_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_route_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_plan_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "value": 40960,
+      "unit": "bytes"
+    },
+    "cold_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_miss_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "cold_stall_ms": {
+      "value": 0,
+      "unit": "ms"
+    },
+    "cold_tiles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_graph_ref": {
+      "value": "residency_construction_graph:7479a9a4bcfbd974371617c3b8c8b87a19de204fcd581307400e73e3baaad4a0@1779300000000",
+      "unit": "string"
+    },
+    "construction_graph_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_bytes": {
+      "value": 65536,
+      "unit": "bytes"
+    },
+    "hot_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes": {
+      "value": 32768,
+      "unit": "bytes"
+    },
+    "kv_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_dense_resident_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "peak_rss_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "peak_rss_bytes": {
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "plan_address": {
+      "value": "cold_assembly_plan_70b_lite:a10ffd4d300ab1c44e48389329da18834019296d8c948ac6db3c6a800d514b43@1779300000000",
+      "unit": "string"
+    },
+    "plan_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_order_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_leases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_tile_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "unscheduled_cold_wake_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_stack_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_bytes": {
+      "value": 16384,
+      "unit": "bytes"
+    },
+    "warm_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_tiles_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_executed_bytes": {
+      "operator": "<",
+      "value": 1073741824,
+      "unit": "bytes"
+    },
+    "active_executed_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_tiles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "adapter_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "adapter_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_cold_wakes_scheduled_or_skipped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "beats_dense_local_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_rag_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_route_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_plan_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "cold_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_miss_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "cold_stall_ms": {
+      "operator": "==",
+      "value": 0,
+      "unit": "ms"
+    },
+    "cold_tiles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_graph_ref": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "string"
+    },
+    "construction_graph_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "hot_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "kv_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_dense_resident_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "peak_rss_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "peak_rss_bytes": {
+      "operator": "<=",
+      "value": 15032385536,
+      "unit": "bytes"
+    },
+    "plan_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "string"
+    },
+    "plan_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prefetch_order_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_leases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_tile_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "count"
+    },
+    "unscheduled_cold_wake_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_stack_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "warm_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_tiles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_executed_bytes": true,
+    "active_executed_bytes_bound": true,
+    "active_tiles_bound": true,
+    "adapter_bytes": true,
+    "adapter_bytes_bound": true,
+    "all_cold_wakes_scheduled_or_skipped": true,
+    "answer_packet_ref_bound": true,
+    "baseline_count": true,
+    "beats_dense_local_baseline": true,
+    "beats_rag_only_baseline": true,
+    "beats_static_route_baseline": true,
+    "cold_assembly_plan_present": true,
+    "cold_bytes": true,
+    "cold_bytes_bound": true,
+    "cold_miss_count": true,
+    "cold_stall_ms": true,
+    "cold_tiles_bound": true,
+    "construction_graph_ref": true,
+    "construction_graph_ref_bound": true,
+    "evidence_validity_delta_positive": true,
+    "fallback_bound": true,
+    "hot_bytes": true,
+    "hot_bytes_bound": true,
+    "kv_bytes": true,
+    "kv_bytes_bound": true,
+    "missing_lease_rejected": true,
+    "mission_id_bound": true,
+    "no_dense_resident_overclaim": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "peak_rss_bound": true,
+    "peak_rss_bytes": true,
+    "plan_address": true,
+    "plan_address_deterministic": true,
+    "prefetch_order_bound": true,
+    "proof_leases_bound": true,
+    "quality_delta_positive": true,
+    "rollback_verified": true,
+    "selected_tile_count": true,
+    "unscheduled_cold_wake_rejected": true,
+    "verifier_delta_positive": true,
+    "verifier_stack_bound": true,
+    "warm_bytes": true,
+    "warm_bytes_bound": true,
+    "warm_tiles_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only cold assembly plan fixture; no byte transport, mmap, model decode, MLX, Metal, KV, GGUF, provider call, hidden cloud route, or live route policy mutation executed"
+    }
+  ],
+  "notes": "Proves a proof-carrying 70B-lite cold assembly plan beats dense-local, RAG-only, and static-route baselines in a metadata-only fixture; live 70B runtime remains a separate gate."
+}
