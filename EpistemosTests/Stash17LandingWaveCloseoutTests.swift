@@ -75,7 +75,8 @@ struct Stash17LandingWaveCloseoutTests {
         #expect(landing.contains("AmbientFrequencyPlaybackState"))
         #expect(landing.contains("LandingFarmView("))
         #expect(landing.contains("landingSearchInlineStage"))
-        #expect(landing.contains("ContextualShadowsButton()"))
+        #expect(landing.contains("ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)"))
+        #expect(landing.contains("ContextualShadowsPanel("))
         #expect(!landing.contains("LandingWaveOverlay("))
         #expect(!landing.contains("LandingWaveHaptics.fireBeat"))
     }

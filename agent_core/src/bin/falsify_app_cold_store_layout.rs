@@ -968,9 +968,15 @@ fn manifest(
     rollback_reference: Option<UasAddress>,
 ) -> Result<WeightBlockManifest, Box<dyn std::error::Error>> {
     let hash = blake3::hash(label.as_bytes());
+    let source_uri = match residency_class {
+        WeightBlockResidencyClass::WarmCompressedUma => {
+            format!("app-cache://coldstore_warm/decoded_pages/{label}.epwp")
+        }
+        _ => format!("app-support://Epistemos/Models/coldstore/{label}.epwp"),
+    };
     Ok(WeightBlockManifest::from_known_hash_hex(
         "local/app-cold-store-fixture",
-        format!("app-support://Epistemos/Models/coldstore/{label}.epwp"),
+        source_uri,
         byte_start,
         byte_len,
         hash.to_hex().as_str(),

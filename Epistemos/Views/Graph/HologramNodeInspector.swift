@@ -16,24 +16,10 @@ struct HologramNodeInspector: View {
     let modelContext: ModelContext
 
     enum Section: CaseIterable { case profile, summary, relationships }
-    enum EditorDisplay: String, CaseIterable {
-        case raw
-        case formatted
-
-        var label: String {
-            switch self {
-            case .raw: "Edit"
-            case .formatted: "Preview"
-            }
-        }
-    }
     @State private var expandedSection: Section = .profile
     @State private var editorText = ""
     @State private var lastPersistedBody = ""
     @State private var editorSaveTask: Task<Void, Never>?
-    @State private var isEditorExpanded = false
-    @State private var editorDisplay: EditorDisplay = .raw
-    @State private var editorDisplayTrigger = 0
     @State private var panelIsRevealed = true
     @State private var panelDismissTask: Task<Void, Never>?
 
@@ -74,7 +60,6 @@ struct HologramNodeInspector: View {
             inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
             if previousSelection != nodeId {
                 expandedSection = .profile
-                isEditorExpanded = false
             }
             if graphState.requestEditorMode {
                 graphState.requestEditorMode = false
@@ -82,7 +67,6 @@ struct HologramNodeInspector: View {
             }
         } else {
             inspectorState.clearSelection()
-            isEditorExpanded = false
         }
     }
 
@@ -94,6 +78,10 @@ struct HologramNodeInspector: View {
 
     private var inspectorHeight: CGFloat {
         graphSurfacePresentation.isEmbeddedHome ? 500 : 520
+    }
+
+    private var graphInspectorPreviewBottomPadding: CGFloat {
+        graphSurfacePresentation.isEmbeddedHome ? 64 : 72
     }
 
     private var compactNodeTitleFontSize: CGFloat {
@@ -395,87 +383,31 @@ struct HologramNodeInspector: View {
     private var modePicker: some View {
         Picker("", selection: Bindable(inspectorState).inspectorMode) {
             Text("Profile").tag(NodeInspectorState.InspectorMode.profile)
-            Text("Editor").tag(NodeInspectorState.InspectorMode.editor)
+            Text("Preview").tag(NodeInspectorState.InspectorMode.editor)
         }
         .pickerStyle(.segmented)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .onChange(of: inspectorState.inspectorMode) { _, newMode in
-            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
-                isEditorExpanded = (newMode == .editor)
-            }
-        }
     }
 
     private func noteEditorBody(pageId: String) -> some View {
-        let isCode = isCodeFile(pageId: pageId)
-        
         return VStack(spacing: 0) {
-            // Toolbar - only show toggle for prose files, not code files
-            if !isCode {
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        ForEach(EditorDisplay.allCases, id: \.self) { display in
-                            Button {
-                                guard editorDisplay != display else { return }
-                                editorDisplay = display
-                                editorDisplayTrigger += 1
-                            } label: {
-                                ASCIIRippleText(
-                                    text: display.label,
-                                    font: .system(size: 12, weight: .semibold),
-                                    color: editorDisplay == display ? .primary : .secondary,
-                                    manualTrigger: editorDisplay == display ? editorDisplayTrigger : 0
-                                )
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 6)
-                                    .padding(.horizontal, 10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.primary.opacity(0.06))
-                    )
-                    .frame(width: 164)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-                Divider().opacity(0.3)
-            }
-
-            // Editor content
             if let lang = detectedCodeLanguage(pageId: pageId) {
-                // Code file: Only show Preview, no Edit mode
                 CodeInspectorPreview(content: editorText, language: lang, theme: theme)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
-                // Prose file: original editor
-                if editorDisplay == .raw {
-                    TextEditor(text: $editorText)
-                        .font(AppDisplayTypography.panelFont(size: 14, theme: theme))
-                        .lineSpacing(4)
-                        .scrollContentBackground(.hidden)
-                        .padding(16)
-                } else {
-                    ScrollView {
-                        formattedMarkdownView(editorText)
-                            .padding(16)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                ScrollView {
+                    formattedMarkdownView(editorText)
+                        .padding(.top, 16)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, graphInspectorPreviewBottomPadding)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollIndicators(.visible)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        .frame(maxHeight: .infinity)
-        .frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             Task { @MainActor in
                 let body = currentBody(for: pageId)
@@ -731,13 +663,28 @@ struct HologramNodeInspector: View {
         } else if trimmed.isEmpty {
             Spacer().frame(height: 4)
         } else {
-            previewMarkdownText(
+            panelPreviewMarkdownText(
                 markdown: trimmed,
-                font: .system(size: 13),
                 color: .primary,
                 rippleEnabled: false
             )
         }
+    }
+
+    private func panelPreviewMarkdownText(
+        markdown: String,
+        color: Color,
+        rippleEnabled: Bool = true
+    ) -> some View {
+        Text(inlineMarkdown(markdown))
+            .font(AppDisplayTypography.panelFont(size: 14, theme: theme))
+            .foregroundStyle(color)
+            .asciiRippleOverlay(
+                text: MarkdownRippleTextExtractor.displayText(from: markdown),
+                font: AppDisplayTypography.panelFont(size: 14, theme: theme),
+                color: color,
+                enabled: rippleEnabled
+            )
     }
 
     private func previewMarkdownText(

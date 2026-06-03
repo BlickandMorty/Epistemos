@@ -67,7 +67,9 @@ struct Stash16And19EditorCloseoutTests {
         #expect(source.contains("showGutter: showLineGutter"))
         #expect(source.contains("showFoldingRibbon: showLineGutter && showFoldingRibbon"))
         #expect(source.contains("invisibleCharactersConfiguration: invisibleCharactersConfiguration"))
-        #expect(source.contains("let debouncer = contentDebouncer ?? CodeEditorContentDebouncer"))
+        #expect(source.contains("private func ensureContentDebouncer() -> CodeEditorContentDebouncer"))
+        #expect(source.contains("if let contentDebouncer {"))
+        #expect(source.contains("let debouncer = CodeEditorContentDebouncer { newText in"))
         #expect(source.contains("CodeEditSourceEditor plus the small Epistemos coordinator/sidecar layer above."))
 
         #expect(!source.contains("MINIMAL TEST"))

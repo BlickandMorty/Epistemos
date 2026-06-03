@@ -68,7 +68,7 @@ enum LiquidGreetingTiming {
 // Both pairs render in the hero font + size — no separate smaller
 // font. The hero typewriter cycles: types pair 1, holds, backspaces,
 // types pair 2, holds, backspaces, repeats. Landing owns its own scoped
-// typography: Classic uses Matrix Type regular for this hero, Platinum uses
+// typography: Classic uses Matrix Type Bold for this hero, Platinum uses
 // the non-watermarked Matrix Type face, and Ember keeps ColorBasic.
 
 struct LiquidGreeting: View {
@@ -116,26 +116,25 @@ struct LiquidGreeting: View {
     @State private var cursorVisible: Bool = true
 
     /// Hero font for the two stacked lines. Landing owns this face
-    /// independently from note headings so Classic can keep Matrix Type
-    /// regular here while note headings use their own Matrix/Chonky rules.
+    /// independently from note headings so Classic can keep Matrix Type Bold
+    /// here while note headings use their own Matrix/Chonky rules.
     private var heroFont: Font {
-        Font.custom(LandingCommandTypography.heroFontName(for: theme), size: heroFontSize)
-            .weight(heroFontWeight)
+        weightedHeroFont(size: heroFontSize)
     }
 
     /// Search-line font shrinks as the query grows — same dynamic
     /// curve as before, but anchored to the new smaller hero baseline.
     private var searchFont: Font {
-        Font.custom(LandingCommandTypography.heroFontName(for: theme), size: dynamicSearchFontSize)
-            .weight(heroFontWeight)
+        weightedHeroFont(size: dynamicSearchFontSize)
     }
 
     private var heroFontSize: CGFloat {
         compact ? 22 : 44
     }
 
-    private var heroFontWeight: Font.Weight {
-        theme.themePair == .classic ? .regular : .heavy
+    private func weightedHeroFont(size: CGFloat) -> Font {
+        Font.custom(LandingCommandTypography.heroFontName(for: theme), size: size)
+            .weight(.heavy)
     }
 
     private var usesPlatinumGlyphFallback: Bool {

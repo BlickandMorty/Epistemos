@@ -153,6 +153,8 @@ fn synthetic_violation_5_1_extra_edgekind_enum_fails() {
 
     let output = Command::new(cli_path())
         .arg(tmp.path())
+        .env("EPISTEMOS_UAS_LINT_DIFF", "")
+        .env("EPISTEMOS_ACS_DOC_LINT_DIFF", "")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
@@ -184,6 +186,8 @@ fn synthetic_violation_5_3_put_node_without_compute_id_fails() {
 
     let output = Command::new(cli_path())
         .arg(tmp.path())
+        .env("EPISTEMOS_UAS_LINT_DIFF", "")
+        .env("EPISTEMOS_ACS_DOC_LINT_DIFF", "")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()

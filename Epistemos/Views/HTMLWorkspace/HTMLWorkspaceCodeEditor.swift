@@ -19,9 +19,9 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.delegate = context.coordinator
         context.coordinator.textView = textView
         configure(textView: textView, scrollView: scrollView)
-        context.coordinator.attach(textView: textView, scrollView: scrollView)
-
         scrollView.documentView = textView
+        Self.ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)
+        context.coordinator.attach(textView: textView, scrollView: scrollView)
         return scrollView
     }
 
@@ -35,6 +35,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         configure(textView: textView, scrollView: scrollView)
+        Self.ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)
         context.coordinator.attach(textView: textView, scrollView: scrollView)
     }
 
@@ -78,7 +79,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.allowsUndo = true
         textView.isEditable = isEditable
         textView.isSelectable = true
-        textView.font = .monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        textView.font = AppDisplayTypography.monoUIFont(size: 12.5, weight: .regular)
         textView.textColor = palette.foreground
         textView.insertionPointColor = palette.accent
         textView.backgroundColor = palette.background
@@ -108,8 +109,25 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         applyPlainTextAttributes(to: textView, foreground: palette.foreground)
     }
 
+    private static func ensureVisibleTextGeometry(textView: NSTextView, scrollView: NSScrollView) {
+        let contentSize = NSSize(
+            width: max(scrollView.contentSize.width, scrollView.bounds.width),
+            height: max(scrollView.contentSize.height, scrollView.bounds.height)
+        )
+        guard contentSize.width > 0 || contentSize.height > 0 else { return }
+
+        textView.minSize = contentSize
+        if textView.frame.width < contentSize.width || textView.frame.height < contentSize.height {
+            textView.frame.size = NSSize(
+                width: max(textView.frame.width, contentSize.width),
+                height: max(textView.frame.height, contentSize.height)
+            )
+        }
+        textView.needsDisplay = true
+    }
+
     private func applyPlainTextAttributes(to textView: NSTextView, foreground: NSColor) {
-        let editorFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        let editorFont = AppDisplayTypography.monoUIFont(size: 12.5, weight: .regular)
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: foreground,
             .font: editorFont,
@@ -182,6 +200,9 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         }
 
         @objc private func boundsDidChange(_ notification: Notification) {
+            if let textView, let scrollView = textView.enclosingScrollView {
+                HTMLWorkspaceCodeEditor.ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)
+            }
             invalidateLineNumbers()
         }
     }
@@ -275,7 +296,7 @@ private final class LineNumberRulerView: NSRulerView {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .right
         return [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular),
+            .font: AppDisplayTypography.monoUIFont(size: 10.5, weight: .regular),
             .foregroundColor: labelColor,
             .paragraphStyle: paragraph,
         ]
@@ -436,13 +457,15 @@ nonisolated enum HTMLWorkspaceDOMOutline {
     }
 
     private static func captureAttribute(_ name: String, in attributes: String) -> String? {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
         guard let expression = try? NSRegularExpression(
-            pattern: #"\#(name)\s*=\s*["']([^"']+)["']"#,
+            pattern: #"\#(escapedName)\s*=\s*["']([^"']+)["']"#,
             options: [.caseInsensitive]
         ) else { return nil }
         let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
         guard let match = expression.firstMatch(in: attributes, range: range),
-              let valueRange = Range(match.range(at: 2), in: attributes) else {
+              match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: attributes) else {
             return nil
         }
         return String(attributes[valueRange])

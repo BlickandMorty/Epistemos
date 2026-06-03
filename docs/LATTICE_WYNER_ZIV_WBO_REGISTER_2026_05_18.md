@@ -1,6 +1,6 @@
 # Lattice-Wyner-Ziv / WBO Register - 2026-05-18
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 ## Purpose
 
@@ -11,10 +11,10 @@ compressed or approximate representation.
 
 Canonical anchors:
 
-- `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register.
-- `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30.
-- `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79, §3.4 line 119, §3.8 line 175, §3.16 line 267, §3.18 line 302.
-- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19, §4 line 49, §5 line 91.
+- `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 367 T17B - Lattice / WBO Register.
+- `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 32.
+- `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 89, §3.4 line 129, §3.8 line 185, §3.16 line 277, §3.18 line 312.
+- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 30, §4 line 60, §5 line 102.
 
 Rust guard: `register_doc_canon_line_anchors_match_current_sources` asserts
 that line anchors must resolve to the current canon section headings and
@@ -29,16 +29,16 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Canon source | Register use | Drift guard |
 |---|---|---|
-| `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register | Supplies the explicit T17B mission and touch-scope for the lattice/WBO register. | The register remains an accounting substrate, not a speed claim or kernel implementation plan. |
-| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30 | Supplies the 0.5 pre-softmax WBO-6 budget inequality shape. | The register adds typed `T_num` accounting before the half-softmax correction instead of treating numerics as a seventh semantic WBO term. |
-| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79 Six-tier memory hierarchy | Supplies L0 / L1 / L2 / L3 / L4 / L5 / L_SE residency names and rate-distortion framing. | Residency names may route rows, but they do not waive codec, side-information, or WBO obligations. |
-| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119 SCOPE-Rex | Supplies the claim graph / state witness / execution substrate that can carry replayable WBO evidence. | SCOPE-Rex witness state is evidence transport, not proof that approximation drift is zero. |
-| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175 legacy ACS / AcsAnchor doctrine row | Supplies the governance lineage and the process-vs-structure naming disambiguation. | SCOPE-Rex admission can constrain a row, but it cannot replace the lattice/WBO error ledger. |
-| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267 Helios kernels | Supplies target-only kernel and M2 Pro hardware falsifier context. | Kernel targets are not runtime claims here; this register remains pure accounting substrate. |
-| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302 Provenance ledger | Supplies ClaimLedger / replay / retraction evidence surfaces for provider, adapter, and teacher rows. | Provenance proves what was observed or replayed; it does not collapse `T_S`, `T_SE`, or `T_num`. |
-| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19 The 6 canonical surfaces | Supplies the six canonical UAS/AcsAnchor surfaces. | UAS addressability is orthogonal to WBO drift accounting. |
-| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49 UAS/AcsAnchor cross-link map | Supplies the no-loss cross-link map for UAS/AcsAnchor doctrine and code surfaces. | Cross-links preserve ownership; they must not promote Pro Research surfaces into product claims. |
-| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91 V1 / V1.x / V2 / Never-ships sort | Supplies V1 / V1.x / V2 / never-ships tier sorting. | Ship-tier classification gates exposure, not the underlying WBO charge. |
+| `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 367 T17B - Lattice / WBO Register | Supplies the explicit T17B mission and touch-scope for the lattice/WBO register. | The register remains an accounting substrate, not a speed claim or kernel implementation plan. |
+| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 32 | Supplies the 0.5 pre-softmax WBO-6 budget inequality shape. | The register adds typed `T_num` accounting before the half-softmax correction instead of treating numerics as a seventh semantic WBO term. |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 89 Six-tier memory hierarchy | Supplies L0 / L1 / L2 / L3 / L4 / L5 / L_SE residency names and rate-distortion framing. | Residency names may route rows, but they do not waive codec, side-information, or WBO obligations. |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 129 SCOPE-Rex | Supplies the claim graph / state witness / execution substrate that can carry replayable WBO evidence. | SCOPE-Rex witness state is evidence transport, not proof that approximation drift is zero. |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 185 legacy ACS / AcsAnchor doctrine row | Supplies the governance lineage and the process-vs-structure naming disambiguation. | SCOPE-Rex admission can constrain a row, but it cannot replace the lattice/WBO error ledger. |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 277 Helios kernels | Supplies target-only kernel and M2 Pro hardware falsifier context. | Kernel targets are not runtime claims here; this register remains pure accounting substrate. |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 312 Provenance ledger | Supplies ClaimLedger / replay / retraction evidence surfaces for provider, adapter, and teacher rows. | Provenance proves what was observed or replayed; it does not collapse `T_S`, `T_SE`, or `T_num`. |
+| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 30 The 6 canonical surfaces | Supplies the six canonical UAS/AcsAnchor surfaces. | UAS addressability is orthogonal to WBO drift accounting. |
+| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 60 UAS-ACS cross-link map | Supplies the no-loss cross-link map for UAS/AcsAnchor doctrine and code surfaces. | Cross-links preserve ownership; they must not promote Pro Research surfaces into product claims. |
+| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 102 V1 / V1.x / V2 / Never-ships sort | Supplies V1 / V1.x / V2 / never-ships tier sorting. | Ship-tier classification gates exposure, not the underlying WBO charge. |
 
 ## Public JSON Source Anchors
 

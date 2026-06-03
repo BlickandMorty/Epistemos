@@ -6,7 +6,7 @@ use super::*;
 fn register_doc_preserves_required_canon_cross_links_and_caveats() {
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     let required = [
-        "`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346",
+        "`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 367",
         "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2",
         "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4",
         "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8",
@@ -1056,7 +1056,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
             section: "§4",
-            line_number: 346,
+            line_number: 367,
             source: endgame_deck,
             expected_heading: "### T17B - Lattice / WBO Register",
             row_title: "T17B - Lattice / WBO Register",
@@ -1064,7 +1064,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
             section: "§Canonical Inequality Shape",
-            line_number: 30,
+            line_number: 32,
             source: helios_budget,
             expected_heading: "## Canonical Inequality Shape",
             row_title: "Canonical Inequality Shape",
@@ -1072,7 +1072,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
             section: "§3.2",
-            line_number: 79,
+            line_number: 89,
             source: master_fusion,
             expected_heading: "### 3.2 Six-tier memory hierarchy",
             row_title: "Six-tier memory hierarchy",
@@ -1080,7 +1080,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
             section: "§3.4",
-            line_number: 119,
+            line_number: 129,
             source: master_fusion,
             expected_heading: "### 3.4 SCOPE-Rex",
             row_title: "SCOPE-Rex",
@@ -1088,7 +1088,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
             section: "§3.8",
-            line_number: 175,
+            line_number: 185,
             source: master_fusion,
             expected_heading: "### 3.8 ACS",
             row_title: "ACS",
@@ -1096,7 +1096,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
             section: "§3.16",
-            line_number: 267,
+            line_number: 277,
             source: master_fusion,
             expected_heading: "### 3.16 Helios kernels",
             row_title: "Helios kernels",
@@ -1104,7 +1104,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
             section: "§3.18",
-            line_number: 302,
+            line_number: 312,
             source: master_fusion,
             expected_heading: "### 3.18 Provenance ledger",
             row_title: "Provenance ledger",
@@ -1112,7 +1112,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
             section: "§2",
-            line_number: 19,
+            line_number: 30,
             source: uas_canon,
             expected_heading: "## 2. The 6 canonical surfaces",
             row_title: "The 6 canonical surfaces",
@@ -1120,7 +1120,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
             section: "§4",
-            line_number: 49,
+            line_number: 60,
             source: uas_canon,
             expected_heading: "## 4. UAS-ACS cross-link map",
             row_title: "UAS-ACS cross-link map",
@@ -1128,7 +1128,7 @@ fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         RegisterCanonAnchor {
             path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
             section: "§5",
-            line_number: 91,
+            line_number: 102,
             source: uas_canon,
             expected_heading: "## 5. V1 / V1.x / V2 / Never-ships sort",
             row_title: "V1 / V1.x / V2 / Never-ships sort",

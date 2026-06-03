@@ -232,8 +232,9 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
 
         #expect(editorSource.contains("captureAttribute(\"id\""))
         #expect(editorSource.contains("captureAttribute(\"class\""))
-        #expect(editorSource.contains("Range(match.range(at: 2), in: attributes)"))
-        #expect(!editorSource.contains("Range(match.range(at: 1), in: attributes)"))
+        #expect(editorSource.contains("match.numberOfRanges > 1"))
+        #expect(editorSource.contains("Range(match.range(at: 1), in: attributes)"))
+        #expect(!editorSource.contains("Range(match.range(at: 2), in: attributes)"))
     }
 
     @Test("MiniChat routes HTML Workspace edits through structured patch commands")
@@ -319,5 +320,41 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!editorManifest.contains(#""mermaid": "#))
         #expect(!webpack.contains("vendor/mermaid"))
         #expect(!webpack.contains("mermaid.min.js"))
+    }
+}
+
+@Suite("HTML Workspace DOM outline regressions", .serialized)
+// UAS-EXEMPT: source-guard test fixture, not persisted substrate data.
+nonisolated struct HTMLWorkspaceDOMOutlineRegressionTests {
+    @Test("handles id and class attributes without capture crashes")
+    func handlesAttributesWithoutCaptureCrash() {
+        let outline = HTMLWorkspaceDOMOutline.outline(
+            for: #"<main id="hero" class="workspace shell"><section data-panel="notes"></section></main>"#
+        )
+
+        #expect(outline.contains("<main#hero.workspace.shell>"))
+        #expect(outline.contains("<section> data"))
+    }
+}
+
+@Suite("HTML Workspace code editor regressions", .serialized)
+// UAS-EXEMPT: source-guard test fixture, not persisted substrate data.
+nonisolated struct HTMLWorkspaceCodeEditorRegressionTests {
+    @Test("seeds visible text geometry before two-axis source editing")
+    func seedsVisibleTextGeometryBeforeTwoAxisSourceEditing() throws {
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+
+        #expect(editorSource.contains("ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)"))
+        #expect(editorSource.contains("HTMLWorkspaceCodeEditor.ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)"))
+        #expect(editorSource.contains("let contentSize = NSSize("))
+        #expect(editorSource.contains("width: max(scrollView.contentSize.width, scrollView.bounds.width)"))
+        #expect(editorSource.contains("height: max(scrollView.contentSize.height, scrollView.bounds.height)"))
+        #expect(editorSource.contains("textView.minSize = contentSize"))
+        #expect(editorSource.contains("textView.frame.size = NSSize("))
+        #expect(editorSource.contains("width: max(textView.frame.width, contentSize.width)"))
+        #expect(editorSource.contains("height: max(textView.frame.height, contentSize.height)"))
+        #expect(editorSource.contains("applyPlainTextAttributes(to: textView, foreground: palette.foreground)"))
+        #expect(editorSource.contains("AppDisplayTypography.monoUIFont(size: 12.5, weight: .regular)"))
+        #expect(!editorSource.contains("NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)"))
     }
 }

@@ -928,18 +928,17 @@ fn acs_admission_doc_pins_scope_rex_placement_and_layers() {
     let doc = include_str!("../../../../docs/ACS_ADMISSION_FIELD_2026_05_18.md");
 
     for needle in [
-        "ACS (Anchored Cognitive Substrate",
-        "Autopoietic Cognitive Stack",
-        "above SCOPE-Rex",
+        "SCOPE-Rex Admission / SovereignGate",
+        "AcsAnchor",
+        "anchored cognitive substrate",
+        "SCOPE-Rex owns allow / warn / defer / quarantine / reject",
         "MutationEnvelope",
         "pure-data verdict",
-        "No ACS admission path calls cloud services",
+        "No SCOPE-Rex admission path calls cloud services",
         "runs model inference",
         "applies durable state directly",
         "guard_durable_commit",
-        "ACS-L0",
-        "ACS-L1",
-        "ACS-L2",
+        "ACS-L0/L1/L2",
         "MASTER_FUSION §3.8",
     ] {
         assert!(doc.contains(needle), "missing doc anchor: {needle}");
@@ -957,7 +956,7 @@ fn acs_admission_doc_pins_all_verdicts_logged() {
         "quarantine",
         "reject",
         "ACSAuditRecord",
-        "Every ACSAdmissionVerdict emits",
+        "Every legacy `ACSAdmissionVerdict` emits",
     ] {
         assert!(doc.contains(needle), "missing doc verdict anchor: {needle}");
     }
