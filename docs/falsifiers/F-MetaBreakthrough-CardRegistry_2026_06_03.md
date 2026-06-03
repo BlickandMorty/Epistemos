@@ -41,16 +41,22 @@ artifacts/falsifiers/meta_breakthrough_card_registry/result.json
 
 ## Current Meaning
 
-The default main-only architecture cursor moves from:
+The default main-only architecture cursor moved from:
 
 ```text
 F-MetaBreakthrough-CardRegistry
 ```
 
-to:
+to the now-implemented:
 
 ```text
 F-ProofCarryingRouteCard
+```
+
+The current cursor is:
+
+```text
+F-RustRouteKernel-ModelCheck
 ```
 
 The 70B large-local-model architecture track remains preserved as

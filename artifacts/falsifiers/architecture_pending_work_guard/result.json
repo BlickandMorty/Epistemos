@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "8c213ac6e19b217dc880d568c9a553c0cb8c2269",
+  "commit_sha": "9a1d223726965d150e89de075a963261543e778c",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T18:18:06Z",
-  "result_digest": "sha256:a367c31a90e3bd293c0c320780381785f06355e725edf4bf886b221e1e7818ee",
+  "timestamp_utc": "2026-06-03T18:43:48Z",
+  "result_digest": "sha256:fd11d6ee79d08b774525a0acee73398e6a2e472ab91c34cf3f7c7ad0723439a0",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -108,6 +108,10 @@
           },
           "meta_breakthrough_card_registry": {
             "path": "artifacts/falsifiers/meta_breakthrough_card_registry/result.json",
+            "available": true
+          },
+          "proof_carrying_route_card": {
+            "path": "artifacts/falsifiers/proof_carrying_route_card/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -390,11 +394,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "proof_carrying_route_card",
+      "value": "rust_route_kernel_model_check",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "proof_carrying_route_card",
+      "value": "rust_route_kernel_model_check",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -410,6 +414,10 @@
       "unit": "bool"
     },
     "proof_carrying_residency_lease_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_carrying_route_card_available": {
       "value": true,
       "unit": "bool"
     },
@@ -438,7 +446,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 22,
+      "value": 23,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -588,6 +596,11 @@
       "value": true,
       "unit": "bool"
     },
+    "proof_carrying_route_card_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "provider_reference_manifest_dry_run_available": {
       "operator": "==",
       "value": true,
@@ -666,6 +679,7 @@
     "ordered_queue_available": true,
     "pending_work_cursor_available": true,
     "proof_carrying_residency_lease_available": true,
+    "proof_carrying_route_card_available": true,
     "provider_reference_manifest_dry_run_available": true,
     "provider_reference_prompt_level_readiness_witness_available": true,
     "queue_gap_ids_unique": true,
@@ -698,5 +712,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=proof_carrying_route_card; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=rust_route_kernel_model_check; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

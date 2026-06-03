@@ -62,10 +62,11 @@ provider-reference prompt-level probes stay opt-in heavy work.
 `docs/falsifiers/F-SwiftLM-SourceIntake_2026_06_03.md` with artifact
 `artifacts/falsifiers/swiftlm_source_intake/result.json`.
 
-The downstream MetaBreakthrough registry is now implemented. The next Meta Control cursor is:
+The downstream MetaBreakthrough registry and proof-carrying route-card witness
+are now implemented. The next Meta Control cursor is:
 
 ```text
-F-ProofCarryingRouteCard
+F-RustRouteKernel-ModelCheck
 ```
 
 ## Axis Floor

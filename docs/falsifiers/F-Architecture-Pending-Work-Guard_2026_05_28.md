@@ -66,6 +66,7 @@ artifacts/falsifiers/reasoning_state_continuity/result.json
 artifacts/falsifiers/cold_miss_ledger/result.json
 artifacts/falsifiers/swiftlm_source_intake/result.json
 artifacts/falsifiers/meta_breakthrough_card_registry/result.json
+artifacts/falsifiers/proof_carrying_route_card/result.json
 artifacts/falsifiers/provider_reference_manifest_dry_run/result.json
 artifacts/falsifiers/70b_local_cocktail_lite/result.json
 ```
@@ -92,21 +93,21 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-proof_carrying_route_card
+rust_route_kernel_model_check
 ```
 
 That means the canonical KV prompt suite, full-suite run plan, coactivation
 tile prefetch witness, proof-carrying residency lease witness, 70B-lite cold
 assembly witness, lattice-state-controller witness, reasoning-state-continuity
 witness, cold-miss-ledger witness, SwiftLM source-intake witness,
-MetaBreakthrough card-registry witness, and 70B/provider-reference failure
-reports remain preserved as research evidence,
+MetaBreakthrough card-registry witness, proof-carrying route-card witness, and
+70B/provider-reference failure reports remain preserved as research evidence,
 but 128K Qwen/GGUF/KV shard work and
 provider-reference work are deferred by default. Do not repair or rerun KV
 shards or create provider-reference manifests unless
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for an explicit long-context
-probe. Continue `F-ProofCarryingRouteCard` as the default architecture path
-after the MetaBreakthrough registry witness without treating the Qwen/GGUF
+probe. Continue `F-RustRouteKernel-ModelCheck` as the default architecture path
+after the proof-carrying route-card witness without treating the Qwen/GGUF
 shard route as active.
 
 ## Guard Axes
@@ -141,6 +142,7 @@ shard route as active.
 - `cold_miss_ledger_available`
 - `swiftlm_source_intake_available`
 - `meta_breakthrough_card_registry_available`
+- `proof_carrying_route_card_available`
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
 - `large_model_provider_reference_required`

@@ -46,6 +46,8 @@ const COLD_MISS_LEDGER_PATH: &str = "artifacts/falsifiers/cold_miss_ledger/resul
 const SWIFTLM_SOURCE_INTAKE_PATH: &str = "artifacts/falsifiers/swiftlm_source_intake/result.json";
 const META_BREAKTHROUGH_CARD_REGISTRY_PATH: &str =
     "artifacts/falsifiers/meta_breakthrough_card_registry/result.json";
+const PROOF_CARRYING_ROUTE_CARD_PATH: &str =
+    "artifacts/falsifiers/proof_carrying_route_card/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -420,6 +422,37 @@ fn build_report() -> GuardReport {
             "no_runtime_bytes_loaded",
         ],
     );
+    let proof_carrying_route_card = read_json(Path::new(PROOF_CARRYING_ROUTE_CARD_PATH));
+    let proof_carrying_route_card_available = artifact_all_axes_true(
+        &proof_carrying_route_card,
+        &[
+            "proof_route_cards_present",
+            "route_ids_bound",
+            "mission_ids_bound",
+            "preconditions_bound",
+            "postconditions_bound",
+            "budget_invariants_bound",
+            "state_transition_bound",
+            "allowed_mutations_bound",
+            "rollback_handle_bound",
+            "proof_or_model_check_artifact_bound",
+            "pinned_toolchain_version_bound",
+            "answer_packet_ref_bound",
+            "answer_packet_required_fields_bound",
+            "route_schema_complete",
+            "route_card_address_deterministic",
+            "duplicate_route_card_rejected",
+            "missing_preconditions_rejected",
+            "missing_postconditions_rejected",
+            "missing_rollback_rejected",
+            "missing_artifact_ref_rejected",
+            "unpinned_toolchain_rejected",
+            "missing_answer_packet_rejected",
+            "budget_increase_rejected",
+            "hidden_live_mutation_rejected",
+            "no_runtime_bytes_loaded",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -509,6 +542,7 @@ fn build_report() -> GuardReport {
         && cold_miss_ledger_available
         && swiftlm_source_intake_available
         && meta_breakthrough_card_registry_available
+        && proof_carrying_route_card_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -670,6 +704,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "meta_breakthrough_card_registry_available",
         meta_breakthrough_card_registry_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "proof_carrying_route_card_available",
+        proof_carrying_route_card_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -965,6 +1006,10 @@ fn build_report() -> GuardReport {
                     "path": META_BREAKTHROUGH_CARD_REGISTRY_PATH,
                     "available": meta_breakthrough_card_registry_available
                 },
+                "proof_carrying_route_card": {
+                    "path": PROOF_CARRYING_ROUTE_CARD_PATH,
+                    "available": proof_carrying_route_card_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1098,6 +1143,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_meta_breakthrough_card_registry",
             "detail": "Research Construction has SwiftLM source intake, but needs F-MetaBreakthrough-CardRegistry before proof-carrying route-card work continues."
+        }));
+    }
+    if meta_breakthrough_card_registry_available && !proof_carrying_route_card_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_proof_carrying_route_card",
+            "detail": "Meta Control has a card registry, but needs F-ProofCarryingRouteCard before Rust route-kernel model-check work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1985,6 +2036,9 @@ mod tests {
         assert!(already_mapped_work.get("swiftlm_source_intake").is_some());
         assert!(already_mapped_work
             .get("meta_breakthrough_card_registry")
+            .is_some());
+        assert!(already_mapped_work
+            .get("proof_carrying_route_card")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

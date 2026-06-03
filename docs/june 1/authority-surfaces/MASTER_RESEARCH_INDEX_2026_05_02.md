@@ -559,7 +559,7 @@ MInference.
 | Falsifier | Purpose |
 |---|---|
 | `F-MetaBreakthrough-CardRegistry` | PASS metadata-only witness on 2026-06-03. Proves every meta-control card binds UAS address, source, budget, rollback, proof/falsifier state, AnswerPacket visibility, and shadow-only route authority before future route policy can cite it. Artifact: `artifacts/falsifiers/meta_breakthrough_card_registry/result.json`. |
-| `F-ProofCarryingRouteCard` | Proves route cards reject missing preconditions, missing rollback, missing artifact refs, or unpinned proof/toolchain versions. |
+| `F-ProofCarryingRouteCard` | PASS metadata-only witness on 2026-06-03. Proves route cards reject missing preconditions, missing postconditions, missing rollback, missing artifact refs, unpinned proof/toolchain versions, missing AnswerPacket refs, budget increases, and hidden live mutations. Artifact: `artifacts/falsifiers/proof_carrying_route_card/result.json`. |
 | `F-RustRouteKernel-ModelCheck` | Checks bounded route-state and unsafe/FFI invariants with Kani/Verus/Aeneas/hax-style routes where appropriate. |
 | `F-BrainRouteCard-MultiModel` | Proves learned/task-shaped routing beats static routing on quality, evidence validity, latency, and active-byte cost. |
 | `F-KVPageControl-QueryAware` | Proves query-aware page selection beats recency-only and random page policies under active-byte and quality budgets. |
