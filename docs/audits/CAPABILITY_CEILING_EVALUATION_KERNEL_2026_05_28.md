@@ -6,7 +6,7 @@ artifact: artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json
 posture: no-compromise; failures stay visible until measured gates pass
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # Capability Ceiling Evaluation Kernel - 2026-05-28
 
@@ -20,7 +20,7 @@ local falsifier artifacts and emits one route verdict:
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct` |
+| Next bottleneck | `missing_fp16_or_provider_reference` |
 | Command | `Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh` |
 | Artifact | `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` |
 | Ordered queue | `measurements.ordered_build_queue` |
@@ -29,6 +29,11 @@ local falsifier artifacts and emits one route verdict:
 The kernel is deliberately a route governor, not another benchmark. Every
 future large-local-model pass should run this first, do the named next
 bottleneck, then rerun it.
+
+2026-06-03 update: the 128K Qwen/GGUF/KV-Direct lane remains preserved as red
+research evidence, but it is not the default active architecture cursor. It is
+only active when `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set for a deliberate
+long-context probe.
 
 Human-readable queue mirror:
 `docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md`.
@@ -106,8 +111,8 @@ Every loop pass should do exactly this:
 11. Do not run any local 65K/128K/70B-class model probe unless the command is
     deliberately heavy-run gated. The current shared safety gate is
     `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1`; normal app/local-agent loops stay
-    under the 32K envelope while the GGUF Metal stall remains the active
-    bottleneck.
+    under the 32K envelope while the GGUF Metal stall remains deferred
+    research evidence.
 12. Implement one narrow slice for the first pending or blocked row you can
    honestly advance.
 13. Emit or update the corresponding falsifier artifact.
@@ -213,9 +218,9 @@ worktree-sprawl warning system.
      aborted with a Metal interactivity command-buffer error, and the `512`
      prefill-step retry was stopped after about 14 minutes with zero completed
      prompt rows. That evidence stays on disk, but the pending-work guard now
-     reports `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct`
-     because the canonical MLX model remains context-red. Do not redirect this
-     row into the removed optional candidate route.
+     defers KV shard repair unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is
+     set. The default active cursor is `missing_fp16_or_provider_reference`.
+     Do not redirect this row into the removed optional candidate route.
    - Next after the model/context axis is green: run the full 100-prompt
      reference/test logits with an SSD-spill route, not merely the current
      KV-quantized or prompt-cache-reload development routes.

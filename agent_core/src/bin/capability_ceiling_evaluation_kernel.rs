@@ -38,6 +38,7 @@ const SPARSE_RUNTIME_SPLIT_PATH: &str = "artifacts/falsifiers/sparse_runtime_spl
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
+const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
 
 fn main() {
     let report = build_report();
@@ -172,6 +173,7 @@ fn build_report() -> KernelReport {
         && kv_direct.axis_true("context_window_tokens")
         && kv_direct.axis_true("decode_tokens_per_prompt");
     let kv_direct_live_128k_pass = kv_direct.overall_pass;
+    let heavy_long_context_enabled = heavy_long_context_enabled();
     let agent_local_model_runtime_bridge_pass = agent_local_model_bridge.overall_pass;
     let agent_local_model_runtime_bridge_next_bottleneck = agent_local_model_bridge
         .measurement_string("next_bottleneck")
@@ -234,6 +236,7 @@ fn build_report() -> KernelReport {
         kv_direct_spill_trace_contract_pass,
         kv_direct_live_shape_floor_pass,
         kv_direct_live_128k_pass,
+        heavy_long_context_enabled,
         agent_local_model_runtime_bridge_pass,
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
@@ -267,6 +270,7 @@ fn build_report() -> KernelReport {
         kv_direct_spill_trace_contract_pass,
         kv_direct_live_shape_floor_pass,
         kv_direct_live_128k_pass,
+        heavy_long_context_enabled,
         agent_local_model_runtime_bridge_pass,
         &agent_local_model_runtime_bridge_next_bottleneck,
         active_assembly_runtime_artifact_pass,
@@ -525,6 +529,21 @@ fn build_report() -> KernelReport {
         "agent_local_model_runtime_bridge_next_bottleneck",
         &agent_local_model_runtime_bridge_next_bottleneck,
     );
+    add_bool_measurement(
+        &mut measurements,
+        "heavy_long_context_guard_present",
+        true,
+    );
+    add_bool_measurement(
+        &mut measurements,
+        "heavy_long_context_enabled",
+        heavy_long_context_enabled,
+    );
+    add_bool_measurement(
+        &mut measurements,
+        "kv_direct_128k_route_active",
+        heavy_long_context_enabled,
+    );
     measurements.insert(
         "ordered_build_queue".to_string(),
         Measurement {
@@ -568,6 +587,7 @@ fn build_report() -> KernelReport {
         kv_direct_model_identity_matches_canonical,
         kv_direct_model_context_supports_required_context,
         kv_direct_live_128k_pass,
+        heavy_long_context_enabled,
         agent_local_model_runtime_bridge_pass,
         active_assembly_runtime_artifact_pass,
         sparse_runtime_split_artifact_pass,
@@ -579,7 +599,8 @@ fn build_report() -> KernelReport {
         "route_rollup_failure_report; status={route_status}; next_bottleneck={next_bottleneck}; \
          dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research \
          until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, \
-         live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass"
+         live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; \
+         128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
     );
 
     let artifact = ArtifactBuilder {
@@ -867,6 +888,7 @@ fn next_bottleneck(
     kv_direct_spill_trace_contract_pass: bool,
     kv_direct_live_shape_floor_pass: bool,
     kv_direct_live_128k_pass: bool,
+    heavy_long_context_enabled: bool,
     agent_local_model_runtime_bridge_pass: bool,
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
@@ -888,7 +910,7 @@ fn next_bottleneck(
         "wire_page_gather_packetized_caller_or_fix_dense_restore".to_string()
     } else if !page_gather_dense_primary_pass && !page_gather_packetized_policy_acceptance_pass {
         "accept_page_gather_packetized_policy_or_fix_dense_restore".to_string()
-    } else if !kv_direct_live_128k_pass {
+    } else if !kv_direct_live_128k_pass && heavy_long_context_enabled {
         if kv_direct_live_contract_present {
             if !kv_direct_model_assets_available {
                 "resolve_qwen3_8b_mlx_model_assets_for_kv_direct".to_string()
@@ -957,6 +979,7 @@ fn build_ordered_gap_queue(
     kv_direct_spill_trace_contract_pass: bool,
     kv_direct_live_shape_floor_pass: bool,
     kv_direct_live_128k_pass: bool,
+    heavy_long_context_enabled: bool,
     agent_local_model_runtime_bridge_pass: bool,
     agent_local_model_runtime_bridge_next_bottleneck: &str,
     active_assembly_runtime_artifact_pass: bool,
@@ -1044,15 +1067,20 @@ fn build_ordered_gap_queue(
                 kv_direct_full_suite_run_plan_available,
                 kv_direct_logits_available,
                 kv_direct_live_metrics_available,
-                kv_direct_spill_trace_available,
-                kv_direct_spill_trace_contract_pass,
-                kv_direct_live_shape_floor_pass,
-            ),
-            "F-KV-Direct-Gate",
-            "artifacts/falsifiers/kv_direct_gate/result.json",
-            "Set or auto-detect the canonical Qwen/Qwen3-8B-MLX-4bit asset, require its config to honestly support >=128K context, generate the canonical 100-prompt 128K suite manifest, write the restartable full-suite shard plan, then provide paired reference/test logits, >=128K context metrics, >=256 decode tokens per prompt, RSS/tok/s/wall-clock metrics, and SSD-spill trace; all axes pass.",
-            "Keep QK equality as preflight only; no 128K local context product claim without live prompt metrics.",
+            kv_direct_spill_trace_available,
+            kv_direct_spill_trace_contract_pass,
+            kv_direct_live_shape_floor_pass,
+            heavy_long_context_enabled,
         ),
+        "F-KV-Direct-Gate",
+        "artifacts/falsifiers/kv_direct_gate/result.json",
+        if heavy_long_context_enabled {
+            "Set or auto-detect the canonical Qwen/Qwen3-8B-MLX-4bit asset, require its config to honestly support >=128K context, generate the canonical 100-prompt 128K suite manifest, write the restartable full-suite shard plan, then provide paired reference/test logits, >=128K context metrics, >=256 decode tokens per prompt, RSS/tok/s/wall-clock metrics, and SSD-spill trace; all axes pass."
+        } else {
+            "Deferred by default; only revisit the 128K KV-Direct route with EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 and an explicit research/probe task."
+        },
+        "Keep QK equality as preflight only; no 128K local context product claim without live prompt metrics or explicit heavy opt-in.",
+    ),
         queue_item(
             7,
             "agent_local_model_runtime_bridge",
@@ -1172,9 +1200,12 @@ fn kv_direct_queue_status(
     spill_trace_available: bool,
     spill_trace_contract_pass: bool,
     shape_floor_pass: bool,
+    heavy_long_context_enabled: bool,
 ) -> &'static str {
     if pass {
         "completed"
+    } else if !heavy_long_context_enabled {
+        "deferred_heavy_long_context_opt_in"
     } else if !contract_present {
         "pending_contract"
     } else if !model_assets_available {
@@ -1232,6 +1263,7 @@ fn build_anomalies(
     kv_direct_model_identity_matches_canonical: bool,
     kv_direct_model_context_supports_required_context: bool,
     kv_direct_live_128k_pass: bool,
+    heavy_long_context_enabled: bool,
     agent_local_model_runtime_bridge_pass: bool,
     active_assembly_runtime_artifact_pass: bool,
     sparse_runtime_split_artifact_pass: bool,
@@ -1268,19 +1300,24 @@ fn build_anomalies(
             "detail": "No schema-valid caller-path artifact proves a retrieval or witness surface consumes PageGather packets before dense restore."
         }));
     }
-    if !kv_direct_live_128k_pass {
+    if !kv_direct_live_128k_pass && heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "kv_direct_live_gate_red",
             "detail": "KV-Direct Rust equality passes, but the Qwen3-8B 128K SSD-spill D_KL/RSS/tok/s gate is still sentinel red."
         }));
+    } else if !kv_direct_live_128k_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "kv_direct_128k_route_deferred_by_default",
+            "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
+        }));
     }
-    if !kv_direct_model_identity_matches_canonical {
+    if !kv_direct_model_identity_matches_canonical && heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "kv_direct_model_identity_red",
             "detail": "The resolved KV-Direct model asset is not the canonical Qwen/Qwen3-8B-MLX-4bit target. Alternate long-context models stay candidate-tier unless canon changes."
         }));
     }
-    if !kv_direct_model_context_supports_required_context {
+    if !kv_direct_model_context_supports_required_context && heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "kv_direct_model_context_red",
             "detail": "The resolved KV-Direct model asset does not currently prove a >=128K context window, so the 128K live run is blocked before logits."
@@ -1378,6 +1415,20 @@ fn add_label(measurements: &mut BTreeMap<String, Measurement>, key: &str, value:
     );
 }
 
+fn add_bool_measurement(
+    measurements: &mut BTreeMap<String, Measurement>,
+    key: &str,
+    value: bool,
+) {
+    measurements.insert(
+        key.to_string(),
+        Measurement {
+            value: serde_json::Value::Bool(value),
+            unit: "bool".to_string(),
+        },
+    );
+}
+
 fn add_gate_summary(
     measurements: &mut BTreeMap<String, Measurement>,
     key: &str,
@@ -1398,6 +1449,12 @@ fn add_gate_summary(
             unit: "object".to_string(),
         },
     );
+}
+
+fn heavy_long_context_enabled() -> bool {
+    std::env::var(HEAVY_LONG_CONTEXT_ENV)
+        .ok()
+        .is_some_and(|value| value == "1")
 }
 
 #[cfg(test)]
@@ -1480,7 +1537,7 @@ mod tests {
             }
             values
         };
-        let nb = |values: [bool; 25]| -> String {
+        let nb_with_heavy = |values: [bool; 25], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1503,6 +1560,7 @@ mod tests {
                 values[18],
                 values[19],
                 values[20],
+                heavy_long_context_enabled,
                 values[21],
                 "wire_local_agent_adapter_dispatch",
                 values[22],
@@ -1510,6 +1568,12 @@ mod tests {
                 values[24],
                 &missing,
             )
+        };
+        let nb = |values: [bool; 25]| -> String {
+            nb_with_heavy(values, false)
+        };
+        let nb_heavy = |values: [bool; 25]| -> String {
+            nb_with_heavy(values, true)
         };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
@@ -1541,10 +1605,18 @@ mod tests {
                 PAGE_CALLER,
                 PAGE_POLICY
             ]))),
+            "wire_local_agent_adapter_dispatch"
+        );
+        assert_eq!(
+            nb_heavy(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY
+            ]))),
             "build_live_qwen3_8b_128k_kv_direct_harness"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1553,7 +1625,7 @@ mod tests {
             "resolve_qwen3_8b_mlx_model_assets_for_kv_direct"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1563,7 +1635,7 @@ mod tests {
             "resolve_canonical_qwen3_8b_model_identity_for_kv_direct"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1574,7 +1646,7 @@ mod tests {
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1586,7 +1658,7 @@ mod tests {
             "generate_qwen3_8b_100_prompt_128k_kv_direct_suite"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1600,7 +1672,7 @@ mod tests {
             "create_qwen3_8b_100_prompt_128k_shard_run_plan"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1615,7 +1687,7 @@ mod tests {
             "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1631,7 +1703,7 @@ mod tests {
             "record_qwen3_8b_128k_kv_direct_rss_toks_wallclock_metrics"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1648,7 +1720,7 @@ mod tests {
             "record_qwen3_8b_128k_kv_direct_ssd_spill_trace"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,
@@ -1666,7 +1738,7 @@ mod tests {
             "record_qwen3_8b_128k_residual_mmap_nf4_spill_trace"
         );
         assert_eq!(
-            nb(flags(&with_floor(&[
+            nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
                 PAGE_POLICY,

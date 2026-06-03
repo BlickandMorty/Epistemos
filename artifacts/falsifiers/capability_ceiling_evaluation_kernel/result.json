@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "377e399eef9ac6c4deac268cd199b5a4d2ca1f5a",
+  "commit_sha": "a7e739284be17a1450c7b52ccffc89f9b5769c35",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T07:39:06Z",
-  "result_digest": "sha256:059a844962dfed7ac2ac11524f1aa488033a8f53100336abeddd4012e56e38d0",
+  "timestamp_utc": "2026-06-03T11:49:48Z",
+  "result_digest": "sha256:089c2ba84b4904dd356a5b13579794324ad6c0443b21d5041f911d5fab3ba4e8",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -88,6 +88,18 @@
     "cocktail_primary_bottleneck": {
       "value": "missing_fp16_or_provider_reference",
       "unit": "label"
+    },
+    "heavy_long_context_enabled": {
+      "value": false,
+      "unit": "bool"
+    },
+    "heavy_long_context_guard_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_route_active": {
+      "value": false,
+      "unit": "bool"
     },
     "kv_direct_full_suite_run_plan_available": {
       "value": true,
@@ -158,7 +170,7 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+      "value": "missing_fp16_or_provider_reference",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -227,11 +239,11 @@
           "order": 6,
           "gap_id": "kv_direct_live_128k_inputs",
           "tier": "Capability Ceiling",
-          "status": "pending_128k_context_model",
+          "status": "deferred_heavy_long_context_opt_in",
           "falsifier_or_gate": "F-KV-Direct-Gate",
           "witness": "artifacts/falsifiers/kv_direct_gate/result.json",
-          "promotion_condition": "Set or auto-detect the canonical Qwen/Qwen3-8B-MLX-4bit asset, require its config to honestly support >=128K context, generate the canonical 100-prompt 128K suite manifest, write the restartable full-suite shard plan, then provide paired reference/test logits, >=128K context metrics, >=256 decode tokens per prompt, RSS/tok/s/wall-clock metrics, and SSD-spill trace; all axes pass.",
-          "rollback": "Keep QK equality as preflight only; no 128K local context product claim without live prompt metrics."
+          "promotion_condition": "Deferred by default; only revisit the 128K KV-Direct route with EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 and an explicit research/probe task.",
+          "rollback": "Keep QK equality as preflight only; no 128K local context product claim without live prompt metrics or explicit heavy opt-in."
         },
         {
           "order": 7,
@@ -647,12 +659,8 @@
       "detail": "Dense PageGather remains below the primary stream-ratio gate; the packetized policy artifact accepts only retrieval/witness packet surfaces and does not promote dense restore."
     },
     {
-      "kind": "kv_direct_live_gate_red",
-      "detail": "KV-Direct Rust equality passes, but the Qwen3-8B 128K SSD-spill D_KL/RSS/tok/s gate is still sentinel red."
-    },
-    {
-      "kind": "kv_direct_model_context_red",
-      "detail": "The resolved KV-Direct model asset does not currently prove a >=128K context window, so the 128K live run is blocked before logits."
+      "kind": "kv_direct_128k_route_deferred_by_default",
+      "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
       "kind": "seventy_b_route_red",
@@ -660,8 +668,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
+      "detail": "missing_fp16_or_provider_reference"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=resolve_qwen3_8b_128k_context_model_assets_for_kv_direct; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=missing_fp16_or_provider_reference; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

@@ -390,8 +390,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "missing \(Self.ggufArtifactPath)"
         }
         return ggufRoutePass
-            ? "candidate pass; still separate from canonical MLX KV-Direct"
-            : "candidate only · next=\(ggufNextBottleneck)"
+            ? "deferred candidate pass; still separate from canonical MLX KV-Direct"
+            : "deferred candidate · opt-in only · \(ggufNextBottleneck)"
     }
 
     static func load() -> Self {
@@ -411,7 +411,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             nextBottleneck: measurementString(
                 capability,
                 key: "next_bottleneck",
-                default: "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
+                default: "missing_fp16_or_provider_reference"
             ),
             kvArtifactFound: kv != nil,
             kvContextSupportsRequired: measurementBool(kv, key: "model_context_supports_required_context"),
@@ -440,7 +440,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             nextExistingWork: measurementString(
                 pending,
                 key: "next_existing_work",
-                default: "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
+                default: "missing_fp16_or_provider_reference"
             ),
             queueDuplicateGapIDCount: measurementInt(pending, key: "queue_duplicate_gap_id_count"),
             queueDuplicateOrderCount: measurementInt(pending, key: "queue_duplicate_order_count"),

@@ -37,6 +37,7 @@ const LOCAL_WORKTREE_INVENTORY_PATH: &str =
     "docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json";
 const KV_MODEL_CONTEXT_INVENTORY_PATH: &str =
     "docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json";
+const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -103,6 +104,10 @@ fn build_report() -> GuardReport {
         .as_ref()
         .and_then(|v| measurement_string(v, "next_bottleneck"))
         .unwrap_or_else(|| "missing_capability_kernel_next_bottleneck".to_string());
+    let heavy_long_context_enabled = capability
+        .as_ref()
+        .and_then(|v| measurement_bool_value(v, "heavy_long_context_enabled"))
+        .unwrap_or_else(heavy_long_context_enabled);
     let kv_result = read_json(Path::new(KV_DIRECT_RESULT_PATH));
     let weight_block_range_hash_dry_run =
         read_json(Path::new(WEIGHT_BLOCK_RANGE_HASH_DRY_RUN_PATH));
@@ -174,6 +179,7 @@ fn build_report() -> GuardReport {
         &merged_summary,
         kv_fixture_logits_available,
         &next_bottleneck,
+        heavy_long_context_enabled,
     );
     let duplicate_risk_count = queue_summary.duplicate_gap_ids
         + queue_summary.duplicate_orders
@@ -457,6 +463,16 @@ fn build_report() -> GuardReport {
         "kv_model_context_canonical_context_ok",
         model_context_summary.canonical_context_ok,
     );
+    add_bool_measurement(
+        &mut measurements,
+        "heavy_long_context_guard_present",
+        true,
+    );
+    add_bool_measurement(
+        &mut measurements,
+        "heavy_long_context_enabled",
+        heavy_long_context_enabled,
+    );
     add_label(&mut measurements, "next_bottleneck", &next_bottleneck);
     add_label(&mut measurements, "next_existing_work", &next_existing_work);
     add_label(
@@ -628,11 +644,19 @@ fn build_report() -> GuardReport {
         }));
     }
 
-    let notes = format!(
-        "pending_work_guard; next_existing_work={next_existing_work}; \
-         do not recreate prompt suite or shard plan while their artifacts exist; \
-         continue the first incomplete shard or merge/feed existing shards before building new surfaces"
-    );
+    let notes = if heavy_long_context_enabled {
+        format!(
+            "pending_work_guard; next_existing_work={next_existing_work}; \
+             heavy_long_context_enabled=true; do not recreate prompt suite or shard plan while their artifacts exist; \
+             continue the first incomplete shard or merge/feed existing shards before building new surfaces"
+        )
+    } else {
+        format!(
+            "pending_work_guard; next_existing_work={next_existing_work}; \
+             heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; \
+             continue non-heavy architecture work before creating new long-context surfaces"
+        )
+    };
     let artifact = ArtifactBuilder {
         falsifier_id: FALSIFIER_ID.to_string(),
         artifact_kind: if required_state_present && no_duplicate_risk {
@@ -1070,7 +1094,14 @@ fn derive_next_existing_work(
     merged: &ContractStatus,
     kv_fixture_logits_available: bool,
     next_bottleneck: &str,
+    heavy_long_context_enabled: bool,
 ) -> String {
+    if !heavy_long_context_enabled && is_kv_direct_work(next_bottleneck) {
+        return "heavy_long_context_deferred_by_default".to_string();
+    }
+    if !heavy_long_context_enabled {
+        return next_bottleneck.to_string();
+    }
     if matches!(
         next_bottleneck,
         "resolve_qwen3_8b_mlx_model_assets_for_kv_direct"
@@ -1102,6 +1133,10 @@ fn derive_next_existing_work(
         return "feed_merged_kv_direct_bundle_to_falsifier".to_string();
     }
     next_bottleneck.to_string()
+}
+
+fn is_kv_direct_work(next_bottleneck: &str) -> bool {
+    next_bottleneck.contains("kv_direct") || next_bottleneck.contains("qwen3_8b")
 }
 
 fn read_json(path: &Path) -> Option<serde_json::Value> {
@@ -1146,6 +1181,21 @@ fn measurement_string_value(value: &serde_json::Value, key: &str) -> Option<Stri
 
 fn measurement_string(value: &serde_json::Value, key: &str) -> Option<String> {
     measurement_string_value(value, key)
+}
+
+fn measurement_bool_value(value: &serde_json::Value, key: &str) -> Option<bool> {
+    value
+        .get("measurements")?
+        .get(key)?
+        .get("value")
+        .or_else(|| value.get("measurements")?.get(key))?
+        .as_bool()
+}
+
+fn heavy_long_context_enabled() -> bool {
+    std::env::var(HEAVY_LONG_CONTEXT_ENV)
+        .ok()
+        .is_some_and(|value| value == "1")
 }
 
 fn add_bool_axis(
@@ -1267,6 +1317,7 @@ mod tests {
             &ContractStatus::Missing,
             false,
             "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
+            true,
         ),
             "continue_kv_direct_shard:shard_000_024"
         );
@@ -1293,8 +1344,48 @@ mod tests {
             &ContractStatus::Missing,
             false,
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+            true,
         ),
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
+        );
+    }
+
+    #[test]
+    fn next_work_skips_kv_shards_when_heavy_long_context_disabled() {
+        let shards = ShardSummary {
+            total: 4,
+            complete: 0,
+            partial: 1,
+            failed: 1,
+            missing: 3,
+            first_incomplete: Some("shard_000_000".to_string()),
+            first_incomplete_status: Some("failed".to_string()),
+            incomplete_shards: vec!["shard_000_000".to_string()],
+            failed_shards: vec!["shard_000_000".to_string()],
+        };
+        assert_eq!(
+            derive_next_existing_work(
+                true,
+                true,
+                &shards,
+                &ContractStatus::Missing,
+                false,
+                "missing_fp16_or_provider_reference",
+                false,
+            ),
+            "missing_fp16_or_provider_reference"
+        );
+        assert_eq!(
+            derive_next_existing_work(
+                true,
+                true,
+                &shards,
+                &ContractStatus::Missing,
+                false,
+                "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+                false,
+            ),
+            "heavy_long_context_deferred_by_default"
         );
     }
 
