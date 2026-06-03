@@ -48,6 +48,7 @@ const LATTICE_STATE_CONTROLLER_PATH: &str =
 const REASONING_STATE_CONTINUITY_PATH: &str =
     "artifacts/falsifiers/reasoning_state_continuity/result.json";
 const COLD_MISS_LEDGER_PATH: &str = "artifacts/falsifiers/cold_miss_ledger/result.json";
+const SWIFTLM_SOURCE_INTAKE_PATH: &str = "artifacts/falsifiers/swiftlm_source_intake/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -106,6 +107,7 @@ fn build_report() -> KernelReport {
     let lattice_state_controller = GateArtifact::read(LATTICE_STATE_CONTROLLER_PATH);
     let reasoning_state_continuity = GateArtifact::read(REASONING_STATE_CONTINUITY_PATH);
     let cold_miss_ledger = GateArtifact::read(COLD_MISS_LEDGER_PATH);
+    let swiftlm_source_intake = GateArtifact::read(SWIFTLM_SOURCE_INTAKE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -129,6 +131,7 @@ fn build_report() -> KernelReport {
         &lattice_state_controller,
         &reasoning_state_continuity,
         &cold_miss_ledger,
+        &swiftlm_source_intake,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -402,6 +405,31 @@ fn build_report() -> KernelReport {
             "no_runtime_bytes_loaded",
             "ledger_address_deterministic",
         ]);
+    let swiftlm_source_intake_pass = swiftlm_source_intake.overall_pass
+        && swiftlm_source_intake.all_axes_true(&[
+            "swiftlm_source_cards_present",
+            "swiftlm_repo_card_present",
+            "source_cards_sorted",
+            "source_graph_edges_bound",
+            "source_graph_route_affinity_bound",
+            "source_graph_address_deterministic",
+            "ssd_streaming_motif_captured",
+            "kv_compression_motif_captured",
+            "persistent_buffer_motif_captured",
+            "prefetch_motif_captured",
+            "license_note_present",
+            "setup_note_present",
+            "benchmark_caveat_present",
+            "local_test_plan_present",
+            "no_code_import_declared",
+            "no_product_dependency_declared",
+            "no_runtime_bytes_loaded",
+            "duplicate_source_rejected",
+            "missing_license_rejected",
+            "missing_benchmark_caveat_rejected",
+            "missing_local_test_plan_rejected",
+            "implementation_import_rejected",
+        ]);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -425,6 +453,7 @@ fn build_report() -> KernelReport {
         &lattice_state_controller,
         &reasoning_state_continuity,
         &cold_miss_ledger,
+        &swiftlm_source_intake,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -446,6 +475,7 @@ fn build_report() -> KernelReport {
         lattice_state_controller_pass,
         reasoning_state_continuity_pass,
         cold_miss_ledger_pass,
+        swiftlm_source_intake_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -483,6 +513,7 @@ fn build_report() -> KernelReport {
         lattice_state_controller_pass,
         reasoning_state_continuity_pass,
         cold_miss_ledger_pass,
+        swiftlm_source_intake_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -524,6 +555,7 @@ fn build_report() -> KernelReport {
         lattice_state_controller_pass,
         reasoning_state_continuity_pass,
         cold_miss_ledger_pass,
+        swiftlm_source_intake_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -789,6 +821,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "swiftlm_source_intake_pass",
+        swiftlm_source_intake_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -901,6 +940,11 @@ fn build_report() -> KernelReport {
         &reasoning_state_continuity,
     );
     add_gate_summary(&mut measurements, "cold_miss_ledger", &cold_miss_ledger);
+    add_gate_summary(
+        &mut measurements,
+        "swiftlm_source_intake",
+        &swiftlm_source_intake,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -923,6 +967,7 @@ fn build_report() -> KernelReport {
         lattice_state_controller_pass,
         reasoning_state_continuity_pass,
         cold_miss_ledger_pass,
+        swiftlm_source_intake_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1178,6 +1223,7 @@ fn classify_route(
     lattice_state_controller_pass: bool,
     reasoning_state_continuity_pass: bool,
     cold_miss_ledger_pass: bool,
+    swiftlm_source_intake_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1194,6 +1240,7 @@ fn classify_route(
         && lattice_state_controller_pass
         && reasoning_state_continuity_pass
         && cold_miss_ledger_pass
+        && swiftlm_source_intake_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1244,6 +1291,7 @@ fn next_bottleneck(
     lattice_state_controller_pass: bool,
     reasoning_state_continuity_pass: bool,
     cold_miss_ledger_pass: bool,
+    swiftlm_source_intake_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1312,8 +1360,10 @@ fn next_bottleneck(
             "reasoning_state_continuity".to_string()
         } else if !cold_miss_ledger_pass {
             "cold_miss_ledger".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !swiftlm_source_intake_pass {
             "swiftlm_source_intake".to_string()
+        } else if !seventy_b_route_pass {
+            "meta_breakthrough_card_registry".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1362,6 +1412,7 @@ fn build_ordered_gap_queue(
     lattice_state_controller_pass: bool,
     reasoning_state_continuity_pass: bool,
     cold_miss_ledger_pass: bool,
+    swiftlm_source_intake_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1667,7 +1718,9 @@ fn build_ordered_gap_queue(
             19,
             "swiftlm_source_intake",
             "Research Construction",
-            if cold_miss_ledger_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+            if swiftlm_source_intake_pass {
+                "completed"
+            } else if cold_miss_ledger_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_cold_miss_ledger"
@@ -1676,6 +1729,20 @@ fn build_ordered_gap_queue(
             "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
             "SwiftLM SSD-streaming and KV-compression motifs must be captured as source cards, license/setup notes, benchmark caveats, and local test plans before any implementation import.",
             "SwiftLM is source-mining discipline, not a product dependency or code import path.",
+        ),
+        queue_item(
+            20,
+            "meta_breakthrough_card_registry",
+            "Meta Control",
+            if swiftlm_source_intake_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_swiftlm_source_intake"
+            },
+            "F-MetaBreakthrough-CardRegistry",
+            "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+            "Every meta-control card must bind UAS address, source, budget, rollback, proof/falsifier state, and AnswerPacket visibility before controlling route policy.",
+            "Meta-control cards remain research-only until source, budget, rollback, proof, and AnswerPacket visibility are witnessed.",
         ),
     ]
 }
@@ -1798,6 +1865,7 @@ fn build_anomalies(
     lattice_state_controller_pass: bool,
     reasoning_state_continuity_pass: bool,
     cold_miss_ledger_pass: bool,
+    swiftlm_source_intake_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1929,6 +1997,12 @@ fn build_anomalies(
             "detail": "Research Construction has continuity state, but F-ColdMissLedger must pass before SwiftLM source-intake work can advance."
         }));
     }
+    if cold_miss_ledger_pass && !swiftlm_source_intake_pass && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "swiftlm_source_intake_missing",
+            "detail": "Research Construction has cold-miss learning, but F-SwiftLM-SourceIntake must pass before meta-breakthrough card registry work can advance."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2055,28 +2129,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true,
+                true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false,
+                false, false, false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false,
+                false, false, false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true,
+                true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2123,21 +2197,22 @@ mod tests {
         const LATTICE_STATE_CONTROLLER: usize = 28;
         const REASONING_STATE_CONTINUITY: usize = 29;
         const COLD_MISS_LEDGER: usize = 30;
-        const SEVENTY_B: usize = 31;
+        const SWIFTLM_SOURCE_INTAKE: usize = 31;
+        const SEVENTY_B: usize = 32;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 32] {
-            let mut values = [false; 32];
+        let flags = |true_indexes: &[usize]| -> [bool; 33] {
+            let mut values = [false; 33];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 32], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 33], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2173,11 +2248,12 @@ mod tests {
                 values[29],
                 values[30],
                 values[31],
+                values[32],
                 &missing,
             )
         };
-        let nb = |values: [bool; 32]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 32]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 33]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 33]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -2625,6 +2701,38 @@ mod tests {
             "swiftlm_source_intake"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+            ]))),
+            "meta_breakthrough_card_registry"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -2676,6 +2784,7 @@ mod tests {
                 LATTICE_STATE_CONTROLLER,
                 REASONING_STATE_CONTINUITY,
                 COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

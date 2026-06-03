@@ -48,7 +48,7 @@ Companion 2026-06-01 gates:
 | `F-LatticeStateController` | A tiny recurrent/lattice controller improves route decisions over static policy and abstains when uncertain. | PASS as metadata-only route-controller witness on main: `docs/falsifiers/F-LatticeStateController_2026_06_03.md`, `artifacts/falsifiers/lattice_state_controller/result.json`. |
 | `F-ReasoningStateContinuity` | Preserved cache/summary/tool state improves continuity or cache utility without exposing hidden chain-of-thought or bypassing verification. | PASS as metadata-only continuity-card witness: `docs/falsifiers/F-ReasoningStateContinuity_2026_06_03.md`, `artifacts/falsifiers/reasoning_state_continuity/result.json`. |
 | `F-ColdMissLedger` | Cold misses update later prefetch/route policy and reduce repeated stalls on held-out tasks. | PASS as metadata-only cold-miss ledger witness: `docs/falsifiers/F-ColdMissLedger_2026_06_03.md`, `artifacts/falsifiers/cold_miss_ledger/result.json`. |
-| `F-SwiftLM-SourceIntake` | SwiftLM motifs are captured as source cards with license, setup, benchmark caveats, and local test plans before any code import. | Source-mining discipline. |
+| `F-SwiftLM-SourceIntake` | SwiftLM motifs are captured as source cards with license, setup, benchmark caveats, and local test plans before any code import. | PASS as metadata-only source-intake witness: `docs/falsifiers/F-SwiftLM-SourceIntake_2026_06_03.md`, `artifacts/falsifiers/swiftlm_source_intake/result.json`. |
 
 ## Shared Artifact Axes
 
@@ -118,3 +118,4 @@ A future artifact fails immediately if it:
 - Frontier local reasoning: `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
 - Neural importance atlas: `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 - Existing dry-run witness: `docs/falsifiers/F-ResidencyPlan-DryRun_2026_05_30.md`
+- Current active cursor after the 2026-06-03 SwiftLM source-intake witness: `F-MetaBreakthrough-CardRegistry`

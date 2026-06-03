@@ -43,6 +43,7 @@ const LATTICE_STATE_CONTROLLER_PATH: &str =
 const REASONING_STATE_CONTINUITY_PATH: &str =
     "artifacts/falsifiers/reasoning_state_continuity/result.json";
 const COLD_MISS_LEDGER_PATH: &str = "artifacts/falsifiers/cold_miss_ledger/result.json";
+const SWIFTLM_SOURCE_INTAKE_PATH: &str = "artifacts/falsifiers/swiftlm_source_intake/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -363,6 +364,34 @@ fn build_report() -> GuardReport {
             "ledger_address_deterministic",
         ],
     );
+    let swiftlm_source_intake = read_json(Path::new(SWIFTLM_SOURCE_INTAKE_PATH));
+    let swiftlm_source_intake_available = artifact_all_axes_true(
+        &swiftlm_source_intake,
+        &[
+            "swiftlm_source_cards_present",
+            "swiftlm_repo_card_present",
+            "source_cards_sorted",
+            "source_graph_edges_bound",
+            "source_graph_route_affinity_bound",
+            "source_graph_address_deterministic",
+            "ssd_streaming_motif_captured",
+            "kv_compression_motif_captured",
+            "persistent_buffer_motif_captured",
+            "prefetch_motif_captured",
+            "license_note_present",
+            "setup_note_present",
+            "benchmark_caveat_present",
+            "local_test_plan_present",
+            "no_code_import_declared",
+            "no_product_dependency_declared",
+            "no_runtime_bytes_loaded",
+            "duplicate_source_rejected",
+            "missing_license_rejected",
+            "missing_benchmark_caveat_rejected",
+            "missing_local_test_plan_rejected",
+            "implementation_import_rejected",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -450,6 +479,7 @@ fn build_report() -> GuardReport {
         && lattice_state_controller_available
         && reasoning_state_continuity_available
         && cold_miss_ledger_available
+        && swiftlm_source_intake_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -597,6 +627,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "cold_miss_ledger_available",
         cold_miss_ledger_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "swiftlm_source_intake_available",
+        swiftlm_source_intake_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -884,6 +921,10 @@ fn build_report() -> GuardReport {
                     "path": COLD_MISS_LEDGER_PATH,
                     "available": cold_miss_ledger_available
                 },
+                "swiftlm_source_intake": {
+                    "path": SWIFTLM_SOURCE_INTAKE_PATH,
+                    "available": swiftlm_source_intake_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1005,6 +1046,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_cold_miss_ledger",
             "detail": "Research Construction has reasoning-state continuity, but needs F-ColdMissLedger before SwiftLM source-intake work continues."
+        }));
+    }
+    if cold_miss_ledger_available && !swiftlm_source_intake_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_swiftlm_source_intake",
+            "detail": "Research Construction has cold-miss learning, but needs F-SwiftLM-SourceIntake before meta-breakthrough card registry work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1889,6 +1936,7 @@ mod tests {
             .get("reasoning_state_continuity")
             .is_some());
         assert!(already_mapped_work.get("cold_miss_ledger").is_some());
+        assert!(already_mapped_work.get("swiftlm_source_intake").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

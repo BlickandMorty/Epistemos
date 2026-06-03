@@ -155,6 +155,10 @@ name = "falsify_cold_miss_ledger"
 path = "src/bin/falsify_cold_miss_ledger.rs"
 
 [[bin]]
+name = "falsify_swiftlm_source_intake"
+path = "src/bin/falsify_swiftlm_source_intake.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
