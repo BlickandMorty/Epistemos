@@ -51,11 +51,15 @@ is set for an explicit heavy probe.
 `F-LatticeStateController` is now implemented as
 `docs/falsifiers/F-LatticeStateController_2026_06_03.md` with artifact
 `artifacts/falsifiers/lattice_state_controller/result.json`.
+`F-ReasoningStateContinuity` and `F-ColdMissLedger` are also implemented as
+metadata-only downstream witnesses with artifacts under
+`artifacts/falsifiers/reasoning_state_continuity/result.json` and
+`artifacts/falsifiers/cold_miss_ledger/result.json`.
 
 The next default Research Construction cursor is:
 
 ```text
-F-ReasoningStateContinuity
+F-SwiftLM-SourceIntake
 ```
 
 ## Axis Floor

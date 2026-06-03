@@ -42,6 +42,7 @@ const LATTICE_STATE_CONTROLLER_PATH: &str =
     "artifacts/falsifiers/lattice_state_controller/result.json";
 const REASONING_STATE_CONTINUITY_PATH: &str =
     "artifacts/falsifiers/reasoning_state_continuity/result.json";
+const COLD_MISS_LEDGER_PATH: &str = "artifacts/falsifiers/cold_miss_ledger/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -327,6 +328,41 @@ fn build_report() -> GuardReport {
             "continuity_card_address_deterministic",
         ],
     );
+    let cold_miss_ledger = read_json(Path::new(COLD_MISS_LEDGER_PATH));
+    let cold_miss_ledger_available = artifact_all_axes_true(
+        &cold_miss_ledger,
+        &[
+            "cold_miss_ledger_present",
+            "route_id_bound",
+            "source_card_ids_bound",
+            "task_signature_bound",
+            "repeated_misses_recorded",
+            "missed_unit_bound",
+            "miss_time_bound",
+            "stall_ms_reported",
+            "cold_io_bytes_reported",
+            "fallback_used_visible",
+            "verifier_delta_reported",
+            "next_prefetch_policy_bound",
+            "policy_patch_ref_bound",
+            "policy_patch_shadow_scoped",
+            "rollback_bound",
+            "run_event_log_bound",
+            "answer_packet_ref_bound",
+            "held_out_misses_reduced",
+            "repeated_stall_reduced",
+            "storage_wear_bounded",
+            "production_mutation_blocked",
+            "single_miss_rejected",
+            "no_improvement_rejected",
+            "missing_rollback_rejected",
+            "missing_policy_patch_rejected",
+            "zero_stall_rejected",
+            "high_wear_rejected",
+            "no_runtime_bytes_loaded",
+            "ledger_address_deterministic",
+        ],
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -413,6 +449,7 @@ fn build_report() -> GuardReport {
         && cold_assembly_plan_70b_lite_available
         && lattice_state_controller_available
         && reasoning_state_continuity_available
+        && cold_miss_ledger_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -553,6 +590,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "reasoning_state_continuity_available",
         reasoning_state_continuity_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_miss_ledger_available",
+        cold_miss_ledger_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -836,6 +880,10 @@ fn build_report() -> GuardReport {
                     "path": REASONING_STATE_CONTINUITY_PATH,
                     "available": reasoning_state_continuity_available
                 },
+                "cold_miss_ledger": {
+                    "path": COLD_MISS_LEDGER_PATH,
+                    "available": cold_miss_ledger_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -951,6 +999,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_reasoning_state_continuity",
             "detail": "Research Construction has a lattice controller, but needs F-ReasoningStateContinuity before cold-miss ledger work continues."
+        }));
+    }
+    if reasoning_state_continuity_available && !cold_miss_ledger_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_cold_miss_ledger",
+            "detail": "Research Construction has reasoning-state continuity, but needs F-ColdMissLedger before SwiftLM source-intake work continues."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -1834,6 +1888,7 @@ mod tests {
         assert!(already_mapped_work
             .get("reasoning_state_continuity")
             .is_some());
+        assert!(already_mapped_work.get("cold_miss_ledger").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

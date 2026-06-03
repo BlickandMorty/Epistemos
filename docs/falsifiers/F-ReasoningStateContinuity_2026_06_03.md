@@ -47,10 +47,14 @@ This finishes the default Research Construction cursor that came after
 cold assembly, route control, and safe continuity-card witnesses while
 Qwen/GGUF and provider-reference prompt-level probes remain opt-in heavy work.
 
+`F-ColdMissLedger` is now implemented as
+`docs/falsifiers/F-ColdMissLedger_2026_06_03.md` with artifact
+`artifacts/falsifiers/cold_miss_ledger/result.json`.
+
 The next default Research Construction cursor is:
 
 ```text
-F-ColdMissLedger
+F-SwiftLM-SourceIntake
 ```
 
 ## Axis Floor
