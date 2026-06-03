@@ -152,6 +152,11 @@ the next-work gate.
 Preferred next work, from current main:
 
 1. T21 retrieval contract unification over Eidos, VaultRecall, and PageGather.
+   Current-main evidence is reconciled in
+   `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`: exact
+   VaultRecall, Eidos bridge, and packetized PageGather are green, but the full
+   semantic/paraphrase capstone remains open until Eidos or RRF-fused semantic
+   recall is wired through `VaultBackend`.
 2. `F-SourceSignalGraph-Intake`, `F-TaskWorkingSetQuery-Determinism`,
    `F-SemanticWorkingSetPlan-Budget`, and
    `F-ResidencyPageTable-Addressability`, and
