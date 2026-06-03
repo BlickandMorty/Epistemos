@@ -46,17 +46,10 @@ const FIXTURE_ID: &str = "f_vault_recall_50_canonical_v1";
 const COMMAND: &str = "cargo run --release --bin falsify_vault_recall_50";
 const MIN_ROW_COUNT: usize = 50;
 const TOP_1_EXACT_THRESHOLD: f64 = 0.95;
-// The F' prompt's top-5 paraphrase ≥ 0.80 target is aspirational and
-// assumes the semantic-recall (Fix-C) lane is wired. The seeded
-// VaultStore backend is lexical-only (Tantivy AND-conjunction over
-// signal terms); Paraphrase rows are designed to FAIL under that
-// backend per the existing F-VaultRecall-50 baseline (see the doc's
-// "Paraphrase row failed as designed" note). The threshold is held at
-// 0.0 here so the axis is recorded for surface diagnostics without
-// gating overall_pass on a contract the lexical backend can't satisfy.
-// When Eidos semantic binding is wired into VaultBackend, bump this to
-// 0.80 in a follow-up PR.
-const TOP_5_PARAPHRASE_INFORMATIONAL_FLOOR: f64 = 0.0;
+// T21 semantic recall floor. VaultStore now has an in-process,
+// concept-normalized semantic fallback for empty lexical/path-title
+// retrievals, so this is no longer informational.
+const TOP_5_PARAPHRASE_THRESHOLD: f64 = 0.80;
 const ADVERSARIAL_REJECT_THRESHOLD: f64 = 0.95;
 
 #[tokio::main(flavor = "current_thread")]
@@ -253,7 +246,7 @@ async fn main() {
         top_5_paraphrase_pct,
         paraphrase_top_5,
         paraphrase_total,
-        TOP_5_PARAPHRASE_INFORMATIONAL_FLOOR,
+        TOP_5_PARAPHRASE_THRESHOLD,
     );
     insert_pct_axis(
         &mut measurements,
