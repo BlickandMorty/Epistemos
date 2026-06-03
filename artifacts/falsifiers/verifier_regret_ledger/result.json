@@ -1,0 +1,560 @@
+{
+  "falsifier_id": "F-VerifierRegretLedger",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_verifier_regret_ledger.sh",
+  "command_digest": "sha256:88e035329e05c5b31a60ff58af55ffd17e1d775f853f71f480e810521995538e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "d3761e4e1a33250dda98f49c94d28b484e133af5",
+  "fixture_id": "verifier_regret_ledger_v1",
+  "timestamp_utc": "2026-06-03T22:20:03Z",
+  "result_digest": "sha256:4ea4d0d449dde91c3dd52096aac988ff6fb574cc54a48c161922552712510d6a",
+  "measurements": {
+    "active_byte_budget_respected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_scores_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_entry_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_modes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_regret_reduced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_task_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_task_set_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_scores_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "later_route_selection_changed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_policy_patch_active_bytes": {
+      "value": 6291456,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_next_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_regret_update_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_regret_reduction_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_change_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_update_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_version_advances": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_address": {
+      "value": "uas:verifier-regret:31673cd5da50a596c47eff3378d87eb201cfa32994a2c0df0e34eafbf1a4c619",
+      "unit": "uas_address"
+    },
+    "regret_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_entries_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_entry_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "regret_updates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_utility_update_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_neural_control_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_neural_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_byte_budget_respected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_scores_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_entry_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_modes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_regret_reduced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_task_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_task_set_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_scores_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "later_route_selection_changed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_policy_patch_active_bytes": {
+      "operator": "<=",
+      "value": 12582912,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_next_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_regret_update_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_regret_reduction_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_change_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_update_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_patch_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_version_advances": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_address": {
+      "operator": "contains",
+      "value": "uas:verifier-regret:",
+      "unit": "uas_address"
+    },
+    "regret_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_entries_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_entry_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "regret_updates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_utility_update_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_neural_control_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_neural_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_byte_budget_respected": true,
+    "active_byte_delta_bound": true,
+    "answer_packet_ref_bound": true,
+    "baseline_scores_bound": true,
+    "cloud_route_rejected": true,
+    "duplicate_entry_rejected": true,
+    "evidence_validity_delta_bound": true,
+    "failure_modes_bound": true,
+    "held_out_regret_reduced": true,
+    "held_out_task_count": true,
+    "held_out_task_set_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "intervention_scores_bound": true,
+    "latency_delta_bound": true,
+    "later_route_selection_changed": true,
+    "live_policy_mutation_rejected": true,
+    "live_policy_not_mutated": true,
+    "max_policy_patch_active_bytes": true,
+    "missing_answer_packet_rejected": true,
+    "missing_held_out_rejected": true,
+    "missing_next_policy_rejected": true,
+    "missing_regret_update_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "next_policy_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_regret_reduction_rejected": true,
+    "no_route_change_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_update_rejected": true,
+    "policy_patch_bound": true,
+    "policy_version_advances": true,
+    "quality_delta_positive": true,
+    "regret_address": true,
+    "regret_address_deterministic": true,
+    "regret_entries_present": true,
+    "regret_entry_count": true,
+    "regret_updates_bound": true,
+    "rollback_bound": true,
+    "route_ids_bound": true,
+    "route_utility_update_shadow_only": true,
+    "run_event_log_bound": true,
+    "stale_policy_rejected": true,
+    "task_signatures_bound": true,
+    "unit_ids_bound": true,
+    "upstream_neural_control_pass": true,
+    "upstream_neural_refs_bound": true,
+    "verifier_delta_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only VerifierRegretLedger witness; no live route mutation, no model/runtime bytes, no hidden chain, no hidden cloud, and no product promotion executed"
+    }
+  ],
+  "notes": "Proves verifier-regret updates change later shadow route selection and reduce held-out regret while binding RunEventLog, rollback, AnswerPacket, policy-patch evidence, and no-hidden-authority guards."
+}

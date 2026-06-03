@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "88f408904d5abbceb84adb052e9dc6082f5eb3a4",
+  "commit_sha": "d3761e4e1a33250dda98f49c94d28b484e133af5",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T20:59:55Z",
-  "result_digest": "sha256:cd982880ff0eb1f13a6dd4eee97cee71f57985aece4fa39dfa56577a0f86b031",
+  "timestamp_utc": "2026-06-03T22:21:12Z",
+  "result_digest": "sha256:d500824ad0b8a5a318b836ca1c6752bda16f49eaed232bedf7f280788bfd9c6c",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -298,7 +298,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "verifier_regret_ledger",
+      "value": "route_scout_ssm_baseline",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -567,11 +567,21 @@
           "order": 26,
           "gap_id": "verifier_regret_ledger",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-VerifierRegretLedger",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Verifier regret updates must change later route selection and reduce regret over held-out prompt/task sets without hidden route authority.",
           "rollback": "Keep regret updates shadow-only until held-out regret reduction, rollback, RunEventLog, and AnswerPacket evidence pass."
+        },
+        {
+          "order": 27,
+          "gap_id": "route_scout_ssm_baseline",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-RouteScoutSSM-Baseline",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "A tiny route scout must predict route family and verifier need better than static, random, recency, and embedding-only baselines before sparse wake routing can advance.",
+          "rollback": "Keep scout predictions shadow-only until held-out baselines, abstention, rollback, and AnswerPacket-visible proof pass."
         }
       ],
       "unit": "queue"
@@ -811,6 +821,22 @@
     "verified_floor_green": {
       "value": true,
       "unit": "bool"
+    },
+    "verifier_regret_ledger_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_ledger_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/verifier_regret_ledger/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     }
   },
   "acceptance_thresholds": {
@@ -1048,6 +1074,11 @@
       "operator": "==",
       "value": true,
       "unit": "bool"
+    },
+    "verifier_regret_ledger_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     }
   },
   "pass_per_axis": {
@@ -1097,7 +1128,8 @@
     "uas_copy_count_hot_path_pass": true,
     "uas_zero_copy_spine_pass": true,
     "unmapped_architecture_gap_count": true,
-    "verified_floor_green": true
+    "verified_floor_green": true,
+    "verifier_regret_ledger_pass": true
   },
   "overall_pass": false,
   "fallback_tier": "Fail",
@@ -1116,8 +1148,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "verifier_regret_ledger"
+      "detail": "route_scout_ssm_baseline"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_regret_ledger; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=route_scout_ssm_baseline; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
