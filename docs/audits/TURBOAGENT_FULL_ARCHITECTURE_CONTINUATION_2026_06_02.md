@@ -48,8 +48,9 @@ Continue the full-architecture loop in this order:
    `F-SourceSignalGraph-Intake` and
    `F-TaskWorkingSetQuery-Determinism` and
    `F-SemanticWorkingSetPlan-Budget` and
-   `F-ResidencyPageTable-Addressability` now have primary witnesses on main.
-   Continue with prefetch/cold-miss and mmap-residency-fence fixtures.
+   `F-ResidencyPageTable-Addressability` and
+   `F-MmapResidencyFence-CopyCount` now have primary witnesses on main.
+   Continue with prefetch/cold-miss fixtures.
 2. **Secondary lane: ColdStream manifest shape, not transport.**
    Only after a working-set plan exists, add a metadata-only
    `TransportRunManifest` completeness check. Do not benchmark, prefetch,
@@ -218,7 +219,6 @@ For the next implementation lane, run only lightweight verification:
 
 New gates still to implement before promotion:
 
-- `F-MmapResidencyFence-CopyCount`
 - `F-ColdStream-NoHiddenAuthority`
 - `F-ResidencyPatternBoost-NoHiddenAuthority`
 
