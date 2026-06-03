@@ -1,0 +1,430 @@
+{
+  "falsifier_id": "F-WorkingSetOracle-Baseline",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_working_set_oracle_baseline.sh",
+  "command_digest": "sha256:579922ef2c47003589e7d1be8cf7273ec3bac5a5861159929b09c1f94e09b130",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "62c0824c9fad5567434af2a8462b22490dac2217",
+  "fixture_id": "working_set_oracle_baseline_v1",
+  "timestamp_utc": "2026-06-03T10:09:09Z",
+  "result_digest": "sha256:f27b0cf4f1a166dc76b84681cc917425748c42ccb1ab45593797f5f30853715f",
+  "measurements": {
+    "abstain_condition_named": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_loss_abstains": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_policy_count": {
+      "value": 3,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "baseline_policy_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_file_order_policy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_random_policy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_recency_policy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "best_baseline_evidence_validity_bps": {
+      "value": 8200,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "best_baseline_quality_bps": {
+      "value": 8000,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "confidence_bps": {
+      "value": 8100,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "confidence_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_inputs_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_predicted_units_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_active_bytes": {
+      "value": 196608,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_active_bytes_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_misses": {
+      "value": 0,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_cold_misses_below_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_evidence_validity_beats_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_evidence_validity_bps": {
+      "value": 9600,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_quality_beats_baselines": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_quality_bps": {
+      "value": 9400,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "high_confidence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "inputs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_confidence_abstains": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_baseline_active_bytes": {
+      "value": 393216,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "min_baseline_cold_misses": {
+      "value": 1,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "missing_abstain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_address": {
+      "value": "working_set_oracle_card:e80183047df5c1dc17f0b81b72c276faa24eaa48b40a55f811749d052c70e480@1779000000000",
+      "unit": "string"
+    },
+    "oracle_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_card_created": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_status": {
+      "value": "beats_baselines",
+      "unit": "string"
+    },
+    "predicted_unit_count": {
+      "value": 2,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "predicted_units_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_update_key_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "score_out_of_range_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "status_beats_baselines": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_condition_named": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_loss_abstains": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_policy_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "baseline_policy_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_file_order_policy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_random_policy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_recency_policy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "best_baseline_evidence_validity_bps": {
+      "operator": "<=",
+      "value": 9599,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "best_baseline_quality_bps": {
+      "operator": "<=",
+      "value": 9399,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "confidence_bps": {
+      "operator": ">=",
+      "value": 6000,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "confidence_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_inputs_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_predicted_units_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_active_bytes": {
+      "operator": "<=",
+      "value": 196608,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_active_bytes_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_cold_misses": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_cold_misses_below_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_evidence_validity_beats_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_evidence_validity_bps": {
+      "operator": ">=",
+      "value": 9000,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "held_out_quality_beats_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_quality_bps": {
+      "operator": ">=",
+      "value": 9000,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "high_confidence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "inputs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_confidence_abstains": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_baseline_active_bytes": {
+      "operator": ">=",
+      "value": 196609,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "min_baseline_cold_misses": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "missing_abstain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "oracle_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_card_created": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_status": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "predicted_unit_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count_or_bps_or_bytes"
+    },
+    "predicted_units_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_update_key_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "score_out_of_range_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "status_beats_baselines": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_condition_named": true,
+    "baseline_loss_abstains": true,
+    "baseline_policy_count": true,
+    "baseline_policy_coverage": true,
+    "beats_file_order_policy": true,
+    "beats_random_policy": true,
+    "beats_recency_policy": true,
+    "best_baseline_evidence_validity_bps": true,
+    "best_baseline_quality_bps": true,
+    "confidence_bps": true,
+    "confidence_reported": true,
+    "duplicate_baseline_rejected": true,
+    "empty_inputs_rejected": true,
+    "empty_predicted_units_rejected": true,
+    "held_out_active_bytes": true,
+    "held_out_active_bytes_below_baselines": true,
+    "held_out_cold_misses": true,
+    "held_out_cold_misses_below_baselines": true,
+    "held_out_evidence_validity_beats_baselines": true,
+    "held_out_evidence_validity_bps": true,
+    "held_out_quality_beats_baselines": true,
+    "held_out_quality_bps": true,
+    "high_confidence_rejected": true,
+    "inputs_bound": true,
+    "low_confidence_abstains": true,
+    "min_baseline_active_bytes": true,
+    "min_baseline_cold_misses": true,
+    "missing_abstain_rejected": true,
+    "no_baseline_rejected": true,
+    "oracle_address": true,
+    "oracle_address_deterministic": true,
+    "oracle_card_created": true,
+    "oracle_status": true,
+    "predicted_unit_count": true,
+    "predicted_units_bound": true,
+    "regret_update_key_bound": true,
+    "score_out_of_range_rejected": true,
+    "status_beats_baselines": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only WorkingSetOracleCard baseline comparison; no training, model decode, prefetch, live route choice, source fetch, MLX/Metal, or production policy mutation executed"
+    }
+  ],
+  "notes": "Proves a deterministic WorkingSetOracleCard beats random, recency, and static file-order baselines on held-out quality, evidence validity, cold misses, and active bytes while retaining named abstention and rejecting missing-baseline, empty-input, empty-predicted-unit, bad-score, duplicate-baseline, and high-confidence-invalid cases."
+}

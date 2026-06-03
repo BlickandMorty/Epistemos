@@ -46,11 +46,11 @@ tiles, and any attempted production mutation.
 This falsifier does not prefetch, move bytes, rewrite storage, alter route
 policy, execute MLX/Metal, touch live model/KV state, or promote a learned
 layout. It only proves the cold-fault learning record shape and rollback-bound
-shadow patch rules. Runtime promotion still needs working-set oracle baseline,
-RunEventLog, AnswerPacket, rollback, and build-status evidence.
+shadow patch rules. Runtime promotion still needs RunEventLog, AnswerPacket,
+rollback, build-status, and user-visible route evidence.
 
 ## Queue Effect
 
 `F-ColdFaultTrace-Learning` closes the cold-fault learning fixture from the
-Semantic Working-Set Compiler build order. The remaining unfinished gate in this
-bundle is working-set oracle baseline.
+Semantic Working-Set Compiler build order. The working-set oracle baseline now
+has a primary witness too, so this bundle's metadata-only gates are closed.

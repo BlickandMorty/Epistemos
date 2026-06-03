@@ -14,11 +14,15 @@ const QUERY_UAS_KIND: &str = "task_working_set_query";
 const SOURCE_TO_RESIDENCY_PATCH_UAS_KIND: &str = "source_to_residency_patch";
 const COLD_FAULT_TRACE_UAS_KIND: &str = "cold_fault_trace";
 const LAYOUT_PATCH_UAS_KIND: &str = "layout_patch";
+const WORKING_SET_ORACLE_UAS_KIND: &str = "working_set_oracle_card";
 const ROLLBACK_PREFIX: &str = "rollback:";
 const HELD_OUT_PREFIX: &str = "held_out:";
+const ABSTAIN_PREFIX: &str = "abstain:";
 const FALSIFIER_PREFIX: &str = "F-";
 const MAX_SOURCE_PROMOTION_CREDIBILITY_RANK: u8 = 3;
 const MAX_LAYOUT_PATCH_STORAGE_WEAR_COST: u64 = 128 * 1024;
+const MAX_SCORE_BPS: u16 = 10_000;
+const MIN_ORACLE_CONFIDENCE_BPS: u16 = 6_000;
 const FALLBACK_ROUTE_PREFIXES: [&str; 2] = ["runtime_router:fallback_", "runtime_router:static_"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -814,6 +818,168 @@ pub struct PrefetchWindow {
     pub measurement_ref: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkingSetOracleScore {
+    pub quality_bps: u16,
+    pub evidence_validity_bps: u16,
+    pub cold_misses: u64,
+    pub active_bytes: u64,
+}
+
+impl WorkingSetOracleScore {
+    pub fn new(
+        quality_bps: u16,
+        evidence_validity_bps: u16,
+        cold_misses: u64,
+        active_bytes: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        if quality_bps > MAX_SCORE_BPS || evidence_validity_bps > MAX_SCORE_BPS {
+            return Err(SemanticWorkingSetError::WorkingSetOracleRejected {
+                reason: "score_out_of_range".to_string(),
+            });
+        }
+        Ok(Self {
+            quality_bps,
+            evidence_validity_bps,
+            cold_misses,
+            active_bytes,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkingSetOracleBaselineScore {
+    pub policy_id: String,
+    pub score: WorkingSetOracleScore,
+}
+
+impl WorkingSetOracleBaselineScore {
+    pub fn new(
+        policy_id: impl Into<String>,
+        score: WorkingSetOracleScore,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let policy_id = policy_id.into();
+        validate_nonempty("baseline_policy", &policy_id)?;
+        Ok(Self { policy_id, score })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkingSetOracleStatus {
+    BeatsBaselines,
+    Abstained,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkingSetOracleCard {
+    pub oracle_address: UasAddress,
+    pub oracle_id: String,
+    pub inputs: Vec<String>,
+    pub predicted_units: Vec<UasAddress>,
+    pub confidence_bps: u16,
+    pub abstain_condition: String,
+    pub baseline_policies: Vec<WorkingSetOracleBaselineScore>,
+    pub held_out_score: WorkingSetOracleScore,
+    pub regret_update_key: String,
+    pub status: WorkingSetOracleStatus,
+}
+
+impl WorkingSetOracleCard {
+    #[allow(clippy::too_many_arguments)]
+    pub fn evaluate(
+        oracle_id: impl Into<String>,
+        inputs: Vec<String>,
+        predicted_units: Vec<UasAddress>,
+        confidence_bps: u16,
+        abstain_condition: impl Into<String>,
+        baseline_policies: Vec<WorkingSetOracleBaselineScore>,
+        held_out_score: WorkingSetOracleScore,
+        regret_update_key: impl Into<String>,
+        created_at_ms: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let oracle_id = oracle_id.into();
+        let abstain_condition = abstain_condition.into();
+        let regret_update_key = regret_update_key.into();
+        validate_nonempty("oracle_id", &oracle_id)?;
+        validate_nonempty("abstain_condition", &abstain_condition)?;
+        validate_nonempty("regret_update_key", &regret_update_key)?;
+        if confidence_bps > MAX_SCORE_BPS {
+            return Err(SemanticWorkingSetError::WorkingSetOracleRejected {
+                reason: "confidence_out_of_range".to_string(),
+            });
+        }
+        if !abstain_condition.starts_with(ABSTAIN_PREFIX) {
+            return Err(SemanticWorkingSetError::WorkingSetOracleRejected {
+                reason: "named_abstain_condition_required".to_string(),
+            });
+        }
+        let inputs = canonicalize_strings(
+            "oracle_inputs",
+            inputs,
+            SemanticWorkingSetError::MissingOracleInput,
+        )?;
+        if predicted_units.is_empty() {
+            return Err(SemanticWorkingSetError::MissingPredictedUnit);
+        }
+        let mut predicted_units = predicted_units;
+        predicted_units.sort_by_key(|address| address.to_string());
+        predicted_units.dedup();
+        if baseline_policies.is_empty() {
+            return Err(SemanticWorkingSetError::MissingBaselinePolicy);
+        }
+        let mut baseline_policies = baseline_policies;
+        baseline_policies.sort_by(|left, right| left.policy_id.cmp(&right.policy_id));
+        let mut seen_policy_ids = HashSet::new();
+        for policy in &baseline_policies {
+            validate_nonempty("baseline_policy", &policy.policy_id)?;
+            if !seen_policy_ids.insert(policy.policy_id.clone()) {
+                return Err(SemanticWorkingSetError::WorkingSetOracleRejected {
+                    reason: "duplicate_baseline_policy".to_string(),
+                });
+            }
+        }
+
+        let beats_baselines = oracle_score_beats_baselines(&held_out_score, &baseline_policies);
+        let status = if confidence_bps >= MIN_ORACLE_CONFIDENCE_BPS && beats_baselines {
+            WorkingSetOracleStatus::BeatsBaselines
+        } else {
+            WorkingSetOracleStatus::Abstained
+        };
+        if status == WorkingSetOracleStatus::Abstained
+            && abstain_condition.len() <= ABSTAIN_PREFIX.len()
+        {
+            return Err(SemanticWorkingSetError::WorkingSetOracleRejected {
+                reason: "empty_abstain_reason".to_string(),
+            });
+        }
+        let oracle_address = working_set_oracle_address(
+            &oracle_id,
+            &inputs,
+            &predicted_units,
+            confidence_bps,
+            &abstain_condition,
+            &baseline_policies,
+            &held_out_score,
+            &regret_update_key,
+            status,
+            created_at_ms,
+        );
+        Ok(Self {
+            oracle_address,
+            oracle_id,
+            inputs,
+            predicted_units,
+            confidence_bps,
+            abstain_condition,
+            baseline_policies,
+            held_out_score,
+            regret_update_key,
+            status,
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KVByteBudgetCard {
     pub model_id: String,
@@ -1201,6 +1367,11 @@ pub enum SemanticWorkingSetError {
     MissingSourceRelation,
     MissingAffectedOrgan,
     MissingChangedTile,
+    MissingOracleInput,
+    MissingPredictedUnit,
+    MissingBaselinePolicy,
+    MissingRegretUpdateKey,
+    MissingAbstainCondition,
     MissingSemanticUnitId,
     MissingCodec,
     MissingChecksum,
@@ -1248,6 +1419,9 @@ pub enum SemanticWorkingSetError {
     ColdFaultLearningRejected {
         reason: String,
     },
+    WorkingSetOracleRejected {
+        reason: String,
+    },
     InvalidKvBudget,
     ByteTotalOverflow,
 }
@@ -1269,6 +1443,11 @@ impl std::fmt::Display for SemanticWorkingSetError {
             Self::MissingSourceRelation => write!(f, "source relation is required"),
             Self::MissingAffectedOrgan => write!(f, "affected_organs are required"),
             Self::MissingChangedTile => write!(f, "changed_tiles are required"),
+            Self::MissingOracleInput => write!(f, "oracle_inputs are required"),
+            Self::MissingPredictedUnit => write!(f, "predicted_units are required"),
+            Self::MissingBaselinePolicy => write!(f, "baseline_policy is required"),
+            Self::MissingRegretUpdateKey => write!(f, "regret_update_key is required"),
+            Self::MissingAbstainCondition => write!(f, "abstain_condition is required"),
             Self::MissingSemanticUnitId => write!(f, "semantic_unit_id is required"),
             Self::MissingCodec => write!(f, "codec is required"),
             Self::MissingChecksum => write!(f, "checksum is required"),
@@ -1322,6 +1501,9 @@ impl std::fmt::Display for SemanticWorkingSetError {
             }
             Self::ColdFaultLearningRejected { reason } => {
                 write!(f, "cold-fault learning rejected: {reason}")
+            }
+            Self::WorkingSetOracleRejected { reason } => {
+                write!(f, "working-set oracle rejected: {reason}")
             }
             Self::InvalidKvBudget => write!(f, "KV budget must carry non-empty positive values"),
             Self::ByteTotalOverflow => write!(f, "working-set byte total overflowed"),
@@ -1666,6 +1848,92 @@ fn layout_patch_address(
     )
 }
 
+fn oracle_score_beats_baselines(
+    held_out_score: &WorkingSetOracleScore,
+    baseline_policies: &[WorkingSetOracleBaselineScore],
+) -> bool {
+    baseline_policies.iter().all(|baseline| {
+        held_out_score.quality_bps > baseline.score.quality_bps
+            && held_out_score.evidence_validity_bps > baseline.score.evidence_validity_bps
+            && held_out_score.cold_misses < baseline.score.cold_misses
+            && held_out_score.active_bytes < baseline.score.active_bytes
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn working_set_oracle_address(
+    oracle_id: &str,
+    inputs: &[String],
+    predicted_units: &[UasAddress],
+    confidence_bps: u16,
+    abstain_condition: &str,
+    baseline_policies: &[WorkingSetOracleBaselineScore],
+    held_out_score: &WorkingSetOracleScore,
+    regret_update_key: &str,
+    status: WorkingSetOracleStatus,
+    created_at_ms: u64,
+) -> UasAddress {
+    let mut preimage = String::new();
+    preimage.push_str("working_set_oracle_card_v1\n");
+    push_preimage(&mut preimage, "oracle_id", oracle_id);
+    push_string_list_preimage(&mut preimage, "inputs", inputs);
+    for predicted_unit in predicted_units {
+        push_preimage(&mut preimage, "predicted_unit", &predicted_unit.to_string());
+    }
+    push_preimage(&mut preimage, "confidence_bps", &confidence_bps.to_string());
+    push_preimage(&mut preimage, "abstain_condition", abstain_condition);
+    for baseline in baseline_policies {
+        push_preimage(&mut preimage, "baseline_policy", &baseline.policy_id);
+        push_preimage(
+            &mut preimage,
+            "baseline_quality_bps",
+            &baseline.score.quality_bps.to_string(),
+        );
+        push_preimage(
+            &mut preimage,
+            "baseline_evidence_validity_bps",
+            &baseline.score.evidence_validity_bps.to_string(),
+        );
+        push_preimage(
+            &mut preimage,
+            "baseline_cold_misses",
+            &baseline.score.cold_misses.to_string(),
+        );
+        push_preimage(
+            &mut preimage,
+            "baseline_active_bytes",
+            &baseline.score.active_bytes.to_string(),
+        );
+    }
+    push_preimage(
+        &mut preimage,
+        "held_out_quality_bps",
+        &held_out_score.quality_bps.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "held_out_evidence_validity_bps",
+        &held_out_score.evidence_validity_bps.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "held_out_cold_misses",
+        &held_out_score.cold_misses.to_string(),
+    );
+    push_preimage(
+        &mut preimage,
+        "held_out_active_bytes",
+        &held_out_score.active_bytes.to_string(),
+    );
+    push_preimage(&mut preimage, "regret_update_key", regret_update_key);
+    push_preimage(&mut preimage, "status", &format!("{:?}", status));
+    UasAddress::new(
+        UasKind::Other(WORKING_SET_ORACLE_UAS_KIND.to_string()),
+        preimage.as_bytes(),
+        created_at_ms,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn plan_address(
     query: &TaskWorkingSetQuery,
@@ -1819,6 +2087,10 @@ fn missing_field_error(field: &'static str) -> SemanticWorkingSetError {
         "source_relation" => SemanticWorkingSetError::MissingSourceRelation,
         "affected_organs" => SemanticWorkingSetError::MissingAffectedOrgan,
         "changed_tiles" => SemanticWorkingSetError::MissingChangedTile,
+        "oracle_inputs" => SemanticWorkingSetError::MissingOracleInput,
+        "baseline_policy" => SemanticWorkingSetError::MissingBaselinePolicy,
+        "regret_update_key" => SemanticWorkingSetError::MissingRegretUpdateKey,
+        "abstain_condition" => SemanticWorkingSetError::MissingAbstainCondition,
         "semantic_unit_id" => SemanticWorkingSetError::MissingSemanticUnitId,
         "codec" => SemanticWorkingSetError::MissingCodec,
         "checksum" => SemanticWorkingSetError::MissingChecksum,
@@ -2257,6 +2529,161 @@ mod tests {
         assert!(matches!(
             zero_stall,
             SemanticWorkingSetError::ColdFaultLearningRejected { .. }
+        ));
+    }
+
+    #[test]
+    fn working_set_oracle_beats_baselines_or_abstains_with_reason() {
+        let inputs = vec![
+            "mission:module-5-adversarial-thinking".to_string(),
+            "source:doc:semantic-working-set".to_string(),
+        ];
+        let predicted_units = vec![
+            address(UasKind::ModelComponent, b"module-5-evidence"),
+            address(UasKind::ModelComponent, b"module-5-kv"),
+        ];
+        let baselines = fixture_oracle_baselines();
+        let held_out = oracle_score(9400, 9600, 0, 192 * 1024);
+        let card = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            inputs.clone(),
+            predicted_units.clone(),
+            8100,
+            "abstain:confidence_below_0.60_or_baseline_loss",
+            baselines.clone(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap();
+        let reversed = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            inputs.into_iter().rev().collect(),
+            predicted_units.into_iter().rev().collect(),
+            8100,
+            "abstain:confidence_below_0.60_or_baseline_loss",
+            baselines.into_iter().rev().collect(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap();
+        assert_eq!(card.oracle_address, reversed.oracle_address);
+        assert_eq!(card.status, WorkingSetOracleStatus::BeatsBaselines);
+        assert_eq!(card.baseline_policies.len(), 3);
+        assert_eq!(card.predicted_units.len(), 2);
+
+        let low_confidence = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            5100,
+            "abstain:low_confidence",
+            fixture_oracle_baselines(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap();
+        assert_eq!(low_confidence.status, WorkingSetOracleStatus::Abstained);
+
+        let non_beating = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            8100,
+            "abstain:baseline_loss",
+            fixture_oracle_baselines(),
+            oracle_score(7000, 7200, 2, 768 * 1024),
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap();
+        assert_eq!(non_beating.status, WorkingSetOracleStatus::Abstained);
+
+        let missing_abstain = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            8100,
+            "",
+            fixture_oracle_baselines(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            missing_abstain,
+            SemanticWorkingSetError::MissingAbstainCondition
+        ));
+
+        let empty_inputs = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            Vec::new(),
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            8100,
+            "abstain:baseline_loss",
+            fixture_oracle_baselines(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            empty_inputs,
+            SemanticWorkingSetError::MissingOracleInput
+        ));
+
+        let empty_predicted = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            Vec::new(),
+            8100,
+            "abstain:baseline_loss",
+            fixture_oracle_baselines(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            empty_predicted,
+            SemanticWorkingSetError::MissingPredictedUnit
+        ));
+
+        let no_baselines = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            8100,
+            "abstain:baseline_loss",
+            Vec::new(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            no_baselines,
+            SemanticWorkingSetError::MissingBaselinePolicy
+        ));
+
+        let bad_confidence = WorkingSetOracleCard::evaluate(
+            "oracle:semantic-working-set-v1",
+            vec!["mission:module-5-adversarial-thinking".to_string()],
+            vec![address(UasKind::ModelComponent, b"module-5-kv")],
+            10_001,
+            "abstain:baseline_loss",
+            fixture_oracle_baselines(),
+            held_out,
+            "regret:semantic-working-set-v1",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            bad_confidence,
+            SemanticWorkingSetError::WorkingSetOracleRejected { .. }
         ));
     }
 
@@ -2771,6 +3198,48 @@ mod tests {
             false,
             CREATED_AT_MS,
         )
+    }
+
+    fn fixture_oracle_baselines() -> Vec<WorkingSetOracleBaselineScore> {
+        vec![
+            oracle_baseline("baseline:file-order", 7200, 7800, 2, 512 * 1024),
+            oracle_baseline("baseline:recency", 8000, 8200, 1, 384 * 1024),
+            oracle_baseline("baseline:random", 6600, 7000, 2, 448 * 1024),
+        ]
+    }
+
+    fn oracle_baseline(
+        policy_id: &str,
+        quality_bps: u16,
+        evidence_validity_bps: u16,
+        cold_misses: u64,
+        active_bytes: u64,
+    ) -> WorkingSetOracleBaselineScore {
+        WorkingSetOracleBaselineScore::new(
+            policy_id,
+            oracle_score(
+                quality_bps,
+                evidence_validity_bps,
+                cold_misses,
+                active_bytes,
+            ),
+        )
+        .unwrap()
+    }
+
+    fn oracle_score(
+        quality_bps: u16,
+        evidence_validity_bps: u16,
+        cold_misses: u64,
+        active_bytes: u64,
+    ) -> WorkingSetOracleScore {
+        WorkingSetOracleScore::new(
+            quality_bps,
+            evidence_validity_bps,
+            cold_misses,
+            active_bytes,
+        )
+        .unwrap()
     }
 
     fn fixture_query(max_hot_bytes: u64, max_kv_bytes: u64) -> TaskWorkingSetQuery {
