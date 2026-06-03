@@ -1,0 +1,620 @@
+{
+  "falsifier_id": "F-NeuralControlCard-Ablation",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_neural_control_card_ablation.sh",
+  "command_digest": "sha256:27281c511516e5ac15a547cb58f1e15b01ccab7a7c25a95387cffcd4b2ea1029",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "88f408904d5abbceb84adb052e9dc6082f5eb3a4",
+  "fixture_id": "neural_control_card_ablation_v1",
+  "timestamp_utc": "2026-06-03T20:59:47Z",
+  "result_digest": "sha256:053f72f47a456801e0098b5b74c7bfa074fae724bdfceaea658c2647298f8d40",
+  "measurements": {
+    "ablation_beaten": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ablation_run_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_respected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ambiguous_feature_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_beaten": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_run_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_intervention_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_intervention_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_effect_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "feature_ambiguity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "feature_or_direction_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_run_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_non_regression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_or_hook_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "value": 50331648,
+      "unit": "bytes"
+    },
+    "max_side_effect_bps": {
+      "value": 104,
+      "unit": "bps"
+    },
+    "max_strength_milli": {
+      "value": 900,
+      "unit": "milli"
+    },
+    "missing_ablation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_intervention_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_address": {
+      "value": "uas:neural-control:33db7ffd09f303ce70b24ddabae4046d98a92ae2c6116a811db4496d2d118aa7",
+      "unit": "uas_address"
+    },
+    "neural_control_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_card_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "neural_control_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_side_effect_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_strength_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_around_guard_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_around_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "side_effect_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "side_effects_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "start_stop_conditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "strength_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_ranges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_ablation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_control_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "ablation_beaten": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ablation_run_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_byte_budget_respected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ambiguous_feature_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_beaten": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_run_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_intervention_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_intervention_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_effect_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "feature_ambiguity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "feature_or_direction_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "intervention_run_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_non_regression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_or_hook_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "operator": "<=",
+      "value": 50331648,
+      "unit": "bytes"
+    },
+    "max_side_effect_bps": {
+      "operator": "<=",
+      "value": 180,
+      "unit": "bps"
+    },
+    "max_strength_milli": {
+      "operator": "<=",
+      "value": 1500,
+      "unit": "milli"
+    },
+    "missing_ablation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_intervention_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_address": {
+      "operator": "contains",
+      "value": "uas:neural-control:",
+      "unit": "uas_address"
+    },
+    "neural_control_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_card_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "neural_control_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "neural_control_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_side_effect_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_strength_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_around_guard_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_around_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "side_effect_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "side_effects_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "start_stop_conditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "strength_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_ranges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_ablation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_control_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "ablation_beaten": true,
+    "ablation_run_bound": true,
+    "active_byte_budget_bound": true,
+    "active_byte_budget_rejected": true,
+    "active_byte_budget_respected": true,
+    "ambiguous_feature_rejected": true,
+    "answer_packet_ref_bound": true,
+    "base_weight_mutation_rejected": true,
+    "baseline_beaten": true,
+    "baseline_run_bound": true,
+    "cloud_intervention_rejected": true,
+    "duplicate_intervention_rejected": true,
+    "expected_effect_bound": true,
+    "failure_signature_bound": true,
+    "feature_ambiguity_bound": true,
+    "feature_or_direction_ids_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_chain_not_exposed": true,
+    "hidden_live_authority_rejected": true,
+    "intervention_ids_bound": true,
+    "intervention_run_bound": true,
+    "latency_non_regression": true,
+    "layer_or_hook_bound": true,
+    "max_active_byte_limit": true,
+    "max_side_effect_bps": true,
+    "max_strength_milli": true,
+    "missing_ablation_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_baseline_rejected": true,
+    "missing_intervention_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "model_ids_bound": true,
+    "neural_control_address": true,
+    "neural_control_address_deterministic": true,
+    "neural_control_card_count": true,
+    "neural_control_cards_present": true,
+    "neural_control_shadow_only": true,
+    "no_base_weight_mutation": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_side_effect_rejected": true,
+    "over_strength_rejected": true,
+    "quality_delta_positive": true,
+    "rollback_bound": true,
+    "route_around_guard_bound": true,
+    "route_around_rejected": true,
+    "run_event_log_bound": true,
+    "side_effect_budget_bound": true,
+    "side_effects_within_budget": true,
+    "start_stop_conditions_bound": true,
+    "strength_bounded": true,
+    "token_ranges_bound": true,
+    "unbeaten_ablation_rejected": true,
+    "unbeaten_baseline_rejected": true,
+    "upstream_kv_page_control_pass": true,
+    "verifier_delta_positive": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only NeuralControlCard witness; no live activation steering, no base-weight mutation, no model/runtime bytes, no hidden chain, no cloud fallback, and no product promotion executed"
+    }
+  ],
+  "notes": "Proves bounded FeatureInterventionCards improve target behavior versus baseline and ablation runs while binding RunEventLog, rollback, AnswerPacket, side-effect budgets, ambiguity guards, and shadow-only authority."
+}

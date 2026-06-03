@@ -59,6 +59,8 @@ const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
     "artifacts/falsifiers/brain_route_card_multi_model/result.json";
 const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
     "artifacts/falsifiers/kv_page_control_query_aware/result.json";
+const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
+    "artifacts/falsifiers/neural_control_card_ablation/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -172,6 +174,60 @@ const KV_PAGE_CONTROL_QUERY_AWARE_AXES: &[&str] = &[
     "unbeaten_baseline_rejected",
     "no_runtime_bytes_loaded",
 ];
+const NEURAL_CONTROL_CARD_ABLATION_AXES: &[&str] = &[
+    "upstream_kv_page_control_pass",
+    "neural_control_cards_present",
+    "intervention_ids_bound",
+    "feature_or_direction_ids_bound",
+    "model_ids_bound",
+    "layer_or_hook_bound",
+    "token_ranges_bound",
+    "strength_bounded",
+    "start_stop_conditions_bound",
+    "expected_effect_bound",
+    "baseline_run_bound",
+    "intervention_run_bound",
+    "ablation_run_bound",
+    "run_event_log_bound",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "failure_signature_bound",
+    "side_effect_budget_bound",
+    "active_byte_budget_bound",
+    "no_base_weight_mutation",
+    "neural_control_shadow_only",
+    "route_around_guard_bound",
+    "feature_ambiguity_bound",
+    "baseline_beaten",
+    "ablation_beaten",
+    "side_effects_within_budget",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "latency_non_regression",
+    "active_byte_budget_respected",
+    "hidden_chain_not_exposed",
+    "no_hidden_cloud",
+    "neural_control_address_deterministic",
+    "duplicate_intervention_rejected",
+    "missing_baseline_rejected",
+    "missing_intervention_rejected",
+    "missing_ablation_rejected",
+    "missing_run_event_log_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "base_weight_mutation_rejected",
+    "hidden_live_authority_rejected",
+    "over_strength_rejected",
+    "over_budget_side_effect_rejected",
+    "active_byte_budget_rejected",
+    "route_around_rejected",
+    "ambiguous_feature_rejected",
+    "unbeaten_baseline_rejected",
+    "unbeaten_ablation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_intervention_rejected",
+    "no_runtime_bytes_loaded",
+];
 
 fn main() {
     let report = build_report();
@@ -230,6 +286,7 @@ fn build_report() -> KernelReport {
     let rust_route_kernel_model_check = GateArtifact::read(RUST_ROUTE_KERNEL_MODEL_CHECK_PATH);
     let brain_route_card_multi_model = GateArtifact::read(BRAIN_ROUTE_CARD_MULTI_MODEL_PATH);
     let kv_page_control_query_aware = GateArtifact::read(KV_PAGE_CONTROL_QUERY_AWARE_PATH);
+    let neural_control_card_ablation = GateArtifact::read(NEURAL_CONTROL_CARD_ABLATION_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -259,6 +316,7 @@ fn build_report() -> KernelReport {
         &rust_route_kernel_model_check,
         &brain_route_card_multi_model,
         &kv_page_control_query_aware,
+        &neural_control_card_ablation,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -613,6 +671,8 @@ fn build_report() -> KernelReport {
         && brain_route_card_multi_model.all_axes_true(BRAIN_ROUTE_CARD_MULTI_MODEL_AXES);
     let kv_page_control_query_aware_pass = kv_page_control_query_aware.overall_pass
         && kv_page_control_query_aware.all_axes_true(KV_PAGE_CONTROL_QUERY_AWARE_AXES);
+    let neural_control_card_ablation_pass = neural_control_card_ablation.overall_pass
+        && neural_control_card_ablation.all_axes_true(NEURAL_CONTROL_CARD_ABLATION_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -642,6 +702,7 @@ fn build_report() -> KernelReport {
         &rust_route_kernel_model_check,
         &brain_route_card_multi_model,
         &kv_page_control_query_aware,
+        &neural_control_card_ablation,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -669,6 +730,7 @@ fn build_report() -> KernelReport {
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
         kv_page_control_query_aware_pass,
+        neural_control_card_ablation_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -712,6 +774,7 @@ fn build_report() -> KernelReport {
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
         kv_page_control_query_aware_pass,
+        neural_control_card_ablation_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -759,6 +822,7 @@ fn build_report() -> KernelReport {
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
         kv_page_control_query_aware_pass,
+        neural_control_card_ablation_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1066,6 +1130,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "neural_control_card_ablation_pass",
+        neural_control_card_ablation_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1208,6 +1279,11 @@ fn build_report() -> KernelReport {
         "kv_page_control_query_aware",
         &kv_page_control_query_aware,
     );
+    add_gate_summary(
+        &mut measurements,
+        "neural_control_card_ablation",
+        &neural_control_card_ablation,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1236,6 +1312,7 @@ fn build_report() -> KernelReport {
         rust_route_kernel_model_check_pass,
         brain_route_card_multi_model_pass,
         kv_page_control_query_aware_pass,
+        neural_control_card_ablation_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1497,6 +1574,7 @@ fn classify_route(
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
     kv_page_control_query_aware_pass: bool,
+    neural_control_card_ablation_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1519,6 +1597,7 @@ fn classify_route(
         && rust_route_kernel_model_check_pass
         && brain_route_card_multi_model_pass
         && kv_page_control_query_aware_pass
+        && neural_control_card_ablation_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1575,6 +1654,7 @@ fn next_bottleneck(
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
     kv_page_control_query_aware_pass: bool,
+    neural_control_card_ablation_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1655,8 +1735,10 @@ fn next_bottleneck(
             "brain_route_card_multi_model".to_string()
         } else if !kv_page_control_query_aware_pass {
             "kv_page_control_query_aware".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !neural_control_card_ablation_pass {
             "neural_control_card_ablation".to_string()
+        } else if !seventy_b_route_pass {
+            "verifier_regret_ledger".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1711,6 +1793,7 @@ fn build_ordered_gap_queue(
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
     kv_page_control_query_aware_pass: bool,
+    neural_control_card_ablation_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2124,7 +2207,11 @@ fn build_ordered_gap_queue(
             25,
             "neural_control_card_ablation",
             "Meta Control",
-            if kv_page_control_query_aware_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if neural_control_card_ablation_pass {
+                "completed"
+            } else if kv_page_control_query_aware_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -2134,6 +2221,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
             "Bounded neural/feature control cards must improve target behavior versus baseline and ablation without unacceptable side effects, hidden route authority, or live mutation.",
             "Keep neural control cards shadow-only until baseline, intervention, ablation, rollback, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            26,
+            "verifier_regret_ledger",
+            "Meta Control",
+            if neural_control_card_ablation_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_neural_control_card_ablation"
+            },
+            "F-VerifierRegretLedger",
+            "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+            "Verifier regret updates must change later route selection and reduce regret over held-out prompt/task sets without hidden route authority.",
+            "Keep regret updates shadow-only until held-out regret reduction, rollback, RunEventLog, and AnswerPacket evidence pass.",
         ),
     ]
 }
@@ -2262,6 +2366,7 @@ fn build_anomalies(
     rust_route_kernel_model_check_pass: bool,
     brain_route_card_multi_model_pass: bool,
     kv_page_control_query_aware_pass: bool,
+    neural_control_card_ablation_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2444,6 +2549,15 @@ fn build_anomalies(
             "detail": "Meta Control has BrainRouteCard routing proof, but F-KVPageControl-QueryAware must pass before neural control-card work can advance."
         }));
     }
+    if kv_page_control_query_aware_pass
+        && !neural_control_card_ablation_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "neural_control_card_ablation_missing",
+            "detail": "Meta Control has query-aware KV/page proof, but F-NeuralControlCard-Ablation must pass before verifier-regret work can advance."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2570,7 +2684,7 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2578,6 +2692,7 @@ mod tests {
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
                 false, false, false, false, false, false, false, false, false, false, false, false,
+                false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
@@ -2585,13 +2700,14 @@ mod tests {
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
                 false, false, false, false, false, false, false, false, false, false, false, false,
+                false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2644,21 +2760,22 @@ mod tests {
         const RUST_ROUTE_KERNEL_MODEL_CHECK: usize = 34;
         const BRAIN_ROUTE_CARD_MULTI_MODEL: usize = 35;
         const KV_PAGE_CONTROL_QUERY_AWARE: usize = 36;
-        const SEVENTY_B: usize = 37;
+        const NEURAL_CONTROL_CARD_ABLATION: usize = 37;
+        const SEVENTY_B: usize = 38;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 38] {
-            let mut values = [false; 38];
+        let flags = |true_indexes: &[usize]| -> [bool; 39] {
+            let mut values = [false; 39];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 38], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 39], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2700,11 +2817,12 @@ mod tests {
                 values[35],
                 values[36],
                 values[37],
+                values[38],
                 &missing,
             )
         };
-        let nb = |values: [bool; 38]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 38]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 39]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 39]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -3359,6 +3477,44 @@ mod tests {
             "neural_control_card_ablation"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+            ]))),
+            "verifier_regret_ledger"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -3416,6 +3572,7 @@ mod tests {
                 RUST_ROUTE_KERNEL_MODEL_CHECK,
                 BRAIN_ROUTE_CARD_MULTI_MODEL,
                 KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

@@ -575,7 +575,7 @@ latency, proofability, and rollback.
 | `F-DifferentialKnowledgeView` | Proves backlinks/graph/review projections update by delta and beat full rebuild under held-out changes. |
 | `F-LicensePortabilityGate` | Proves repo motifs are classified as importable, source-mine-only, or rejected before any code import. |
 | `F-FeatureAtlas-Prior` | Proves feature handles improve route selection as priors without claiming arbitrary neuron control. |
-| `F-NeuralControlCard-Ablation` | Proves a bounded feature/activation intervention improves target behavior versus baseline and ablation without unacceptable side effects. |
+| `F-NeuralControlCard-Ablation` | PASS metadata-only witness on 2026-06-03. Proves three bounded feature/activation intervention cards improve target behavior versus baseline and ablation without unacceptable side effects, hidden live authority, base-weight mutation, hidden-chain exposure, cloud source, or runtime/model-byte load. Artifact: `artifacts/falsifiers/neural_control_card_ablation/result.json`. |
 | `F-VerifierRegretLedger` | Proves route utility updates change later route selection and reduce verifier regret over a held-out prompt/task set. |
 | `F-RouteScoutSSM-Baseline` | Proves a tiny scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines. |
 | `F-SparseWakeCertificate-AnswerPacket` | Proves a sparse route exposes selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback. |
