@@ -11,7 +11,10 @@ use crate::uas::{ByteRange, ProStatus, ProductBuild, ResidencyTier, UasAddress, 
 
 const PLAN_UAS_KIND: &str = "semantic_working_set_plan";
 const QUERY_UAS_KIND: &str = "task_working_set_query";
+const SOURCE_TO_RESIDENCY_PATCH_UAS_KIND: &str = "source_to_residency_patch";
 const ROLLBACK_PREFIX: &str = "rollback:";
+const FALSIFIER_PREFIX: &str = "F-";
+const MAX_SOURCE_PROMOTION_CREDIBILITY_RANK: u8 = 3;
 const FALLBACK_ROUTE_PREFIXES: [&str; 2] = ["runtime_router:fallback_", "runtime_router:static_"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -238,6 +241,156 @@ impl SourceSignalGraph {
             edges: accepted_edges,
             route_affinities,
             rejected_source_ids,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceToResidencyPatchKind {
+    Layout,
+    Cache,
+    Route,
+    Prompt,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceToResidencyPromotionStatus {
+    ShadowCandidate,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceToResidencyPatch {
+    pub patch_address: UasAddress,
+    pub source_graph_address: UasAddress,
+    pub source_id: String,
+    pub source_digest: String,
+    pub patch_kind: SourceToResidencyPatchKind,
+    pub proposed_unit_or_policy: String,
+    pub affected_organs: Vec<String>,
+    pub import_gate: String,
+    pub falsifier_required: String,
+    pub rollback_ref: String,
+    pub promotion_status: SourceToResidencyPromotionStatus,
+}
+
+impl SourceToResidencyPatch {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_source_signal(
+        graph: &SourceSignalGraph,
+        source_id: impl Into<String>,
+        expected_digest: impl Into<String>,
+        patch_kind: SourceToResidencyPatchKind,
+        proposed_unit_or_policy: impl Into<String>,
+        affected_organs: Vec<String>,
+        import_gate: impl Into<String>,
+        falsifier_required: impl Into<String>,
+        rollback_ref: impl Into<String>,
+        created_at_ms: u64,
+    ) -> Result<Self, SemanticWorkingSetError> {
+        let source_id = source_id.into();
+        let expected_digest = expected_digest.into();
+        let proposed_unit_or_policy = proposed_unit_or_policy.into();
+        let import_gate = import_gate.into();
+        let falsifier_required = falsifier_required.into();
+        let rollback_ref = rollback_ref.into();
+        validate_nonempty("source_id", &source_id)?;
+        validate_nonempty("source_digest", &expected_digest)?;
+        validate_nonempty("proposed_unit_or_policy", &proposed_unit_or_policy)?;
+        validate_nonempty("import_gate", &import_gate)?;
+        validate_nonempty("falsifier_required", &falsifier_required)?;
+        validate_nonempty("rollback_ref", &rollback_ref)?;
+        if !falsifier_required.starts_with(FALSIFIER_PREFIX) {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "missing_falsifier_gate".to_string(),
+            });
+        }
+        if !rollback_ref.starts_with(ROLLBACK_PREFIX) {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "missing_rollback".to_string(),
+            });
+        }
+        let affected_organs = canonicalize_strings(
+            "affected_organs",
+            affected_organs,
+            SemanticWorkingSetError::MissingAffectedOrgan,
+        )?;
+
+        if graph
+            .rejected_source_ids
+            .iter()
+            .any(|rejected| rejected == &source_id)
+        {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "blocked_no_poison_status".to_string(),
+            });
+        }
+        let card = graph
+            .source_cards
+            .iter()
+            .find(|card| card.source_id == source_id)
+            .ok_or_else(|| SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id: source_id.clone(),
+                reason: "unknown_source".to_string(),
+            })?;
+        if card.digest != expected_digest {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "stale_or_corrupted_digest".to_string(),
+            });
+        }
+        if card.privacy_class != PrivacyClass::PublicResearch {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "private_source_not_promotable".to_string(),
+            });
+        }
+        if card.credibility_rank > MAX_SOURCE_PROMOTION_CREDIBILITY_RANK {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "low_credibility_source".to_string(),
+            });
+        }
+        if source_license_blocks_promotion(&card.license_or_usage_note) {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "license_or_usage_blocks_promotion".to_string(),
+            });
+        }
+        if card.no_poison_status != SourceNoPoisonStatus::Clear {
+            return Err(SemanticWorkingSetError::SourcePromotionBlocked {
+                source_id,
+                reason: "blocked_no_poison_status".to_string(),
+            });
+        }
+
+        let patch_address = source_to_residency_patch_address(
+            &graph.graph_address,
+            card,
+            patch_kind,
+            &proposed_unit_or_policy,
+            &affected_organs,
+            &import_gate,
+            &falsifier_required,
+            &rollback_ref,
+            created_at_ms,
+        );
+        Ok(Self {
+            patch_address,
+            source_graph_address: graph.graph_address.clone(),
+            source_id: card.source_id.clone(),
+            source_digest: card.digest.clone(),
+            patch_kind,
+            proposed_unit_or_policy,
+            affected_organs,
+            import_gate,
+            falsifier_required,
+            rollback_ref,
+            promotion_status: SourceToResidencyPromotionStatus::ShadowCandidate,
         })
     }
 }
@@ -852,6 +1005,7 @@ pub enum SemanticWorkingSetError {
     MissingLicenseOrUsageNote,
     MissingRouteAffinity,
     MissingSourceRelation,
+    MissingAffectedOrgan,
     MissingSemanticUnitId,
     MissingCodec,
     MissingChecksum,
@@ -892,6 +1046,10 @@ pub enum SemanticWorkingSetError {
         from_source_id: String,
         to_source_id: String,
     },
+    SourcePromotionBlocked {
+        source_id: String,
+        reason: String,
+    },
     InvalidKvBudget,
     ByteTotalOverflow,
 }
@@ -911,6 +1069,7 @@ impl std::fmt::Display for SemanticWorkingSetError {
             }
             Self::MissingRouteAffinity => write!(f, "route_affinities are required"),
             Self::MissingSourceRelation => write!(f, "source relation is required"),
+            Self::MissingAffectedOrgan => write!(f, "affected_organs are required"),
             Self::MissingSemanticUnitId => write!(f, "semantic_unit_id is required"),
             Self::MissingCodec => write!(f, "codec is required"),
             Self::MissingChecksum => write!(f, "checksum is required"),
@@ -956,6 +1115,12 @@ impl std::fmt::Display for SemanticWorkingSetError {
                 f,
                 "source edge `{from_source_id}` -> `{to_source_id}` references an unknown source"
             ),
+            Self::SourcePromotionBlocked { source_id, reason } => {
+                write!(
+                    f,
+                    "{source_id} cannot promote source-to-residency patch: {reason}"
+                )
+            }
             Self::InvalidKvBudget => write!(f, "KV budget must carry non-empty positive values"),
             Self::ByteTotalOverflow => write!(f, "working-set byte total overflowed"),
         }
@@ -1171,6 +1336,53 @@ fn source_signal_graph_address(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn source_to_residency_patch_address(
+    graph_address: &UasAddress,
+    card: &SourceCard,
+    patch_kind: SourceToResidencyPatchKind,
+    proposed_unit_or_policy: &str,
+    affected_organs: &[String],
+    import_gate: &str,
+    falsifier_required: &str,
+    rollback_ref: &str,
+    created_at_ms: u64,
+) -> UasAddress {
+    let mut preimage = String::new();
+    preimage.push_str("source_to_residency_patch_v1\n");
+    push_preimage(
+        &mut preimage,
+        "source_graph_address",
+        &graph_address.to_string(),
+    );
+    push_preimage(&mut preimage, "source_id", &card.source_id);
+    push_preimage(&mut preimage, "source_digest", &card.digest);
+    push_preimage(&mut preimage, "patch_kind", &format!("{:?}", patch_kind));
+    push_preimage(
+        &mut preimage,
+        "proposed_unit_or_policy",
+        proposed_unit_or_policy,
+    );
+    push_string_list_preimage(&mut preimage, "affected_organs", affected_organs);
+    push_preimage(&mut preimage, "import_gate", import_gate);
+    push_preimage(&mut preimage, "falsifier_required", falsifier_required);
+    push_preimage(&mut preimage, "rollback_ref", rollback_ref);
+    UasAddress::new(
+        UasKind::Other(SOURCE_TO_RESIDENCY_PATCH_UAS_KIND.to_string()),
+        preimage.as_bytes(),
+        created_at_ms,
+    )
+}
+
+fn source_license_blocks_promotion(license_or_usage_note: &str) -> bool {
+    let lower = license_or_usage_note.to_ascii_lowercase();
+    lower.contains("license-blocked")
+        || lower.contains("usage-blocked")
+        || lower.contains("forbid")
+        || lower.contains("no residency")
+        || lower.contains("do not promote")
+}
+
+#[allow(clippy::too_many_arguments)]
 fn plan_address(
     query: &TaskWorkingSetQuery,
     selected_units: &[SemanticWorkingSetUnit],
@@ -1321,6 +1533,7 @@ fn missing_field_error(field: &'static str) -> SemanticWorkingSetError {
         "license_or_usage_note" => SemanticWorkingSetError::MissingLicenseOrUsageNote,
         "route_affinities" => SemanticWorkingSetError::MissingRouteAffinity,
         "source_relation" => SemanticWorkingSetError::MissingSourceRelation,
+        "affected_organs" => SemanticWorkingSetError::MissingAffectedOrgan,
         "semantic_unit_id" => SemanticWorkingSetError::MissingSemanticUnitId,
         "codec" => SemanticWorkingSetError::MissingCodec,
         "checksum" => SemanticWorkingSetError::MissingChecksum,
@@ -1573,6 +1786,110 @@ mod tests {
             empty_affinity,
             SemanticWorkingSetError::MissingRouteAffinity
         ));
+    }
+
+    #[test]
+    fn source_to_residency_patch_rejects_poison_private_stale_license_and_low_credibility() {
+        let mut cards = fixture_source_cards();
+        cards.push(source_card_with_usage(
+            "source:repo:license-blocked",
+            SourceSignalType::Repo,
+            "https://github.com/fixture/license-blocked",
+            "license-blocked-repo",
+            1,
+            "license-blocked: no residency promotion",
+            PrivacyClass::PublicResearch,
+            SourceNoPoisonStatus::Clear,
+            &["semantic_working_set"],
+        ));
+        cards.push(source_card_with_usage(
+            "source:paper:low-credibility",
+            SourceSignalType::Paper,
+            "paper://low-credibility",
+            "low-credibility-paper",
+            9,
+            "fixture-only source; motif mining permitted, no raw merge",
+            PrivacyClass::PublicResearch,
+            SourceNoPoisonStatus::Clear,
+            &["semantic_working_set"],
+        ));
+        let graph = SourceSignalGraph::intake(cards, Vec::new(), CREATED_AT_MS).unwrap();
+        let public_source = graph
+            .source_cards
+            .iter()
+            .find(|card| card.source_id == "source:paper:working-set")
+            .unwrap();
+        let patch = SourceToResidencyPatch::from_source_signal(
+            &graph,
+            &public_source.source_id,
+            &public_source.digest,
+            SourceToResidencyPatchKind::Layout,
+            "layout:working-set-tile",
+            vec!["app_cold_store".to_string(), "runtime_router".to_string()],
+            "source:no-poison+license+digest+privacy+credibility",
+            "F-SourceToResidency-NoPoison",
+            "rollback:source-to-residency",
+            CREATED_AT_MS,
+        )
+        .unwrap();
+        assert_eq!(patch.source_graph_address, graph.graph_address);
+        assert_eq!(
+            patch.promotion_status,
+            SourceToResidencyPromotionStatus::ShadowCandidate
+        );
+        assert_eq!(
+            patch.affected_organs,
+            vec!["app_cold_store".to_string(), "runtime_router".to_string()]
+        );
+
+        let stale = SourceToResidencyPatch::from_source_signal(
+            &graph,
+            &public_source.source_id,
+            digest("changed-source"),
+            SourceToResidencyPatchKind::Layout,
+            "layout:working-set-tile",
+            vec!["app_cold_store".to_string()],
+            "source:no-poison+license+digest+privacy+credibility",
+            "F-SourceToResidency-NoPoison",
+            "rollback:source-to-residency",
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            stale,
+            SemanticWorkingSetError::SourcePromotionBlocked { .. }
+        ));
+
+        for source_id in [
+            "source:poison:prompt-injection",
+            "source:doc:semantic-working-set",
+            "source:repo:license-blocked",
+            "source:paper:low-credibility",
+        ] {
+            let digest = graph
+                .source_cards
+                .iter()
+                .find(|card| card.source_id == source_id)
+                .map(|card| card.digest.clone())
+                .unwrap_or_else(|| digest("prompt-injection-fixture"));
+            let blocked = SourceToResidencyPatch::from_source_signal(
+                &graph,
+                source_id,
+                digest,
+                SourceToResidencyPatchKind::Route,
+                "route:source-derived-policy",
+                vec!["runtime_router".to_string()],
+                "source:no-poison+license+digest+privacy+credibility",
+                "F-SourceToResidency-NoPoison",
+                "rollback:source-to-residency",
+                CREATED_AT_MS,
+            )
+            .unwrap_err();
+            assert!(matches!(
+                blocked,
+                SemanticWorkingSetError::SourcePromotionBlocked { .. }
+            ));
+        }
     }
 
     #[test]
@@ -2206,6 +2523,35 @@ mod tests {
             digest(digest_seed),
             credibility_rank,
             "fixture-only source; motif mining permitted, no raw merge",
+            privacy_class,
+            no_poison_status,
+            route_affinities
+                .iter()
+                .map(|route| (*route).to_string())
+                .collect(),
+        )
+        .unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn source_card_with_usage(
+        source_id: &str,
+        source_type: SourceSignalType,
+        locator: &str,
+        digest_seed: &str,
+        credibility_rank: u8,
+        license_or_usage_note: &str,
+        privacy_class: PrivacyClass,
+        no_poison_status: SourceNoPoisonStatus,
+        route_affinities: &[&str],
+    ) -> SourceCard {
+        SourceCard::new(
+            source_id,
+            source_type,
+            locator,
+            digest(digest_seed),
+            credibility_rank,
+            license_or_usage_note,
             privacy_class,
             no_poison_status,
             route_affinities

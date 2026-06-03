@@ -45,7 +45,7 @@ performance claims still require their own measured witnesses.
 `F-MmapResidencyFence-CopyCount` closes the first mmap-residency-fence fixture
 for the Semantic Working-Set Compiler bundle. `F-PrefetchWindow-ColdMiss` now
 closes the first prefetch/cold-miss behavior fixture. The next unfinished gates
-are cold-fault learning, oracle baselines, source-to-residency no-poison
-propagation, and any ColdStream no-hidden-authority witness before transport
-policy can influence live routes. KV byte-budget cards are now covered by
-`F-KVByteBudgetCard`.
+are cold-fault learning, oracle baselines, and any ColdStream
+no-hidden-authority witness before transport policy can influence live routes.
+KV byte-budget cards are now covered by `F-KVByteBudgetCard`; source-to-residency
+no-poison propagation is now covered by `F-SourceToResidency-NoPoison`.

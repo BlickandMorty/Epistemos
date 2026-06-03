@@ -1,0 +1,270 @@
+{
+  "falsifier_id": "F-SourceToResidency-NoPoison",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_source_to_residency_no_poison.sh",
+  "command_digest": "sha256:ef6b214f7e717d5d4eb94bb0f1ac816d0da150f2b36d3de20d519f1ba606eb19",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "d200c70fc97e2aca9739536e4f60437748eb1a55",
+  "fixture_id": "source_to_residency_no_poison_v1",
+  "timestamp_utc": "2026-06-03T09:33:45Z",
+  "result_digest": "sha256:ee56ff4f06459e18246b07a575e25db8f25828e4888a06098a81a0f354ee88a0",
+  "measurements": {
+    "affected_organs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_poison_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_affected_organs_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "falsifier_required_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "import_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "license_blocked_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_credibility_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_falsifier_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_address": {
+      "value": "source_to_residency_patch:ec4bfe96f8995494a556ff879a424b38109ac8770cd4c42212193091775944de@1779000000000",
+      "unit": "string"
+    },
+    "patch_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "patch_kinds_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "private_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_status_shadow_candidate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_fixture_count": {
+      "value": 9,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_address_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "valid_patch_created": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "affected_organs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_poison_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_affected_organs_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "falsifier_required_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "import_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "license_blocked_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_credibility_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_falsifier_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "patch_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "patch_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "patch_kinds_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "private_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_status_shadow_candidate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_fixture_count": {
+      "operator": ">=",
+      "value": 9,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_graph_address_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "valid_patch_created": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "affected_organs_bound": true,
+    "blocked_poison_source_rejected": true,
+    "empty_affected_organs_rejected": true,
+    "falsifier_required_bound": true,
+    "import_gate_bound": true,
+    "license_blocked_source_rejected": true,
+    "low_credibility_source_rejected": true,
+    "missing_falsifier_gate_rejected": true,
+    "missing_rollback_rejected": true,
+    "patch_address": true,
+    "patch_address_deterministic": true,
+    "patch_count": true,
+    "patch_kinds_coverage": true,
+    "private_source_rejected": true,
+    "promotion_status_shadow_candidate": true,
+    "rejected_fixture_count": true,
+    "rollback_bound": true,
+    "source_digest_bound": true,
+    "source_graph_address_bound": true,
+    "stale_digest_rejected": true,
+    "unknown_source_rejected": true,
+    "valid_patch_created": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "fixture-only source-to-residency promotion guard; no source fetch, code import, layout rewrite, cache mutation, route mutation, model decode, MLX/Metal, or live policy change executed"
+    }
+  ],
+  "notes": "Proves source-derived layout/cache/route/prompt patches stay shadow candidates and fail closed for poisoned, stale/corrupted, private, license-blocked, low-credibility, unknown, missing-falsifier, missing-rollback, or empty-organ fixtures."
+}

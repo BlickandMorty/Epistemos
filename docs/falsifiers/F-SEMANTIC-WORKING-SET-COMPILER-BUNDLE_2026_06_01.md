@@ -98,12 +98,16 @@ failure_reason
 - `F-KVByteBudgetCard` is implemented as a primary witness at
   `artifacts/falsifiers/kv_byte_budget_card/result.json` and documented in
   `docs/falsifiers/F-KVByteBudgetCard_2026_06_03.md`.
-- Remaining bundle work starts with cold-fault learning, working-set oracle
-  baseline, and source-to-residency no-poison
-  promotion guards. Source intake, deterministic query emission, budget
+- `F-SourceToResidency-NoPoison` is implemented as a primary witness at
+  `artifacts/falsifiers/source_to_residency_no_poison/result.json` and
+  documented in
+  `docs/falsifiers/F-SourceToResidency-NoPoison_2026_06_03.md`.
+- Remaining bundle work starts with cold-fault learning and working-set oracle
+  baseline. Source intake, deterministic query emission, budget
   rejection, page-table addressability, mmap-residency-fence copy-count
-  semantics, prefetch/cold-miss ordering, and KV byte-budget cards no longer
-  need to be rebuilt from scratch.
+  semantics, prefetch/cold-miss ordering, KV byte-budget cards, and
+  source-to-residency no-poison promotion guards no longer need to be rebuilt
+  from scratch.
 
 ## Required fixture families
 
@@ -136,7 +140,8 @@ failure_reason
    `TaskWorkingSetQuery`, `SemanticWorkingSetPlan` budget rejection, and
    `ResidencyPageTable` addressability, and `MmapResidencyFence` copy-count
    semantics, and `PrefetchWindow` cold-miss ordering, and `KVByteBudgetCard`
-   accounting now have primary witnesses.
+   accounting, and `SourceToResidencyPatch` no-poison guards now have primary
+   witnesses.
 2. Synthetic fixtures for deterministic query emission are covered by
    `F-TaskWorkingSetQuery-Determinism`; source intake is already wired through
    `F-SourceSignalGraph-Intake`.
@@ -147,8 +152,7 @@ failure_reason
    covered by `F-MmapResidencyFence-CopyCount`.
 5. Add cold-miss learning fixtures with rollback-only layout patches.
 6. Add oracle baseline comparison.
-7. Add no-poison source-to-residency fixtures.
-8. Only after synthetic gates pass, connect dry-run plans to existing
+7. Only after synthetic gates pass, connect dry-run plans to existing
    constructive-residency and cache-lineage artifacts.
 
 ## Product locks

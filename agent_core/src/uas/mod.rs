@@ -68,6 +68,7 @@ pub use semantic_working_set::{
     ResidencyPageTableEntry, SemanticWorkingSetError, SemanticWorkingSetPlan,
     SemanticWorkingSetPlanStatus, SemanticWorkingSetUnit, SemanticWorkingSetViolation, SourceCard,
     SourceNoPoisonStatus, SourceSignalEdge, SourceSignalGraph, SourceSignalType,
+    SourceToResidencyPatch, SourceToResidencyPatchKind, SourceToResidencyPromotionStatus,
     TaskWorkingSetQuery, VerifierNeed, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
 };
 pub use weight_block::{
