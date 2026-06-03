@@ -52,6 +52,8 @@ const RUST_ROUTE_KERNEL_MODEL_CHECK_PATH: &str =
     "artifacts/falsifiers/rust_route_kernel_model_check/result.json";
 const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
     "artifacts/falsifiers/brain_route_card_multi_model/result.json";
+const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
+    "artifacts/falsifiers/kv_page_control_query_aware/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -119,6 +121,54 @@ const BRAIN_ROUTE_CARD_MULTI_MODEL_AXES: &[&str] = &[
     "cloud_route_rejected",
     "unbeaten_static_baseline_rejected",
     "over_budget_route_rejected",
+    "no_runtime_bytes_loaded",
+];
+const KV_PAGE_CONTROL_QUERY_AWARE_AXES: &[&str] = &[
+    "upstream_brain_route_card_pass",
+    "kv_page_control_cards_present",
+    "query_signatures_bound",
+    "mission_ids_bound",
+    "model_ids_bound",
+    "upstream_route_refs_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "layer_ranges_bound",
+    "token_page_ranges_bound",
+    "compatibility_fences_bound",
+    "query_dependence_bound",
+    "criticality_signal_bound",
+    "sink_or_heavy_hitter_bound",
+    "ranking_signals_bound",
+    "privacy_classes_bound",
+    "retention_decisions_bound",
+    "eviction_decisions_bound",
+    "restore_decisions_bound",
+    "selected_pages_fit_active_byte_budget",
+    "query_aware_beats_recency",
+    "query_aware_beats_random",
+    "query_aware_beats_file_order",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "latency_delta_positive",
+    "active_byte_delta_positive",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "route_card_ref_bound",
+    "page_control_shadow_only",
+    "no_hidden_cloud",
+    "page_control_address_deterministic",
+    "duplicate_policy_rejected",
+    "duplicate_page_rejected",
+    "stale_page_rejected",
+    "incompatible_fence_rejected",
+    "missing_digest_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "over_budget_selection_rejected",
+    "hidden_live_mutation_rejected",
+    "verifier_bypass_rejected",
+    "cloud_page_rejected",
+    "unbeaten_baseline_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -526,6 +576,11 @@ fn build_report() -> GuardReport {
         &brain_route_card_multi_model,
         BRAIN_ROUTE_CARD_MULTI_MODEL_AXES,
     );
+    let kv_page_control_query_aware = read_json(Path::new(KV_PAGE_CONTROL_QUERY_AWARE_PATH));
+    let kv_page_control_query_aware_available = artifact_all_axes_true(
+        &kv_page_control_query_aware,
+        KV_PAGE_CONTROL_QUERY_AWARE_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -618,6 +673,7 @@ fn build_report() -> GuardReport {
         && proof_carrying_route_card_available
         && rust_route_kernel_model_check_available
         && brain_route_card_multi_model_available
+        && kv_page_control_query_aware_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -800,6 +856,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "brain_route_card_multi_model_available",
         brain_route_card_multi_model_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "kv_page_control_query_aware_available",
+        kv_page_control_query_aware_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1107,6 +1170,10 @@ fn build_report() -> GuardReport {
                     "path": BRAIN_ROUTE_CARD_MULTI_MODEL_PATH,
                     "available": brain_route_card_multi_model_available
                 },
+                "kv_page_control_query_aware": {
+                    "path": KV_PAGE_CONTROL_QUERY_AWARE_PATH,
+                    "available": kv_page_control_query_aware_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1258,6 +1325,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_brain_route_card_multi_model",
             "detail": "Meta Control has a bounded route-kernel model check, but needs F-BrainRouteCard-MultiModel before query-aware KV/page control work continues."
+        }));
+    }
+    if brain_route_card_multi_model_available && !kv_page_control_query_aware_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_kv_page_control_query_aware",
+            "detail": "Meta Control has BrainRouteCard routing proof, but needs F-KVPageControl-QueryAware before the next non-heavy architecture cursor advances."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2154,6 +2227,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("brain_route_card_multi_model")
+            .is_some());
+        assert!(already_mapped_work
+            .get("kv_page_control_query_aware")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
