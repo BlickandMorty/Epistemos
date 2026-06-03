@@ -46,5 +46,7 @@ policy. It only proves the mission-shaped query contract that later
 `F-TaskWorkingSetQuery-Determinism` closes the deterministic query item from
 the Semantic Working-Set Compiler build order. `F-ResidencyPageTable-Addressability`
 now covers the first page-table gate, and `F-MmapResidencyFence-CopyCount`
-covers mmap fence copy-count semantics, so the next bundle work moves to
-prefetch/cold-miss fixtures.
+covers mmap fence copy-count semantics. `F-PrefetchWindow-ColdMiss` now covers
+the first prefetch/cold-miss fixture, so the next unfinished bundle work is
+cold-fault learning, KV byte-budget cards, oracle baselines, and
+source-to-residency no-poison propagation.

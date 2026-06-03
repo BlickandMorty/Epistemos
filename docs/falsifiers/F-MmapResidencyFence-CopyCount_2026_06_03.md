@@ -43,6 +43,8 @@ performance claims still require their own measured witnesses.
 ## Queue Effect
 
 `F-MmapResidencyFence-CopyCount` closes the first mmap-residency-fence fixture
-for the Semantic Working-Set Compiler bundle. The next bundle gate remains
-prefetch/cold-miss behavior, plus any ColdStream no-hidden-authority witness
-before transport policy can influence live routes.
+for the Semantic Working-Set Compiler bundle. `F-PrefetchWindow-ColdMiss` now
+closes the first prefetch/cold-miss behavior fixture. The next unfinished gates
+are cold-fault learning, KV byte-budget cards, oracle baselines,
+source-to-residency no-poison propagation, and any ColdStream
+no-hidden-authority witness before transport policy can influence live routes.

@@ -1780,6 +1780,52 @@ mod tests {
     }
 
     #[test]
+    fn prefetch_window_orders_cold_units_by_priority() {
+        let plan = compile(
+            fixture_query(2 * 1024 * 1024, 4 * 1024 * 1024),
+            vec![
+                unit(
+                    "cold-low",
+                    WorkingSetUnitKind::WeightPage,
+                    UasKind::ModelComponent,
+                    WorkingSetStorageTier::Cold,
+                    0,
+                    64 * 1024,
+                    10,
+                ),
+                unit(
+                    "hot-evidence",
+                    WorkingSetUnitKind::EvidencePage,
+                    UasKind::VaultNote,
+                    WorkingSetStorageTier::Hot,
+                    0,
+                    64 * 1024,
+                    1,
+                ),
+                unit(
+                    "cold-high",
+                    WorkingSetUnitKind::WeightPage,
+                    UasKind::ModelComponent,
+                    WorkingSetStorageTier::Cold,
+                    64 * 1024,
+                    64 * 1024,
+                    90,
+                ),
+            ],
+        );
+
+        assert_eq!(plan.prefetch_window.ordered_units.len(), 2);
+        assert_eq!(
+            plan.prefetch_window.ordered_units,
+            vec![
+                address(UasKind::ModelComponent, b"cold-high"),
+                address(UasKind::ModelComponent, b"cold-low"),
+            ]
+        );
+        assert_eq!(plan.prefetch_window.max_bytes, 128 * 1024);
+    }
+
+    #[test]
     fn mmap_fence_never_counts_mapped_untouched_range_as_hot() {
         let fence = MmapResidencyFence::evaluate(
             "model.gguf",
