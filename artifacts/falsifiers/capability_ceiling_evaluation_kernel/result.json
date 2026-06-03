@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "13eba91a75405add8de5b8ba7303e4a57513c5b0",
+  "commit_sha": "49a4c763dc5187a5e99c0dd8045bcfc3b46059be",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T13:21:28Z",
-  "result_digest": "sha256:6c79c166384e2951708f24bff6b7491affb0cf2b764bd4f64cbc768c51977ceb",
+  "timestamp_utc": "2026-06-03T13:50:36Z",
+  "result_digest": "sha256:527afa4bd2f1c91446ebd049543959e1400f4b4bc7659ca2dc6dab58935e1fca",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -170,7 +170,7 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "research_construction_engine",
+      "value": "coactivation_tile_prefetch",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -299,11 +299,21 @@
           "order": 12,
           "gap_id": "research_construction_engine",
           "tier": "Research Construction",
-          "status": "next_active_architecture_cursor",
-          "falsifier_or_gate": "RCE / ProblemCard / ConstructionGraph / AnswerPacket",
-          "witness": "docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md",
-          "promotion_condition": "Open research motifs become ProblemCards with WBO budget, falsifier, witness, tier, and rollback.",
+          "status": "completed",
+          "falsifier_or_gate": "F-ResidencyConstructionGraph",
+          "witness": "artifacts/falsifiers/residency_construction_graph/result.json",
+          "promotion_condition": "Problem/task signatures become source-card-backed ResidencyConstructionGraphs with deterministic assembly scores, verifier/cold-miss evidence, rollback, and zero runtime/model-byte loads.",
           "rollback": "Keep candidate laws and public-research motifs candidate-only until local falsifiers pass."
+        },
+        {
+          "order": 13,
+          "gap_id": "coactivation_tile_prefetch",
+          "tier": "Research Construction",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-CoactivationTile-Prefetch",
+          "witness": "docs/falsifiers/F-CONSTRUCTIVE-RESIDENCY-BUNDLE_2026_06_01.md",
+          "promotion_condition": "Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste.",
+          "rollback": "Keep cold layout/prefetch as shadow planner evidence until held-out cold-miss and stall reductions pass."
         }
       ],
       "unit": "queue"
@@ -357,6 +367,22 @@
         "status_pass": false,
         "pass_axes_all_true": false,
         "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "residency_construction_graph_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "residency_construction_graph_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/residency_construction_graph/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
       },
       "unit": "object"
     },
@@ -570,6 +596,11 @@
       "value": true,
       "unit": "bool"
     },
+    "residency_construction_graph_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "seventy_b_bottleneck_identified": {
       "operator": "==",
       "value": true,
@@ -641,6 +672,7 @@
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
     "page_gather_packetized_policy_acceptance_pass": true,
+    "residency_construction_graph_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
@@ -668,8 +700,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "research_construction_engine"
+      "detail": "coactivation_tile_prefetch"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=research_construction_engine; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=coactivation_tile_prefetch; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

@@ -1,0 +1,260 @@
+{
+  "falsifier_id": "F-ResidencyConstructionGraph",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_residency_construction_graph.sh",
+  "command_digest": "sha256:ebf1a84888b82f97c4626e3198a683543f2efce85719070e669885affbf51744",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "49a4c763dc5187a5e99c0dd8045bcfc3b46059be",
+  "fixture_id": "residency_construction_graph_dry_run_v1",
+  "timestamp_utc": "2026-06-03T13:43:02Z",
+  "result_digest": "sha256:72ce99280c26ae6987f2d76769d69b2b0c320d0e56ff5a0923380c518c641f04",
+  "measurements": {
+    "assembly_score_bps": {
+      "value": 9083,
+      "unit": "bps"
+    },
+    "budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_units_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_edges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "value": 128,
+      "unit": "bytes"
+    },
+    "cold_miss_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "cold_miss_history_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_stall_ms": {
+      "value": 12,
+      "unit": "ms"
+    },
+    "graph_address": {
+      "value": "residency_construction_graph:c7e13af193f13bee8469412cd6590262a7738fab39072b4411c74c047cddb758@1779000000000",
+      "unit": "string"
+    },
+    "graph_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_resident_bytes": {
+      "value": 80,
+      "unit": "bytes"
+    },
+    "incompatibility_edges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_assemblies_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_unit_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "rollback_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_edges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_bytes": {
+      "value": 16,
+      "unit": "bytes"
+    }
+  },
+  "acceptance_thresholds": {
+    "assembly_score_bps": {
+      "operator": ">=",
+      "value": 8000,
+      "unit": "bps"
+    },
+    "budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_units_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coactivation_edges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes": {
+      "operator": "==",
+      "value": 128,
+      "unit": "bytes"
+    },
+    "cold_miss_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "count"
+    },
+    "cold_miss_history_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_stall_ms": {
+      "operator": "==",
+      "value": 12,
+      "unit": "ms"
+    },
+    "graph_address": {
+      "operator": "==",
+      "value": "residency_construction_graph:c7e13af193f13bee8469412cd6590262a7738fab39072b4411c74c047cddb758@1779000000000",
+      "unit": "string"
+    },
+    "graph_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_resident_bytes": {
+      "operator": "==",
+      "value": 80,
+      "unit": "bytes"
+    },
+    "incompatibility_edges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_assemblies_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_unit_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "rollback_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "source_card_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_edges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_bytes": {
+      "operator": "==",
+      "value": 16,
+      "unit": "bytes"
+    }
+  },
+  "pass_per_axis": {
+    "assembly_score_bps": true,
+    "budget_enforced": true,
+    "candidate_units_present": true,
+    "coactivation_edges_bound": true,
+    "cold_bytes": true,
+    "cold_miss_count": true,
+    "cold_miss_history_bound": true,
+    "cold_stall_ms": true,
+    "graph_address": true,
+    "graph_address_deterministic": true,
+    "hot_resident_bytes": true,
+    "incompatibility_edges_bound": true,
+    "invalid_assemblies_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "rejected_unit_count": true,
+    "rollback_required": true,
+    "selected_unit_count": true,
+    "source_card_ids_bound": true,
+    "task_signature_bound": true,
+    "verifier_edges_bound": true,
+    "warm_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only Research Construction Engine dry run; no mmap, model decode, MLX, Metal, KV, provider, or live route policy mutation executed"
+    }
+  ],
+  "notes": "Proves the first RCE ResidencyConstructionGraph dry-run planner gate; later coactivation tile prefetch, proof-carrying lease, and cold assembly runtime gates remain separate."
+}

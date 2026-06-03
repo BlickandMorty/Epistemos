@@ -50,6 +50,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-UAS-ZeroCopy-Spine",
     "F-UAS-ACS-MmapResidency",
     "F-ResidencyPlan-DryRun",
+    "F-ResidencyConstructionGraph",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

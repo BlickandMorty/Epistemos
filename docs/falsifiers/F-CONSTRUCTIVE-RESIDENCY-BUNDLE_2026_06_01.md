@@ -41,7 +41,7 @@ Companion 2026-06-01 gates:
 
 | Gate | What it must prove | Promotion target |
 |---|---|---|
-| `F-ResidencyConstructionGraph` | Candidate units, coactivation edges, incompatibilities, verifier edges, and cold-miss history produce deterministic plan scores and reject invalid assemblies. | Dry-run planner. |
+| `F-ResidencyConstructionGraph` | Candidate units, coactivation edges, incompatibilities, verifier edges, and cold-miss history produce deterministic plan scores and reject invalid assemblies. | PASS as metadata-only dry-run planner witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`, `artifacts/falsifiers/residency_construction_graph/result.json`. |
 | `F-CoactivationTile-Prefetch` | Tile packing and prefetch beat original file order or random fetch on cold misses, stall time, and byte waste. | AppColdStore layout bench. |
 | `F-ProofCarryingResidencyLease` | No cold byte wakes without UAS address, reason, byte cost, proof/falsifier reference, expiry, fallback, and rollback. | SCOPE-Rex/SovereignGate admission. |
 | `F-ColdAssemblyPlan-70B-Lite` | A small-hot plus cold-selected plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. | Pro Research capability ceiling. |
@@ -118,3 +118,4 @@ A future artifact fails immediately if it:
 - Frontier local reasoning: `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
 - Neural importance atlas: `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 - Existing dry-run witness: `docs/falsifiers/F-ResidencyPlan-DryRun_2026_05_30.md`
+- First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
