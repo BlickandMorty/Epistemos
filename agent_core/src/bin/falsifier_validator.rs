@@ -80,6 +80,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ActiveAssembly-Minimal",
     "F-Sparse-Runtime-Split",
     "F-Eidos-Bridge-RoundTrip",
+    "F-T21-RetrievalContract-Capstone",
     "F-Eidos-NeuralRoute-Prior",
     "F-ParamRouteCard-Admission",
     "F-ResidencyPatternBoost-NoHiddenAuthority",
