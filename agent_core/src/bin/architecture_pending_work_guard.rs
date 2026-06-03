@@ -154,22 +154,26 @@ fn build_report() -> GuardReport {
     );
     let provider_reference_prompt_level_readiness =
         read_json(Path::new(PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH));
-    let provider_reference_prompt_level_readiness_witness_available =
-        artifact_has_axes(
-            &provider_reference_prompt_level_readiness,
-            &[
-                "provider_reference_env_set",
-                "manifest_file_exists",
-                "manifest_valid",
-                "prompt_level_scope",
-                "prompt_count_floor",
-                "replay_files_valid",
-                "prompt_level_reference_available",
-            ],
-        ) && provider_reference_prompt_level_readiness
+    let provider_reference_prompt_level_readiness_witness_available = artifact_has_axes(
+        &provider_reference_prompt_level_readiness,
+        &[
+            "provider_reference_env_set",
+            "manifest_file_exists",
+            "manifest_valid",
+            "prompt_level_scope",
+            "prompt_count_floor",
+            "replay_files_valid",
+            "prompt_level_reference_available",
+        ],
+    )
+        && provider_reference_prompt_level_readiness
             .as_ref()
             .and_then(|value| measurement_string_value(value, "primary_blocker"))
             .is_some();
+    let provider_reference_prompt_level_readiness_primary_blocker =
+        provider_reference_prompt_level_readiness
+            .as_ref()
+            .and_then(|value| measurement_string_value(value, "primary_blocker"));
     let local_70b_cocktail = read_json(Path::new(LOCAL_70B_COCKTAIL_PATH));
     let local_70b_cocktail_honest_red = local_70b_cocktail.as_ref().is_some_and(|value| {
         !artifact_overall_pass_value(value)
@@ -199,6 +203,7 @@ fn build_report() -> GuardReport {
         &merged_summary,
         kv_fixture_logits_available,
         &next_bottleneck,
+        provider_reference_prompt_level_readiness_primary_blocker.as_deref(),
         heavy_long_context_enabled,
     );
     let duplicate_risk_count = queue_summary.duplicate_gap_ids
@@ -491,17 +496,20 @@ fn build_report() -> GuardReport {
         "kv_model_context_canonical_context_ok",
         model_context_summary.canonical_context_ok,
     );
-    add_bool_measurement(
-        &mut measurements,
-        "heavy_long_context_guard_present",
-        true,
-    );
+    add_bool_measurement(&mut measurements, "heavy_long_context_guard_present", true);
     add_bool_measurement(
         &mut measurements,
         "heavy_long_context_enabled",
         heavy_long_context_enabled,
     );
     add_label(&mut measurements, "next_bottleneck", &next_bottleneck);
+    add_label(
+        &mut measurements,
+        "provider_reference_prompt_level_primary_blocker",
+        provider_reference_prompt_level_readiness_primary_blocker
+            .as_deref()
+            .unwrap_or("missing_provider_reference_prompt_level_readiness_artifact"),
+    );
     add_label(&mut measurements, "next_existing_work", &next_existing_work);
     add_label(
         &mut measurements,
@@ -1139,8 +1147,16 @@ fn derive_next_existing_work(
     merged: &ContractStatus,
     kv_fixture_logits_available: bool,
     next_bottleneck: &str,
+    provider_reference_prompt_level_blocker: Option<&str>,
     heavy_long_context_enabled: bool,
 ) -> String {
+    if next_bottleneck == "missing_fp16_or_provider_reference" {
+        if let Some(blocker) = provider_reference_prompt_level_blocker {
+            if blocker != "ready_for_70b_prompt_level_comparison" {
+                return blocker.to_string();
+            }
+        }
+    }
     if !heavy_long_context_enabled && is_kv_direct_work(next_bottleneck) {
         return "heavy_long_context_deferred_by_default".to_string();
     }
@@ -1201,7 +1217,9 @@ fn artifact_all_axes_true(value: &Option<serde_json::Value>, axes: &[&str]) -> b
 
 fn artifact_has_axes(value: &Option<serde_json::Value>, axes: &[&str]) -> bool {
     value.as_ref().is_some_and(|artifact| {
-        let Some(pass_per_axis) = artifact.get("pass_per_axis").and_then(|axes| axes.as_object())
+        let Some(pass_per_axis) = artifact
+            .get("pass_per_axis")
+            .and_then(|axes| axes.as_object())
         else {
             return false;
         };
@@ -1369,11 +1387,12 @@ mod tests {
                 true,
                 true,
                 &shards,
-            &ContractStatus::Missing,
-            false,
-            "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
-            true,
-        ),
+                &ContractStatus::Missing,
+                false,
+                "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
+                None,
+                true,
+            ),
             "continue_kv_direct_shard:shard_000_024"
         );
     }
@@ -1396,11 +1415,12 @@ mod tests {
                 true,
                 true,
                 &shards,
-            &ContractStatus::Missing,
-            false,
-            "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
-            true,
-        ),
+                &ContractStatus::Missing,
+                false,
+                "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+                None,
+                true,
+            ),
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
         );
     }
@@ -1426,6 +1446,7 @@ mod tests {
                 &ContractStatus::Missing,
                 false,
                 "missing_fp16_or_provider_reference",
+                None,
                 false,
             ),
             "missing_fp16_or_provider_reference"
@@ -1438,9 +1459,28 @@ mod tests {
                 &ContractStatus::Missing,
                 false,
                 "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+                None,
                 false,
             ),
             "heavy_long_context_deferred_by_default"
+        );
+    }
+
+    #[test]
+    fn next_work_uses_provider_reference_readiness_blocker_when_available() {
+        let shards = ShardSummary::default();
+        assert_eq!(
+            derive_next_existing_work(
+                true,
+                true,
+                &shards,
+                &ContractStatus::Missing,
+                false,
+                "missing_fp16_or_provider_reference",
+                Some("missing_provider_reference_env"),
+                false,
+            ),
+            "missing_provider_reference_env"
         );
     }
 

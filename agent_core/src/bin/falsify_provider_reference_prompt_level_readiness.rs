@@ -385,9 +385,7 @@ fn add_label(measurements: &mut BTreeMap<String, Measurement>, axis: &str, value
 mod tests {
     use super::*;
     use agent_core::falsifier_artifacts::sha256_hex;
-    use agent_core::uas::{
-        ProviderReferenceKind, ReferenceDataSentClass, ReferenceRetentionClaim,
-    };
+    use agent_core::uas::{ProviderReferenceKind, ReferenceDataSentClass, ReferenceRetentionClaim};
 
     fn write_manifest(
         root: &Path,
@@ -396,8 +394,7 @@ mod tests {
         write_prompt_suite: bool,
     ) -> String {
         let artifact_ref =
-            "artifacts/falsifiers/70b_local_cocktail_lite/test_prompt_reference.jsonl"
-                .to_string();
+            "artifacts/falsifiers/70b_local_cocktail_lite/test_prompt_reference.jsonl".to_string();
         let prompt_suite_artifact_ref =
             "artifacts/falsifiers/70b_local_cocktail_lite/test_prompt_suite.json".to_string();
         let artifact_path = root.join(&artifact_ref);
@@ -456,8 +453,12 @@ mod tests {
     #[test]
     fn shape_only_manifest_does_not_satisfy_prompt_level_readiness() {
         let temp = tempfile::tempdir().unwrap();
-        let manifest_path =
-            write_manifest(temp.path(), ReferenceEvidenceScope::ShapeOnlyFixture, 1, true);
+        let manifest_path = write_manifest(
+            temp.path(),
+            ReferenceEvidenceScope::ShapeOnlyFixture,
+            1,
+            true,
+        );
         let report = build_report(Some(&manifest_path), temp.path());
 
         assert!(!report.artifact.overall_pass);
@@ -465,7 +466,10 @@ mod tests {
             report.primary_blocker,
             "provider_reference_shape_only_not_prompt_level"
         );
-        assert_eq!(report.artifact.pass_per_axis.get("manifest_valid"), Some(&true));
+        assert_eq!(
+            report.artifact.pass_per_axis.get("manifest_valid"),
+            Some(&true)
+        );
         assert_eq!(
             report.artifact.pass_per_axis.get("replay_files_valid"),
             Some(&true)
@@ -479,8 +483,12 @@ mod tests {
     #[test]
     fn prompt_level_manifest_requires_retained_replay_files() {
         let temp = tempfile::tempdir().unwrap();
-        let manifest_path =
-            write_manifest(temp.path(), ReferenceEvidenceScope::PromptLevelComparison, 50, false);
+        let manifest_path = write_manifest(
+            temp.path(),
+            ReferenceEvidenceScope::PromptLevelComparison,
+            50,
+            false,
+        );
         let report = build_report(Some(&manifest_path), temp.path());
 
         assert!(!report.artifact.overall_pass);
@@ -501,8 +509,12 @@ mod tests {
     #[test]
     fn prompt_level_manifest_with_replay_files_can_pass_readiness() {
         let temp = tempfile::tempdir().unwrap();
-        let manifest_path =
-            write_manifest(temp.path(), ReferenceEvidenceScope::PromptLevelComparison, 50, true);
+        let manifest_path = write_manifest(
+            temp.path(),
+            ReferenceEvidenceScope::PromptLevelComparison,
+            50,
+            true,
+        );
         let report = build_report(Some(&manifest_path), temp.path());
 
         assert!(report.artifact.overall_pass);
