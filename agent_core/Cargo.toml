@@ -216,6 +216,10 @@ name = "falsify_eidos_bridge_round_trip"
 path = "src/bin/falsify_eidos_bridge_round_trip.rs"
 
 [[bin]]
+name = "falsify_t21_retrieval_contract_capstone"
+path = "src/bin/falsify_t21_retrieval_contract_capstone.rs"
+
+[[bin]]
 name = "falsify_acs_anchor_addressing"
 path = "src/bin/falsify_acs_anchor_addressing.rs"
 
