@@ -115,12 +115,12 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("Heavy long-context opt-in"))
         #expect(row.contains("heavy_long_context_guard_present"))
         #expect(row.contains("EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"))
-        #expect(row.contains("resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"))
+        #expect(row.contains("missing_fp16_or_provider_reference"))
         #expect(row.contains("canonical red"))
         #expect(row.contains("best_required_context_candidate_repo_id"))
         #expect(row.contains("high_duplicate_risk_count"))
         #expect(row.contains("preserve-before-new-work risk"))
-        #expect(row.contains("candidate only"))
+        #expect(row.contains("deferred candidate"))
         #expect(row.contains("canonical MLX KV-Direct"))
     }
 

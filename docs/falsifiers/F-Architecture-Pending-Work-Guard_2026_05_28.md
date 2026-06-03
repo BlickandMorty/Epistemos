@@ -5,7 +5,7 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 status: PRIMARY WORK-QUEUE GUARD IMPLEMENTED
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # F-Architecture-Pending-Work-Guard
 
@@ -83,15 +83,14 @@ artifacts/falsifiers/architecture_pending_work_guard/result.json
 Current expected cursor:
 
 ```text
-resolve_qwen3_8b_128k_context_model_assets_for_kv_direct
+missing_fp16_or_provider_reference
 ```
 
-That means the canonical KV prompt suite and full-suite run plan already
-exist, but the canonical `Qwen/Qwen3-8B-MLX-4bit` model asset remains
-context-red for the 128K KV-Direct gate. Do not create a non-MLX fallback
-scaffold for this row. Either resolve a canonical MLX asset/config that honestly
-supports the 128K context floor, or keep KV-Direct 128K red and continue other
-non-heavy architecture rows.
+That means the canonical KV prompt suite and full-suite run plan remain
+preserved, but 128K Qwen/GGUF/KV shard work is deferred by default. Do not
+repair or rerun KV shards unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set
+for an explicit long-context probe. Continue the non-heavy architecture cursor
+first.
 
 ## Guard Axes
 

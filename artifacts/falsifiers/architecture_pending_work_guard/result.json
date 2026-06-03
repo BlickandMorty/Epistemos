@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "377e399eef9ac6c4deac268cd199b5a4d2ca1f5a",
+  "commit_sha": "a7e739284be17a1450c7b52ccffc89f9b5769c35",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T07:39:51Z",
-  "result_digest": "sha256:262fa0ac0625f532c7796dc9d1ab392c781e1661997ba5fde7eb44823e7ec052",
+  "timestamp_utc": "2026-06-03T11:53:35Z",
+  "result_digest": "sha256:08990d827b2a76c9948b2c31b97454529e2f79e2a32efa9fdfef0c112a6a87a1",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -104,6 +104,14 @@
     "first_incomplete_shard_status": {
       "value": "failed",
       "unit": "label"
+    },
+    "heavy_long_context_enabled": {
+      "value": false,
+      "unit": "bool"
+    },
+    "heavy_long_context_guard_present": {
+      "value": true,
+      "unit": "bool"
     },
     "incomplete_shards": {
       "value": [
@@ -315,11 +323,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+      "value": "missing_fp16_or_provider_reference",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
+      "value": "missing_fp16_or_provider_reference",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -539,5 +547,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=resolve_qwen3_8b_128k_context_model_assets_for_kv_direct; do not recreate prompt suite or shard plan while their artifacts exist; continue the first incomplete shard or merge/feed existing shards before building new surfaces"
+  "notes": "pending_work_guard; next_existing_work=missing_fp16_or_provider_reference; heavy_long_context_enabled=false; 128K Qwen/GGUF shard work is deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

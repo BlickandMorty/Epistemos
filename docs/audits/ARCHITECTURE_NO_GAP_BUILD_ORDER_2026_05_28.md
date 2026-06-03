@@ -5,7 +5,7 @@ source_artifact: artifacts/falsifiers/capability_ceiling_evaluation_kernel/resul
 posture: executable queue beats prose; no hidden promotion paths
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 # Architecture No-Gap Build Order - 2026-05-28
 
@@ -22,7 +22,7 @@ invent a parallel roadmap.
 |---|---|
 | Route status | `vault_research_route_with_packetized_mitigation` |
 | Overall pass | `false` |
-| Next bottleneck | `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct` |
+| Next bottleneck | `missing_fp16_or_provider_reference` |
 | Canonical queue present | `true` |
 | Unmapped architecture gap count | `0` |
 
@@ -30,6 +30,10 @@ invent a parallel roadmap.
 Ceiling / Pro Research / Pro Vault-Preserved gap has a queue row with
 ProductBuild/ProStatus, witness, promotion condition, and rollback. It does
 not mean the route is green.
+
+2026-06-03 update: 128K Qwen/GGUF/KV-Direct work is deferred by default. It
+remains available only for explicit heavy long-context probes with
+`EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1`.
 
 ## Ordered Queue
 
