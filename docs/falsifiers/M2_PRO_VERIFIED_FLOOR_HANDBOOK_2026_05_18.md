@@ -112,7 +112,7 @@ Last audited: 2026-05-18. M2 Max and M3 Max appear only in the rejection languag
 
 ## Coverage Audit
 
-Last audited: 2026-05-30. The handbook contains the complete T23B required set plus route-era additions, including `F-UAS-ACS-MmapResidency`, `F-WeightBlockRangeHash-DryRun`, `F-ResidencyPlan-DryRun`, `F-ProviderReferenceManifest-DryRun`, `F-Qwen3-8B-128K-GGUF-Route`, `F-Agent-Local-Model-Runtime-Bridge`, `F-Capability-Ceiling-Evaluation-Kernel`, and `F-Architecture-Pending-Work-Guard`. Each current route gate has a linked row, command, artifact root, and schema-normalized artifact expectation.
+Last audited: 2026-06-03. The handbook contains the complete T23B required set plus route-era additions, including `F-UAS-ACS-MmapResidency`, `F-WeightBlockRangeHash-DryRun`, `F-ResidencyPlan-DryRun`, `F-ProviderReferenceManifest-DryRun`, `F-Agent-Local-Model-Runtime-Bridge`, `F-Capability-Ceiling-Evaluation-Kernel`, and `F-Architecture-Pending-Work-Guard`. The optional non-MLX long-context candidate was removed from the active architecture queue; canonical KV-Direct work remains pinned to the MLX route. Each current route gate has a linked row, command, artifact root, and schema-normalized artifact expectation.
 
 ## Canon Alias Audit
 

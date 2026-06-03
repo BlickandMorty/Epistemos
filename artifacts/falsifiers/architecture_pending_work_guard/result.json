@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fb7f8bf32bc67271641dc8ddab4a4c1ec066fab3",
+  "commit_sha": "f128f69bd55edcfb7e6d5315fb5966c6cbd5dec6",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-05-30T12:59:59Z",
-  "result_digest": "sha256:5f770f5957ea5a50fece4f036d2da0019b6fb2a9fe40f19e831011b8fbfcfe59",
+  "timestamp_utc": "2026-06-03T06:52:26Z",
+  "result_digest": "sha256:aced7ab494a48fb78773bffe51031e4f99852b64bad1c094f9f3a3ccf5324f40",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -55,23 +55,15 @@
         "local_worktree_inventory": {
           "path": "docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json",
           "exists": true,
-          "candidate_count": 40,
-          "high_duplicate_risk_count": 24
+          "candidate_count": 10,
+          "high_duplicate_risk_count": 0
         },
         "kv_model_context_inventory": {
           "path": "docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json",
           "exists": true,
           "canonical_context_ok": false,
-          "required_text_candidate_count": 6,
+          "required_text_candidate_count": 5,
           "best_required_context_candidate_repo_id": "mlx-community/Qwen3-Coder-Next-4bit"
-        },
-        "qwen3_8b_128k_gguf_candidate_route": {
-          "path": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
-          "exists": true,
-          "heavy_run_guard_path": "Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.py",
-          "heavy_long_context_guard_present": true,
-          "dry_run_guard_present": true,
-          "next_bottleneck": "repair_qwen3_8b_128k_gguf_metal_stall"
         },
         "large_model_non_runtime_rungs": {
           "weight_block_range_hash_dry_run": {
@@ -112,10 +104,6 @@
     "first_incomplete_shard_status": {
       "value": "failed",
       "unit": "label"
-    },
-    "heavy_long_context_guard_present": {
-      "value": true,
-      "unit": "bool"
     },
     "incomplete_shards": {
       "value": [
@@ -259,11 +247,11 @@
       "unit": "bool"
     },
     "kv_model_context_required_candidate_count": {
-      "value": 7,
+      "value": 6,
       "unit": "count"
     },
     "kv_model_context_required_text_candidate_count": {
-      "value": 6,
+      "value": 5,
       "unit": "count"
     },
     "kv_partial_shard_count": {
@@ -299,19 +287,19 @@
       "unit": "bool"
     },
     "local_dirty_candidate_count": {
-      "value": 24,
+      "value": 1,
       "unit": "count"
     },
     "local_epistemos_candidate_count": {
-      "value": 40,
+      "value": 10,
       "unit": "count"
     },
     "local_high_duplicate_risk_count": {
-      "value": 24,
+      "value": 0,
       "unit": "count"
     },
     "local_sibling_worktree_count": {
-      "value": 34,
+      "value": 0,
       "unit": "count"
     },
     "local_worktree_current_repo_present": {
@@ -327,11 +315,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -363,7 +351,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 14,
+      "value": 13,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -375,22 +363,10 @@
       "unit": "bool"
     },
     "queue_pending_item_count": {
-      "value": 6,
+      "value": 5,
       "unit": "count"
     },
     "queue_required_fields_present": {
-      "value": true,
-      "unit": "bool"
-    },
-    "qwen3_8b_128k_gguf_candidate_artifact_available": {
-      "value": true,
-      "unit": "bool"
-    },
-    "qwen3_8b_128k_gguf_next_bottleneck": {
-      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
-      "unit": "label"
-    },
-    "qwen3_gguf_bench_dry_run_guard_present": {
       "value": true,
       "unit": "bool"
     },
@@ -409,11 +385,6 @@
   },
   "acceptance_thresholds": {
     "capability_kernel_artifact_available": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "heavy_long_context_guard_present": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -508,16 +479,6 @@
       "value": true,
       "unit": "bool"
     },
-    "qwen3_8b_128k_gguf_candidate_artifact_available": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "qwen3_gguf_bench_dry_run_guard_present": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "residency_plan_dry_run_available": {
       "operator": "==",
       "value": true,
@@ -536,7 +497,6 @@
   },
   "pass_per_axis": {
     "capability_kernel_artifact_available": true,
-    "heavy_long_context_guard_present": true,
     "kv_full_suite_run_plan_available": true,
     "kv_full_suite_run_plan_shape_ok": true,
     "kv_model_context_inventory_available": true,
@@ -555,8 +515,6 @@
     "queue_gap_ids_unique": true,
     "queue_orders_unique": true,
     "queue_required_fields_present": true,
-    "qwen3_8b_128k_gguf_candidate_artifact_available": true,
-    "qwen3_gguf_bench_dry_run_guard_present": true,
     "residency_plan_dry_run_available": true,
     "shard_cursor_mapped": true,
     "weight_block_range_hash_dry_run_available": true
@@ -569,10 +527,6 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "local_worktree_sprawl",
-      "detail": "24 high duplicate-risk Epistemos sibling/copy surfaces are present under Downloads; inspect docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json before opening more worktrees."
-    },
-    {
       "kind": "partial_kv_shard_outputs",
       "detail": "At least one KV shard output directory is partial; repair or rerun that shard before starting a later shard."
     },
@@ -582,8 +536,8 @@
     },
     {
       "kind": "alternate_128k_model_candidates_available",
-      "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 6 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
+      "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=repair_qwen3_8b_128k_gguf_metal_stall; do not recreate prompt suite or shard plan while their artifacts exist; continue the first incomplete shard or merge/feed existing shards before building new surfaces"
+  "notes": "pending_work_guard; next_existing_work=resolve_qwen3_8b_128k_context_model_assets_for_kv_direct; do not recreate prompt suite or shard plan while their artifacts exist; continue the first incomplete shard or merge/feed existing shards before building new surfaces"
 }

@@ -147,10 +147,6 @@ name = "falsify_kv_direct_gate"
 path = "src/bin/falsify_kv_direct_gate.rs"
 
 [[bin]]
-name = "falsify_qwen3_8b_128k_gguf_route"
-path = "src/bin/falsify_qwen3_8b_128k_gguf_route.rs"
-
-[[bin]]
 name = "kv_direct_prompt_suite"
 path = "src/bin/kv_direct_prompt_suite.rs"
 

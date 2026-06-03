@@ -177,7 +177,7 @@ Hard safety rules:
   model execution, arbitrary ANE kernels, or "better than MoE" unless the named
   falsifier passes. Relevant gates include `F-AppColdStore-Layout`,
   `F-AppleSilicon-RouteSplit`, `F-KV-Direct-Gate`,
-  `F-Qwen3-8B-128K-GGUF-Route`, and dense/reference rollback checks.
+  and dense/reference rollback checks.
 
 Preferred unattended work order:
 

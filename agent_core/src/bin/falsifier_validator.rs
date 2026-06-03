@@ -61,7 +61,6 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SemiseparableBlockScan",
     "F-LocalRecallIsland",
     "F-KV-Direct-Gate",
-    "F-Qwen3-8B-128K-GGUF-Route",
     "F-WBO-DriftLedger",
     "F-ULP-Oracle",
     "F-70B-Local-Cocktail-Lite",

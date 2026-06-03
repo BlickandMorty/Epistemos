@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fb7f8bf32bc67271641dc8ddab4a4c1ec066fab3",
+  "commit_sha": "f128f69bd55edcfb7e6d5315fb5966c6cbd5dec6",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-05-30T12:59:42Z",
-  "result_digest": "sha256:5e9016e8c7735c1c77df39a81dea1232d6b07afc95440efbcc36449ee6318f6c",
+  "timestamp_utc": "2026-06-03T06:51:55Z",
+  "result_digest": "sha256:0fb2f8568cc4e9f38e914fe9f84721bc916a4010a599a7f09dc4c6d5c2064617",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -158,7 +158,7 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "value": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -235,16 +235,6 @@
         },
         {
           "order": 7,
-          "gap_id": "qwen3_8b_128k_gguf_candidate_split",
-          "tier": "Research / Capability Candidate",
-          "status": "repair_qwen3_8b_128k_gguf_metal_stall",
-          "falsifier_or_gate": "F-Qwen3-8B-128K-GGUF-Route",
-          "witness": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
-          "promotion_condition": "Separate GGUF 128K route either passes as fallback witness with model file, context metadata, runner, paired logits, and live metrics, or stays a red candidate split. It never satisfies the canonical MLX KV gate.",
-          "rollback": "Keep F-KV-Direct-Gate pinned to Qwen/Qwen3-8B-MLX-4bit; remove/disable this candidate if it cannot meet 16 GB floor metrics."
-        },
-        {
-          "order": 8,
           "gap_id": "agent_local_model_runtime_bridge",
           "tier": "Pro / Agent Runtime",
           "status": "completed",
@@ -254,7 +244,7 @@
           "rollback": "Keep AgentRuntimeV2 provider dispatch fail-closed/scaffold-labeled until live local generation and provenance pass; do not claim frontier-replacement local agents from catalog metadata alone."
         },
         {
-          "order": 9,
+          "order": 8,
           "gap_id": "active_assembly_runtime_floor",
           "tier": "Capability Ceiling",
           "status": "completed",
@@ -264,7 +254,7 @@
           "rollback": "Treat live model packet routing as a later promotion, not implied by the synthetic fixture."
         },
         {
-          "order": 10,
+          "order": 9,
           "gap_id": "sparse_runtime_split_floor",
           "tier": "Capability Ceiling",
           "status": "completed",
@@ -274,7 +264,7 @@
           "rollback": "Keep live sparse 70B runtime and live chart coverage red until model-backed rows exist."
         },
         {
-          "order": 11,
+          "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
           "status": "pending_live_model_runtime",
@@ -284,7 +274,7 @@
           "rollback": "Keep 70B route Vault/Research-only; dense MLX must not impersonate ACS/UAS."
         },
         {
-          "order": 12,
+          "order": 11,
           "gap_id": "seventy_b_prompt_level_cocktail",
           "tier": "Vault / Beyond",
           "status": "missing_fp16_or_provider_reference",
@@ -294,7 +284,7 @@
           "rollback": "Publish failure report and route to smaller/cascade model; do not expose 70B as product."
         },
         {
-          "order": 13,
+          "order": 12,
           "gap_id": "research_construction_engine",
           "tier": "Research Construction",
           "status": "planned_after_measured_runtime_gates",
@@ -333,26 +323,6 @@
     "page_gather_summary": {
       "value": {
         "path": "artifacts/falsifiers/page_gather/locality_probe_result.json",
-        "exists": true,
-        "schema_normalized": true,
-        "overall_pass": false,
-        "status_pass": false,
-        "pass_axes_all_true": false,
-        "fallback_tier": "Fail"
-      },
-      "unit": "object"
-    },
-    "qwen3_8b_128k_gguf_candidate_artifact_available": {
-      "value": true,
-      "unit": "bool"
-    },
-    "qwen3_8b_128k_gguf_route_pass": {
-      "value": false,
-      "unit": "bool_observed_candidate"
-    },
-    "qwen3_8b_128k_gguf_route_summary": {
-      "value": {
-        "path": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": false,
@@ -567,11 +537,6 @@
       "value": true,
       "unit": "bool"
     },
-    "qwen3_8b_128k_gguf_candidate_artifact_available": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "seventy_b_bottleneck_identified": {
       "operator": "==",
       "value": true,
@@ -642,7 +607,6 @@
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
     "page_gather_packetized_floor_pass": true,
-    "qwen3_8b_128k_gguf_candidate_artifact_available": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
@@ -674,8 +638,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "repair_qwen3_8b_128k_gguf_metal_stall"
+      "detail": "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=repair_qwen3_8b_128k_gguf_metal_stall; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=resolve_qwen3_8b_128k_context_model_assets_for_kv_direct; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass"
 }

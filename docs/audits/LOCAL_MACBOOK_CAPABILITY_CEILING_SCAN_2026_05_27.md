@@ -60,7 +60,6 @@ Power-user mode must not lower the dense 36B gate on a 16 GB Mac. The 16 GB / 70
 | `F-ActiveAssembly-Minimal` | primary synthetic runtime witness pass | selector fires only `0.0322` of packets at `0.0021` cost ratio with 0 output-bound violations on N=1024/Q=100 synthetic graph; live model packet routing remains future work |
 | `F-Sparse-Runtime-Split` | primary synthetic runtime witness pass | sparse support reproduces dense/reference logits on 1000 synthetic prompts with `0.0` KL, `0.0176` active ratio, `0.0067` cost ratio, and EML/Geometry/Scan/Operator chart labels; live 70B sparse runtime remains future work |
 | `F-KV-Direct-Gate` | red harness contract | Rust QK equality passes 1,000 traces; live Qwen3-8B 128K SSD-spill model/logit/metrics/spill inputs are defined; smoke MLX logits, file-backed prompt-cache reload, restartable prompt shards, merged full-suite input assembly, and a 100 one-prompt shard plan now work locally. The resolved local model identity is canonical (`Qwen/Qwen3-8B-MLX-4bit`), but its config declares only `40960` context tokens and no rope scaling, so the 128K run is blocked at the model-context axis before shard repair. A separate Qwen3-Coder-Next candidate plan exists for long-context runtime research and is explicitly noncanonical. `shard_000_000` failure evidence is preserved (`2048` prefill: Metal interactivity abort; `512` prefill: stopped after ~14 min with 0 rows), and the spill-trace parser rejects noncanonical routes; the full 128K residual-patched mmap/NF4 SSD-spill gate is still missing |
-| `F-Qwen3-8B-128K-GGUF-Route` | red candidate/fallback route | separate `unsloth/Qwen3-8B-128K-GGUF` lane exists as a schema-valid failure report with next bottleneck `download_or_register_qwen3_8b_128k_gguf_model_file`; it can become a fallback witness only with local GGUF file, 128K metadata, runner, paired logits, and live metrics, and it never satisfies the canonical MLX KV gate |
 | `F-70B-Local-Cocktail-Lite` | red preflight | row-root exists; model weights/reference/sparse runtime/chart coverage are red |
 | `F-Capability-Ceiling-Evaluation-Kernel` | red route rollup | schema-valid aggregator exists; next bottleneck is resolving a canonical Qwen3-8B model asset/config with `>=128000` context support before feeding real model/logit/metrics/spill inputs into the KV-Direct contract |
 | Architecture no-gap queue | pass | `measurements.ordered_build_queue` exists and `unmapped_architecture_gap_count=0`; human mirror: `docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md` |
@@ -170,13 +169,12 @@ Required sequence:
      `residual_patched_mmap_nf4_ssd_spill`, proves residual patching,
      mmap-backed cold KV, NF4/equivalent storage, and positive cold bytes.
 
-3A. Keep the GGUF candidate split separate. **Executable red route done on 2026-05-28.**
-   - `Tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` emits
-     `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json`.
-   - The route targets `unsloth/Qwen3-8B-128K-GGUF` and currently stops at
-     `download_or_register_qwen3_8b_128k_gguf_model_file`.
-   - A pass here is fallback/candidate evidence only. It does not retarget
-     `F-KV-Direct-Gate`, lower dense MLX RAM gates, or prove the 70B cocktail.
+3A. Removed the optional non-MLX long-context candidate split. **Done on 2026-06-03 at user request.**
+   - The Capability Ceiling queue no longer tracks this candidate split.
+   - Do not recreate a fallback route for this row while the canonical MLX
+     model/context contract remains the active `F-KV-Direct-Gate` blocker.
+   - This removal does not retarget `F-KV-Direct-Gate`, lower dense MLX RAM
+     gates, or prove the 70B cocktail.
 
 4. Wire UAS copy-count beyond the scoped spine.
    - measure Swift shared buffer -> Rust slice -> Metal shared buffer -> MLX KV view -> HNSW vector view where possible.
