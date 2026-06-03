@@ -39,6 +39,11 @@ The dense Metal PageGather route remains red until its own STREAM-ratio gate
 passes or every production caller that matters can stay packetized through the
 hot path.
 
+2026-06-03 route policy note: this caller witness alone is not the acceptance
+policy. `F-PageGather-Packetized-Policy-Acceptance` is the separate artifact
+that lets the Capability Ceiling kernel close the packet-policy row while
+keeping dense `F-PageGather-M2Pro` red.
+
 ## Acceptance
 
 The falsifier passes iff the vault trace records PageGather escalation, emits

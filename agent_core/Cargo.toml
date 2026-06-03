@@ -107,6 +107,10 @@ name = "falsify_page_gather_packetized_caller"
 path = "src/bin/falsify_page_gather_packetized_caller.rs"
 
 [[bin]]
+name = "falsify_page_gather_packetized_policy_acceptance"
+path = "src/bin/falsify_page_gather_packetized_policy_acceptance.rs"
+
+[[bin]]
 name = "falsify_controller_kernel_pack"
 path = "src/bin/falsify_controller_kernel_pack.rs"
 

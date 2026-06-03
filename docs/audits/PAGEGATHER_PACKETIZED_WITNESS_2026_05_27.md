@@ -5,6 +5,10 @@
 Status: packetized scheduled mitigation witness landed; Rust caller-side packet
 contract now exists; dense PageGather restore remains pending.
 
+2026-06-03 update: `F-PageGather-Packetized-Policy-Acceptance` now records the
+explicit route policy for using packetized PageGather only on retrieval/witness
+surfaces. It does not promote dense `F-PageGather-M2Pro`.
+
 ## Why This Exists
 
 The dense scheduled kernel preserves caller-visible order by writing:

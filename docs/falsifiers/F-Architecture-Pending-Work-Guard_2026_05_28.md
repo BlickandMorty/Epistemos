@@ -88,8 +88,8 @@ resolve_qwen3_8b_128k_context_model_assets_for_kv_direct
 
 That means the canonical KV prompt suite and full-suite run plan already
 exist, but the canonical `Qwen/Qwen3-8B-MLX-4bit` model asset remains
-context-red for the 128K KV-Direct gate. Do not create a GGUF fallback scaffold
-for this row. Either resolve a canonical MLX asset/config that honestly
+context-red for the 128K KV-Direct gate. Do not create a non-MLX fallback
+scaffold for this row. Either resolve a canonical MLX asset/config that honestly
 supports the 128K context floor, or keep KV-Direct 128K red and continue other
 non-heavy architecture rows.
 

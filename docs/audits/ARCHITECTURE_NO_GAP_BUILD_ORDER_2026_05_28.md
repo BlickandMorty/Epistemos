@@ -40,7 +40,7 @@ not mean the route is green.
 | 2 | Verified Floor primary Metal | Verified Floor | completed | `F-ULP-Oracle` and `F-ControllerKernelPack` primary Metal witnesses stay green. |
 | 3 | UAS / AcsAnchor / ColdStore hot-path floor | Verified Floor | completed | `F-UAS-CopyCount`, `F-ACS-AnchorLookup`, and legacy-named `F-UAS-ACS-MmapResidency` pass as schema witnesses. |
 | 4 | PageGather packetized floor + caller | Capability Ceiling | completed | Packetized PageGather mitigation and caller-path packet consumption pass. |
-| 5 | PageGather dense primary or accepted packet policy | Capability Ceiling | pending | Dense primary clears STREAM or canon accepts packetized policy for the route. |
+| 5 | PageGather dense primary or accepted packet policy | Capability Ceiling | completed | `F-PageGather-Packetized-Policy-Acceptance` accepts packetized PageGather only for retrieval/witness packet surfaces while dense primary remains red. |
 | 6 | KV-Direct live 128K inputs | Capability Ceiling | pending 128K context model | Canonical Qwen3-8B MLX identity is now explicitly guarded and passes (`Qwen/Qwen3-8B-MLX-4bit`), and the canonical prompt suite, smoke logits, file-backed prompt-cache reload, restartable prompt shards, shard merger, and 100 one-prompt shard full-suite run plan exist. The resolved local model config still declares only `40960` context tokens and `rope_scaling = none`. Resolve a canonical model asset/config with `model_context_window_tokens >= 128000`, then repair or rerun the preserved `shard_000_000` failure and produce paired logits, metrics JSON, `>=100` prompts, `>=128000` context tokens, and `>=256` decode tokens per prompt; the spill trace must prove `residual_patched_mmap_nf4_ssd_spill` with residual patching, mmap-backed cold KV, NF4/equivalent storage, and positive cold bytes. Candidate plans for noncanonical long-context models are allowed only as research evidence. |
 | 7 | Agent local-model runtime bridge | Pro / Agent Runtime | `ready_for_capability_ceiling_recheck` | `F-Agent-Local-Model-Runtime-Bridge` is now a schema-valid primary witness for the guarded local-model bridge slice: LocalAgent adapter dispatch is wired, Rust emits a `LocalMlx` handoff, Swift consumes it through the registered local client, a retained live prompt-suite artifact records token streaming from `Qwen/Qwen3-8B-MLX-4bit`, and AnswerPacket local-model provenance is present. This does not promote 70B, 128K, or KV-Direct. |
 | 8 | Active Assembly runtime floor | Capability Ceiling | completed | Synthetic runtime witness proves small support with bounded drift. |
@@ -86,6 +86,8 @@ laptop.
 - Do not accept `spill_labeling=true` unless the spill trace itself names the
   canonical residual-patched mmap/NF4 route and carries cold-KV byte evidence.
 - Do not treat PageGather packetized mitigation as dense primary PageGather.
+- Do not treat `F-PageGather-Packetized-Policy-Acceptance` as anything beyond
+  retrieval/witness packet policy; dense `F-PageGather-M2Pro` is still red.
 - Do not treat `F-WeightBlockRangeHash-DryRun`,
   `F-ResidencyPlan-DryRun`, or `F-ProviderReferenceManifest-DryRun` as live
   generation proof; they are the safe manifest/planner floor before runtime.

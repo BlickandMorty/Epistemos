@@ -9,16 +9,16 @@
       "duplicate_risk": "active_surface",
       "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
       "git_toplevel": "/Users/jojo/Downloads/Epistemos",
-      "head": "f128f69bd55e",
+      "head": "377e399eef9a",
       "is_git": true,
       "name": "Epistemos",
       "path": "/Users/jojo/Downloads/Epistemos",
       "remote_origin": "https://github.com/BlickandMorty/Epistemos",
       "shares_current_common_git_dir": true,
       "status": {
-        "dirty_total": 102,
-        "tracked_dirty": 102,
-        "untracked": 0
+        "dirty_total": 26,
+        "tracked_dirty": 22,
+        "untracked": 4
       }
     },
     {
@@ -85,7 +85,7 @@
       "path": "/Users/jojo/Downloads/EPISTEMOS_HELIOS_MASTER_ARCHIVE_2026_05_05_PRESERVATION_BUNDLE"
     }
   ],
-  "generated_at_utc": "2026-06-03T06:51:32Z",
+  "generated_at_utc": "2026-06-03T07:39:41Z",
   "next_rule": "Before creating a new Epistemos worktree/folder, inspect entries where classification is current_repo, sibling_worktree, or dirty_epistemos_copy. Continue or preserve existing work instead of duplicating it.",
   "non_destructive": true,
   "scan_root": "/Users/jojo/Downloads",

@@ -24,6 +24,8 @@ const UAS_ACS_MMAP_RESIDENCY_PATH: &str = "artifacts/falsifiers/uas_acs_mmap_res
 const PAGE_GATHER_PATH: &str = "artifacts/falsifiers/page_gather/locality_probe_result.json";
 const PAGE_GATHER_CALLER_PATH: &str =
     "artifacts/falsifiers/page_gather_packetized_caller/result.json";
+const PAGE_GATHER_PACKETIZED_POLICY_PATH: &str =
+    "artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json";
 const KV_DIRECT_PATH: &str = "artifacts/falsifiers/kv_direct_gate/result.json";
 const KV_DIRECT_FULL_SUITE_RUN_PLAN_PATH: &str =
     "artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json";
@@ -73,6 +75,7 @@ fn build_report() -> KernelReport {
     let uas_acs_mmap_residency = GateArtifact::read(UAS_ACS_MMAP_RESIDENCY_PATH);
     let page_gather = GateArtifact::read(PAGE_GATHER_PATH);
     let page_gather_caller = GateArtifact::read(PAGE_GATHER_CALLER_PATH);
+    let page_gather_policy = GateArtifact::read(PAGE_GATHER_PACKETIZED_POLICY_PATH);
     let kv_direct = GateArtifact::read(KV_DIRECT_PATH);
     let agent_local_model_bridge = GateArtifact::read(AGENT_LOCAL_MODEL_RUNTIME_BRIDGE_PATH);
     let fulp_oracle = GateArtifact::read(FULP_ORACLE_PATH);
@@ -89,6 +92,7 @@ fn build_report() -> KernelReport {
         &uas_acs_mmap_residency,
         &page_gather,
         &page_gather_caller,
+        &page_gather_policy,
         &kv_direct,
         &agent_local_model_bridge,
         &fulp_oracle,
@@ -121,6 +125,19 @@ fn build_report() -> KernelReport {
     ]);
     let page_gather_dense_primary_pass = page_gather.overall_pass;
     let page_gather_packetized_caller_pass = page_gather_caller.overall_pass;
+    let page_gather_packetized_policy_acceptance_pass = page_gather_policy.overall_pass
+        && page_gather_policy.all_axes_true(&[
+            "packetized_floor_available",
+            "packetized_floor_zero_violations",
+            "packetized_floor_stream_ratio",
+            "packetized_caller_available",
+            "packetized_caller_consumed",
+            "dense_restore_deferred",
+            "retained_limit_honored",
+            "policy_scope_retrieval_and_witness_only",
+            "dense_primary_not_promoted",
+            "rollback_keeps_dense_gate_red",
+        ]);
     let kv_direct_tier1_preflight_pass =
         kv_direct.all_axes_true(&["tier1_qk_equality_violations", "tier1_dispatch_contract"]);
     let kv_direct_live_contract_present = kv_direct.axis_true("live_harness_contract_present");
@@ -170,6 +187,7 @@ fn build_report() -> KernelReport {
         &uas_acs_mmap_residency,
         &page_gather,
         &page_gather_caller,
+        &page_gather_policy,
         &kv_direct,
         &agent_local_model_bridge,
         &fulp_oracle,
@@ -186,6 +204,7 @@ fn build_report() -> KernelReport {
         page_gather_packetized_floor_pass,
         page_gather_dense_primary_pass,
         page_gather_packetized_caller_pass,
+        page_gather_packetized_policy_acceptance_pass,
         kv_direct_live_128k_pass,
         agent_local_model_runtime_bridge_pass,
         active_assembly_runtime_artifact_pass,
@@ -201,6 +220,7 @@ fn build_report() -> KernelReport {
         page_gather_packetized_floor_pass,
         page_gather_dense_primary_pass,
         page_gather_packetized_caller_pass,
+        page_gather_packetized_policy_acceptance_pass,
         kv_direct_live_contract_present,
         kv_direct_model_assets_available,
         kv_direct_model_identity_matches_canonical,
@@ -233,6 +253,7 @@ fn build_report() -> KernelReport {
         page_gather_packetized_floor_pass,
         page_gather_dense_primary_pass,
         page_gather_packetized_caller_pass,
+        page_gather_packetized_policy_acceptance_pass,
         kv_direct_live_contract_present,
         kv_direct_model_assets_available,
         kv_direct_model_identity_matches_canonical,
@@ -328,6 +349,13 @@ fn build_report() -> KernelReport {
         &mut pass_per_axis,
         "page_gather_packetized_caller_pass",
         page_gather_packetized_caller_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "page_gather_packetized_policy_acceptance_pass",
+        page_gather_packetized_policy_acceptance_pass,
     );
     add_bool_axis(
         &mut measurements,
@@ -517,6 +545,11 @@ fn build_report() -> KernelReport {
         "page_gather_packetized_caller",
         &page_gather_caller,
     );
+    add_gate_summary(
+        &mut measurements,
+        "page_gather_packetized_policy_acceptance",
+        &page_gather_policy,
+    );
     add_gate_summary(&mut measurements, "kv_direct", &kv_direct);
     add_gate_summary(
         &mut measurements,
@@ -531,6 +564,7 @@ fn build_report() -> KernelReport {
         uas_acs_mmap_residency_pass,
         page_gather_dense_primary_pass,
         page_gather_packetized_caller_pass,
+        page_gather_packetized_policy_acceptance_pass,
         kv_direct_model_identity_matches_canonical,
         kv_direct_model_context_supports_required_context,
         kv_direct_live_128k_pass,
@@ -779,7 +813,8 @@ fn classify_route(
     uas_acs_mmap_residency_pass: bool,
     page_gather_packetized_floor_pass: bool,
     page_gather_dense_primary_pass: bool,
-    page_gather_packetized_caller_pass: bool,
+    _page_gather_packetized_caller_pass: bool,
+    page_gather_packetized_policy_acceptance_pass: bool,
     kv_direct_live_128k_pass: bool,
     agent_local_model_runtime_bridge_pass: bool,
     active_assembly_runtime_artifact_pass: bool,
@@ -789,7 +824,7 @@ fn classify_route(
 ) -> String {
     if verified_floor_green
         && uas_acs_mmap_residency_pass
-        && (page_gather_dense_primary_pass || page_gather_packetized_caller_pass)
+        && (page_gather_dense_primary_pass || page_gather_packetized_policy_acceptance_pass)
         && kv_direct_live_128k_pass
         && agent_local_model_runtime_bridge_pass
         && active_assembly_runtime_artifact_pass
@@ -818,6 +853,7 @@ fn next_bottleneck(
     page_gather_packetized_floor_pass: bool,
     page_gather_dense_primary_pass: bool,
     page_gather_packetized_caller_pass: bool,
+    page_gather_packetized_policy_acceptance_pass: bool,
     kv_direct_live_contract_present: bool,
     kv_direct_model_assets_available: bool,
     kv_direct_model_identity_matches_canonical: bool,
@@ -850,6 +886,8 @@ fn next_bottleneck(
         "restore_page_gather_packetized_floor".to_string()
     } else if !page_gather_dense_primary_pass && !page_gather_packetized_caller_pass {
         "wire_page_gather_packetized_caller_or_fix_dense_restore".to_string()
+    } else if !page_gather_dense_primary_pass && !page_gather_packetized_policy_acceptance_pass {
+        "accept_page_gather_packetized_policy_or_fix_dense_restore".to_string()
     } else if !kv_direct_live_128k_pass {
         if kv_direct_live_contract_present {
             if !kv_direct_model_assets_available {
@@ -905,6 +943,7 @@ fn build_ordered_gap_queue(
     page_gather_packetized_floor_pass: bool,
     page_gather_dense_primary_pass: bool,
     page_gather_packetized_caller_pass: bool,
+    page_gather_packetized_policy_acceptance_pass: bool,
     kv_direct_live_contract_present: bool,
     kv_direct_model_assets_available: bool,
     kv_direct_model_identity_matches_canonical: bool,
@@ -984,9 +1023,9 @@ fn build_ordered_gap_queue(
             5,
             "pagegather_dense_primary_or_policy_acceptance",
             "Capability Ceiling",
-            status(page_gather_dense_primary_pass),
-            "F-PageGather-M2Pro",
-            "artifacts/falsifiers/page_gather/locality_probe_result.json",
+            status(page_gather_dense_primary_pass || page_gather_packetized_policy_acceptance_pass),
+            "F-PageGather-M2Pro + F-PageGather-Packetized-Policy-Acceptance",
+            "artifacts/falsifiers/page_gather/locality_probe_result.json; artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json",
             "Either dense primary PageGather clears the STREAM bar or canon explicitly accepts a packetized policy for the relevant product route.",
             "Use packetized caller path as fallback; keep dense scatter off hot product claims until measured.",
         ),
@@ -1189,6 +1228,7 @@ fn build_anomalies(
     uas_acs_mmap_residency_pass: bool,
     page_gather_dense_primary_pass: bool,
     page_gather_packetized_caller_pass: bool,
+    page_gather_packetized_policy_acceptance_pass: bool,
     kv_direct_model_identity_matches_canonical: bool,
     kv_direct_model_context_supports_required_context: bool,
     kv_direct_live_128k_pass: bool,
@@ -1211,10 +1251,15 @@ fn build_anomalies(
             "detail": "No primary witness proves file-backed mmap bytes can be addressed by UAS, leased by ResidencyLease, and resolved through ACS projection lookup without tracked hot-path copies."
         }));
     }
-    if !page_gather_dense_primary_pass {
+    if !page_gather_dense_primary_pass && !page_gather_packetized_policy_acceptance_pass {
         anomalies.push(serde_json::json!({
             "kind": "page_gather_dense_route_red",
-            "detail": "PageGather packetized scheduled output clears the 0.70x mitigation floor, but dense restore remains below the primary stream-ratio gate."
+            "detail": "PageGather packetized scheduled output clears the 0.70x mitigation floor, but dense restore remains below the primary stream-ratio gate and no policy artifact has accepted the packetized route."
+        }));
+    } else if !page_gather_dense_primary_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "page_gather_dense_primary_deferred_by_policy",
+            "detail": "Dense PageGather remains below the primary stream-ratio gate; the packetized policy artifact accepts only retrieval/witness packet surfaces and does not promote dense restore."
         }));
     }
     if !page_gather_packetized_caller_pass {
@@ -1362,23 +1407,27 @@ mod tests {
     #[test]
     fn route_classifier_requires_all_primary_gates_for_product() {
         assert_eq!(
-            classify_route(true, true, true, true, false, true, true, true, true, true, true,),
+            classify_route(
+                true, true, true, true, false, false, true, true, true, true, true, true,
+            ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
-                true, true, true, false, false, false, false, false, false, false, false,
+                true, true, true, false, false, false, false, false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
-                true, true, false, false, false, false, false, false, false, false, false,
+                true, true, false, false, false, false, false, false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
-            classify_route(true, true, true, false, true, true, true, true, true, true, true,),
+            classify_route(
+                true, true, true, false, true, true, true, true, true, true, true, true,
+            ),
             "ready_for_product_route"
         );
     }
@@ -1400,37 +1449,38 @@ mod tests {
         const UAS_ACS_MMAP: usize = 3;
         const PAGE_PACKETIZED: usize = 4;
         const PAGE_CALLER: usize = 6;
-        const KV_CONTRACT: usize = 7;
-        const MODEL_ASSETS: usize = 8;
-        const MODEL_IDENTITY: usize = 9;
-        const MODEL_CONTEXT: usize = 10;
-        const PROMPT_MANIFEST: usize = 11;
-        const PROMPT_SHAPE: usize = 12;
-        const FULL_PLAN: usize = 13;
-        const LOGITS: usize = 14;
-        const METRICS: usize = 15;
-        const SPILL_TRACE: usize = 16;
-        const SPILL_CONTRACT: usize = 17;
-        const SHAPE_FLOOR: usize = 18;
-        const LIVE_128K: usize = 19;
-        const AGENT_LOCAL_BRIDGE: usize = 20;
-        const ACTIVE_ASSEMBLY: usize = 21;
-        const SPARSE_RUNTIME: usize = 22;
-        const SEVENTY_B: usize = 23;
+        const PAGE_POLICY: usize = 7;
+        const KV_CONTRACT: usize = 8;
+        const MODEL_ASSETS: usize = 9;
+        const MODEL_IDENTITY: usize = 10;
+        const MODEL_CONTEXT: usize = 11;
+        const PROMPT_MANIFEST: usize = 12;
+        const PROMPT_SHAPE: usize = 13;
+        const FULL_PLAN: usize = 14;
+        const LOGITS: usize = 15;
+        const METRICS: usize = 16;
+        const SPILL_TRACE: usize = 17;
+        const SPILL_CONTRACT: usize = 18;
+        const SHAPE_FLOOR: usize = 19;
+        const LIVE_128K: usize = 20;
+        const AGENT_LOCAL_BRIDGE: usize = 21;
+        const ACTIVE_ASSEMBLY: usize = 22;
+        const SPARSE_RUNTIME: usize = 23;
+        const SEVENTY_B: usize = 24;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 24] {
-            let mut values = [false; 24];
+        let flags = |true_indexes: &[usize]| -> [bool; 25] {
+            let mut values = [false; 25];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb = |values: [bool; 24]| -> String {
+        let nb = |values: [bool; 25]| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -1453,10 +1503,11 @@ mod tests {
                 values[18],
                 values[19],
                 values[20],
-                "wire_local_agent_adapter_dispatch",
                 values[21],
+                "wire_local_agent_adapter_dispatch",
                 values[22],
                 values[23],
+                values[24],
                 &missing,
             )
         };
@@ -1482,12 +1533,21 @@ mod tests {
         );
         assert_eq!(
             nb(flags(&with_floor(&[PAGE_PACKETIZED, PAGE_CALLER]))),
+            "accept_page_gather_packetized_policy_or_fix_dense_restore"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY
+            ]))),
             "build_live_qwen3_8b_128k_kv_direct_harness"
         );
         assert_eq!(
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT
             ]))),
             "resolve_qwen3_8b_mlx_model_assets_for_kv_direct"
@@ -1496,6 +1556,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
             ]))),
@@ -1505,6 +1566,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1515,6 +1577,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1526,6 +1589,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1539,6 +1603,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1553,6 +1618,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1568,6 +1634,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1584,6 +1651,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1601,6 +1669,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1619,6 +1688,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1640,6 +1710,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1662,6 +1733,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,
@@ -1685,6 +1757,7 @@ mod tests {
             nb(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
+                PAGE_POLICY,
                 KV_CONTRACT,
                 MODEL_ASSETS,
                 MODEL_IDENTITY,

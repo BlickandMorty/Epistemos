@@ -45,6 +45,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-PageGather-Scatter",
     "F-PageGather-M2Pro",
     "F-PageGather-Packetized-Caller",
+    "F-PageGather-Packetized-Policy-Acceptance",
     "F-UAS-CopyCount",
     "F-UAS-ZeroCopy-Spine",
     "F-UAS-ACS-MmapResidency",

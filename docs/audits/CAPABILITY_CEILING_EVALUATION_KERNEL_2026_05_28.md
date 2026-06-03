@@ -41,6 +41,7 @@ Human-readable queue mirror:
 | `page_gather_packetized_floor_pass` | pass | Packetized PageGather clears the mitigation floor. |
 | `page_gather_dense_primary_pass` | fail | Dense restore / dense primary PageGather is still too slow. |
 | `page_gather_packetized_caller_pass` | pass | `VaultStore::hybrid_search_with_trace` consumes retained-score packets and defers dense restore. |
+| `page_gather_packetized_policy_acceptance_pass` | pass | Packetized PageGather is accepted only for retrieval/witness packet surfaces; dense primary remains red. |
 | `kv_direct_tier1_preflight_pass` | pass | Rust QK equality and dispatch contract pass. |
 | `kv_direct_live_contract_present` | pass | The falsifier can consume model/logit/metrics/spill inputs and compute average D_KL from prompt logits. |
 | `kv_direct_model_assets_available` | pass | The harness auto-detects the local Qwen3-8B MLX snapshot under Epistemos app-support storage. |
@@ -146,7 +147,13 @@ worktree-sprawl warning system.
      scatter bottleneck for that path.
    - Kernel axis flipped: `page_gather_packetized_caller_pass=true`.
 
-3. Build live KV-Direct 128K harness. **Contract, canonical suite, full-suite run plan, first-shard failure evidence, model-identity guard, and model-context guard are done; canonical MLX remains context-red, so current executable work is repairing the separate GGUF fallback/candidate 128K Metal stall.**
+2A. Accept PageGather packetized policy. **Fallback policy witness done on 2026-06-03.**
+   - Read the packetized scheduled floor and caller-path witness together.
+   - Accept packetized PageGather only for retrieval/witness packet surfaces.
+   - Keep dense `F-PageGather-M2Pro` red until its primary STREAM-ratio gate passes.
+   - Kernel axis flipped: `page_gather_packetized_policy_acceptance_pass=true`.
+
+3. Build live KV-Direct 128K harness. **Contract, canonical suite, full-suite run plan, first-shard failure evidence, model-identity guard, and model-context guard are done; canonical MLX remains context-red, so current executable work is resolving canonical MLX 128K model-context assets.**
    - Qwen3-8B MLX local assets are detected by the harness, but the resolved
      local snapshot currently declares only `40960` context tokens and
      `rope_scaling = none`.
