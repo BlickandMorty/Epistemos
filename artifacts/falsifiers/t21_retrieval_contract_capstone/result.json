@@ -1,0 +1,176 @@
+{
+  "falsifier_id": "F-T21-RetrievalContract-Capstone",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_t21_retrieval_contract_capstone.sh",
+  "command_digest": "sha256:f2aeb3317ed7194644dae3d1ad5f4d4c66c1289bc7741c915198f8932a446dbf",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "270d30d3a7d5d291b2a3a4c175b561befa46dee4",
+  "fixture_id": "t21_retrieval_contract_capstone_v1",
+  "timestamp_utc": "2026-06-03T11:13:41Z",
+  "result_digest": "sha256:4e2a75b3015da1c9e4874714b8bd5cae4cc1c45487ed736f5987529274d69be2",
+  "measurements": {
+    "dense_page_gather_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dependency_artifacts": {
+      "value": [
+        {
+          "name": "vault_recall_50",
+          "path": "artifacts/falsifiers/vault_recall_50/result.json",
+          "falsifier_id": "F-VaultRecall-50",
+          "overall_pass": true,
+          "artifact_kind": "primary_witness"
+        },
+        {
+          "name": "eidos_bridge_round_trip",
+          "path": "artifacts/falsifiers/eidos_bridge_round_trip/result.json",
+          "falsifier_id": "F-Eidos-Bridge-RoundTrip",
+          "overall_pass": true,
+          "artifact_kind": "primary_witness"
+        },
+        {
+          "name": "page_gather_packetized_caller",
+          "path": "artifacts/falsifiers/page_gather_packetized_caller/result.json",
+          "falsifier_id": "F-PageGather-Packetized-Caller",
+          "overall_pass": true,
+          "artifact_kind": "fallback_witness"
+        },
+        {
+          "name": "page_gather_packetized_policy_acceptance",
+          "path": "artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json",
+          "falsifier_id": "F-PageGather-Packetized-Policy-Acceptance",
+          "overall_pass": true,
+          "artifact_kind": "fallback_witness"
+        }
+      ],
+      "unit": "artifacts"
+    },
+    "eidos_bridge_primary_witness": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_closed_citation_round_trip": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_caller_witness": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_policy_witness": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_adversarial_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_exact_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_primary_witness": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_semantic_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_top_1_exact_title_pct": {
+      "value": "0.9726",
+      "unit": "ratio"
+    },
+    "vault_top_5_paraphrase_pct": {
+      "value": "0.9800",
+      "unit": "ratio"
+    }
+  },
+  "acceptance_thresholds": {
+    "dense_page_gather_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_bridge_primary_witness": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_closed_citation_round_trip": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_caller_witness": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_policy_witness": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_adversarial_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_exact_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_primary_witness": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_recall_semantic_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "dense_page_gather_not_promoted": true,
+    "eidos_bridge_primary_witness": true,
+    "eidos_closed_citation_round_trip": true,
+    "page_gather_packetized_caller_witness": true,
+    "page_gather_packetized_policy_witness": true,
+    "vault_recall_adversarial_floor": true,
+    "vault_recall_exact_floor": true,
+    "vault_recall_primary_witness": true,
+    "vault_recall_semantic_floor": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "T21 capstone witness over VaultRecall semantic/exact/adversarial floors, Eidos closed citations, and PageGather packetized retrieval policy; dense PageGather remains unpromoted."
+}

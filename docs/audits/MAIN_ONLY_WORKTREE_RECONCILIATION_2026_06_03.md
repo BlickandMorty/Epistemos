@@ -151,12 +151,14 @@ the next-work gate.
 
 Preferred next work, from current main:
 
-1. T21 retrieval contract unification over Eidos, VaultRecall, and PageGather.
+1. T21 retrieval contract unification over Eidos, VaultRecall, and PageGather is
+   closed on main.
    Current-main evidence is reconciled in
    `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`: exact
    VaultRecall, semantic/paraphrase VaultRecall, Eidos bridge, and packetized
-   PageGather are green. The remaining work is the single T21 capstone artifact
-   over those witnesses, not another worktree or model install.
+   PageGather are green, and
+   `artifacts/falsifiers/t21_retrieval_contract_capstone/result.json` binds them
+   into one capstone witness. This is not another worktree or model install.
 2. `F-SourceSignalGraph-Intake`, `F-TaskWorkingSetQuery-Determinism`,
    `F-SemanticWorkingSetPlan-Budget`, and
    `F-ResidencyPageTable-Addressability`, and
@@ -176,7 +178,8 @@ Preferred next work, from current main:
    `artifacts/falsifiers/working_set_oracle_baseline/result.json`.
 3. No remaining metadata-only Semantic Working-Set Compiler falsifier fixture is
    pending in this bundle.
-4. T25 naming cleanup only as current-main source/doc guard work: ColdStore for
+4. Next explicit follow-up: T25 naming cleanup only as current-main source/doc
+   guard work: ColdStore for
    dormant residency, AcsAnchor for coordinate/provenance anchoring, and
    SCOPE-Rex/SovereignGate for admission.
 
