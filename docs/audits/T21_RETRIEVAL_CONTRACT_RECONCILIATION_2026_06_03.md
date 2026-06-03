@@ -3,16 +3,15 @@ state: t21-retrieval-contract-reconciliation
 created_on: 2026-06-03
 repo: /Users/jojo/Downloads/Epistemos
 head_commit: semantic-fallback primary witness commit on main
-status: vault semantic-recall floor closed; single T21 capstone artifact remains open
+status: closed by primary capstone witness
 ---
 
 # T21 Retrieval Contract Reconciliation - 2026-06-03
 
 ## Current Evidence On Main
 
-T21 is not missing from main, and the VaultRecall semantic-recall floor is now
-closed. The broader single-artifact capstone over VaultRecall, Eidos, and
-PageGather remains open.
+T21 is not missing from main. VaultRecall semantic recall is closed, and the
+single capstone artifact over VaultRecall, Eidos, and PageGather is now green.
 
 Current green evidence:
 
@@ -32,13 +31,16 @@ Current green evidence:
   `artifacts/falsifiers/page_gather_packetized_policy_acceptance/result.json`;
   packetized PageGather is accepted only for retrieval/witness surfaces and does
   not promote dense `F-PageGather-M2Pro`.
+- `F-T21-RetrievalContract-Capstone` has a primary artifact at
+  `artifacts/falsifiers/t21_retrieval_contract_capstone/result.json`; it binds
+  the VaultRecall, Eidos, PageGather caller, and PageGather policy witnesses
+  into one T21 proof.
 
-## Remaining Gap
+## Remaining Caveat
 
-The VaultRecall semantic-recall floor is now closed by an in-process,
-concept-normalized semantic fallback inside `VaultBackend`. The remaining T21
-gap is the single capstone artifact tying VaultRecall, Eidos closed citations,
-and PageGather packet policy together without promoting dense PageGather.
+The dense `F-PageGather-M2Pro` primary remains separate and unpromoted. This is
+intentional: T21 accepts packetized PageGather only for retrieval/witness
+surfaces and does not convert the dense memory-bandwidth gate to green.
 
 `falsify_vault_recall_50` now gates `top_5_paraphrase_pct` at the real `0.80`
 floor and records `49/50` paraphrase hits. The semantic fallback fires only
@@ -55,16 +57,15 @@ Synthesis, ChattyPrefix, PureChatter, and Adversarial rows stay green.
 - Eidos closed-citation round-trip evidence exists.
 - Packetized PageGather is accepted for retrieval/witness use, while dense
   PageGather remains separate and unpromoted.
+- A single T21 capstone artifact now ties the green VaultRecall, Eidos, and
+  PageGather packetized witnesses together.
 
 ## What Is Not Truly Done
 
-- Full T21 capstone unification is not closed.
-- A single capstone artifact tying Eidos semantic recall, VaultRecall candidate
-  breadth, and PageGather packet policy together does not exist yet.
+- Dense `F-PageGather-M2Pro` is not green and is not promoted by T21.
 
 ## Next Code Target
 
-Add a T21 capstone artifact that depends on the green VaultRecall, Eidos, and
-PageGather packetized artifacts without promoting dense PageGather. Future dense
-Eidos/HNSW adapters can replace the concept-normalized fallback behind the same
-`RetrievalSignal::Semantic` trace channel.
+Move to the next non-T21 architecture gate from the main-only reconciliation
+queue. Future dense Eidos/HNSW adapters can replace the concept-normalized
+fallback behind the same `RetrievalSignal::Semantic` trace channel.

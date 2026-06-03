@@ -2,7 +2,7 @@
 falsifier: F-VaultRecall-50
 created_on: 2026-05-18
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
-status: PRIMARY WITNESS; VAULT SEMANTIC FLOOR CLOSED; T21 CAPSTONE ARTIFACT OPEN
+status: PRIMARY WITNESS; VAULT SEMANTIC FLOOR CLOSED; T21 CAPSTONE CLOSED
 ---
 
 > **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
@@ -14,7 +14,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Field | Value |
 |---|---|
 | Purpose | Prove topical vault recall does not return the first irrelevant index-order notes and surfaces enough candidates plus trace to make retrieval honesty visible. |
-| Current status | CURRENT-MAIN PRIMARY WITNESS. `artifacts/falsifiers/vault_recall_50/result.json` records `overall_pass=true`, top-1 exact-title `0.9726 (213/219)`, top-5 paraphrase `0.9800 (49/50)` against the real `0.80` floor, adversarial reject `1.0 (51/51)`, and fixture rows `370`. VaultRecall semantic recall is closed by the concept-normalized `VaultBackend` fallback; the broader T21 capstone artifact over VaultRecall + Eidos + PageGather remains open. See `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`. |
+| Current status | CURRENT-MAIN PRIMARY WITNESS. `artifacts/falsifiers/vault_recall_50/result.json` records `overall_pass=true`, top-1 exact-title `0.9726 (213/219)`, top-5 paraphrase `0.9800 (49/50)` against the real `0.80` floor, adversarial reject `1.0 (51/51)`, and fixture rows `370`. VaultRecall semantic recall is closed by the concept-normalized `VaultBackend` fallback, and the broader T21 capstone artifact over VaultRecall + Eidos + PageGather is green at `artifacts/falsifiers/t21_retrieval_contract_capstone/result.json`. See `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`. |
 | Input fixture | Vault fixture with at least 50 notes: 7 distractor notes matching chatty terms, 3+ residency-governance target notes, unicode notes, stopword-only query, single-word query, multi-paragraph query, and no-result query. |
 | Pass threshold | On Jojo's M2 Pro 14-inch 2023, 16 GB UMA, approximately 200 GB/s memory bandwidth: for `Pull my notes on residency governance`, top packed context includes the residency-governance targets, never just index-order distractors; retrieval considers the full manifest, gathers 50-200 candidates before packing, emits trace components, and weak evidence asks/broadens instead of pretending. |
 | Failure meaning | The app still cannot be trusted to find the user's own notes; ceiling research and closed citations become decoration over broken recall. |

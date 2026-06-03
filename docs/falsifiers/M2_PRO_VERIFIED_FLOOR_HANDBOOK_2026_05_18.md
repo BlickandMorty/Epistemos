@@ -220,8 +220,9 @@ Last audited: 2026-05-18. [F-VaultRecall-50](F_VAULT_RECALL_50_2026_05_18.md) ma
 
 2026-06-03 reconciliation: `artifacts/falsifiers/vault_recall_50/result.json`
 is a current primary witness for exact/title recall, semantic/paraphrase
-recall, and adversarial rejection. The remaining T21 work is the combined
-capstone artifact over VaultRecall, Eidos, and PageGather packet policy. See
+recall, and adversarial rejection. `artifacts/falsifiers/t21_retrieval_contract_capstone/result.json`
+is the combined green capstone artifact over VaultRecall, Eidos, and PageGather
+packet policy. See
 `docs/audits/T21_RETRIEVAL_CONTRACT_RECONCILIATION_2026_06_03.md`.
 
 ## F-PageGather Baseline Axis Floor Audit
