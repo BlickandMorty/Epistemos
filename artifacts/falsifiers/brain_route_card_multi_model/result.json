@@ -1,0 +1,460 @@
+{
+  "falsifier_id": "F-BrainRouteCard-MultiModel",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_brain_route_card_multi_model.sh",
+  "command_digest": "sha256:3800ddf1deac90d3562d43491f075e22d98dc1c36547a9982d2f8a64a8642b86",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6d82ba00b2af7d10ea8d970101343484196e3c54",
+  "fixture_id": "brain_route_card_multi_model_v1",
+  "timestamp_utc": "2026-06-03T19:56:20Z",
+  "result_digest": "sha256:5f0c843d61d0ec44c75ddff3219e6193be4ad340a2e2433001217c41ed9bf75d",
+  "measurements": {
+    "active_byte_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_static_route_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "brain_route_card_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "brain_route_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_brain_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "candidate_brains_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_route_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_brain_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_multi_model_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "value": 184549376,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_candidate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_roles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_multi_model_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_update_key_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_address": {
+      "value": "uas:brain-route-card:07ae15e412e7a0515bc4eff444d2cbf88850290aa6f47d64d702efbc008edfee",
+      "unit": "uas_address"
+    },
+    "route_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_kernel_compatibility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_success_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_stack_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "static_baseline_beaten": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_static_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_kernel_model_check_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_byte_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "baseline_static_route_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "brain_route_card_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "brain_route_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_brain_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "candidate_brains_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_route_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_validity_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_brain_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_not_exposed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_multi_model_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_active_byte_limit": {
+      "operator": "<=",
+      "value": 201326592,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_candidate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_roles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_multi_model_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "regret_update_key_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_address": {
+      "operator": "contains",
+      "value": "uas:brain-route-card:",
+      "unit": "uas_address"
+    },
+    "route_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_kernel_compatibility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_success_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_stack_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "static_baseline_beaten": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_static_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_kernel_model_check_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_byte_delta_positive": true,
+    "answer_packet_ref_bound": true,
+    "baseline_static_route_bound": true,
+    "brain_route_card_count": true,
+    "brain_route_cards_present": true,
+    "candidate_brain_count": true,
+    "candidate_brains_bound": true,
+    "cloud_route_rejected": true,
+    "duplicate_route_card_rejected": true,
+    "evidence_validity_delta_positive": true,
+    "fallback_brain_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_chain_not_exposed": true,
+    "hidden_multi_model_authority_rejected": true,
+    "latency_delta_positive": true,
+    "max_active_byte_limit": true,
+    "missing_answer_packet_rejected": true,
+    "missing_candidate_rejected": true,
+    "missing_rollback_rejected": true,
+    "mission_ids_bound": true,
+    "model_roles_bound": true,
+    "no_hidden_cloud": true,
+    "no_hidden_multi_model_authority": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_route_rejected": true,
+    "privacy_classes_bound": true,
+    "quality_delta_positive": true,
+    "regret_update_key_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_card_address": true,
+    "route_card_address_deterministic": true,
+    "route_kernel_compatibility_bound": true,
+    "route_success_delta_positive": true,
+    "selected_stack_bound": true,
+    "static_baseline_beaten": true,
+    "task_signatures_bound": true,
+    "unbeaten_static_baseline_rejected": true,
+    "uncertainty_abstention_bound": true,
+    "upstream_route_kernel_model_check_pass": true,
+    "verifier_delta_positive": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only BrainRouteCard witness; no live multi-model router, no hidden committee, no cloud fallback, no model/runtime bytes, and no product promotion executed"
+    }
+  ],
+  "notes": "Proves task-shaped BrainRouteCard routing beats a static route across quality/evidence/verifier/latency/active-byte axes while preserving shadow authority, rollback, AnswerPacket visibility, and route-kernel compatibility."
+}

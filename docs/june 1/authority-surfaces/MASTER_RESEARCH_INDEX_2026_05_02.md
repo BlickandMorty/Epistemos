@@ -71,10 +71,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
-ACS (Anchored Cognitive Substrate) naming is preserved in this mirror's legacy
-falsifier labels.
-
-**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
+**Canonical distinction.** This is canon as the target architecture and vocabulary. ACS (Anchored Cognitive Substrate) naming remains scoped to AcsAnchor lineage and related legacy witness IDs. This is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
 **Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
 
@@ -152,9 +149,13 @@ fp16/cloud/local reference can count. Prompt-level references also require at
 least 50 prompts.
 The 70B preflight consumes the range-hash artifact as
 `weight_block_range_hash_dry_run_available=true`, then the planner artifact as
-`residency_plan_dry_run_available=true`, and remains red on
-`missing_fp16_or_provider_reference` until prompt-level comparison evidence
-exists.
+`residency_plan_dry_run_available=true`, and remains red research evidence
+until prompt-level comparison evidence exists. That provider-reference lane is
+not the default architecture cursor while the app is routed through practical
+MLX local inference. `F-ProviderReferencePromptLevel-Readiness` still audits the
+exact blocker when the heavy/provider-reference lane is explicitly re-enabled;
+shape-only fixtures remain barred from satisfying prompt-level reference
+evidence.
 
 **Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,
 Research Construction Engine, ShadowProjection, OAS, ColdStore, AcsAnchor, or the 70B local
@@ -563,7 +564,7 @@ MInference.
 | `F-MetaBreakthrough-CardRegistry` | PASS metadata-only witness on 2026-06-03. Proves every meta-control card binds UAS address, source, budget, rollback, proof/falsifier state, AnswerPacket visibility, and shadow-only route authority before future route policy can cite it. Artifact: `artifacts/falsifiers/meta_breakthrough_card_registry/result.json`. |
 | `F-ProofCarryingRouteCard` | PASS metadata-only witness on 2026-06-03. Proves route cards reject missing preconditions, missing postconditions, missing rollback, missing artifact refs, unpinned proof/toolchain versions, missing AnswerPacket refs, budget increases, and hidden live mutations. Artifact: `artifacts/falsifiers/proof_carrying_route_card/result.json`. |
 | `F-RustRouteKernel-ModelCheck` | PASS metadata-only witness on 2026-06-03. Checks 147 bounded Rust route-state transitions, rejects invalid/unsafe route mutations, proves rollback and abstention discipline, and keeps model/runtime bytes at zero. Artifact: `artifacts/falsifiers/rust_route_kernel_model_check/result.json`. |
-| `F-BrainRouteCard-MultiModel` | Proves learned/task-shaped routing beats static routing on quality, evidence validity, latency, and active-byte cost. |
+| `F-BrainRouteCard-MultiModel` | PASS metadata-only witness on 2026-06-03. Proves task-shaped BrainRouteCards beat static routing on quality, evidence validity, verifier result, latency, active-byte cost, and route success while rejecting hidden authority, hidden-chain exposure, cloud routes, over-budget routes, unbeaten baselines, missing rollback/AnswerPacket, and high-uncertainty non-abstention. Artifact: `artifacts/falsifiers/brain_route_card_multi_model/result.json`. |
 | `F-KVPageControl-QueryAware` | Proves query-aware page selection beats recency-only and random page policies under active-byte and quality budgets. |
 | `F-FeatureAtlas-Prior` | Proves feature handles improve route selection as priors without arbitrary neuron-control claims. |
 | `F-NeuralControlCard-Ablation` | Proves a bounded feature/activation intervention improves target behavior versus baseline and ablation without unacceptable side effects. |
@@ -621,11 +622,11 @@ MissionPacket
 
 | Falsifier | Purpose |
 |---|---|
-| `F-ResidencyConstructionGraph` | Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. |
-| `F-CoactivationTile-Prefetch` | Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. |
-| `F-ProofCarryingResidencyLease` | Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, and rollback. |
-| `F-ColdAssemblyPlan-70B-Lite` | Proves a small-hot plus cold-selected assembly beats static local baselines without hidden cloud or dense-resident overclaim. |
-| `F-LatticeStateController` | PASS metadata-only witness on main, 2026-06-03. Proves a small recurrent/lattice controller improves route decisions versus static, random, and always-retrieve baselines; abstains under high uncertainty/conflict; rejects hidden live route authority, hidden-chain exposure, missing rollback, missing AnswerPacket, and unbeaten static-policy baselines. Artifact: `artifacts/falsifiers/lattice_state_controller/result.json`. |
+| `F-ResidencyConstructionGraph` | PASS metadata-only dry-run witness on 2026-06-03. Proves candidate assemblies can be scored under memory/I/O/verifier constraints and invalid plans are rejected. Artifact: `artifacts/falsifiers/residency_construction_graph/result.json`. |
+| `F-CoactivationTile-Prefetch` | PASS metadata-only dry-run witness on 2026-06-03. Proves tile packing and prefetch beat original file order or random page fetch under cold-miss and latency budgets. Artifact: `artifacts/falsifiers/coactivation_tile_prefetch/result.json`. |
+| `F-ProofCarryingResidencyLease` | PASS metadata-only dry-run witness on 2026-06-03. Proves no cold byte wakes without UAS address, reason, byte cost, verifier/proof reference, expiry, fallback, and rollback. Artifact: `artifacts/falsifiers/proof_carrying_residency_lease/result.json`. |
+| `F-ColdAssemblyPlan-70B-Lite` | PASS metadata-only dry-run witness on 2026-06-03. Proves a small-hot plus cold-selected assembly beats dense-local, RAG-only, and static-route baselines without hidden cloud, dense-resident overclaim, or runtime/model-byte load. Artifact: `artifacts/falsifiers/cold_assembly_plan_70b_lite/result.json`. |
+| `F-LatticeStateController` | PASS metadata-only witness on 2026-06-03. Proves a small recurrent/lattice controller improves route decisions versus static, random, and always-retrieve baselines; abstains under high uncertainty/conflict; rejects hidden live route authority, hidden-chain exposure, missing rollback, missing AnswerPacket, and unbeaten static-policy baselines. Artifact: `artifacts/falsifiers/lattice_state_controller/result.json`. |
 | `F-ReasoningStateContinuity` | PASS metadata-only witness on 2026-06-03. Proves visible, privacy-scoped resumable state improves continuity/cache utility versus no-state, naive-cache, and static-summary baselines; rejects hidden-chain exposure, verifier bypass, stale-state reuse, missing purge policy, incompatible compatibility fence, missing AnswerPacket, and unbeaten naive-cache baselines. Artifact: `artifacts/falsifiers/reasoning_state_continuity/result.json`. |
 | `F-ColdMissLedger` | PASS metadata-only witness on 2026-06-03. Proves repeated route-level cold misses bind missed UAS units, stall/cold-I/O costs, fallback, verifier delta, next prefetch policy, rollback, run log, AnswerPacket, and a shadow ColdRoutePolicyPatch; held-out misses and repeated stalls improve while one-miss, no-improvement, missing rollback, missing policy patch, zero-stall, high-wear, and live-mutation cases reject. Artifact: `artifacts/falsifiers/cold_miss_ledger/result.json`. |
 | `F-SwiftLM-SourceIntake` | PASS metadata-only witness on 2026-06-03. Proves SwiftLM SSD expert streaming, KV compression, persistent-buffer, and prefetch motifs are captured as source cards with license/setup notes, benchmark caveats, route affinities, and local test plans before any implementation import, product dependency, route mutation, or model-byte load. Artifact: `artifacts/falsifiers/swiftlm_source_intake/result.json`. |

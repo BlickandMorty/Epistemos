@@ -55,6 +55,8 @@ const PROOF_CARRYING_ROUTE_CARD_PATH: &str =
     "artifacts/falsifiers/proof_carrying_route_card/result.json";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_PATH: &str =
     "artifacts/falsifiers/rust_route_kernel_model_check/result.json";
+const BRAIN_ROUTE_CARD_MULTI_MODEL_PATH: &str =
+    "artifacts/falsifiers/brain_route_card_multi_model/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -79,6 +81,45 @@ const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "deterministic_model_check_address",
     "missing_route_card_rejected",
     "stale_toolchain_rejected",
+    "no_runtime_bytes_loaded",
+];
+const BRAIN_ROUTE_CARD_MULTI_MODEL_AXES: &[&str] = &[
+    "upstream_route_kernel_model_check_pass",
+    "brain_route_cards_present",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "candidate_brains_bound",
+    "selected_stack_bound",
+    "fallback_brain_bound",
+    "model_roles_bound",
+    "privacy_classes_bound",
+    "baseline_static_route_bound",
+    "route_kernel_compatibility_bound",
+    "quality_delta_positive",
+    "evidence_validity_delta_positive",
+    "verifier_delta_positive",
+    "latency_delta_positive",
+    "active_byte_delta_positive",
+    "route_success_delta_positive",
+    "static_baseline_beaten",
+    "rollback_bound",
+    "answer_packet_ref_bound",
+    "regret_update_key_bound",
+    "route_authority_shadow_only",
+    "no_hidden_multi_model_authority",
+    "hidden_chain_not_exposed",
+    "no_hidden_cloud",
+    "uncertainty_abstention_bound",
+    "route_card_address_deterministic",
+    "duplicate_route_card_rejected",
+    "missing_candidate_rejected",
+    "missing_rollback_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_multi_model_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "unbeaten_static_baseline_rejected",
+    "over_budget_route_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -137,6 +178,7 @@ fn build_report() -> KernelReport {
     let meta_breakthrough_card_registry = GateArtifact::read(META_BREAKTHROUGH_CARD_REGISTRY_PATH);
     let proof_carrying_route_card = GateArtifact::read(PROOF_CARRYING_ROUTE_CARD_PATH);
     let rust_route_kernel_model_check = GateArtifact::read(RUST_ROUTE_KERNEL_MODEL_CHECK_PATH);
+    let brain_route_card_multi_model = GateArtifact::read(BRAIN_ROUTE_CARD_MULTI_MODEL_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -164,6 +206,7 @@ fn build_report() -> KernelReport {
         &meta_breakthrough_card_registry,
         &proof_carrying_route_card,
         &rust_route_kernel_model_check,
+        &brain_route_card_multi_model,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -514,6 +557,8 @@ fn build_report() -> KernelReport {
         ]);
     let rust_route_kernel_model_check_pass = rust_route_kernel_model_check.overall_pass
         && rust_route_kernel_model_check.all_axes_true(RUST_ROUTE_KERNEL_MODEL_CHECK_AXES);
+    let brain_route_card_multi_model_pass = brain_route_card_multi_model.overall_pass
+        && brain_route_card_multi_model.all_axes_true(BRAIN_ROUTE_CARD_MULTI_MODEL_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -541,6 +586,7 @@ fn build_report() -> KernelReport {
         &meta_breakthrough_card_registry,
         &proof_carrying_route_card,
         &rust_route_kernel_model_check,
+        &brain_route_card_multi_model,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -566,6 +612,7 @@ fn build_report() -> KernelReport {
         meta_breakthrough_card_registry_pass,
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
+        brain_route_card_multi_model_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -607,6 +654,7 @@ fn build_report() -> KernelReport {
         meta_breakthrough_card_registry_pass,
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
+        brain_route_card_multi_model_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -652,6 +700,7 @@ fn build_report() -> KernelReport {
         meta_breakthrough_card_registry_pass,
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
+        brain_route_card_multi_model_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -945,6 +994,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "brain_route_card_multi_model_pass",
+        brain_route_card_multi_model_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1077,6 +1133,11 @@ fn build_report() -> KernelReport {
         "rust_route_kernel_model_check",
         &rust_route_kernel_model_check,
     );
+    add_gate_summary(
+        &mut measurements,
+        "brain_route_card_multi_model",
+        &brain_route_card_multi_model,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1103,6 +1164,7 @@ fn build_report() -> KernelReport {
         meta_breakthrough_card_registry_pass,
         proof_carrying_route_card_pass,
         rust_route_kernel_model_check_pass,
+        brain_route_card_multi_model_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1362,6 +1424,7 @@ fn classify_route(
     meta_breakthrough_card_registry_pass: bool,
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
+    brain_route_card_multi_model_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1382,6 +1445,7 @@ fn classify_route(
         && meta_breakthrough_card_registry_pass
         && proof_carrying_route_card_pass
         && rust_route_kernel_model_check_pass
+        && brain_route_card_multi_model_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1436,6 +1500,7 @@ fn next_bottleneck(
     meta_breakthrough_card_registry_pass: bool,
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
+    brain_route_card_multi_model_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1512,8 +1577,10 @@ fn next_bottleneck(
             "proof_carrying_route_card".to_string()
         } else if !rust_route_kernel_model_check_pass {
             "rust_route_kernel_model_check".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !brain_route_card_multi_model_pass {
             "brain_route_card_multi_model".to_string()
+        } else if !seventy_b_route_pass {
+            "kv_page_control_query_aware".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1566,6 +1633,7 @@ fn build_ordered_gap_queue(
     meta_breakthrough_card_registry_pass: bool,
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
+    brain_route_card_multi_model_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -1941,7 +2009,9 @@ fn build_ordered_gap_queue(
             23,
             "brain_route_card_multi_model",
             "Meta Control",
-            if rust_route_kernel_model_check_pass
+            if brain_route_card_multi_model_pass {
+                "completed"
+            } else if rust_route_kernel_model_check_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -1953,6 +2023,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
             "Learned or task-shaped BrainRouteCard routing must beat static route policy on quality, evidence, latency, active bytes, and verifier outcomes without hidden multi-model route authority.",
             "Keep BrainRouteCard route priors shadow-only until AnswerPacket-visible evidence, rollback, held-out wins, and route-kernel compatibility pass.",
+        ),
+        queue_item(
+            24,
+            "kv_page_control_query_aware",
+            "Meta Control",
+            if brain_route_card_multi_model_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_brain_route_card_multi_model"
+            },
+            "F-KVPageControl-QueryAware",
+            "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+            "Query-aware KV/page control must beat recency-only and random selection under active-byte, quality, verifier, and AnswerPacket visibility budgets.",
+            "Keep KV/page control shadow-only until stale/incompatible units, budget overflow, missing rollback, and verifier bypass cases reject.",
         ),
     ]
 }
@@ -2079,6 +2166,7 @@ fn build_anomalies(
     meta_breakthrough_card_registry_pass: bool,
     proof_carrying_route_card_pass: bool,
     rust_route_kernel_model_check_pass: bool,
+    brain_route_card_multi_model_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2243,6 +2331,15 @@ fn build_anomalies(
             "detail": "Meta Control has proof-carrying route cards, but F-RustRouteKernel-ModelCheck must pass before BrainRouteCard or route-policy work can advance."
         }));
     }
+    if rust_route_kernel_model_check_pass
+        && !brain_route_card_multi_model_pass
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "brain_route_card_multi_model_missing",
+            "detail": "Meta Control has a bounded route-kernel model check, but F-BrainRouteCard-MultiModel must pass before query-aware KV/page control work can advance."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2369,28 +2466,28 @@ mod tests {
         assert_eq!(
             classify_route(
                 true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false,
             ),
             "vault_research_route_with_packetized_mitigation"
         );
         assert_eq!(
             classify_route(
                 true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false,
             ),
             "verified_floor_only"
         );
         assert_eq!(
             classify_route(
                 true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true,
             ),
             "ready_for_product_route"
         );
@@ -2441,21 +2538,22 @@ mod tests {
         const META_BREAKTHROUGH_CARD_REGISTRY: usize = 32;
         const PROOF_CARRYING_ROUTE_CARD: usize = 33;
         const RUST_ROUTE_KERNEL_MODEL_CHECK: usize = 34;
-        const SEVENTY_B: usize = 35;
+        const BRAIN_ROUTE_CARD_MULTI_MODEL: usize = 35;
+        const SEVENTY_B: usize = 36;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 36] {
-            let mut values = [false; 36];
+        let flags = |true_indexes: &[usize]| -> [bool; 37] {
+            let mut values = [false; 37];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 36], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 37], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2495,11 +2593,12 @@ mod tests {
                 values[33],
                 values[34],
                 values[35],
+                values[36],
                 &missing,
             )
         };
-        let nb = |values: [bool; 36]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 36]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 37]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 37]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -3081,6 +3180,42 @@ mod tests {
             "brain_route_card_multi_model"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+            ]))),
+            "kv_page_control_query_aware"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -3136,6 +3271,7 @@ mod tests {
                 META_BREAKTHROUGH_CARD_REGISTRY,
                 PROOF_CARRYING_ROUTE_CARD,
                 RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

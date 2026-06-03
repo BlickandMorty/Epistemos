@@ -61,6 +61,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-MetaBreakthrough-CardRegistry",
     "F-ProofCarryingRouteCard",
     "F-RustRouteKernel-ModelCheck",
+    "F-BrainRouteCard-MultiModel",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4996dbcd9f189b3b537ee9174e56bfaac93efd26",
+  "commit_sha": "6d82ba00b2af7d10ea8d970101343484196e3c54",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T19:18:32Z",
-  "result_digest": "sha256:4c1852d76a618aa9edeb225736fd47ff6d3d6d541745045ea8210ebd7787015f",
+  "timestamp_utc": "2026-06-03T19:56:27Z",
+  "result_digest": "sha256:2423e89a127cb71a63b79a7ee39560ca919c13f71d78697d34be402f456ddb7c",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -80,6 +80,22 @@
     "all_gate_artifacts_schema_normalized": {
       "value": true,
       "unit": "bool"
+    },
+    "brain_route_card_multi_model_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "brain_route_card_multi_model_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/brain_route_card_multi_model/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     },
     "canonical_build_queue_present": {
       "value": true,
@@ -250,7 +266,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "brain_route_card_multi_model",
+      "value": "kv_page_control_query_aware",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -489,11 +505,21 @@
           "order": 23,
           "gap_id": "brain_route_card_multi_model",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-BrainRouteCard-MultiModel",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "Learned or task-shaped BrainRouteCard routing must beat static route policy on quality, evidence, latency, active bytes, and verifier outcomes without hidden multi-model route authority.",
           "rollback": "Keep BrainRouteCard route priors shadow-only until AnswerPacket-visible evidence, rollback, held-out wins, and route-kernel compatibility pass."
+        },
+        {
+          "order": 24,
+          "gap_id": "kv_page_control_query_aware",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-KVPageControl-QueryAware",
+          "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
+          "promotion_condition": "Query-aware KV/page control must beat recency-only and random selection under active-byte, quality, verifier, and AnswerPacket visibility budgets.",
+          "rollback": "Keep KV/page control shadow-only until stale/incompatible units, budget overflow, missing rollback, and verifier bypass cases reject."
         }
       ],
       "unit": "queue"
@@ -761,6 +787,11 @@
       "value": true,
       "unit": "bool"
     },
+    "brain_route_card_multi_model_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "canonical_build_queue_present": {
       "operator": "==",
       "value": true,
@@ -963,6 +994,7 @@
     "active_assembly_shape_proof_available": true,
     "agent_local_model_runtime_bridge_pass": true,
     "all_gate_artifacts_schema_normalized": true,
+    "brain_route_card_multi_model_pass": true,
     "canonical_build_queue_present": true,
     "coactivation_tile_prefetch_pass": true,
     "cold_assembly_plan_70b_lite_pass": true,
@@ -1020,8 +1052,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "brain_route_card_multi_model"
+      "detail": "kv_page_control_query_aware"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=brain_route_card_multi_model; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=kv_page_control_query_aware; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
