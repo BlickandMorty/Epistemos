@@ -11,6 +11,8 @@ const SWIFT_EIDOS_WIRING_TEST_SOURCE: &str =
     include_str!("../../EpistemosTests/EidosWiringTests.swift");
 const SWIFT_VAULT_RECALL_WIRING_SOURCE: &str =
     include_str!("../../Epistemos/VaultRecall/VaultRecallWiring.swift");
+const SWIFT_VAULT_RECALL_CONTRACT_SOURCE: &str =
+    include_str!("../../Epistemos/VaultRecall/VaultRecallContract.swift");
 const SWIFT_VAULT_RECALL_TEST_SOURCE: &str =
     include_str!("../../EpistemosTests/VaultRecallWiringTests.swift");
 
@@ -92,6 +94,7 @@ fn swift_retrieval_backend_honesty_keeps_scaffolds_distinct_from_real_vaults() {
         "case real",
         "case unknown",
         "if tier == \"scaffold-lexical\" { return .stub }",
+        "if tier.hasPrefix(\"eidos-fixture-\") { return .stub }",
         "if tier.hasPrefix(\"vault-\")   { return .real }",
         "if tier.hasPrefix(\"helios-\")  { return .real }",
         "lastBackendValue: VaultRecallBackend = .unknown",
@@ -99,6 +102,35 @@ fn swift_retrieval_backend_honesty_keeps_scaffolds_distinct_from_real_vaults() {
         assert!(
             SWIFT_VAULT_RECALL_WIRING_SOURCE.contains(vault_recall_fragment),
             "VaultRecall backend honesty surface must keep `{vault_recall_fragment}`"
+        );
+    }
+}
+
+#[test]
+fn eidos_packets_project_into_t21_vault_recall_and_page_gather_contract() {
+    for contract_fragment in [
+        "enum VaultRecallContract",
+        "trace(",
+        "eidosPacket: EidosContextPacket",
+        "ladderTier: ladderTier(for: eidosPacket)",
+        "PageGatherEscalationTrace(",
+        "source: \"QueryRuntime.Eidos\"",
+        "T21 unified retrieval contract: Eidos packet projected into VaultRecallTrace",
+    ] {
+        assert!(
+            SWIFT_VAULT_RECALL_CONTRACT_SOURCE.contains(contract_fragment),
+            "VaultRecallContract must keep `{contract_fragment}`"
+        );
+    }
+
+    for query_runtime_fragment in [
+        "let eidosStartedAt = Date()",
+        "VaultRecallContract.recordEidosPacket(",
+        "Date().timeIntervalSince(eidosStartedAt) * 1000",
+    ] {
+        assert!(
+            SWIFT_QUERY_RUNTIME_SOURCE.contains(query_runtime_fragment),
+            "QueryRuntime Eidos branch must record `{query_runtime_fragment}`"
         );
     }
 }
@@ -119,6 +151,8 @@ fn swift_backend_honesty_tests_cover_fixture_stub_and_real_prefixes() {
     for vault_recall_test_fragment in [
         "#expect(backend == .stub",
         "#expect(VaultRecallBridge.detectedBackend(from: trace) == .real)",
+        "\"ladder_tier\": \"eidos-fixture-v0\"",
+        "#expect(VaultRecallBridge.detectedBackend(from: trace) == .stub)",
         "#expect(after.lastBackend == .stub",
     ] {
         assert!(
@@ -131,7 +165,7 @@ fn swift_backend_honesty_tests_cover_fixture_stub_and_real_prefixes() {
 #[test]
 fn query_runtime_prefers_real_eidos_vault_before_fixture_fallback() {
     for route_fragment in [
-        "if EidosFlags.isEnabled,",
+        "if EidosFlags.isEnabled {",
         "if EidosBridge.vaultStatus()?.isOpen == true {",
         "return EidosBridge.retrieve(query: query, topK: topK)",
         "return EidosBridge.search(query: query, topK: topK)",

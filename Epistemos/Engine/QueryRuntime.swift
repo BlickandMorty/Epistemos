@@ -350,22 +350,29 @@ final class RetrievalRuntime {
         // vault-bound retriever when AppBootstrap has opened it; otherwise
         // keep the fixture helper as a diagnostic/back-compat path. Empty
         // or unmapped Eidos packets fall through to RRF/legacy retrieval.
-        if EidosFlags.isEnabled,
-           let packet = Self.eidosPacket(query: query, limit: limit) {
-            for hit in packet.hits {
-                appendNoteResult(
-                    pageId: hit.documentId.raw,
-                    score: hit.confidence,
-                    snippet: "",
-                    source: .pageSearch,
-                    seen: &seen,
-                    candidates: &candidates
+        if EidosFlags.isEnabled {
+            let eidosStartedAt = Date()
+            if let packet = Self.eidosPacket(query: query, limit: limit) {
+                VaultRecallContract.recordEidosPacket(
+                    query: query,
+                    packet: packet,
+                    latencyMs: Date().timeIntervalSince(eidosStartedAt) * 1000
                 )
-            }
-            if !candidates.isEmpty {
-                return graphEventHintedCandidates(
-                    scoredCandidates(query: query, candidates: candidates)
-                ).map(\.node)
+                for hit in packet.hits {
+                    appendNoteResult(
+                        pageId: hit.documentId.raw,
+                        score: hit.confidence,
+                        snippet: "",
+                        source: .pageSearch,
+                        seen: &seen,
+                        candidates: &candidates
+                    )
+                }
+                if !candidates.isEmpty {
+                    return graphEventHintedCandidates(
+                        scoredCandidates(query: query, candidates: candidates)
+                    ).map(\.node)
+                }
             }
         }
 
