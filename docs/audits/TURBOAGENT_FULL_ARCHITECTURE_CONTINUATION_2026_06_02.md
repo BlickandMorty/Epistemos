@@ -46,9 +46,9 @@ Continue the full-architecture loop in this order:
 
 1. **Primary lane: Semantic Working-Set Compiler dry-run artifacts.**
    `F-SourceSignalGraph-Intake` and
+   `F-TaskWorkingSetQuery-Determinism` and
    `F-SemanticWorkingSetPlan-Budget` now have primary witnesses on main.
    Continue with the remaining schema-only and fixture-only path for
-   `F-TaskWorkingSetQuery-Determinism` and
    `F-ResidencyPageTable-Addressability`.
 2. **Secondary lane: ColdStream manifest shape, not transport.**
    Only after a working-set plan exists, add a metadata-only
@@ -218,7 +218,6 @@ For the next implementation lane, run only lightweight verification:
 
 New gates still to implement before promotion:
 
-- `F-TaskWorkingSetQuery-Determinism`
 - `F-ResidencyPageTable-Addressability`
 - `F-MmapResidencyFence-CopyCount`
 - `F-ColdStream-NoHiddenAuthority`

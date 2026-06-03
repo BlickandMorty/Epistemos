@@ -453,11 +453,11 @@ Backlog bundle: `docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_
 | `F-SourceToResidency-NoPoison` | Proves prompt-injection, stale-source, license-blocked, and low-credibility sources cannot promote layout or route patches. |
 | `F-70B-Cocktail-WorkingSet-Lite` | Proves a small-hot compiled plan beats dense-local, RAG-only, and static-route baselines without hidden cloud or dense-resident overclaim. |
 
-**2026-06-03 status.** `F-SourceSignalGraph-Intake` and
+**2026-06-03 status.** `F-SourceSignalGraph-Intake`,
+`F-TaskWorkingSetQuery-Determinism`, and
 `F-SemanticWorkingSetPlan-Budget` now have primary local witnesses on main.
-Continue this bundle with deterministic task query emission and residency
-page-table addressability; do not reinstall model assets or fetch live sources
-for these metadata-only gates.
+Continue this bundle with residency page-table addressability; do not reinstall
+model assets or fetch live sources for these metadata-only gates.
 
 ## Product locks
 

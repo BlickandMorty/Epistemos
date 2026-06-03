@@ -1,0 +1,300 @@
+{
+  "falsifier_id": "F-TaskWorkingSetQuery-Determinism",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_task_working_set_query_determinism.sh",
+  "command_digest": "sha256:93ec54ee1e9c97209378602d81f206856edc157bf640fe06ddf8a4284bdbba9e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0a99c7ed0e0754d37bdb1286c713c3477867fd17",
+  "fixture_id": "task_working_set_query_determinism_v1",
+  "timestamp_utc": "2026-06-03T08:17:40Z",
+  "result_digest": "sha256:15f61c91fe8f18c87bec22b72d8a8520f79c8b8f5681b12f63cc7fa6579d8c54",
+  "measurements": {
+    "auxiliary_budgets_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_budget_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "deadline_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_refs_deduped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_source_refs_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_need_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_budget_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_budget_bounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_cold_io_bytes": {
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "max_hot_bytes": {
+      "value": 2097152,
+      "unit": "bytes_or_count"
+    },
+    "max_kv_bytes": {
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "mission_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_drift_changes_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_drift_changes_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_target_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_address": {
+      "value": "task_working_set_query:58c836a44e82171166cd5dd4f90af1eab05a1878b492c44ed7d010f5fa800df5@1779000000000",
+      "unit": "uas_address"
+    },
+    "query_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_address_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 2,
+      "unit": "bytes_or_count"
+    },
+    "source_refs_canonical": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_need_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_deadline_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "auxiliary_budgets_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_io_budget_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "deadline_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_refs_deduped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_source_refs_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_need_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_budget_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_budget_bounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_cold_io_bytes": {
+      "operator": "==",
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "max_hot_bytes": {
+      "operator": "==",
+      "value": 2097152,
+      "unit": "bytes_or_count"
+    },
+    "max_kv_bytes": {
+      "operator": "==",
+      "value": 4194304,
+      "unit": "bytes_or_count"
+    },
+    "mission_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_class_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_drift_changes_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_drift_changes_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_target_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "query_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_address_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "bytes_or_count"
+    },
+    "source_refs_canonical": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_need_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_deadline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "auxiliary_budgets_bounded": true,
+    "cold_io_budget_bounded": true,
+    "deadline_bound": true,
+    "duplicate_source_refs_deduped": true,
+    "empty_source_refs_rejected": true,
+    "evidence_need_bound": true,
+    "hot_budget_bounded": true,
+    "kv_budget_bounded": true,
+    "max_cold_io_bytes": true,
+    "max_hot_bytes": true,
+    "max_kv_bytes": true,
+    "mission_id_bound": true,
+    "privacy_class_bound": true,
+    "privacy_drift_changes_address": true,
+    "quality_drift_changes_address": true,
+    "quality_target_bound": true,
+    "query_address": true,
+    "query_address_deterministic": true,
+    "query_address_present": true,
+    "source_ref_count": true,
+    "source_refs_canonical": true,
+    "task_signature_bound": true,
+    "verifier_need_bound": true,
+    "zero_budget_rejected": true,
+    "zero_deadline_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only TaskWorkingSetQuery determinism; no working-set execution, prefetch, model decode, MLX/Metal, or route mutation executed"
+    }
+  ],
+  "notes": "Proves deterministic task working-set query addressing, canonical source refs, bounded privacy/evidence/verifier/budget fields, and fail-closed behavior for empty sources or impossible budgets before runtime wake paths."
+}

@@ -48,6 +48,7 @@ witnesses pass.
 
 `F-SourceSignalGraph-Intake` closes the first schema-only source intake item
 from the Semantic Working-Set Compiler build order. The next work in that
-bundle remains deterministic task query emission and residency page-table
-addressability; the already-existing `F-SemanticWorkingSetPlan-Budget` witness
-continues to cover budget rejection before runtime wake paths.
+bundle is residency page-table addressability; `F-TaskWorkingSetQuery-Determinism`
+now covers deterministic query emission, and the already-existing
+`F-SemanticWorkingSetPlan-Budget` witness continues to cover budget rejection
+before runtime wake paths.

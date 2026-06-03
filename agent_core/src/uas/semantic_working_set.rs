@@ -1536,6 +1536,96 @@ mod tests {
     }
 
     #[test]
+    fn task_working_set_query_is_order_stable_and_budget_gated() {
+        let query = task_query_with_sources(
+            vec![
+                "source:doc:semantic-working-set".to_string(),
+                "source:bookmark:karpathy-autoresearch".to_string(),
+                "source:doc:semantic-working-set".to_string(),
+            ],
+            PrivacyClass::VaultPrivate,
+            2 * 1024 * 1024,
+            4 * 1024 * 1024,
+        );
+        let canonical = task_query_with_sources(
+            vec![
+                "source:bookmark:karpathy-autoresearch".to_string(),
+                "source:doc:semantic-working-set".to_string(),
+            ],
+            PrivacyClass::VaultPrivate,
+            2 * 1024 * 1024,
+            4 * 1024 * 1024,
+        );
+        let public = task_query_with_sources(
+            vec![
+                "source:bookmark:karpathy-autoresearch".to_string(),
+                "source:doc:semantic-working-set".to_string(),
+            ],
+            PrivacyClass::PublicResearch,
+            2 * 1024 * 1024,
+            4 * 1024 * 1024,
+        );
+
+        assert_eq!(query.query_address, canonical.query_address);
+        assert_eq!(
+            query.source_signal_refs,
+            vec![
+                "source:bookmark:karpathy-autoresearch",
+                "source:doc:semantic-working-set",
+            ]
+        );
+        assert_ne!(query.query_address, public.query_address);
+
+        let empty_sources = TaskWorkingSetQuery::new(
+            "mission-local-research",
+            "retrieve-verify-answer",
+            Vec::new(),
+            PrivacyClass::VaultPrivate,
+            1200,
+            850,
+            EvidenceNeed::ClosedCitation,
+            VerifierNeed::Schema,
+            2 * 1024 * 1024,
+            4 * 1024 * 1024,
+            4 * 1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            empty_sources,
+            SemanticWorkingSetError::MissingSourceSignalRef
+        ));
+
+        let zero_budget = TaskWorkingSetQuery::new(
+            "mission-local-research",
+            "retrieve-verify-answer",
+            vec!["source:doc:semantic-working-set".to_string()],
+            PrivacyClass::VaultPrivate,
+            1200,
+            850,
+            EvidenceNeed::ClosedCitation,
+            VerifierNeed::Schema,
+            0,
+            4 * 1024 * 1024,
+            4 * 1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            1024 * 1024,
+            CREATED_AT_MS,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            zero_budget,
+            SemanticWorkingSetError::InvalidQueryBudget
+        ));
+    }
+
+    #[test]
     fn semantic_working_set_plan_is_order_stable_and_research_only() {
         let query = fixture_query(2 * 1024 * 1024, 4 * 1024 * 1024);
         let mut units = vec![
@@ -1754,15 +1844,29 @@ mod tests {
     }
 
     fn fixture_query(max_hot_bytes: u64, max_kv_bytes: u64) -> TaskWorkingSetQuery {
-        TaskWorkingSetQuery::new(
-            "mission-local-research",
-            "retrieve-verify-answer",
+        task_query_with_sources(
             vec![
                 "source:docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md".to_string(),
                 "source:docs/falsifiers/F-SEMANTIC-WORKING-SET-COMPILER-BUNDLE_2026_06_01.md"
                     .to_string(),
             ],
             PrivacyClass::VaultPrivate,
+            max_hot_bytes,
+            max_kv_bytes,
+        )
+    }
+
+    fn task_query_with_sources(
+        source_signal_refs: Vec<String>,
+        privacy_class: PrivacyClass,
+        max_hot_bytes: u64,
+        max_kv_bytes: u64,
+    ) -> TaskWorkingSetQuery {
+        TaskWorkingSetQuery::new(
+            "mission-local-research",
+            "retrieve-verify-answer",
+            source_signal_refs,
+            privacy_class,
             1200,
             850,
             EvidenceNeed::ClosedCitation,
