@@ -1,0 +1,950 @@
+{
+  "falsifier_id": "F-SparseWakeCertificate-AnswerPacket",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_sparse_wake_certificate_answer_packet.sh",
+  "command_digest": "sha256:cb6dfbea53aa407a8f920703a11545f614b0304bdc23f072c3423eff3e9bc0cd",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "23f6e8cee6955019c8a8f2b7e4e784c6b7d60732",
+  "fixture_id": "sparse_wake_certificate_answer_packet_v1",
+  "timestamp_utc": "2026-06-04T06:59:21Z",
+  "result_digest": "sha256:23e3214f555ca2019bddc7e5e96cbec960c7c9a1a614b2503394f71200ec16e5",
+  "measurements": {
+    "answer_packet_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_hidden_answer_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_proposal_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_route_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_count": {
+      "value": 2,
+      "unit": "certificates"
+    },
+    "certificate_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_latency_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_success_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "citation_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_results_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_unit_count": {
+      "value": 2,
+      "unit": "units"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_certificate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_answer_baseline_bps": {
+      "value": 0,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_unit_count": {
+      "value": 4,
+      "unit": "units"
+    },
+    "live_route_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_certificate_metadata_bytes": {
+      "value": 36864,
+      "unit": "bytes"
+    },
+    "max_cold_bytes": {
+      "value": 134217728,
+      "unit": "bytes"
+    },
+    "max_hot_bytes": {
+      "value": 44040192,
+      "unit": "bytes"
+    },
+    "max_kv_bytes": {
+      "value": 62914560,
+      "unit": "bytes"
+    },
+    "max_latency_ms": {
+      "value": 130,
+      "unit": "ms"
+    },
+    "max_uncertainty_bps": {
+      "value": 2100,
+      "unit": "bps"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_citation_bps": {
+      "value": 9000,
+      "unit": "bps"
+    },
+    "min_test_bps": {
+      "value": 8700,
+      "unit": "bps"
+    },
+    "min_verifier_bps": {
+      "value": 9200,
+      "unit": "bps"
+    },
+    "missing_answer_packet_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_result_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_result_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_trace_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_result_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_cold_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proposal_only_baseline_bps": {
+      "value": 6500,
+      "unit": "bps"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_only_baseline_bps": {
+      "value": 5800,
+      "unit": "bps"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_reasons_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "value": 12,
+      "unit": "units"
+    },
+    "selected_units_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_cold_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_hot_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_kv_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_address": {
+      "value": "uas:sparse-wake-certificate:sha256:5c00269c0939e89883989402bcd9227b0004d737d1d668cf0798515a2e9d60b5",
+      "unit": "uas_address"
+    },
+    "sparse_wake_certificate_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_results_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_unit_count": {
+      "value": 2,
+      "unit": "units"
+    },
+    "trace_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_too_high_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_selected_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_query_aware_kv_selector_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_proposal_budget_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_verifier_budget_auction_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_results_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_unit_count": {
+      "value": 2,
+      "unit": "units"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_hidden_answer_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_proposal_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_beats_route_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "certificates"
+    },
+    "certificate_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_latency_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "certificate_success_bps": {
+      "operator": "==",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "citation_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_results_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_unit_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "units"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_certificate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_answer_baseline_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_unit_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "units"
+    },
+    "live_route_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_certificate_metadata_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes"
+    },
+    "max_cold_bytes": {
+      "operator": "<=",
+      "value": 2147483648,
+      "unit": "bytes"
+    },
+    "max_hot_bytes": {
+      "operator": "<=",
+      "value": 100663296,
+      "unit": "bytes"
+    },
+    "max_kv_bytes": {
+      "operator": "<=",
+      "value": 134217728,
+      "unit": "bytes"
+    },
+    "max_latency_ms": {
+      "operator": "<=",
+      "value": 220,
+      "unit": "ms"
+    },
+    "max_uncertainty_bps": {
+      "operator": "<=",
+      "value": 3000,
+      "unit": "bps"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_citation_bps": {
+      "operator": ">=",
+      "value": 8500,
+      "unit": "bps"
+    },
+    "min_test_bps": {
+      "operator": ">=",
+      "value": 8000,
+      "unit": "bps"
+    },
+    "min_verifier_bps": {
+      "operator": ">=",
+      "value": 8500,
+      "unit": "bps"
+    },
+    "missing_answer_packet_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_result_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_result_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_trace_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_result_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_cold_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proposal_only_baseline_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_only_baseline_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_reasons_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_unit_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "units"
+    },
+    "selected_units_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_cold_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_hot_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_units_fit_kv_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_address": {
+      "operator": "contains",
+      "value": "uas:sparse-wake-certificate:",
+      "unit": "uas_address"
+    },
+    "sparse_wake_certificate_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_results_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_unit_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "units"
+    },
+    "trace_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_too_high_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_selected_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_query_aware_kv_selector_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_proposal_budget_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_verifier_budget_auction_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_results_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_unit_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "units"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_refs_bound": true,
+    "answer_packet_required_fields_bound": true,
+    "certificate_beats_hidden_answer_baseline": true,
+    "certificate_beats_proposal_only_baseline": true,
+    "certificate_beats_route_only_baseline": true,
+    "certificate_count": true,
+    "certificate_ids_bound": true,
+    "certificate_latency_bound": true,
+    "certificate_metadata_bound": true,
+    "certificate_success_bps": true,
+    "citation_bypass_rejected": true,
+    "citation_floor_bound": true,
+    "citation_results_bound": true,
+    "citation_unit_count": true,
+    "cloud_source_rejected": true,
+    "compatibility_fences_bound": true,
+    "duplicate_certificate_rejected": true,
+    "duplicate_unit_rejected": true,
+    "fallback_bound": true,
+    "hidden_answer_baseline_bps": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_privacy_class_rejected": true,
+    "kv_unit_count": true,
+    "live_route_not_promoted": true,
+    "live_route_promotion_rejected": true,
+    "max_certificate_metadata_bytes": true,
+    "max_cold_bytes": true,
+    "max_hot_bytes": true,
+    "max_kv_bytes": true,
+    "max_latency_ms": true,
+    "max_uncertainty_bps": true,
+    "metadata_budget_rejected": true,
+    "min_citation_bps": true,
+    "min_test_bps": true,
+    "min_verifier_bps": true,
+    "missing_answer_packet_field_rejected": true,
+    "missing_citation_result_rejected": true,
+    "missing_fallback_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_selected_unit_rejected": true,
+    "missing_test_result_rejected": true,
+    "missing_trace_ref_rejected": true,
+    "missing_verifier_result_rejected": true,
+    "mission_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "over_cold_budget_rejected": true,
+    "over_hot_budget_rejected": true,
+    "over_kv_budget_rejected": true,
+    "over_latency_rejected": true,
+    "privacy_classes_bound": true,
+    "proposal_only_baseline_bps": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_card_refs_bound": true,
+    "route_only_baseline_bps": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "selected_reasons_bound": true,
+    "selected_unit_count": true,
+    "selected_units_bound": true,
+    "selected_units_fit_cold_budget": true,
+    "selected_units_fit_hot_budget": true,
+    "selected_units_fit_kv_budget": true,
+    "sparse_wake_certificate_address": true,
+    "sparse_wake_certificate_address_deterministic": true,
+    "sparse_wake_certificate_fixture_present": true,
+    "stale_unit_rejected": true,
+    "test_bypass_rejected": true,
+    "test_floor_bound": true,
+    "test_results_bound": true,
+    "test_unit_count": true,
+    "trace_refs_bound": true,
+    "uas_addresses_bound": true,
+    "unbeaten_baseline_rejected": true,
+    "uncertainty_bound": true,
+    "uncertainty_too_high_rejected": true,
+    "unknown_selected_unit_rejected": true,
+    "upstream_query_aware_kv_selector_pass": true,
+    "upstream_refs_bound": true,
+    "upstream_sparse_wake_proposal_budget_pass": true,
+    "upstream_verifier_budget_auction_pass": true,
+    "verifier_bypass_rejected": true,
+    "verifier_floor_bound": true,
+    "verifier_results_bound": true,
+    "verifier_unit_count": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only SparseWakeCertificate witness; exposes selected sparse/KV units, budgets, verifier/citation/test evidence, traces, uncertainty, fallback, rollback, and route authority in an AnswerPacket-bound certificate; no live sparse routing, no KV restore, no 70B inference, and no runtime/model bytes"
+    }
+  ],
+  "notes": "scope=metadata_only;organ=SparseWakeCertificate;reviewer=codex;reviewed_at_utc=2026-06-04T00:00:00Z;validator=falsifier_validator;detail=sparse wake certificate exposes selected units, budget vectors, verifier/citation/test results, traces, uncertainty, fallback, rollback, and shadow-only authority in AnswerPacket-visible proof before live route promotion."
+}
