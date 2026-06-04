@@ -61,6 +61,8 @@ const ROUTE_SCOUT_SSM_BASELINE_PATH: &str =
     "artifacts/falsifiers/route_scout_ssm_baseline/result.json";
 const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH: &str =
     "artifacts/falsifiers/two_stage_route_scout_abstain/result.json";
+const BUDGETED_UNCERTAINTY_ESCALATOR_PATH: &str =
+    "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -395,6 +397,89 @@ const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES: &[&str] = &[
     "two_stage_over_budget_rejected",
     "two_stage_not_cheaper_rejected",
     "no_runtime_bytes_loaded",
+];
+const BUDGETED_UNCERTAINTY_ESCALATOR_AXES: &[&str] = &[
+    "upstream_two_stage_route_scout_abstain_pass",
+    "budgeted_escalator_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "scout_refs_bound",
+    "calibration_set_bound",
+    "coverage_target_bound",
+    "uncertainty_bound",
+    "ood_signal_bound",
+    "byte_budget_bound",
+    "latency_budget_bound",
+    "verifier_coverage_bound",
+    "decision_labels_bound",
+    "escalation_target_bound",
+    "abstain_reason_bound",
+    "high_uncertainty_escalates",
+    "budget_exhaustion_escalates",
+    "latency_exhaustion_escalates",
+    "missing_calibration_escalates",
+    "ood_escalates",
+    "coverage_shortfall_escalates",
+    "verifier_coverage_shortfall_escalates",
+    "cheap_route_allowed_when_calibrated_in_budget",
+    "decision_success_beats_cheap_baseline",
+    "decision_success_beats_always_escalate",
+    "wrong_cheap_route_rejected",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "escalator_address_deterministic",
+    "duplicate_task_rejected",
+    "missing_calibration_rejected",
+    "missing_scout_ref_rejected",
+    "missing_coverage_target_rejected",
+    "missing_budget_rejected",
+    "missing_latency_budget_rejected",
+    "missing_escalation_target_rejected",
+    "missing_abstain_reason_rejected",
+    "high_uncertainty_allowed_rejected",
+    "missing_calibration_allowed_rejected",
+    "ood_allowed_rejected",
+    "byte_budget_allowed_rejected",
+    "latency_budget_allowed_rejected",
+    "coverage_shortfall_allowed_rejected",
+    "verifier_coverage_shortfall_allowed_rejected",
+    "cheap_baseline_unbeaten_rejected",
+    "always_escalate_baseline_unbeaten_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "escalator_over_budget_rejected",
+    "no_runtime_bytes_loaded",
+    "training_task_count",
+    "held_out_task_count",
+    "escalation_case_count",
+    "allowed_case_count",
+    "high_uncertainty_case_count",
+    "budget_exhaustion_case_count",
+    "latency_exhaustion_case_count",
+    "missing_calibration_case_count",
+    "ood_case_count",
+    "coverage_shortfall_case_count",
+    "verifier_coverage_shortfall_case_count",
+    "escalator_decision_success_bps",
+    "cheap_baseline_success_bps",
+    "always_escalate_success_bps",
+    "false_cheap_route_count",
+    "false_cheap_route_rejected_count",
+    "max_escalator_active_bytes",
+    "escalator_address",
 ];
 
 const CONTRACT_FILES: [&str; 5] = [
@@ -822,6 +907,11 @@ fn build_report() -> GuardReport {
         &two_stage_route_scout_abstain,
         TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES,
     );
+    let budgeted_uncertainty_escalator = read_json(Path::new(BUDGETED_UNCERTAINTY_ESCALATOR_PATH));
+    let budgeted_uncertainty_escalator_available = artifact_all_axes_true(
+        &budgeted_uncertainty_escalator,
+        BUDGETED_UNCERTAINTY_ESCALATOR_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -919,6 +1009,7 @@ fn build_report() -> GuardReport {
         && verifier_regret_ledger_available
         && route_scout_ssm_baseline_available
         && two_stage_route_scout_abstain_available
+        && budgeted_uncertainty_escalator_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1136,6 +1227,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "two_stage_route_scout_abstain_available",
         two_stage_route_scout_abstain_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "budgeted_uncertainty_escalator_available",
+        budgeted_uncertainty_escalator_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1463,6 +1561,10 @@ fn build_report() -> GuardReport {
                     "path": TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH,
                     "available": two_stage_route_scout_abstain_available
                 },
+                "budgeted_uncertainty_escalator": {
+                    "path": BUDGETED_UNCERTAINTY_ESCALATOR_PATH,
+                    "available": budgeted_uncertainty_escalator_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1644,6 +1746,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_two_stage_route_scout_abstain",
             "detail": "Meta Control has RouteScoutSSM baseline evidence, but needs F-TwoStageRouteScout-Abstain before budgeted uncertainty escalation can advance."
+        }));
+    }
+    if two_stage_route_scout_abstain_available && !budgeted_uncertainty_escalator_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_budgeted_uncertainty_escalator",
+            "detail": "Meta Control has two-stage route scout evidence, but needs F-BudgetedUncertaintyEscalator before sparse wake proposal budgeting can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2553,6 +2661,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("two_stage_route_scout_abstain")
+            .is_some());
+        assert!(already_mapped_work
+            .get("budgeted_uncertainty_escalator")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

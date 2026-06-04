@@ -66,6 +66,8 @@ const ROUTE_SCOUT_SSM_BASELINE_PATH: &str =
     "artifacts/falsifiers/route_scout_ssm_baseline/result.json";
 const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH: &str =
     "artifacts/falsifiers/two_stage_route_scout_abstain/result.json";
+const BUDGETED_UNCERTAINTY_ESCALATOR_PATH: &str =
+    "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -397,6 +399,89 @@ const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES: &[&str] = &[
     "two_stage_not_cheaper_rejected",
     "no_runtime_bytes_loaded",
 ];
+const BUDGETED_UNCERTAINTY_ESCALATOR_AXES: &[&str] = &[
+    "upstream_two_stage_route_scout_abstain_pass",
+    "budgeted_escalator_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "scout_refs_bound",
+    "calibration_set_bound",
+    "coverage_target_bound",
+    "uncertainty_bound",
+    "ood_signal_bound",
+    "byte_budget_bound",
+    "latency_budget_bound",
+    "verifier_coverage_bound",
+    "decision_labels_bound",
+    "escalation_target_bound",
+    "abstain_reason_bound",
+    "high_uncertainty_escalates",
+    "budget_exhaustion_escalates",
+    "latency_exhaustion_escalates",
+    "missing_calibration_escalates",
+    "ood_escalates",
+    "coverage_shortfall_escalates",
+    "verifier_coverage_shortfall_escalates",
+    "cheap_route_allowed_when_calibrated_in_budget",
+    "decision_success_beats_cheap_baseline",
+    "decision_success_beats_always_escalate",
+    "wrong_cheap_route_rejected",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "escalator_address_deterministic",
+    "duplicate_task_rejected",
+    "missing_calibration_rejected",
+    "missing_scout_ref_rejected",
+    "missing_coverage_target_rejected",
+    "missing_budget_rejected",
+    "missing_latency_budget_rejected",
+    "missing_escalation_target_rejected",
+    "missing_abstain_reason_rejected",
+    "high_uncertainty_allowed_rejected",
+    "missing_calibration_allowed_rejected",
+    "ood_allowed_rejected",
+    "byte_budget_allowed_rejected",
+    "latency_budget_allowed_rejected",
+    "coverage_shortfall_allowed_rejected",
+    "verifier_coverage_shortfall_allowed_rejected",
+    "cheap_baseline_unbeaten_rejected",
+    "always_escalate_baseline_unbeaten_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "escalator_over_budget_rejected",
+    "no_runtime_bytes_loaded",
+    "training_task_count",
+    "held_out_task_count",
+    "escalation_case_count",
+    "allowed_case_count",
+    "high_uncertainty_case_count",
+    "budget_exhaustion_case_count",
+    "latency_exhaustion_case_count",
+    "missing_calibration_case_count",
+    "ood_case_count",
+    "coverage_shortfall_case_count",
+    "verifier_coverage_shortfall_case_count",
+    "escalator_decision_success_bps",
+    "cheap_baseline_success_bps",
+    "always_escalate_success_bps",
+    "false_cheap_route_count",
+    "false_cheap_route_rejected_count",
+    "max_escalator_active_bytes",
+    "escalator_address",
+];
 
 fn main() {
     let report = build_report();
@@ -459,6 +544,7 @@ fn build_report() -> KernelReport {
     let verifier_regret_ledger = GateArtifact::read(VERIFIER_REGRET_LEDGER_PATH);
     let route_scout_ssm_baseline = GateArtifact::read(ROUTE_SCOUT_SSM_BASELINE_PATH);
     let two_stage_route_scout_abstain = GateArtifact::read(TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH);
+    let budgeted_uncertainty_escalator = GateArtifact::read(BUDGETED_UNCERTAINTY_ESCALATOR_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -492,6 +578,7 @@ fn build_report() -> KernelReport {
         &verifier_regret_ledger,
         &route_scout_ssm_baseline,
         &two_stage_route_scout_abstain,
+        &budgeted_uncertainty_escalator,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -854,6 +941,8 @@ fn build_report() -> KernelReport {
         && route_scout_ssm_baseline.all_axes_true(ROUTE_SCOUT_SSM_BASELINE_AXES);
     let two_stage_route_scout_abstain_pass = two_stage_route_scout_abstain.overall_pass
         && two_stage_route_scout_abstain.all_axes_true(TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES);
+    let budgeted_uncertainty_escalator_pass = budgeted_uncertainty_escalator.overall_pass
+        && budgeted_uncertainty_escalator.all_axes_true(BUDGETED_UNCERTAINTY_ESCALATOR_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -887,6 +976,7 @@ fn build_report() -> KernelReport {
         &verifier_regret_ledger,
         &route_scout_ssm_baseline,
         &two_stage_route_scout_abstain,
+        &budgeted_uncertainty_escalator,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -918,6 +1008,7 @@ fn build_report() -> KernelReport {
         verifier_regret_ledger_pass,
         route_scout_ssm_baseline_pass,
         two_stage_route_scout_abstain_pass,
+        budgeted_uncertainty_escalator_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -965,6 +1056,7 @@ fn build_report() -> KernelReport {
         verifier_regret_ledger_pass,
         route_scout_ssm_baseline_pass,
         two_stage_route_scout_abstain_pass,
+        budgeted_uncertainty_escalator_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -1016,6 +1108,7 @@ fn build_report() -> KernelReport {
         verifier_regret_ledger_pass,
         route_scout_ssm_baseline_pass,
         two_stage_route_scout_abstain_pass,
+        budgeted_uncertainty_escalator_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1351,6 +1444,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "budgeted_uncertainty_escalator_pass",
+        budgeted_uncertainty_escalator_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1513,6 +1613,11 @@ fn build_report() -> KernelReport {
         "two_stage_route_scout_abstain",
         &two_stage_route_scout_abstain,
     );
+    add_gate_summary(
+        &mut measurements,
+        "budgeted_uncertainty_escalator",
+        &budgeted_uncertainty_escalator,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1545,6 +1650,7 @@ fn build_report() -> KernelReport {
         verifier_regret_ledger_pass,
         route_scout_ssm_baseline_pass,
         two_stage_route_scout_abstain_pass,
+        budgeted_uncertainty_escalator_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1810,6 +1916,7 @@ fn classify_route(
     verifier_regret_ledger_pass: bool,
     route_scout_ssm_baseline_pass: bool,
     two_stage_route_scout_abstain_pass: bool,
+    budgeted_uncertainty_escalator_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1836,6 +1943,7 @@ fn classify_route(
         && verifier_regret_ledger_pass
         && route_scout_ssm_baseline_pass
         && two_stage_route_scout_abstain_pass
+        && budgeted_uncertainty_escalator_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1896,6 +2004,7 @@ fn next_bottleneck(
     verifier_regret_ledger_pass: bool,
     route_scout_ssm_baseline_pass: bool,
     two_stage_route_scout_abstain_pass: bool,
+    budgeted_uncertainty_escalator_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1984,8 +2093,10 @@ fn next_bottleneck(
             "route_scout_ssm_baseline".to_string()
         } else if !two_stage_route_scout_abstain_pass {
             "two_stage_route_scout_abstain".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !budgeted_uncertainty_escalator_pass {
             "budgeted_uncertainty_escalator".to_string()
+        } else if !seventy_b_route_pass {
+            "sparse_wake_proposal_budget".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -2044,6 +2155,7 @@ fn build_ordered_gap_queue(
     verifier_regret_ledger_pass: bool,
     route_scout_ssm_baseline_pass: bool,
     two_stage_route_scout_abstain_pass: bool,
+    budgeted_uncertainty_escalator_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2533,7 +2645,9 @@ fn build_ordered_gap_queue(
             29,
             "budgeted_uncertainty_escalator",
             "Meta Control",
-            if two_stage_route_scout_abstain_pass
+            if budgeted_uncertainty_escalator_pass {
+                "completed"
+            } else if two_stage_route_scout_abstain_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -2545,6 +2659,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "High uncertainty, budget exhaustion, or missing calibration must escalate rather than choose a cheap wrong route before sparse wake proposals can advance.",
             "Keep escalation shadow-only until uncertainty, budget, rollback, and AnswerPacket proof pass.",
+        ),
+        queue_item(
+            30,
+            "sparse_wake_proposal_budget",
+            "Meta Control",
+            if budgeted_uncertainty_escalator_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_budgeted_uncertainty_escalator"
+            },
+            "F-SparseWakeProposal-Budget",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Sparse wake proposals must fit byte, latency, evidence, and verifier budgets before any cheap selector can request residency work.",
+            "Keep sparse wake proposals shadow-only until budget fit, rollback, RunEventLog, and AnswerPacket proof pass.",
         ),
     ]
 }
@@ -2677,6 +2808,7 @@ fn build_anomalies(
     verifier_regret_ledger_pass: bool,
     route_scout_ssm_baseline_pass: bool,
     two_stage_route_scout_abstain_pass: bool,
+    budgeted_uncertainty_escalator_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2893,10 +3025,20 @@ fn build_anomalies(
             "detail": "RouteScoutSSM baseline evidence is present; the next non-heavy architecture cursor must split route-family and selector decisions with explicit abstention before any sparse wake proposal can promote."
         }));
     }
-    if two_stage_route_scout_abstain_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if two_stage_route_scout_abstain_pass
+        && !budgeted_uncertainty_escalator_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "budgeted_uncertainty_escalator_missing",
             "detail": "Two-stage route scout evidence is present; the next non-heavy architecture cursor must prove high uncertainty, budget exhaustion, and missing calibration escalate instead of selecting a cheap wrong route."
+        }));
+    }
+    if budgeted_uncertainty_escalator_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "sparse_wake_proposal_budget_missing",
+            "detail": "Budgeted uncertainty escalation evidence is present; the next non-heavy architecture cursor must prove sparse wake proposals fit byte, latency, evidence, and verifier budgets before route selection can request residency work."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -3048,10 +3190,11 @@ mod tests {
         const VERIFIER_REGRET: usize = 23;
         const ROUTE_SCOUT: usize = 24;
         const TWO_STAGE_ROUTE: usize = 25;
-        const SEVENTY_B: usize = 26;
-        const SCHEMA: usize = 27;
+        const BUDGETED_UNCERTAINTY: usize = 26;
+        const SEVENTY_B: usize = 27;
+        const SCHEMA: usize = 28;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 28];
+            let mut values = [false; 29];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -3060,6 +3203,7 @@ mod tests {
                 values[7], values[8], values[9], values[10], values[11], values[12], values[13],
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
+                values[28],
             )
         };
         assert_eq!(
@@ -3090,6 +3234,7 @@ mod tests {
                 VERIFIER_REGRET,
                 ROUTE_SCOUT,
                 TWO_STAGE_ROUTE,
+                BUDGETED_UNCERTAINTY,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3127,6 +3272,7 @@ mod tests {
                 VERIFIER_REGRET,
                 ROUTE_SCOUT,
                 TWO_STAGE_ROUTE,
+                BUDGETED_UNCERTAINTY,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3185,21 +3331,22 @@ mod tests {
         const VERIFIER_REGRET_LEDGER: usize = 38;
         const ROUTE_SCOUT_SSM_BASELINE: usize = 39;
         const TWO_STAGE_ROUTE_SCOUT_ABSTAIN: usize = 40;
-        const SEVENTY_B: usize = 41;
+        const BUDGETED_UNCERTAINTY_ESCALATOR: usize = 41;
+        const SEVENTY_B: usize = 42;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 42] {
-            let mut values = [false; 42];
+        let flags = |true_indexes: &[usize]| -> [bool; 43] {
+            let mut values = [false; 43];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 42], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 43], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -3245,11 +3392,12 @@ mod tests {
                 values[39],
                 values[40],
                 values[41],
+                values[42],
                 &missing,
             )
         };
-        let nb = |values: [bool; 42]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 42]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 43]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 43]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -4062,6 +4210,48 @@ mod tests {
             "budgeted_uncertainty_escalator"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+            ]))),
+            "sparse_wake_proposal_budget"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -4123,6 +4313,7 @@ mod tests {
                 VERIFIER_REGRET_LEDGER,
                 ROUTE_SCOUT_SSM_BASELINE,
                 TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

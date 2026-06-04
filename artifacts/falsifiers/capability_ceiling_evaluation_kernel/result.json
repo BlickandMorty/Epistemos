@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d57960f57f7dbe0f986da10baa43f56c72cd0fec",
+  "commit_sha": "25d216d83c26d898a709d88a21aa705dfde6cf19",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T01:36:05Z",
-  "result_digest": "sha256:03686c48aa67cbc4296db0d9c77182ecc9cf9f7e23d3833fd27df8a8d19eb374",
+  "timestamp_utc": "2026-06-04T02:18:58Z",
+  "result_digest": "sha256:d68add47d2bdb62d4e065f8ee99f4573309558f3680b800b91da279bdadef655",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -88,6 +88,22 @@
     "brain_route_card_multi_model_summary": {
       "value": {
         "path": "artifacts/falsifiers/brain_route_card_multi_model/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "budgeted_uncertainty_escalator_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budgeted_uncertainty_escalator_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -298,7 +314,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "budgeted_uncertainty_escalator",
+      "value": "sparse_wake_proposal_budget",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -597,11 +613,21 @@
           "order": 29,
           "gap_id": "budgeted_uncertainty_escalator",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-BudgetedUncertaintyEscalator",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "High uncertainty, budget exhaustion, or missing calibration must escalate rather than choose a cheap wrong route before sparse wake proposals can advance.",
           "rollback": "Keep escalation shadow-only until uncertainty, budget, rollback, and AnswerPacket proof pass."
+        },
+        {
+          "order": 30,
+          "gap_id": "sparse_wake_proposal_budget",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-SparseWakeProposal-Budget",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Sparse wake proposals must fit byte, latency, evidence, and verifier budgets before any cheap selector can request residency work.",
+          "rollback": "Keep sparse wake proposals shadow-only until budget fit, rollback, RunEventLog, and AnswerPacket proof pass."
         }
       ],
       "unit": "queue"
@@ -922,6 +948,11 @@
       "value": true,
       "unit": "bool"
     },
+    "budgeted_uncertainty_escalator_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "canonical_build_queue_present": {
       "operator": "==",
       "value": true,
@@ -1150,6 +1181,7 @@
     "agent_local_model_runtime_bridge_pass": true,
     "all_gate_artifacts_schema_normalized": true,
     "brain_route_card_multi_model_pass": true,
+    "budgeted_uncertainty_escalator_pass": true,
     "canonical_build_queue_present": true,
     "coactivation_tile_prefetch_pass": true,
     "cold_assembly_plan_70b_lite_pass": true,
@@ -1207,8 +1239,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "budgeted_uncertainty_escalator_missing",
-      "detail": "Two-stage route scout evidence is present; the next non-heavy architecture cursor must prove high uncertainty, budget exhaustion, and missing calibration escalate instead of selecting a cheap wrong route."
+      "kind": "sparse_wake_proposal_budget_missing",
+      "detail": "Budgeted uncertainty escalation evidence is present; the next non-heavy architecture cursor must prove sparse wake proposals fit byte, latency, evidence, and verifier budgets before route selection can request residency work."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1216,8 +1248,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "budgeted_uncertainty_escalator"
+      "detail": "sparse_wake_proposal_budget"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=budgeted_uncertainty_escalator; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_wake_proposal_budget; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
