@@ -74,6 +74,8 @@ const QUERY_AWARE_KV_SELECTOR_PATH: &str =
     "artifacts/falsifiers/query_aware_kv_selector/result.json";
 const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json";
+const LAYER_KV_JOINT_LEASE_PATH: &str =
+    "artifacts/falsifiers/layer_kv_joint_lease/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1015,6 +1017,93 @@ const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES: &[&str] = &[
     "max_certificate_metadata_bytes",
     "sparse_wake_certificate_address",
 ];
+const LAYER_KV_JOINT_LEASE_AXES: &[&str] = &[
+    "upstream_sparse_wake_certificate_answer_packet_pass",
+    "layer_kv_joint_lease_fixture_present",
+    "lease_ids_bound",
+    "mission_ids_bound",
+    "answer_packet_refs_bound",
+    "upstream_certificate_refs_bound",
+    "route_card_refs_bound",
+    "joint_decision_refs_bound",
+    "depth_plans_bound",
+    "kv_page_choices_bound",
+    "depth_kv_coupling_bound",
+    "checkpoint_refs_bound",
+    "compatibility_fences_bound",
+    "privacy_classes_bound",
+    "attention_error_bound",
+    "verifier_margin_bound",
+    "full_depth_fallback_bound",
+    "answer_packet_required_fields_bound",
+    "fallback_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "route_authority_shadow_only",
+    "live_route_not_promoted",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "layer_kv_joint_lease_address_deterministic",
+    "selected_pages_fit_hot_budget",
+    "selected_pages_fit_kv_budget",
+    "selected_pages_fit_cold_budget",
+    "joint_latency_bound",
+    "extra_layer_bound",
+    "lease_beats_depth_only_baseline",
+    "lease_beats_kv_only_baseline",
+    "lease_beats_independent_greedy_baseline",
+    "shallow_wrong_page_negative_beaten",
+    "lease_metadata_bound",
+    "duplicate_lease_rejected",
+    "duplicate_kv_page_rejected",
+    "missing_depth_plan_rejected",
+    "missing_selected_kv_page_rejected",
+    "missing_joint_decision_rejected",
+    "uncoupled_depth_kv_rejected",
+    "stale_kv_page_rejected",
+    "incompatible_depth_fence_rejected",
+    "incompatible_page_fence_rejected",
+    "invalid_privacy_class_rejected",
+    "over_hot_budget_rejected",
+    "over_kv_budget_rejected",
+    "over_cold_budget_rejected",
+    "over_latency_rejected",
+    "over_extra_layers_rejected",
+    "attention_error_too_high_rejected",
+    "verifier_margin_too_low_rejected",
+    "missing_full_depth_fallback_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_field_rejected",
+    "hidden_live_authority_rejected",
+    "live_route_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "metadata_budget_rejected",
+    "shallow_wrong_page_negative_rejected",
+    "unbeaten_baseline_rejected",
+    "lease_count",
+    "selected_kv_page_count",
+    "required_evidence_page_count",
+    "depth_checkpoint_count",
+    "max_extra_layers",
+    "max_hot_bytes",
+    "max_kv_bytes",
+    "max_cold_bytes",
+    "max_latency_ms",
+    "max_attention_error_bps",
+    "min_verifier_margin_bps",
+    "min_page_utility_bps",
+    "lease_success_bps",
+    "depth_only_baseline_bps",
+    "kv_only_baseline_bps",
+    "independent_greedy_baseline_bps",
+    "shallow_wrong_page_baseline_bps",
+    "max_lease_metadata_bytes",
+    "layer_kv_joint_lease_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1471,6 +1560,9 @@ fn build_report() -> GuardReport {
         &sparse_wake_certificate_answer_packet,
         SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES,
     );
+    let layer_kv_joint_lease = read_json(Path::new(LAYER_KV_JOINT_LEASE_PATH));
+    let layer_kv_joint_lease_available =
+        artifact_all_axes_true(&layer_kv_joint_lease, LAYER_KV_JOINT_LEASE_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1575,6 +1667,7 @@ fn build_report() -> GuardReport {
         && kv_page_bloom_sketch_coverage_available
         && query_aware_kv_selector_available
         && sparse_wake_certificate_answer_packet_available
+        && layer_kv_joint_lease_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1841,6 +1934,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "sparse_wake_certificate_answer_packet_available",
         sparse_wake_certificate_answer_packet_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "layer_kv_joint_lease_available",
+        layer_kv_joint_lease_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2196,6 +2296,10 @@ fn build_report() -> GuardReport {
                     "path": SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH,
                     "available": sparse_wake_certificate_answer_packet_available
                 },
+                "layer_kv_joint_lease": {
+                    "path": LAYER_KV_JOINT_LEASE_PATH,
+                    "available": layer_kv_joint_lease_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2421,10 +2525,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has QueryAwareKVSelector evidence, but needs F-SparseWakeCertificate-AnswerPacket before depth/KV joint leases or live sparse route authority can advance."
         }));
     }
-    if sparse_wake_certificate_answer_packet_available && !heavy_long_context_enabled {
+    if sparse_wake_certificate_answer_packet_available
+        && !layer_kv_joint_lease_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_layer_kv_joint_lease",
             "detail": "Meta Control has SparseWakeCertificate AnswerPacket evidence; the next non-heavy cursor must prove depth and KV/page choices are leased together with fallback, rollback, and AnswerPacket proof."
+        }));
+    }
+    if layer_kv_joint_lease_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_construction_search_tournament",
+            "detail": "Meta Control has LayerKVJointLease evidence; the next non-heavy cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3350,6 +3463,7 @@ mod tests {
         assert!(already_mapped_work
             .get("sparse_wake_certificate_answer_packet")
             .is_some());
+        assert!(already_mapped_work.get("layer_kv_joint_lease").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

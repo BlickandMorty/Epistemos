@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "23f6e8cee6955019c8a8f2b7e4e784c6b7d60732",
+  "commit_sha": "11044339026b696fdb5f3165b2ae17858b11926a",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T06:59:33Z",
-  "result_digest": "sha256:d1f0878bed83f51b342e8f9f5a178276c1c095a5f2e936865bacea2df99d46ea",
+  "timestamp_utc": "2026-06-04T07:40:24Z",
+  "result_digest": "sha256:546df1587b3d8de947b4c71c3bb51f71191e960befce1055cceb79c6d0cd6b82",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -313,6 +313,22 @@
       },
       "unit": "object"
     },
+    "layer_kv_joint_lease_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_kv_joint_lease_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/layer_kv_joint_lease/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "meta_breakthrough_card_registry_pass": {
       "value": true,
       "unit": "bool"
@@ -346,7 +362,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "layer_kv_joint_lease",
+      "value": "construction_search_tournament",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -715,11 +731,21 @@
           "order": 36,
           "gap_id": "layer_kv_joint_lease",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-LayerKVJointLease",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Dynamic depth and KV/page choice must be leased together with error, byte, latency, fallback, rollback, and AnswerPacket accounting.",
           "rollback": "Keep depth and KV decisions shadow-only until joint lease evidence rejects stale state, missing rollback, verifier bypass, and hidden route authority."
+        },
+        {
+          "order": 37,
+          "gap_id": "construction_search_tournament",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ConstructionSearchTournament",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "PatternBoost/Axplorer-style generate-repair-score-select must improve sparse wake plans over random generation under a fixed budget.",
+          "rollback": "Keep construction search offline/shadow-only until tournament winners beat random generation, preserve rollback, and expose AnswerPacket proof."
         }
       ],
       "unit": "queue"
@@ -1219,6 +1245,11 @@
       "value": true,
       "unit": "bool"
     },
+    "layer_kv_joint_lease_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "meta_breakthrough_card_registry_pass": {
       "operator": "==",
       "value": true,
@@ -1390,6 +1421,7 @@
     "kv_page_control_query_aware_pass": true,
     "kv_page_sketch_index_pass": true,
     "lattice_state_controller_pass": true,
+    "layer_kv_joint_lease_pass": true,
     "meta_breakthrough_card_registry_pass": true,
     "neural_control_card_ablation_pass": true,
     "page_gather_dense_primary_pass": false,
@@ -1431,8 +1463,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "layer_kv_joint_lease_missing",
-      "detail": "SparseWakeCertificate AnswerPacket evidence is present; the next non-heavy architecture cursor must prove depth, KV/page choice, error budgets, fallback, and rollback are leased together before any sparse route can promote."
+      "kind": "construction_search_tournament_missing",
+      "detail": "LayerKVJointLease evidence is present; the next non-heavy architecture cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1440,8 +1472,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "layer_kv_joint_lease"
+      "detail": "construction_search_tournament"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=layer_kv_joint_lease; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=construction_search_tournament; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

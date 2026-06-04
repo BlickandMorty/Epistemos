@@ -586,7 +586,7 @@ latency, proofability, and rollback.
 | `F-KVPageBloomSketch-Coverage` | PASS metadata-only witness on 2026-06-04. Proves bloom-like KV/page filters may over-include but cannot drop required proof or privacy evidence before query-aware page selection can promote. |
 | `F-QueryAwareKVSelector` | PASS metadata-only witness on 2026-06-04. Proves query-aware KV/page selection consumes sketch and Bloom evidence, beats recency/random/file-order/Bloom-only baselines, rejects stale/incompatible/unfiltered pages, and remains rollback/RunEventLog/AnswerPacket bound with zero runtime/model bytes. |
 | `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04. Proves selected sparse/KV units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback are visible in an AnswerPacket-bound certificate before live route authority can promote. Artifact: `artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json`. |
-| `F-LayerKVJointLease` | Current active cursor. Proves dynamic depth and KV/page choice are leased together with error, byte, latency, fallback, rollback, and AnswerPacket accounting. |
+| `F-LayerKVJointLease` | PASS metadata-only witness on 2026-06-04. Proves dynamic depth and KV/page choice are leased together with error, verifier margin, byte, latency, full-depth fallback, rollback, RunEventLog, AnswerPacket, and zero runtime bytes. Artifact: `artifacts/falsifiers/layer_kv_joint_lease/result.json`. |
 | `F-ColdStream-vs-Mmap` | Proves explicit cold-byte transport beats mmap-fault and naive read baselines on the selected hot-path fixture. |
 | `F-TransportTrace-AnswerPacket` | Proves cold-transport-dependent answers link bytes, stalls, copies, fallback, and caveats to visible proof. |
 

@@ -1,0 +1,900 @@
+{
+  "falsifier_id": "F-LayerKVJointLease",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_layer_kv_joint_lease.sh",
+  "command_digest": "sha256:171148c5334f833afadeba0a1abe50f2bd4edef9091cc4eee37b3c35a0a61247",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "11044339026b696fdb5f3165b2ae17858b11926a",
+  "fixture_id": "layer_kv_joint_lease_v1",
+  "timestamp_utc": "2026-06-04T07:40:16Z",
+  "result_digest": "sha256:c9145cabab13ceeaacb49b5140ae284b057893cb4fdf6cbc5da92a7bc6dceb4d",
+  "measurements": {
+    "answer_packet_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "attention_error_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "attention_error_too_high_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "checkpoint_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_checkpoint_count": {
+      "value": 4,
+      "unit": "checkpoint"
+    },
+    "depth_kv_coupling_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_only_baseline_bps": {
+      "value": 7400,
+      "unit": "bps"
+    },
+    "depth_plans_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_kv_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "extra_layer_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_depth_fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_depth_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_page_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "independent_greedy_baseline_bps": {
+      "value": 8100,
+      "unit": "bps"
+    },
+    "invalid_privacy_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "joint_decision_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "joint_latency_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_only_baseline_bps": {
+      "value": 7900,
+      "unit": "bps"
+    },
+    "kv_page_choices_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_kv_joint_lease_address": {
+      "value": "uas:layer-kv-joint-lease:ec0ced055d3eb5d91f30f14ed7d384dbf0981c103a518a0a84221ef184ba23a6",
+      "unit": "address"
+    },
+    "layer_kv_joint_lease_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_kv_joint_lease_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_depth_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_independent_greedy_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_kv_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_count": {
+      "value": 2,
+      "unit": "lease"
+    },
+    "lease_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_success_bps": {
+      "value": 9500,
+      "unit": "bps"
+    },
+    "live_route_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_attention_error_bps": {
+      "value": 840,
+      "unit": "bps"
+    },
+    "max_cold_bytes": {
+      "value": 671088640,
+      "unit": "bytes"
+    },
+    "max_extra_layers": {
+      "value": 8,
+      "unit": "layer"
+    },
+    "max_hot_bytes": {
+      "value": 75497472,
+      "unit": "bytes"
+    },
+    "max_kv_bytes": {
+      "value": 83886080,
+      "unit": "bytes"
+    },
+    "max_latency_ms": {
+      "value": 210,
+      "unit": "ms"
+    },
+    "max_lease_metadata_bytes": {
+      "value": 294912,
+      "unit": "bytes"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_page_utility_bps": {
+      "value": 8100,
+      "unit": "bps"
+    },
+    "min_verifier_margin_bps": {
+      "value": 2050,
+      "unit": "bps"
+    },
+    "missing_answer_packet_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_depth_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_depth_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_joint_decision_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_kv_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_cold_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_extra_layers_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "value": 4,
+      "unit": "page"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_kv_page_count": {
+      "value": 6,
+      "unit": "page"
+    },
+    "selected_pages_fit_cold_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_hot_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_kv_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shallow_wrong_page_baseline_bps": {
+      "value": 6300,
+      "unit": "bps"
+    },
+    "shallow_wrong_page_negative_beaten": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shallow_wrong_page_negative_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_kv_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncoupled_depth_kv_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_certificate_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_certificate_answer_packet_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_margin_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_margin_too_low_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_required_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "attention_error_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "attention_error_too_high_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "checkpoint_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_checkpoint_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "checkpoint"
+    },
+    "depth_kv_coupling_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_only_baseline_bps": {
+      "operator": "<",
+      "value": 9500,
+      "unit": "bps"
+    },
+    "depth_plans_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_kv_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "extra_layer_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_depth_fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_depth_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_page_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "independent_greedy_baseline_bps": {
+      "operator": "<",
+      "value": 9500,
+      "unit": "bps"
+    },
+    "invalid_privacy_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "joint_decision_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "joint_latency_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_only_baseline_bps": {
+      "operator": "<",
+      "value": 9500,
+      "unit": "bps"
+    },
+    "kv_page_choices_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_kv_joint_lease_address": {
+      "operator": "starts_with",
+      "value": "uas:layer-kv-joint-lease:",
+      "unit": "address"
+    },
+    "layer_kv_joint_lease_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_kv_joint_lease_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_depth_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_independent_greedy_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_beats_kv_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lease"
+    },
+    "lease_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_success_bps": {
+      "operator": ">=",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "live_route_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_attention_error_bps": {
+      "operator": "<=",
+      "value": 1200,
+      "unit": "bps"
+    },
+    "max_cold_bytes": {
+      "operator": "<=",
+      "value": 2147483648,
+      "unit": "bytes"
+    },
+    "max_extra_layers": {
+      "operator": "<=",
+      "value": 12,
+      "unit": "layer"
+    },
+    "max_hot_bytes": {
+      "operator": "<=",
+      "value": 117440512,
+      "unit": "bytes"
+    },
+    "max_kv_bytes": {
+      "operator": "<=",
+      "value": 201326592,
+      "unit": "bytes"
+    },
+    "max_latency_ms": {
+      "operator": "<=",
+      "value": 260,
+      "unit": "ms"
+    },
+    "max_lease_metadata_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_page_utility_bps": {
+      "operator": ">=",
+      "value": 7000,
+      "unit": "bps"
+    },
+    "min_verifier_margin_bps": {
+      "operator": ">=",
+      "value": 1500,
+      "unit": "bps"
+    },
+    "missing_answer_packet_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_depth_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_depth_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_joint_decision_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_kv_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_cold_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_extra_layers_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "page"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_kv_page_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "page"
+    },
+    "selected_pages_fit_cold_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_hot_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_kv_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shallow_wrong_page_baseline_bps": {
+      "operator": "<",
+      "value": 9500,
+      "unit": "bps"
+    },
+    "shallow_wrong_page_negative_beaten": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shallow_wrong_page_negative_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_kv_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncoupled_depth_kv_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_certificate_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_certificate_answer_packet_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_margin_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_margin_too_low_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_refs_bound": true,
+    "answer_packet_required_fields_bound": true,
+    "attention_error_bound": true,
+    "attention_error_too_high_rejected": true,
+    "checkpoint_refs_bound": true,
+    "cloud_source_rejected": true,
+    "compatibility_fences_bound": true,
+    "depth_checkpoint_count": true,
+    "depth_kv_coupling_bound": true,
+    "depth_only_baseline_bps": true,
+    "depth_plans_bound": true,
+    "duplicate_kv_page_rejected": true,
+    "duplicate_lease_rejected": true,
+    "extra_layer_bound": true,
+    "fallback_bound": true,
+    "full_depth_fallback_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "incompatible_depth_fence_rejected": true,
+    "incompatible_page_fence_rejected": true,
+    "independent_greedy_baseline_bps": true,
+    "invalid_privacy_class_rejected": true,
+    "joint_decision_refs_bound": true,
+    "joint_latency_bound": true,
+    "kv_only_baseline_bps": true,
+    "kv_page_choices_bound": true,
+    "layer_kv_joint_lease_address": true,
+    "layer_kv_joint_lease_address_deterministic": true,
+    "layer_kv_joint_lease_fixture_present": true,
+    "lease_beats_depth_only_baseline": true,
+    "lease_beats_independent_greedy_baseline": true,
+    "lease_beats_kv_only_baseline": true,
+    "lease_count": true,
+    "lease_ids_bound": true,
+    "lease_metadata_bound": true,
+    "lease_success_bps": true,
+    "live_route_not_promoted": true,
+    "live_route_promotion_rejected": true,
+    "max_attention_error_bps": true,
+    "max_cold_bytes": true,
+    "max_extra_layers": true,
+    "max_hot_bytes": true,
+    "max_kv_bytes": true,
+    "max_latency_ms": true,
+    "max_lease_metadata_bytes": true,
+    "metadata_budget_rejected": true,
+    "min_page_utility_bps": true,
+    "min_verifier_margin_bps": true,
+    "missing_answer_packet_field_rejected": true,
+    "missing_depth_plan_rejected": true,
+    "missing_full_depth_fallback_rejected": true,
+    "missing_joint_decision_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_selected_kv_page_rejected": true,
+    "mission_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "over_cold_budget_rejected": true,
+    "over_extra_layers_rejected": true,
+    "over_hot_budget_rejected": true,
+    "over_kv_budget_rejected": true,
+    "over_latency_rejected": true,
+    "privacy_classes_bound": true,
+    "required_evidence_page_count": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_card_refs_bound": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "selected_kv_page_count": true,
+    "selected_pages_fit_cold_budget": true,
+    "selected_pages_fit_hot_budget": true,
+    "selected_pages_fit_kv_budget": true,
+    "shallow_wrong_page_baseline_bps": true,
+    "shallow_wrong_page_negative_beaten": true,
+    "shallow_wrong_page_negative_rejected": true,
+    "stale_kv_page_rejected": true,
+    "unbeaten_baseline_rejected": true,
+    "uncoupled_depth_kv_rejected": true,
+    "upstream_certificate_refs_bound": true,
+    "upstream_sparse_wake_certificate_answer_packet_pass": true,
+    "verifier_margin_bound": true,
+    "verifier_margin_too_low_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "LayerKVJointLease proves joint depth/KV lease shape and rejection behavior only; it loads no model bytes, restores no live KV pages, and promotes no live sparse route authority."
+    }
+  ],
+  "notes": "metadata-only Meta Control witness; dynamic depth and KV/page choices are leased together with attention-error, verifier-margin, fallback, rollback, RunEventLog, AnswerPacket, no-hidden-authority, and zero-runtime-byte guards; L1 only, not product/live 70B evidence"
+}
