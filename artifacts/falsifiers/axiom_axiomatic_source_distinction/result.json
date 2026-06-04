@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "7967ea611fcafe5e9d5a0543bc7e9adf0472a0e6",
+  "commit_sha": "667ef98beb3b96f45f8dcf185a734323a7a512f7",
   "fixture_id": "axiom_axiomatic_source_distinction_v1",
-  "timestamp_utc": "2026-06-04T15:17:58Z",
+  "timestamp_utc": "2026-06-04T15:22:46Z",
   "result_digest": "sha256:85f0313aef3c367aeb9a2328949abfbd90db9027467a163ee34164a045f89823",
   "measurements": {
     "admission_bound": {
