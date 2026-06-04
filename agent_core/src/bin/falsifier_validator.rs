@@ -81,6 +81,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ProofPressureSignal",
     "F-VerifierRegretFastWeights",
     "F-FastWeightQuarantine",
+    "F-DepthLease-Checkpoint",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "9112ece2cb96f662a40dc59a57c0a4ab9be42d35",
+  "commit_sha": "fbe99a09a3c1ebb6d728e1a939dc515348fb0c22",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T12:18:48Z",
-  "result_digest": "sha256:040e1c68ad293ef9a19fec99021fca4edfdb41a2b9b2f72cfbc02ab7f284dc3e",
+  "timestamp_utc": "2026-06-04T12:51:16Z",
+  "result_digest": "sha256:7ec1d337b6eaa31429747c190bf99d619ebe4bbf3b192f9a94e72f99fd7a9040",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -176,6 +176,22 @@
     "construction_search_tournament_summary": {
       "value": {
         "path": "artifacts/falsifiers/construction_search_tournament/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "depth_lease_checkpoint_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_lease_checkpoint_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/depth_lease_checkpoint/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -394,7 +410,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "depth_lease_checkpoint",
+      "value": "shadow_wake_oracle",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -833,11 +849,21 @@
           "order": 43,
           "gap_id": "depth_lease_checkpoint",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-DepthLease-Checkpoint",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Dynamic-depth choices must declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback before route policy can cite depth savings.",
           "rollback": "Keep depth decisions leased, rollback-bound, AnswerPacket-visible, and unable to hide full-depth fallback."
+        },
+        {
+          "order": 44,
+          "gap_id": "shadow_wake_oracle",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ShadowWakeOracle",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Full-wake, proof, test, and oracle traces must become route labels without becoming a hidden live runtime dependency.",
+          "rollback": "Keep oracle traces offline/shadow-only, rollback-bound, AnswerPacket-visible, and unable to bypass SCOPE-Rex or SovereignGate."
         }
       ],
       "unit": "queue"
@@ -1316,6 +1342,11 @@
       "value": true,
       "unit": "bool"
     },
+    "depth_lease_checkpoint_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "fast_weight_quarantine_pass": {
       "operator": "==",
       "value": true,
@@ -1590,6 +1621,7 @@
     "cold_assembly_plan_70b_lite_pass": true,
     "cold_miss_ledger_pass": true,
     "construction_search_tournament_pass": true,
+    "depth_lease_checkpoint_pass": true,
     "fast_weight_quarantine_pass": true,
     "kv_direct_full_suite_run_plan_available": true,
     "kv_direct_live_128k_pass": false,
@@ -1655,8 +1687,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "depth_lease_checkpoint_missing",
-      "detail": "FastWeightQuarantine evidence is present; the next non-heavy architecture cursor must prove dynamic-depth choices declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback."
+      "kind": "shadow_wake_oracle_missing",
+      "detail": "DepthLeaseCheckpoint evidence is present; the next non-heavy architecture cursor must prove full-wake/proof/test oracle traces create route labels without becoming a live runtime dependency."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1664,8 +1696,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "depth_lease_checkpoint"
+      "detail": "shadow_wake_oracle"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=depth_lease_checkpoint; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=shadow_wake_oracle; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

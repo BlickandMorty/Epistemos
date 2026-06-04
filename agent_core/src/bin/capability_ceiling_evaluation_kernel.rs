@@ -90,6 +90,7 @@ const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_si
 const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
     "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
 const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quarantine/result.json";
+const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1749,6 +1750,119 @@ const FAST_WEIGHT_QUARANTINE_AXES: &[&str] = &[
     "fast_weight_quarantine_address",
 ];
 
+const DEPTH_LEASE_CHECKPOINT_AXES: &[&str] = &[
+    "upstream_layer_kv_joint_lease_pass",
+    "upstream_fast_weight_quarantine_pass",
+    "checkpoint_fixture_present",
+    "fixture_ids_bound",
+    "checkpoint_ids_bound",
+    "mission_ids_bound",
+    "route_card_refs_bound",
+    "depth_policy_refs_bound",
+    "shallow_exit_declared",
+    "deeper_wake_declared",
+    "verifier_margin_bound",
+    "max_extra_layers_bound",
+    "full_depth_fallback_bound",
+    "checkpoint_refs_bound",
+    "resume_tokens_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "answer_packet_fields_bound",
+    "mutation_safety_fence_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "held_out_split_bound",
+    "depth_lease_shadow_only",
+    "silent_depth_promotion_rejected",
+    "full_depth_fallback_visible",
+    "no_live_route_authority",
+    "no_base_weight_mutation",
+    "no_route_policy_mutation",
+    "no_cache_mutation",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "depth_lease_checkpoint_address_deterministic",
+    "metadata_bound",
+    "beats_shallow_only_baseline",
+    "beats_hidden_depth_baseline",
+    "beats_no_checkpoint_baseline",
+    "beats_no_fallback_baseline",
+    "duplicate_fixture_rejected",
+    "missing_fixture_id_rejected",
+    "missing_fixture_policy_rejected",
+    "missing_checkpoint_record_rejected",
+    "duplicate_checkpoint_rejected",
+    "missing_checkpoint_id_rejected",
+    "missing_mission_rejected",
+    "missing_upstream_layer_kv_rejected",
+    "missing_upstream_fast_weight_quarantine_rejected",
+    "missing_route_card_rejected",
+    "missing_depth_policy_rejected",
+    "missing_shallow_exit_rejected",
+    "missing_deeper_wake_rejected",
+    "invalid_depth_order_rejected",
+    "missing_full_depth_rejected",
+    "extra_layer_budget_rejected",
+    "missing_checkpoint_ref_rejected",
+    "missing_resume_token_rejected",
+    "missing_verifier_margin_rejected",
+    "verifier_margin_too_low_rejected",
+    "latency_budget_rejected",
+    "missing_full_depth_fallback_rejected",
+    "fallback_disabled_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_answer_packet_field_rejected",
+    "missing_mutation_safety_fence_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "missing_split_rejected",
+    "invalid_split_rejected",
+    "missing_held_out_split_rejected",
+    "silent_depth_promotion_case_rejected",
+    "live_route_authority_rejected",
+    "base_weight_mutation_rejected",
+    "route_policy_mutation_rejected",
+    "cache_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "metadata_budget_rejected",
+    "shallow_only_baseline_unbeaten_rejected",
+    "hidden_depth_baseline_unbeaten_rejected",
+    "no_checkpoint_baseline_unbeaten_rejected",
+    "no_fallback_baseline_unbeaten_rejected",
+    "fixture_count",
+    "checkpoint_count",
+    "held_out_checkpoint_count",
+    "shallow_exit_count",
+    "deeper_wake_count",
+    "full_depth_fallback_count",
+    "resume_token_count",
+    "rollback_handle_count",
+    "run_event_log_count",
+    "answer_packet_count",
+    "min_verifier_margin_bps",
+    "max_extra_layers",
+    "max_depth_delta",
+    "max_latency_ms",
+    "lease_success_bps",
+    "answer_packet_coverage_bps",
+    "silent_promotion_rejection_bps",
+    "shallow_only_baseline_bps",
+    "hidden_depth_baseline_bps",
+    "no_checkpoint_baseline_bps",
+    "no_fallback_baseline_bps",
+    "max_checkpoint_metadata_bytes",
+    "depth_lease_checkpoint_address",
+];
+
 fn main() {
     let report = build_report();
     let path =
@@ -1826,6 +1940,7 @@ fn build_report() -> KernelReport {
     let proof_pressure_signal = GateArtifact::read(PROOF_PRESSURE_SIGNAL_PATH);
     let verifier_regret_fast_weights = GateArtifact::read(VERIFIER_REGRET_FAST_WEIGHTS_PATH);
     let fast_weight_quarantine = GateArtifact::read(FAST_WEIGHT_QUARANTINE_PATH);
+    let depth_lease_checkpoint = GateArtifact::read(DEPTH_LEASE_CHECKPOINT_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1873,6 +1988,7 @@ fn build_report() -> KernelReport {
         &proof_pressure_signal,
         &verifier_regret_fast_weights,
         &fast_weight_quarantine,
+        &depth_lease_checkpoint,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2266,6 +2382,8 @@ fn build_report() -> KernelReport {
         && verifier_regret_fast_weights.all_axes_true(VERIFIER_REGRET_FAST_WEIGHTS_AXES);
     let fast_weight_quarantine_pass = fast_weight_quarantine.overall_pass
         && fast_weight_quarantine.all_axes_true(FAST_WEIGHT_QUARANTINE_AXES);
+    let depth_lease_checkpoint_pass = depth_lease_checkpoint.overall_pass
+        && depth_lease_checkpoint.all_axes_true(DEPTH_LEASE_CHECKPOINT_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2313,6 +2431,7 @@ fn build_report() -> KernelReport {
         &proof_pressure_signal,
         &verifier_regret_fast_weights,
         &fast_weight_quarantine,
+        &depth_lease_checkpoint,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2358,6 +2477,7 @@ fn build_report() -> KernelReport {
         proof_pressure_signal_pass,
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
+        depth_lease_checkpoint_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2419,6 +2539,7 @@ fn build_report() -> KernelReport {
         proof_pressure_signal_pass,
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
+        depth_lease_checkpoint_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -2484,6 +2605,7 @@ fn build_report() -> KernelReport {
         proof_pressure_signal_pass,
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
+        depth_lease_checkpoint_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -2917,6 +3039,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "depth_lease_checkpoint_pass",
+        depth_lease_checkpoint_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3149,6 +3278,11 @@ fn build_report() -> KernelReport {
         "fast_weight_quarantine",
         &fast_weight_quarantine,
     );
+    add_gate_summary(
+        &mut measurements,
+        "depth_lease_checkpoint",
+        &depth_lease_checkpoint,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3195,6 +3329,7 @@ fn build_report() -> KernelReport {
         proof_pressure_signal_pass,
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
+        depth_lease_checkpoint_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -3474,6 +3609,7 @@ fn classify_route(
     proof_pressure_signal_pass: bool,
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
+    depth_lease_checkpoint_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -3514,6 +3650,7 @@ fn classify_route(
         && proof_pressure_signal_pass
         && verifier_regret_fast_weights_pass
         && fast_weight_quarantine_pass
+        && depth_lease_checkpoint_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -3588,6 +3725,7 @@ fn next_bottleneck(
     proof_pressure_signal_pass: bool,
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
+    depth_lease_checkpoint_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -3704,8 +3842,10 @@ fn next_bottleneck(
             "verifier_regret_fast_weights".to_string()
         } else if !fast_weight_quarantine_pass {
             "fast_weight_quarantine".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !depth_lease_checkpoint_pass {
             "depth_lease_checkpoint".to_string()
+        } else if !seventy_b_route_pass {
+            "shadow_wake_oracle".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -3778,6 +3918,7 @@ fn build_ordered_gap_queue(
     proof_pressure_signal_pass: bool,
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
+    depth_lease_checkpoint_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4526,7 +4667,11 @@ fn build_ordered_gap_queue(
             43,
             "depth_lease_checkpoint",
             "Meta Control",
-            if fast_weight_quarantine_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if depth_lease_checkpoint_pass {
+                "completed"
+            } else if fast_weight_quarantine_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -4536,6 +4681,21 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Dynamic-depth choices must declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback before route policy can cite depth savings.",
             "Keep depth decisions leased, rollback-bound, AnswerPacket-visible, and unable to hide full-depth fallback.",
+        ),
+        queue_item(
+            44,
+            "shadow_wake_oracle",
+            "Meta Control",
+            if depth_lease_checkpoint_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_depth_lease_checkpoint"
+            },
+            "F-ShadowWakeOracle",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Full-wake, proof, test, and oracle traces must become route labels without becoming a hidden live runtime dependency.",
+            "Keep oracle traces offline/shadow-only, rollback-bound, AnswerPacket-visible, and unable to bypass SCOPE-Rex or SovereignGate.",
         ),
     ]
 }
@@ -4682,6 +4842,7 @@ fn build_anomalies(
     proof_pressure_signal_pass: bool,
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
+    depth_lease_checkpoint_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5038,10 +5199,20 @@ fn build_anomalies(
             "detail": "VerifierRegretFastWeights evidence is present; the next non-heavy architecture cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
         }));
     }
-    if fast_weight_quarantine_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if fast_weight_quarantine_pass
+        && !depth_lease_checkpoint_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "depth_lease_checkpoint_missing",
             "detail": "FastWeightQuarantine evidence is present; the next non-heavy architecture cursor must prove dynamic-depth choices declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback."
+        }));
+    }
+    if depth_lease_checkpoint_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "shadow_wake_oracle_missing",
+            "detail": "DepthLeaseCheckpoint evidence is present; the next non-heavy architecture cursor must prove full-wake/proof/test oracle traces create route labels without becoming a live runtime dependency."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -5207,10 +5378,11 @@ mod tests {
         const PROOF_PRESSURE_SIGNAL: usize = 37;
         const VERIFIER_REGRET_FAST_WEIGHTS: usize = 38;
         const FAST_WEIGHT_QUARANTINE: usize = 39;
-        const SEVENTY_B: usize = 40;
-        const SCHEMA: usize = 41;
+        const DEPTH_LEASE_CHECKPOINT: usize = 40;
+        const SEVENTY_B: usize = 41;
+        const SCHEMA: usize = 42;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 42];
+            let mut values = [false; 43];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -5221,6 +5393,7 @@ mod tests {
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
                 values[35], values[36], values[37], values[38], values[39], values[40], values[41],
+                values[42],
             )
         };
         assert_eq!(
@@ -5265,6 +5438,7 @@ mod tests {
                 PROOF_PRESSURE_SIGNAL,
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5316,6 +5490,7 @@ mod tests {
                 PROOF_PRESSURE_SIGNAL,
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5388,21 +5563,22 @@ mod tests {
         const PROOF_PRESSURE_SIGNAL: usize = 52;
         const VERIFIER_REGRET_FAST_WEIGHTS: usize = 53;
         const FAST_WEIGHT_QUARANTINE: usize = 54;
-        const SEVENTY_B: usize = 55;
+        const DEPTH_LEASE_CHECKPOINT: usize = 55;
+        const SEVENTY_B: usize = 56;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 56] {
-            let mut values = [false; 56];
+        let flags = |true_indexes: &[usize]| -> [bool; 57] {
+            let mut values = [false; 57];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 56], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 57], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -5462,11 +5638,12 @@ mod tests {
                 values[53],
                 values[54],
                 values[55],
+                values[56],
                 &missing,
             )
         };
-        let nb = |values: [bool; 56]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 56]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 57]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 57]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -6919,6 +7096,49 @@ mod tests {
             "depth_lease_checkpoint"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+            ]))),
+            "shadow_wake_oracle"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -6994,6 +7214,7 @@ mod tests {
                 PROOF_PRESSURE_SIGNAL,
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"
