@@ -30,6 +30,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+pub mod axes;
+
 /// Pinned hardware fields per FALSIFIER_ARTIFACT_SCHEMA `$defs.hardware_pin`.
 /// Schema constants — any drift fails the artifact.
 #[derive(Clone, Debug, Serialize, Deserialize)]

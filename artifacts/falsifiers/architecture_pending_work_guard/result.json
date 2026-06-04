@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "667ef98beb3b96f45f8dcf185a734323a7a512f7",
+  "commit_sha": "36ac4b26cab1983fc4663a0771edefeb721bf5d4",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T15:23:04Z",
-  "result_digest": "sha256:efdf823b9665f8aa2b2a7502f1434ab5232059d1aaead4ff3a93d7f58a9554af",
+  "timestamp_utc": "2026-06-04T16:09:26Z",
+  "result_digest": "sha256:9ab72075a663d7a4caaf3dc94adb499d7a7a94d9fdccaa46301db6afbdaa94a6",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -217,6 +217,14 @@
           "axiom_axiomatic_source_distinction": {
             "path": "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json",
             "available": true
+          },
+          "sparse_route_no_hidden_authority": {
+            "path": "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json",
+            "available": true
+          },
+          "coldstream_no_hidden_authority": {
+            "path": "artifacts/falsifiers/coldstream_no_hidden_authority/result.json",
+            "available": false
           },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
@@ -542,11 +550,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "sparse_route_no_hidden_authority",
+      "value": "coldstream_no_hidden_authority",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "sparse_route_no_hidden_authority",
+      "value": "coldstream_no_hidden_authority",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -606,7 +614,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 48,
+      "value": 49,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -654,6 +662,10 @@
       "unit": "bool"
     },
     "shard_cursor_mapped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_route_no_hidden_authority_available": {
       "value": true,
       "unit": "bool"
     },
@@ -941,6 +953,11 @@
       "value": true,
       "unit": "bool"
     },
+    "sparse_route_no_hidden_authority_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "sparse_wake_certificate_answer_packet_available": {
       "operator": "==",
       "value": true,
@@ -1033,6 +1050,7 @@
     "rust_route_kernel_model_check_available": true,
     "shadow_wake_oracle_available": true,
     "shard_cursor_mapped": true,
+    "sparse_route_no_hidden_authority_available": true,
     "sparse_wake_certificate_answer_packet_available": true,
     "sparse_wake_proposal_budget_available": true,
     "swiftlm_source_intake_available": true,
@@ -1050,8 +1068,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_sparse_route_no_hidden_authority",
-      "detail": "Meta Control has source-distinction evidence; the next non-heavy cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
+      "kind": "missing_coldstream_no_hidden_authority",
+      "detail": "Meta Control has SparseRoute no-hidden-authority evidence; the next non-heavy cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1066,5 +1084,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=sparse_route_no_hidden_authority; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=coldstream_no_hidden_authority; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

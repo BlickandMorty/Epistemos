@@ -33,6 +33,8 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear or energy budgets. | Wear-budget simulation. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, and rollback. | Static architecture check plus negative route fixture. |
 
+Current active cursor after the 2026-06-04 `F-SparseRoute-NoHiddenAuthority` metadata-only witness: `F-ColdStream-NoHiddenAuthority`.
+
 ## Promotion rule
 
 ColdStream can replace mmap on a hot path only when:
