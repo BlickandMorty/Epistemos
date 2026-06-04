@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_kv_page_bloom_sketch_coverage.sh`
 - Artifact: `artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json`
 - L1 next cursor at landing: `F-QueryAwareKVSelector`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `shadow_wake_oracle`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `ablation_shadow_run`
 - L3 user-facing/runtime route: unchanged; no live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects duplicate sketches and page candidates; missing source ind
 
 ## Scope
 
-This advances L1 only. It does not make `KVPageBloomSketch` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-QueryAwareKVSelector` now passes as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the current architecture unit is `F-ShadowWakeOracle`, which must prove full-wake/proof/test oracle traces become route labels without becoming a hidden live runtime dependency.
+This advances L1 only. It does not make `KVPageBloomSketch` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-QueryAwareKVSelector` now passes as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` and `F-ShadowWakeOracle` now pass metadata-only evidence; the current architecture unit is `F-AblationShadowRun`, which must prove claimed useful units survive counterfactual remove-one-unit comparison before route-importance claims can promote.

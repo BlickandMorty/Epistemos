@@ -88,6 +88,7 @@ const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
     "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
 const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quarantine/result.json";
 const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
+const SHADOW_WAKE_ORACLE_PATH: &str = "artifacts/falsifiers/shadow_wake_oracle/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1864,6 +1865,132 @@ const DEPTH_LEASE_CHECKPOINT_AXES: &[&str] = &[
     "depth_lease_checkpoint_address",
 ];
 
+const SHADOW_WAKE_ORACLE_AXES: &[&str] = &[
+    "upstream_depth_lease_checkpoint_pass",
+    "upstream_route_distillation_tournament_pass",
+    "shadow_wake_fixture_present",
+    "fixture_ids_bound",
+    "oracle_ids_bound",
+    "mission_ids_bound",
+    "cheap_route_traces_bound",
+    "full_wake_traces_bound",
+    "proof_or_test_results_bound",
+    "unit_credit_assignments_bound",
+    "byte_latency_deltas_bound",
+    "oracle_labels_bound",
+    "route_labels_bound",
+    "scout_feature_refs_bound",
+    "proof_refs_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "held_out_split_bound",
+    "source_kind_diversity_bound",
+    "route_label_diversity_bound",
+    "shadow_only_authority",
+    "offline_distillation_only",
+    "oracle_not_live_dependency",
+    "oracle_not_hidden_truth",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_base_weight_mutation",
+    "no_route_policy_mutation",
+    "no_cache_mutation",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "shadow_wake_oracle_address_deterministic",
+    "held_out_success_bound",
+    "label_agreement_bound",
+    "calibration_error_bound",
+    "trace_token_budget_bound",
+    "metadata_bound",
+    "beats_cheap_route_baseline",
+    "beats_full_wake_everything_baseline",
+    "beats_no_oracle_label_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_oracle_rejected",
+    "missing_fixture_id_rejected",
+    "missing_oracle_record_rejected",
+    "missing_oracle_id_rejected",
+    "missing_mission_rejected",
+    "missing_upstream_depth_lease_rejected",
+    "missing_upstream_route_distillation_rejected",
+    "missing_cheap_route_trace_rejected",
+    "missing_full_wake_trace_rejected",
+    "missing_proof_or_test_rejected",
+    "missing_credit_assignment_rejected",
+    "missing_byte_latency_delta_rejected",
+    "missing_oracle_label_rejected",
+    "missing_route_label_rejected",
+    "missing_scout_feature_rejected",
+    "missing_proof_ref_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_split_rejected",
+    "invalid_split_rejected",
+    "missing_held_out_split_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "hidden_live_dependency_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "base_weight_mutation_rejected",
+    "route_policy_mutation_rejected",
+    "cache_mutation_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "cheap_route_baseline_unbeaten_rejected",
+    "full_wake_everything_baseline_unbeaten_rejected",
+    "no_oracle_label_baseline_unbeaten_rejected",
+    "label_agreement_too_low_rejected",
+    "calibration_error_too_high_rejected",
+    "source_kind_diversity_missing_rejected",
+    "route_label_diversity_missing_rejected",
+    "trace_token_budget_rejected",
+    "metadata_budget_rejected",
+    "fixture_count",
+    "oracle_record_count",
+    "train_case_count",
+    "held_out_case_count",
+    "source_kind_count",
+    "route_label_count",
+    "credit_assignment_count",
+    "proof_or_test_result_count",
+    "max_trace_tokens",
+    "max_oracle_metadata_bytes",
+    "held_out_success_bps",
+    "label_agreement_bps",
+    "calibration_error_bps",
+    "cheap_route_baseline_bps",
+    "full_wake_everything_baseline_bps",
+    "no_oracle_label_baseline_bps",
+    "shadow_wake_oracle_address",
+];
+
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
     "reference_logits.json",
@@ -2352,6 +2479,9 @@ fn build_report() -> GuardReport {
     let depth_lease_checkpoint = read_json(Path::new(DEPTH_LEASE_CHECKPOINT_PATH));
     let depth_lease_checkpoint_available =
         artifact_all_axes_true(&depth_lease_checkpoint, DEPTH_LEASE_CHECKPOINT_AXES);
+    let shadow_wake_oracle = read_json(Path::new(SHADOW_WAKE_ORACLE_PATH));
+    let shadow_wake_oracle_available =
+        artifact_all_axes_true(&shadow_wake_oracle, SHADOW_WAKE_ORACLE_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2464,6 +2594,7 @@ fn build_report() -> GuardReport {
         && verifier_regret_fast_weights_available
         && fast_weight_quarantine_available
         && depth_lease_checkpoint_available
+        && shadow_wake_oracle_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2786,6 +2917,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "depth_lease_checkpoint_available",
         depth_lease_checkpoint_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "shadow_wake_oracle_available",
+        shadow_wake_oracle_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3173,6 +3311,10 @@ fn build_report() -> GuardReport {
                     "path": DEPTH_LEASE_CHECKPOINT_PATH,
                     "available": depth_lease_checkpoint_available
                 },
+                "shadow_wake_oracle": {
+                    "path": SHADOW_WAKE_ORACLE_PATH,
+                    "available": shadow_wake_oracle_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3470,10 +3612,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has FastWeightQuarantine evidence; the next non-heavy cursor must prove DepthLease checkpoints before any adaptive depth/runtime promotion can claim live authority."
         }));
     }
-    if depth_lease_checkpoint_available && !heavy_long_context_enabled {
+    if depth_lease_checkpoint_available
+        && !shadow_wake_oracle_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_shadow_wake_oracle",
             "detail": "Meta Control has DepthLeaseCheckpoint evidence; the next non-heavy cursor must prove oracle traces become route labels without hidden live runtime dependency."
+        }));
+    }
+    if shadow_wake_oracle_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_ablation_shadow_run",
+            "detail": "Meta Control has ShadowWakeOracle evidence; the next non-heavy cursor must prove ablation shadow runs identify unit importance without hidden live route authority."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4412,6 +4563,7 @@ mod tests {
             .is_some());
         assert!(already_mapped_work.get("fast_weight_quarantine").is_some());
         assert!(already_mapped_work.get("depth_lease_checkpoint").is_some());
+        assert!(already_mapped_work.get("shadow_wake_oracle").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

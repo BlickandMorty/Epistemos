@@ -82,6 +82,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-VerifierRegretFastWeights",
     "F-FastWeightQuarantine",
     "F-DepthLease-Checkpoint",
+    "F-ShadowWakeOracle",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

@@ -91,6 +91,7 @@ const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
     "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
 const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quarantine/result.json";
 const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
+const SHADOW_WAKE_ORACLE_PATH: &str = "artifacts/falsifiers/shadow_wake_oracle/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1863,6 +1864,132 @@ const DEPTH_LEASE_CHECKPOINT_AXES: &[&str] = &[
     "depth_lease_checkpoint_address",
 ];
 
+const SHADOW_WAKE_ORACLE_AXES: &[&str] = &[
+    "upstream_depth_lease_checkpoint_pass",
+    "upstream_route_distillation_tournament_pass",
+    "shadow_wake_fixture_present",
+    "fixture_ids_bound",
+    "oracle_ids_bound",
+    "mission_ids_bound",
+    "cheap_route_traces_bound",
+    "full_wake_traces_bound",
+    "proof_or_test_results_bound",
+    "unit_credit_assignments_bound",
+    "byte_latency_deltas_bound",
+    "oracle_labels_bound",
+    "route_labels_bound",
+    "scout_feature_refs_bound",
+    "proof_refs_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "held_out_split_bound",
+    "source_kind_diversity_bound",
+    "route_label_diversity_bound",
+    "shadow_only_authority",
+    "offline_distillation_only",
+    "oracle_not_live_dependency",
+    "oracle_not_hidden_truth",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_base_weight_mutation",
+    "no_route_policy_mutation",
+    "no_cache_mutation",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "shadow_wake_oracle_address_deterministic",
+    "held_out_success_bound",
+    "label_agreement_bound",
+    "calibration_error_bound",
+    "trace_token_budget_bound",
+    "metadata_bound",
+    "beats_cheap_route_baseline",
+    "beats_full_wake_everything_baseline",
+    "beats_no_oracle_label_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_oracle_rejected",
+    "missing_fixture_id_rejected",
+    "missing_oracle_record_rejected",
+    "missing_oracle_id_rejected",
+    "missing_mission_rejected",
+    "missing_upstream_depth_lease_rejected",
+    "missing_upstream_route_distillation_rejected",
+    "missing_cheap_route_trace_rejected",
+    "missing_full_wake_trace_rejected",
+    "missing_proof_or_test_rejected",
+    "missing_credit_assignment_rejected",
+    "missing_byte_latency_delta_rejected",
+    "missing_oracle_label_rejected",
+    "missing_route_label_rejected",
+    "missing_scout_feature_rejected",
+    "missing_proof_ref_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_split_rejected",
+    "invalid_split_rejected",
+    "missing_held_out_split_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "hidden_live_dependency_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "base_weight_mutation_rejected",
+    "route_policy_mutation_rejected",
+    "cache_mutation_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "cheap_route_baseline_unbeaten_rejected",
+    "full_wake_everything_baseline_unbeaten_rejected",
+    "no_oracle_label_baseline_unbeaten_rejected",
+    "label_agreement_too_low_rejected",
+    "calibration_error_too_high_rejected",
+    "source_kind_diversity_missing_rejected",
+    "route_label_diversity_missing_rejected",
+    "trace_token_budget_rejected",
+    "metadata_budget_rejected",
+    "fixture_count",
+    "oracle_record_count",
+    "train_case_count",
+    "held_out_case_count",
+    "source_kind_count",
+    "route_label_count",
+    "credit_assignment_count",
+    "proof_or_test_result_count",
+    "max_trace_tokens",
+    "max_oracle_metadata_bytes",
+    "held_out_success_bps",
+    "label_agreement_bps",
+    "calibration_error_bps",
+    "cheap_route_baseline_bps",
+    "full_wake_everything_baseline_bps",
+    "no_oracle_label_baseline_bps",
+    "shadow_wake_oracle_address",
+];
+
 fn main() {
     let report = build_report();
     let path =
@@ -1941,6 +2068,7 @@ fn build_report() -> KernelReport {
     let verifier_regret_fast_weights = GateArtifact::read(VERIFIER_REGRET_FAST_WEIGHTS_PATH);
     let fast_weight_quarantine = GateArtifact::read(FAST_WEIGHT_QUARANTINE_PATH);
     let depth_lease_checkpoint = GateArtifact::read(DEPTH_LEASE_CHECKPOINT_PATH);
+    let shadow_wake_oracle = GateArtifact::read(SHADOW_WAKE_ORACLE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1989,6 +2117,7 @@ fn build_report() -> KernelReport {
         &verifier_regret_fast_weights,
         &fast_weight_quarantine,
         &depth_lease_checkpoint,
+        &shadow_wake_oracle,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2384,6 +2513,8 @@ fn build_report() -> KernelReport {
         && fast_weight_quarantine.all_axes_true(FAST_WEIGHT_QUARANTINE_AXES);
     let depth_lease_checkpoint_pass = depth_lease_checkpoint.overall_pass
         && depth_lease_checkpoint.all_axes_true(DEPTH_LEASE_CHECKPOINT_AXES);
+    let shadow_wake_oracle_pass = shadow_wake_oracle.overall_pass
+        && shadow_wake_oracle.all_axes_true(SHADOW_WAKE_ORACLE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2432,6 +2563,7 @@ fn build_report() -> KernelReport {
         &verifier_regret_fast_weights,
         &fast_weight_quarantine,
         &depth_lease_checkpoint,
+        &shadow_wake_oracle,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2478,6 +2610,7 @@ fn build_report() -> KernelReport {
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
         depth_lease_checkpoint_pass,
+        shadow_wake_oracle_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2540,6 +2673,7 @@ fn build_report() -> KernelReport {
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
         depth_lease_checkpoint_pass,
+        shadow_wake_oracle_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -2606,6 +2740,7 @@ fn build_report() -> KernelReport {
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
         depth_lease_checkpoint_pass,
+        shadow_wake_oracle_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3046,6 +3181,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "shadow_wake_oracle_pass",
+        shadow_wake_oracle_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3283,6 +3425,7 @@ fn build_report() -> KernelReport {
         "depth_lease_checkpoint",
         &depth_lease_checkpoint,
     );
+    add_gate_summary(&mut measurements, "shadow_wake_oracle", &shadow_wake_oracle);
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3330,6 +3473,7 @@ fn build_report() -> KernelReport {
         verifier_regret_fast_weights_pass,
         fast_weight_quarantine_pass,
         depth_lease_checkpoint_pass,
+        shadow_wake_oracle_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -3610,6 +3754,7 @@ fn classify_route(
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
     depth_lease_checkpoint_pass: bool,
+    shadow_wake_oracle_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -3651,6 +3796,7 @@ fn classify_route(
         && verifier_regret_fast_weights_pass
         && fast_weight_quarantine_pass
         && depth_lease_checkpoint_pass
+        && shadow_wake_oracle_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -3726,6 +3872,7 @@ fn next_bottleneck(
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
     depth_lease_checkpoint_pass: bool,
+    shadow_wake_oracle_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -3844,8 +3991,10 @@ fn next_bottleneck(
             "fast_weight_quarantine".to_string()
         } else if !depth_lease_checkpoint_pass {
             "depth_lease_checkpoint".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !shadow_wake_oracle_pass {
             "shadow_wake_oracle".to_string()
+        } else if !seventy_b_route_pass {
+            "ablation_shadow_run".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -3919,6 +4068,7 @@ fn build_ordered_gap_queue(
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
     depth_lease_checkpoint_pass: bool,
+    shadow_wake_oracle_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4686,7 +4836,11 @@ fn build_ordered_gap_queue(
             44,
             "shadow_wake_oracle",
             "Meta Control",
-            if depth_lease_checkpoint_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if shadow_wake_oracle_pass {
+                "completed"
+            } else if depth_lease_checkpoint_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -4696,6 +4850,20 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Full-wake, proof, test, and oracle traces must become route labels without becoming a hidden live runtime dependency.",
             "Keep oracle traces offline/shadow-only, rollback-bound, AnswerPacket-visible, and unable to bypass SCOPE-Rex or SovereignGate.",
+        ),
+        queue_item(
+            45,
+            "ablation_shadow_run",
+            "Meta Control",
+            if shadow_wake_oracle_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_shadow_wake_oracle"
+            },
+            "F-AblationShadowRun",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Counterfactual shadow runs must prove which oracle-labeled units actually mattered before distillation can cite route importance.",
+            "Keep ablation evidence shadow-only, rollback-bound, AnswerPacket-visible, and unable to mutate live policy or hide full-wake failures.",
         ),
     ]
 }
@@ -4843,6 +5011,7 @@ fn build_anomalies(
     verifier_regret_fast_weights_pass: bool,
     fast_weight_quarantine_pass: bool,
     depth_lease_checkpoint_pass: bool,
+    shadow_wake_oracle_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5209,10 +5378,20 @@ fn build_anomalies(
             "detail": "FastWeightQuarantine evidence is present; the next non-heavy architecture cursor must prove dynamic-depth choices declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback."
         }));
     }
-    if depth_lease_checkpoint_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if depth_lease_checkpoint_pass
+        && !shadow_wake_oracle_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "shadow_wake_oracle_missing",
             "detail": "DepthLeaseCheckpoint evidence is present; the next non-heavy architecture cursor must prove full-wake/proof/test oracle traces create route labels without becoming a live runtime dependency."
+        }));
+    }
+    if shadow_wake_oracle_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "ablation_shadow_run_missing",
+            "detail": "ShadowWakeOracle evidence is present; the next non-heavy architecture cursor must prove counterfactual ablation shadow runs identify which oracle-labeled units mattered without hidden live route authority."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -5379,10 +5558,11 @@ mod tests {
         const VERIFIER_REGRET_FAST_WEIGHTS: usize = 38;
         const FAST_WEIGHT_QUARANTINE: usize = 39;
         const DEPTH_LEASE_CHECKPOINT: usize = 40;
-        const SEVENTY_B: usize = 41;
-        const SCHEMA: usize = 42;
+        const SHADOW_WAKE_ORACLE: usize = 41;
+        const SEVENTY_B: usize = 42;
+        const SCHEMA: usize = 43;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 43];
+            let mut values = [false; 44];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -5393,7 +5573,7 @@ mod tests {
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
                 values[35], values[36], values[37], values[38], values[39], values[40], values[41],
-                values[42],
+                values[42], values[43],
             )
         };
         assert_eq!(
@@ -5439,6 +5619,7 @@ mod tests {
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
                 DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5491,6 +5672,7 @@ mod tests {
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
                 DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5564,21 +5746,22 @@ mod tests {
         const VERIFIER_REGRET_FAST_WEIGHTS: usize = 53;
         const FAST_WEIGHT_QUARANTINE: usize = 54;
         const DEPTH_LEASE_CHECKPOINT: usize = 55;
-        const SEVENTY_B: usize = 56;
+        const SHADOW_WAKE_ORACLE: usize = 56;
+        const SEVENTY_B: usize = 57;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 57] {
-            let mut values = [false; 57];
+        let flags = |true_indexes: &[usize]| -> [bool; 58] {
+            let mut values = [false; 58];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 57], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 58], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -5639,11 +5822,12 @@ mod tests {
                 values[54],
                 values[55],
                 values[56],
+                values[57],
                 &missing,
             )
         };
-        let nb = |values: [bool; 57]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 57]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 58]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 58]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -7139,6 +7323,63 @@ mod tests {
             "shadow_wake_oracle"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+            ]))),
+            "ablation_shadow_run"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -7215,6 +7456,7 @@ mod tests {
                 VERIFIER_REGRET_FAST_WEIGHTS,
                 FAST_WEIGHT_QUARANTINE,
                 DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

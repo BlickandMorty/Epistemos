@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_fast_weight_quarantine.sh`
 - Artifact: `artifacts/falsifiers/fast_weight_quarantine/result.json`
 - L1 next cursor: `F-DepthLease-Checkpoint`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `shadow_wake_oracle`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `ablation_shadow_run`
 - L3 user-facing/runtime route: unchanged; no fast-weight live route authority, base-weight mutation, route-policy mutation, hidden PatternBoost/lattice/Eidos authority, model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
