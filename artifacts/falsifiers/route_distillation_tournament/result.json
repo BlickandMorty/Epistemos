@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4931edc1384113250da9f6b1c3e5e2b3b337d86e",
+  "commit_sha": "c9b783d4f5fd80d419b5c526a59a681c3977c73c",
   "fixture_id": "route_distillation_tournament_v1",
-  "timestamp_utc": "2026-06-04T09:00:15Z",
+  "timestamp_utc": "2026-06-04T09:07:50Z",
   "result_digest": "sha256:711e5ccff97a1b6e9484c9747dd3964ffe147c9b75ab7670f156b7504f823047",
   "measurements": {
     "answer_packet_ref_bound": {
