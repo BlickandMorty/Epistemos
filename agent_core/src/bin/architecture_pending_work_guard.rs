@@ -56,8 +56,9 @@ const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
     "artifacts/falsifiers/kv_page_control_query_aware/result.json";
 const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
     "artifacts/falsifiers/neural_control_card_ablation/result.json";
-const VERIFIER_REGRET_LEDGER_PATH: &str =
-    "artifacts/falsifiers/verifier_regret_ledger/result.json";
+const VERIFIER_REGRET_LEDGER_PATH: &str = "artifacts/falsifiers/verifier_regret_ledger/result.json";
+const ROUTE_SCOUT_SSM_BASELINE_PATH: &str =
+    "artifacts/falsifiers/route_scout_ssm_baseline/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -276,6 +277,66 @@ const VERIFIER_REGRET_LEDGER_AXES: &[&str] = &[
     "cloud_route_rejected",
     "over_budget_update_rejected",
     "stale_policy_rejected",
+    "no_runtime_bytes_loaded",
+];
+const ROUTE_SCOUT_SSM_BASELINE_AXES: &[&str] = &[
+    "upstream_verifier_regret_ledger_pass",
+    "route_scout_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "source_features_bound",
+    "cache_features_bound",
+    "trace_features_bound",
+    "verifier_features_bound",
+    "hidden_state_bound",
+    "route_logits_bound",
+    "route_family_labels_bound",
+    "verifier_need_labels_bound",
+    "scout_predictions_present",
+    "scout_cheaper_than_heavy_route",
+    "route_family_accuracy_beats_static",
+    "route_family_accuracy_beats_random",
+    "route_family_accuracy_beats_recency",
+    "route_family_accuracy_beats_embedding",
+    "verifier_need_accuracy_beats_static",
+    "verifier_need_accuracy_beats_random",
+    "verifier_need_accuracy_beats_recency",
+    "verifier_need_accuracy_beats_embedding",
+    "route_calibration_beats_baselines",
+    "verifier_calibration_beats_baselines",
+    "abstention_case_present",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "scout_address_deterministic",
+    "duplicate_task_rejected",
+    "missing_label_rejected",
+    "missing_feature_rejected",
+    "missing_logits_rejected",
+    "unknown_route_family_rejected",
+    "missing_prediction_rejected",
+    "no_held_out_rejected",
+    "static_baseline_unbeaten_rejected",
+    "random_baseline_unbeaten_rejected",
+    "recency_baseline_unbeaten_rejected",
+    "embedding_baseline_unbeaten_rejected",
+    "verifier_static_baseline_unbeaten_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "scout_over_budget_rejected",
+    "scout_not_cheaper_rejected",
+    "uncalibrated_scout_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -694,10 +755,11 @@ fn build_report() -> GuardReport {
         NEURAL_CONTROL_CARD_ABLATION_AXES,
     );
     let verifier_regret_ledger = read_json(Path::new(VERIFIER_REGRET_LEDGER_PATH));
-    let verifier_regret_ledger_available = artifact_all_axes_true(
-        &verifier_regret_ledger,
-        VERIFIER_REGRET_LEDGER_AXES,
-    );
+    let verifier_regret_ledger_available =
+        artifact_all_axes_true(&verifier_regret_ledger, VERIFIER_REGRET_LEDGER_AXES);
+    let route_scout_ssm_baseline = read_json(Path::new(ROUTE_SCOUT_SSM_BASELINE_PATH));
+    let route_scout_ssm_baseline_available =
+        artifact_all_axes_true(&route_scout_ssm_baseline, ROUTE_SCOUT_SSM_BASELINE_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -793,6 +855,7 @@ fn build_report() -> GuardReport {
         && kv_page_control_query_aware_available
         && neural_control_card_ablation_available
         && verifier_regret_ledger_available
+        && route_scout_ssm_baseline_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -996,6 +1059,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "verifier_regret_ledger_available",
         verifier_regret_ledger_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "route_scout_ssm_baseline_available",
+        route_scout_ssm_baseline_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1315,6 +1385,10 @@ fn build_report() -> GuardReport {
                     "path": VERIFIER_REGRET_LEDGER_PATH,
                     "available": verifier_regret_ledger_available
                 },
+                "route_scout_ssm_baseline": {
+                    "path": ROUTE_SCOUT_SSM_BASELINE_PATH,
+                    "available": route_scout_ssm_baseline_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1484,6 +1558,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_verifier_regret_ledger",
             "detail": "Meta Control has NeuralControlCard ablation proof, but needs F-VerifierRegretLedger before route utility updates can cite regret learning."
+        }));
+    }
+    if verifier_regret_ledger_available && !route_scout_ssm_baseline_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_route_scout_ssm_baseline",
+            "detail": "Meta Control has verifier-regret evidence, but needs F-RouteScoutSSM-Baseline before the two-stage abstaining scout cursor can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2387,8 +2467,9 @@ mod tests {
         assert!(already_mapped_work
             .get("neural_control_card_ablation")
             .is_some());
+        assert!(already_mapped_work.get("verifier_regret_ledger").is_some());
         assert!(already_mapped_work
-            .get("verifier_regret_ledger")
+            .get("route_scout_ssm_baseline")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

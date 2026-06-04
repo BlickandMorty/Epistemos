@@ -65,6 +65,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-KVPageControl-QueryAware",
     "F-NeuralControlCard-Ablation",
     "F-VerifierRegretLedger",
+    "F-RouteScoutSSM-Baseline",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

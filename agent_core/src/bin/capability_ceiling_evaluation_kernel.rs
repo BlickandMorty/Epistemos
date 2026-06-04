@@ -61,8 +61,9 @@ const KV_PAGE_CONTROL_QUERY_AWARE_PATH: &str =
     "artifacts/falsifiers/kv_page_control_query_aware/result.json";
 const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
     "artifacts/falsifiers/neural_control_card_ablation/result.json";
-const VERIFIER_REGRET_LEDGER_PATH: &str =
-    "artifacts/falsifiers/verifier_regret_ledger/result.json";
+const VERIFIER_REGRET_LEDGER_PATH: &str = "artifacts/falsifiers/verifier_regret_ledger/result.json";
+const ROUTE_SCOUT_SSM_BASELINE_PATH: &str =
+    "artifacts/falsifiers/route_scout_ssm_baseline/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -279,6 +280,66 @@ const VERIFIER_REGRET_LEDGER_AXES: &[&str] = &[
     "stale_policy_rejected",
     "no_runtime_bytes_loaded",
 ];
+const ROUTE_SCOUT_SSM_BASELINE_AXES: &[&str] = &[
+    "upstream_verifier_regret_ledger_pass",
+    "route_scout_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "source_features_bound",
+    "cache_features_bound",
+    "trace_features_bound",
+    "verifier_features_bound",
+    "hidden_state_bound",
+    "route_logits_bound",
+    "route_family_labels_bound",
+    "verifier_need_labels_bound",
+    "scout_predictions_present",
+    "scout_cheaper_than_heavy_route",
+    "route_family_accuracy_beats_static",
+    "route_family_accuracy_beats_random",
+    "route_family_accuracy_beats_recency",
+    "route_family_accuracy_beats_embedding",
+    "verifier_need_accuracy_beats_static",
+    "verifier_need_accuracy_beats_random",
+    "verifier_need_accuracy_beats_recency",
+    "verifier_need_accuracy_beats_embedding",
+    "route_calibration_beats_baselines",
+    "verifier_calibration_beats_baselines",
+    "abstention_case_present",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "scout_address_deterministic",
+    "duplicate_task_rejected",
+    "missing_label_rejected",
+    "missing_feature_rejected",
+    "missing_logits_rejected",
+    "unknown_route_family_rejected",
+    "missing_prediction_rejected",
+    "no_held_out_rejected",
+    "static_baseline_unbeaten_rejected",
+    "random_baseline_unbeaten_rejected",
+    "recency_baseline_unbeaten_rejected",
+    "embedding_baseline_unbeaten_rejected",
+    "verifier_static_baseline_unbeaten_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "scout_over_budget_rejected",
+    "scout_not_cheaper_rejected",
+    "uncalibrated_scout_rejected",
+    "no_runtime_bytes_loaded",
+];
 
 fn main() {
     let report = build_report();
@@ -339,6 +400,7 @@ fn build_report() -> KernelReport {
     let kv_page_control_query_aware = GateArtifact::read(KV_PAGE_CONTROL_QUERY_AWARE_PATH);
     let neural_control_card_ablation = GateArtifact::read(NEURAL_CONTROL_CARD_ABLATION_PATH);
     let verifier_regret_ledger = GateArtifact::read(VERIFIER_REGRET_LEDGER_PATH);
+    let route_scout_ssm_baseline = GateArtifact::read(ROUTE_SCOUT_SSM_BASELINE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -370,6 +432,7 @@ fn build_report() -> KernelReport {
         &kv_page_control_query_aware,
         &neural_control_card_ablation,
         &verifier_regret_ledger,
+        &route_scout_ssm_baseline,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -728,6 +791,8 @@ fn build_report() -> KernelReport {
         && neural_control_card_ablation.all_axes_true(NEURAL_CONTROL_CARD_ABLATION_AXES);
     let verifier_regret_ledger_pass = verifier_regret_ledger.overall_pass
         && verifier_regret_ledger.all_axes_true(VERIFIER_REGRET_LEDGER_AXES);
+    let route_scout_ssm_baseline_pass = route_scout_ssm_baseline.overall_pass
+        && route_scout_ssm_baseline.all_axes_true(ROUTE_SCOUT_SSM_BASELINE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -759,6 +824,7 @@ fn build_report() -> KernelReport {
         &kv_page_control_query_aware,
         &neural_control_card_ablation,
         &verifier_regret_ledger,
+        &route_scout_ssm_baseline,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -788,6 +854,7 @@ fn build_report() -> KernelReport {
         kv_page_control_query_aware_pass,
         neural_control_card_ablation_pass,
         verifier_regret_ledger_pass,
+        route_scout_ssm_baseline_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -833,6 +900,7 @@ fn build_report() -> KernelReport {
         kv_page_control_query_aware_pass,
         neural_control_card_ablation_pass,
         verifier_regret_ledger_pass,
+        route_scout_ssm_baseline_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -882,6 +950,7 @@ fn build_report() -> KernelReport {
         kv_page_control_query_aware_pass,
         neural_control_card_ablation_pass,
         verifier_regret_ledger_pass,
+        route_scout_ssm_baseline_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1203,6 +1272,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "route_scout_ssm_baseline_pass",
+        route_scout_ssm_baseline_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1355,6 +1431,11 @@ fn build_report() -> KernelReport {
         "verifier_regret_ledger",
         &verifier_regret_ledger,
     );
+    add_gate_summary(
+        &mut measurements,
+        "route_scout_ssm_baseline",
+        &route_scout_ssm_baseline,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1385,6 +1466,7 @@ fn build_report() -> KernelReport {
         kv_page_control_query_aware_pass,
         neural_control_card_ablation_pass,
         verifier_regret_ledger_pass,
+        route_scout_ssm_baseline_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -1648,6 +1730,7 @@ fn classify_route(
     kv_page_control_query_aware_pass: bool,
     neural_control_card_ablation_pass: bool,
     verifier_regret_ledger_pass: bool,
+    route_scout_ssm_baseline_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -1672,6 +1755,7 @@ fn classify_route(
         && kv_page_control_query_aware_pass
         && neural_control_card_ablation_pass
         && verifier_regret_ledger_pass
+        && route_scout_ssm_baseline_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -1730,6 +1814,7 @@ fn next_bottleneck(
     kv_page_control_query_aware_pass: bool,
     neural_control_card_ablation_pass: bool,
     verifier_regret_ledger_pass: bool,
+    route_scout_ssm_baseline_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -1814,8 +1899,10 @@ fn next_bottleneck(
             "neural_control_card_ablation".to_string()
         } else if !verifier_regret_ledger_pass {
             "verifier_regret_ledger".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !route_scout_ssm_baseline_pass {
             "route_scout_ssm_baseline".to_string()
+        } else if !seventy_b_route_pass {
+            "two_stage_route_scout_abstain".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -1872,6 +1959,7 @@ fn build_ordered_gap_queue(
     kv_page_control_query_aware_pass: bool,
     neural_control_card_ablation_pass: bool,
     verifier_regret_ledger_pass: bool,
+    route_scout_ssm_baseline_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2323,7 +2411,11 @@ fn build_ordered_gap_queue(
             27,
             "route_scout_ssm_baseline",
             "Meta Control",
-            if verifier_regret_ledger_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if route_scout_ssm_baseline_pass {
+                "completed"
+            } else if verifier_regret_ledger_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -2333,6 +2425,21 @@ fn build_ordered_gap_queue(
             "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
             "A tiny route scout must predict route family and verifier need better than static, random, recency, and embedding-only baselines before sparse wake routing can advance.",
             "Keep scout predictions shadow-only until held-out baselines, abstention, rollback, and AnswerPacket-visible proof pass.",
+        ),
+        queue_item(
+            28,
+            "two_stage_route_scout_abstain",
+            "Meta Control",
+            if route_scout_ssm_baseline_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_route_scout_ssm_baseline"
+            },
+            "F-TwoStageRouteScout-Abstain",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Stage A route-family choice and Stage B selector choice must be separate, cheap, and abstention-capable before sparse wake proposals can advance.",
+            "Keep the two-stage scout shadow-only until family/selector separation, abstention, rollback, and AnswerPacket proof pass.",
         ),
     ]
 }
@@ -2463,6 +2570,7 @@ fn build_anomalies(
     kv_page_control_query_aware_pass: bool,
     neural_control_card_ablation_pass: bool,
     verifier_regret_ledger_pass: bool,
+    route_scout_ssm_baseline_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2663,6 +2771,19 @@ fn build_anomalies(
             "detail": "Meta Control has NeuralControlCard ablation proof, but F-VerifierRegretLedger must pass before route utility updates can cite regret learning."
         }));
     }
+    if verifier_regret_ledger_pass && !route_scout_ssm_baseline_pass && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "route_scout_ssm_baseline_missing",
+            "detail": "Meta Control has verifier-regret evidence, but F-RouteScoutSSM-Baseline must prove cheap held-out route/verifier predictions before two-stage abstaining scout work can advance."
+        }));
+    }
+    if route_scout_ssm_baseline_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "two_stage_route_scout_abstain_missing",
+            "detail": "RouteScoutSSM baseline evidence is present; the next non-heavy architecture cursor must split route-family and selector decisions with explicit abstention before any sparse wake proposal can promote."
+        }));
+    }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -2786,34 +2907,111 @@ mod tests {
 
     #[test]
     fn route_classifier_requires_all_primary_gates_for_product() {
-        assert_eq!(
+        const VERIFIED_FLOOR: usize = 0;
+        const UAS_MMAP: usize = 1;
+        const PAGE_PACKETIZED: usize = 2;
+        const PAGE_DENSE: usize = 3;
+        const PAGE_CALLER: usize = 4;
+        const PAGE_POLICY: usize = 5;
+        const KV_DIRECT: usize = 6;
+        const AGENT_LOCAL: usize = 7;
+        const ACTIVE_ASSEMBLY: usize = 8;
+        const SPARSE_RUNTIME: usize = 9;
+        const COACTIVATION: usize = 10;
+        const RESIDENCY_LEASE: usize = 11;
+        const COLD_ASSEMBLY: usize = 12;
+        const LATTICE: usize = 13;
+        const REASONING: usize = 14;
+        const COLD_MISS: usize = 15;
+        const SWIFTLM: usize = 16;
+        const META_CARD: usize = 17;
+        const PROOF_ROUTE: usize = 18;
+        const RUST_MODEL_CHECK: usize = 19;
+        const BRAIN_ROUTE: usize = 20;
+        const KV_PAGE: usize = 21;
+        const NEURAL_CONTROL: usize = 22;
+        const VERIFIER_REGRET: usize = 23;
+        const ROUTE_SCOUT: usize = 24;
+        const SEVENTY_B: usize = 25;
+        const SCHEMA: usize = 26;
+        let classify = |true_indexes: &[usize]| -> String {
+            let mut values = [false; 27];
+            for index in true_indexes {
+                values[*index] = true;
+            }
             classify_route(
-                true, true, true, true, false, false, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true, true, true, true,
-            ),
+                values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+                values[7], values[8], values[9], values[10], values[11], values[12], values[13],
+                values[14], values[15], values[16], values[17], values[18], values[19], values[20],
+                values[21], values[22], values[23], values[24], values[25], values[26],
+            )
+        };
+        assert_eq!(
+            classify(&[
+                VERIFIED_FLOOR,
+                UAS_MMAP,
+                PAGE_PACKETIZED,
+                PAGE_DENSE,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_DIRECT,
+                AGENT_LOCAL,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                COACTIVATION,
+                RESIDENCY_LEASE,
+                COLD_ASSEMBLY,
+                LATTICE,
+                REASONING,
+                COLD_MISS,
+                SWIFTLM,
+                META_CARD,
+                PROOF_ROUTE,
+                RUST_MODEL_CHECK,
+                BRAIN_ROUTE,
+                KV_PAGE,
+                NEURAL_CONTROL,
+                VERIFIER_REGRET,
+                ROUTE_SCOUT,
+                SEVENTY_B,
+                SCHEMA,
+            ]),
             "ready_for_product_route"
         );
         assert_eq!(
-            classify_route(
-                true, true, true, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false, false, false,
-                false, false,
-            ),
+            classify(&[VERIFIED_FLOOR, UAS_MMAP, PAGE_PACKETIZED]),
             "vault_research_route_with_packetized_mitigation"
         );
+        assert_eq!(classify(&[VERIFIED_FLOOR, UAS_MMAP]), "verified_floor_only");
         assert_eq!(
-            classify_route(
-                true, true, false, false, false, false, false, false, false, false, false, false,
-                false, false, false, false, false, false, false, false, false, false, false, false,
-                false, false,
-            ),
-            "verified_floor_only"
-        );
-        assert_eq!(
-            classify_route(
-                true, true, true, false, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true, true, true, true, true, true,
-            ),
+            classify(&[
+                VERIFIED_FLOOR,
+                UAS_MMAP,
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_DIRECT,
+                AGENT_LOCAL,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                COACTIVATION,
+                RESIDENCY_LEASE,
+                COLD_ASSEMBLY,
+                LATTICE,
+                REASONING,
+                COLD_MISS,
+                SWIFTLM,
+                META_CARD,
+                PROOF_ROUTE,
+                RUST_MODEL_CHECK,
+                BRAIN_ROUTE,
+                KV_PAGE,
+                NEURAL_CONTROL,
+                VERIFIER_REGRET,
+                ROUTE_SCOUT,
+                SEVENTY_B,
+                SCHEMA,
+            ]),
             "ready_for_product_route"
         );
     }
@@ -2867,21 +3065,22 @@ mod tests {
         const KV_PAGE_CONTROL_QUERY_AWARE: usize = 36;
         const NEURAL_CONTROL_CARD_ABLATION: usize = 37;
         const VERIFIER_REGRET_LEDGER: usize = 38;
-        const SEVENTY_B: usize = 39;
+        const ROUTE_SCOUT_SSM_BASELINE: usize = 39;
+        const SEVENTY_B: usize = 40;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 40] {
-            let mut values = [false; 40];
+        let flags = |true_indexes: &[usize]| -> [bool; 41] {
+            let mut values = [false; 41];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 40], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 41], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -2925,11 +3124,12 @@ mod tests {
                 values[37],
                 values[38],
                 values[39],
+                values[40],
                 &missing,
             )
         };
-        let nb = |values: [bool; 40]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 40]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 41]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 41]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -3661,6 +3861,46 @@ mod tests {
             "route_scout_ssm_baseline"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+            ]))),
+            "two_stage_route_scout_abstain"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -3720,6 +3960,7 @@ mod tests {
                 KV_PAGE_CONTROL_QUERY_AWARE,
                 NEURAL_CONTROL_CARD_ABLATION,
                 VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

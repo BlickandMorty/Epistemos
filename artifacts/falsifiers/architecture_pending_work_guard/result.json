@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d3761e4e1a33250dda98f49c94d28b484e133af5",
+  "commit_sha": "1e15ac2a6932fbc8af12c6372a8454bf560ec9f8",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-03T22:22:15Z",
-  "result_digest": "sha256:0a42ecff76bd9dcbe05796154c628ae7d3c87fcca6e3cf2a2f5c6a50c4e54cb9",
+  "timestamp_utc": "2026-06-04T00:22:23Z",
+  "result_digest": "sha256:f339f7c9aee9a9e40a8c473964e1d64daec02f8fe7284a40cb55f9b97578c9bb",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -132,6 +132,10 @@
           },
           "verifier_regret_ledger": {
             "path": "artifacts/falsifiers/verifier_regret_ledger/result.json",
+            "available": true
+          },
+          "route_scout_ssm_baseline": {
+            "path": "artifacts/falsifiers/route_scout_ssm_baseline/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -426,11 +430,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "route_scout_ssm_baseline",
+      "value": "two_stage_route_scout_abstain",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "route_scout_ssm_baseline",
+      "value": "two_stage_route_scout_abstain",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -478,7 +482,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 28,
+      "value": 29,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -506,6 +510,10 @@
       "unit": "bool"
     },
     "residency_plan_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_scout_ssm_baseline_available": {
       "value": true,
       "unit": "bool"
     },
@@ -696,6 +704,11 @@
       "value": true,
       "unit": "bool"
     },
+    "route_scout_ssm_baseline_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "rust_route_kernel_model_check_available": {
       "operator": "==",
       "value": true,
@@ -756,6 +769,7 @@
     "reasoning_state_continuity_available": true,
     "residency_construction_graph_available": true,
     "residency_plan_dry_run_available": true,
+    "route_scout_ssm_baseline_available": true,
     "rust_route_kernel_model_check_available": true,
     "shard_cursor_mapped": true,
     "swiftlm_source_intake_available": true,
@@ -782,5 +796,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=route_scout_ssm_baseline; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=two_stage_route_scout_abstain; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

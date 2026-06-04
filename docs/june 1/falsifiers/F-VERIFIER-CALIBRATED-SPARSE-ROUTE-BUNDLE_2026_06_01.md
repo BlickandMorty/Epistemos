@@ -20,7 +20,7 @@ and better than simple baselines.
 
 | Falsifier | Must prove | Minimum artifact |
 |---|---|---|
-| `F-RouteScoutSSM-Baseline` | A small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines. | Labeled route fixture plus accuracy/calibration table. |
+| `F-RouteScoutSSM-Baseline` | PASS metadata-only witness on 2026-06-03: a small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines with rollback, RunEventLog, AnswerPacket, calibration, and no-hidden-authority guards. | `artifacts/falsifiers/route_scout_ssm_baseline/result.json`; live routing remains unpromoted. |
 | `F-TwoStageRouteScout-Abstain` | Stage A chooses only route family and escalation; Stage B chooses only the relevant selector, and both can abstain. | Two-stage route fixture plus invalid all-in-one selector negative. |
 | `F-BudgetedUncertaintyEscalator` | High uncertainty, budget exhaustion, or missing calibration causes abstain/escalate rather than a cheap wrong route. | Calibration table plus out-of-distribution and over-budget negatives. |
 | `F-SparseWakeProposal-Budget` | Wake proposals name selected/rejected units, expected hot/KV/cold bytes, fallback, uncertainty, and verifier need. | JSON fixture plus negative missing-field cases. |

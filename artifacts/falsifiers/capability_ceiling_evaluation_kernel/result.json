@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d3761e4e1a33250dda98f49c94d28b484e133af5",
+  "commit_sha": "1e15ac2a6932fbc8af12c6372a8454bf560ec9f8",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-03T22:21:12Z",
-  "result_digest": "sha256:d500824ad0b8a5a318b836ca1c6752bda16f49eaed232bedf7f280788bfd9c6c",
+  "timestamp_utc": "2026-06-04T00:21:45Z",
+  "result_digest": "sha256:cd496c020573b8af0aa0b4d04aa1a92cd08154025ad2fbdcb101dfbb99181651",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -298,7 +298,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "route_scout_ssm_baseline",
+      "value": "two_stage_route_scout_abstain",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -577,11 +577,21 @@
           "order": 27,
           "gap_id": "route_scout_ssm_baseline",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-RouteScoutSSM-Baseline",
           "witness": "docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md",
           "promotion_condition": "A tiny route scout must predict route family and verifier need better than static, random, recency, and embedding-only baselines before sparse wake routing can advance.",
           "rollback": "Keep scout predictions shadow-only until held-out baselines, abstention, rollback, and AnswerPacket-visible proof pass."
+        },
+        {
+          "order": 28,
+          "gap_id": "two_stage_route_scout_abstain",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-TwoStageRouteScout-Abstain",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Stage A route-family choice and Stage B selector choice must be separate, cheap, and abstention-capable before sparse wake proposals can advance.",
+          "rollback": "Keep the two-stage scout shadow-only until family/selector separation, abstention, rollback, and AnswerPacket proof pass."
         }
       ],
       "unit": "queue"
@@ -693,6 +703,22 @@
     "residency_construction_graph_summary": {
       "value": {
         "path": "artifacts/falsifiers/residency_construction_graph/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "route_scout_ssm_baseline_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_scout_ssm_baseline_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/route_scout_ssm_baseline/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1020,6 +1046,11 @@
       "value": true,
       "unit": "bool"
     },
+    "route_scout_ssm_baseline_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "rust_route_kernel_model_check_pass": {
       "operator": "==",
       "value": true,
@@ -1118,6 +1149,7 @@
     "proof_carrying_route_card_pass": true,
     "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
+    "route_scout_ssm_baseline_pass": true,
     "rust_route_kernel_model_check_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
@@ -1143,13 +1175,17 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
+      "kind": "two_stage_route_scout_abstain_missing",
+      "detail": "RouteScoutSSM baseline evidence is present; the next non-heavy architecture cursor must split route-family and selector decisions with explicit abstention before any sparse wake proposal can promote."
+    },
+    {
       "kind": "seventy_b_route_deferred_by_mlx_route",
       "detail": "70B/GGUF/provider-reference work is not an active requirement while the app is routed through practical MLX local inference."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "route_scout_ssm_baseline"
+      "detail": "two_stage_route_scout_abstain"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=route_scout_ssm_baseline; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=two_stage_route_scout_abstain; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
