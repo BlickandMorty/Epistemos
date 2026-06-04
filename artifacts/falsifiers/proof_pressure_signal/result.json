@@ -1,0 +1,1230 @@
+{
+  "falsifier_id": "F-ProofPressureSignal",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_proof_pressure_signal.sh",
+  "command_digest": "sha256:3e11c8ffabb928f0d4b528b4c6ffc657723e2bb012b91bdb209fae2966e4a095",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "f2ad8c794d90d710e7210cb0c2505effdab820e4",
+  "fixture_id": "proof_pressure_signal_v1",
+  "timestamp_utc": "2026-06-04T10:35:11Z",
+  "result_digest": "sha256:418a52434b09b9095d9dabf6f3809741df0b6e17e7c43ba26cbde667aa493ad8",
+  "measurements": {
+    "abstain_pressure_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_pressure_memory_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_proof_search_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_proof_route_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "value": 700,
+      "unit": "bps"
+    },
+    "calibration_error_too_high_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citations_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "claim_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_error_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_error_kind_count": {
+      "value": 7,
+      "unit": "kind"
+    },
+    "compiler_error_kinds_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "deeper_model_pressure_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_pressure_signal_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_attempt_memory_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "value": 2,
+      "unit": "fixture"
+    },
+    "fixture_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_route_success_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_success_bps": {
+      "value": 9000,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_truth_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_compiler_error_kind_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_route_pressure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_pressure_metadata_bytes": {
+      "value": 225000,
+      "unit": "bytes"
+    },
+    "max_pressure_tokens": {
+      "value": 23000,
+      "unit": "token"
+    },
+    "max_tactic_state_entropy_bps": {
+      "value": 9300,
+      "unit": "bps"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_claim_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compiler_error_kind_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_failed_attempt_memory_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mission_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_case_count": {
+      "value": 4,
+      "unit": "case"
+    },
+    "missing_premise_recall_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_recall_bps": {
+      "value": 9300,
+      "unit": "bps"
+    },
+    "missing_premise_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_search_signal_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_pressure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verified_neighbor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_pressure_memory_baseline_bps": {
+      "value": 7300,
+      "unit": "bps"
+    },
+    "no_pressure_memory_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_not_hidden_truth": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_schema_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_signal_count": {
+      "value": 12,
+      "unit": "signal"
+    },
+    "pressure_signal_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_token_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_token_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_address": {
+      "value": "uas:proof-pressure-signal:sha256:9558ee5a65e2160a2f52b02f3c3d9864ff18aaac7535d1fba2ed7892e38834b4",
+      "unit": "address"
+    },
+    "proof_pressure_signal_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_search_only_baseline_bps": {
+      "value": 8650,
+      "unit": "bps"
+    },
+    "proof_search_only_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_search_signal_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "repair_pressure_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retrieve_pressure_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_pressure_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_pressure_kind_count": {
+      "value": 5,
+      "unit": "pressure"
+    },
+    "route_pressure_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_policy_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_floor_bps": {
+      "value": 9500,
+      "unit": "bps"
+    },
+    "statement_preservation_scores_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_too_low_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "static_proof_route_baseline_bps": {
+      "value": 8200,
+      "unit": "bps"
+    },
+    "static_proof_route_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tactic_entropy_out_of_range_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tactic_state_entropy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tests_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "value": 6,
+      "unit": "case"
+    },
+    "upstream_proof_search_signal_route_feedback_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verified_neighbor_count": {
+      "value": 12,
+      "unit": "neighbor"
+    },
+    "verified_proof_neighbors_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_pressure_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_pressure_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bps": {
+      "operator": ">=",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_pressure_memory_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_proof_search_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_proof_route_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "operator": "<=",
+      "value": 850,
+      "unit": "bps"
+    },
+    "calibration_error_too_high_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citations_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "claim_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_error_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_error_kind_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "kind"
+    },
+    "compiler_error_kinds_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "deeper_model_pressure_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_pressure_signal_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_attempt_memory_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "fixture"
+    },
+    "fixture_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_route_success_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_success_bps": {
+      "operator": ">=",
+      "value": 8900,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_truth_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_compiler_error_kind_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_route_pressure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_pressure_metadata_bytes": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "max_pressure_tokens": {
+      "operator": "<=",
+      "value": 32000,
+      "unit": "token"
+    },
+    "max_tactic_state_entropy_bps": {
+      "operator": "<=",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_claim_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compiler_error_kind_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_failed_attempt_memory_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mission_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_case_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "case"
+    },
+    "missing_premise_recall_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_recall_bps": {
+      "operator": ">=",
+      "value": 9200,
+      "unit": "bps"
+    },
+    "missing_premise_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_premise_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_search_signal_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_pressure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verified_neighbor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_pressure_memory_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "no_pressure_memory_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_not_hidden_truth": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_schema_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_signal_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "signal"
+    },
+    "pressure_signal_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_token_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pressure_token_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_address": {
+      "operator": "prefix",
+      "value": "uas:proof-pressure-signal:",
+      "unit": "address"
+    },
+    "proof_pressure_signal_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_search_only_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "proof_search_only_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_search_signal_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "repair_pressure_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retrieve_pressure_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_pressure_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_pressure_kind_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "pressure"
+    },
+    "route_pressure_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_policy_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_floor_bps": {
+      "operator": ">=",
+      "value": 9400,
+      "unit": "bps"
+    },
+    "statement_preservation_scores_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "statement_preservation_too_low_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "static_proof_route_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "static_proof_route_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tactic_entropy_out_of_range_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tactic_state_entropy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tests_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "case"
+    },
+    "upstream_proof_search_signal_route_feedback_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verified_neighbor_count": {
+      "operator": ">=",
+      "value": 12,
+      "unit": "neighbor"
+    },
+    "verified_proof_neighbors_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_pressure_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_pressure_bound": true,
+    "answer_packet_coverage_bound": true,
+    "answer_packet_coverage_bps": true,
+    "answer_packet_ref_bound": true,
+    "beats_no_pressure_memory_baseline": true,
+    "beats_proof_search_only_baseline": true,
+    "beats_static_proof_route_baseline": true,
+    "calibration_error_bound": true,
+    "calibration_error_bps": true,
+    "calibration_error_too_high_rejected": true,
+    "citation_bypass_rejected": true,
+    "citation_refs_bound": true,
+    "citations_not_bypassed": true,
+    "claim_refs_bound": true,
+    "cloud_source_rejected": true,
+    "compatibility_fence_bound": true,
+    "compiler_error_diversity_missing_rejected": true,
+    "compiler_error_kind_count": true,
+    "compiler_error_kinds_bound": true,
+    "deeper_model_pressure_bound": true,
+    "duplicate_fixture_rejected": true,
+    "duplicate_pressure_signal_rejected": true,
+    "failed_attempt_memory_refs_bound": true,
+    "fixture_count": true,
+    "fixture_ids_bound": true,
+    "held_out_case_count": true,
+    "held_out_route_success_bound": true,
+    "held_out_route_success_bps": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "hidden_truth_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_compiler_error_kind_rejected": true,
+    "invalid_privacy_rejected": true,
+    "invalid_route_pressure_rejected": true,
+    "live_policy_not_promoted": true,
+    "live_policy_promotion_rejected": true,
+    "max_pressure_metadata_bytes": true,
+    "max_pressure_tokens": true,
+    "max_tactic_state_entropy_bps": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_citation_ref_rejected": true,
+    "missing_claim_ref_rejected": true,
+    "missing_compiler_error_kind_rejected": true,
+    "missing_failed_attempt_memory_rejected": true,
+    "missing_mission_id_rejected": true,
+    "missing_premise_case_count": true,
+    "missing_premise_recall_bound": true,
+    "missing_premise_recall_bps": true,
+    "missing_premise_ref_rejected": true,
+    "missing_premise_refs_bound": true,
+    "missing_proof_search_signal_ref_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_route_pressure_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rex_rejected": true,
+    "missing_sovereign_gate_rejected": true,
+    "missing_test_ref_rejected": true,
+    "missing_verified_neighbor_rejected": true,
+    "mission_ids_bound": true,
+    "model_bytes_rejected": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_model_bytes_loaded": true,
+    "no_pressure_memory_baseline_bps": true,
+    "no_pressure_memory_baseline_unbeaten_rejected": true,
+    "no_runtime_bytes_loaded": true,
+    "pressure_not_hidden_truth": true,
+    "pressure_schema_refs_bound": true,
+    "pressure_signal_count": true,
+    "pressure_signal_ids_bound": true,
+    "pressure_token_budget_bound": true,
+    "pressure_token_budget_rejected": true,
+    "privacy_classes_bound": true,
+    "proof_pressure_signal_address": true,
+    "proof_pressure_signal_address_deterministic": true,
+    "proof_pressure_signal_fixture_present": true,
+    "proof_search_only_baseline_bps": true,
+    "proof_search_only_baseline_unbeaten_rejected": true,
+    "proof_search_signal_refs_bound": true,
+    "repair_pressure_bound": true,
+    "retrieve_pressure_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_pressure_diversity_missing_rejected": true,
+    "route_pressure_kind_count": true,
+    "route_pressure_labels_bound": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "scope_rex_bypass_rejected": true,
+    "scope_rex_not_bypassed": true,
+    "scope_rex_refs_bound": true,
+    "shadow_policy_refs_bound": true,
+    "sovereign_gate_bypass_rejected": true,
+    "sovereign_gate_not_bypassed": true,
+    "sovereign_gate_refs_bound": true,
+    "statement_mutation_rejected": true,
+    "statement_not_mutated": true,
+    "statement_preservation_floor_bound": true,
+    "statement_preservation_floor_bps": true,
+    "statement_preservation_scores_bound": true,
+    "statement_preservation_too_low_rejected": true,
+    "static_proof_route_baseline_bps": true,
+    "static_proof_route_baseline_unbeaten_rejected": true,
+    "tactic_entropy_out_of_range_rejected": true,
+    "tactic_state_entropy_bound": true,
+    "test_bypass_rejected": true,
+    "test_refs_bound": true,
+    "tests_not_bypassed": true,
+    "train_case_count": true,
+    "upstream_proof_search_signal_route_feedback_pass": true,
+    "verified_neighbor_count": true,
+    "verified_proof_neighbors_bound": true,
+    "verifier_bypass_rejected": true,
+    "verifier_not_bypassed": true,
+    "verifier_pressure_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "ProofPressureSignal proves compiler/proof pressure labels and rejection behavior only; it does not run Lean, mutate statements, wake sparse units, mutate live route policy, or promote local model / 70B runtime claims."
+    }
+  ],
+  "notes": "metadata-only Meta Control witness; compiler errors, tactic-state entropy, missing premises, verified proof neighbors, and failed-attempt memory become explicit route-pressure labels with statement preservation, rollback, RunEventLog, AnswerPacket, no-hidden-truth, no-bypass, no-cloud, and zero-runtime/model-byte guards; L1 only, not live proof route authority"
+}

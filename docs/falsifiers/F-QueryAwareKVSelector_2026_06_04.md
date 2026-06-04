@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_query_aware_kv_selector.sh`
 - Artifact: `artifacts/falsifiers/query_aware_kv_selector/result.json`
 - L1 next cursor at landing: `F-SparseWakeCertificate-AnswerPacket`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `proof_pressure_signal`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `verifier_regret_fast_weights`
 - L3 user-facing/runtime route: unchanged; no live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects duplicate selectors and pages; missing query, selected pag
 
 ## Scope
 
-This advances L1 only. It does not make `QueryAwareKVSelector` a live KV selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-SparseWakeCertificate-AnswerPacket` and `F-LayerKVJointLease` now pass as metadata-only evidence; the current architecture unit is `F-ProofSearchSignal-RouteFeedback`, which must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission.
+This advances L1 only. It does not make `QueryAwareKVSelector` a live KV selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-SparseWakeCertificate-AnswerPacket` and `F-LayerKVJointLease` now pass as metadata-only evidence; the current architecture unit is `F-VerifierRegretFastWeights`, which must prove bounded/session-local resettable TTL-limited verifier-regret fast weights improve held-out route choice without base-weight mutation, live policy promotion, hidden route authority, or AnswerPacket omission.

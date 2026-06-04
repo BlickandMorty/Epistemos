@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "35c2804f2c586ee9c6653b2963e2614efe8690ab",
+  "commit_sha": "f2ad8c794d90d710e7210cb0c2505effdab820e4",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T09:51:38Z",
-  "result_digest": "sha256:f4defa29237f11094bb6cf9390c648cd22b30de8d12518971020a8a8fb8d818b",
+  "timestamp_utc": "2026-06-04T10:35:24Z",
+  "result_digest": "sha256:625ceb0a8d47653d5ea88e489ba4d66fae122184c5a1375a59ff492f3d7f9ff1",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -184,6 +184,10 @@
           },
           "proof_search_signal_route_feedback": {
             "path": "artifacts/falsifiers/proof_search_signal_route_feedback/result.json",
+            "available": true
+          },
+          "proof_pressure_signal": {
+            "path": "artifacts/falsifiers/proof_pressure_signal/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -498,11 +502,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "proof_pressure_signal",
+      "value": "verifier_regret_fast_weights",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "proof_pressure_signal",
+      "value": "verifier_regret_fast_weights",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -522,6 +526,10 @@
       "unit": "bool"
     },
     "proof_carrying_route_card_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_available": {
       "value": true,
       "unit": "bool"
     },
@@ -558,7 +566,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 41,
+      "value": 42,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -785,6 +793,11 @@
       "value": true,
       "unit": "bool"
     },
+    "proof_pressure_signal_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "proof_search_signal_route_feedback_available": {
       "operator": "==",
       "value": true,
@@ -922,6 +935,7 @@
     "pending_work_cursor_available": true,
     "proof_carrying_residency_lease_available": true,
     "proof_carrying_route_card_available": true,
+    "proof_pressure_signal_available": true,
     "proof_search_signal_route_feedback_available": true,
     "provider_reference_manifest_dry_run_available": true,
     "provider_reference_prompt_level_readiness_witness_available": true,
@@ -952,8 +966,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_proof_pressure_signal",
-      "detail": "Meta Control has ProofSearchSignal route feedback evidence; the next non-heavy cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
+      "kind": "missing_verifier_regret_fast_weights",
+      "detail": "Meta Control has ProofPressureSignal evidence; the next non-heavy cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -968,5 +982,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=proof_pressure_signal; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=verifier_regret_fast_weights; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
