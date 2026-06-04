@@ -67,6 +67,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-VerifierRegretLedger",
     "F-RouteScoutSSM-Baseline",
     "F-TwoStageRouteScout-Abstain",
+    "F-BudgetedUncertaintyEscalator",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

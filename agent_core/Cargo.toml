@@ -195,6 +195,10 @@ name = "falsify_two_stage_route_scout_abstain"
 path = "src/bin/falsify_two_stage_route_scout_abstain.rs"
 
 [[bin]]
+name = "falsify_budgeted_uncertainty_escalator"
+path = "src/bin/falsify_budgeted_uncertainty_escalator.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

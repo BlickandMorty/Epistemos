@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only.
 - Script: `Tools/falsifiers/f_two_stage_route_scout_abstain.sh`
 - Artifact: `artifacts/falsifiers/two_stage_route_scout_abstain/result.json`
-- L1 next cursor: `F-BudgetedUncertaintyEscalator`
+- L1 next cursor at landing: `F-BudgetedUncertaintyEscalator`; current cursor after the 2026-06-03 BudgetedUncertaintyEscalator witness is `F-SparseWakeProposal-Budget`.
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L3 user-facing/runtime: unchanged; no live route authority promoted.
 
@@ -19,4 +19,4 @@ The witness binds task signatures, mission IDs, source and verifier features, St
 
 ## Scope Guard
 
-This advances L1 only. It does not make RouteScoutSSM or TwoStageRouteScout a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. The next architecture unit must prove `F-BudgetedUncertaintyEscalator`: high uncertainty, budget exhaustion, or missing calibration must abstain/escalate rather than choose a cheap wrong route.
+This advances L1 only. It does not make RouteScoutSSM or TwoStageRouteScout a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-BudgetedUncertaintyEscalator` now passes as metadata-only evidence; the current architecture unit is `F-SparseWakeProposal-Budget`, which must prove selected/rejected units, hot/KV/cold byte fit, fallback, uncertainty, verifier need, rollback, RunEventLog, and AnswerPacket evidence before route selection can request residency work.

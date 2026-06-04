@@ -1,0 +1,855 @@
+{
+  "falsifier_id": "F-BudgetedUncertaintyEscalator",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_budgeted_uncertainty_escalator.sh",
+  "command_digest": "sha256:29e947ae5666160ad8000f649a3f6fc82bd0cee66a20a8747612d308b91f4f1d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "25d216d83c26d898a709d88a21aa705dfde6cf19",
+  "fixture_id": "budgeted_uncertainty_escalator_v1",
+  "timestamp_utc": "2026-06-04T02:18:51Z",
+  "result_digest": "sha256:1901ab79f1a17f30ddf4147d4686127b64a6b351a80e4c4954d0bc1ca75a64d3",
+  "measurements": {
+    "abstain_reason_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allowed_case_count": {
+      "value": 3,
+      "unit": "tasks"
+    },
+    "always_escalate_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "always_escalate_success_bps": {
+      "value": 3750,
+      "unit": "basis_points"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_exhaustion_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "budget_exhaustion_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budgeted_escalator_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_budget_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_set_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_baseline_success_bps": {
+      "value": 2500,
+      "unit": "basis_points"
+    },
+    "cheap_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_allowed_when_calibrated_in_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_shortfall_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_shortfall_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "coverage_shortfall_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_target_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_success_beats_always_escalate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_success_beats_cheap_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_task_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "escalation_case_count": {
+      "value": 7,
+      "unit": "tasks"
+    },
+    "escalation_target_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "escalator_address": {
+      "value": "uas:budgeted-uncertainty-escalator:sha256:d859e81df1b3ff4588e9646298c901a4160449e798999f8dd5b352cd4fae025f",
+      "unit": "address"
+    },
+    "escalator_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "escalator_decision_success_bps": {
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "escalator_over_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_cheap_route_count": {
+      "value": 6,
+      "unit": "tasks"
+    },
+    "false_cheap_route_rejected_count": {
+      "value": 6,
+      "unit": "tasks"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_task_count": {
+      "value": 8,
+      "unit": "tasks"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "high_uncertainty_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_exhaustion_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "latency_exhaustion_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_escalator_active_bytes": {
+      "value": 1048576,
+      "unit": "bytes"
+    },
+    "missing_abstain_reason_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "missing_calibration_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_coverage_target_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_escalation_target_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_latency_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "ood_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "training_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "training_task_count": {
+      "value": 2,
+      "unit": "tasks"
+    },
+    "uncertainty_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_two_stage_route_scout_abstain_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_shortfall_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_shortfall_case_count": {
+      "value": 1,
+      "unit": "tasks"
+    },
+    "verifier_coverage_shortfall_escalates": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_cheap_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_reason_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allowed_case_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "tasks"
+    },
+    "always_escalate_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "always_escalate_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_exhaustion_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "budget_exhaustion_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budgeted_escalator_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_budget_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_set_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "cheap_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_allowed_when_calibrated_in_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_shortfall_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_shortfall_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "coverage_shortfall_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coverage_target_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_success_beats_always_escalate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "decision_success_beats_cheap_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_task_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "escalation_case_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "tasks"
+    },
+    "escalation_target_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "escalator_address": {
+      "operator": "starts_with",
+      "value": "uas:budgeted-uncertainty-escalator:",
+      "unit": "address"
+    },
+    "escalator_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "escalator_decision_success_bps": {
+      "operator": ">=",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "escalator_over_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_cheap_route_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "false_cheap_route_rejected_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "tasks"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_task_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "tasks"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "high_uncertainty_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "high_uncertainty_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_exhaustion_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "latency_exhaustion_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_escalator_active_bytes": {
+      "operator": "<=",
+      "value": 3145728,
+      "unit": "bytes"
+    },
+    "missing_abstain_reason_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "missing_calibration_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_calibration_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_coverage_target_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_escalation_target_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_latency_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "ood_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ood_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "task_signatures_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "training_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "training_task_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "tasks"
+    },
+    "uncertainty_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_two_stage_route_scout_abstain_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_shortfall_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_shortfall_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tasks"
+    },
+    "verifier_coverage_shortfall_escalates": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_cheap_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_reason_bound": true,
+    "allowed_case_count": true,
+    "always_escalate_baseline_unbeaten_rejected": true,
+    "always_escalate_success_bps": true,
+    "answer_packet_ref_bound": true,
+    "budget_exhaustion_case_count": true,
+    "budget_exhaustion_escalates": true,
+    "budgeted_escalator_fixture_present": true,
+    "byte_budget_allowed_rejected": true,
+    "byte_budget_bound": true,
+    "calibration_set_bound": true,
+    "cheap_baseline_success_bps": true,
+    "cheap_baseline_unbeaten_rejected": true,
+    "cheap_route_allowed_when_calibrated_in_budget": true,
+    "cloud_route_rejected": true,
+    "coverage_shortfall_allowed_rejected": true,
+    "coverage_shortfall_case_count": true,
+    "coverage_shortfall_escalates": true,
+    "coverage_target_bound": true,
+    "decision_labels_bound": true,
+    "decision_success_beats_always_escalate": true,
+    "decision_success_beats_cheap_baseline": true,
+    "duplicate_task_rejected": true,
+    "escalation_case_count": true,
+    "escalation_target_bound": true,
+    "escalator_address": true,
+    "escalator_address_deterministic": true,
+    "escalator_decision_success_bps": true,
+    "escalator_over_budget_rejected": true,
+    "false_cheap_route_count": true,
+    "false_cheap_route_rejected_count": true,
+    "held_out_split_bound": true,
+    "held_out_task_count": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "high_uncertainty_allowed_rejected": true,
+    "high_uncertainty_case_count": true,
+    "high_uncertainty_escalates": true,
+    "latency_budget_allowed_rejected": true,
+    "latency_budget_bound": true,
+    "latency_exhaustion_case_count": true,
+    "latency_exhaustion_escalates": true,
+    "live_policy_mutation_rejected": true,
+    "live_policy_not_mutated": true,
+    "max_escalator_active_bytes": true,
+    "missing_abstain_reason_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_budget_rejected": true,
+    "missing_calibration_allowed_rejected": true,
+    "missing_calibration_case_count": true,
+    "missing_calibration_escalates": true,
+    "missing_calibration_rejected": true,
+    "missing_coverage_target_rejected": true,
+    "missing_escalation_target_rejected": true,
+    "missing_latency_budget_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scout_ref_rejected": true,
+    "mission_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_runtime_bytes_loaded": true,
+    "ood_allowed_rejected": true,
+    "ood_case_count": true,
+    "ood_escalates": true,
+    "ood_signal_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "run_event_log_bound": true,
+    "scout_refs_bound": true,
+    "task_signatures_bound": true,
+    "training_split_bound": true,
+    "training_task_count": true,
+    "uncertainty_bound": true,
+    "upstream_two_stage_route_scout_abstain_pass": true,
+    "verifier_coverage_bound": true,
+    "verifier_coverage_shortfall_allowed_rejected": true,
+    "verifier_coverage_shortfall_case_count": true,
+    "verifier_coverage_shortfall_escalates": true,
+    "wrong_cheap_route_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "scope=metadata_only;organ=BudgetedUncertaintyEscalator;reviewer=codex;reviewed_at_utc=2026-06-04T00:00:00Z;validator=falsifier_validator;local_reference_only=true;detail=BudgetedUncertaintyEscalator guards cheap route selectors; no live route authority, no policy mutation, no model/runtime bytes, and no sparse wake promotion executed"
+}
