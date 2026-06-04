@@ -92,6 +92,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-TransportTrace-AnswerPacket",
     "F-SSD-WearBudget",
     "F-ColdStream-vs-Mmap",
+    "F-SlabArena-CopyCount",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

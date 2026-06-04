@@ -16,13 +16,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 `artifacts/falsifiers/coldstream_vs_mmap/result.json` as a metadata-only
 primary witness.
 
-L1 advanced. The architecture cursor moved from `coldstream_vs_mmap` to
-`slab_arena_copy_count`.
+L1 advanced at landing. The architecture cursor moved from `coldstream_vs_mmap`
+to `slab_arena_copy_count`; downstream `F-SlabArena-CopyCount` now passes
+metadata-only, so the regenerated current cursor is `metal_io_feature_gate`.
 
 L2 did not advance to product-green. The capability kernel remains
 `overall_pass=false`, route status
-`vault_research_route_with_packetized_mitigation`, and next bottleneck
-`slab_arena_copy_count`.
+`vault_research_route_with_packetized_mitigation`, and current next bottleneck
+`metal_io_feature_gate`.
 
 L3 did not change. No UI/runtime path, live ColdStream transport, live mmap or
 pread benchmark, live Metal I/O, live SSD stress, KV-Direct 128K route, live

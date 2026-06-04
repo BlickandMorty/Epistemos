@@ -49,6 +49,7 @@ pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
+pub mod slab_arena_copy_count;
 pub mod ssd_wear_budget;
 pub mod transport_trace_answer_packet;
 pub mod weight_block;
@@ -128,6 +129,11 @@ pub use semantic_working_set::{
     SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
     VerifierNeed, WorkingSetOracleBaselineScore, WorkingSetOracleCard, WorkingSetOracleScore,
     WorkingSetOracleStatus, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+};
+pub use slab_arena_copy_count::{
+    SlabArenaAllocationSample, SlabArenaCopyCountError, SlabArenaCopyCountMetrics,
+    SlabArenaCopyCountWitness, SlabArenaCopyEvent, SlabArenaLease, SlabArenaPlan, SlabArenaSurface,
+    SlabCopyClass, SLAB_ARENA_COPY_COUNT_CURSOR, SLAB_ARENA_COPY_COUNT_NEXT_CURSOR,
 };
 pub use ssd_wear_budget::{
     SsdWearBudgetError, SsdWearBudgetMetrics, SsdWearBudgetPlan, SsdWearBudgetSurface,
