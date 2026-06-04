@@ -84,6 +84,8 @@ const CONSTRUCTION_SEARCH_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/construction_search_tournament/result.json";
 const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/route_distillation_tournament/result.json";
+const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
+    "artifacts/falsifiers/proof_search_signal_route_feedback/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1274,6 +1276,113 @@ const ROUTE_DISTILLATION_TOURNAMENT_AXES: &[&str] = &[
     "construction_winner_baseline_bps",
     "route_distillation_tournament_address",
 ];
+const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES: &[&str] = &[
+    "upstream_route_distillation_tournament_pass",
+    "proof_search_signal_fixture_present",
+    "fixture_ids_bound",
+    "feature_schema_refs_bound",
+    "shadow_policy_refs_bound",
+    "signal_ids_bound",
+    "claim_ids_bound",
+    "mission_ids_bound",
+    "premise_refs_bound",
+    "proof_state_hashes_bound",
+    "tactic_trace_refs_bound",
+    "verifier_status_bound",
+    "pass_status_bound",
+    "fail_status_bound",
+    "repair_status_bound",
+    "abstain_status_bound",
+    "failure_signatures_bound",
+    "repair_hints_bound",
+    "route_feature_labels_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_policy_not_promoted",
+    "proof_feedback_not_hidden_truth",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "proof_search_signal_address_deterministic",
+    "held_out_route_success_bound",
+    "verifier_alignment_bound",
+    "answer_packet_coverage_bound",
+    "calibration_error_bound",
+    "proof_token_budget_bound",
+    "metadata_bound",
+    "beats_proof_feature_baseline",
+    "beats_route_distillation_only_baseline",
+    "beats_no_proof_feedback_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_signal_rejected",
+    "missing_premise_rejected",
+    "missing_proof_state_rejected",
+    "missing_tactic_trace_rejected",
+    "missing_verifier_status_rejected",
+    "invalid_verifier_status_rejected",
+    "missing_failure_signature_rejected",
+    "missing_repair_hint_rejected",
+    "missing_route_feature_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "proof_feature_baseline_unbeaten_rejected",
+    "route_distillation_baseline_unbeaten_rejected",
+    "no_proof_feedback_baseline_unbeaten_rejected",
+    "calibration_error_too_high_rejected",
+    "status_diversity_missing_rejected",
+    "route_feature_diversity_missing_rejected",
+    "metadata_budget_rejected",
+    "proof_token_budget_rejected",
+    "fixture_count",
+    "signal_count",
+    "train_case_count",
+    "held_out_case_count",
+    "status_kind_count",
+    "route_feature_kind_count",
+    "max_proof_tokens",
+    "max_signal_metadata_bytes",
+    "held_out_route_success_bps",
+    "verifier_alignment_bps",
+    "answer_packet_coverage_bps",
+    "calibration_error_bps",
+    "proof_feature_baseline_bps",
+    "route_distillation_only_baseline_bps",
+    "no_proof_feedback_baseline_bps",
+    "proof_search_signal_address",
+];
 
 fn main() {
     let report = build_report();
@@ -1347,6 +1456,8 @@ fn build_report() -> KernelReport {
     let layer_kv_joint_lease = GateArtifact::read(LAYER_KV_JOINT_LEASE_PATH);
     let construction_search_tournament = GateArtifact::read(CONSTRUCTION_SEARCH_TOURNAMENT_PATH);
     let route_distillation_tournament = GateArtifact::read(ROUTE_DISTILLATION_TOURNAMENT_PATH);
+    let proof_search_signal_route_feedback =
+        GateArtifact::read(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1390,6 +1501,7 @@ fn build_report() -> KernelReport {
         &layer_kv_joint_lease,
         &construction_search_tournament,
         &route_distillation_tournament,
+        &proof_search_signal_route_feedback,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -1774,6 +1886,9 @@ fn build_report() -> KernelReport {
         && construction_search_tournament.all_axes_true(CONSTRUCTION_SEARCH_TOURNAMENT_AXES);
     let route_distillation_tournament_pass = route_distillation_tournament.overall_pass
         && route_distillation_tournament.all_axes_true(ROUTE_DISTILLATION_TOURNAMENT_AXES);
+    let proof_search_signal_route_feedback_pass = proof_search_signal_route_feedback.overall_pass
+        && proof_search_signal_route_feedback
+            .all_axes_true(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -1817,6 +1932,7 @@ fn build_report() -> KernelReport {
         &layer_kv_joint_lease,
         &construction_search_tournament,
         &route_distillation_tournament,
+        &proof_search_signal_route_feedback,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -1858,6 +1974,7 @@ fn build_report() -> KernelReport {
         layer_kv_joint_lease_pass,
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
+        proof_search_signal_route_feedback_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -1915,6 +2032,7 @@ fn build_report() -> KernelReport {
         layer_kv_joint_lease_pass,
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
+        proof_search_signal_route_feedback_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -1976,6 +2094,7 @@ fn build_report() -> KernelReport {
         layer_kv_joint_lease_pass,
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
+        proof_search_signal_route_feedback_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -2381,6 +2500,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "proof_search_signal_route_feedback_pass",
+        proof_search_signal_route_feedback_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -2593,6 +2719,11 @@ fn build_report() -> KernelReport {
         "route_distillation_tournament",
         &route_distillation_tournament,
     );
+    add_gate_summary(
+        &mut measurements,
+        "proof_search_signal_route_feedback",
+        &proof_search_signal_route_feedback,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -2635,6 +2766,7 @@ fn build_report() -> KernelReport {
         layer_kv_joint_lease_pass,
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
+        proof_search_signal_route_feedback_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -2910,6 +3042,7 @@ fn classify_route(
     layer_kv_joint_lease_pass: bool,
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
+    proof_search_signal_route_feedback_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -2946,6 +3079,7 @@ fn classify_route(
         && layer_kv_joint_lease_pass
         && construction_search_tournament_pass
         && route_distillation_tournament_pass
+        && proof_search_signal_route_feedback_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -3016,6 +3150,7 @@ fn next_bottleneck(
     layer_kv_joint_lease_pass: bool,
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
+    proof_search_signal_route_feedback_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -3124,8 +3259,10 @@ fn next_bottleneck(
             "construction_search_tournament".to_string()
         } else if !route_distillation_tournament_pass {
             "route_distillation_tournament".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !proof_search_signal_route_feedback_pass {
             "proof_search_signal_route_feedback".to_string()
+        } else if !seventy_b_route_pass {
+            "proof_pressure_signal".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -3194,6 +3331,7 @@ fn build_ordered_gap_queue(
     layer_kv_joint_lease_pass: bool,
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
+    proof_search_signal_route_feedback_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -3869,7 +4007,9 @@ fn build_ordered_gap_queue(
             39,
             "proof_search_signal_route_feedback",
             "Meta Control",
-            if route_distillation_tournament_pass
+            if proof_search_signal_route_feedback_pass {
+                "completed"
+            } else if route_distillation_tournament_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -3881,6 +4021,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Lean/proof outcomes must become route features without becoming hidden truth or bypassing tests, citations, SCOPE-Rex, or AnswerPacket.",
             "Keep proof feedback shadow-only until pass/fail/repair traces, verifier outcomes, rollback, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            40,
+            "proof_pressure_signal",
+            "Meta Control",
+            if proof_search_signal_route_feedback_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_proof_search_signal_route_feedback"
+            },
+            "F-ProofPressureSignal",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Compiler errors, tactic-state entropy, missing premises, and failed attempt memory must become explicit route-pressure labels.",
+            "Keep pressure labels shadow-only until statement preservation, missing-premise, rollback, RunEventLog, and AnswerPacket evidence pass.",
         ),
     ]
 }
@@ -4023,6 +4180,7 @@ fn build_anomalies(
     layer_kv_joint_lease_pass: bool,
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
+    proof_search_signal_route_feedback_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4339,10 +4497,23 @@ fn build_anomalies(
             "detail": "ConstructionSearchTournament evidence is present; the next non-heavy architecture cursor must prove full/proof/oracle trace labels improve the small scout on held-out route choices before distillation policy can promote."
         }));
     }
-    if route_distillation_tournament_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if route_distillation_tournament_pass
+        && !proof_search_signal_route_feedback_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "proof_search_signal_route_feedback_missing",
             "detail": "RouteDistillationTournament evidence is present; the next non-heavy architecture cursor must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission."
+        }));
+    }
+    if proof_search_signal_route_feedback_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "proof_pressure_signal_missing",
+            "detail": "ProofSearchSignal evidence is present; the next non-heavy architecture cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -4504,10 +4675,11 @@ mod tests {
         const LAYER_KV_LEASE: usize = 33;
         const CONSTRUCTION_SEARCH: usize = 34;
         const ROUTE_DISTILLATION: usize = 35;
-        const SEVENTY_B: usize = 36;
-        const SCHEMA: usize = 37;
+        const PROOF_SEARCH_SIGNAL: usize = 36;
+        const SEVENTY_B: usize = 37;
+        const SCHEMA: usize = 38;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 38];
+            let mut values = [false; 39];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -4517,7 +4689,7 @@ mod tests {
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
-                values[35], values[36], values[37],
+                values[35], values[36], values[37], values[38],
             )
         };
         assert_eq!(
@@ -4558,6 +4730,7 @@ mod tests {
                 LAYER_KV_LEASE,
                 CONSTRUCTION_SEARCH,
                 ROUTE_DISTILLATION,
+                PROOF_SEARCH_SIGNAL,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4605,6 +4778,7 @@ mod tests {
                 LAYER_KV_LEASE,
                 CONSTRUCTION_SEARCH,
                 ROUTE_DISTILLATION,
+                PROOF_SEARCH_SIGNAL,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4673,21 +4847,22 @@ mod tests {
         const LAYER_KV_JOINT_LEASE: usize = 48;
         const CONSTRUCTION_SEARCH_TOURNAMENT: usize = 49;
         const ROUTE_DISTILLATION_TOURNAMENT: usize = 50;
-        const SEVENTY_B: usize = 51;
+        const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK: usize = 51;
+        const SEVENTY_B: usize = 52;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 52] {
-            let mut values = [false; 52];
+        let flags = |true_indexes: &[usize]| -> [bool; 53] {
+            let mut values = [false; 53];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 52], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 53], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -4743,11 +4918,12 @@ mod tests {
                 values[49],
                 values[50],
                 values[51],
+                values[52],
                 &missing,
             )
         };
-        let nb = |values: [bool; 52]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 52]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 53]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 53]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -6025,6 +6201,58 @@ mod tests {
             "proof_search_signal_route_feedback"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+            ]))),
+            "proof_pressure_signal"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -6096,6 +6324,7 @@ mod tests {
                 LAYER_KV_JOINT_LEASE,
                 CONSTRUCTION_SEARCH_TOURNAMENT,
                 ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

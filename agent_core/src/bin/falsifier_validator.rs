@@ -77,6 +77,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-LayerKVJointLease",
     "F-ConstructionSearchTournament",
     "F-RouteDistillationTournament",
+    "F-ProofSearchSignal-RouteFeedback",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
