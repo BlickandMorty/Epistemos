@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only.
 - Script: `Tools/falsifiers/f_budgeted_uncertainty_escalator.sh`
 - Artifact: `artifacts/falsifiers/budgeted_uncertainty_escalator/result.json`
-- L1 next cursor at landing: `F-SparseWakeProposal-Budget`; current cursor after the 2026-06-04 `F-LayerKVJointLease` witness is `F-ConstructionSearchTournament`
+- L1 next cursor at landing: `F-SparseWakeProposal-Budget`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L3 user-facing/runtime: unchanged; no live route authority promoted.
 
@@ -19,4 +19,4 @@ The witness binds task signatures, mission IDs, upstream TwoStageRouteScout refs
 
 ## Scope Guard
 
-This advances L1 only. It does not make RouteScoutSSM, TwoStageRouteScout, or BudgetedUncertaintyEscalator a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-SparseWakeProposal-Budget`, `F-VerifierBudgetAuction`, `F-KVPageSketchIndex`, and `F-KVPageBloomSketch-Coverage` now pass as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the current architecture unit is `F-RouteDistillationTournament`, which must prove expensive full/proof/oracle traces improve the small scout on held-out route choices before route distillation policy can promote.
+This advances L1 only. It does not make RouteScoutSSM, TwoStageRouteScout, or BudgetedUncertaintyEscalator a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-SparseWakeProposal-Budget`, `F-VerifierBudgetAuction`, `F-KVPageSketchIndex`, and `F-KVPageBloomSketch-Coverage` now pass as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the current architecture unit is `F-ProofSearchSignal-RouteFeedback`, which must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission.

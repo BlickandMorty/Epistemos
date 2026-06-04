@@ -7,8 +7,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_sparse_wake_proposal_budget.sh`
 - Artifact: `artifacts/falsifiers/sparse_wake_proposal_budget/result.json`
-- L1 next cursor at landing: `F-VerifierBudgetAuction`; current cursor after the 2026-06-04 `F-LayerKVJointLease` witness is `F-ConstructionSearchTournament`.
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `route_distillation_tournament`.
+- L1 next cursor at landing: `F-VerifierBudgetAuction`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`.
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `proof_search_signal_route_feedback`.
 - L3 user-facing/runtime route: unchanged; no live sparse wake, model-byte load, or UI claim is promoted.
 
 ## What It Proves
@@ -23,4 +23,4 @@ The falsifier rejects duplicate proposals; missing selected or rejected units; m
 
 ## Scope
 
-This advances L1 only. It does not make `SparseWakeProposal` a live router, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-VerifierBudgetAuction`, `F-KVPageSketchIndex`, and `F-KVPageBloomSketch-Coverage` now pass as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the current architecture unit is `F-RouteDistillationTournament`, which must prove expensive full/proof/oracle traces improve the small scout on held-out route choices before route distillation policy can promote.
+This advances L1 only. It does not make `SparseWakeProposal` a live router, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-VerifierBudgetAuction`, `F-KVPageSketchIndex`, and `F-KVPageBloomSketch-Coverage` now pass as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the current architecture unit is `F-ProofSearchSignal-RouteFeedback`, which must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission.

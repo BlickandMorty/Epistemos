@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_construction_search_tournament.sh`
 - Artifact: `artifacts/falsifiers/construction_search_tournament/result.json`
-- L1 next cursor: `F-RouteDistillationTournament`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `route_distillation_tournament`
+- L1 next cursor at landing: `F-RouteDistillationTournament`; current cursor after the 2026-06-04 RouteDistillationTournament witness is `F-ProofSearchSignal-RouteFeedback`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `proof_search_signal_route_feedback`
 - L3 user-facing/runtime route: unchanged; no PatternBoost live route authority, live sparse routing, local model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate tournaments; duplicate candidate
 
 ## Scope
 
-This advances L1 only. It does not make `ConstructionSearchTournament` a live router, does not allow PatternBoost to become hidden live route authority, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-RouteDistillationTournament`, which must prove expensive full/proof/oracle traces improve the small scout on held-out route choices before route distillation policy can promote.
+This advances L1 only. It does not make `ConstructionSearchTournament` a live router, does not allow PatternBoost to become hidden live route authority, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-RouteDistillationTournament` now passes metadata-only evidence; the next architecture unit is `F-ProofSearchSignal-RouteFeedback`, which must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission.

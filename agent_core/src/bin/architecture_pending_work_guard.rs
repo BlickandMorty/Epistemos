@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 //! Architecture Pending Work Guard.
 //!
 //! This is the pre-loop duplicate-work check for the Capability Ceiling queue.
@@ -77,6 +79,8 @@ const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH: &str =
 const LAYER_KV_JOINT_LEASE_PATH: &str = "artifacts/falsifiers/layer_kv_joint_lease/result.json";
 const CONSTRUCTION_SEARCH_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/construction_search_tournament/result.json";
+const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
+    "artifacts/falsifiers/route_distillation_tournament/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1190,6 +1194,87 @@ const CONSTRUCTION_SEARCH_TOURNAMENT_AXES: &[&str] = &[
     "max_tournament_metadata_bytes",
     "construction_search_tournament_address",
 ];
+const ROUTE_DISTILLATION_TOURNAMENT_AXES: &[&str] = &[
+    "upstream_construction_search_tournament_pass",
+    "route_distillation_tournament_fixture_present",
+    "tournament_ids_bound",
+    "policy_refs_bound",
+    "small_scout_refs_bound",
+    "trace_labels_bound",
+    "mission_ids_bound",
+    "expensive_trace_refs_bound",
+    "oracle_label_refs_bound",
+    "route_labels_bound",
+    "scout_feature_refs_bound",
+    "train_split_bound",
+    "held_out_split_bound",
+    "full_wake_traces_bound",
+    "proof_oracle_traces_bound",
+    "compiler_failure_traces_bound",
+    "failed_attempt_traces_bound",
+    "source_kind_diversity_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_policy_not_promoted",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "route_distillation_tournament_address_deterministic",
+    "held_out_success_bound",
+    "label_agreement_bound",
+    "calibration_error_bound",
+    "trace_token_budget_bound",
+    "metadata_bound",
+    "beats_direct_heuristic_baseline",
+    "beats_pre_distill_scout_baseline",
+    "beats_construction_winner_baseline",
+    "duplicate_tournament_rejected",
+    "duplicate_trace_label_rejected",
+    "missing_expensive_trace_rejected",
+    "missing_oracle_label_rejected",
+    "missing_route_label_rejected",
+    "missing_scout_feature_rejected",
+    "invalid_split_rejected",
+    "missing_held_out_split_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "direct_heuristic_unbeaten_rejected",
+    "pre_distill_scout_unbeaten_rejected",
+    "construction_winner_unbeaten_rejected",
+    "label_agreement_too_low_rejected",
+    "calibration_error_too_high_rejected",
+    "source_kind_diversity_missing_rejected",
+    "metadata_budget_rejected",
+    "trace_token_budget_rejected",
+    "tournament_count",
+    "trace_label_count",
+    "train_case_count",
+    "held_out_case_count",
+    "source_kind_count",
+    "max_trace_tokens",
+    "max_tournament_metadata_bytes",
+    "held_out_success_bps",
+    "label_agreement_bps",
+    "calibration_error_bps",
+    "direct_heuristic_baseline_bps",
+    "pre_distill_scout_baseline_bps",
+    "construction_winner_baseline_bps",
+    "route_distillation_tournament_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1654,6 +1739,11 @@ fn build_report() -> GuardReport {
         &construction_search_tournament,
         CONSTRUCTION_SEARCH_TOURNAMENT_AXES,
     );
+    let route_distillation_tournament = read_json(Path::new(ROUTE_DISTILLATION_TOURNAMENT_PATH));
+    let route_distillation_tournament_available = artifact_all_axes_true(
+        &route_distillation_tournament,
+        ROUTE_DISTILLATION_TOURNAMENT_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1760,6 +1850,7 @@ fn build_report() -> GuardReport {
         && sparse_wake_certificate_answer_packet_available
         && layer_kv_joint_lease_available
         && construction_search_tournament_available
+        && route_distillation_tournament_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2040,6 +2131,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "construction_search_tournament_available",
         construction_search_tournament_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "route_distillation_tournament_available",
+        route_distillation_tournament_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2403,6 +2501,10 @@ fn build_report() -> GuardReport {
                     "path": CONSTRUCTION_SEARCH_TOURNAMENT_PATH,
                     "available": construction_search_tournament_available
                 },
+                "route_distillation_tournament": {
+                    "path": ROUTE_DISTILLATION_TOURNAMENT_PATH,
+                    "available": route_distillation_tournament_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2646,10 +2748,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has LayerKVJointLease evidence; the next non-heavy cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
         }));
     }
-    if construction_search_tournament_available && !heavy_long_context_enabled {
+    if construction_search_tournament_available
+        && !route_distillation_tournament_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_route_distillation_tournament",
             "detail": "Meta Control has ConstructionSearchTournament evidence; the next non-heavy cursor must prove full/proof/oracle route labels improve the small scout on held-out choices before route distillation can promote."
+        }));
+    }
+    if route_distillation_tournament_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_proof_search_signal_route_feedback",
+            "detail": "Meta Control has RouteDistillationTournament evidence; the next non-heavy cursor must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
