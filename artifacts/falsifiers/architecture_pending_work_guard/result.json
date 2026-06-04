@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "23a77330667cbe7d0c7a5649dd0aad11628838e9",
+  "commit_sha": "cb03bef2033205d86c6aabcdf74aaece311e8363",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T12:59:24Z",
-  "result_digest": "sha256:44caab39bc7d606b73ba760aecf31d28b2de12db19a17f090b671ceebe5ed2f8",
+  "timestamp_utc": "2026-06-04T13:39:36Z",
+  "result_digest": "sha256:a31889965c23ef68aa77c8280bbbb8322d247b2289a9821f0654672c18eed023",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -200,6 +200,10 @@
           },
           "depth_lease_checkpoint": {
             "path": "artifacts/falsifiers/depth_lease_checkpoint/result.json",
+            "available": true
+          },
+          "shadow_wake_oracle": {
+            "path": "artifacts/falsifiers/shadow_wake_oracle/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -522,11 +526,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "shadow_wake_oracle",
+      "value": "ablation_shadow_run",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "shadow_wake_oracle",
+      "value": "ablation_shadow_run",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -586,7 +590,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 45,
+      "value": 46,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -626,6 +630,10 @@
       "unit": "bool"
     },
     "rust_route_kernel_model_check_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_oracle_available": {
       "value": true,
       "unit": "bool"
     },
@@ -897,6 +905,11 @@
       "value": true,
       "unit": "bool"
     },
+    "shadow_wake_oracle_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "shard_cursor_mapped": {
       "operator": "==",
       "value": true,
@@ -990,6 +1003,7 @@
     "route_distillation_tournament_available": true,
     "route_scout_ssm_baseline_available": true,
     "rust_route_kernel_model_check_available": true,
+    "shadow_wake_oracle_available": true,
     "shard_cursor_mapped": true,
     "sparse_wake_certificate_answer_packet_available": true,
     "sparse_wake_proposal_budget_available": true,
@@ -1008,8 +1022,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_shadow_wake_oracle",
-      "detail": "Meta Control has DepthLeaseCheckpoint evidence; the next non-heavy cursor must prove oracle traces become route labels without hidden live runtime dependency."
+      "kind": "missing_ablation_shadow_run",
+      "detail": "Meta Control has ShadowWakeOracle evidence; the next non-heavy cursor must prove ablation shadow runs identify unit importance without hidden live route authority."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1024,5 +1038,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=shadow_wake_oracle; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=ablation_shadow_run; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
