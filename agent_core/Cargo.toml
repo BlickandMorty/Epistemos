@@ -275,6 +275,10 @@ name = "falsify_coldstream_no_hidden_authority"
 path = "src/bin/falsify_coldstream_no_hidden_authority.rs"
 
 [[bin]]
+name = "falsify_large_model_provider_reference_deferred_by_mlx_route"
+path = "src/bin/falsify_large_model_provider_reference_deferred_by_mlx_route.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

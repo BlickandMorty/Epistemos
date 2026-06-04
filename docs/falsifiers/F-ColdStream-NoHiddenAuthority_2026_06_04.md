@@ -33,9 +33,9 @@ The witness rejects empty or duplicate page runs, duplicate ranges, duplicate UA
 
 ## Cursor
 
-- L1 next existing work: `large_model_provider_reference_deferred_by_mlx_route`
+- L1 next existing work: `provider_route_copy_source_guard`
 - L2 route status: `vault_research_route_with_packetized_mitigation`
-- L2 next bottleneck: `large_model_provider_reference_deferred_by_mlx_route`
+- L2 next bottleneck: `provider_route_copy_source_guard`
 - L3 user-facing/product runtime: unchanged
 
 Correct phrasing: architecture cursor advanced; product capability / user surface did not.

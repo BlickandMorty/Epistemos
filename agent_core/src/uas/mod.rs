@@ -37,6 +37,7 @@ pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
 pub mod kind;
+pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod pattern_boost;
 pub mod proof_carrying_residency_lease;
@@ -73,6 +74,10 @@ pub use construction_card::{
 };
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use kind::UasKind;
+pub use large_model_deferral::{
+    LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,
+    LargeModelProviderDeferralCard, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,
+};
 pub use lattice_state_controller::{
     LatticeControllerBaseline, LatticeRouteAction, LatticeStateController,
     LatticeStateControllerError,
