@@ -67,6 +67,7 @@ const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
 const VERIFIER_BUDGET_AUCTION_PATH: &str =
     "artifacts/falsifiers/verifier_budget_auction/result.json";
+const KV_PAGE_SKETCH_INDEX_PATH: &str = "artifacts/falsifiers/kv_page_sketch_index/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -655,6 +656,86 @@ const VERIFIER_BUDGET_AUCTION_AXES: &[&str] = &[
     "max_auction_metadata_bytes",
     "auction_address",
 ];
+const KV_PAGE_SKETCH_INDEX_AXES: &[&str] = &[
+    "upstream_verifier_budget_auction_pass",
+    "kv_page_sketch_index_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "index_ids_bound",
+    "model_ids_bound",
+    "tokenizer_ids_bound",
+    "upstream_auction_ref_bound",
+    "page_ids_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "byte_counts_bound",
+    "min_key_sketch_bound",
+    "max_key_sketch_bound",
+    "sketch_dimension_bound",
+    "sketch_order_bound",
+    "semantic_tags_bound",
+    "recency_bound",
+    "hit_counts_bound",
+    "miss_counts_bound",
+    "compatibility_fences_bound",
+    "privacy_classes_bound",
+    "required_evidence_bound",
+    "false_negative_policy_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "sketch_index_address_deterministic",
+    "required_evidence_coverage_beats_recency_baseline",
+    "required_evidence_coverage_beats_tagless_baseline",
+    "required_evidence_coverage_beats_file_order_baseline",
+    "duplicate_index_rejected",
+    "duplicate_page_rejected",
+    "missing_uas_address_rejected",
+    "missing_digest_rejected",
+    "zero_byte_count_rejected",
+    "oversized_page_rejected",
+    "missing_min_sketch_rejected",
+    "missing_max_sketch_rejected",
+    "sketch_dimension_mismatch_rejected",
+    "sketch_order_rejected",
+    "missing_semantic_tag_rejected",
+    "missing_hit_count_rejected",
+    "missing_miss_count_rejected",
+    "missing_compatibility_fence_rejected",
+    "incompatible_fence_rejected",
+    "stale_page_rejected",
+    "invalid_privacy_class_rejected",
+    "missing_required_evidence_rejected",
+    "required_evidence_false_negative_rejected",
+    "missing_false_negative_policy_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "index_metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+    "sketch_index_count",
+    "page_count",
+    "training_page_count",
+    "held_out_page_count",
+    "required_evidence_page_count",
+    "semantic_tag_count",
+    "total_hit_count",
+    "total_miss_count",
+    "max_page_byte_count",
+    "max_index_metadata_bytes",
+    "sketch_dimension",
+    "required_evidence_coverage_bps",
+    "sketch_index_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1094,6 +1175,9 @@ fn build_report() -> GuardReport {
     let verifier_budget_auction = read_json(Path::new(VERIFIER_BUDGET_AUCTION_PATH));
     let verifier_budget_auction_available =
         artifact_all_axes_true(&verifier_budget_auction, VERIFIER_BUDGET_AUCTION_AXES);
+    let kv_page_sketch_index = read_json(Path::new(KV_PAGE_SKETCH_INDEX_PATH));
+    let kv_page_sketch_index_available =
+        artifact_all_axes_true(&kv_page_sketch_index, KV_PAGE_SKETCH_INDEX_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1194,6 +1278,7 @@ fn build_report() -> GuardReport {
         && budgeted_uncertainty_escalator_available
         && sparse_wake_proposal_budget_available
         && verifier_budget_auction_available
+        && kv_page_sketch_index_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1432,6 +1517,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "verifier_budget_auction_available",
         verifier_budget_auction_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "kv_page_sketch_index_available",
+        kv_page_sketch_index_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1771,6 +1863,10 @@ fn build_report() -> GuardReport {
                     "path": VERIFIER_BUDGET_AUCTION_PATH,
                     "available": verifier_budget_auction_available
                 },
+                "kv_page_sketch_index": {
+                    "path": KV_PAGE_SKETCH_INDEX_PATH,
+                    "available": kv_page_sketch_index_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1970,6 +2066,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_verifier_budget_auction",
             "detail": "Meta Control has sparse wake proposal budget evidence, but needs F-VerifierBudgetAuction before KV/page sketch index work can advance."
+        }));
+    }
+    if verifier_budget_auction_available && !kv_page_sketch_index_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_kv_page_sketch_index",
+            "detail": "Meta Control has verifier budget auction evidence, but needs F-KVPageSketchIndex before bloom-sketch coverage or query-aware page selection work can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2887,6 +2989,7 @@ mod tests {
             .get("sparse_wake_proposal_budget")
             .is_some());
         assert!(already_mapped_work.get("verifier_budget_auction").is_some());
+        assert!(already_mapped_work.get("kv_page_sketch_index").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

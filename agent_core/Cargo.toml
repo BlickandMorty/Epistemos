@@ -207,6 +207,10 @@ name = "falsify_verifier_budget_auction"
 path = "src/bin/falsify_verifier_budget_auction.rs"
 
 [[bin]]
+name = "falsify_kv_page_sketch_index"
+path = "src/bin/falsify_kv_page_sketch_index.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

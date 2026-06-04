@@ -123,4 +123,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current active cursor after the 2026-06-04 VerifierBudgetAuction witness: `F-KVPageSketchIndex`
+- Current active cursor after the 2026-06-04 KVPageSketchIndex witness: `F-KVPageBloomSketch-Coverage`
