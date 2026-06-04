@@ -287,6 +287,10 @@ name = "falsify_transport_trace_answer_packet"
 path = "src/bin/falsify_transport_trace_answer_packet.rs"
 
 [[bin]]
+name = "falsify_ssd_wear_budget"
+path = "src/bin/falsify_ssd_wear_budget.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -48,6 +48,7 @@ pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
+pub mod ssd_wear_budget;
 pub mod transport_trace_answer_packet;
 pub mod weight_block;
 pub mod witness;
@@ -121,6 +122,10 @@ pub use semantic_working_set::{
     SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
     VerifierNeed, WorkingSetOracleBaselineScore, WorkingSetOracleCard, WorkingSetOracleScore,
     WorkingSetOracleStatus, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+};
+pub use ssd_wear_budget::{
+    SsdWearBudgetError, SsdWearBudgetMetrics, SsdWearBudgetPlan, SsdWearBudgetSurface,
+    SsdWearBudgetWitness, SSD_WEAR_BUDGET_CURSOR, SSD_WEAR_BUDGET_NEXT_CURSOR,
 };
 pub use transport_trace_answer_packet::{
     TransportTraceAnswerPacketError, TransportTraceAnswerPacketFrame,

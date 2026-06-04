@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "2e237f46d85ff78417b202379b8e729a24a431d2",
+  "commit_sha": "65a4dae7d1db46cdebdaa6b1d227e2cfd7567e8a",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T20:09:29Z",
-  "result_digest": "sha256:8601c4832ac598f026a3d2f1e8545bb0dd2790f3436bd258fbc5501f223e4258",
+  "timestamp_utc": "2026-06-04T21:11:44Z",
+  "result_digest": "sha256:05850181f8989e1a024669448c5710e8b28c64c96f47bd45e4c6f18e72437179",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -236,6 +236,10 @@
           },
           "transport_trace_answer_packet": {
             "path": "artifacts/falsifiers/transport_trace_answer_packet/result.json",
+            "available": true
+          },
+          "ssd_wear_budget": {
+            "path": "artifacts/falsifiers/ssd_wear_budget/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -570,11 +574,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "ssd_wear_budget",
+      "value": "coldstream_vs_mmap",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "ssd_wear_budget",
+      "value": "coldstream_vs_mmap",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -698,6 +702,10 @@
       "unit": "bool"
     },
     "sparse_wake_proposal_budget_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_wear_budget_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1011,6 +1019,11 @@
       "value": true,
       "unit": "bool"
     },
+    "ssd_wear_budget_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "swiftlm_source_intake_available": {
       "operator": "==",
       "value": true,
@@ -1104,6 +1117,7 @@
     "sparse_route_no_hidden_authority_available": true,
     "sparse_wake_certificate_answer_packet_available": true,
     "sparse_wake_proposal_budget_available": true,
+    "ssd_wear_budget_available": true,
     "swiftlm_source_intake_available": true,
     "transport_trace_answer_packet_available": true,
     "two_stage_route_scout_abstain_available": true,
@@ -1132,5 +1146,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=ssd_wear_budget; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=coldstream_vs_mmap; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

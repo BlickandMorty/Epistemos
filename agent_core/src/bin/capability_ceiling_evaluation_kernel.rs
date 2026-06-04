@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
     PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
-    TRANSPORT_TRACE_ANSWER_PACKET_AXES,
+    SSD_WEAR_BUDGET_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -110,6 +110,7 @@ const PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH: &str =
     "artifacts/falsifiers/provider_route_copy_source_guard/result.json";
 const TRANSPORT_TRACE_ANSWER_PACKET_PATH: &str =
     "artifacts/falsifiers/transport_trace_answer_packet/result.json";
+const SSD_WEAR_BUDGET_PATH: &str = "artifacts/falsifiers/ssd_wear_budget/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -119,6 +120,7 @@ const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED: &str =
 const PROVIDER_ROUTE_COPY_SOURCE_GUARD: &str = "provider_route_copy_source_guard";
 const TRANSPORT_TRACE_ANSWER_PACKET: &str = "transport_trace_answer_packet";
 const SSD_WEAR_BUDGET: &str = "ssd_wear_budget";
+const COLDSTREAM_VS_MMAP: &str = "coldstream_vs_mmap";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2341,6 +2343,7 @@ fn build_report() -> KernelReport {
     let provider_route_copy_source_guard =
         GateArtifact::read(PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH);
     let transport_trace_answer_packet = GateArtifact::read(TRANSPORT_TRACE_ANSWER_PACKET_PATH);
+    let ssd_wear_budget = GateArtifact::read(SSD_WEAR_BUDGET_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2397,6 +2400,7 @@ fn build_report() -> KernelReport {
         &large_model_provider_reference_deferral,
         &provider_route_copy_source_guard,
         &transport_trace_answer_packet,
+        &ssd_wear_budget,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2811,6 +2815,8 @@ fn build_report() -> KernelReport {
         && provider_route_copy_source_guard.all_axes_true(PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES);
     let transport_trace_answer_packet_pass = transport_trace_answer_packet.overall_pass
         && transport_trace_answer_packet.all_axes_true(TRANSPORT_TRACE_ANSWER_PACKET_AXES);
+    let ssd_wear_budget_pass =
+        ssd_wear_budget.overall_pass && ssd_wear_budget.all_axes_true(SSD_WEAR_BUDGET_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2986,6 +2992,7 @@ fn build_report() -> KernelReport {
         large_model_provider_reference_deferral_pass,
         provider_route_copy_source_guard_pass,
         transport_trace_answer_packet_pass,
+        ssd_wear_budget_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3060,6 +3067,7 @@ fn build_report() -> KernelReport {
         large_model_provider_reference_deferral_pass,
         provider_route_copy_source_guard_pass,
         transport_trace_answer_packet_pass,
+        ssd_wear_budget_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3556,6 +3564,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "ssd_wear_budget_pass",
+        ssd_wear_budget_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3829,6 +3844,7 @@ fn build_report() -> KernelReport {
         "transport_trace_answer_packet",
         &transport_trace_answer_packet,
     );
+    add_gate_summary(&mut measurements, "ssd_wear_budget", &ssd_wear_budget);
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3884,6 +3900,7 @@ fn build_report() -> KernelReport {
         large_model_provider_reference_deferral_pass,
         provider_route_copy_source_guard_pass,
         transport_trace_answer_packet_pass,
+        ssd_wear_budget_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4298,6 +4315,7 @@ fn next_bottleneck(
     large_model_provider_reference_deferral_pass: bool,
     provider_route_copy_source_guard_pass: bool,
     transport_trace_answer_packet_pass: bool,
+    ssd_wear_budget_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4432,8 +4450,10 @@ fn next_bottleneck(
             PROVIDER_ROUTE_COPY_SOURCE_GUARD.to_string()
         } else if !seventy_b_route_pass && !transport_trace_answer_packet_pass {
             TRANSPORT_TRACE_ANSWER_PACKET.to_string()
-        } else if !seventy_b_route_pass {
+        } else if !seventy_b_route_pass && !ssd_wear_budget_pass {
             SSD_WEAR_BUDGET.to_string()
+        } else if !seventy_b_route_pass {
+            COLDSTREAM_VS_MMAP.to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4515,6 +4535,7 @@ fn build_ordered_gap_queue(
     large_model_provider_reference_deferral_pass: bool,
     provider_route_copy_source_guard_pass: bool,
     transport_trace_answer_packet_pass: bool,
+    ssd_wear_budget_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4656,6 +4677,13 @@ fn build_ordered_gap_queue(
                 && large_model_provider_reference_deferral_pass
                 && provider_route_copy_source_guard_pass
                 && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+            {
+                "deferred_l1_ssd_wear_budgeted"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
             {
                 "deferred_l1_transport_trace_visible"
             } else if !heavy_long_context_enabled
@@ -4685,6 +4713,13 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+            {
+                "deferred_l1_ssd_wear_budgeted"
             } else if !heavy_long_context_enabled
                 && large_model_provider_reference_deferral_pass
                 && provider_route_copy_source_guard_pass
@@ -5551,6 +5586,7 @@ fn build_anomalies(
     large_model_provider_reference_deferral_pass: bool,
     provider_route_copy_source_guard_pass: bool,
     transport_trace_answer_packet_pass: bool,
+    ssd_wear_budget_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5982,10 +6018,21 @@ fn build_anomalies(
         && large_model_provider_reference_deferral_pass
         && provider_route_copy_source_guard_pass
         && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
     {
         anomalies.push(serde_json::json!({
-            "kind": "transport_trace_answer_packet_metadata_only",
-            "detail": "Provider/GGUF/KV/70B copy is source-guarded and ColdStream trace-to-AnswerPacket visibility is witnessed at L1, but no live ColdStream transport, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+            "kind": "ssd_wear_budget_metadata_only",
+            "detail": "ColdStream trace-to-AnswerPacket visibility and repeated SSD wear/energy/cache budgeting are witnessed at L1, but no live ColdStream-vs-mmap benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+        }));
+    } else if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "ssd_wear_budget_missing",
+            "detail": "Provider/GGUF/KV/70B copy is source-guarded and ColdStream trace-to-AnswerPacket visibility is witnessed at L1; the next non-heavy architecture cursor must budget repeated read/write volume, burst volume, energy, cache pollution, write amplification, rollback, and AnswerPacket caveats before live transport promotion."
         }));
     } else if !seventy_b_route_pass
         && !heavy_long_context_enabled
@@ -6377,21 +6424,22 @@ mod tests {
         const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL: usize = 61;
         const PROVIDER_ROUTE_COPY_SOURCE_GUARD: usize = 62;
         const TRANSPORT_TRACE_ANSWER_PACKET: usize = 63;
-        const SEVENTY_B: usize = 64;
+        const SSD_WEAR_BUDGET: usize = 64;
+        const SEVENTY_B: usize = 65;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 65] {
-            let mut values = [false; 65];
+        let flags = |true_indexes: &[usize]| -> [bool; 66] {
+            let mut values = [false; 66];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 65], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 66], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6460,11 +6508,12 @@ mod tests {
                 values[62],
                 values[63],
                 values[64],
+                values[65],
                 &missing,
             )
         };
-        let nb = |values: [bool; 65]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 65]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 66]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 66]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -8527,6 +8576,71 @@ mod tests {
                 TRANSPORT_TRACE_ANSWER_PACKET,
             ]))),
             "ssd_wear_budget"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL,
+                PROVIDER_ROUTE_COPY_SOURCE_GUARD,
+                TRANSPORT_TRACE_ANSWER_PACKET,
+                SSD_WEAR_BUDGET,
+            ]))),
+            "coldstream_vs_mmap"
         );
         assert_eq!(
             nb(flags(&with_floor(&[

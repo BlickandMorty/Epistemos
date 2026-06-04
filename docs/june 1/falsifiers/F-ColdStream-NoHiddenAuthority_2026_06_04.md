@@ -33,9 +33,10 @@ The witness rejects empty or duplicate page runs, duplicate ranges, duplicate UA
 
 ## Cursor
 
-- L1 next existing work: `ssd_wear_budget`
+- L1 next existing work at landing: `ssd_wear_budget`
+- Current L1 next existing work after downstream `F-SSD-WearBudget`: `coldstream_vs_mmap`
 - L2 route status: `vault_research_route_with_packetized_mitigation`
-- L2 next bottleneck: `ssd_wear_budget`
+- L2 next bottleneck after downstream `F-SSD-WearBudget`: `coldstream_vs_mmap`
 - L3 user-facing/product runtime: unchanged
 
 Correct phrasing: architecture cursor advanced; product capability / user surface did not.

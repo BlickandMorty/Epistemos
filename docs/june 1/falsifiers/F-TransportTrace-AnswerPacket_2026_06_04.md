@@ -14,8 +14,9 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 
 PASS as a metadata-only L1 architecture witness on 2026-06-04.
 
-This advances the architecture cursor only from `transport_trace_answer_packet`
-to `ssd_wear_budget`. It does not prove live ColdStream transport, mmap
+This advanced the architecture cursor only from `transport_trace_answer_packet`
+to `ssd_wear_budget` at landing. Downstream `F-SSD-WearBudget` now passes
+metadata-only, so the current cursor is `coldstream_vs_mmap`. It does not prove live ColdStream transport, mmap
 replacement, Metal I/O, KV-Direct 128K, live sparse 70B, provider routing, or
 any L3 user-facing runtime behavior.
 
@@ -45,9 +46,9 @@ and metadata overflow.
 
 ## Layer Truth
 
-- L1: advanced to `ssd_wear_budget`; `duplicate_risk_count=0`.
+- L1: advanced to `ssd_wear_budget` at landing; downstream `F-SSD-WearBudget` now advances the current cursor to `coldstream_vs_mmap`; `duplicate_risk_count=0`.
 - L2: remains `vault_research_route_with_packetized_mitigation`; current
-  `next_bottleneck=ssd_wear_budget`.
+  `next_bottleneck=coldstream_vs_mmap`.
 - L3: unchanged; no product runtime or UI WRV claim is promoted by this
   metadata-only witness.
 
