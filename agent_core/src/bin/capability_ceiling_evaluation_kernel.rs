@@ -72,6 +72,7 @@ const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
 const VERIFIER_BUDGET_AUCTION_PATH: &str =
     "artifacts/falsifiers/verifier_budget_auction/result.json";
+const KV_PAGE_SKETCH_INDEX_PATH: &str = "artifacts/falsifiers/kv_page_sketch_index/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -656,6 +657,86 @@ const VERIFIER_BUDGET_AUCTION_AXES: &[&str] = &[
     "max_auction_metadata_bytes",
     "auction_address",
 ];
+const KV_PAGE_SKETCH_INDEX_AXES: &[&str] = &[
+    "upstream_verifier_budget_auction_pass",
+    "kv_page_sketch_index_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "index_ids_bound",
+    "model_ids_bound",
+    "tokenizer_ids_bound",
+    "upstream_auction_ref_bound",
+    "page_ids_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "byte_counts_bound",
+    "min_key_sketch_bound",
+    "max_key_sketch_bound",
+    "sketch_dimension_bound",
+    "sketch_order_bound",
+    "semantic_tags_bound",
+    "recency_bound",
+    "hit_counts_bound",
+    "miss_counts_bound",
+    "compatibility_fences_bound",
+    "privacy_classes_bound",
+    "required_evidence_bound",
+    "false_negative_policy_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "sketch_index_address_deterministic",
+    "required_evidence_coverage_beats_recency_baseline",
+    "required_evidence_coverage_beats_tagless_baseline",
+    "required_evidence_coverage_beats_file_order_baseline",
+    "duplicate_index_rejected",
+    "duplicate_page_rejected",
+    "missing_uas_address_rejected",
+    "missing_digest_rejected",
+    "zero_byte_count_rejected",
+    "oversized_page_rejected",
+    "missing_min_sketch_rejected",
+    "missing_max_sketch_rejected",
+    "sketch_dimension_mismatch_rejected",
+    "sketch_order_rejected",
+    "missing_semantic_tag_rejected",
+    "missing_hit_count_rejected",
+    "missing_miss_count_rejected",
+    "missing_compatibility_fence_rejected",
+    "incompatible_fence_rejected",
+    "stale_page_rejected",
+    "invalid_privacy_class_rejected",
+    "missing_required_evidence_rejected",
+    "required_evidence_false_negative_rejected",
+    "missing_false_negative_policy_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "index_metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+    "sketch_index_count",
+    "page_count",
+    "training_page_count",
+    "held_out_page_count",
+    "required_evidence_page_count",
+    "semantic_tag_count",
+    "total_hit_count",
+    "total_miss_count",
+    "max_page_byte_count",
+    "max_index_metadata_bytes",
+    "sketch_dimension",
+    "required_evidence_coverage_bps",
+    "sketch_index_address",
+];
 
 fn main() {
     let report = build_report();
@@ -721,6 +802,7 @@ fn build_report() -> KernelReport {
     let budgeted_uncertainty_escalator = GateArtifact::read(BUDGETED_UNCERTAINTY_ESCALATOR_PATH);
     let sparse_wake_proposal_budget = GateArtifact::read(SPARSE_WAKE_PROPOSAL_BUDGET_PATH);
     let verifier_budget_auction = GateArtifact::read(VERIFIER_BUDGET_AUCTION_PATH);
+    let kv_page_sketch_index = GateArtifact::read(KV_PAGE_SKETCH_INDEX_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -757,6 +839,7 @@ fn build_report() -> KernelReport {
         &budgeted_uncertainty_escalator,
         &sparse_wake_proposal_budget,
         &verifier_budget_auction,
+        &kv_page_sketch_index,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -1125,6 +1208,8 @@ fn build_report() -> KernelReport {
         && sparse_wake_proposal_budget.all_axes_true(SPARSE_WAKE_PROPOSAL_BUDGET_AXES);
     let verifier_budget_auction_pass = verifier_budget_auction.overall_pass
         && verifier_budget_auction.all_axes_true(VERIFIER_BUDGET_AUCTION_AXES);
+    let kv_page_sketch_index_pass = kv_page_sketch_index.overall_pass
+        && kv_page_sketch_index.all_axes_true(KV_PAGE_SKETCH_INDEX_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -1161,6 +1246,7 @@ fn build_report() -> KernelReport {
         &budgeted_uncertainty_escalator,
         &sparse_wake_proposal_budget,
         &verifier_budget_auction,
+        &kv_page_sketch_index,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -1195,6 +1281,7 @@ fn build_report() -> KernelReport {
         budgeted_uncertainty_escalator_pass,
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
+        kv_page_sketch_index_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -1245,6 +1332,7 @@ fn build_report() -> KernelReport {
         budgeted_uncertainty_escalator_pass,
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
+        kv_page_sketch_index_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -1299,6 +1387,7 @@ fn build_report() -> KernelReport {
         budgeted_uncertainty_escalator_pass,
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
+        kv_page_sketch_index_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1655,6 +1744,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "kv_page_sketch_index_pass",
+        kv_page_sketch_index_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1832,6 +1928,11 @@ fn build_report() -> KernelReport {
         "verifier_budget_auction",
         &verifier_budget_auction,
     );
+    add_gate_summary(
+        &mut measurements,
+        "kv_page_sketch_index",
+        &kv_page_sketch_index,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1867,6 +1968,7 @@ fn build_report() -> KernelReport {
         budgeted_uncertainty_escalator_pass,
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
+        kv_page_sketch_index_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -2135,6 +2237,7 @@ fn classify_route(
     budgeted_uncertainty_escalator_pass: bool,
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
+    kv_page_sketch_index_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -2164,6 +2267,7 @@ fn classify_route(
         && budgeted_uncertainty_escalator_pass
         && sparse_wake_proposal_budget_pass
         && verifier_budget_auction_pass
+        && kv_page_sketch_index_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -2227,6 +2331,7 @@ fn next_bottleneck(
     budgeted_uncertainty_escalator_pass: bool,
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
+    kv_page_sketch_index_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -2321,8 +2426,10 @@ fn next_bottleneck(
             "sparse_wake_proposal_budget".to_string()
         } else if !verifier_budget_auction_pass {
             "verifier_budget_auction".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !kv_page_sketch_index_pass {
             "kv_page_sketch_index".to_string()
+        } else if !seventy_b_route_pass {
+            "kv_page_bloom_sketch_coverage".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -2384,6 +2491,7 @@ fn build_ordered_gap_queue(
     budgeted_uncertainty_escalator_pass: bool,
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
+    kv_page_sketch_index_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -2930,7 +3038,9 @@ fn build_ordered_gap_queue(
             32,
             "kv_page_sketch_index",
             "Meta Control",
-            if verifier_budget_auction_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            if kv_page_sketch_index_pass {
+                "completed"
+            } else if verifier_budget_auction_pass && !heavy_long_context_enabled && !seventy_b_route_pass
             {
                 "next_active_architecture_cursor"
             } else {
@@ -2940,6 +3050,20 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "KV/page sketches must preserve required evidence coverage and compatibility fences before query-aware page selection can advance.",
             "Keep sketch indexes shadow-only until false-negative policy, coverage, rollback, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            33,
+            "kv_page_bloom_sketch_coverage",
+            "Meta Control",
+            if kv_page_sketch_index_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_kv_page_sketch_index"
+            },
+            "F-KVPageBloomSketch-Coverage",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Bloom-like KV/page filters may over-include, but they must not silently drop proof-critical or privacy-critical required evidence.",
+            "Keep bloom sketches shadow-only until false-negative coverage, rollback, RunEventLog, and AnswerPacket evidence pass.",
         ),
     ]
 }
@@ -3075,6 +3199,7 @@ fn build_anomalies(
     budgeted_uncertainty_escalator_pass: bool,
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
+    kv_page_sketch_index_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -3321,10 +3446,20 @@ fn build_anomalies(
             "detail": "Sparse wake proposal budget evidence is present; the next non-heavy architecture cursor must prove candidate wake units compete under verifier, byte, and latency budgets before any residency work can promote."
         }));
     }
-    if verifier_budget_auction_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if verifier_budget_auction_pass
+        && !kv_page_sketch_index_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "kv_page_sketch_index_missing",
             "detail": "VerifierBudgetAuction evidence is present; the next non-heavy architecture cursor must prove KV/page sketch indexes preserve required evidence coverage before query-aware selection can advance."
+        }));
+    }
+    if kv_page_sketch_index_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "kv_page_bloom_sketch_coverage_missing",
+            "detail": "KVPageSketchIndex evidence is present; the next non-heavy architecture cursor must prove bloom-like page filters do not drop required proof or privacy evidence before query-aware selection can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -3479,10 +3614,11 @@ mod tests {
         const BUDGETED_UNCERTAINTY: usize = 26;
         const SPARSE_WAKE: usize = 27;
         const VERIFIER_AUCTION: usize = 28;
-        const SEVENTY_B: usize = 29;
-        const SCHEMA: usize = 30;
+        const KV_PAGE_SKETCH: usize = 29;
+        const SEVENTY_B: usize = 30;
+        const SCHEMA: usize = 31;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 31];
+            let mut values = [false; 32];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -3491,7 +3627,7 @@ mod tests {
                 values[7], values[8], values[9], values[10], values[11], values[12], values[13],
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
-                values[28], values[29], values[30],
+                values[28], values[29], values[30], values[31],
             )
         };
         assert_eq!(
@@ -3525,6 +3661,7 @@ mod tests {
                 BUDGETED_UNCERTAINTY,
                 SPARSE_WAKE,
                 VERIFIER_AUCTION,
+                KV_PAGE_SKETCH,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3565,6 +3702,7 @@ mod tests {
                 BUDGETED_UNCERTAINTY,
                 SPARSE_WAKE,
                 VERIFIER_AUCTION,
+                KV_PAGE_SKETCH,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3626,21 +3764,22 @@ mod tests {
         const BUDGETED_UNCERTAINTY_ESCALATOR: usize = 41;
         const SPARSE_WAKE_PROPOSAL_BUDGET: usize = 42;
         const VERIFIER_BUDGET_AUCTION: usize = 43;
-        const SEVENTY_B: usize = 44;
+        const KV_PAGE_SKETCH_INDEX: usize = 44;
+        const SEVENTY_B: usize = 45;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 45] {
-            let mut values = [false; 45];
+        let flags = |true_indexes: &[usize]| -> [bool; 46] {
+            let mut values = [false; 46];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 45], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 46], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -3689,11 +3828,12 @@ mod tests {
                 values[42],
                 values[43],
                 values[44],
+                values[45],
                 &missing,
             )
         };
-        let nb = |values: [bool; 45]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 45]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 46]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 46]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -4635,6 +4775,51 @@ mod tests {
             "kv_page_sketch_index"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+            ]))),
+            "kv_page_bloom_sketch_coverage"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -4699,6 +4884,7 @@ mod tests {
                 BUDGETED_UNCERTAINTY_ESCALATOR,
                 SPARSE_WAKE_PROPOSAL_BUDGET,
                 VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

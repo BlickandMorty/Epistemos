@@ -1,0 +1,830 @@
+{
+  "falsifier_id": "F-KVPageSketchIndex",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_page_sketch_index.sh",
+  "command_digest": "sha256:dd469b9b7f41d24233ece0d0cd67d3f185f70cd227b21febde2898138d41b6de",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "5057419d3c96a640277d7f869ef9a0c392e1fd7e",
+  "fixture_id": "kv_page_sketch_index_v1",
+  "timestamp_utc": "2026-06-04T04:46:11Z",
+  "result_digest": "sha256:adb777468f86e2240bbb5cae7a949d3c82da0d5c53f8bd6bc56bb9f8ebac9ef0",
+  "measurements": {
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_counts_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_index_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_negative_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_page_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_counts_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_sketch_index_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_index_metadata_bytes": {
+      "value": 114688,
+      "unit": "bytes"
+    },
+    "max_key_sketch_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_page_byte_count": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "min_key_sketch_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "miss_counts_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_false_negative_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_hit_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_max_sketch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_min_sketch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_miss_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_evidence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_semantic_tag_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oversized_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "page_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "recency_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_file_order_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_recency_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_tagless_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "required_evidence_false_negative_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "semantic_tag_count": {
+      "value": 24,
+      "unit": "count"
+    },
+    "semantic_tags_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_dimension": {
+      "value": 8,
+      "unit": "dimension"
+    },
+    "sketch_dimension_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_dimension_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_index_address": {
+      "value": "uas:kv-page-sketch-index:364a4035b13b699c76a2230143672b6b659aca1eb191ce998a118947a18ed024",
+      "unit": "uas_address"
+    },
+    "sketch_index_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_index_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "sketch_order_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_order_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_hit_count": {
+      "value": 64,
+      "unit": "count"
+    },
+    "total_miss_count": {
+      "value": 35,
+      "unit": "count"
+    },
+    "training_page_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "training_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_auction_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_verifier_budget_auction_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_counts_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_index_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_negative_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_page_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hit_counts_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_sketch_index_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_index_metadata_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes"
+    },
+    "max_key_sketch_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_page_byte_count": {
+      "operator": "<=",
+      "value": 16777216,
+      "unit": "bytes"
+    },
+    "min_key_sketch_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "miss_counts_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_false_negative_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_hit_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_max_sketch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_min_sketch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_miss_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_evidence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_semantic_tag_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oversized_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "count"
+    },
+    "page_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "recency_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_file_order_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_recency_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_beats_tagless_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_coverage_bps": {
+      "operator": "==",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "required_evidence_false_negative_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "count"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "semantic_tag_count": {
+      "operator": ">=",
+      "value": 16,
+      "unit": "count"
+    },
+    "semantic_tags_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_dimension": {
+      "operator": "==",
+      "value": 8,
+      "unit": "dimension"
+    },
+    "sketch_dimension_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_dimension_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_index_address": {
+      "operator": "contains",
+      "value": "uas:kv-page-sketch-index:",
+      "unit": "uas_address"
+    },
+    "sketch_index_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_index_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "sketch_order_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sketch_order_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_hit_count": {
+      "operator": ">=",
+      "value": 48,
+      "unit": "count"
+    },
+    "total_miss_count": {
+      "operator": ">=",
+      "value": 8,
+      "unit": "count"
+    },
+    "training_page_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "training_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_auction_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_verifier_budget_auction_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_ref_bound": true,
+    "byte_counts_bound": true,
+    "cloud_source_rejected": true,
+    "compatibility_fences_bound": true,
+    "duplicate_index_rejected": true,
+    "duplicate_page_rejected": true,
+    "false_negative_policy_bound": true,
+    "held_out_page_count": true,
+    "held_out_split_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "hit_counts_bound": true,
+    "incompatible_fence_rejected": true,
+    "index_ids_bound": true,
+    "index_metadata_budget_rejected": true,
+    "invalid_privacy_class_rejected": true,
+    "kv_page_sketch_index_fixture_present": true,
+    "live_policy_mutation_rejected": true,
+    "live_policy_not_mutated": true,
+    "max_index_metadata_bytes": true,
+    "max_key_sketch_bound": true,
+    "max_page_byte_count": true,
+    "min_key_sketch_bound": true,
+    "miss_counts_bound": true,
+    "missing_answer_packet_rejected": true,
+    "missing_compatibility_fence_rejected": true,
+    "missing_digest_rejected": true,
+    "missing_false_negative_policy_rejected": true,
+    "missing_hit_count_rejected": true,
+    "missing_max_sketch_rejected": true,
+    "missing_min_sketch_rejected": true,
+    "missing_miss_count_rejected": true,
+    "missing_required_evidence_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_semantic_tag_rejected": true,
+    "missing_uas_address_rejected": true,
+    "model_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "oversized_page_rejected": true,
+    "page_count": true,
+    "page_digests_bound": true,
+    "page_ids_bound": true,
+    "privacy_classes_bound": true,
+    "recency_bound": true,
+    "required_evidence_bound": true,
+    "required_evidence_coverage_beats_file_order_baseline": true,
+    "required_evidence_coverage_beats_recency_baseline": true,
+    "required_evidence_coverage_beats_tagless_baseline": true,
+    "required_evidence_coverage_bps": true,
+    "required_evidence_false_negative_rejected": true,
+    "required_evidence_page_count": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "run_event_log_bound": true,
+    "semantic_tag_count": true,
+    "semantic_tags_bound": true,
+    "sketch_dimension": true,
+    "sketch_dimension_bound": true,
+    "sketch_dimension_mismatch_rejected": true,
+    "sketch_index_address": true,
+    "sketch_index_address_deterministic": true,
+    "sketch_index_count": true,
+    "sketch_order_bound": true,
+    "sketch_order_rejected": true,
+    "stale_page_rejected": true,
+    "tokenizer_ids_bound": true,
+    "total_hit_count": true,
+    "total_miss_count": true,
+    "training_page_count": true,
+    "training_split_bound": true,
+    "uas_page_addresses_bound": true,
+    "unbeaten_baseline_rejected": true,
+    "upstream_auction_ref_bound": true,
+    "upstream_verifier_budget_auction_pass": true,
+    "zero_byte_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only KVPageSketchIndex witness; no live KV restore, no query-aware selector promotion, no model/runtime bytes, no hidden cloud, and no SSD-as-RAM claim"
+    }
+  ],
+  "notes": "scope=metadata_only;organ=KVPageSketchIndex;reviewer=codex;reviewed_at_utc=2026-06-04T00:00:00Z;validator=falsifier_validator;detail=KV/page sketches bind UAS page identity, byte count, compatibility fence, semantic sketch evidence, hit/miss telemetry, privacy class, rollback, RunEventLog, and AnswerPacket visibility before query-aware selection can promote."
+}
