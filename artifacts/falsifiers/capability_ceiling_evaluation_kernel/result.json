@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "9db7d20fdbf4ac62d2660c5101a50119b313e92c",
+  "commit_sha": "4931edc1384113250da9f6b1c3e5e2b3b337d86e",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T08:22:48Z",
-  "result_digest": "sha256:6c54c0beb30dea05f712302c138bc18e54c9079e7c56bcf833af086ad7da1290",
+  "timestamp_utc": "2026-06-04T09:05:00Z",
+  "result_digest": "sha256:e42c272d725acb481c4b375f3cd788d70b493e98d53d5c5eaae131d8721e7cba",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -378,7 +378,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "route_distillation_tournament",
+      "value": "proof_search_signal_route_feedback",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -767,11 +767,21 @@
           "order": 38,
           "gap_id": "route_distillation_tournament",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-RouteDistillationTournament",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Expensive full/proof/oracle traces must produce held-out route labels that improve the small scout over direct heuristics.",
           "rollback": "Keep distillation labels offline/shadow-only until train/held-out split, baseline wins, rollback, RunEventLog, and AnswerPacket proof pass."
+        },
+        {
+          "order": 39,
+          "gap_id": "proof_search_signal_route_feedback",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ProofSearchSignal-RouteFeedback",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Lean/proof outcomes must become route features without becoming hidden truth or bypassing tests, citations, SCOPE-Rex, or AnswerPacket.",
+          "rollback": "Keep proof feedback shadow-only until pass/fail/repair traces, verifier outcomes, rollback, RunEventLog, and AnswerPacket evidence pass."
         }
       ],
       "unit": "queue"
@@ -899,6 +909,22 @@
     "residency_construction_graph_summary": {
       "value": {
         "path": "artifacts/falsifiers/residency_construction_graph/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "route_distillation_tournament_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_distillation_tournament_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/route_distillation_tournament/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1336,6 +1362,11 @@
       "value": true,
       "unit": "bool"
     },
+    "route_distillation_tournament_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "route_scout_ssm_baseline_pass": {
       "operator": "==",
       "value": true,
@@ -1465,6 +1496,7 @@
     "query_aware_kv_selector_pass": true,
     "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
+    "route_distillation_tournament_pass": true,
     "route_scout_ssm_baseline_pass": true,
     "rust_route_kernel_model_check_pass": true,
     "seventy_b_bottleneck_identified": true,
@@ -1495,8 +1527,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "route_distillation_tournament_missing",
-      "detail": "ConstructionSearchTournament evidence is present; the next non-heavy architecture cursor must prove full/proof/oracle trace labels improve the small scout on held-out route choices before distillation policy can promote."
+      "kind": "proof_search_signal_route_feedback_missing",
+      "detail": "RouteDistillationTournament evidence is present; the next non-heavy architecture cursor must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1504,8 +1536,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "route_distillation_tournament"
+      "detail": "proof_search_signal_route_feedback"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=route_distillation_tournament; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=proof_search_signal_route_feedback; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

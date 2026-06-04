@@ -1,0 +1,840 @@
+{
+  "falsifier_id": "F-RouteDistillationTournament",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_route_distillation_tournament.sh",
+  "command_digest": "sha256:eaf6fd0aca7f20fac59d5bb0e31f4e415a4245f8d30824c87d6dfdc013a0fd48",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "4931edc1384113250da9f6b1c3e5e2b3b337d86e",
+  "fixture_id": "route_distillation_tournament_v1",
+  "timestamp_utc": "2026-06-04T09:00:15Z",
+  "result_digest": "sha256:711e5ccff97a1b6e9484c9747dd3964ffe147c9b75ab7670f156b7504f823047",
+  "measurements": {
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_construction_winner_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_direct_heuristic_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_pre_distill_scout_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "value": 700,
+      "unit": "bps"
+    },
+    "calibration_error_too_high_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_failure_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_winner_baseline_bps": {
+      "value": 8000,
+      "unit": "bps"
+    },
+    "construction_winner_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_heuristic_baseline_bps": {
+      "value": 7100,
+      "unit": "bps"
+    },
+    "direct_heuristic_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_tournament_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_trace_label_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expensive_trace_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_attempt_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bps": {
+      "value": 8900,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bps": {
+      "value": 9100,
+      "unit": "bps"
+    },
+    "label_agreement_too_low_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_tournament_metadata_bytes": {
+      "value": 128000,
+      "unit": "bytes"
+    },
+    "max_trace_tokens": {
+      "value": 46000,
+      "unit": "token"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expensive_trace_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_label_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_label_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_feature_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_label_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pre_distill_scout_baseline_bps": {
+      "value": 7600,
+      "unit": "bps"
+    },
+    "pre_distill_scout_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_oracle_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_distillation_tournament_address": {
+      "value": "uas:route-distillation-tournament:sha256:3ed14f0a253386bf2e4d352841c6997d48ba171b0ae049df2de05cafca0d5a6c",
+      "unit": "label"
+    },
+    "route_distillation_tournament_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_distillation_tournament_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_feature_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_scout_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_count": {
+      "value": 4,
+      "unit": "kind"
+    },
+    "source_kind_diversity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_count": {
+      "value": 2,
+      "unit": "tournament"
+    },
+    "tournament_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_label_count": {
+      "value": 12,
+      "unit": "label"
+    },
+    "trace_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "value": 6,
+      "unit": "case"
+    },
+    "train_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_construction_search_tournament_pass": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_construction_winner_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_direct_heuristic_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_pre_distill_scout_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "operator": "<=",
+      "value": 900,
+      "unit": "bps"
+    },
+    "calibration_error_too_high_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compiler_failure_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_winner_baseline_bps": {
+      "operator": "<",
+      "value": 8900,
+      "unit": "bps"
+    },
+    "construction_winner_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_heuristic_baseline_bps": {
+      "operator": "<",
+      "value": 8900,
+      "unit": "bps"
+    },
+    "direct_heuristic_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_tournament_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_trace_label_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expensive_trace_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_attempt_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bps": {
+      "operator": ">=",
+      "value": 8700,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bps": {
+      "operator": ">=",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "label_agreement_too_low_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_tournament_metadata_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes"
+    },
+    "max_trace_tokens": {
+      "operator": "<=",
+      "value": 64000,
+      "unit": "token"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expensive_trace_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_label_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_label_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_feature_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_label_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pre_distill_scout_baseline_bps": {
+      "operator": "<",
+      "value": 8900,
+      "unit": "bps"
+    },
+    "pre_distill_scout_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_oracle_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_distillation_tournament_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "label"
+    },
+    "route_distillation_tournament_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_distillation_tournament_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_feature_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_scout_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "kind"
+    },
+    "source_kind_diversity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "tournament"
+    },
+    "tournament_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_label_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "label"
+    },
+    "trace_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "case"
+    },
+    "train_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_construction_search_tournament_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_ref_bound": true,
+    "beats_construction_winner_baseline": true,
+    "beats_direct_heuristic_baseline": true,
+    "beats_pre_distill_scout_baseline": true,
+    "calibration_error_bound": true,
+    "calibration_error_bps": true,
+    "calibration_error_too_high_rejected": true,
+    "cloud_source_rejected": true,
+    "compatibility_fence_bound": true,
+    "compiler_failure_traces_bound": true,
+    "construction_winner_baseline_bps": true,
+    "construction_winner_unbeaten_rejected": true,
+    "direct_heuristic_baseline_bps": true,
+    "direct_heuristic_unbeaten_rejected": true,
+    "duplicate_tournament_rejected": true,
+    "duplicate_trace_label_rejected": true,
+    "expensive_trace_refs_bound": true,
+    "failed_attempt_traces_bound": true,
+    "full_wake_traces_bound": true,
+    "held_out_case_count": true,
+    "held_out_split_bound": true,
+    "held_out_success_bound": true,
+    "held_out_success_bps": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_privacy_rejected": true,
+    "invalid_split_rejected": true,
+    "label_agreement_bound": true,
+    "label_agreement_bps": true,
+    "label_agreement_too_low_rejected": true,
+    "live_policy_not_promoted": true,
+    "live_policy_promotion_rejected": true,
+    "max_tournament_metadata_bytes": true,
+    "max_trace_tokens": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_expensive_trace_rejected": true,
+    "missing_held_out_split_rejected": true,
+    "missing_oracle_label_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_route_label_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scout_feature_rejected": true,
+    "mission_ids_bound": true,
+    "model_bytes_rejected": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_model_bytes_loaded": true,
+    "no_runtime_bytes_loaded": true,
+    "oracle_label_refs_bound": true,
+    "policy_refs_bound": true,
+    "pre_distill_scout_baseline_bps": true,
+    "pre_distill_scout_unbeaten_rejected": true,
+    "privacy_classes_bound": true,
+    "proof_oracle_traces_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_distillation_tournament_address": true,
+    "route_distillation_tournament_address_deterministic": true,
+    "route_distillation_tournament_fixture_present": true,
+    "route_labels_bound": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "scout_feature_refs_bound": true,
+    "small_scout_refs_bound": true,
+    "source_kind_count": true,
+    "source_kind_diversity_bound": true,
+    "source_kind_diversity_missing_rejected": true,
+    "tournament_count": true,
+    "tournament_ids_bound": true,
+    "trace_label_count": true,
+    "trace_labels_bound": true,
+    "trace_token_budget_bound": true,
+    "trace_token_budget_rejected": true,
+    "train_case_count": true,
+    "train_split_bound": true,
+    "upstream_construction_search_tournament_pass": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "RouteDistillationTournament proves trace-to-label distillation shape and rejection behavior only; it wakes no bytes, mutates no live route policy, and promotes no 70B or sparse runtime authority."
+    }
+  ],
+  "notes": "metadata-only Meta Control witness; expensive full/proof/oracle/compiler/failure traces become offline route labels that improve a small scout on held-out choices while preserving rollback, RunEventLog, AnswerPacket, no-hidden-authority, no-cloud, and zero-runtime/model-byte guards; L1 only, not product/live sparse route evidence"
+}

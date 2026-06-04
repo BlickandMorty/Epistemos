@@ -231,6 +231,10 @@ name = "falsify_construction_search_tournament"
 path = "src/bin/falsify_construction_search_tournament.rs"
 
 [[bin]]
+name = "falsify_route_distillation_tournament"
+path = "src/bin/falsify_route_distillation_tournament.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
