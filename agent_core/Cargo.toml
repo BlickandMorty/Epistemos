@@ -191,6 +191,10 @@ name = "falsify_route_scout_ssm_baseline"
 path = "src/bin/falsify_route_scout_ssm_baseline.rs"
 
 [[bin]]
+name = "falsify_two_stage_route_scout_abstain"
+path = "src/bin/falsify_two_stage_route_scout_abstain.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -1,5 +1,5 @@
 {
-  "falsifier_id": "F-RouteScoutSSM-Baseline",
+  "falsifier_id": "F-TwoStageRouteScout-Abstain",
   "schema_version": "2026-05-18.2",
   "artifact_kind": "primary_witness",
   "hardware_pin": {
@@ -9,8 +9,8 @@
     "unified_memory_gb": 16,
     "memory_bandwidth_gb_s": 200
   },
-  "command": "Tools/falsifiers/f_route_scout_ssm_baseline.sh",
-  "command_digest": "sha256:6a655155337b31a68f7f5cde29d245f5d0928bc574cb7f569ab99072d119878c",
+  "command": "Tools/falsifiers/f_two_stage_route_scout_abstain.sh",
+  "command_digest": "sha256:5389889cc9addca5a682826bff6f315b5e9b3a141931fc6ef67dfdcc5545f7d4",
   "runner_environment": {
     "cwd": "repo_root",
     "shell": "zsh",
@@ -29,11 +29,27 @@
     "power_source": "unknown"
   },
   "commit_sha": "d57960f57f7dbe0f986da10baa43f56c72cd0fec",
-  "fixture_id": "route_scout_ssm_baseline_v1",
-  "timestamp_utc": "2026-06-04T00:36:37Z",
-  "result_digest": "sha256:15a2d7ea794aef1b0e2afa0ae2e2ce298993eabbd986abdda4137f7a928052f3",
+  "fixture_id": "two_stage_route_scout_abstain_v1",
+  "timestamp_utc": "2026-06-04T01:35:59Z",
+  "result_digest": "sha256:36386e56de4b9d9f26f396e712d54e1a47e3ab003fde3b1a6f14284cc2938e27",
   "measurements": {
+    "abstain_condition_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_accuracy_beats_no_abstain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_case_count": {
+      "value": 2,
+      "unit": "count"
+    },
     "abstention_case_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "all_in_one_selector_unbeaten_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -41,27 +57,19 @@
       "value": true,
       "unit": "bool"
     },
-    "best_baseline_route_calibration_error_bps": {
-      "value": 3200,
-      "unit": "bps"
-    },
-    "best_baseline_route_family_accuracy_bps": {
+    "best_baseline_abstention_accuracy_bps": {
       "value": 7142,
       "unit": "bps"
     },
-    "best_baseline_verifier_calibration_error_bps": {
-      "value": 2500,
+    "best_baseline_route_success_bps": {
+      "value": 7142,
       "unit": "bps"
     },
-    "best_baseline_verifier_need_accuracy_bps": {
-      "value": 8571,
-      "unit": "bps"
-    },
-    "cache_features_bound": {
+    "cloud_route_rejected": {
       "value": true,
       "unit": "bool"
     },
-    "cloud_route_rejected": {
+    "conflict_non_abstain_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -69,7 +77,11 @@
       "value": true,
       "unit": "bool"
     },
-    "embedding_baseline_unbeaten_rejected": {
+    "family_selector_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "family_selector_separation_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -89,7 +101,15 @@
       "value": true,
       "unit": "bool"
     },
-    "hidden_state_bound": {
+    "high_uncertainty_non_abstain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "irrelevant_selector_chosen_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "irrelevant_selector_rejected_by_fixture": {
       "value": true,
       "unit": "bool"
     },
@@ -101,27 +121,15 @@
       "value": true,
       "unit": "bool"
     },
-    "max_scout_active_bytes": {
-      "value": 1048576,
+    "max_two_stage_active_bytes": {
+      "value": 4194304,
       "unit": "bytes"
     },
+    "missing_abstain_threshold_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
     "missing_answer_packet_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_feature_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_label_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_logits_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_prediction_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -133,11 +141,19 @@
       "value": true,
       "unit": "bool"
     },
+    "missing_stage_a_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stage_b_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
     "mission_ids_bound": {
       "value": true,
       "unit": "bool"
     },
-    "no_held_out_rejected": {
+    "no_abstain_unbeaten_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -157,55 +173,23 @@
       "value": true,
       "unit": "bool"
     },
-    "random_baseline_unbeaten_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "recency_baseline_unbeaten_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
     "rollback_bound": {
       "value": true,
       "unit": "bool"
     },
-    "route_calibration_beats_baselines": {
+    "route_family_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "route_success_beats_all_in_one": {
       "value": true,
       "unit": "bool"
     },
-    "route_calibration_error_bps": {
-      "value": 800,
-      "unit": "bps"
-    },
-    "route_family_accuracy_beats_embedding": {
+    "route_success_beats_no_abstain": {
       "value": true,
       "unit": "bool"
     },
-    "route_family_accuracy_beats_random": {
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_beats_recency": {
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_beats_static": {
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_bps": {
-      "value": 10000,
-      "unit": "bps"
-    },
-    "route_family_labels_bound": {
-      "value": true,
-      "unit": "bool"
-    },
-    "route_logits_bound": {
-      "value": true,
-      "unit": "bool"
-    },
-    "route_scout_fixture_present": {
+    "route_success_beats_static": {
       "value": true,
       "unit": "bool"
     },
@@ -213,43 +197,35 @@
       "value": true,
       "unit": "bool"
     },
-    "scout_address": {
-      "value": "uas:route-scout:sha256:38f0aab477fdf618e994944b471c635e4a4bdec727c9e4bb5f7a38f7b95c8956",
-      "unit": "uas_address"
-    },
-    "scout_address_deterministic": {
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_cheaper_than_heavy_route": {
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_not_cheaper_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_over_budget_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_predictions_present": {
-      "value": true,
-      "unit": "bool"
-    },
     "source_features_bound": {
       "value": true,
       "unit": "bool"
     },
-    "static_baseline_unbeaten_rejected": {
+    "stage_a_family_choice_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_a_no_selector_leak": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_a_selector_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_b_family_specific": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_b_selector_choice_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "static_selector_unbeaten_rejected": {
       "value": true,
       "unit": "bool"
     },
     "task_signatures_bound": {
-      "value": true,
-      "unit": "bool"
-    },
-    "trace_features_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -261,61 +237,77 @@
       "value": 2,
       "unit": "count"
     },
-    "uncalibrated_scout_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "unknown_route_family_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "upstream_verifier_regret_ledger_pass": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_calibration_beats_baselines": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_calibration_error_bps": {
-      "value": 871,
-      "unit": "bps"
-    },
-    "verifier_features_bound": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_embedding": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_random": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_recency": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_static": {
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_bps": {
+    "two_stage_abstention_accuracy_bps": {
       "value": 10000,
       "unit": "bps"
     },
-    "verifier_need_labels_bound": {
+    "two_stage_address": {
+      "value": "uas:two-stage-route-scout:sha256:839b94bbec0141117669d2ab7d509707bd0e9c5d6aa0b1084d0978e23570e809",
+      "unit": "uas_address"
+    },
+    "two_stage_address_deterministic": {
       "value": true,
       "unit": "bool"
     },
-    "verifier_static_baseline_unbeaten_rejected": {
+    "two_stage_cheaper_than_heavy_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_not_cheaper_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_over_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_route_success_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "uncertainty_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_scout_ssm_baseline_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_conflict_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_features_bound": {
       "value": true,
       "unit": "bool"
     }
   },
   "acceptance_thresholds": {
+    "abstain_condition_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_accuracy_beats_no_abstain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_case_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
     "abstention_case_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_in_one_selector_unbeaten_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -325,12 +317,12 @@
       "value": true,
       "unit": "bool"
     },
-    "cache_features_bound": {
+    "cloud_route_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "cloud_route_rejected": {
+    "conflict_non_abstain_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -340,7 +332,12 @@
       "value": true,
       "unit": "bool"
     },
-    "embedding_baseline_unbeaten_rejected": {
+    "family_selector_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "family_selector_separation_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -365,7 +362,17 @@
       "value": true,
       "unit": "bool"
     },
-    "hidden_state_bound": {
+    "high_uncertainty_non_abstain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "irrelevant_selector_chosen_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "irrelevant_selector_rejected_by_fixture": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -380,32 +387,17 @@
       "value": true,
       "unit": "bool"
     },
-    "max_scout_active_bytes": {
+    "max_two_stage_active_bytes": {
       "operator": "<=",
-      "value": 4194304,
+      "value": 6291456,
       "unit": "bytes"
     },
+    "missing_abstain_threshold_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "missing_answer_packet_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_feature_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_label_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_logits_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "missing_prediction_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -420,12 +412,22 @@
       "value": true,
       "unit": "bool"
     },
+    "missing_stage_a_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stage_b_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "mission_ids_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "no_held_out_rejected": {
+    "no_abstain_unbeaten_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -450,67 +452,27 @@
       "value": true,
       "unit": "bool"
     },
-    "random_baseline_unbeaten_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "recency_baseline_unbeaten_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "rollback_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "route_calibration_beats_baselines": {
+    "route_family_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "count"
+    },
+    "route_success_beats_all_in_one": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "route_calibration_error_bps": {
-      "operator": "<=",
-      "value": 3199,
-      "unit": "bps"
-    },
-    "route_family_accuracy_beats_embedding": {
+    "route_success_beats_no_abstain": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "route_family_accuracy_beats_random": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_beats_recency": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_beats_static": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "route_family_accuracy_bps": {
-      "operator": ">=",
-      "value": 7143,
-      "unit": "bps"
-    },
-    "route_family_labels_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "route_logits_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "route_scout_fixture_present": {
+    "route_success_beats_static": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -520,52 +482,42 @@
       "value": true,
       "unit": "bool"
     },
-    "scout_address": {
-      "operator": "contains",
-      "value": "uas:route-scout:",
-      "unit": "uas_address"
-    },
-    "scout_address_deterministic": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_cheaper_than_heavy_route": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_not_cheaper_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_over_budget_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "scout_predictions_present": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "source_features_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "static_baseline_unbeaten_rejected": {
+    "stage_a_family_choice_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_a_no_selector_leak": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_a_selector_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_b_family_specific": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stage_b_selector_choice_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "static_selector_unbeaten_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "task_signatures_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "trace_features_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -580,147 +532,137 @@
       "value": 2,
       "unit": "count"
     },
-    "uncalibrated_scout_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "unknown_route_family_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "upstream_verifier_regret_ledger_pass": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_calibration_beats_baselines": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_calibration_error_bps": {
-      "operator": "<=",
-      "value": 2499,
+    "two_stage_abstention_accuracy_bps": {
+      "operator": ">=",
+      "value": 7143,
       "unit": "bps"
+    },
+    "two_stage_address": {
+      "operator": "contains",
+      "value": "uas:two-stage-route-scout:",
+      "unit": "uas_address"
+    },
+    "two_stage_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_cheaper_than_heavy_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_not_cheaper_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_over_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_route_success_bps": {
+      "operator": ">=",
+      "value": 7143,
+      "unit": "bps"
+    },
+    "uncertainty_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_scout_ssm_baseline_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_conflict_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     },
     "verifier_features_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_embedding": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_random": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_recency": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_beats_static": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_need_accuracy_bps": {
-      "operator": ">=",
-      "value": 8572,
-      "unit": "bps"
-    },
-    "verifier_need_labels_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "verifier_static_baseline_unbeaten_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     }
   },
   "pass_per_axis": {
+    "abstain_condition_bound": true,
+    "abstention_accuracy_beats_no_abstain": true,
+    "abstention_case_count": true,
     "abstention_case_present": true,
+    "all_in_one_selector_unbeaten_rejected": true,
     "answer_packet_ref_bound": true,
-    "cache_features_bound": true,
     "cloud_route_rejected": true,
+    "conflict_non_abstain_rejected": true,
     "duplicate_task_rejected": true,
-    "embedding_baseline_unbeaten_rejected": true,
+    "family_selector_mismatch_rejected": true,
+    "family_selector_separation_bound": true,
     "held_out_split_bound": true,
     "held_out_task_count": true,
     "hidden_chain_exposure_rejected": true,
     "hidden_live_authority_rejected": true,
-    "hidden_state_bound": true,
+    "high_uncertainty_non_abstain_rejected": true,
+    "irrelevant_selector_chosen_rejected": true,
+    "irrelevant_selector_rejected_by_fixture": true,
     "live_policy_mutation_rejected": true,
     "live_policy_not_mutated": true,
-    "max_scout_active_bytes": true,
+    "max_two_stage_active_bytes": true,
+    "missing_abstain_threshold_rejected": true,
     "missing_answer_packet_rejected": true,
-    "missing_feature_rejected": true,
-    "missing_label_rejected": true,
-    "missing_logits_rejected": true,
-    "missing_prediction_rejected": true,
     "missing_rollback_rejected": true,
     "missing_run_event_log_rejected": true,
+    "missing_stage_a_rejected": true,
+    "missing_stage_b_rejected": true,
     "mission_ids_bound": true,
-    "no_held_out_rejected": true,
+    "no_abstain_unbeaten_rejected": true,
     "no_hidden_chain": true,
     "no_hidden_cloud": true,
     "no_hidden_route_authority": true,
     "no_runtime_bytes_loaded": true,
-    "random_baseline_unbeaten_rejected": true,
-    "recency_baseline_unbeaten_rejected": true,
     "rollback_bound": true,
-    "route_calibration_beats_baselines": true,
-    "route_calibration_error_bps": true,
-    "route_family_accuracy_beats_embedding": true,
-    "route_family_accuracy_beats_random": true,
-    "route_family_accuracy_beats_recency": true,
-    "route_family_accuracy_beats_static": true,
-    "route_family_accuracy_bps": true,
-    "route_family_labels_bound": true,
-    "route_logits_bound": true,
-    "route_scout_fixture_present": true,
+    "route_family_count": true,
+    "route_success_beats_all_in_one": true,
+    "route_success_beats_no_abstain": true,
+    "route_success_beats_static": true,
     "run_event_log_bound": true,
-    "scout_address": true,
-    "scout_address_deterministic": true,
-    "scout_cheaper_than_heavy_route": true,
-    "scout_not_cheaper_rejected": true,
-    "scout_over_budget_rejected": true,
-    "scout_predictions_present": true,
     "source_features_bound": true,
-    "static_baseline_unbeaten_rejected": true,
+    "stage_a_family_choice_bound": true,
+    "stage_a_no_selector_leak": true,
+    "stage_a_selector_leak_rejected": true,
+    "stage_b_family_specific": true,
+    "stage_b_selector_choice_bound": true,
+    "static_selector_unbeaten_rejected": true,
     "task_signatures_bound": true,
-    "trace_features_bound": true,
     "training_split_bound": true,
     "training_task_count": true,
-    "uncalibrated_scout_rejected": true,
-    "unknown_route_family_rejected": true,
-    "upstream_verifier_regret_ledger_pass": true,
-    "verifier_calibration_beats_baselines": true,
-    "verifier_calibration_error_bps": true,
-    "verifier_features_bound": true,
-    "verifier_need_accuracy_beats_embedding": true,
-    "verifier_need_accuracy_beats_random": true,
-    "verifier_need_accuracy_beats_recency": true,
-    "verifier_need_accuracy_beats_static": true,
-    "verifier_need_accuracy_bps": true,
-    "verifier_need_labels_bound": true,
-    "verifier_static_baseline_unbeaten_rejected": true
+    "two_stage_abstention_accuracy_bps": true,
+    "two_stage_address": true,
+    "two_stage_address_deterministic": true,
+    "two_stage_cheaper_than_heavy_route": true,
+    "two_stage_fixture_present": true,
+    "two_stage_not_cheaper_rejected": true,
+    "two_stage_over_budget_rejected": true,
+    "two_stage_route_success_bps": true,
+    "uncertainty_abstention_bound": true,
+    "upstream_route_scout_ssm_baseline_pass": true,
+    "verifier_conflict_abstention_bound": true,
+    "verifier_features_bound": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [
     {
       "kind": "scope_guard",
-      "detail": "metadata-only RouteScoutSSM baseline witness; no live route authority, no policy mutation, no model/runtime bytes, and no sparse wake promotion executed"
+      "detail": "metadata-only two-stage route scout witness; no live route authority, no sparse wake promotion, no model/runtime bytes, and no policy mutation executed"
     }
   ],
-  "notes": "Proves a tiny route scout predicts route family and verifier need on held-out tasks better than static, random, recency, and embedding-only baselines while binding rollback, RunEventLog, AnswerPacket, calibration, and no-hidden-authority guards."
+  "notes": "Proves Stage A route-family/escalation choice and Stage B family-specific selector choice are separated, cheap, abstention-capable, rollback-bound, RunEventLog-bound, and AnswerPacket-visible."
 }
