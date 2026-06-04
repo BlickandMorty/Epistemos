@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fbe99a09a3c1ebb6d728e1a939dc515348fb0c22",
+  "commit_sha": "23a77330667cbe7d0c7a5649dd0aad11628838e9",
   "fixture_id": "depth_lease_checkpoint_v1",
-  "timestamp_utc": "2026-06-04T12:51:08Z",
+  "timestamp_utc": "2026-06-04T12:58:36Z",
   "result_digest": "sha256:070d2d7d22335b163733639b63b814e3a0255e4ddd1b6791df8258d9f4015575",
   "measurements": {
     "answer_packet_count": {
