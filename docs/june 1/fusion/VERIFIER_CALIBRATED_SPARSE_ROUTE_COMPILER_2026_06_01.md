@@ -587,6 +587,36 @@ AblationShadowRun {
 }
 ```
 
+### `AxiomAxiomaticSourceDistinction`
+
+Source-card guard that keeps external formal-math/prover/company/tooling
+motifs distinct before route-source claims can cite them.
+
+```text
+AxiomAxiomaticSourceDistinction {
+  source_card
+  source_class
+  motif_class
+  false_merge_negative
+  stale_overclaim_guard
+  route_impact = source_prior_only
+  admission
+  rollback
+  run_event_log
+  answer_packet
+}
+```
+
+This is a metadata-only L1 witness. It does not integrate AXLE, Axplorer,
+AxProver, OProver, UlamAI, Harmonic, Math Inc/OpenGauss, or Lean tooling as
+live authority.
+
+### `SparseRouteNoHiddenAuthority`
+
+The next active cursor after source distinction. It must prove source priors,
+proof traces, oracle labels, PatternBoost motifs, and fast-weight deltas cannot
+become hidden live route authority.
+
 ### `SparseWakeCertificate`
 
 The visible proof that a sparse route was not just a guess.

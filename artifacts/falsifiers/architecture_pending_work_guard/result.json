@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d45726425cc089da77f06396265b234332daa3d7",
+  "commit_sha": "7967ea611fcafe5e9d5a0543bc7e9adf0472a0e6",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T14:31:18Z",
-  "result_digest": "sha256:2063ccf7cf4aa53df21c7148b798b84974eadf6ff96706d20e566c9cf8861304",
+  "timestamp_utc": "2026-06-04T15:18:20Z",
+  "result_digest": "sha256:efdf823b9665f8aa2b2a7502f1434ab5232059d1aaead4ff3a93d7f58a9554af",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -214,6 +214,10 @@
             "path": "artifacts/falsifiers/ablation_shadow_run/result.json",
             "available": true
           },
+          "axiom_axiomatic_source_distinction": {
+            "path": "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -233,6 +237,10 @@
         }
       },
       "unit": "object"
+    },
+    "axiom_axiomatic_source_distinction_available": {
+      "value": true,
+      "unit": "bool"
     },
     "brain_route_card_multi_model_available": {
       "value": true,
@@ -534,11 +542,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "axiom_axiomatic_source_distinction",
+      "value": "sparse_route_no_hidden_authority",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "axiom_axiomatic_source_distinction",
+      "value": "sparse_route_no_hidden_authority",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -598,7 +606,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 47,
+      "value": 48,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -684,6 +692,11 @@
   },
   "acceptance_thresholds": {
     "ablation_shadow_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axiomatic_source_distinction_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -971,6 +984,7 @@
   },
   "pass_per_axis": {
     "ablation_shadow_run_available": true,
+    "axiom_axiomatic_source_distinction_available": true,
     "brain_route_card_multi_model_available": true,
     "budgeted_uncertainty_escalator_available": true,
     "capability_kernel_artifact_available": true,
@@ -1036,8 +1050,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_axiom_axiomatic_source_distinction",
-      "detail": "Meta Control has AblationShadowRun evidence; the next non-heavy cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
+      "kind": "missing_sparse_route_no_hidden_authority",
+      "detail": "Meta Control has source-distinction evidence; the next non-heavy cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1052,5 +1066,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=axiom_axiomatic_source_distinction; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=sparse_route_no_hidden_authority; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
