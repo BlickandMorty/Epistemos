@@ -8,7 +8,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use agent_core::falsifier_artifacts::axes::SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES;
+use agent_core::falsifier_artifacts::axes::{
+    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+};
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
     FallbackTier, Measurement,
@@ -98,6 +100,8 @@ const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH: &str =
     "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json";
 const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json";
+const COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH: &str =
+    "artifacts/falsifiers/coldstream_no_hidden_authority/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -2320,6 +2324,7 @@ fn build_report() -> KernelReport {
         GateArtifact::read(AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH);
     let sparse_route_no_hidden_authority =
         GateArtifact::read(SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH);
+    let coldstream_no_hidden_authority = GateArtifact::read(COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2372,6 +2377,7 @@ fn build_report() -> KernelReport {
         &ablation_shadow_run,
         &axiom_axiomatic_source_distinction,
         &sparse_route_no_hidden_authority,
+        &coldstream_no_hidden_authority,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2776,6 +2782,8 @@ fn build_report() -> KernelReport {
             .all_axes_true(AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES);
     let sparse_route_no_hidden_authority_pass = sparse_route_no_hidden_authority.overall_pass
         && sparse_route_no_hidden_authority.all_axes_true(SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES);
+    let coldstream_no_hidden_authority_pass = coldstream_no_hidden_authority.overall_pass
+        && coldstream_no_hidden_authority.all_axes_true(COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2828,6 +2836,7 @@ fn build_report() -> KernelReport {
         &ablation_shadow_run,
         &axiom_axiomatic_source_distinction,
         &sparse_route_no_hidden_authority,
+        &coldstream_no_hidden_authority,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2878,6 +2887,7 @@ fn build_report() -> KernelReport {
         ablation_shadow_run_pass,
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
+        coldstream_no_hidden_authority_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2944,6 +2954,7 @@ fn build_report() -> KernelReport {
         ablation_shadow_run_pass,
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
+        coldstream_no_hidden_authority_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3014,6 +3025,7 @@ fn build_report() -> KernelReport {
         ablation_shadow_run_pass,
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
+        coldstream_no_hidden_authority_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3482,6 +3494,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "coldstream_no_hidden_authority_pass",
+        coldstream_no_hidden_authority_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3735,6 +3754,11 @@ fn build_report() -> KernelReport {
         "sparse_route_no_hidden_authority",
         &sparse_route_no_hidden_authority,
     );
+    add_gate_summary(
+        &mut measurements,
+        "coldstream_no_hidden_authority",
+        &coldstream_no_hidden_authority,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3786,6 +3810,7 @@ fn build_report() -> KernelReport {
         ablation_shadow_run_pass,
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
+        coldstream_no_hidden_authority_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4070,6 +4095,7 @@ fn classify_route(
     ablation_shadow_run_pass: bool,
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
+    coldstream_no_hidden_authority_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -4115,6 +4141,7 @@ fn classify_route(
         && ablation_shadow_run_pass
         && axiom_axiomatic_source_distinction_pass
         && sparse_route_no_hidden_authority_pass
+        && coldstream_no_hidden_authority_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -4194,6 +4221,7 @@ fn next_bottleneck(
     ablation_shadow_run_pass: bool,
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
+    coldstream_no_hidden_authority_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4320,8 +4348,10 @@ fn next_bottleneck(
             "axiom_axiomatic_source_distinction".to_string()
         } else if !sparse_route_no_hidden_authority_pass {
             "sparse_route_no_hidden_authority".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !coldstream_no_hidden_authority_pass {
             "coldstream_no_hidden_authority".to_string()
+        } else if !seventy_b_route_pass {
+            LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED.to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4399,6 +4429,7 @@ fn build_ordered_gap_queue(
     ablation_shadow_run_pass: bool,
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
+    coldstream_no_hidden_authority_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5240,7 +5271,9 @@ fn build_ordered_gap_queue(
             48,
             "coldstream_no_hidden_authority",
             "ColdStream Transport",
-            if sparse_route_no_hidden_authority_pass
+            if coldstream_no_hidden_authority_pass {
+                "completed"
+            } else if sparse_route_no_hidden_authority_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -5403,6 +5436,7 @@ fn build_anomalies(
     ablation_shadow_run_pass: bool,
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
+    coldstream_no_hidden_authority_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5809,7 +5843,10 @@ fn build_anomalies(
             "detail": "Source-distinction evidence is present; the next non-heavy architecture cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
         }));
     }
-    if sparse_route_no_hidden_authority_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+    if sparse_route_no_hidden_authority_pass
+        && !coldstream_no_hidden_authority_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
     {
         anomalies.push(serde_json::json!({
             "kind": "coldstream_no_hidden_authority_missing",
@@ -5984,10 +6021,11 @@ mod tests {
         const ABLATION_SHADOW_RUN: usize = 42;
         const AXIOM_AXIOMATIC_SOURCE_DISTINCTION: usize = 43;
         const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY: usize = 44;
-        const SEVENTY_B: usize = 45;
-        const SCHEMA: usize = 46;
+        const COLDSTREAM_NO_HIDDEN_AUTHORITY: usize = 45;
+        const SEVENTY_B: usize = 46;
+        const SCHEMA: usize = 47;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 47];
+            let mut values = [false; 48];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -5998,7 +6036,7 @@ mod tests {
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
                 values[35], values[36], values[37], values[38], values[39], values[40], values[41],
-                values[42], values[43], values[44], values[45], values[46],
+                values[42], values[43], values[44], values[45], values[46], values[47],
             )
         };
         assert_eq!(
@@ -6048,6 +6086,7 @@ mod tests {
                 ABLATION_SHADOW_RUN,
                 AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -6104,6 +6143,7 @@ mod tests {
                 ABLATION_SHADOW_RUN,
                 AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -6181,21 +6221,22 @@ mod tests {
         const ABLATION_SHADOW_RUN: usize = 57;
         const AXIOM_AXIOMATIC_SOURCE_DISTINCTION: usize = 58;
         const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY: usize = 59;
-        const SEVENTY_B: usize = 60;
+        const COLDSTREAM_NO_HIDDEN_AUTHORITY: usize = 60;
+        const SEVENTY_B: usize = 61;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 61] {
-            let mut values = [false; 61];
+        let flags = |true_indexes: &[usize]| -> [bool; 62] {
+            let mut values = [false; 62];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 61], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 62], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6260,11 +6301,12 @@ mod tests {
                 values[58],
                 values[59],
                 values[60],
+                values[61],
                 &missing,
             )
         };
-        let nb = |values: [bool; 61]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 61]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 62]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 62]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -8074,6 +8116,129 @@ mod tests {
                 ABLATION_SHADOW_RUN,
                 AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                SEVENTY_B,
+            ]))),
+            "coldstream_no_hidden_authority"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
+            ]))),
+            LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

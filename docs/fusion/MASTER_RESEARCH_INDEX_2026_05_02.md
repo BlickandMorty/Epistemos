@@ -1144,7 +1144,7 @@ buffers before they can block the hot path.
 | `F-ColdPanicFallback` | Proves missed deadlines degrade visibly instead of blocking token-time execution silently. |
 | `F-TransportTrace-AnswerPacket` | Proves cold-transport-dependent answers link to bytes, stalls, copies, fallback, and caveats. |
 | `F-SSD-WearBudget` | Proves repeated transport plans report read/write volume and reject over-budget wear or energy loops. |
-| `F-ColdStream-NoHiddenAuthority` | Current active cursor. Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, admission, rollback, RunEventLog, and AnswerPacket proof. |
+| `F-ColdStream-NoHiddenAuthority` | PASS metadata-only witness on 2026-06-04. Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, admission, rollback, RunEventLog, and AnswerPacket proof; advances L1 only to `large_model_provider_reference_deferred_by_mlx_route`. |
 
 **Agent rule.** Any PR touching mmap, AppColdStore transport, SSD hot paths,
 page faults, cold I/O, prefetch windows, Metal I/O, Dispatch I/O,

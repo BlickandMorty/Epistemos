@@ -31,9 +31,16 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-ColdPanicFallback` | Missed transport deadlines degrade visibly rather than blocking token-time execution silently. | Fallback fixture linked to AnswerPacket caveat. |
 | `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | AnswerPacket fixture plus UI summary. |
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear or energy budgets. | Wear-budget simulation. |
-| `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, and rollback. | Static architecture check plus negative route fixture. |
+| `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 
-Current active cursor after the 2026-06-04 `F-SparseRoute-NoHiddenAuthority` metadata-only witness: `F-ColdStream-NoHiddenAuthority`.
+Current cursor after the 2026-06-04 `F-ColdStream-NoHiddenAuthority` metadata-only witness: `large_model_provider_reference_deferred_by_mlx_route`.
+
+`F-ColdStream-NoHiddenAuthority` advances L1 only. `F-ColdStream-vs-Mmap`,
+`F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`,
+`F-CachePolicy-Pollution`, `F-ColdPanicFallback`,
+`F-TransportTrace-AnswerPacket`, and `F-SSD-WearBudget` remain separate
+platform/runtime gates before ColdStream can replace mmap or pread on a hot
+path.
 
 ## Promotion rule
 
