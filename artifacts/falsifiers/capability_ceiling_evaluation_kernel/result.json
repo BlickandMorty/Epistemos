@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "e23d575585797f634220f225b6a964b128493f93",
+  "commit_sha": "1ad591da6c5e171eb739d69a1972a1ac03cf6e2e",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T10:37:01Z",
-  "result_digest": "sha256:674adea86a8969b93b729caba85cf9079572ac774a8cb642007f46f8c754e732",
+  "timestamp_utc": "2026-06-04T11:22:33Z",
+  "result_digest": "sha256:8bfe761332fe52530a0127c05a2053c603cc981492117dff7e346ede510cd679",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -378,7 +378,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "verifier_regret_fast_weights",
+      "value": "fast_weight_quarantine",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -797,11 +797,21 @@
           "order": 41,
           "gap_id": "verifier_regret_fast_weights",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-VerifierRegretFastWeights",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Fast-weight updates must be bounded, session/local scoped, resettable, TTL-limited, and useful on held-out route choices before consolidation.",
           "rollback": "Keep fast weights shadow-only until drift bounds, reset, rollback, TTL, held-out wins, RunEventLog, and AnswerPacket evidence pass."
+        },
+        {
+          "order": 42,
+          "gap_id": "fast_weight_quarantine",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-FastWeightQuarantine",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Fast-weight deltas must remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass.",
+          "rollback": "Reject live-control or consolidation attempts unless quarantine state, reset, rollback, held-out wins, and visible route evidence all pass."
         }
       ],
       "unit": "queue"
@@ -1186,6 +1196,22 @@
       },
       "unit": "object"
     },
+    "verifier_regret_fast_weights_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_fast_weights_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/verifier_regret_fast_weights/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "verifier_regret_ledger_pass": {
       "value": true,
       "unit": "bool"
@@ -1509,6 +1535,11 @@
       "value": true,
       "unit": "bool"
     },
+    "verifier_regret_fast_weights_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "verifier_regret_ledger_pass": {
       "operator": "==",
       "value": true,
@@ -1577,6 +1608,7 @@
     "unmapped_architecture_gap_count": true,
     "verified_floor_green": true,
     "verifier_budget_auction_pass": true,
+    "verifier_regret_fast_weights_pass": true,
     "verifier_regret_ledger_pass": true
   },
   "overall_pass": false,
@@ -1591,8 +1623,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "verifier_regret_fast_weights_missing",
-      "detail": "ProofPressureSignal evidence is present; the next non-heavy architecture cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
+      "kind": "fast_weight_quarantine_missing",
+      "detail": "VerifierRegretFastWeights evidence is present; the next non-heavy architecture cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1600,8 +1632,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "verifier_regret_fast_weights"
+      "detail": "fast_weight_quarantine"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_regret_fast_weights; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=fast_weight_quarantine; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

@@ -16,7 +16,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Script: `Tools/falsifiers/f_sparse_wake_certificate_answer_packet.sh`
 - Artifact: `artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json`
 - L1 next cursor at landing: `F-LayerKVJointLease`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `verifier_regret_fast_weights`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `fast_weight_quarantine`
 - L3 user-facing/runtime: unchanged; no live sparse route, live KV restore, live 70B inference, hidden route authority, or MAS/Pro product-copy change
 - Scope: metadata-only; `no_runtime_bytes_loaded=true`
 
@@ -37,4 +37,4 @@ The falsifier rejects empty certificate sets; duplicate certificates or units; m
 
 ## Scope Guard
 
-This advances L1 only. It does not make `SparseWakeCertificate` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-LayerKVJointLease` now passes as metadata-only evidence; the current architecture unit is `F-VerifierRegretFastWeights`, which must prove bounded/session-local resettable TTL-limited verifier-regret fast weights improve held-out route choice without base-weight mutation, live policy promotion, hidden route authority, or AnswerPacket omission.
+This advances L1 only. It does not make `SparseWakeCertificate` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-LayerKVJointLease` now passes as metadata-only evidence; the current architecture unit is `F-FastWeightQuarantine`, which must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, reset, RunEventLog, and AnswerPacket gates pass.

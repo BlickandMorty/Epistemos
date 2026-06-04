@@ -87,6 +87,8 @@ const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
 const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
     "artifacts/falsifiers/proof_search_signal_route_feedback/result.json";
 const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_signal/result.json";
+const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
+    "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1504,6 +1506,123 @@ const PROOF_PRESSURE_SIGNAL_AXES: &[&str] = &[
     "no_pressure_memory_baseline_bps",
     "proof_pressure_signal_address",
 ];
+const VERIFIER_REGRET_FAST_WEIGHTS_AXES: &[&str] = &[
+    "upstream_proof_pressure_signal_pass",
+    "fast_weight_fixture_present",
+    "fixture_ids_bound",
+    "update_ids_bound",
+    "scopes_bound",
+    "base_policy_digests_bound",
+    "fast_weight_delta_refs_bound",
+    "update_rules_bound",
+    "verifier_regret_refs_bound",
+    "trace_surprise_refs_bound",
+    "affected_policy_fields_bound",
+    "splits_bound",
+    "route_logit_delta_bound",
+    "page_threshold_delta_bound",
+    "depth_threshold_delta_bound",
+    "verifier_prior_delta_bound",
+    "tournament_temperature_delta_bound",
+    "drift_bounds_bound",
+    "ttl_bound",
+    "reset_handles_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "held_out_result_refs_bound",
+    "consolidation_candidates_bound",
+    "consolidation_not_promoted",
+    "route_authority_shadow_only",
+    "fast_weights_session_local",
+    "fast_weights_resettable",
+    "ttl_not_expired",
+    "drift_within_bound",
+    "held_out_route_choice_improved",
+    "route_choice_regret_reduced",
+    "answer_packet_coverage_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "no_base_weight_mutation",
+    "no_live_policy_promotion",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "verifier_regret_fast_weights_address_deterministic",
+    "metadata_bound",
+    "beats_static_policy_baseline",
+    "beats_no_fast_weight_baseline",
+    "beats_stale_fast_weight_baseline",
+    "beats_unbounded_delta_baseline",
+    "duplicate_fixture_rejected",
+    "missing_fixture_id_rejected",
+    "missing_upstream_proof_pressure_rejected",
+    "missing_shadow_policy_rejected",
+    "missing_update_rejected",
+    "duplicate_update_rejected",
+    "missing_update_id_rejected",
+    "missing_scope_rejected",
+    "invalid_scope_rejected",
+    "missing_base_policy_digest_rejected",
+    "missing_delta_ref_rejected",
+    "missing_update_rule_rejected",
+    "missing_verifier_regret_rejected",
+    "missing_trace_surprise_rejected",
+    "missing_affected_policy_field_rejected",
+    "invalid_policy_field_rejected",
+    "route_logit_delta_overflow_rejected",
+    "page_threshold_delta_overflow_rejected",
+    "depth_threshold_delta_overflow_rejected",
+    "verifier_prior_delta_overflow_rejected",
+    "tournament_temperature_delta_overflow_rejected",
+    "missing_drift_bound_rejected",
+    "drift_overflow_rejected",
+    "missing_ttl_rejected",
+    "ttl_expired_rejected",
+    "missing_reset_handle_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_held_out_result_rejected",
+    "missing_consolidation_candidate_rejected",
+    "missing_held_out_split_rejected",
+    "invalid_split_rejected",
+    "consolidation_promotion_rejected",
+    "base_weight_mutation_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "static_policy_unbeaten_rejected",
+    "no_fast_weight_unbeaten_rejected",
+    "stale_fast_weight_unbeaten_rejected",
+    "unbounded_delta_unbeaten_rejected",
+    "metadata_budget_rejected",
+    "fixture_count",
+    "update_count",
+    "scope_count",
+    "affected_policy_field_count",
+    "held_out_case_count",
+    "min_ttl_ms",
+    "max_ttl_ms",
+    "max_drift_bps",
+    "drift_bound_bps",
+    "held_out_route_success_bps",
+    "route_regret_reduction_bps",
+    "answer_packet_coverage_bps",
+    "static_policy_baseline_bps",
+    "no_fast_weight_baseline_bps",
+    "stale_fast_weight_baseline_bps",
+    "unbounded_delta_baseline_bps",
+    "max_delta_metadata_bytes",
+    "verifier_regret_fast_weights_address",
+];
 
 fn main() {
     let report = build_report();
@@ -1580,6 +1699,7 @@ fn build_report() -> KernelReport {
     let proof_search_signal_route_feedback =
         GateArtifact::read(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH);
     let proof_pressure_signal = GateArtifact::read(PROOF_PRESSURE_SIGNAL_PATH);
+    let verifier_regret_fast_weights = GateArtifact::read(VERIFIER_REGRET_FAST_WEIGHTS_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1625,6 +1745,7 @@ fn build_report() -> KernelReport {
         &route_distillation_tournament,
         &proof_search_signal_route_feedback,
         &proof_pressure_signal,
+        &verifier_regret_fast_weights,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2012,8 +2133,10 @@ fn build_report() -> KernelReport {
     let proof_search_signal_route_feedback_pass = proof_search_signal_route_feedback.overall_pass
         && proof_search_signal_route_feedback
             .all_axes_true(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES);
-    let proof_pressure_signal_pass =
-        proof_pressure_signal.overall_pass && proof_pressure_signal.all_axes_true(PROOF_PRESSURE_SIGNAL_AXES);
+    let proof_pressure_signal_pass = proof_pressure_signal.overall_pass
+        && proof_pressure_signal.all_axes_true(PROOF_PRESSURE_SIGNAL_AXES);
+    let verifier_regret_fast_weights_pass = verifier_regret_fast_weights.overall_pass
+        && verifier_regret_fast_weights.all_axes_true(VERIFIER_REGRET_FAST_WEIGHTS_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2059,6 +2182,7 @@ fn build_report() -> KernelReport {
         &route_distillation_tournament,
         &proof_search_signal_route_feedback,
         &proof_pressure_signal,
+        &verifier_regret_fast_weights,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2102,6 +2226,7 @@ fn build_report() -> KernelReport {
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
         proof_pressure_signal_pass,
+        verifier_regret_fast_weights_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2161,6 +2286,7 @@ fn build_report() -> KernelReport {
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
         proof_pressure_signal_pass,
+        verifier_regret_fast_weights_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -2224,6 +2350,7 @@ fn build_report() -> KernelReport {
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
         proof_pressure_signal_pass,
+        verifier_regret_fast_weights_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -2643,6 +2770,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "verifier_regret_fast_weights_pass",
+        verifier_regret_fast_weights_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -2865,6 +2999,11 @@ fn build_report() -> KernelReport {
         "proof_pressure_signal",
         &proof_pressure_signal,
     );
+    add_gate_summary(
+        &mut measurements,
+        "verifier_regret_fast_weights",
+        &verifier_regret_fast_weights,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -2909,6 +3048,7 @@ fn build_report() -> KernelReport {
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
         proof_pressure_signal_pass,
+        verifier_regret_fast_weights_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -3186,6 +3326,7 @@ fn classify_route(
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
     proof_pressure_signal_pass: bool,
+    verifier_regret_fast_weights_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -3224,6 +3365,7 @@ fn classify_route(
         && route_distillation_tournament_pass
         && proof_search_signal_route_feedback_pass
         && proof_pressure_signal_pass
+        && verifier_regret_fast_weights_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -3296,6 +3438,7 @@ fn next_bottleneck(
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
     proof_pressure_signal_pass: bool,
+    verifier_regret_fast_weights_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -3408,8 +3551,10 @@ fn next_bottleneck(
             "proof_search_signal_route_feedback".to_string()
         } else if !proof_pressure_signal_pass {
             "proof_pressure_signal".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !verifier_regret_fast_weights_pass {
             "verifier_regret_fast_weights".to_string()
+        } else if !seventy_b_route_pass {
+            "fast_weight_quarantine".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -3480,6 +3625,7 @@ fn build_ordered_gap_queue(
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
     proof_pressure_signal_pass: bool,
+    verifier_regret_fast_weights_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4193,7 +4339,9 @@ fn build_ordered_gap_queue(
             41,
             "verifier_regret_fast_weights",
             "Meta Control",
-            if proof_pressure_signal_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+            if verifier_regret_fast_weights_pass {
+                "completed"
+            } else if proof_pressure_signal_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_proof_pressure_signal"
@@ -4202,6 +4350,20 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Fast-weight updates must be bounded, session/local scoped, resettable, TTL-limited, and useful on held-out route choices before consolidation.",
             "Keep fast weights shadow-only until drift bounds, reset, rollback, TTL, held-out wins, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            42,
+            "fast_weight_quarantine",
+            "Meta Control",
+            if verifier_regret_fast_weights_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_verifier_regret_fast_weights"
+            },
+            "F-FastWeightQuarantine",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Fast-weight deltas must remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass.",
+            "Reject live-control or consolidation attempts unless quarantine state, reset, rollback, held-out wins, and visible route evidence all pass.",
         ),
     ]
 }
@@ -4346,6 +4508,7 @@ fn build_anomalies(
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
     proof_pressure_signal_pass: bool,
+    verifier_regret_fast_weights_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4682,10 +4845,20 @@ fn build_anomalies(
             "detail": "ProofSearchSignal evidence is present; the next non-heavy architecture cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
         }));
     }
-    if proof_pressure_signal_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if proof_pressure_signal_pass
+        && !verifier_regret_fast_weights_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "verifier_regret_fast_weights_missing",
             "detail": "ProofPressureSignal evidence is present; the next non-heavy architecture cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
+        }));
+    }
+    if verifier_regret_fast_weights_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "fast_weight_quarantine_missing",
+            "detail": "VerifierRegretFastWeights evidence is present; the next non-heavy architecture cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -4849,10 +5022,11 @@ mod tests {
         const ROUTE_DISTILLATION: usize = 35;
         const PROOF_SEARCH_SIGNAL: usize = 36;
         const PROOF_PRESSURE_SIGNAL: usize = 37;
-        const SEVENTY_B: usize = 38;
-        const SCHEMA: usize = 39;
+        const VERIFIER_REGRET_FAST_WEIGHTS: usize = 38;
+        const SEVENTY_B: usize = 39;
+        const SCHEMA: usize = 40;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 40];
+            let mut values = [false; 41];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -4862,7 +5036,7 @@ mod tests {
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
-                values[35], values[36], values[37], values[38], values[39],
+                values[35], values[36], values[37], values[38], values[39], values[40],
             )
         };
         assert_eq!(
@@ -4905,6 +5079,7 @@ mod tests {
                 ROUTE_DISTILLATION,
                 PROOF_SEARCH_SIGNAL,
                 PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4954,6 +5129,7 @@ mod tests {
                 ROUTE_DISTILLATION,
                 PROOF_SEARCH_SIGNAL,
                 PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5024,21 +5200,22 @@ mod tests {
         const ROUTE_DISTILLATION_TOURNAMENT: usize = 50;
         const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK: usize = 51;
         const PROOF_PRESSURE_SIGNAL: usize = 52;
-        const SEVENTY_B: usize = 53;
+        const VERIFIER_REGRET_FAST_WEIGHTS: usize = 53;
+        const SEVENTY_B: usize = 54;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 54] {
-            let mut values = [false; 54];
+        let flags = |true_indexes: &[usize]| -> [bool; 55] {
+            let mut values = [false; 55];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 54], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 55], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -5096,11 +5273,12 @@ mod tests {
                 values[51],
                 values[52],
                 values[53],
+                values[54],
                 &missing,
             )
         };
-        let nb = |values: [bool; 54]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 54]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 55]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 55]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -6470,6 +6648,47 @@ mod tests {
             "verifier_regret_fast_weights"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+            ]))),
+            "fast_weight_quarantine"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -6543,6 +6762,7 @@ mod tests {
                 ROUTE_DISTILLATION_TOURNAMENT,
                 PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
                 PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"
