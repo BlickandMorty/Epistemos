@@ -87,6 +87,7 @@ const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_si
 const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
     "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
 const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quarantine/result.json";
+const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1750,6 +1751,119 @@ const FAST_WEIGHT_QUARANTINE_AXES: &[&str] = &[
     "fast_weight_quarantine_address",
 ];
 
+const DEPTH_LEASE_CHECKPOINT_AXES: &[&str] = &[
+    "upstream_layer_kv_joint_lease_pass",
+    "upstream_fast_weight_quarantine_pass",
+    "checkpoint_fixture_present",
+    "fixture_ids_bound",
+    "checkpoint_ids_bound",
+    "mission_ids_bound",
+    "route_card_refs_bound",
+    "depth_policy_refs_bound",
+    "shallow_exit_declared",
+    "deeper_wake_declared",
+    "verifier_margin_bound",
+    "max_extra_layers_bound",
+    "full_depth_fallback_bound",
+    "checkpoint_refs_bound",
+    "resume_tokens_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "answer_packet_fields_bound",
+    "mutation_safety_fence_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "held_out_split_bound",
+    "depth_lease_shadow_only",
+    "silent_depth_promotion_rejected",
+    "full_depth_fallback_visible",
+    "no_live_route_authority",
+    "no_base_weight_mutation",
+    "no_route_policy_mutation",
+    "no_cache_mutation",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "depth_lease_checkpoint_address_deterministic",
+    "metadata_bound",
+    "beats_shallow_only_baseline",
+    "beats_hidden_depth_baseline",
+    "beats_no_checkpoint_baseline",
+    "beats_no_fallback_baseline",
+    "duplicate_fixture_rejected",
+    "missing_fixture_id_rejected",
+    "missing_fixture_policy_rejected",
+    "missing_checkpoint_record_rejected",
+    "duplicate_checkpoint_rejected",
+    "missing_checkpoint_id_rejected",
+    "missing_mission_rejected",
+    "missing_upstream_layer_kv_rejected",
+    "missing_upstream_fast_weight_quarantine_rejected",
+    "missing_route_card_rejected",
+    "missing_depth_policy_rejected",
+    "missing_shallow_exit_rejected",
+    "missing_deeper_wake_rejected",
+    "invalid_depth_order_rejected",
+    "missing_full_depth_rejected",
+    "extra_layer_budget_rejected",
+    "missing_checkpoint_ref_rejected",
+    "missing_resume_token_rejected",
+    "missing_verifier_margin_rejected",
+    "verifier_margin_too_low_rejected",
+    "latency_budget_rejected",
+    "missing_full_depth_fallback_rejected",
+    "fallback_disabled_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_answer_packet_field_rejected",
+    "missing_mutation_safety_fence_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "missing_split_rejected",
+    "invalid_split_rejected",
+    "missing_held_out_split_rejected",
+    "silent_depth_promotion_case_rejected",
+    "live_route_authority_rejected",
+    "base_weight_mutation_rejected",
+    "route_policy_mutation_rejected",
+    "cache_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "metadata_budget_rejected",
+    "shallow_only_baseline_unbeaten_rejected",
+    "hidden_depth_baseline_unbeaten_rejected",
+    "no_checkpoint_baseline_unbeaten_rejected",
+    "no_fallback_baseline_unbeaten_rejected",
+    "fixture_count",
+    "checkpoint_count",
+    "held_out_checkpoint_count",
+    "shallow_exit_count",
+    "deeper_wake_count",
+    "full_depth_fallback_count",
+    "resume_token_count",
+    "rollback_handle_count",
+    "run_event_log_count",
+    "answer_packet_count",
+    "min_verifier_margin_bps",
+    "max_extra_layers",
+    "max_depth_delta",
+    "max_latency_ms",
+    "lease_success_bps",
+    "answer_packet_coverage_bps",
+    "silent_promotion_rejection_bps",
+    "shallow_only_baseline_bps",
+    "hidden_depth_baseline_bps",
+    "no_checkpoint_baseline_bps",
+    "no_fallback_baseline_bps",
+    "max_checkpoint_metadata_bytes",
+    "depth_lease_checkpoint_address",
+];
+
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
     "reference_logits.json",
@@ -2235,6 +2349,9 @@ fn build_report() -> GuardReport {
     let fast_weight_quarantine = read_json(Path::new(FAST_WEIGHT_QUARANTINE_PATH));
     let fast_weight_quarantine_available =
         artifact_all_axes_true(&fast_weight_quarantine, FAST_WEIGHT_QUARANTINE_AXES);
+    let depth_lease_checkpoint = read_json(Path::new(DEPTH_LEASE_CHECKPOINT_PATH));
+    let depth_lease_checkpoint_available =
+        artifact_all_axes_true(&depth_lease_checkpoint, DEPTH_LEASE_CHECKPOINT_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2346,6 +2463,7 @@ fn build_report() -> GuardReport {
         && proof_pressure_signal_available
         && verifier_regret_fast_weights_available
         && fast_weight_quarantine_available
+        && depth_lease_checkpoint_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2661,6 +2779,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "fast_weight_quarantine_available",
         fast_weight_quarantine_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "depth_lease_checkpoint_available",
+        depth_lease_checkpoint_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3044,6 +3169,10 @@ fn build_report() -> GuardReport {
                     "path": FAST_WEIGHT_QUARANTINE_PATH,
                     "available": fast_weight_quarantine_available
                 },
+                "depth_lease_checkpoint": {
+                    "path": DEPTH_LEASE_CHECKPOINT_PATH,
+                    "available": depth_lease_checkpoint_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3332,10 +3461,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has VerifierRegretFastWeights evidence; the next non-heavy cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
         }));
     }
-    if fast_weight_quarantine_available && !heavy_long_context_enabled {
+    if fast_weight_quarantine_available
+        && !depth_lease_checkpoint_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_depth_lease_checkpoint",
             "detail": "Meta Control has FastWeightQuarantine evidence; the next non-heavy cursor must prove DepthLease checkpoints before any adaptive depth/runtime promotion can claim live authority."
+        }));
+    }
+    if depth_lease_checkpoint_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_shadow_wake_oracle",
+            "detail": "Meta Control has DepthLeaseCheckpoint evidence; the next non-heavy cursor must prove oracle traces become route labels without hidden live runtime dependency."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4273,6 +4411,7 @@ mod tests {
             .get("verifier_regret_fast_weights")
             .is_some());
         assert!(already_mapped_work.get("fast_weight_quarantine").is_some());
+        assert!(already_mapped_work.get("depth_lease_checkpoint").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_proof_search_signal_route_feedback.sh`
 - Artifact: `artifacts/falsifiers/proof_search_signal_route_feedback/result.json`
 - L1 next cursor at landing: `F-ProofPressureSignal`; current cursor after the 2026-06-04 VerifierRegretFastWeights witness: `F-FastWeightQuarantine`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `depth_lease_checkpoint`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `shadow_wake_oracle`
 - L3 user-facing/runtime route: unchanged; no proof feedback live route authority, live sparse routing, local model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate fixtures; duplicate signals; mis
 
 ## Scope
 
-This advances L1 only. It does not make proof feedback a live router, does not allow a proof assistant to bypass tests, citations, SCOPE-Rex, SovereignGate, RunEventLog, or AnswerPacket, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ProofPressureSignal` now passes as metadata-only evidence; the current architecture unit is `F-DepthLease-Checkpoint`, which must prove adaptive depth checkpoints before dynamic-depth or runtime promotion can claim live authority.
+This advances L1 only. It does not make proof feedback a live router, does not allow a proof assistant to bypass tests, citations, SCOPE-Rex, SovereignGate, RunEventLog, or AnswerPacket, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ProofPressureSignal` now passes as metadata-only evidence; the current architecture unit is `F-ShadowWakeOracle`, which must prove full-wake/proof/test oracle traces become route labels without becoming a hidden live runtime dependency.

@@ -210,7 +210,7 @@ User intent
   -> Episodic plane
        vault, graph, KV pages, theorem witnesses, tool traces, claim ledgers load exact support
   -> Controller plane
-       ACS admits route, tool calls, mutation, kernel promotion, and fallback
+     SCOPE-Rex / SovereignGate admits route, tool calls, mutation, kernel promotion, and fallback; legacy ACS (Anchored Cognitive Substrate) wording maps to AcsAnchor lineage
   -> Verification plane
        WBO, AnswerPacket, ClaimKind, RunEventLog, falsifier artifacts, Lean/EML proof check drift
 ```
@@ -297,7 +297,7 @@ This target architecture is canonical, but runtime activation is gated:
 | `F-ResidencyPlan-DryRun` | active model-shaped weight blocks fit memory/WBO/rollback budgets before runtime | large-model probes are pre-gated instead of crash-first |
 | `F-ActiveAssembly-Minimal` | selected support is small but sufficient | active routing is useful |
 | `F-ULP-Oracle` | EML/Metal arithmetic floor is within tolerance | proof/kernels safe enough |
-| `F-70B-Local-Cocktail` | 70B-class local run meets quality, RAM, latency budget | the capability ceiling is real |
+| `F-70B-Local-Cocktail` | 70B-class cold-assembly route meets quality, active-byte, fallback, and latency budgets without dense-resident overclaim | the capability ceiling is real only after proof-carrying residency and runtime evidence |
 
 Until these pass, this is a canonical target and research program, not a shipped capability.
 

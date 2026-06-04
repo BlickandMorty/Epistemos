@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_verifier_regret_fast_weights.sh`
 - Artifact: `artifacts/falsifiers/verifier_regret_fast_weights/result.json`
-- L1 next cursor at landing: `F-FastWeightQuarantine`; current cursor after the FastWeightQuarantine witness: `F-DepthLease-Checkpoint`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `depth_lease_checkpoint`
+- L1 next cursor at landing: `F-FastWeightQuarantine`; current cursor after the DepthLeaseCheckpoint witness: `F-ShadowWakeOracle`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `shadow_wake_oracle`
 - L3 user-facing/runtime route: unchanged; no fast-weight live route authority, base-weight mutation, live policy promotion, model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate fixtures; missing fixture ID, up
 
 ## Scope
 
-This advanced L1 only at landing. It does not make verifier-regret fast weights a live router, does not consolidate policy, does not mutate base model weights, does not allow hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The downstream `F-FastWeightQuarantine` witness now passes metadata-only evidence, so the current architecture unit is `F-DepthLease-Checkpoint`.
+This advanced L1 only at landing. It does not make verifier-regret fast weights a live router, does not consolidate policy, does not mutate base model weights, does not allow hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The downstream `F-FastWeightQuarantine` and `F-DepthLease-Checkpoint` witnesses now pass metadata-only evidence, so the current architecture unit is `F-ShadowWakeOracle`.
