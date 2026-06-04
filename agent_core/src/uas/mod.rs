@@ -33,6 +33,7 @@ pub mod coactivation_tile;
 pub mod cold_assembly_plan;
 pub mod cold_miss_ledger;
 pub mod coldstream;
+pub mod coldstream_vs_mmap;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
@@ -71,6 +72,11 @@ pub use cold_miss_ledger::{ColdMissLedger, ColdMissLedgerEntry, ColdMissLedgerEr
 pub use coldstream::{
     ColdStreamAuthority, ColdStreamCachePolicy, ColdStreamDestination, ColdStreamError,
     ColdStreamPageRun, ColdStreamPriority, ColdStreamTransportManifest, ColdStreamTransportTrace,
+};
+pub use coldstream_vs_mmap::{
+    ColdStreamBaselineKind, ColdStreamBaselineRow, ColdStreamVsMmapError, ColdStreamVsMmapFixture,
+    ColdStreamVsMmapMetrics, ColdStreamVsMmapSurface, ColdStreamVsMmapWitness,
+    COLDSTREAM_VS_MMAP_CURSOR, COLDSTREAM_VS_MMAP_NEXT_CURSOR,
 };
 pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,

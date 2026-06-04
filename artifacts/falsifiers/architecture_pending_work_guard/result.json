@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "65a4dae7d1db46cdebdaa6b1d227e2cfd7567e8a",
+  "commit_sha": "b0eedf5211ec1a024d5239ac087d26b265dfc446",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T21:11:44Z",
-  "result_digest": "sha256:05850181f8989e1a024669448c5710e8b28c64c96f47bd45e4c6f18e72437179",
+  "timestamp_utc": "2026-06-04T22:04:04Z",
+  "result_digest": "sha256:6a790e74442074a60c95e5070de6f01244ca6e994b7b5497f30d792d59aa7f56",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -242,6 +242,10 @@
             "path": "artifacts/falsifiers/ssd_wear_budget/result.json",
             "available": true
           },
+          "coldstream_vs_mmap": {
+            "path": "artifacts/falsifiers/coldstream_vs_mmap/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -291,6 +295,10 @@
       "unit": "bool"
     },
     "coldstream_no_hidden_authority_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_vs_mmap_available": {
       "value": true,
       "unit": "bool"
     },
@@ -574,11 +582,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "coldstream_vs_mmap",
+      "value": "slab_arena_copy_count",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "coldstream_vs_mmap",
+      "value": "slab_arena_copy_count",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -780,6 +788,11 @@
       "unit": "bool"
     },
     "coldstream_no_hidden_authority_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_vs_mmap_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -1070,6 +1083,7 @@
     "cold_assembly_plan_70b_lite_available": true,
     "cold_miss_ledger_available": true,
     "coldstream_no_hidden_authority_available": true,
+    "coldstream_vs_mmap_available": true,
     "construction_search_tournament_available": true,
     "depth_lease_checkpoint_available": true,
     "fast_weight_quarantine_available": true,
@@ -1146,5 +1160,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=coldstream_vs_mmap; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=slab_arena_copy_count; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
