@@ -74,8 +74,9 @@ const QUERY_AWARE_KV_SELECTOR_PATH: &str =
     "artifacts/falsifiers/query_aware_kv_selector/result.json";
 const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json";
-const LAYER_KV_JOINT_LEASE_PATH: &str =
-    "artifacts/falsifiers/layer_kv_joint_lease/result.json";
+const LAYER_KV_JOINT_LEASE_PATH: &str = "artifacts/falsifiers/layer_kv_joint_lease/result.json";
+const CONSTRUCTION_SEARCH_TOURNAMENT_PATH: &str =
+    "artifacts/falsifiers/construction_search_tournament/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1104,6 +1105,91 @@ const LAYER_KV_JOINT_LEASE_AXES: &[&str] = &[
     "max_lease_metadata_bytes",
     "layer_kv_joint_lease_address",
 ];
+const CONSTRUCTION_SEARCH_TOURNAMENT_AXES: &[&str] = &[
+    "upstream_layer_kv_joint_lease_pass",
+    "construction_search_tournament_fixture_present",
+    "tournament_ids_bound",
+    "mission_families_bound",
+    "generation_policy_bound",
+    "repair_policy_bound",
+    "scoring_policy_bound",
+    "selection_policy_bound",
+    "random_seed_bound",
+    "candidate_genomes_bound",
+    "generation_trace_refs_bound",
+    "repair_trace_refs_bound",
+    "score_trace_refs_bound",
+    "selected_winners_bound",
+    "held_out_split_bound",
+    "diversity_buckets_bound",
+    "exploration_budget_bound",
+    "fixed_budget_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_route_not_promoted",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "construction_search_tournament_address_deterministic",
+    "winners_fit_hot_budget",
+    "winners_fit_kv_budget",
+    "winners_fit_cold_budget",
+    "winner_latency_bound",
+    "repair_failure_rate_bound",
+    "tournament_beats_random_generation_baseline",
+    "tournament_beats_greedy_baseline",
+    "tournament_beats_unrepaired_baseline",
+    "held_out_win_rate_bound",
+    "metadata_bound",
+    "duplicate_tournament_rejected",
+    "duplicate_candidate_rejected",
+    "missing_generation_policy_rejected",
+    "missing_repair_policy_rejected",
+    "missing_scoring_policy_rejected",
+    "missing_selection_policy_rejected",
+    "missing_candidate_rejected",
+    "unrepaired_candidate_selected_rejected",
+    "invalid_candidate_selected_rejected",
+    "over_budget_candidate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_route_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "metadata_budget_rejected",
+    "random_baseline_unbeaten_rejected",
+    "greedy_baseline_unbeaten_rejected",
+    "unrepaired_baseline_unbeaten_rejected",
+    "insufficient_diversity_rejected",
+    "exploration_budget_exceeded_rejected",
+    "tournament_count",
+    "candidate_count",
+    "repaired_candidate_count",
+    "selected_winner_count",
+    "held_out_case_count",
+    "diversity_bucket_count",
+    "repair_failure_count",
+    "max_generation_budget",
+    "max_compute_steps",
+    "max_exploration_budget",
+    "max_hot_bytes",
+    "max_kv_bytes",
+    "max_cold_bytes",
+    "max_latency_ms",
+    "max_repair_failure_bps",
+    "tournament_success_bps",
+    "held_out_success_bps",
+    "random_generation_baseline_bps",
+    "greedy_baseline_bps",
+    "unrepaired_baseline_bps",
+    "max_tournament_metadata_bytes",
+    "construction_search_tournament_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1563,6 +1649,11 @@ fn build_report() -> GuardReport {
     let layer_kv_joint_lease = read_json(Path::new(LAYER_KV_JOINT_LEASE_PATH));
     let layer_kv_joint_lease_available =
         artifact_all_axes_true(&layer_kv_joint_lease, LAYER_KV_JOINT_LEASE_AXES);
+    let construction_search_tournament = read_json(Path::new(CONSTRUCTION_SEARCH_TOURNAMENT_PATH));
+    let construction_search_tournament_available = artifact_all_axes_true(
+        &construction_search_tournament,
+        CONSTRUCTION_SEARCH_TOURNAMENT_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1668,6 +1759,7 @@ fn build_report() -> GuardReport {
         && query_aware_kv_selector_available
         && sparse_wake_certificate_answer_packet_available
         && layer_kv_joint_lease_available
+        && construction_search_tournament_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1941,6 +2033,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "layer_kv_joint_lease_available",
         layer_kv_joint_lease_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "construction_search_tournament_available",
+        construction_search_tournament_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2300,6 +2399,10 @@ fn build_report() -> GuardReport {
                     "path": LAYER_KV_JOINT_LEASE_PATH,
                     "available": layer_kv_joint_lease_available
                 },
+                "construction_search_tournament": {
+                    "path": CONSTRUCTION_SEARCH_TOURNAMENT_PATH,
+                    "available": construction_search_tournament_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2534,10 +2637,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has SparseWakeCertificate AnswerPacket evidence; the next non-heavy cursor must prove depth and KV/page choices are leased together with fallback, rollback, and AnswerPacket proof."
         }));
     }
-    if layer_kv_joint_lease_available && !heavy_long_context_enabled {
+    if layer_kv_joint_lease_available
+        && !construction_search_tournament_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_construction_search_tournament",
             "detail": "Meta Control has LayerKVJointLease evidence; the next non-heavy cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
+        }));
+    }
+    if construction_search_tournament_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_route_distillation_tournament",
+            "detail": "Meta Control has ConstructionSearchTournament evidence; the next non-heavy cursor must prove full/proof/oracle route labels improve the small scout on held-out choices before route distillation can promote."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3464,6 +3576,9 @@ mod tests {
             .get("sparse_wake_certificate_answer_packet")
             .is_some());
         assert!(already_mapped_work.get("layer_kv_joint_lease").is_some());
+        assert!(already_mapped_work
+            .get("construction_search_tournament")
+            .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

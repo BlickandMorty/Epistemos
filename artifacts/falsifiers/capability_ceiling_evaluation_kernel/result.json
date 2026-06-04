@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "11044339026b696fdb5f3165b2ae17858b11926a",
+  "commit_sha": "ac2fe4871ea65dd1b22acc5e19b27da060197629",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T07:40:24Z",
-  "result_digest": "sha256:546df1587b3d8de947b4c71c3bb51f71191e960befce1055cceb79c6d0cd6b82",
+  "timestamp_utc": "2026-06-04T08:20:09Z",
+  "result_digest": "sha256:6c54c0beb30dea05f712302c138bc18e54c9079e7c56bcf833af086ad7da1290",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -160,6 +160,22 @@
     "cold_miss_ledger_summary": {
       "value": {
         "path": "artifacts/falsifiers/cold_miss_ledger/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "construction_search_tournament_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_search_tournament_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/construction_search_tournament/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -362,7 +378,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "construction_search_tournament",
+      "value": "route_distillation_tournament",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -741,11 +757,21 @@
           "order": 37,
           "gap_id": "construction_search_tournament",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ConstructionSearchTournament",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "PatternBoost/Axplorer-style generate-repair-score-select must improve sparse wake plans over random generation under a fixed budget.",
           "rollback": "Keep construction search offline/shadow-only until tournament winners beat random generation, preserve rollback, and expose AnswerPacket proof."
+        },
+        {
+          "order": 38,
+          "gap_id": "route_distillation_tournament",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-RouteDistillationTournament",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Expensive full/proof/oracle traces must produce held-out route labels that improve the small scout over direct heuristics.",
+          "rollback": "Keep distillation labels offline/shadow-only until train/held-out split, baseline wins, rollback, RunEventLog, and AnswerPacket proof pass."
         }
       ],
       "unit": "queue"
@@ -1155,6 +1181,11 @@
       "value": true,
       "unit": "bool"
     },
+    "construction_search_tournament_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "kv_direct_full_suite_run_plan_available": {
       "operator": "==",
       "value": true,
@@ -1403,6 +1434,7 @@
     "coactivation_tile_prefetch_pass": true,
     "cold_assembly_plan_70b_lite_pass": true,
     "cold_miss_ledger_pass": true,
+    "construction_search_tournament_pass": true,
     "kv_direct_full_suite_run_plan_available": true,
     "kv_direct_live_128k_pass": false,
     "kv_direct_live_contract_present": true,
@@ -1463,8 +1495,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "construction_search_tournament_missing",
-      "detail": "LayerKVJointLease evidence is present; the next non-heavy architecture cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
+      "kind": "route_distillation_tournament_missing",
+      "detail": "ConstructionSearchTournament evidence is present; the next non-heavy architecture cursor must prove full/proof/oracle trace labels improve the small scout on held-out route choices before distillation policy can promote."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1472,8 +1504,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "construction_search_tournament"
+      "detail": "route_distillation_tournament"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=construction_search_tournament; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=route_distillation_tournament; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

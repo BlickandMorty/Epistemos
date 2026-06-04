@@ -227,6 +227,10 @@ name = "falsify_layer_kv_joint_lease"
 path = "src/bin/falsify_layer_kv_joint_lease.rs"
 
 [[bin]]
+name = "falsify_construction_search_tournament"
+path = "src/bin/falsify_construction_search_tournament.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

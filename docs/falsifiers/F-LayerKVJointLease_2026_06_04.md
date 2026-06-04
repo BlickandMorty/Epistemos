@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_layer_kv_joint_lease.sh`
 - Artifact: `artifacts/falsifiers/layer_kv_joint_lease/result.json`
-- L1 next cursor: `F-ConstructionSearchTournament`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `construction_search_tournament`
+- L1 next cursor at landing: `F-ConstructionSearchTournament`; current cursor after the 2026-06-04 ConstructionSearchTournament witness is `F-RouteDistillationTournament`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `route_distillation_tournament`
 - L3 user-facing/runtime route: unchanged; no live dynamic-depth route, live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate leases; duplicate KV pages; miss
 
 ## Scope
 
-This advances L1 only. It does not make `LayerKVJointLease` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-ConstructionSearchTournament`, which must prove PatternBoost/Axplorer-style generate-repair-score-select improves sparse wake plans over random generation under fixed budget before any construction-search route policy can promote.
+This advances L1 only. It does not make `LayerKVJointLease` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ConstructionSearchTournament` now passes as metadata-only evidence; the current architecture unit is `F-RouteDistillationTournament`, which must prove expensive full/proof/oracle traces improve the small scout on held-out route choices before any distillation policy can promote.
