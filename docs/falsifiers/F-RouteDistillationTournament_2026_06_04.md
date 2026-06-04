@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_route_distillation_tournament.sh`
 - Artifact: `artifacts/falsifiers/route_distillation_tournament/result.json`
-- L1 next cursor: `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `proof_search_signal_route_feedback`
+- L1 next cursor at landing: `F-ProofSearchSignal-RouteFeedback`; current cursor after the 2026-06-04 ProofSearchSignal witness: `F-ProofPressureSignal`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `proof_pressure_signal`
 - L3 user-facing/runtime route: unchanged; no proof feedback live route authority, live sparse routing, local model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate tournaments; duplicate trace lab
 
 ## Scope
 
-This advances L1 only. It does not make `RouteDistillationTournament` a live router, does not allow proof feedback to become hidden live route authority, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-ProofSearchSignal-RouteFeedback`, which must prove Lean/proof outcomes become route features without becoming hidden truth or bypassing tests, citations, SCOPE-Rex, SovereignGate, RunEventLog, or AnswerPacket.
+This advances L1 only. It does not make `RouteDistillationTournament` a live router, does not allow proof feedback to become hidden live route authority, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ProofSearchSignal-RouteFeedback` now passes as metadata-only evidence; the current architecture unit is `F-ProofPressureSignal`, which must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with statement preservation, missing-premise rejection, rollback, RunEventLog, and AnswerPacket evidence.

@@ -81,6 +81,8 @@ const CONSTRUCTION_SEARCH_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/construction_search_tournament/result.json";
 const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/route_distillation_tournament/result.json";
+const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
+    "artifacts/falsifiers/proof_search_signal_route_feedback/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1275,6 +1277,113 @@ const ROUTE_DISTILLATION_TOURNAMENT_AXES: &[&str] = &[
     "construction_winner_baseline_bps",
     "route_distillation_tournament_address",
 ];
+const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES: &[&str] = &[
+    "upstream_route_distillation_tournament_pass",
+    "proof_search_signal_fixture_present",
+    "fixture_ids_bound",
+    "feature_schema_refs_bound",
+    "shadow_policy_refs_bound",
+    "signal_ids_bound",
+    "claim_ids_bound",
+    "mission_ids_bound",
+    "premise_refs_bound",
+    "proof_state_hashes_bound",
+    "tactic_trace_refs_bound",
+    "verifier_status_bound",
+    "pass_status_bound",
+    "fail_status_bound",
+    "repair_status_bound",
+    "abstain_status_bound",
+    "failure_signatures_bound",
+    "repair_hints_bound",
+    "route_feature_labels_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_policy_not_promoted",
+    "proof_feedback_not_hidden_truth",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "proof_search_signal_address_deterministic",
+    "held_out_route_success_bound",
+    "verifier_alignment_bound",
+    "answer_packet_coverage_bound",
+    "calibration_error_bound",
+    "proof_token_budget_bound",
+    "metadata_bound",
+    "beats_proof_feature_baseline",
+    "beats_route_distillation_only_baseline",
+    "beats_no_proof_feedback_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_signal_rejected",
+    "missing_premise_rejected",
+    "missing_proof_state_rejected",
+    "missing_tactic_trace_rejected",
+    "missing_verifier_status_rejected",
+    "invalid_verifier_status_rejected",
+    "missing_failure_signature_rejected",
+    "missing_repair_hint_rejected",
+    "missing_route_feature_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "proof_feature_baseline_unbeaten_rejected",
+    "route_distillation_baseline_unbeaten_rejected",
+    "no_proof_feedback_baseline_unbeaten_rejected",
+    "calibration_error_too_high_rejected",
+    "status_diversity_missing_rejected",
+    "route_feature_diversity_missing_rejected",
+    "metadata_budget_rejected",
+    "proof_token_budget_rejected",
+    "fixture_count",
+    "signal_count",
+    "train_case_count",
+    "held_out_case_count",
+    "status_kind_count",
+    "route_feature_kind_count",
+    "max_proof_tokens",
+    "max_signal_metadata_bytes",
+    "held_out_route_success_bps",
+    "verifier_alignment_bps",
+    "answer_packet_coverage_bps",
+    "calibration_error_bps",
+    "proof_feature_baseline_bps",
+    "route_distillation_only_baseline_bps",
+    "no_proof_feedback_baseline_bps",
+    "proof_search_signal_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1744,6 +1853,12 @@ fn build_report() -> GuardReport {
         &route_distillation_tournament,
         ROUTE_DISTILLATION_TOURNAMENT_AXES,
     );
+    let proof_search_signal_route_feedback =
+        read_json(Path::new(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH));
+    let proof_search_signal_route_feedback_available = artifact_all_axes_true(
+        &proof_search_signal_route_feedback,
+        PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1851,6 +1966,7 @@ fn build_report() -> GuardReport {
         && layer_kv_joint_lease_available
         && construction_search_tournament_available
         && route_distillation_tournament_available
+        && proof_search_signal_route_feedback_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2138,6 +2254,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "route_distillation_tournament_available",
         route_distillation_tournament_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "proof_search_signal_route_feedback_available",
+        proof_search_signal_route_feedback_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2505,6 +2628,10 @@ fn build_report() -> GuardReport {
                     "path": ROUTE_DISTILLATION_TOURNAMENT_PATH,
                     "available": route_distillation_tournament_available
                 },
+                "proof_search_signal_route_feedback": {
+                    "path": PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH,
+                    "available": proof_search_signal_route_feedback_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2757,10 +2884,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has ConstructionSearchTournament evidence; the next non-heavy cursor must prove full/proof/oracle route labels improve the small scout on held-out choices before route distillation can promote."
         }));
     }
-    if route_distillation_tournament_available && !heavy_long_context_enabled {
+    if route_distillation_tournament_available
+        && !proof_search_signal_route_feedback_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_proof_search_signal_route_feedback",
             "detail": "Meta Control has RouteDistillationTournament evidence; the next non-heavy cursor must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission."
+        }));
+    }
+    if proof_search_signal_route_feedback_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_proof_pressure_signal",
+            "detail": "Meta Control has ProofSearchSignal route feedback evidence; the next non-heavy cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3689,6 +3825,9 @@ mod tests {
         assert!(already_mapped_work.get("layer_kv_joint_lease").is_some());
         assert!(already_mapped_work
             .get("construction_search_tournament")
+            .is_some());
+        assert!(already_mapped_work
+            .get("proof_search_signal_route_feedback")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
