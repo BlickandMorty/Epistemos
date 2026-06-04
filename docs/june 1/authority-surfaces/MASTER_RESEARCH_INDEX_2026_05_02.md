@@ -569,6 +569,7 @@ MInference.
 | `F-FeatureAtlas-Prior` | Proves feature handles improve route selection as priors without arbitrary neuron-control claims. |
 | `F-NeuralControlCard-Ablation` | PASS metadata-only witness on 2026-06-03. Proves three bounded feature/activation intervention cards improve target behavior versus baseline and ablation without unacceptable side effects, hidden live authority, base-weight mutation, hidden-chain exposure, cloud source, or runtime/model-byte load. Artifact: `artifacts/falsifiers/neural_control_card_ablation/result.json`. |
 | `F-VerifierRegretLedger` | PASS metadata-only witness on 2026-06-03. Proves verifier-regret entries change later shadow route selection and reduce held-out regret while rejecting duplicate entries, missing held-out sets, missing regret updates, missing rollback/RunEventLog/AnswerPacket, hidden live authority, live policy mutation, hidden-chain exposure, cloud routes, over-budget patches, stale policy versions, and runtime/model-byte load. Artifact: `artifacts/falsifiers/verifier_regret_ledger/result.json`. |
+| `F-RouteScoutSSM-Baseline` | PASS metadata-only witness on 2026-06-03. Proves a tiny scout predicts route family and verifier need better than static, random, recency, and embedding-only baselines while binding rollback, RunEventLog, AnswerPacket, abstention, calibration, and no-hidden-authority guards. Artifact: `artifacts/falsifiers/route_scout_ssm_baseline/result.json`. |
 
 **Agent rule.** Any PR touching proof-carrying execution, model routing,
 multiple brains, feature atlases, activation steering, embeddings as route
@@ -1050,7 +1051,7 @@ regret.
 
 | Falsifier | Purpose |
 |---|---|
-| `F-RouteScoutSSM-Baseline` | Proves a small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines. |
+| `F-RouteScoutSSM-Baseline` | PASS metadata-only witness on 2026-06-03. Proves a small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines while staying shadow-only and AnswerPacket-visible. Artifact: `artifacts/falsifiers/route_scout_ssm_baseline/result.json`. |
 | `F-TwoStageRouteScout-Abstain` | Proves route-family choice and family-specific selection are separate, cheap, and abstention-capable. |
 | `F-BudgetedUncertaintyEscalator` | Proves high uncertainty or budget exhaustion escalates instead of choosing a cheap wrong route. |
 | `F-SparseWakeProposal-Budget` | Proves wake proposals name selected/rejected units, expected hot/KV/cold bytes, fallback, uncertainty, and verifier need. |

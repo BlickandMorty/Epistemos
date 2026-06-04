@@ -187,6 +187,10 @@ name = "falsify_verifier_regret_ledger"
 path = "src/bin/falsify_verifier_regret_ledger.rs"
 
 [[bin]]
+name = "falsify_route_scout_ssm_baseline"
+path = "src/bin/falsify_route_scout_ssm_baseline.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
