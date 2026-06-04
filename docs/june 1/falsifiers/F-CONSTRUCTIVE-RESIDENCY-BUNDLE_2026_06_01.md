@@ -123,4 +123,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current active cursor after the 2026-06-04 SparseRoute no-hidden-authority witness: `F-ColdStream-NoHiddenAuthority`
+- Current cursor after the 2026-06-04 ColdStream no-hidden-authority metadata-only witness: `large_model_provider_reference_deferred_by_mlx_route`

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb0ce97905953dcd1fa53cca28bd363decc89220",
+  "commit_sha": "5bcb6969b96a6e1426650cc48b75a361f7a347ee",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T16:11:12Z",
-  "result_digest": "sha256:d31c5f5b5dabe356e987e794c348874e55b6ce1c80d65913bf836d64f9f46c4c",
+  "timestamp_utc": "2026-06-04T17:22:47Z",
+  "result_digest": "sha256:e14d9edf252f336aa13fd3a057efdd600c446ae63793719b31f8a721b7273924",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -192,6 +192,22 @@
     "cold_miss_ledger_summary": {
       "value": {
         "path": "artifacts/falsifiers/cold_miss_ledger/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "coldstream_no_hidden_authority_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_no_hidden_authority_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/coldstream_no_hidden_authority/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -442,7 +458,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "coldstream_no_hidden_authority",
+      "value": "large_model_provider_reference_deferred_by_mlx_route",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -931,7 +947,7 @@
           "order": 48,
           "gap_id": "coldstream_no_hidden_authority",
           "tier": "ColdStream Transport",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ColdStream-NoHiddenAuthority",
           "witness": "docs/falsifiers/F-COLDSTREAM-RESIDENCY-TRANSPORT-BUNDLE_2026_06_01.md",
           "promotion_condition": "ColdStream transport must prove route/control evidence cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof.",
@@ -1451,6 +1467,11 @@
       "value": true,
       "unit": "bool"
     },
+    "coldstream_no_hidden_authority_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "construction_search_tournament_pass": {
       "operator": "==",
       "value": true,
@@ -1746,6 +1767,7 @@
     "coactivation_tile_prefetch_pass": true,
     "cold_assembly_plan_70b_lite_pass": true,
     "cold_miss_ledger_pass": true,
+    "coldstream_no_hidden_authority_pass": true,
     "construction_search_tournament_pass": true,
     "depth_lease_checkpoint_pass": true,
     "fast_weight_quarantine_pass": true,
@@ -1815,17 +1837,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "coldstream_no_hidden_authority_missing",
-      "detail": "Sparse route no-hidden-authority evidence is present; the next non-heavy architecture cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
-    },
-    {
       "kind": "seventy_b_route_deferred_by_mlx_route",
       "detail": "70B/GGUF/provider-reference work is not an active requirement while the app is routed through practical MLX local inference."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "coldstream_no_hidden_authority"
+      "detail": "large_model_provider_reference_deferred_by_mlx_route"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=coldstream_no_hidden_authority; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=large_model_provider_reference_deferred_by_mlx_route; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

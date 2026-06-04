@@ -11,7 +11,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use agent_core::falsifier_artifacts::axes::SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES;
+use agent_core::falsifier_artifacts::axes::{
+    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+};
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
     FallbackTier, Measurement,
@@ -2745,6 +2747,11 @@ fn build_report() -> GuardReport {
         &sparse_route_no_hidden_authority,
         SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
     );
+    let coldstream_no_hidden_authority = read_json(Path::new(COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH));
+    let coldstream_no_hidden_authority_available = artifact_all_axes_true(
+        &coldstream_no_hidden_authority,
+        COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2861,6 +2868,7 @@ fn build_report() -> GuardReport {
         && ablation_shadow_run_available
         && axiom_axiomatic_source_distinction_available
         && sparse_route_no_hidden_authority_available
+        && coldstream_no_hidden_authority_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3211,6 +3219,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "sparse_route_no_hidden_authority_available",
         sparse_route_no_hidden_authority_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "coldstream_no_hidden_authority_available",
+        coldstream_no_hidden_authority_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3616,7 +3631,7 @@ fn build_report() -> GuardReport {
                 },
                 "coldstream_no_hidden_authority": {
                     "path": COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH,
-                    "available": Path::new(COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH).exists()
+                    "available": coldstream_no_hidden_authority_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -3949,7 +3964,10 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has source-distinction evidence; the next non-heavy cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
         }));
     }
-    if sparse_route_no_hidden_authority_available && !heavy_long_context_enabled {
+    if sparse_route_no_hidden_authority_available
+        && !coldstream_no_hidden_authority_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_coldstream_no_hidden_authority",
             "detail": "Meta Control has SparseRoute no-hidden-authority evidence; the next non-heavy cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."

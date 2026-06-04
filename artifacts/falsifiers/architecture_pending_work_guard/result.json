@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb0ce97905953dcd1fa53cca28bd363decc89220",
+  "commit_sha": "5bcb6969b96a6e1426650cc48b75a361f7a347ee",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T16:11:18Z",
-  "result_digest": "sha256:9ab72075a663d7a4caaf3dc94adb499d7a7a94d9fdccaa46301db6afbdaa94a6",
+  "timestamp_utc": "2026-06-04T17:23:12Z",
+  "result_digest": "sha256:12ef2bf7d2b0c428f43d4bf45f1dfb91ff69f4628c6cd94b868d6c52f5acd3db",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -224,7 +224,7 @@
           },
           "coldstream_no_hidden_authority": {
             "path": "artifacts/falsifiers/coldstream_no_hidden_authority/result.json",
-            "available": false
+            "available": true
           },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
@@ -271,6 +271,10 @@
       "unit": "bool"
     },
     "cold_miss_ledger_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_no_hidden_authority_available": {
       "value": true,
       "unit": "bool"
     },
@@ -550,11 +554,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "coldstream_no_hidden_authority",
+      "value": "large_model_provider_reference_deferred_by_mlx_route",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "coldstream_no_hidden_authority",
+      "value": "large_model_provider_reference_deferred_by_mlx_route",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -626,7 +630,7 @@
       "unit": "bool"
     },
     "queue_pending_item_count": {
-      "value": 4,
+      "value": 3,
       "unit": "count"
     },
     "queue_required_fields_present": {
@@ -739,6 +743,11 @@
       "unit": "bool"
     },
     "cold_miss_ledger_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_no_hidden_authority_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -1008,6 +1017,7 @@
     "coactivation_tile_prefetch_available": true,
     "cold_assembly_plan_70b_lite_available": true,
     "cold_miss_ledger_available": true,
+    "coldstream_no_hidden_authority_available": true,
     "construction_search_tournament_available": true,
     "depth_lease_checkpoint_available": true,
     "fast_weight_quarantine_available": true,
@@ -1068,10 +1078,6 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_coldstream_no_hidden_authority",
-      "detail": "Meta Control has SparseRoute no-hidden-authority evidence; the next non-heavy cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
-    },
-    {
       "kind": "partial_kv_shard_outputs",
       "detail": "At least one KV shard output directory is partial; repair or rerun that shard before starting a later shard."
     },
@@ -1084,5 +1090,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=coldstream_no_hidden_authority; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=large_model_provider_reference_deferred_by_mlx_route; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

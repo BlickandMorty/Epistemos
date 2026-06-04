@@ -86,6 +86,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-AblationShadowRun",
     "F-AxiomAxiomatic-SourceDistinction",
     "F-SparseRoute-NoHiddenAuthority",
+    "F-ColdStream-NoHiddenAuthority",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
