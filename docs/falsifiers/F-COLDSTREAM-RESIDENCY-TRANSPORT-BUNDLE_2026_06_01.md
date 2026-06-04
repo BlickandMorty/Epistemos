@@ -32,8 +32,9 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | AnswerPacket fixture plus UI summary. |
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear or energy budgets. | Wear-budget simulation. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
+| `F-ProviderRoute-CopySourceGuard` | Provider/KV/70B/practical-MLX route copy cannot source-launder, imply product promotion, call providers, create prompt manifests, mutate route policy, or hide L2/L3 status after large-model deferral. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/provider_route_copy_source_guard/result.json`; no live bytes moved. |
 
-Current cursor after the 2026-06-04 `F-LargeModelProviderReference-DeferredByMlxRoute` metadata-only witness: `provider_route_copy_source_guard`.
+Current cursor after the 2026-06-04 `F-ProviderRoute-CopySourceGuard` metadata-only witness: `transport_trace_answer_packet`.
 
 `F-ColdStream-NoHiddenAuthority` advances L1 only. `F-ColdStream-vs-Mmap`,
 `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`,

@@ -88,6 +88,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SparseRoute-NoHiddenAuthority",
     "F-ColdStream-NoHiddenAuthority",
     "F-LargeModelProviderReference-DeferredByMlxRoute",
+    "F-ProviderRoute-CopySourceGuard",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

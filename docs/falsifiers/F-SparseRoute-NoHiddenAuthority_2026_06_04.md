@@ -8,9 +8,9 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Command: `Tools/falsifiers/f_sparse_route_no_hidden_authority.sh`
 - Artifact: `artifacts/falsifiers/sparse_route_no_hidden_authority/result.json`
 - UAS address: `uas:sparse-route-no-hidden-authority:sha256:9f3e1c123edb7122f089bb77373ba73267e99c6ac5825f1ee55ff68ba7890710`
-- L1 downstream cursor at landing: `F-ColdStream-NoHiddenAuthority`; current cursor after ColdStream is `provider_route_copy_source_guard`
+- L1 downstream cursor at landing: `F-ColdStream-NoHiddenAuthority`; current cursor after downstream ProviderRoute copy-source guard is `transport_trace_answer_packet`
 - L2 status: `vault_research_route_with_packetized_mitigation`
-- L2 next bottleneck after ColdStream: `provider_route_copy_source_guard`
+- L2 next bottleneck after downstream ProviderRoute copy-source guard: `transport_trace_answer_packet`
 - L3 user-facing/product runtime: unchanged; no live sparse route, no live 70B, and no user-visible route promotion is claimed.
 
 ## What Passed
@@ -25,8 +25,8 @@ Invalid fixtures reject empty fixtures, duplicate fixture IDs, duplicate route I
 
 ## Truth Layers
 
-L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream now passes metadata-only and the current cursor is `provider_route_copy_source_guard`.
+L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream, large-model deferral, and ProviderRoute copy-source guard now pass metadata-only and the current cursor is `transport_trace_answer_packet`.
 
-L2 did not advance to product-green. The capability kernel still reports `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `provider_route_copy_source_guard`.
+L2 did not advance to product-green. The capability kernel still reports `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `transport_trace_answer_packet`.
 
 L3 did not advance. This witness does not make sparse routing live, does not promote PatternBoost to live route authority, does not enable a dense/local 70B product claim, and does not change MAS/Pro user-facing capability copy.

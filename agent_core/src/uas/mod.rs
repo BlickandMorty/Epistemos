@@ -42,6 +42,7 @@ pub mod lattice_state_controller;
 pub mod pattern_boost;
 pub mod proof_carrying_residency_lease;
 pub mod provider_reference;
+pub mod provider_route_copy_source_guard;
 pub mod reasoning_state_continuity;
 pub mod residency_construction_graph;
 pub mod residency_lease;
@@ -93,6 +94,11 @@ pub use proof_carrying_residency_lease::{
 pub use provider_reference::{
     ProviderReferenceKind, ProviderReferenceManifest, ProviderReferenceManifestError,
     ReferenceDataSentClass, ReferenceEvidenceScope, ReferenceRetentionClaim,
+};
+pub use provider_route_copy_source_guard::{
+    ProviderRouteCopyClaim, ProviderRouteCopySourceError, ProviderRouteCopySourceGuard,
+    ProviderRouteCopySourceMetrics, ProviderRouteCopySurface, ProviderRouteSourceKind,
+    PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR, PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR,
 };
 pub use reasoning_state_continuity::{
     PreservedStateKind, ReasoningStateBaseline, ReasoningStateContinuityCard,
