@@ -28,11 +28,15 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb03bef2033205d86c6aabcdf74aaece311e8363",
+  "commit_sha": "fb43d884934481b12cf4ee46469090356aace96c",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T13:39:36Z",
-  "result_digest": "sha256:a31889965c23ef68aa77c8280bbbb8322d247b2289a9821f0654672c18eed023",
+  "timestamp_utc": "2026-06-04T14:29:01Z",
+  "result_digest": "sha256:2063ccf7cf4aa53df21c7148b798b84974eadf6ff96706d20e566c9cf8861304",
   "measurements": {
+    "ablation_shadow_run_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "already_mapped_work": {
       "value": {
         "kv_prompt_suite": {
@@ -204,6 +208,10 @@
           },
           "shadow_wake_oracle": {
             "path": "artifacts/falsifiers/shadow_wake_oracle/result.json",
+            "available": true
+          },
+          "ablation_shadow_run": {
+            "path": "artifacts/falsifiers/ablation_shadow_run/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -526,11 +534,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "ablation_shadow_run",
+      "value": "axiom_axiomatic_source_distinction",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "ablation_shadow_run",
+      "value": "axiom_axiomatic_source_distinction",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -590,7 +598,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 46,
+      "value": 47,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -675,6 +683,11 @@
     }
   },
   "acceptance_thresholds": {
+    "ablation_shadow_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "brain_route_card_multi_model_available": {
       "operator": "==",
       "value": true,
@@ -957,6 +970,7 @@
     }
   },
   "pass_per_axis": {
+    "ablation_shadow_run_available": true,
     "brain_route_card_multi_model_available": true,
     "budgeted_uncertainty_escalator_available": true,
     "capability_kernel_artifact_available": true,
@@ -1022,8 +1036,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_ablation_shadow_run",
-      "detail": "Meta Control has ShadowWakeOracle evidence; the next non-heavy cursor must prove ablation shadow runs identify unit importance without hidden live route authority."
+      "kind": "missing_axiom_axiomatic_source_distinction",
+      "detail": "Meta Control has AblationShadowRun evidence; the next non-heavy cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1038,5 +1052,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=ablation_shadow_run; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=axiom_axiomatic_source_distinction; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

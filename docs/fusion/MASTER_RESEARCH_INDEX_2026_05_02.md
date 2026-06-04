@@ -1069,9 +1069,9 @@ regret.
 | `F-FastWeightQuarantine` | PASS metadata-only witness on 2026-06-04. Proves fast-weight deltas remain quarantined, session-local, resettable, TTL-limited, rollback-bound, AnswerPacket-visible, mutation-safe, shadow-only, and reject live-control authority before held-out release. Artifact: `artifacts/falsifiers/fast_weight_quarantine/result.json`. |
 | `F-DepthLease-Checkpoint` | PASS metadata-only witness on 2026-06-04. Proves dynamic-depth choices declare shallow exit, deeper wake, verifier margin, max extra layers, full-depth fallback, checkpoint/resume token, rollback, RunEventLog, AnswerPacket fields, mutation-safety fence, no silent promotion, and zero runtime/model bytes. Artifact: `artifacts/falsifiers/depth_lease_checkpoint/result.json`. |
 | `F-ShadowWakeOracle` | PASS metadata-only witness on 2026-06-04. Proves full-wake/proof/test oracle traces provide labels without becoming a live runtime dependency. Artifact: `artifacts/falsifiers/shadow_wake_oracle/result.json`. |
-| `F-AblationShadowRun` | Current active cursor. Proves claimed useful units survive counterfactual remove-one-unit comparison. |
+| `F-AblationShadowRun` | PASS metadata-only witness on 2026-06-04. Proves claimed useful units survive counterfactual remove-one-unit comparison without hidden live route authority or runtime/model bytes. Artifact: `artifacts/falsifiers/ablation_shadow_run/result.json`. |
 | `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04: sparse route answers expose selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback; no live sparse route authority promotes. |
-| `F-AxiomAxiomatic-SourceDistinction` | Proves Axiom, Axiomatic AI, Harmonic, UlamAI, and Math Inc motifs stay source-distinct instead of being blurred into one authority. |
+| `F-AxiomAxiomatic-SourceDistinction` | Current active cursor. Proves Axiom, Axiomatic AI, Harmonic, UlamAI, and Math Inc motifs stay source-distinct instead of being blurred into one authority. |
 | `F-SparseRoute-NoHiddenAuthority` | Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, or override SCOPE-Rex/SovereignGate alone. |
 
 **Agent rule.** Any PR touching Axiom/Axplorer/PatternBoost, Axiomatic
