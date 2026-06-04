@@ -255,6 +255,10 @@ name = "falsify_depth_lease_checkpoint"
 path = "src/bin/falsify_depth_lease_checkpoint.rs"
 
 [[bin]]
+name = "falsify_shadow_wake_oracle"
+path = "src/bin/falsify_shadow_wake_oracle.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

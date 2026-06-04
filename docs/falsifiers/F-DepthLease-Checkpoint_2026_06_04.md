@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_depth_lease_checkpoint.sh`
 - Artifact: `artifacts/falsifiers/depth_lease_checkpoint/result.json`
-- L1 next cursor: `F-ShadowWakeOracle`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `shadow_wake_oracle`
+- L1 next cursor at landing: `F-ShadowWakeOracle`; current L1 cursor after `F-ShadowWakeOracle` is `F-AblationShadowRun`.
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `ablation_shadow_run`
 - L3 user-facing/runtime route: unchanged; no adaptive-depth live route authority, hidden full-depth fallback, cache mutation, route-policy mutation, base-weight mutation, model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate fixture or checkpoint IDs; missi
 
 ## Scope
 
-This advances L1 only. It does not make adaptive depth a live router, does not hide full-depth fallback, does not mutate cache, route policy, or base model weights, does not allow hidden PatternBoost/lattice/Eidos authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-ShadowWakeOracle`, which must prove full-wake/proof/test oracle traces become route labels without becoming a hidden live runtime dependency.
+This advances L1 only. It does not make adaptive depth a live router, does not hide full-depth fallback, does not mutate cache, route policy, or base model weights, does not allow hidden PatternBoost/lattice/Eidos authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ShadowWakeOracle` now passes as a metadata-only successor witness; the current architecture unit is `F-AblationShadowRun`, which must prove claimed useful units survive counterfactual remove-one-unit comparison before route-importance claims can promote.
