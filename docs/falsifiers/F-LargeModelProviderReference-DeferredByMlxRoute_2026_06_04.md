@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_large_model_provider_reference_deferred_by_mlx_route.sh`
 - Artifact: `artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream ProviderRoute copy-source guard: `transport_trace_answer_packet`
+- Current L1 cursor after downstream `F-TransportTrace-AnswerPacket`: `ssd_wear_budget`
 
 ## What It Proves
 
@@ -18,12 +18,12 @@ It binds upstream guard, capability kernel, provider-readiness, and 70B prefligh
 
 ## Layer Truth
 
-- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard` now passes and the regenerated pending-work guard reports `next_existing_work=transport_trace_answer_packet` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=transport_trace_answer_packet`.
+- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard` and `F-TransportTrace-AnswerPacket` now pass, and the regenerated pending-work guard reports `next_existing_work=ssd_wear_budget` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=ssd_wear_budget`.
 - L3: Not advanced. No user-facing runtime, live 70B, provider route, KV-Direct 128K, or product copy claim was promoted.
 
 ## Notes
 
 This is not a 70B runtime pass, not a provider-reference pass, not a KV-Direct 128K pass, and not evidence that dense 70B can run as a product route. It is the default-loop safety proof that those heavy lanes remain gated while the architecture continues through visible, falsifier-backed work.
 
-Downstream update: `F-ProviderRoute-CopySourceGuard` adds the copy/source honesty guard over the Living Index and lattice HTML. The active next unit is now `F-TransportTrace-AnswerPacket`.
+Downstream update: `F-ProviderRoute-CopySourceGuard` added the copy/source honesty guard over the Living Index and lattice HTML, and `F-TransportTrace-AnswerPacket` now binds cold-transport traces to visible AnswerPacket proof. The active next unit is now `F-SSD-WearBudget`.

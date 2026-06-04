@@ -1,0 +1,1150 @@
+{
+  "falsifier_id": "F-TransportTrace-AnswerPacket",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_transport_trace_answer_packet.sh",
+  "command_digest": "sha256:6bd3d23b68b11876d5f814272918b0014f7fc5a717f42c9ca9163574cb9c3e84",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "2e237f46d85ff78417b202379b8e729a24a431d2",
+  "fixture_id": "transport_trace_answer_packet_v1",
+  "timestamp_utc": "2026-06-04T20:09:17Z",
+  "result_digest": "sha256:8bbd846a584d1263485531ca779aa49d0fd8ce7618936f6b036b54f0c63641dd",
+  "measurements": {
+    "admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_count": {
+      "value": 3,
+      "unit": "packets"
+    },
+    "answer_packet_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bytes_decoded": {
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "bytes_read": {
+      "value": 405504,
+      "unit": "bytes"
+    },
+    "bytes_requested": {
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "cache_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_count": {
+      "value": 3,
+      "unit": "cancellations"
+    },
+    "cancellation_group_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_transport_trace_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_stage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copied_bytes": {
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "copied_bytes_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_frame_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_frame_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_caveat_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_caveat_count": {
+      "value": 3,
+      "unit": "caveats"
+    },
+    "fallback_caveat_suppression_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_count": {
+      "value": 3,
+      "unit": "fallbacks"
+    },
+    "fallback_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "frame_count": {
+      "value": 3,
+      "unit": "frames"
+    },
+    "guard_cursor_transport_trace_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_summary_baseline_bps": {
+      "value": 4200,
+      "unit": "bps"
+    },
+    "hidden_summary_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invisible_fallback_baseline_bps": {
+      "value": 4100,
+      "unit": "bps"
+    },
+    "invisible_fallback_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_authority_baseline_bps": {
+      "value": 4500,
+      "unit": "bps"
+    },
+    "live_authority_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "material_frames_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_copy_count": {
+      "value": 2,
+      "unit": "copies"
+    },
+    "max_metadata_bytes": {
+      "value": 24576,
+      "unit": "bytes"
+    },
+    "max_p95_stall_ms": {
+      "value": 17,
+      "unit": "ms"
+    },
+    "max_p99_stall_ms": {
+      "value": 29,
+      "unit": "ms"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_read_amplification_bps": {
+      "value": 10312,
+      "unit": "bps"
+    },
+    "missing_admission_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_group_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_codec_stage_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_caveat_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_summary_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_baseline_bps": {
+      "value": 3600,
+      "unit": "bps"
+    },
+    "no_answer_packet_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_fallback_caveat_suppression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_scope_rex_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_sovereign_gate_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_material_trace_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "p99_order_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "read_amplification_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "read_amplification_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "read_under_requested_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_visible_trace_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_count": {
+      "value": 3,
+      "unit": "logs"
+    },
+    "run_event_log_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "value": 3,
+      "unit": "surfaces"
+    },
+    "transport_trace_answer_packet_address": {
+      "value": "uas:transport-trace-answer-packet:sha256:sha256:c681309f9d5bb4621eeedf86b52389c9c69ce7ff90ee2f0a86c93590d49437ee",
+      "unit": "uas_address"
+    },
+    "transport_trace_answer_packet_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "underdecode_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_coldstream_no_hidden_authority_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_provider_route_copy_source_guard_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_lane_count": {
+      "value": 3,
+      "unit": "lanes"
+    },
+    "visible_summary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_count": {
+      "value": 3,
+      "unit": "summaries"
+    },
+    "zero_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_stall_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "packets"
+    },
+    "answer_packet_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bytes_decoded": {
+      "operator": ">=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "bytes_read": {
+      "operator": ">=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "bytes_requested": {
+      "operator": ">=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "cache_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "cancellations"
+    },
+    "cancellation_group_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_transport_trace_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_stage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copied_bytes": {
+      "operator": ">=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "copied_bytes_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_frame_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_frame_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_caveat_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_caveat_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "caveats"
+    },
+    "fallback_caveat_suppression_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "fallbacks"
+    },
+    "fallback_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "frame_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "frames"
+    },
+    "guard_cursor_transport_trace_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_summary_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "hidden_summary_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invisible_fallback_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "invisible_fallback_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_authority_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "live_authority_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "material_frames_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_copy_count": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "copies"
+    },
+    "max_metadata_bytes": {
+      "operator": "<=",
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "max_p95_stall_ms": {
+      "operator": ">",
+      "value": 0,
+      "unit": "ms"
+    },
+    "max_p99_stall_ms": {
+      "operator": ">",
+      "value": 0,
+      "unit": "ms"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_read_amplification_bps": {
+      "operator": "<=",
+      "value": 16000,
+      "unit": "bps"
+    },
+    "missing_admission_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_group_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_codec_stage_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_caveat_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_summary_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_baseline_bps": {
+      "operator": "<",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "no_answer_packet_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_fallback_caveat_suppression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_scope_rex_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_sovereign_gate_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_material_trace_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "p99_order_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "read_amplification_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "read_amplification_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "read_under_requested_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_visible_trace_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "logs"
+    },
+    "run_event_log_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "surfaces"
+    },
+    "transport_trace_answer_packet_address": {
+      "operator": "starts_with",
+      "value": "uas:transport-trace-answer-packet:sha256:",
+      "unit": "uas_address"
+    },
+    "transport_trace_answer_packet_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "underdecode_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_coldstream_no_hidden_authority_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_provider_route_copy_source_guard_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_lane_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "lanes"
+    },
+    "visible_summary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "summaries"
+    },
+    "zero_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_stall_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "admission_bound": true,
+    "answer_packet_count": true,
+    "answer_packet_refs_bound": true,
+    "answer_packet_suppression_rejected": true,
+    "bytes_decoded": true,
+    "bytes_read": true,
+    "bytes_requested": true,
+    "cache_policy_bound": true,
+    "cancellation_count": true,
+    "cancellation_group_bound": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_transport_trace_or_advanced": true,
+    "capability_route_status_vault_research": true,
+    "codec_stage_bound": true,
+    "compatibility_fence_bound": true,
+    "copied_bytes": true,
+    "copied_bytes_missing_rejected": true,
+    "copy_budget_rejected": true,
+    "copy_count_bound": true,
+    "duplicate_answer_packet_rejected": true,
+    "duplicate_frame_rejected": true,
+    "duplicate_surface_rejected": true,
+    "empty_frame_rejected": true,
+    "empty_surface_rejected": true,
+    "fallback_caveat_bound": true,
+    "fallback_caveat_count": true,
+    "fallback_caveat_suppression_rejected": true,
+    "fallback_count": true,
+    "fallback_refs_bound": true,
+    "forbidden_marker_rejected": true,
+    "frame_count": true,
+    "guard_cursor_transport_trace_or_advanced": true,
+    "hidden_chain_rejected": true,
+    "hidden_cloud_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "hidden_summary_baseline_bps": true,
+    "hidden_summary_baseline_unbeaten_rejected": true,
+    "invisible_fallback_baseline_bps": true,
+    "invisible_fallback_baseline_unbeaten_rejected": true,
+    "l1_l2_l3_separation_bound": true,
+    "live_authority_baseline_bps": true,
+    "live_authority_baseline_unbeaten_rejected": true,
+    "live_pro_status_rejected": true,
+    "mas_product_build_rejected": true,
+    "material_frames_bound": true,
+    "max_copy_count": true,
+    "max_metadata_bytes": true,
+    "max_p95_stall_ms": true,
+    "max_p99_stall_ms": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "min_read_amplification_bps": true,
+    "missing_admission_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_cache_policy_rejected": true,
+    "missing_cancellation_group_rejected": true,
+    "missing_codec_stage_rejected": true,
+    "missing_compatibility_fence_rejected": true,
+    "missing_fallback_caveat_rejected": true,
+    "missing_fallback_rejected": true,
+    "missing_layer_separation_rejected": true,
+    "missing_required_marker_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rex_rejected": true,
+    "missing_sovereign_gate_rejected": true,
+    "missing_surface_ref_rejected": true,
+    "missing_visible_summary_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_rejected": true,
+    "no_answer_packet_baseline_bps": true,
+    "no_answer_packet_baseline_unbeaten_rejected": true,
+    "no_answer_packet_suppression": true,
+    "no_fallback_caveat_suppression": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_model_bytes_loaded": true,
+    "no_route_policy_mutation": true,
+    "no_runtime_bytes_loaded": true,
+    "no_scope_rex_bypass": true,
+    "no_sovereign_gate_bypass": true,
+    "non_material_trace_rejected": true,
+    "p99_order_rejected": true,
+    "product_status_research_only": true,
+    "read_amplification_bound": true,
+    "read_amplification_rejected": true,
+    "read_under_requested_rejected": true,
+    "rollback_bound": true,
+    "route_authority_visible_trace_only": true,
+    "route_policy_mutation_rejected": true,
+    "run_event_log_count": true,
+    "run_event_log_refs_bound": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_rejected": true,
+    "scope_rex_bound": true,
+    "scope_rex_bypass_rejected": true,
+    "sovereign_gate_bound": true,
+    "sovereign_gate_bypass_rejected": true,
+    "surface_count": true,
+    "transport_trace_answer_packet_address": true,
+    "transport_trace_answer_packet_address_deterministic": true,
+    "underdecode_rejected": true,
+    "upstream_coldstream_no_hidden_authority_pass": true,
+    "upstream_provider_route_copy_source_guard_pass": true,
+    "visibility_lane_count": true,
+    "visible_summary_bound": true,
+    "visible_summary_count": true,
+    "zero_bytes_rejected": true,
+    "zero_stall_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_transport_trace_answer_packet",
+      "detail": "Binds ColdStream TransportTrace material to RunEventLog and visible AnswerPacket caveats; no live transport, mmap replacement, 70B runtime, provider route, or product promotion is proven."
+    }
+  ],
+  "notes": "Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof. F-TransportTrace-AnswerPacket is metadata-only: transported/cold material cannot silently affect an answer without byte accounting, stall/copy metrics, fallback caveat, rollback, RunEventLog, and AnswerPacket proof."
+}
