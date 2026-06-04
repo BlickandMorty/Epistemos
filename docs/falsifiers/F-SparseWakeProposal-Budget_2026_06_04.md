@@ -7,8 +7,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_sparse_wake_proposal_budget.sh`
 - Artifact: `artifacts/falsifiers/sparse_wake_proposal_budget/result.json`
-- L1 next cursor: `F-VerifierBudgetAuction`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `verifier_budget_auction`
+- L1 next cursor at landing: `F-VerifierBudgetAuction`; current cursor after the 2026-06-04 `F-VerifierBudgetAuction` witness is `F-KVPageSketchIndex`.
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `kv_page_sketch_index`.
 - L3 user-facing/runtime route: unchanged; no live sparse wake, model-byte load, or UI claim is promoted.
 
 ## What It Proves
@@ -23,4 +23,4 @@ The falsifier rejects duplicate proposals; missing selected or rejected units; m
 
 ## Scope
 
-This advances L1 only. It does not make `SparseWakeProposal` a live router, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-VerifierBudgetAuction`, which must prove candidate wake units compete under explicit verifier, byte, and latency budgets before residency work can promote.
+This advances L1 only. It does not make `SparseWakeProposal` a live router, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-VerifierBudgetAuction` now passes as metadata-only evidence; the current architecture unit is `F-KVPageSketchIndex`, which must prove KV/page sketches bind address, budget, compatibility, hits, misses, and privacy class before query-aware page selection can promote.
