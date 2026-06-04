@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
-    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -102,6 +102,8 @@ const COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/coldstream_no_hidden_authority/result.json";
 const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH: &str =
     "artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json";
+const PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH: &str =
+    "artifacts/falsifiers/provider_route_copy_source_guard/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2764,6 +2766,12 @@ fn build_report() -> GuardReport {
         &large_model_provider_reference_deferral,
         LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
     );
+    let provider_route_copy_source_guard =
+        read_json(Path::new(PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH));
+    let provider_route_copy_source_guard_available = artifact_all_axes_true(
+        &provider_route_copy_source_guard,
+        PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2883,6 +2891,9 @@ fn build_report() -> GuardReport {
         && sparse_route_no_hidden_authority_available
         && coldstream_no_hidden_authority_available
         && (heavy_long_context_enabled || large_model_provider_reference_deferral_available)
+        && (heavy_long_context_enabled
+            || !large_model_provider_reference_deferral_available
+            || provider_route_copy_source_guard_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3247,6 +3258,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "large_model_provider_reference_deferral_available",
         large_model_provider_reference_deferral_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "provider_route_copy_source_guard_available",
+        provider_route_copy_source_guard_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3658,6 +3676,10 @@ fn build_report() -> GuardReport {
                     "path": LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH,
                     "available": large_model_provider_reference_deferral_available
                 },
+                "provider_route_copy_source_guard": {
+                    "path": PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH,
+                    "available": provider_route_copy_source_guard_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4005,6 +4027,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_large_model_provider_reference_deferral",
             "detail": "Meta Control has ColdStream no-hidden-authority evidence; the next non-heavy cursor must prove provider/fp16/70B and 128K heavy probes stay deferred while practical MLX and cold-assembly architecture remain preserved."
+        }));
+    }
+    if large_model_provider_reference_deferral_available
+        && !provider_route_copy_source_guard_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_provider_route_copy_source_guard",
+            "detail": "Large-model provider deferral is present; the next non-heavy cursor must prove provider/GGUF/KV/70B route copy stays source-only and cannot promote L2/L3 capability claims, hidden cloud fallback, provider calls, or route-policy mutation."
         }));
     }
     if !provider_reference_manifest_dry_run_available {

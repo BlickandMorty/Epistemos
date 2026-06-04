@@ -9,8 +9,6 @@ landed_on: 2026-06-04
 
 # F-ColdStream-NoHiddenAuthority
 
-**June 1 mirror:** this page mirrors `docs/falsifiers/F-ColdStream-NoHiddenAuthority_2026_06_04.md` for the `JUNE1-CANON-FUSION-LOCK` recovery surface.
-
 North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
 ## Result
@@ -35,9 +33,9 @@ The witness rejects empty or duplicate page runs, duplicate ranges, duplicate UA
 
 ## Cursor
 
-- L1 next existing work: `provider_route_copy_source_guard`
+- L1 next existing work: `transport_trace_answer_packet`
 - L2 route status: `vault_research_route_with_packetized_mitigation`
-- L2 next bottleneck: `provider_route_copy_source_guard`
+- L2 next bottleneck: `transport_trace_answer_packet`
 - L3 user-facing/product runtime: unchanged
 
 Correct phrasing: architecture cursor advanced; product capability / user surface did not.

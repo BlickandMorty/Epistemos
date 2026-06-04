@@ -1,7 +1,5 @@
 # F-AxiomAxiomatic-SourceDistinction - 2026-06-04
 
-**June 1 mirror:** this page mirrors `docs/falsifiers/F-AxiomAxiomatic-SourceDistinction_2026_06_04.md` for the `JUNE1-CANON-FUSION-LOCK` recovery surface.
-
 **North star:** Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
 ## Result
@@ -13,10 +11,10 @@
 - Artifact kind: `primary_witness`
 - Scope: source-card / route-prior metadata only; no runtime bytes, no model bytes, no external prover integration, and no live sparse route authority.
 - L1 next cursor at landing: `F-SparseRoute-NoHiddenAuthority`
-- Current L1 cursor after `F-ColdStream-NoHiddenAuthority`: `provider_route_copy_source_guard`
+- Current L1 cursor after `F-ProviderRoute-CopySourceGuard`: `transport_trace_answer_packet`
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L2 landing bottleneck: `sparse_route_no_hidden_authority`
-- Current L2 next bottleneck after `F-ColdStream-NoHiddenAuthority`: `provider_route_copy_source_guard`
+- Current L2 next bottleneck after `F-ProviderRoute-CopySourceGuard`: `transport_trace_answer_packet`
 - L3 user-facing/product runtime: unchanged.
 
 ## What Passed
@@ -49,6 +47,6 @@ The witness also guards exact stale-copy strings surfaced by the helper audit: `
 
 L1 advanced. This witness proves formal-math/prover/company/tooling motifs can be cited only as source-prior metadata with visible provenance, rollback, RunEventLog, and AnswerPacket evidence.
 
-L2 did not advance to product-green. At Axiom landing, the capability kernel still reported `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and landing bottleneck `sparse_route_no_hidden_authority`. After the downstream SparseRoute and ColdStream witnesses passed, the current regenerated bottleneck is `provider_route_copy_source_guard`.
+L2 did not advance to product-green. At Axiom landing, the capability kernel still reported `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and landing bottleneck `sparse_route_no_hidden_authority`. After the downstream SparseRoute, ColdStream, large-model deferral, and ProviderRoute copy-source witnesses passed, the current regenerated bottleneck is `transport_trace_answer_packet`.
 
 L3 did not advance. No user-facing runtime, MAS capability, live prover, live sparse route, live 70B route, live PatternBoost route, or autogenous-kernel behavior is promoted by this metadata witness.

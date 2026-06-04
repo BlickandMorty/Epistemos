@@ -1144,7 +1144,9 @@ buffers before they can block the hot path.
 | `F-ColdPanicFallback` | Proves missed deadlines degrade visibly instead of blocking token-time execution silently. |
 | `F-TransportTrace-AnswerPacket` | Proves cold-transport-dependent answers link to bytes, stalls, copies, fallback, and caveats. |
 | `F-SSD-WearBudget` | Proves repeated transport plans report read/write volume and reject over-budget wear or energy loops. |
-| `F-ColdStream-NoHiddenAuthority` | PASS metadata-only witness on 2026-06-04. Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, admission, rollback, RunEventLog, and AnswerPacket proof. Current cursor is `provider_route_copy_source_guard`; L2/L3 remain unpromoted. |
+| `F-ColdStream-NoHiddenAuthority` | PASS metadata-only witness on 2026-06-04. Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, admission, rollback, RunEventLog, and AnswerPacket proof; downstream large-model deferral and ProviderRoute copy-source guard now pass metadata-only. |
+| `F-LargeModelProviderReference-DeferredByMlxRoute` | PASS metadata-only witness on 2026-06-04. Proves the default practical-MLX route defers provider/fp16 prompt-level reference, KV-Direct 128K shard work, dense 70B runtime, and live sparse 70B runtime unless heavy long-context is explicitly enabled; downstream ProviderRoute copy-source guard now passes metadata-only. |
+| `F-ProviderRoute-CopySourceGuard` | PASS metadata-only witness on 2026-06-04. Proves Living Index and lattice HTML copy keep provider-reference, KV-Direct 128K, dense 70B, live sparse 70B, and practical MLX routing source-only with no provider calls, prompt manifests, source laundering, hidden cloud fallback, route-policy mutation, hidden authority, runtime/model bytes, or L2/L3 promotion; advances L1 only to `transport_trace_answer_packet`. |
 
 **Agent rule.** Any PR touching mmap, AppColdStore transport, SSD hot paths,
 page faults, cold I/O, prefetch windows, Metal I/O, Dispatch I/O,

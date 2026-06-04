@@ -123,4 +123,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current cursor after the 2026-06-04 large-model provider-reference deferral metadata-only witness: `provider_route_copy_source_guard`
+- Current cursor after the 2026-06-04 ProviderRoute copy-source guard metadata-only witness: `transport_trace_answer_packet`

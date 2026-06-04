@@ -279,6 +279,10 @@ name = "falsify_large_model_provider_reference_deferred_by_mlx_route"
 path = "src/bin/falsify_large_model_provider_reference_deferred_by_mlx_route.rs"
 
 [[bin]]
+name = "falsify_provider_route_copy_source_guard"
+path = "src/bin/falsify_provider_route_copy_source_guard.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
