@@ -1,0 +1,1245 @@
+{
+  "falsifier_id": "F-SlabArena-CopyCount",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_slab_arena_copy_count.sh",
+  "command_digest": "sha256:be7d68b21b1faab23bacfa01b5e73ca60e290e6ed490a7510c401c93260bcbe8",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9c8dee7d72ca5ae046450de17c603beb8ddd2aac",
+  "fixture_id": "slab_arena_copy_count_v1",
+  "timestamp_utc": "2026-06-04T23:10:18Z",
+  "result_digest": "sha256:365637855acce2523262e70a9e60c49fbeeca66eef0eda73e493610b3aeca094",
+  "measurements": {
+    "admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "alignment_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_delta_in_copy_event_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_sample_count": {
+      "value": 4,
+      "unit": "samples"
+    },
+    "allocation_samples_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_spike_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_count": {
+      "value": 6,
+      "unit": "refs"
+    },
+    "answer_packet_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancel_group_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_slab_arena_copy_count_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_bytes_out_of_bounds_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_exceeded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_reported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_within_expected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_event_count": {
+      "value": 6,
+      "unit": "events"
+    },
+    "copy_events_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_allocation_sample_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_copy_event_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_slab_arena_copy_count_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_decode_copy_baseline_bps": {
+      "value": 7350,
+      "unit": "bps"
+    },
+    "hidden_decode_copy_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_alignment_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_count": {
+      "value": 4,
+      "unit": "leases"
+    },
+    "lease_range_out_of_bounds_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_range_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_range_overlap_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_ranges_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_ranges_non_overlapping": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_table_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_authority_baseline_bps": {
+      "value": 7000,
+      "unit": "bps"
+    },
+    "live_authority_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_benchmark_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_copy_count": {
+      "value": 1,
+      "unit": "copies"
+    },
+    "max_expected_copy_count": {
+      "value": 4,
+      "unit": "copies"
+    },
+    "max_metadata_bytes": {
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "max_per_token_allocation_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "max_per_token_allocation_count": {
+      "value": 0,
+      "unit": "allocations"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_allocation_sample_for_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancel_group_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lease_table_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_purge_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_summary_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_benchmark_attempted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_per_token_allocation_spikes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_scope_rex_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_sovereign_gate_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_copy_bytes": {
+      "value": 32768,
+      "unit": "bytes"
+    },
+    "owner_actor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_count": {
+      "value": 2,
+      "unit": "plans"
+    },
+    "preallocated_bytes": {
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "preallocated_capacity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "purge_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_slab_trace_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "slab_arena_copy_count_address": {
+      "value": "uas:slab-arena-copy-count:sha256:d64081c38df70bbe14989442399b58821761e551e744cb81772eec856e15325e",
+      "unit": "string"
+    },
+    "slab_arena_copy_count_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "slab_plans_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "value": 2,
+      "unit": "surfaces"
+    },
+    "token_allocation_spike_baseline_bps": {
+      "value": 7800,
+      "unit": "bps"
+    },
+    "token_allocation_spike_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_success_bps": {
+      "value": 9850,
+      "unit": "bps"
+    },
+    "unbounded_vec_growth_baseline_bps": {
+      "value": 7100,
+      "unit": "bps"
+    },
+    "unbounded_vec_growth_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_coldstream_vs_mmap_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_capacity_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_lease_length_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "alignment_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_delta_in_copy_event_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_sample_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "samples"
+    },
+    "allocation_samples_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allocation_spike_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "refs"
+    },
+    "answer_packet_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancel_group_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_slab_arena_copy_count_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_bytes_out_of_bounds_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_exceeded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_reported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_count_within_expected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copy_event_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "events"
+    },
+    "copy_events_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_allocation_sample_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_copy_event_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_slab_arena_copy_count_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_decode_copy_baseline_bps": {
+      "operator": "<=",
+      "value": 9849,
+      "unit": "bps"
+    },
+    "hidden_decode_copy_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_alignment_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "leases"
+    },
+    "lease_range_out_of_bounds_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_range_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_range_overlap_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_ranges_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_ranges_non_overlapping": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_table_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_authority_baseline_bps": {
+      "operator": "<=",
+      "value": 9849,
+      "unit": "bps"
+    },
+    "live_authority_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_benchmark_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_copy_count": {
+      "operator": "<=",
+      "value": 1,
+      "unit": "copies"
+    },
+    "max_expected_copy_count": {
+      "operator": "<=",
+      "value": 4,
+      "unit": "copies"
+    },
+    "max_metadata_bytes": {
+      "operator": "<=",
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "max_per_token_allocation_bytes": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "max_per_token_allocation_count": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "allocations"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_allocation_sample_for_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancel_group_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lease_table_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_purge_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_summary_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_benchmark_attempted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_per_token_allocation_spikes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_scope_rex_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_sovereign_gate_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_copy_bytes": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "owner_actor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "plans"
+    },
+    "preallocated_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "preallocated_capacity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "purge_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_slab_trace_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "slab_arena_copy_count_address": {
+      "operator": "starts_with",
+      "value": "uas:slab-arena-copy-count:",
+      "unit": "string"
+    },
+    "slab_arena_copy_count_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "slab_plans_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "surfaces"
+    },
+    "token_allocation_spike_baseline_bps": {
+      "operator": "<=",
+      "value": 9849,
+      "unit": "bps"
+    },
+    "token_allocation_spike_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_success_bps": {
+      "operator": ">=",
+      "value": 9500,
+      "unit": "bps"
+    },
+    "unbounded_vec_growth_baseline_bps": {
+      "operator": "<=",
+      "value": 9849,
+      "unit": "bps"
+    },
+    "unbounded_vec_growth_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_coldstream_vs_mmap_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_summary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_capacity_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_lease_length_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "admission_bound": true,
+    "alignment_bound": true,
+    "allocation_delta_in_copy_event_rejected": true,
+    "allocation_sample_count": true,
+    "allocation_samples_bound": true,
+    "allocation_spike_rejected": true,
+    "answer_packet_count": true,
+    "answer_packet_refs_bound": true,
+    "answer_packet_suppression_rejected": true,
+    "cancel_group_bound": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_slab_arena_copy_count_or_advanced": true,
+    "capability_route_status_vault_research": true,
+    "compatibility_fence_bound": true,
+    "copy_bytes_bound": true,
+    "copy_bytes_out_of_bounds_rejected": true,
+    "copy_count_exceeded_rejected": true,
+    "copy_count_reported": true,
+    "copy_count_within_expected": true,
+    "copy_event_count": true,
+    "copy_events_bound": true,
+    "duplicate_allocation_sample_rejected": true,
+    "duplicate_answer_packet_rejected": true,
+    "duplicate_copy_event_rejected": true,
+    "duplicate_lease_rejected": true,
+    "duplicate_plan_rejected": true,
+    "duplicate_surface_rejected": true,
+    "empty_plan_rejected": true,
+    "empty_surface_rejected": true,
+    "fallback_bound": true,
+    "forbidden_marker_rejected": true,
+    "guard_cursor_slab_arena_copy_count_or_advanced": true,
+    "hidden_chain_rejected": true,
+    "hidden_cloud_rejected": true,
+    "hidden_decode_copy_baseline_bps": true,
+    "hidden_decode_copy_baseline_unbeaten_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "invalid_alignment_rejected": true,
+    "l1_l2_l3_separation_bound": true,
+    "lease_count": true,
+    "lease_range_out_of_bounds_rejected": true,
+    "lease_range_overflow_rejected": true,
+    "lease_range_overlap_rejected": true,
+    "lease_ranges_bound": true,
+    "lease_ranges_non_overlapping": true,
+    "lease_table_bound": true,
+    "live_authority_baseline_bps": true,
+    "live_authority_baseline_unbeaten_rejected": true,
+    "live_benchmark_rejected": true,
+    "live_pro_status_rejected": true,
+    "mas_product_build_rejected": true,
+    "max_copy_count": true,
+    "max_expected_copy_count": true,
+    "max_metadata_bytes": true,
+    "max_per_token_allocation_bytes": true,
+    "max_per_token_allocation_count": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_admission_rejected": true,
+    "missing_allocation_sample_for_lease_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_cancel_group_rejected": true,
+    "missing_compatibility_fence_rejected": true,
+    "missing_fallback_rejected": true,
+    "missing_layer_separation_rejected": true,
+    "missing_lease_table_rejected": true,
+    "missing_purge_policy_rejected": true,
+    "missing_required_marker_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rex_rejected": true,
+    "missing_sovereign_gate_rejected": true,
+    "missing_surface_ref_rejected": true,
+    "missing_visible_summary_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_rejected": true,
+    "no_answer_packet_suppression": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_live_benchmark_attempted": true,
+    "no_model_bytes_loaded": true,
+    "no_per_token_allocation_spikes": true,
+    "no_route_policy_mutation": true,
+    "no_runtime_bytes_loaded": true,
+    "no_scope_rex_bypass": true,
+    "no_sovereign_gate_bypass": true,
+    "no_ssd_as_ram_claim": true,
+    "observed_copy_bytes": true,
+    "owner_actor_bound": true,
+    "plan_count": true,
+    "preallocated_bytes": true,
+    "preallocated_capacity_bound": true,
+    "product_status_research_only": true,
+    "purge_policy_bound": true,
+    "rollback_bound": true,
+    "route_authority_slab_trace_only": true,
+    "route_policy_mutation_rejected": true,
+    "run_event_log_refs_bound": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_rejected": true,
+    "scope_rex_bound": true,
+    "scope_rex_bypass_rejected": true,
+    "slab_arena_copy_count_address": true,
+    "slab_arena_copy_count_address_deterministic": true,
+    "slab_plans_bound": true,
+    "sovereign_gate_bound": true,
+    "sovereign_gate_bypass_rejected": true,
+    "ssd_as_ram_rejected": true,
+    "surface_count": true,
+    "token_allocation_spike_baseline_bps": true,
+    "token_allocation_spike_baseline_unbeaten_rejected": true,
+    "trace_success_bps": true,
+    "unbounded_vec_growth_baseline_bps": true,
+    "unbounded_vec_growth_baseline_unbeaten_rejected": true,
+    "unknown_lease_rejected": true,
+    "upstream_coldstream_vs_mmap_pass": true,
+    "visible_summary_bound": true,
+    "zero_capacity_rejected": true,
+    "zero_lease_length_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof. F-SlabArena-CopyCount is metadata-only: it proves preallocated CPU slab plans, leases, copy-count traces, zero per-token allocation spikes, rollback, RunEventLog, AnswerPacket visibility, SCOPE-Rex/SovereignGate admission, no SSD-as-RAM claim, and no live benchmark/runtime/model bytes. L1 advances only; L2 remains red and L3 product runtime is unchanged."
+}

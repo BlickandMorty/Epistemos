@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap passed metadata-only benchmark-plan witness on 2026-06-04; no product promotion without live mmap-vs-transport benchmarks, copy-count proof, p99 stall proof, rollback, and feature gates
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap and F-SlabArena-CopyCount passed metadata-only witnesses on 2026-06-04; no product promotion without live mmap-vs-transport benchmarks, live copy-count proof, p99 stall proof, rollback, and feature gates
 ---
 
 # ColdStream Residency Transport - 2026-06-01
@@ -13,13 +13,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 
 2026-06-04 status note: `F-ColdStream-NoHiddenAuthority`,
 `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, and
-`F-ColdStream-vs-Mmap` now pass as metadata-only primary witnesses. The newest
-artifact at `artifacts/falsifiers/coldstream_vs_mmap/result.json` proves the
-benchmark-plan table is same-fixture, source-grounded, visible, rollback-bound,
-and non-runtime before live transport benchmarks can promote. It does not prove
-live ColdStream transport, live mmap replacement, live pread/Dispatch I/O/Metal
-I/O performance, cache policy, SSD stress safety, or user-facing runtime
-performance. Current L1 cursor: `slab_arena_copy_count`; L2 and L3 remain
+`F-ColdStream-vs-Mmap`, and `F-SlabArena-CopyCount` now pass as metadata-only
+primary witnesses. The newest artifact at
+`artifacts/falsifiers/slab_arena_copy_count/result.json` proves CPU slab plans
+preallocate buffers, lease byte ranges, report copy counts, and expose zero
+per-token allocation deltas before Metal I/O can promote. It does not prove live
+ColdStream transport, live mmap replacement, live pread/Dispatch I/O/Metal I/O
+performance, cache policy, SSD stress safety, or user-facing runtime
+performance. Current L1 cursor: `metal_io_feature_gate`; L2 and L3 remain
 unpromoted.
 
 ## Thesis
@@ -197,6 +198,13 @@ PageRunScheduler {
 ### `SlabArena`
 
 Preallocated app-owned memory for decoded page bundles.
+
+2026-06-04 L1 status: `F-SlabArena-CopyCount` passes metadata-only at
+`artifacts/falsifiers/slab_arena_copy_count/result.json`. It binds slab plans,
+leases, copy events, allocation samples, rollback, RunEventLog, AnswerPacket,
+admission, cancellation, purge policy, and fallback while loading zero
+runtime/model bytes. This is a planning witness only; live allocation telemetry
+and Metal I/O remain downstream gates.
 
 ```text
 SlabArena {

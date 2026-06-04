@@ -25,8 +25,8 @@ Invalid fixtures reject empty fixtures, duplicate fixture IDs, duplicate route I
 
 ## Truth Layers
 
-L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream, large-model deferral, ProviderRoute copy-source guard, TransportTrace, SSD wear-budget, and ColdStream-vs-mmap witnesses now pass metadata-only and the current cursor is `slab_arena_copy_count`.
+L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream, large-model deferral, ProviderRoute copy-source guard, TransportTrace, SSD wear-budget, ColdStream-vs-mmap, and SlabArena copy-count witnesses now pass metadata-only and the current cursor is `metal_io_feature_gate`.
 
-L2 did not advance to product-green. The capability kernel still reports `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `slab_arena_copy_count`.
+L2 did not advance to product-green. The capability kernel still reports `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `metal_io_feature_gate`.
 
 L3 did not advance. This witness does not make sparse routing live, does not promote PatternBoost to live route authority, does not enable a dense/local 70B product claim, and does not change MAS/Pro user-facing capability copy.
