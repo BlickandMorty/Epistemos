@@ -259,6 +259,10 @@ name = "falsify_shadow_wake_oracle"
 path = "src/bin/falsify_shadow_wake_oracle.rs"
 
 [[bin]]
+name = "falsify_ablation_shadow_run"
+path = "src/bin/falsify_ablation_shadow_run.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

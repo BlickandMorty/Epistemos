@@ -28,11 +28,27 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cb03bef2033205d86c6aabcdf74aaece311e8363",
+  "commit_sha": "fb43d884934481b12cf4ee46469090356aace96c",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T13:39:36Z",
-  "result_digest": "sha256:610d144c4a918552dd0f3df6c30612580841d83032e60cc430c8deac96547269",
+  "timestamp_utc": "2026-06-04T14:28:55Z",
+  "result_digest": "sha256:32cfcbd6c338e9c0b53faefd100de2eec89770357dce4a4a038328fd4b604433",
   "measurements": {
+    "ablation_shadow_run_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ablation_shadow_run_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/ablation_shadow_run/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "acs_anchor_lookup_pass": {
       "value": true,
       "unit": "bool"
@@ -410,7 +426,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "ablation_shadow_run",
+      "value": "axiom_axiomatic_source_distinction",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -869,11 +885,21 @@
           "order": 45,
           "gap_id": "ablation_shadow_run",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-AblationShadowRun",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Counterfactual shadow runs must prove which oracle-labeled units actually mattered before distillation can cite route importance.",
           "rollback": "Keep ablation evidence shadow-only, rollback-bound, AnswerPacket-visible, and unable to mutate live policy or hide full-wake failures."
+        },
+        {
+          "order": 46,
+          "gap_id": "axiom_axiomatic_source_distinction",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-AxiomAxiomatic-SourceDistinction",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Axioms, retrieved sources, oracle labels, verifier traces, and route priors must stay source-distinct before sparse route control can cite them.",
+          "rollback": "Reject source conflation, hidden oracle authority, missing provenance, missing rollback, or AnswerPacket-invisible route evidence."
         }
       ],
       "unit": "queue"
@@ -1308,6 +1334,11 @@
     }
   },
   "acceptance_thresholds": {
+    "ablation_shadow_run_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "acs_anchor_lookup_pass": {
       "operator": "==",
       "value": true,
@@ -1640,6 +1671,7 @@
     }
   },
   "pass_per_axis": {
+    "ablation_shadow_run_pass": true,
     "acs_anchor_lookup_pass": true,
     "active_assembly_runtime_artifact_pass": true,
     "active_assembly_shape_proof_available": true,
@@ -1719,8 +1751,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "ablation_shadow_run_missing",
-      "detail": "ShadowWakeOracle evidence is present; the next non-heavy architecture cursor must prove counterfactual ablation shadow runs identify which oracle-labeled units mattered without hidden live route authority."
+      "kind": "axiom_axiomatic_source_distinction_missing",
+      "detail": "AblationShadowRun evidence is present; the next non-heavy architecture cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1728,8 +1760,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "ablation_shadow_run"
+      "detail": "axiom_axiomatic_source_distinction"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=ablation_shadow_run; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=axiom_axiomatic_source_distinction; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

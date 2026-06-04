@@ -9,6 +9,20 @@
 > Research until repair, sparse fingerprint, held-out replay, abstention,
 > rollback, and witness gates pass.
 
+> **2026-06-04 L1/L2/L3 authority bridge:** Epistemos is a local cognitive
+> substrate where every meaningful object has an address, plane, budget,
+> status, and witness; MAS ships the safe floor, Pro contains the
+> gated/research/vault/omega ladder, and no claim promotes without visible
+> proof. Older stopped-loop language below about Network Cascade, cloud
+> fallback, 128K plus 70B on consumer 16 GB, SSD-oracle execution, or
+> shippable 70B is historical research framing only. Current artifact
+> authority is the regenerated guard and capability kernel:
+> `next_existing_work=axiom_axiomatic_source_distinction`,
+> `overall_pass=false`, `route_status=vault_research_route_with_packetized_mitigation`,
+> and `next_bottleneck=axiom_axiomatic_source_distinction`; L3 user-facing
+> runtime is unchanged. Provider or network evidence must be explicit Pro
+> Research evidence, never a hidden fallback.
+
 ## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
 
 **STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
@@ -60,7 +74,7 @@ When ALL of these are true, surface terminal-state + omit ScheduleWakeup:
 16. Continual learning suite (OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain)
 17. ~~NeMoCLAW / OpenCLAW multi-claw MAS (J4)~~ — **CARVED OUT to Terminal F.5** (`run-f-integrations`)
 18. Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)
-19. ACS recursive self-governance
+19. ACS (Anchored Cognitive Substrate) recursive self-governance
 20. Sherry 1.25-bit + E8/Leech lattice VQ (Huang arXiv:2601.07892)
 21. ANE Direct (`_ANEClient` via `cs.disable-library-validation`)
 22. MLSys / NeurIPS papers landed
