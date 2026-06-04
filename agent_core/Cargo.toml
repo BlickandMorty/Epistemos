@@ -199,6 +199,10 @@ name = "falsify_budgeted_uncertainty_escalator"
 path = "src/bin/falsify_budgeted_uncertainty_escalator.rs"
 
 [[bin]]
+name = "falsify_sparse_wake_proposal_budget"
+path = "src/bin/falsify_sparse_wake_proposal_budget.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

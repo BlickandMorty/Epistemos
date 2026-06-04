@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "25d216d83c26d898a709d88a21aa705dfde6cf19",
+  "commit_sha": "a1aa814528adf38ee66ccf701148dac56f4ece62",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T02:18:58Z",
-  "result_digest": "sha256:d68add47d2bdb62d4e065f8ee99f4573309558f3680b800b91da279bdadef655",
+  "timestamp_utc": "2026-06-04T03:05:17Z",
+  "result_digest": "sha256:675c491b5b66e2f71dfa0ef71defbfb9f68cc3d639d6c9f76e752a58e018e6df",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -314,7 +314,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "sparse_wake_proposal_budget",
+      "value": "verifier_budget_auction",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -623,11 +623,21 @@
           "order": 30,
           "gap_id": "sparse_wake_proposal_budget",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-SparseWakeProposal-Budget",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Sparse wake proposals must fit byte, latency, evidence, and verifier budgets before any cheap selector can request residency work.",
           "rollback": "Keep sparse wake proposals shadow-only until budget fit, rollback, RunEventLog, and AnswerPacket proof pass."
+        },
+        {
+          "order": 31,
+          "gap_id": "verifier_budget_auction",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-VerifierBudgetAuction",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Candidate wake units must compete under explicit verifier, byte, and latency budgets before a sparse wake can request residency work.",
+          "rollback": "Reject over-budget bundles and keep the auction shadow-only until rollback, RunEventLog, AnswerPacket, and held-out baseline proof pass."
         }
       ],
       "unit": "queue"
@@ -815,6 +825,22 @@
     "sparse_runtime_split_summary": {
       "value": {
         "path": "artifacts/falsifiers/sparse_runtime_split/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "sparse_wake_proposal_budget_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_proposal_budget_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/sparse_wake_proposal_budget/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1133,6 +1159,11 @@
       "value": true,
       "unit": "bool"
     },
+    "sparse_wake_proposal_budget_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "swiftlm_source_intake_pass": {
       "operator": "==",
       "value": true,
@@ -1218,6 +1249,7 @@
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
     "sparse_runtime_split_artifact_pass": true,
+    "sparse_wake_proposal_budget_pass": true,
     "swiftlm_source_intake_pass": true,
     "two_stage_route_scout_abstain_pass": true,
     "uas_acs_mmap_residency_pass": true,
@@ -1239,8 +1271,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "sparse_wake_proposal_budget_missing",
-      "detail": "Budgeted uncertainty escalation evidence is present; the next non-heavy architecture cursor must prove sparse wake proposals fit byte, latency, evidence, and verifier budgets before route selection can request residency work."
+      "kind": "verifier_budget_auction_missing",
+      "detail": "Sparse wake proposal budget evidence is present; the next non-heavy architecture cursor must prove candidate wake units compete under verifier, byte, and latency budgets before any residency work can promote."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1248,8 +1280,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "sparse_wake_proposal_budget"
+      "detail": "verifier_budget_auction"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_wake_proposal_budget; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_budget_auction; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

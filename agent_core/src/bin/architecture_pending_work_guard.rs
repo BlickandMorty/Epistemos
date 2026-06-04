@@ -63,6 +63,8 @@ const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH: &str =
     "artifacts/falsifiers/two_stage_route_scout_abstain/result.json";
 const BUDGETED_UNCERTAINTY_ESCALATOR_PATH: &str =
     "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json";
+const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
+    "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -480,6 +482,82 @@ const BUDGETED_UNCERTAINTY_ESCALATOR_AXES: &[&str] = &[
     "false_cheap_route_rejected_count",
     "max_escalator_active_bytes",
     "escalator_address",
+];
+const SPARSE_WAKE_PROPOSAL_BUDGET_AXES: &[&str] = &[
+    "upstream_budgeted_uncertainty_escalator_pass",
+    "sparse_wake_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "proposal_ids_bound",
+    "mission_ids_bound",
+    "scout_refs_bound",
+    "escalator_refs_bound",
+    "selected_units_bound",
+    "rejected_units_bound",
+    "unit_addresses_bound",
+    "unit_kinds_bound",
+    "unit_budget_fields_bound",
+    "fallback_route_bound",
+    "uncertainty_bound",
+    "verifier_need_bound",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "hot_bytes_within_budget",
+    "kv_bytes_within_budget",
+    "cold_io_within_budget",
+    "latency_within_budget",
+    "byte_budget_accounting_bound",
+    "reject_reasons_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "sparse_wake_address_deterministic",
+    "proposal_success_beats_wake_all_baseline",
+    "proposal_success_beats_static_baseline",
+    "proposal_success_beats_qwen_everything_baseline",
+    "wrong_wake_rejected",
+    "duplicate_proposal_rejected",
+    "missing_selected_unit_rejected",
+    "missing_rejected_unit_rejected",
+    "missing_uas_address_rejected",
+    "missing_budget_rejected",
+    "over_hot_budget_rejected",
+    "over_kv_budget_rejected",
+    "over_cold_io_budget_rejected",
+    "over_latency_budget_rejected",
+    "missing_fallback_rejected",
+    "missing_uncertainty_rejected",
+    "missing_verifier_need_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "proposal_over_metadata_budget_rejected",
+    "no_runtime_bytes_loaded",
+    "training_proposal_count",
+    "held_out_proposal_count",
+    "selected_unit_count",
+    "rejected_unit_count",
+    "max_hot_bytes",
+    "max_kv_bytes",
+    "max_cold_io_bytes",
+    "max_latency_ms",
+    "sparse_wake_success_bps",
+    "wake_all_baseline_success_bps",
+    "static_baseline_success_bps",
+    "qwen_everything_baseline_success_bps",
+    "wrong_wake_count",
+    "wrong_wake_rejected_count",
+    "max_proposal_metadata_bytes",
+    "sparse_wake_address",
 ];
 
 const CONTRACT_FILES: [&str; 5] = [
@@ -912,6 +990,11 @@ fn build_report() -> GuardReport {
         &budgeted_uncertainty_escalator,
         BUDGETED_UNCERTAINTY_ESCALATOR_AXES,
     );
+    let sparse_wake_proposal_budget = read_json(Path::new(SPARSE_WAKE_PROPOSAL_BUDGET_PATH));
+    let sparse_wake_proposal_budget_available = artifact_all_axes_true(
+        &sparse_wake_proposal_budget,
+        SPARSE_WAKE_PROPOSAL_BUDGET_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1010,6 +1093,7 @@ fn build_report() -> GuardReport {
         && route_scout_ssm_baseline_available
         && two_stage_route_scout_abstain_available
         && budgeted_uncertainty_escalator_available
+        && sparse_wake_proposal_budget_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1234,6 +1318,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "budgeted_uncertainty_escalator_available",
         budgeted_uncertainty_escalator_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "sparse_wake_proposal_budget_available",
+        sparse_wake_proposal_budget_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1565,6 +1656,10 @@ fn build_report() -> GuardReport {
                     "path": BUDGETED_UNCERTAINTY_ESCALATOR_PATH,
                     "available": budgeted_uncertainty_escalator_available
                 },
+                "sparse_wake_proposal_budget": {
+                    "path": SPARSE_WAKE_PROPOSAL_BUDGET_PATH,
+                    "available": sparse_wake_proposal_budget_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1752,6 +1847,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_budgeted_uncertainty_escalator",
             "detail": "Meta Control has two-stage route scout evidence, but needs F-BudgetedUncertaintyEscalator before sparse wake proposal budgeting can advance."
+        }));
+    }
+    if budgeted_uncertainty_escalator_available && !sparse_wake_proposal_budget_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_sparse_wake_proposal_budget",
+            "detail": "Meta Control has budgeted uncertainty escalation evidence, but needs F-SparseWakeProposal-Budget before verifier budget auction work can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2664,6 +2765,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("budgeted_uncertainty_escalator")
+            .is_some());
+        assert!(already_mapped_work
+            .get("sparse_wake_proposal_budget")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
