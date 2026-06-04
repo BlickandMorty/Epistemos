@@ -1072,7 +1072,7 @@ regret.
 | `F-AblationShadowRun` | PASS metadata-only witness on 2026-06-04. Proves claimed useful units survive counterfactual remove-one-unit comparison without hidden live route authority or runtime/model bytes. Artifact: `artifacts/falsifiers/ablation_shadow_run/result.json`. |
 | `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04: sparse route answers expose selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback; no live sparse route authority promotes. |
 | `F-AxiomAxiomatic-SourceDistinction` | PASS metadata-only witness on 2026-06-04. Proves Axiom, Axiomatic AI, OProver, Harmonic, UlamAI, Math Inc/OpenGauss, and Lean tooling motifs stay source-distinct, source-prior-only, and unable to promote hidden source/route/proof authority. Artifact: `artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json`. |
-| `F-SparseRoute-NoHiddenAuthority` | Current active cursor. Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, override SCOPE-Rex/SovereignGate, or treat source priors/proof traces/oracle labels as hidden live authority. |
+| `F-SparseRoute-NoHiddenAuthority` | PASS metadata-only witness on 2026-06-04. Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, override SCOPE-Rex/SovereignGate, or treat source priors/proof traces/oracle labels as hidden live authority. Artifact: `artifacts/falsifiers/sparse_route_no_hidden_authority/result.json`. |
 
 **Agent rule.** Any PR touching Axiom/Axplorer/PatternBoost, Axiomatic
 AI/AxProver/OProver, proof construction loops, proof-pressure labels, sparse
@@ -1144,7 +1144,7 @@ buffers before they can block the hot path.
 | `F-ColdPanicFallback` | Proves missed deadlines degrade visibly instead of blocking token-time execution silently. |
 | `F-TransportTrace-AnswerPacket` | Proves cold-transport-dependent answers link to bytes, stalls, copies, fallback, and caveats. |
 | `F-SSD-WearBudget` | Proves repeated transport plans report read/write volume and reject over-budget wear or energy loops. |
-| `F-ColdStream-NoHiddenAuthority` | Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, admission, and rollback. |
+| `F-ColdStream-NoHiddenAuthority` | Current active cursor. Proves transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, admission, rollback, RunEventLog, and AnswerPacket proof. |
 
 **Agent rule.** Any PR touching mmap, AppColdStore transport, SSD hot paths,
 page faults, cold I/O, prefetch windows, Metal I/O, Dispatch I/O,

@@ -11,6 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use agent_core::falsifier_artifacts::axes::SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES;
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
     FallbackTier, Measurement,
@@ -92,6 +93,10 @@ const SHADOW_WAKE_ORACLE_PATH: &str = "artifacts/falsifiers/shadow_wake_oracle/r
 const ABLATION_SHADOW_RUN_PATH: &str = "artifacts/falsifiers/ablation_shadow_run/result.json";
 const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH: &str =
     "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json";
+const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH: &str =
+    "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json";
+const COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH: &str =
+    "artifacts/falsifiers/coldstream_no_hidden_authority/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2734,6 +2739,12 @@ fn build_report() -> GuardReport {
         &axiom_axiomatic_source_distinction,
         AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES,
     );
+    let sparse_route_no_hidden_authority =
+        read_json(Path::new(SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH));
+    let sparse_route_no_hidden_authority_available = artifact_all_axes_true(
+        &sparse_route_no_hidden_authority,
+        SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2849,6 +2860,7 @@ fn build_report() -> GuardReport {
         && shadow_wake_oracle_available
         && ablation_shadow_run_available
         && axiom_axiomatic_source_distinction_available
+        && sparse_route_no_hidden_authority_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3192,6 +3204,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "axiom_axiomatic_source_distinction_available",
         axiom_axiomatic_source_distinction_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "sparse_route_no_hidden_authority_available",
+        sparse_route_no_hidden_authority_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3591,6 +3610,14 @@ fn build_report() -> GuardReport {
                     "path": AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH,
                     "available": axiom_axiomatic_source_distinction_available
                 },
+                "sparse_route_no_hidden_authority": {
+                    "path": SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH,
+                    "available": sparse_route_no_hidden_authority_available
+                },
+                "coldstream_no_hidden_authority": {
+                    "path": COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH,
+                    "available": Path::new(COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH).exists()
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3913,10 +3940,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has AblationShadowRun evidence; the next non-heavy cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
         }));
     }
-    if axiom_axiomatic_source_distinction_available && !heavy_long_context_enabled {
+    if axiom_axiomatic_source_distinction_available
+        && !sparse_route_no_hidden_authority_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_sparse_route_no_hidden_authority",
             "detail": "Meta Control has source-distinction evidence; the next non-heavy cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
+        }));
+    }
+    if sparse_route_no_hidden_authority_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_coldstream_no_hidden_authority",
+            "detail": "Meta Control has SparseRoute no-hidden-authority evidence; the next non-heavy cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4859,6 +4895,12 @@ mod tests {
         assert!(already_mapped_work.get("ablation_shadow_run").is_some());
         assert!(already_mapped_work
             .get("axiom_axiomatic_source_distinction")
+            .is_some());
+        assert!(already_mapped_work
+            .get("sparse_route_no_hidden_authority")
+            .is_some());
+        assert!(already_mapped_work
+            .get("coldstream_no_hidden_authority")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")

@@ -613,9 +613,13 @@ live authority.
 
 ### `SparseRouteNoHiddenAuthority`
 
-The next active cursor after source distinction. It must prove source priors,
-proof traces, oracle labels, PatternBoost motifs, and fast-weight deltas cannot
-become hidden live route authority.
+PASS metadata-only on 2026-06-04. It proves source priors, proof traces,
+oracle labels, PatternBoost motifs, fast-weight deltas, scout proposals, and
+sparse wake certificates stay visible proposal-only evidence; byte wake,
+policy/base-weight/fast-weight/cache mutation, SCOPE-Rex/SovereignGate
+override, AnswerPacket suppression, hidden chain/cloud, runtime/model bytes,
+and high-uncertainty non-abstention reject. Current active cursor moves to
+`F-ColdStream-NoHiddenAuthority`.
 
 ### `SparseWakeCertificate`
 

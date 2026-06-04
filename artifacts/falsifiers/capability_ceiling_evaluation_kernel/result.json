@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "667ef98beb3b96f45f8dcf185a734323a7a512f7",
+  "commit_sha": "36ac4b26cab1983fc4663a0771edefeb721bf5d4",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T15:22:52Z",
-  "result_digest": "sha256:ebeaacd54db919c286fba6c05ebd375a5896467dbf2fa78dd50e067c97a3714c",
+  "timestamp_utc": "2026-06-04T16:09:06Z",
+  "result_digest": "sha256:d31c5f5b5dabe356e987e794c348874e55b6ce1c80d65913bf836d64f9f46c4c",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -442,7 +442,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "sparse_route_no_hidden_authority",
+      "value": "coldstream_no_hidden_authority",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -921,11 +921,21 @@
           "order": 47,
           "gap_id": "sparse_route_no_hidden_authority",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-SparseRoute-NoHiddenAuthority",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Sparse route control must prove source-prior labels cannot become hidden live authority before any formal-math or oracle-derived route citation promotes.",
           "rollback": "Keep sparse route policy shadow-only until SCOPE-Rex/SovereignGate, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass."
+        },
+        {
+          "order": 48,
+          "gap_id": "coldstream_no_hidden_authority",
+          "tier": "ColdStream Transport",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-ColdStream-NoHiddenAuthority",
+          "witness": "docs/falsifiers/F-COLDSTREAM-RESIDENCY-TRANSPORT-BUNDLE_2026_06_01.md",
+          "promotion_condition": "ColdStream transport must prove route/control evidence cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof.",
+          "rollback": "Keep transport proposal evidence metadata-only until byte leases, admission gates, rollback, and visible proof reject hidden live route authority."
         }
       ],
       "unit": "queue"
@@ -1185,6 +1195,22 @@
     "source_artifacts_present": {
       "value": true,
       "unit": "bool"
+    },
+    "sparse_route_no_hidden_authority_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_route_no_hidden_authority_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     },
     "sparse_runtime_split_artifact_pass": {
       "value": true,
@@ -1635,6 +1661,11 @@
       "value": true,
       "unit": "bool"
     },
+    "sparse_route_no_hidden_authority_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "sparse_runtime_split_artifact_pass": {
       "operator": "==",
       "value": true,
@@ -1757,6 +1788,7 @@
     "seventy_b_route_pass": false,
     "shadow_wake_oracle_pass": true,
     "source_artifacts_present": true,
+    "sparse_route_no_hidden_authority_pass": true,
     "sparse_runtime_split_artifact_pass": true,
     "sparse_wake_certificate_answer_packet_pass": true,
     "sparse_wake_proposal_budget_pass": true,
@@ -1783,8 +1815,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "sparse_route_no_hidden_authority_missing",
-      "detail": "Source-distinction evidence is present; the next non-heavy architecture cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
+      "kind": "coldstream_no_hidden_authority_missing",
+      "detail": "Sparse route no-hidden-authority evidence is present; the next non-heavy architecture cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1792,8 +1824,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "sparse_route_no_hidden_authority"
+      "detail": "coldstream_no_hidden_authority"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_route_no_hidden_authority; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=coldstream_no_hidden_authority; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
