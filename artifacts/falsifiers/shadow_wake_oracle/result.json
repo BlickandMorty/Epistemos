@@ -1,0 +1,1275 @@
+{
+  "falsifier_id": "F-ShadowWakeOracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_shadow_wake_oracle.sh",
+  "command_digest": "sha256:41eee04f20adbe88f3183ade791494cbf76dcb0406c0e00c3f807dd8d2753239",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "cb03bef2033205d86c6aabcdf74aaece311e8363",
+  "fixture_id": "shadow_wake_oracle_v1",
+  "timestamp_utc": "2026-06-04T13:39:34Z",
+  "result_digest": "sha256:b06c3d25ce819d4a66b4455370d33eefec280c5473053934ba5fe19613d73303",
+  "measurements": {
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_cheap_route_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_full_wake_everything_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_oracle_label_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_latency_deltas_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "value": 710,
+      "unit": "count"
+    },
+    "calibration_error_too_high_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_baseline_bps": {
+      "value": 7740,
+      "unit": "count"
+    },
+    "cheap_route_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "citations_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "credit_assignment_count": {
+      "value": 6,
+      "unit": "assignments"
+    },
+    "duplicate_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_oracle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "value": 2,
+      "unit": "fixtures"
+    },
+    "fixture_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_everything_baseline_bps": {
+      "value": 8220,
+      "unit": "count"
+    },
+    "full_wake_everything_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_traces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "value": 4,
+      "unit": "cases"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bps": {
+      "value": 9080,
+      "unit": "count"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_dependency_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_truth_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bps": {
+      "value": 9180,
+      "unit": "count"
+    },
+    "label_agreement_too_low_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_oracle_metadata_bytes": {
+      "value": 524288,
+      "unit": "count"
+    },
+    "max_trace_tokens": {
+      "value": 54000,
+      "unit": "count"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_byte_latency_delta_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cheap_route_trace_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_credit_assignment_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_wake_trace_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mission_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_label_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_record_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_or_test_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_label_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_feature_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_depth_lease_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_route_distillation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_cache_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_oracle_label_baseline_bps": {
+      "value": 7860,
+      "unit": "count"
+    },
+    "no_oracle_label_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "offline_distillation_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_not_hidden_truth": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_not_live_dependency": {
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_record_count": {
+      "value": 6,
+      "unit": "records"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_test_result_count": {
+      "value": 6,
+      "unit": "results"
+    },
+    "proof_or_test_results_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_label_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "route_label_diversity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_label_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_labels_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_feature_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_only_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_oracle_address": {
+      "value": "uas:shadow-wake-oracle:sha256:77d162a7e6a455b5a614713dc68a7d815d6e09fbb868021b6b56d683ea89794c",
+      "unit": "uas_address"
+    },
+    "shadow_wake_oracle_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "source_kind_diversity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tests_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "value": 2,
+      "unit": "cases"
+    },
+    "unit_credit_assignments_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_depth_lease_checkpoint_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_distillation_tournament_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_not_bypassed": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_cheap_route_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_full_wake_everything_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_oracle_label_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_latency_deltas_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "calibration_error_bps": {
+      "operator": "<=",
+      "value": 850,
+      "unit": "count"
+    },
+    "calibration_error_too_high_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_baseline_bps": {
+      "operator": "<",
+      "value": 9080,
+      "unit": "count"
+    },
+    "cheap_route_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cheap_route_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citation_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "citations_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "credit_assignment_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "assignments"
+    },
+    "duplicate_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_oracle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "fixtures"
+    },
+    "fixture_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_everything_baseline_bps": {
+      "operator": "<",
+      "value": 9080,
+      "unit": "count"
+    },
+    "full_wake_everything_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_wake_traces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cases"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_success_bps": {
+      "operator": ">=",
+      "value": 8900,
+      "unit": "count"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_dependency_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_truth_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "label_agreement_bps": {
+      "operator": ">=",
+      "value": 9100,
+      "unit": "count"
+    },
+    "label_agreement_too_low_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_oracle_metadata_bytes": {
+      "operator": "<=",
+      "value": 917504,
+      "unit": "count"
+    },
+    "max_trace_tokens": {
+      "operator": "<=",
+      "value": 72000,
+      "unit": "count"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_byte_latency_delta_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cheap_route_trace_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_citation_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_credit_assignment_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_wake_trace_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mission_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_label_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_oracle_record_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_or_test_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_label_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scout_feature_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_depth_lease_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_route_distillation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_cache_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_oracle_label_baseline_bps": {
+      "operator": "<",
+      "value": 9080,
+      "unit": "count"
+    },
+    "no_oracle_label_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "offline_distillation_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_not_hidden_truth": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_not_live_dependency": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "oracle_record_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "records"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_or_test_result_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "results"
+    },
+    "proof_or_test_results_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_label_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "route_label_diversity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_label_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_labels_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scout_feature_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_only_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_oracle_address": {
+      "operator": "nonempty",
+      "value": "nonempty",
+      "unit": "uas_address"
+    },
+    "shadow_wake_oracle_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "source_kind_diversity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_kind_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tests_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_token_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "train_case_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cases"
+    },
+    "unit_credit_assignments_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_depth_lease_checkpoint_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_route_distillation_tournament_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_not_bypassed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_ref_bound": true,
+    "base_weight_mutation_rejected": true,
+    "beats_cheap_route_baseline": true,
+    "beats_full_wake_everything_baseline": true,
+    "beats_no_oracle_label_baseline": true,
+    "byte_latency_deltas_bound": true,
+    "cache_mutation_rejected": true,
+    "calibration_error_bound": true,
+    "calibration_error_bps": true,
+    "calibration_error_too_high_rejected": true,
+    "cheap_route_baseline_bps": true,
+    "cheap_route_baseline_unbeaten_rejected": true,
+    "cheap_route_traces_bound": true,
+    "citation_bypass_rejected": true,
+    "citation_refs_bound": true,
+    "citations_not_bypassed": true,
+    "cloud_source_rejected": true,
+    "compatibility_fence_bound": true,
+    "credit_assignment_count": true,
+    "duplicate_fixture_rejected": true,
+    "duplicate_oracle_rejected": true,
+    "fixture_count": true,
+    "fixture_ids_bound": true,
+    "full_wake_everything_baseline_bps": true,
+    "full_wake_everything_baseline_unbeaten_rejected": true,
+    "full_wake_traces_bound": true,
+    "held_out_case_count": true,
+    "held_out_split_bound": true,
+    "held_out_success_bound": true,
+    "held_out_success_bps": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_dependency_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "hidden_truth_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_privacy_rejected": true,
+    "invalid_split_rejected": true,
+    "label_agreement_bound": true,
+    "label_agreement_bps": true,
+    "label_agreement_too_low_rejected": true,
+    "max_oracle_metadata_bytes": true,
+    "max_trace_tokens": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_byte_latency_delta_rejected": true,
+    "missing_cheap_route_trace_rejected": true,
+    "missing_citation_ref_rejected": true,
+    "missing_credit_assignment_rejected": true,
+    "missing_fixture_id_rejected": true,
+    "missing_full_wake_trace_rejected": true,
+    "missing_held_out_split_rejected": true,
+    "missing_mission_rejected": true,
+    "missing_oracle_id_rejected": true,
+    "missing_oracle_label_rejected": true,
+    "missing_oracle_record_rejected": true,
+    "missing_proof_or_test_rejected": true,
+    "missing_proof_ref_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_route_label_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rex_rejected": true,
+    "missing_scout_feature_rejected": true,
+    "missing_sovereign_gate_rejected": true,
+    "missing_split_rejected": true,
+    "missing_test_ref_rejected": true,
+    "missing_upstream_depth_lease_rejected": true,
+    "missing_upstream_route_distillation_rejected": true,
+    "mission_ids_bound": true,
+    "model_bytes_rejected": true,
+    "no_base_weight_mutation": true,
+    "no_cache_mutation": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_model_bytes_loaded": true,
+    "no_oracle_label_baseline_bps": true,
+    "no_oracle_label_baseline_unbeaten_rejected": true,
+    "no_route_policy_mutation": true,
+    "no_runtime_bytes_loaded": true,
+    "offline_distillation_only": true,
+    "oracle_ids_bound": true,
+    "oracle_labels_bound": true,
+    "oracle_not_hidden_truth": true,
+    "oracle_not_live_dependency": true,
+    "oracle_record_count": true,
+    "privacy_classes_bound": true,
+    "proof_or_test_result_count": true,
+    "proof_or_test_results_bound": true,
+    "proof_refs_bound": true,
+    "rollback_bound": true,
+    "route_label_count": true,
+    "route_label_diversity_bound": true,
+    "route_label_diversity_missing_rejected": true,
+    "route_labels_bound": true,
+    "route_policy_mutation_rejected": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "scope_rex_bypass_rejected": true,
+    "scope_rex_not_bypassed": true,
+    "scope_rex_refs_bound": true,
+    "scout_feature_refs_bound": true,
+    "shadow_only_authority": true,
+    "shadow_wake_fixture_present": true,
+    "shadow_wake_oracle_address": true,
+    "shadow_wake_oracle_address_deterministic": true,
+    "source_kind_count": true,
+    "source_kind_diversity_bound": true,
+    "source_kind_diversity_missing_rejected": true,
+    "sovereign_gate_bypass_rejected": true,
+    "sovereign_gate_not_bypassed": true,
+    "sovereign_gate_refs_bound": true,
+    "test_bypass_rejected": true,
+    "test_refs_bound": true,
+    "tests_not_bypassed": true,
+    "trace_token_budget_bound": true,
+    "trace_token_budget_rejected": true,
+    "train_case_count": true,
+    "unit_credit_assignments_bound": true,
+    "upstream_depth_lease_checkpoint_pass": true,
+    "upstream_route_distillation_tournament_pass": true,
+    "verifier_bypass_rejected": true,
+    "verifier_not_bypassed": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata_only_shadow_wake_oracle; no_runtime_bytes_loaded; no_model_bytes_loaded; L1 cursor only; oracle traces are offline labels, not live route dependencies; L2/L3 remain red"
+}

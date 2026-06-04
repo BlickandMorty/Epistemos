@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "23a77330667cbe7d0c7a5649dd0aad11628838e9",
+  "commit_sha": "cb03bef2033205d86c6aabcdf74aaece311e8363",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T12:58:57Z",
-  "result_digest": "sha256:7ec1d337b6eaa31429747c190bf99d619ebe4bbf3b192f9a94e72f99fd7a9040",
+  "timestamp_utc": "2026-06-04T13:39:36Z",
+  "result_digest": "sha256:610d144c4a918552dd0f3df6c30612580841d83032e60cc430c8deac96547269",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -410,7 +410,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "shadow_wake_oracle",
+      "value": "ablation_shadow_run",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -859,11 +859,21 @@
           "order": 44,
           "gap_id": "shadow_wake_oracle",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ShadowWakeOracle",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Full-wake, proof, test, and oracle traces must become route labels without becoming a hidden live runtime dependency.",
           "rollback": "Keep oracle traces offline/shadow-only, rollback-bound, AnswerPacket-visible, and unable to bypass SCOPE-Rex or SovereignGate."
+        },
+        {
+          "order": 45,
+          "gap_id": "ablation_shadow_run",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-AblationShadowRun",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Counterfactual shadow runs must prove which oracle-labeled units actually mattered before distillation can cite route importance.",
+          "rollback": "Keep ablation evidence shadow-only, rollback-bound, AnswerPacket-visible, and unable to mutate live policy or hide full-wake failures."
         }
       ],
       "unit": "queue"
@@ -1103,6 +1113,22 @@
     "seventy_b_route_pass": {
       "value": false,
       "unit": "bool"
+    },
+    "shadow_wake_oracle_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_wake_oracle_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/shadow_wake_oracle/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     },
     "source_artifacts_present": {
       "value": true,
@@ -1537,6 +1563,11 @@
       "value": true,
       "unit": "bool"
     },
+    "shadow_wake_oracle_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "source_artifacts_present": {
       "operator": "==",
       "value": true,
@@ -1660,6 +1691,7 @@
     "rust_route_kernel_model_check_pass": true,
     "seventy_b_bottleneck_identified": true,
     "seventy_b_route_pass": false,
+    "shadow_wake_oracle_pass": true,
     "source_artifacts_present": true,
     "sparse_runtime_split_artifact_pass": true,
     "sparse_wake_certificate_answer_packet_pass": true,
@@ -1687,8 +1719,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "shadow_wake_oracle_missing",
-      "detail": "DepthLeaseCheckpoint evidence is present; the next non-heavy architecture cursor must prove full-wake/proof/test oracle traces create route labels without becoming a live runtime dependency."
+      "kind": "ablation_shadow_run_missing",
+      "detail": "ShadowWakeOracle evidence is present; the next non-heavy architecture cursor must prove counterfactual ablation shadow runs identify which oracle-labeled units mattered without hidden live route authority."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1696,8 +1728,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "shadow_wake_oracle"
+      "detail": "ablation_shadow_run"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=shadow_wake_oracle; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=ablation_shadow_run; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
