@@ -33,7 +33,7 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear or energy budgets. | Wear-budget simulation. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 
-Current cursor after the 2026-06-04 `F-ColdStream-NoHiddenAuthority` metadata-only witness: `large_model_provider_reference_deferred_by_mlx_route`.
+Current cursor after the 2026-06-04 `F-LargeModelProviderReference-DeferredByMlxRoute` metadata-only witness: `provider_route_copy_source_guard`.
 
 `F-ColdStream-NoHiddenAuthority` advances L1 only. `F-ColdStream-vs-Mmap`,
 `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`,

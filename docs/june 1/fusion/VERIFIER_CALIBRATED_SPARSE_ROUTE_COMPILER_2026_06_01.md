@@ -620,7 +620,7 @@ policy/base-weight/fast-weight/cache mutation, SCOPE-Rex/SovereignGate
 override, AnswerPacket suppression, hidden chain/cloud, runtime/model bytes,
 and high-uncertainty non-abstention reject. ColdStream now passes
 metadata-only, so the current cursor is
-`large_model_provider_reference_deferred_by_mlx_route`.
+`provider_route_copy_source_guard`.
 
 ### `SparseWakeCertificate`
 

@@ -9,7 +9,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
-    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
+    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -102,6 +103,8 @@ const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json";
 const COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/coldstream_no_hidden_authority/result.json";
+const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH: &str =
+    "artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -2325,6 +2328,8 @@ fn build_report() -> KernelReport {
     let sparse_route_no_hidden_authority =
         GateArtifact::read(SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH);
     let coldstream_no_hidden_authority = GateArtifact::read(COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH);
+    let large_model_provider_reference_deferral =
+        GateArtifact::read(LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2378,6 +2383,7 @@ fn build_report() -> KernelReport {
         &axiom_axiomatic_source_distinction,
         &sparse_route_no_hidden_authority,
         &coldstream_no_hidden_authority,
+        &large_model_provider_reference_deferral,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2784,6 +2790,10 @@ fn build_report() -> KernelReport {
         && sparse_route_no_hidden_authority.all_axes_true(SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES);
     let coldstream_no_hidden_authority_pass = coldstream_no_hidden_authority.overall_pass
         && coldstream_no_hidden_authority.all_axes_true(COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES);
+    let large_model_provider_reference_deferral_pass = large_model_provider_reference_deferral
+        .overall_pass
+        && large_model_provider_reference_deferral
+            .all_axes_true(LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2837,6 +2847,7 @@ fn build_report() -> KernelReport {
         &axiom_axiomatic_source_distinction,
         &sparse_route_no_hidden_authority,
         &coldstream_no_hidden_authority,
+        &large_model_provider_reference_deferral,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2955,6 +2966,7 @@ fn build_report() -> KernelReport {
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
         coldstream_no_hidden_authority_pass,
+        large_model_provider_reference_deferral_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3026,6 +3038,7 @@ fn build_report() -> KernelReport {
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
         coldstream_no_hidden_authority_pass,
+        large_model_provider_reference_deferral_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3501,6 +3514,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "large_model_provider_reference_deferral_pass",
+        large_model_provider_reference_deferral_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3759,6 +3779,11 @@ fn build_report() -> KernelReport {
         "coldstream_no_hidden_authority",
         &coldstream_no_hidden_authority,
     );
+    add_gate_summary(
+        &mut measurements,
+        "large_model_provider_reference_deferral",
+        &large_model_provider_reference_deferral,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3811,6 +3836,7 @@ fn build_report() -> KernelReport {
         axiom_axiomatic_source_distinction_pass,
         sparse_route_no_hidden_authority_pass,
         coldstream_no_hidden_authority_pass,
+        large_model_provider_reference_deferral_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4222,6 +4248,7 @@ fn next_bottleneck(
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
     coldstream_no_hidden_authority_pass: bool,
+    large_model_provider_reference_deferral_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4350,8 +4377,10 @@ fn next_bottleneck(
             "sparse_route_no_hidden_authority".to_string()
         } else if !coldstream_no_hidden_authority_pass {
             "coldstream_no_hidden_authority".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !seventy_b_route_pass && !large_model_provider_reference_deferral_pass {
             LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED.to_string()
+        } else if !seventy_b_route_pass {
+            "provider_route_copy_source_guard".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4430,6 +4459,7 @@ fn build_ordered_gap_queue(
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
     coldstream_no_hidden_authority_pass: bool,
+    large_model_provider_reference_deferral_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4567,6 +4597,8 @@ fn build_ordered_gap_queue(
             "Vault / Capability Ceiling",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled && large_model_provider_reference_deferral_pass {
+                "deferred_l1_metadata_witnessed"
             } else if !heavy_long_context_enabled {
                 LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
             } else {
@@ -4587,6 +4619,8 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled && large_model_provider_reference_deferral_pass {
+                "deferred_l1_metadata_witnessed"
             } else if !heavy_long_context_enabled {
                 LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
             } else {
@@ -5437,6 +5471,7 @@ fn build_anomalies(
     axiom_axiomatic_source_distinction_pass: bool,
     sparse_route_no_hidden_authority_pass: bool,
     coldstream_no_hidden_authority_pass: bool,
+    large_model_provider_reference_deferral_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5853,7 +5888,25 @@ fn build_anomalies(
             "detail": "Sparse route no-hidden-authority evidence is present; the next non-heavy architecture cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
         }));
     }
-    if !seventy_b_route_pass && !heavy_long_context_enabled {
+    if coldstream_no_hidden_authority_pass
+        && !large_model_provider_reference_deferral_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "large_model_provider_reference_deferral_missing",
+            "detail": "ColdStream no-hidden-authority evidence is present; the next default-route cursor must prove provider/fp16/70B and 128K heavy probes stay deferred while practical MLX and cold-assembly architecture remain preserved."
+        }));
+    }
+    if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "large_model_provider_reference_deferred_metadata_only",
+            "detail": "Default MLX route deferral is witnessed at L1, but 70B/GGUF/provider-reference work is still not an active product/runtime pass."
+        }));
+    } else if !seventy_b_route_pass && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "seventy_b_route_deferred_by_mlx_route",
             "detail": "70B/GGUF/provider-reference work is not an active requirement while the app is routed through practical MLX local inference."
@@ -6222,21 +6275,22 @@ mod tests {
         const AXIOM_AXIOMATIC_SOURCE_DISTINCTION: usize = 58;
         const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY: usize = 59;
         const COLDSTREAM_NO_HIDDEN_AUTHORITY: usize = 60;
-        const SEVENTY_B: usize = 61;
+        const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL: usize = 61;
+        const SEVENTY_B: usize = 62;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 62] {
-            let mut values = [false; 62];
+        let flags = |true_indexes: &[usize]| -> [bool; 63] {
+            let mut values = [false; 63];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 62], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 63], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6302,11 +6356,12 @@ mod tests {
                 values[59],
                 values[60],
                 values[61],
+                values[62],
                 &missing,
             )
         };
-        let nb = |values: [bool; 62]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 62]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 63]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 63]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -8180,6 +8235,68 @@ mod tests {
                 COLDSTREAM_NO_HIDDEN_AUTHORITY,
             ]))),
             LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL,
+            ]))),
+            "provider_route_copy_source_guard"
         );
         assert_eq!(
             nb(flags(&with_floor(&[

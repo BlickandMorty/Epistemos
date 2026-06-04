@@ -1,0 +1,770 @@
+{
+  "falsifier_id": "F-LargeModelProviderReference-DeferredByMlxRoute",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_large_model_provider_reference_deferred_by_mlx_route.sh",
+  "command_digest": "sha256:094893956ccb7e14858acdd61054a20025f0cf3c54656cb1a5d851b5f68b8ce0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8714fe0ab47fc31d494ca42f5d287cc3bc77a37e",
+  "fixture_id": "large_model_provider_reference_deferred_by_mlx_route_v1",
+  "timestamp_utc": "2026-06-04T18:19:03Z",
+  "result_digest": "sha256:d463ace434a61eb0778a7c3e0f13e46bc7931a5e83681e19d329552ae6608221",
+  "measurements": {
+    "active_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_deferred_or_advanced_by_mlx_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_architecture_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_architecture_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "deferral_safety_bps": {
+      "value": 9650,
+      "unit": "bps"
+    },
+    "deferred_lane_count": {
+      "value": 4,
+      "unit": "lanes"
+    },
+    "dense_70b_runtime_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_resident_baseline_bps": {
+      "value": 1200,
+      "unit": "bps"
+    },
+    "dense_resident_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_resident_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_deferred_lane_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "value": 2,
+      "unit": "fixtures"
+    },
+    "forced_provider_baseline_bps": {
+      "value": 3400,
+      "unit": "bps"
+    },
+    "forced_provider_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_artifact_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_deferred_or_advanced_by_mlx_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_long_context_disabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_long_context_enabled_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_baseline_bps": {
+      "value": 2200,
+      "unit": "bps"
+    },
+    "hidden_cloud_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_shard_rerun_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_provider_deferral_address": {
+      "value": "uas:large-model-provider-reference-deferral:sha256:e3a2999812d692a664d201be02a0ac438a0747eb9a175fab430ff79ad5722d66",
+      "unit": "uas_address"
+    },
+    "large_model_provider_deferral_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_sparse_70b_runtime_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_preflight_honest_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_primary_bottleneck_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_provider_reference_unavailable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_metadata_bytes": {
+      "value": 90112,
+      "unit": "bytes"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_deferred_lane_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_readiness_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_dense_resident_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_kv_shard_rerun": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_route_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_prompt_level_manifest_created": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "practical_mlx_route_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "practical_mlx_route_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_manifest_creation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_reference_unavailable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_count": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_call_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_env_not_set": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_not_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_primary_blocker_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_prompt_level_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_readiness_witness_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_required_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rerun_shard_baseline_bps": {
+      "value": 4300,
+      "unit": "bps"
+    },
+    "rerun_shard_baseline_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_lane_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_deferred_or_advanced_by_mlx_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_architecture_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_assembly_architecture_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "deferral_safety_bps": {
+      "operator": ">=",
+      "value": 9600,
+      "unit": "bps"
+    },
+    "deferred_lane_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "lanes"
+    },
+    "dense_70b_runtime_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_resident_baseline_bps": {
+      "operator": "<",
+      "value": 9650,
+      "unit": "bps"
+    },
+    "dense_resident_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_resident_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_deferred_lane_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "fixtures"
+    },
+    "forced_provider_baseline_bps": {
+      "operator": "<",
+      "value": 9650,
+      "unit": "bps"
+    },
+    "forced_provider_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_artifact_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_deferred_or_advanced_by_mlx_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_long_context_disabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_long_context_enabled_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_baseline_bps": {
+      "operator": "<",
+      "value": 9650,
+      "unit": "bps"
+    },
+    "hidden_cloud_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_shard_rerun_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_provider_deferral_address": {
+      "operator": "starts_with",
+      "value": "uas:large-model-provider-reference-deferral:sha256:",
+      "unit": "uas_address"
+    },
+    "large_model_provider_deferral_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_sparse_70b_runtime_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_preflight_honest_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_primary_bottleneck_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_provider_reference_unavailable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_metadata_bytes": {
+      "operator": "<=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_deferred_lane_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_readiness_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_dense_resident_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_kv_shard_rerun": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_route_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_prompt_level_manifest_created": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "practical_mlx_route_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "practical_mlx_route_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_manifest_creation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_reference_unavailable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_count": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_call_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_env_not_set": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_not_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_primary_blocker_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_prompt_level_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_readiness_witness_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_required_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rerun_shard_baseline_bps": {
+      "operator": "<",
+      "value": 9650,
+      "unit": "bps"
+    },
+    "rerun_shard_baseline_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_lane_count": true,
+    "answer_packet_ref_bound": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_deferred_or_advanced_by_mlx_route": true,
+    "capability_route_status_vault_research": true,
+    "cold_assembly_architecture_missing_rejected": true,
+    "cold_assembly_architecture_preserved": true,
+    "compatibility_fence_bound": true,
+    "deferral_safety_bps": true,
+    "deferred_lane_count": true,
+    "dense_70b_runtime_deferred": true,
+    "dense_resident_baseline_bps": true,
+    "dense_resident_baseline_unbeaten_rejected": true,
+    "dense_resident_overclaim_rejected": true,
+    "duplicate_card_rejected": true,
+    "duplicate_deferred_lane_rejected": true,
+    "duplicate_fixture_rejected": true,
+    "empty_fixture_rejected": true,
+    "fixture_count": true,
+    "forced_provider_baseline_bps": true,
+    "forced_provider_baseline_unbeaten_rejected": true,
+    "guard_artifact_pass": true,
+    "guard_cursor_deferred_or_advanced_by_mlx_route": true,
+    "heavy_long_context_disabled": true,
+    "heavy_long_context_enabled_rejected": true,
+    "hidden_cloud_baseline_bps": true,
+    "hidden_cloud_baseline_unbeaten_rejected": true,
+    "hidden_cloud_fallback_rejected": true,
+    "kv_direct_128k_deferred": true,
+    "kv_shard_rerun_rejected": true,
+    "large_model_provider_deferral_address": true,
+    "large_model_provider_deferral_address_deterministic": true,
+    "live_sparse_70b_runtime_deferred": true,
+    "local_70b_preflight_honest_red": true,
+    "local_70b_primary_bottleneck_bound": true,
+    "local_70b_provider_reference_unavailable": true,
+    "max_metadata_bytes": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_deferred_lane_rejected": true,
+    "missing_readiness_ref_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_rejected": true,
+    "no_dense_resident_overclaim": true,
+    "no_hidden_cloud_fallback": true,
+    "no_kv_shard_rerun": true,
+    "no_model_bytes_loaded": true,
+    "no_product_route_promotion": true,
+    "no_prompt_level_manifest_created": true,
+    "no_provider_call": true,
+    "no_runtime_bytes_loaded": true,
+    "practical_mlx_route_missing_rejected": true,
+    "practical_mlx_route_preserved": true,
+    "product_route_promotion_rejected": true,
+    "product_status_research_only": true,
+    "prompt_level_manifest_creation_rejected": true,
+    "prompt_level_reference_unavailable": true,
+    "provider_call_count": true,
+    "provider_call_rejected": true,
+    "provider_reference_env_not_set": true,
+    "provider_reference_not_required": true,
+    "provider_reference_primary_blocker_bound": true,
+    "provider_reference_prompt_level_deferred": true,
+    "provider_reference_readiness_witness_available": true,
+    "provider_reference_required_rejected": true,
+    "rerun_shard_baseline_bps": true,
+    "rerun_shard_baseline_unbeaten_rejected": true,
+    "rollback_bound": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_rejected": true,
+    "wrong_cursor_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_large_model_provider_deferral",
+      "detail": "Default architecture loop preserves large-local-model ambition but defers provider/fp16/70B and 128K heavy probes unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is explicitly set."
+    }
+  ],
+  "notes": "Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof. F-LargeModelProviderReference-DeferredByMlxRoute is metadata-only: it proves default MLX routing defers provider/fp16/70B and 128K heavy work without provider calls, prompt-level manifests, runtime/model bytes, hidden cloud fallback, dense-resident overclaim, or product promotion."
+}

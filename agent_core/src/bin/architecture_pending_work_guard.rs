@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
-    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
+    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -99,6 +100,8 @@ const SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/sparse_route_no_hidden_authority/result.json";
 const COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH: &str =
     "artifacts/falsifiers/coldstream_no_hidden_authority/result.json";
+const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH: &str =
+    "artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -109,6 +112,8 @@ const LOCAL_WORKTREE_INVENTORY_PATH: &str =
 const KV_MODEL_CONTEXT_INVENTORY_PATH: &str =
     "docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json";
 const HEAVY_LONG_CONTEXT_ENV: &str = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT";
+const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED: &str =
+    "large_model_provider_reference_deferred_by_mlx_route";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2752,6 +2757,13 @@ fn build_report() -> GuardReport {
         &coldstream_no_hidden_authority,
         COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES,
     );
+    let large_model_provider_reference_deferral = read_json(Path::new(
+        LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH,
+    ));
+    let large_model_provider_reference_deferral_available = artifact_all_axes_true(
+        &large_model_provider_reference_deferral,
+        LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2820,6 +2832,7 @@ fn build_report() -> GuardReport {
         kv_fixture_logits_available,
         &next_bottleneck,
         provider_reference_prompt_level_readiness_primary_blocker.as_deref(),
+        large_model_provider_reference_deferral_available,
         heavy_long_context_enabled,
     );
     let duplicate_risk_count = queue_summary.duplicate_gap_ids
@@ -2869,6 +2882,7 @@ fn build_report() -> GuardReport {
         && axiom_axiomatic_source_distinction_available
         && sparse_route_no_hidden_authority_available
         && coldstream_no_hidden_authority_available
+        && (heavy_long_context_enabled || large_model_provider_reference_deferral_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3226,6 +3240,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "coldstream_no_hidden_authority_available",
         coldstream_no_hidden_authority_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "large_model_provider_reference_deferral_available",
+        large_model_provider_reference_deferral_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3633,6 +3654,10 @@ fn build_report() -> GuardReport {
                     "path": COLDSTREAM_NO_HIDDEN_AUTHORITY_PATH,
                     "available": coldstream_no_hidden_authority_available
                 },
+                "large_model_provider_reference_deferral": {
+                    "path": LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH,
+                    "available": large_model_provider_reference_deferral_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3971,6 +3996,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_coldstream_no_hidden_authority",
             "detail": "Meta Control has SparseRoute no-hidden-authority evidence; the next non-heavy cursor must prove ColdStream transport cannot wake bytes or mutate route policy without SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof."
+        }));
+    }
+    if coldstream_no_hidden_authority_available
+        && !large_model_provider_reference_deferral_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_large_model_provider_reference_deferral",
+            "detail": "Meta Control has ColdStream no-hidden-authority evidence; the next non-heavy cursor must prove provider/fp16/70B and 128K heavy probes stay deferred while practical MLX and cold-assembly architecture remain preserved."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4474,10 +4508,14 @@ fn derive_next_existing_work(
     kv_fixture_logits_available: bool,
     next_bottleneck: &str,
     provider_reference_prompt_level_blocker: Option<&str>,
+    large_model_provider_reference_deferral_available: bool,
     heavy_long_context_enabled: bool,
 ) -> String {
     if !heavy_long_context_enabled && next_bottleneck == "missing_fp16_or_provider_reference" {
-        return "large_model_provider_reference_deferred_by_mlx_route".to_string();
+        if large_model_provider_reference_deferral_available {
+            return "provider_route_copy_source_guard".to_string();
+        }
+        return LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED.to_string();
     }
     if next_bottleneck == "missing_fp16_or_provider_reference" {
         if let Some(blocker) = provider_reference_prompt_level_blocker {
@@ -4720,6 +4758,7 @@ mod tests {
                 false,
                 "run_qwen3_8b_100_prompt_128k_reference_and_kv_direct_logits",
                 None,
+                false,
                 true,
             ),
             "continue_kv_direct_shard:shard_000_024"
@@ -4748,6 +4787,7 @@ mod tests {
                 false,
                 "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
                 None,
+                false,
                 true,
             ),
             "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"
@@ -4777,6 +4817,7 @@ mod tests {
                 "missing_fp16_or_provider_reference",
                 None,
                 false,
+                false,
             ),
             "large_model_provider_reference_deferred_by_mlx_route"
         );
@@ -4789,6 +4830,7 @@ mod tests {
                 false,
                 "resolve_qwen3_8b_128k_context_model_assets_for_kv_direct",
                 None,
+                false,
                 false,
             ),
             "heavy_long_context_deferred_by_default"
@@ -4808,6 +4850,7 @@ mod tests {
                 "missing_fp16_or_provider_reference",
                 Some("missing_provider_reference_env"),
                 false,
+                false,
             ),
             "large_model_provider_reference_deferred_by_mlx_route"
         );
@@ -4820,6 +4863,21 @@ mod tests {
                 false,
                 "missing_fp16_or_provider_reference",
                 Some("missing_provider_reference_env"),
+                true,
+                false,
+            ),
+            "provider_route_copy_source_guard"
+        );
+        assert_eq!(
+            derive_next_existing_work(
+                true,
+                true,
+                &shards,
+                &ContractStatus::Missing,
+                false,
+                "missing_fp16_or_provider_reference",
+                Some("missing_provider_reference_env"),
+                false,
                 true,
             ),
             "missing_provider_reference_env"
