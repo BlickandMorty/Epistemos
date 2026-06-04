@@ -83,6 +83,7 @@ const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/route_distillation_tournament/result.json";
 const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
     "artifacts/falsifiers/proof_search_signal_route_feedback/result.json";
+const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_signal/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1384,6 +1385,126 @@ const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES: &[&str] = &[
     "no_proof_feedback_baseline_bps",
     "proof_search_signal_address",
 ];
+const PROOF_PRESSURE_SIGNAL_AXES: &[&str] = &[
+    "upstream_proof_search_signal_route_feedback_pass",
+    "proof_pressure_signal_fixture_present",
+    "fixture_ids_bound",
+    "pressure_schema_refs_bound",
+    "shadow_policy_refs_bound",
+    "pressure_signal_ids_bound",
+    "claim_refs_bound",
+    "mission_ids_bound",
+    "proof_search_signal_refs_bound",
+    "statement_preservation_scores_bound",
+    "compiler_error_kinds_bound",
+    "tactic_state_entropy_bound",
+    "missing_premise_refs_bound",
+    "verified_proof_neighbors_bound",
+    "failed_attempt_memory_refs_bound",
+    "route_pressure_labels_bound",
+    "retrieve_pressure_bound",
+    "repair_pressure_bound",
+    "deeper_model_pressure_bound",
+    "verifier_pressure_bound",
+    "abstain_pressure_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_policy_not_promoted",
+    "pressure_not_hidden_truth",
+    "statement_not_mutated",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "proof_pressure_signal_address_deterministic",
+    "held_out_route_success_bound",
+    "statement_preservation_floor_bound",
+    "missing_premise_recall_bound",
+    "answer_packet_coverage_bound",
+    "calibration_error_bound",
+    "pressure_token_budget_bound",
+    "metadata_bound",
+    "beats_static_proof_route_baseline",
+    "beats_proof_search_only_baseline",
+    "beats_no_pressure_memory_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_pressure_signal_rejected",
+    "missing_claim_ref_rejected",
+    "missing_mission_id_rejected",
+    "missing_proof_search_signal_ref_rejected",
+    "statement_preservation_too_low_rejected",
+    "statement_mutation_rejected",
+    "missing_compiler_error_kind_rejected",
+    "invalid_compiler_error_kind_rejected",
+    "tactic_entropy_out_of_range_rejected",
+    "missing_premise_ref_rejected",
+    "missing_verified_neighbor_rejected",
+    "missing_failed_attempt_memory_rejected",
+    "missing_route_pressure_rejected",
+    "invalid_route_pressure_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "static_proof_route_baseline_unbeaten_rejected",
+    "proof_search_only_baseline_unbeaten_rejected",
+    "no_pressure_memory_baseline_unbeaten_rejected",
+    "calibration_error_too_high_rejected",
+    "compiler_error_diversity_missing_rejected",
+    "route_pressure_diversity_missing_rejected",
+    "metadata_budget_rejected",
+    "pressure_token_budget_rejected",
+    "fixture_count",
+    "pressure_signal_count",
+    "train_case_count",
+    "held_out_case_count",
+    "compiler_error_kind_count",
+    "route_pressure_kind_count",
+    "missing_premise_case_count",
+    "verified_neighbor_count",
+    "max_pressure_tokens",
+    "max_pressure_metadata_bytes",
+    "max_tactic_state_entropy_bps",
+    "held_out_route_success_bps",
+    "statement_preservation_floor_bps",
+    "missing_premise_recall_bps",
+    "answer_packet_coverage_bps",
+    "calibration_error_bps",
+    "static_proof_route_baseline_bps",
+    "proof_search_only_baseline_bps",
+    "no_pressure_memory_baseline_bps",
+    "proof_pressure_signal_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1859,6 +1980,9 @@ fn build_report() -> GuardReport {
         &proof_search_signal_route_feedback,
         PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES,
     );
+    let proof_pressure_signal = read_json(Path::new(PROOF_PRESSURE_SIGNAL_PATH));
+    let proof_pressure_signal_available =
+        artifact_all_axes_true(&proof_pressure_signal, PROOF_PRESSURE_SIGNAL_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1967,6 +2091,7 @@ fn build_report() -> GuardReport {
         && construction_search_tournament_available
         && route_distillation_tournament_available
         && proof_search_signal_route_feedback_available
+        && proof_pressure_signal_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2261,6 +2386,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "proof_search_signal_route_feedback_available",
         proof_search_signal_route_feedback_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "proof_pressure_signal_available",
+        proof_pressure_signal_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2632,6 +2764,10 @@ fn build_report() -> GuardReport {
                     "path": PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH,
                     "available": proof_search_signal_route_feedback_available
                 },
+                "proof_pressure_signal": {
+                    "path": PROOF_PRESSURE_SIGNAL_PATH,
+                    "available": proof_pressure_signal_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2893,10 +3029,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has RouteDistillationTournament evidence; the next non-heavy cursor must prove Lean/proof outcomes become route features without hidden truth, verifier bypass, or AnswerPacket omission."
         }));
     }
-    if proof_search_signal_route_feedback_available && !heavy_long_context_enabled {
+    if proof_search_signal_route_feedback_available
+        && !proof_pressure_signal_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_proof_pressure_signal",
             "detail": "Meta Control has ProofSearchSignal route feedback evidence; the next non-heavy cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
+        }));
+    }
+    if proof_pressure_signal_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_verifier_regret_fast_weights",
+            "detail": "Meta Control has ProofPressureSignal evidence; the next non-heavy cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3829,6 +3974,7 @@ mod tests {
         assert!(already_mapped_work
             .get("proof_search_signal_route_feedback")
             .is_some());
+        assert!(already_mapped_work.get("proof_pressure_signal").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

@@ -86,6 +86,7 @@ const ROUTE_DISTILLATION_TOURNAMENT_PATH: &str =
     "artifacts/falsifiers/route_distillation_tournament/result.json";
 const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
     "artifacts/falsifiers/proof_search_signal_route_feedback/result.json";
+const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_signal/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1383,6 +1384,126 @@ const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES: &[&str] = &[
     "no_proof_feedback_baseline_bps",
     "proof_search_signal_address",
 ];
+const PROOF_PRESSURE_SIGNAL_AXES: &[&str] = &[
+    "upstream_proof_search_signal_route_feedback_pass",
+    "proof_pressure_signal_fixture_present",
+    "fixture_ids_bound",
+    "pressure_schema_refs_bound",
+    "shadow_policy_refs_bound",
+    "pressure_signal_ids_bound",
+    "claim_refs_bound",
+    "mission_ids_bound",
+    "proof_search_signal_refs_bound",
+    "statement_preservation_scores_bound",
+    "compiler_error_kinds_bound",
+    "tactic_state_entropy_bound",
+    "missing_premise_refs_bound",
+    "verified_proof_neighbors_bound",
+    "failed_attempt_memory_refs_bound",
+    "route_pressure_labels_bound",
+    "retrieve_pressure_bound",
+    "repair_pressure_bound",
+    "deeper_model_pressure_bound",
+    "verifier_pressure_bound",
+    "abstain_pressure_bound",
+    "test_refs_bound",
+    "citation_refs_bound",
+    "scope_rex_refs_bound",
+    "sovereign_gate_refs_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_policy_not_promoted",
+    "pressure_not_hidden_truth",
+    "statement_not_mutated",
+    "verifier_not_bypassed",
+    "tests_not_bypassed",
+    "citations_not_bypassed",
+    "scope_rex_not_bypassed",
+    "sovereign_gate_not_bypassed",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "proof_pressure_signal_address_deterministic",
+    "held_out_route_success_bound",
+    "statement_preservation_floor_bound",
+    "missing_premise_recall_bound",
+    "answer_packet_coverage_bound",
+    "calibration_error_bound",
+    "pressure_token_budget_bound",
+    "metadata_bound",
+    "beats_static_proof_route_baseline",
+    "beats_proof_search_only_baseline",
+    "beats_no_pressure_memory_baseline",
+    "duplicate_fixture_rejected",
+    "duplicate_pressure_signal_rejected",
+    "missing_claim_ref_rejected",
+    "missing_mission_id_rejected",
+    "missing_proof_search_signal_ref_rejected",
+    "statement_preservation_too_low_rejected",
+    "statement_mutation_rejected",
+    "missing_compiler_error_kind_rejected",
+    "invalid_compiler_error_kind_rejected",
+    "tactic_entropy_out_of_range_rejected",
+    "missing_premise_ref_rejected",
+    "missing_verified_neighbor_rejected",
+    "missing_failed_attempt_memory_rejected",
+    "missing_route_pressure_rejected",
+    "invalid_route_pressure_rejected",
+    "missing_test_ref_rejected",
+    "missing_citation_ref_rejected",
+    "missing_scope_rex_rejected",
+    "missing_sovereign_gate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_truth_authority_rejected",
+    "verifier_bypass_rejected",
+    "test_bypass_rejected",
+    "citation_bypass_rejected",
+    "scope_rex_bypass_rejected",
+    "sovereign_gate_bypass_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "static_proof_route_baseline_unbeaten_rejected",
+    "proof_search_only_baseline_unbeaten_rejected",
+    "no_pressure_memory_baseline_unbeaten_rejected",
+    "calibration_error_too_high_rejected",
+    "compiler_error_diversity_missing_rejected",
+    "route_pressure_diversity_missing_rejected",
+    "metadata_budget_rejected",
+    "pressure_token_budget_rejected",
+    "fixture_count",
+    "pressure_signal_count",
+    "train_case_count",
+    "held_out_case_count",
+    "compiler_error_kind_count",
+    "route_pressure_kind_count",
+    "missing_premise_case_count",
+    "verified_neighbor_count",
+    "max_pressure_tokens",
+    "max_pressure_metadata_bytes",
+    "max_tactic_state_entropy_bps",
+    "held_out_route_success_bps",
+    "statement_preservation_floor_bps",
+    "missing_premise_recall_bps",
+    "answer_packet_coverage_bps",
+    "calibration_error_bps",
+    "static_proof_route_baseline_bps",
+    "proof_search_only_baseline_bps",
+    "no_pressure_memory_baseline_bps",
+    "proof_pressure_signal_address",
+];
 
 fn main() {
     let report = build_report();
@@ -1458,6 +1579,7 @@ fn build_report() -> KernelReport {
     let route_distillation_tournament = GateArtifact::read(ROUTE_DISTILLATION_TOURNAMENT_PATH);
     let proof_search_signal_route_feedback =
         GateArtifact::read(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH);
+    let proof_pressure_signal = GateArtifact::read(PROOF_PRESSURE_SIGNAL_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1502,6 +1624,7 @@ fn build_report() -> KernelReport {
         &construction_search_tournament,
         &route_distillation_tournament,
         &proof_search_signal_route_feedback,
+        &proof_pressure_signal,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -1889,6 +2012,8 @@ fn build_report() -> KernelReport {
     let proof_search_signal_route_feedback_pass = proof_search_signal_route_feedback.overall_pass
         && proof_search_signal_route_feedback
             .all_axes_true(PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_AXES);
+    let proof_pressure_signal_pass =
+        proof_pressure_signal.overall_pass && proof_pressure_signal.all_axes_true(PROOF_PRESSURE_SIGNAL_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -1933,6 +2058,7 @@ fn build_report() -> KernelReport {
         &construction_search_tournament,
         &route_distillation_tournament,
         &proof_search_signal_route_feedback,
+        &proof_pressure_signal,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -1975,6 +2101,7 @@ fn build_report() -> KernelReport {
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
+        proof_pressure_signal_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2033,6 +2160,7 @@ fn build_report() -> KernelReport {
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
+        proof_pressure_signal_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -2095,6 +2223,7 @@ fn build_report() -> KernelReport {
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
+        proof_pressure_signal_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -2507,6 +2636,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "proof_pressure_signal_pass",
+        proof_pressure_signal_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -2724,6 +2860,11 @@ fn build_report() -> KernelReport {
         "proof_search_signal_route_feedback",
         &proof_search_signal_route_feedback,
     );
+    add_gate_summary(
+        &mut measurements,
+        "proof_pressure_signal",
+        &proof_pressure_signal,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -2767,6 +2908,7 @@ fn build_report() -> KernelReport {
         construction_search_tournament_pass,
         route_distillation_tournament_pass,
         proof_search_signal_route_feedback_pass,
+        proof_pressure_signal_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -3043,6 +3185,7 @@ fn classify_route(
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
+    proof_pressure_signal_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -3080,6 +3223,7 @@ fn classify_route(
         && construction_search_tournament_pass
         && route_distillation_tournament_pass
         && proof_search_signal_route_feedback_pass
+        && proof_pressure_signal_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -3151,6 +3295,7 @@ fn next_bottleneck(
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
+    proof_pressure_signal_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -3261,8 +3406,10 @@ fn next_bottleneck(
             "route_distillation_tournament".to_string()
         } else if !proof_search_signal_route_feedback_pass {
             "proof_search_signal_route_feedback".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !proof_pressure_signal_pass {
             "proof_pressure_signal".to_string()
+        } else if !seventy_b_route_pass {
+            "verifier_regret_fast_weights".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -3332,6 +3479,7 @@ fn build_ordered_gap_queue(
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
+    proof_pressure_signal_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4026,7 +4174,9 @@ fn build_ordered_gap_queue(
             40,
             "proof_pressure_signal",
             "Meta Control",
-            if proof_search_signal_route_feedback_pass
+            if proof_pressure_signal_pass {
+                "completed"
+            } else if proof_search_signal_route_feedback_pass
                 && !heavy_long_context_enabled
                 && !seventy_b_route_pass
             {
@@ -4038,6 +4188,20 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Compiler errors, tactic-state entropy, missing premises, and failed attempt memory must become explicit route-pressure labels.",
             "Keep pressure labels shadow-only until statement preservation, missing-premise, rollback, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            41,
+            "verifier_regret_fast_weights",
+            "Meta Control",
+            if proof_pressure_signal_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_proof_pressure_signal"
+            },
+            "F-VerifierRegretFastWeights",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Fast-weight updates must be bounded, session/local scoped, resettable, TTL-limited, and useful on held-out route choices before consolidation.",
+            "Keep fast weights shadow-only until drift bounds, reset, rollback, TTL, held-out wins, RunEventLog, and AnswerPacket evidence pass.",
         ),
     ]
 }
@@ -4181,6 +4345,7 @@ fn build_anomalies(
     construction_search_tournament_pass: bool,
     route_distillation_tournament_pass: bool,
     proof_search_signal_route_feedback_pass: bool,
+    proof_pressure_signal_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4508,12 +4673,19 @@ fn build_anomalies(
         }));
     }
     if proof_search_signal_route_feedback_pass
+        && !proof_pressure_signal_pass
         && !heavy_long_context_enabled
         && !seventy_b_route_pass
     {
         anomalies.push(serde_json::json!({
             "kind": "proof_pressure_signal_missing",
             "detail": "ProofSearchSignal evidence is present; the next non-heavy architecture cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
+        }));
+    }
+    if proof_pressure_signal_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "verifier_regret_fast_weights_missing",
+            "detail": "ProofPressureSignal evidence is present; the next non-heavy architecture cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -4676,10 +4848,11 @@ mod tests {
         const CONSTRUCTION_SEARCH: usize = 34;
         const ROUTE_DISTILLATION: usize = 35;
         const PROOF_SEARCH_SIGNAL: usize = 36;
-        const SEVENTY_B: usize = 37;
-        const SCHEMA: usize = 38;
+        const PROOF_PRESSURE_SIGNAL: usize = 37;
+        const SEVENTY_B: usize = 38;
+        const SCHEMA: usize = 39;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 39];
+            let mut values = [false; 40];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -4689,7 +4862,7 @@ mod tests {
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
-                values[35], values[36], values[37], values[38],
+                values[35], values[36], values[37], values[38], values[39],
             )
         };
         assert_eq!(
@@ -4731,6 +4904,7 @@ mod tests {
                 CONSTRUCTION_SEARCH,
                 ROUTE_DISTILLATION,
                 PROOF_SEARCH_SIGNAL,
+                PROOF_PRESSURE_SIGNAL,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4779,6 +4953,7 @@ mod tests {
                 CONSTRUCTION_SEARCH,
                 ROUTE_DISTILLATION,
                 PROOF_SEARCH_SIGNAL,
+                PROOF_PRESSURE_SIGNAL,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4848,21 +5023,22 @@ mod tests {
         const CONSTRUCTION_SEARCH_TOURNAMENT: usize = 49;
         const ROUTE_DISTILLATION_TOURNAMENT: usize = 50;
         const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK: usize = 51;
-        const SEVENTY_B: usize = 52;
+        const PROOF_PRESSURE_SIGNAL: usize = 52;
+        const SEVENTY_B: usize = 53;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 53] {
-            let mut values = [false; 53];
+        let flags = |true_indexes: &[usize]| -> [bool; 54] {
+            let mut values = [false; 54];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 53], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 54], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -4919,11 +5095,12 @@ mod tests {
                 values[50],
                 values[51],
                 values[52],
+                values[53],
                 &missing,
             )
         };
-        let nb = |values: [bool; 53]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 53]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 54]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 54]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -6253,6 +6430,46 @@ mod tests {
             "proof_pressure_signal"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+            ]))),
+            "verifier_regret_fast_weights"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -6325,6 +6542,7 @@ mod tests {
                 CONSTRUCTION_SEARCH_TOURNAMENT,
                 ROUTE_DISTILLATION_TOURNAMENT,
                 PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

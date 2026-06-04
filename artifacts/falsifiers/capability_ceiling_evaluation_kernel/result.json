@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "35c2804f2c586ee9c6653b2963e2614efe8690ab",
+  "commit_sha": "f2ad8c794d90d710e7210cb0c2505effdab820e4",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T09:51:33Z",
-  "result_digest": "sha256:3377a2ac0ac8502beace0e618fe1e5047d4da32ad233704bd234fd7747e51491",
+  "timestamp_utc": "2026-06-04T10:35:18Z",
+  "result_digest": "sha256:674adea86a8969b93b729caba85cf9079572ac774a8cb642007f46f8c754e732",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -378,7 +378,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "proof_pressure_signal",
+      "value": "verifier_regret_fast_weights",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -787,11 +787,21 @@
           "order": 40,
           "gap_id": "proof_pressure_signal",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-ProofPressureSignal",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Compiler errors, tactic-state entropy, missing premises, and failed attempt memory must become explicit route-pressure labels.",
           "rollback": "Keep pressure labels shadow-only until statement preservation, missing-premise, rollback, RunEventLog, and AnswerPacket evidence pass."
+        },
+        {
+          "order": 41,
+          "gap_id": "verifier_regret_fast_weights",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-VerifierRegretFastWeights",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Fast-weight updates must be bounded, session/local scoped, resettable, TTL-limited, and useful on held-out route choices before consolidation.",
+          "rollback": "Keep fast weights shadow-only until drift bounds, reset, rollback, TTL, held-out wins, RunEventLog, and AnswerPacket evidence pass."
         }
       ],
       "unit": "queue"
@@ -871,6 +881,22 @@
     "proof_carrying_route_card_summary": {
       "value": {
         "path": "artifacts/falsifiers/proof_carrying_route_card/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "proof_pressure_signal_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_pressure_signal_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/proof_pressure_signal/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1373,6 +1399,11 @@
       "value": true,
       "unit": "bool"
     },
+    "proof_pressure_signal_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "proof_search_signal_route_feedback_pass": {
       "operator": "==",
       "value": true,
@@ -1524,6 +1555,7 @@
     "page_gather_packetized_policy_acceptance_pass": true,
     "proof_carrying_residency_lease_pass": true,
     "proof_carrying_route_card_pass": true,
+    "proof_pressure_signal_pass": true,
     "proof_search_signal_route_feedback_pass": true,
     "query_aware_kv_selector_pass": true,
     "reasoning_state_continuity_pass": true,
@@ -1559,8 +1591,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "proof_pressure_signal_missing",
-      "detail": "ProofSearchSignal evidence is present; the next non-heavy architecture cursor must prove compiler errors, tactic-state entropy, missing premises, and failed attempt memory become explicit route-pressure labels with rollback, RunEventLog, and AnswerPacket evidence."
+      "kind": "verifier_regret_fast_weights_missing",
+      "detail": "ProofPressureSignal evidence is present; the next non-heavy architecture cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1568,8 +1600,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "proof_pressure_signal"
+      "detail": "verifier_regret_fast_weights"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=proof_pressure_signal; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_regret_fast_weights; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

@@ -239,6 +239,10 @@ name = "falsify_proof_search_signal_route_feedback"
 path = "src/bin/falsify_proof_search_signal_route_feedback.rs"
 
 [[bin]]
+name = "falsify_proof_pressure_signal"
+path = "src/bin/falsify_proof_pressure_signal.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

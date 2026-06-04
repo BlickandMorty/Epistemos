@@ -78,6 +78,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ConstructionSearchTournament",
     "F-RouteDistillationTournament",
     "F-ProofSearchSignal-RouteFeedback",
+    "F-ProofPressureSignal",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
