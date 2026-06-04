@@ -1,0 +1,965 @@
+{
+  "falsifier_id": "F-VerifierBudgetAuction",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_verifier_budget_auction.sh",
+  "command_digest": "sha256:4cc8743ded79288f94dd0d6017e62234671ce8dffe450b6043552fdafa952ef2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "5f52cb6281f07d19e65bec6c7c541552cef1900b",
+  "fixture_id": "verifier_budget_auction_v1",
+  "timestamp_utc": "2026-06-04T04:02:56Z",
+  "result_digest": "sha256:5fbbde87ca4063548722896cca26f99d0f59a3de110370e4f4b3177720fa1ce7",
+  "measurements": {
+    "abstain_reason_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_address": {
+      "value": "uas:verifier-budget-auction:sha256:737e2a14ad376e445e0290b7703f2344234a61726e4fdc590490b5f2566a2e34",
+      "unit": "address"
+    },
+    "auction_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_over_metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_greedy_bytes_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_max_quality_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_wake_all_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_bps": {
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "budget_vector_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_count": {
+      "value": 30,
+      "unit": "candidates"
+    },
+    "candidates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_round_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_selection_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "greedy_bytes_baseline_success_bps": {
+      "value": 1250,
+      "unit": "basis_points"
+    },
+    "held_out_round_count": {
+      "value": 8,
+      "unit": "rounds"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "interference_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "interference_risk_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_verifier_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_verifier_reject_count": {
+      "value": 1,
+      "unit": "rounds"
+    },
+    "max_auction_metadata_bytes": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "max_quality_baseline_success_bps": {
+      "value": 0,
+      "unit": "basis_points"
+    },
+    "max_selected_cold_io_bytes": {
+      "value": 1556480,
+      "unit": "bytes"
+    },
+    "max_selected_hot_bytes": {
+      "value": 1269760,
+      "unit": "bytes"
+    },
+    "max_selected_kv_bytes": {
+      "value": 1105920,
+      "unit": "bytes"
+    },
+    "max_selected_latency_ms": {
+      "value": 88,
+      "unit": "milliseconds"
+    },
+    "min_selected_verifier_coverage_bps": {
+      "value": 1360,
+      "unit": "basis_points"
+    },
+    "missing_abstain_reason_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_candidate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rejected_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_need_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_reject_count": {
+      "value": 1,
+      "unit": "rounds"
+    },
+    "over_cold_io_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_interference_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_privacy_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_rollback_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_risk_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_risk_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_reasons_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_unit_count": {
+      "value": 10,
+      "unit": "candidates"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cost_bundle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cost_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bid_scores_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bundle_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bundle_unit_count": {
+      "value": 20,
+      "unit": "candidates"
+    },
+    "selected_cold_io_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_hot_bytes_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_kv_bytes_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_latency_within_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "training_round_count": {
+      "value": 2,
+      "unit": "rounds"
+    },
+    "training_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_kinds_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_proposal_budget_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_budget_auction_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_need_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wake_all_baseline_success_bps": {
+      "value": 0,
+      "unit": "basis_points"
+    },
+    "weak_bid_score_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weak_verifier_coverage_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstain_reason_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_address": {
+      "operator": "starts_with",
+      "value": "uas:verifier-budget-auction:",
+      "unit": "address"
+    },
+    "auction_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_over_metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_greedy_bytes_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_max_quality_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_beats_wake_all_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "auction_success_bps": {
+      "operator": ">=",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "budget_vector_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "candidates"
+    },
+    "candidates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_round_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_selection_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "greedy_bytes_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "held_out_round_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "rounds"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "interference_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "interference_risk_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_verifier_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_verifier_reject_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "rounds"
+    },
+    "max_auction_metadata_bytes": {
+      "operator": "<=",
+      "value": 4194304,
+      "unit": "bytes"
+    },
+    "max_quality_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "max_selected_cold_io_bytes": {
+      "operator": "<=",
+      "value": 3145728,
+      "unit": "bytes"
+    },
+    "max_selected_hot_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes"
+    },
+    "max_selected_kv_bytes": {
+      "operator": "<=",
+      "value": 2097152,
+      "unit": "bytes"
+    },
+    "max_selected_latency_ms": {
+      "operator": "<=",
+      "value": 120,
+      "unit": "milliseconds"
+    },
+    "min_selected_verifier_coverage_bps": {
+      "operator": ">=",
+      "value": 1100,
+      "unit": "basis_points"
+    },
+    "missing_abstain_reason_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_candidate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rejected_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_need_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_reject_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "rounds"
+    },
+    "over_cold_io_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_hot_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_interference_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_kv_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_privacy_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_rollback_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_risk_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_risk_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_reasons_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejected_bundle_unit_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "candidates"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cost_bundle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cost_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bid_scores_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bundle_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_bundle_unit_count": {
+      "operator": "==",
+      "value": 20,
+      "unit": "candidates"
+    },
+    "selected_cold_io_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_hot_bytes_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_kv_bytes_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_latency_within_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "training_round_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "rounds"
+    },
+    "training_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unit_kinds_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sparse_wake_proposal_budget_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_budget_auction_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_need_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wake_all_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "basis_points"
+    },
+    "weak_bid_score_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weak_verifier_coverage_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstain_reason_bound": true,
+    "answer_packet_ref_bound": true,
+    "auction_address": true,
+    "auction_address_deterministic": true,
+    "auction_ids_bound": true,
+    "auction_over_metadata_budget_rejected": true,
+    "auction_success_beats_greedy_bytes_baseline": true,
+    "auction_success_beats_max_quality_baseline": true,
+    "auction_success_beats_wake_all_baseline": true,
+    "auction_success_bps": true,
+    "budget_vector_bound": true,
+    "candidate_count": true,
+    "candidates_bound": true,
+    "cloud_route_rejected": true,
+    "compatibility_fences_bound": true,
+    "duplicate_round_rejected": true,
+    "evidence_refs_bound": true,
+    "expected_selection_bound": true,
+    "fallback_bound": true,
+    "greedy_bytes_baseline_success_bps": true,
+    "held_out_round_count": true,
+    "held_out_split_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "interference_bundle_rejected": true,
+    "interference_risk_within_budget": true,
+    "latency_bundle_rejected": true,
+    "live_policy_mutation_rejected": true,
+    "live_policy_not_mutated": true,
+    "low_verifier_bundle_rejected": true,
+    "low_verifier_reject_count": true,
+    "max_auction_metadata_bytes": true,
+    "max_quality_baseline_success_bps": true,
+    "max_selected_cold_io_bytes": true,
+    "max_selected_hot_bytes": true,
+    "max_selected_kv_bytes": true,
+    "max_selected_latency_ms": true,
+    "min_selected_verifier_coverage_bps": true,
+    "missing_abstain_reason_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_budget_rejected": true,
+    "missing_candidate_rejected": true,
+    "missing_fallback_rejected": true,
+    "missing_rejected_bundle_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_selected_bundle_rejected": true,
+    "missing_uas_address_rejected": true,
+    "missing_verifier_need_rejected": true,
+    "mission_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_bundle_rejected": true,
+    "over_budget_reject_count": true,
+    "over_cold_io_budget_rejected": true,
+    "over_hot_budget_rejected": true,
+    "over_interference_budget_rejected": true,
+    "over_kv_budget_rejected": true,
+    "over_latency_budget_rejected": true,
+    "over_privacy_budget_rejected": true,
+    "over_rollback_budget_rejected": true,
+    "privacy_risk_bundle_rejected": true,
+    "privacy_risk_within_budget": true,
+    "rejected_bundle_bound": true,
+    "rejected_bundle_reasons_bound": true,
+    "rejected_bundle_unit_count": true,
+    "rollback_bound": true,
+    "rollback_cost_bundle_rejected": true,
+    "rollback_cost_within_budget": true,
+    "route_authority_shadow_only": true,
+    "run_event_log_bound": true,
+    "selected_bid_scores_positive": true,
+    "selected_bundle_bound": true,
+    "selected_bundle_unit_count": true,
+    "selected_cold_io_within_budget": true,
+    "selected_hot_bytes_within_budget": true,
+    "selected_kv_bytes_within_budget": true,
+    "selected_latency_within_budget": true,
+    "sparse_wake_refs_bound": true,
+    "training_round_count": true,
+    "training_split_bound": true,
+    "uas_addresses_bound": true,
+    "unit_kinds_bound": true,
+    "upstream_sparse_wake_proposal_budget_pass": true,
+    "verifier_budget_auction_fixture_present": true,
+    "verifier_coverage_bound": true,
+    "verifier_need_bound": true,
+    "wake_all_baseline_success_bps": true,
+    "weak_bid_score_rejected": true,
+    "weak_verifier_coverage_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "scope=metadata_only;organ=VerifierBudgetAuction;reviewer=codex;reviewed_at_utc=2026-06-04T00:00:00Z;validator=falsifier_validator;local_reference_only=true;detail=VerifierBudgetAuction rejects over-budget, low-verifier, privacy-risk, latency-risk, interference-risk, and rollback-cost bundles before execution while binding fallback, rollback, RunEventLog, AnswerPacket, and shadow-only authority"
+}

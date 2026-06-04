@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "a1aa814528adf38ee66ccf701148dac56f4ece62",
+  "commit_sha": "5f52cb6281f07d19e65bec6c7c541552cef1900b",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T03:05:17Z",
-  "result_digest": "sha256:675c491b5b66e2f71dfa0ef71defbfb9f68cc3d639d6c9f76e752a58e018e6df",
+  "timestamp_utc": "2026-06-04T04:03:02Z",
+  "result_digest": "sha256:5e44a3164a8d7d5fe9995dd79a8593b8a3a7b7d90d46afcd75dc59160ea33f61",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -314,7 +314,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "verifier_budget_auction",
+      "value": "kv_page_sketch_index",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -633,11 +633,21 @@
           "order": 31,
           "gap_id": "verifier_budget_auction",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-VerifierBudgetAuction",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Candidate wake units must compete under explicit verifier, byte, and latency budgets before a sparse wake can request residency work.",
           "rollback": "Reject over-budget bundles and keep the auction shadow-only until rollback, RunEventLog, AnswerPacket, and held-out baseline proof pass."
+        },
+        {
+          "order": 32,
+          "gap_id": "kv_page_sketch_index",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-KVPageSketchIndex",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "KV/page sketches must preserve required evidence coverage and compatibility fences before query-aware page selection can advance.",
+          "rollback": "Keep sketch indexes shadow-only until false-negative policy, coverage, rollback, RunEventLog, and AnswerPacket evidence pass."
         }
       ],
       "unit": "queue"
@@ -926,6 +936,22 @@
       "value": true,
       "unit": "bool"
     },
+    "verifier_budget_auction_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_budget_auction_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/verifier_budget_auction/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "verifier_regret_ledger_pass": {
       "value": true,
       "unit": "bool"
@@ -1199,6 +1225,11 @@
       "value": true,
       "unit": "bool"
     },
+    "verifier_budget_auction_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "verifier_regret_ledger_pass": {
       "operator": "==",
       "value": true,
@@ -1257,6 +1288,7 @@
     "uas_zero_copy_spine_pass": true,
     "unmapped_architecture_gap_count": true,
     "verified_floor_green": true,
+    "verifier_budget_auction_pass": true,
     "verifier_regret_ledger_pass": true
   },
   "overall_pass": false,
@@ -1271,8 +1303,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "verifier_budget_auction_missing",
-      "detail": "Sparse wake proposal budget evidence is present; the next non-heavy architecture cursor must prove candidate wake units compete under verifier, byte, and latency budgets before any residency work can promote."
+      "kind": "kv_page_sketch_index_missing",
+      "detail": "VerifierBudgetAuction evidence is present; the next non-heavy architecture cursor must prove KV/page sketch indexes preserve required evidence coverage before query-aware selection can advance."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1280,8 +1312,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "verifier_budget_auction"
+      "detail": "kv_page_sketch_index"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=verifier_budget_auction; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=kv_page_sketch_index; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

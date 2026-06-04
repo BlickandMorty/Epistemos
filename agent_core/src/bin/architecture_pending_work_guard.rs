@@ -65,6 +65,8 @@ const BUDGETED_UNCERTAINTY_ESCALATOR_PATH: &str =
     "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json";
 const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
+const VERIFIER_BUDGET_AUCTION_PATH: &str =
+    "artifacts/falsifiers/verifier_budget_auction/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -559,6 +561,100 @@ const SPARSE_WAKE_PROPOSAL_BUDGET_AXES: &[&str] = &[
     "max_proposal_metadata_bytes",
     "sparse_wake_address",
 ];
+const VERIFIER_BUDGET_AUCTION_AXES: &[&str] = &[
+    "upstream_sparse_wake_proposal_budget_pass",
+    "verifier_budget_auction_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "auction_ids_bound",
+    "mission_ids_bound",
+    "sparse_wake_refs_bound",
+    "candidates_bound",
+    "selected_bundle_bound",
+    "rejected_bundle_bound",
+    "uas_addresses_bound",
+    "unit_kinds_bound",
+    "evidence_refs_bound",
+    "compatibility_fences_bound",
+    "budget_vector_bound",
+    "verifier_need_bound",
+    "fallback_bound",
+    "abstain_reason_bound",
+    "selected_hot_bytes_within_budget",
+    "selected_kv_bytes_within_budget",
+    "selected_cold_io_within_budget",
+    "selected_latency_within_budget",
+    "privacy_risk_within_budget",
+    "interference_risk_within_budget",
+    "rollback_cost_within_budget",
+    "verifier_coverage_bound",
+    "selected_bid_scores_positive",
+    "expected_selection_bound",
+    "rejected_bundle_reasons_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "auction_address_deterministic",
+    "auction_success_beats_greedy_bytes_baseline",
+    "auction_success_beats_max_quality_baseline",
+    "auction_success_beats_wake_all_baseline",
+    "over_budget_bundle_rejected",
+    "low_verifier_bundle_rejected",
+    "privacy_risk_bundle_rejected",
+    "latency_bundle_rejected",
+    "interference_bundle_rejected",
+    "rollback_cost_bundle_rejected",
+    "duplicate_round_rejected",
+    "missing_candidate_rejected",
+    "missing_selected_bundle_rejected",
+    "missing_rejected_bundle_rejected",
+    "missing_uas_address_rejected",
+    "missing_budget_rejected",
+    "over_hot_budget_rejected",
+    "over_kv_budget_rejected",
+    "over_cold_io_budget_rejected",
+    "over_latency_budget_rejected",
+    "over_privacy_budget_rejected",
+    "over_interference_budget_rejected",
+    "over_rollback_budget_rejected",
+    "weak_verifier_coverage_rejected",
+    "weak_bid_score_rejected",
+    "missing_verifier_need_rejected",
+    "missing_fallback_rejected",
+    "missing_abstain_reason_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "auction_over_metadata_budget_rejected",
+    "no_runtime_bytes_loaded",
+    "training_round_count",
+    "held_out_round_count",
+    "candidate_count",
+    "selected_bundle_unit_count",
+    "rejected_bundle_unit_count",
+    "max_selected_hot_bytes",
+    "max_selected_kv_bytes",
+    "max_selected_cold_io_bytes",
+    "max_selected_latency_ms",
+    "min_selected_verifier_coverage_bps",
+    "auction_success_bps",
+    "greedy_bytes_baseline_success_bps",
+    "max_quality_baseline_success_bps",
+    "wake_all_baseline_success_bps",
+    "over_budget_reject_count",
+    "low_verifier_reject_count",
+    "max_auction_metadata_bytes",
+    "auction_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -995,6 +1091,9 @@ fn build_report() -> GuardReport {
         &sparse_wake_proposal_budget,
         SPARSE_WAKE_PROPOSAL_BUDGET_AXES,
     );
+    let verifier_budget_auction = read_json(Path::new(VERIFIER_BUDGET_AUCTION_PATH));
+    let verifier_budget_auction_available =
+        artifact_all_axes_true(&verifier_budget_auction, VERIFIER_BUDGET_AUCTION_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1094,6 +1193,7 @@ fn build_report() -> GuardReport {
         && two_stage_route_scout_abstain_available
         && budgeted_uncertainty_escalator_available
         && sparse_wake_proposal_budget_available
+        && verifier_budget_auction_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1325,6 +1425,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "sparse_wake_proposal_budget_available",
         sparse_wake_proposal_budget_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "verifier_budget_auction_available",
+        verifier_budget_auction_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1660,6 +1767,10 @@ fn build_report() -> GuardReport {
                     "path": SPARSE_WAKE_PROPOSAL_BUDGET_PATH,
                     "available": sparse_wake_proposal_budget_available
                 },
+                "verifier_budget_auction": {
+                    "path": VERIFIER_BUDGET_AUCTION_PATH,
+                    "available": verifier_budget_auction_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1853,6 +1964,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_sparse_wake_proposal_budget",
             "detail": "Meta Control has budgeted uncertainty escalation evidence, but needs F-SparseWakeProposal-Budget before verifier budget auction work can advance."
+        }));
+    }
+    if sparse_wake_proposal_budget_available && !verifier_budget_auction_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_verifier_budget_auction",
+            "detail": "Meta Control has sparse wake proposal budget evidence, but needs F-VerifierBudgetAuction before KV/page sketch index work can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2769,6 +2886,7 @@ mod tests {
         assert!(already_mapped_work
             .get("sparse_wake_proposal_budget")
             .is_some());
+        assert!(already_mapped_work.get("verifier_budget_auction").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());
