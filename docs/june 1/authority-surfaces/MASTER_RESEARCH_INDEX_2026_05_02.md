@@ -1052,7 +1052,7 @@ regret.
 | Falsifier | Purpose |
 |---|---|
 | `F-RouteScoutSSM-Baseline` | PASS metadata-only witness on 2026-06-03. Proves a small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines while staying shadow-only and AnswerPacket-visible. Artifact: `artifacts/falsifiers/route_scout_ssm_baseline/result.json`. |
-| `F-TwoStageRouteScout-Abstain` | Proves route-family choice and family-specific selection are separate, cheap, and abstention-capable. |
+| `F-TwoStageRouteScout-Abstain` | PASS metadata-only witness on 2026-06-03. Proves route-family choice and family-specific selection are separate, cheap, abstention-capable, rollback-bound, and AnswerPacket-visible while beating all-in-one/static/no-abstain baselines. Artifact: `artifacts/falsifiers/two_stage_route_scout_abstain/result.json`. |
 | `F-BudgetedUncertaintyEscalator` | Proves high uncertainty or budget exhaustion escalates instead of choosing a cheap wrong route. |
 | `F-SparseWakeProposal-Budget` | Proves wake proposals name selected/rejected units, expected hot/KV/cold bytes, fallback, uncertainty, and verifier need. |
 | `F-VerifierBudgetAuction` | Proves candidate units compete under a budget and over-budget bundles are rejected before execution. |

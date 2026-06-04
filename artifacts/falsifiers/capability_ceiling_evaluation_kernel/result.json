@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1e15ac2a6932fbc8af12c6372a8454bf560ec9f8",
+  "commit_sha": "d57960f57f7dbe0f986da10baa43f56c72cd0fec",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T00:21:45Z",
-  "result_digest": "sha256:cd496c020573b8af0aa0b4d04aa1a92cd08154025ad2fbdcb101dfbb99181651",
+  "timestamp_utc": "2026-06-04T01:36:05Z",
+  "result_digest": "sha256:03686c48aa67cbc4296db0d9c77182ecc9cf9f7e23d3833fd27df8a8d19eb374",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -298,7 +298,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "two_stage_route_scout_abstain",
+      "value": "budgeted_uncertainty_escalator",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -587,11 +587,21 @@
           "order": 28,
           "gap_id": "two_stage_route_scout_abstain",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-TwoStageRouteScout-Abstain",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Stage A route-family choice and Stage B selector choice must be separate, cheap, and abstention-capable before sparse wake proposals can advance.",
           "rollback": "Keep the two-stage scout shadow-only until family/selector separation, abstention, rollback, and AnswerPacket proof pass."
+        },
+        {
+          "order": 29,
+          "gap_id": "budgeted_uncertainty_escalator",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-BudgetedUncertaintyEscalator",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "High uncertainty, budget exhaustion, or missing calibration must escalate rather than choose a cheap wrong route before sparse wake proposals can advance.",
+          "rollback": "Keep escalation shadow-only until uncertainty, budget, rollback, and AnswerPacket proof pass."
         }
       ],
       "unit": "queue"
@@ -795,6 +805,22 @@
     "swiftlm_source_intake_summary": {
       "value": {
         "path": "artifacts/falsifiers/swiftlm_source_intake/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "two_stage_route_scout_abstain_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "two_stage_route_scout_abstain_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/two_stage_route_scout_abstain/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1081,6 +1107,11 @@
       "value": true,
       "unit": "bool"
     },
+    "two_stage_route_scout_abstain_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "uas_acs_mmap_residency_pass": {
       "operator": "==",
       "value": true,
@@ -1156,6 +1187,7 @@
     "source_artifacts_present": true,
     "sparse_runtime_split_artifact_pass": true,
     "swiftlm_source_intake_pass": true,
+    "two_stage_route_scout_abstain_pass": true,
     "uas_acs_mmap_residency_pass": true,
     "uas_copy_count_hot_path_pass": true,
     "uas_zero_copy_spine_pass": true,
@@ -1175,8 +1207,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "two_stage_route_scout_abstain_missing",
-      "detail": "RouteScoutSSM baseline evidence is present; the next non-heavy architecture cursor must split route-family and selector decisions with explicit abstention before any sparse wake proposal can promote."
+      "kind": "budgeted_uncertainty_escalator_missing",
+      "detail": "Two-stage route scout evidence is present; the next non-heavy architecture cursor must prove high uncertainty, budget exhaustion, and missing calibration escalate instead of selecting a cheap wrong route."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1184,8 +1216,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "two_stage_route_scout_abstain"
+      "detail": "budgeted_uncertainty_escalator"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=two_stage_route_scout_abstain; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=budgeted_uncertainty_escalator; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

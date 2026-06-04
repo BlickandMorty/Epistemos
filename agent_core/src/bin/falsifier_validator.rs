@@ -66,6 +66,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-NeuralControlCard-Ablation",
     "F-VerifierRegretLedger",
     "F-RouteScoutSSM-Baseline",
+    "F-TwoStageRouteScout-Abstain",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

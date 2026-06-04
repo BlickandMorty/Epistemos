@@ -21,7 +21,7 @@ and better than simple baselines.
 | Falsifier | Must prove | Minimum artifact |
 |---|---|---|
 | `F-RouteScoutSSM-Baseline` | PASS metadata-only witness on 2026-06-03: a small scout predicts route family/verifier need better than static, random, recency, and embedding-only baselines with rollback, RunEventLog, AnswerPacket, calibration, and no-hidden-authority guards. | `artifacts/falsifiers/route_scout_ssm_baseline/result.json`; live routing remains unpromoted. |
-| `F-TwoStageRouteScout-Abstain` | Stage A chooses only route family and escalation; Stage B chooses only the relevant selector, and both can abstain. | Two-stage route fixture plus invalid all-in-one selector negative. |
+| `F-TwoStageRouteScout-Abstain` | PASS metadata-only witness on 2026-06-03: Stage A chooses only route family/escalation, Stage B chooses only family-specific selectors, high uncertainty/conflict abstains, all-in-one/static/no-abstain baselines are beaten, and rollback/RunEventLog/AnswerPacket/no-hidden-authority guards hold. | `artifacts/falsifiers/two_stage_route_scout_abstain/result.json`; live routing remains unpromoted. |
 | `F-BudgetedUncertaintyEscalator` | High uncertainty, budget exhaustion, or missing calibration causes abstain/escalate rather than a cheap wrong route. | Calibration table plus out-of-distribution and over-budget negatives. |
 | `F-SparseWakeProposal-Budget` | Wake proposals name selected/rejected units, expected hot/KV/cold bytes, fallback, uncertainty, and verifier need. | JSON fixture plus negative missing-field cases. |
 | `F-VerifierBudgetAuction` | Candidate units compete under a budget and the auction rejects over-budget bundles before execution. | Budgeted selection fixture with over-budget negative. |

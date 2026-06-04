@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
-  <meta name="epistemos-artifact-cursor" content="two_stage_route_scout_abstain">
+  <meta name="epistemos-artifact-cursor" content="budgeted_uncertainty_escalator">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -854,8 +854,8 @@ Residency PatternBoost adds the discovery loop above that runtime path: generate
     <tr><td>ComputeResumeLease</td><td>Compatibility proof for pausing compute, fetching missing support, and resuming safely.</td><td>Dynamic depth plus KV/page/transport compatibility.</td></tr>
     <tr><td>ColdRoutePolicyPatch</td><td>Rollback-safe tournament-derived patch into route or layout policy.</td><td>Only after held-out wins and kill-switch proof.</td></tr>
     <tr><td>RouteScoutSSM</td><td>Tiny always-hot selector that proposes route family, verifier need, KV/page need, depth need, and abstention/escalation.</td><td>F-RouteScoutSSM-Baseline PASS: held-out route-family and verifier-need predictions beat static, random, recency, and embedding-only baselines with rollback, RunEventLog, AnswerPacket, calibration, no hidden authority, and zero runtime bytes.</td></tr>
-    <tr><td>TwoStageRouteScout</td><td>Separates cheap route-family choice from family-specific KV/depth/proof/adapter selection.</td><td>Next active cursor: prove family choice and selector choice are separate, cheap, abstention-capable, rollback-bound, and AnswerPacket-visible before sparse wake proposals advance.</td></tr>
-    <tr><td>BudgetedUncertaintyEscalator</td><td>Escalates or abstains when calibration, byte budget, latency budget, or coverage is weak.</td><td>Turns uncertainty into a visible route decision.</td></tr>
+    <tr><td>TwoStageRouteScout</td><td>Separates cheap route-family choice from family-specific KV/depth/proof/adapter selection.</td><td>F-TwoStageRouteScout-Abstain PASS: Stage A and Stage B stay separated, high uncertainty/conflict abstains, route success is 10000 bps versus 7142 bps best baseline, abstention is 10000 bps, rollback/RunEventLog/AnswerPacket are bound, no hidden authority mutates live policy, and runtime bytes stay zero.</td></tr>
+    <tr><td>BudgetedUncertaintyEscalator</td><td>Escalates or abstains when calibration, byte budget, latency budget, or coverage is weak.</td><td>Next active cursor: prove high uncertainty, budget exhaustion, or missing calibration abstains/escalates rather than choosing a cheap wrong route.</td></tr>
     <tr><td>SparseWakeProposal</td><td>Selected and rejected units, expected hot/KV/cold bytes, verifier delta, uncertainty, and fallback.</td><td>The typed form of "which weights, KV pages, neurons, params, tools, and proof lanes should wake?"</td></tr>
     <tr><td>LayerKVJointLease</td><td>One contract for extra layers/passes and selected KV pages, with attention-error and full-depth fallback.</td><td>LayerSkip/MoD plus Quest/MInference without pretending depth and memory are independent.</td></tr>
     <tr><td>RouteDistillationTournament</td><td>Full-wake, proof, compiler-error, and failed-attempt traces become held-out labels for the small scout.</td><td>Axiomatic/OProver proof pressure plus Axplorer-style keep-winners search.</td></tr>

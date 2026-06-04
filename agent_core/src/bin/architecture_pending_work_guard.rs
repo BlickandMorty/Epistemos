@@ -59,6 +59,8 @@ const NEURAL_CONTROL_CARD_ABLATION_PATH: &str =
 const VERIFIER_REGRET_LEDGER_PATH: &str = "artifacts/falsifiers/verifier_regret_ledger/result.json";
 const ROUTE_SCOUT_SSM_BASELINE_PATH: &str =
     "artifacts/falsifiers/route_scout_ssm_baseline/result.json";
+const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH: &str =
+    "artifacts/falsifiers/two_stage_route_scout_abstain/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -337,6 +339,61 @@ const ROUTE_SCOUT_SSM_BASELINE_AXES: &[&str] = &[
     "scout_over_budget_rejected",
     "scout_not_cheaper_rejected",
     "uncalibrated_scout_rejected",
+    "no_runtime_bytes_loaded",
+];
+const TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES: &[&str] = &[
+    "upstream_route_scout_ssm_baseline_pass",
+    "two_stage_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "task_signatures_bound",
+    "mission_ids_bound",
+    "source_features_bound",
+    "verifier_features_bound",
+    "stage_a_family_choice_bound",
+    "stage_a_no_selector_leak",
+    "stage_b_selector_choice_bound",
+    "stage_b_family_specific",
+    "family_selector_separation_bound",
+    "abstain_condition_bound",
+    "uncertainty_abstention_bound",
+    "verifier_conflict_abstention_bound",
+    "irrelevant_selector_rejected_by_fixture",
+    "two_stage_cheaper_than_heavy_route",
+    "route_success_beats_all_in_one",
+    "route_success_beats_static",
+    "route_success_beats_no_abstain",
+    "abstention_accuracy_beats_no_abstain",
+    "abstention_case_present",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "two_stage_address_deterministic",
+    "duplicate_task_rejected",
+    "missing_stage_a_rejected",
+    "missing_stage_b_rejected",
+    "stage_a_selector_leak_rejected",
+    "family_selector_mismatch_rejected",
+    "irrelevant_selector_chosen_rejected",
+    "missing_abstain_threshold_rejected",
+    "high_uncertainty_non_abstain_rejected",
+    "conflict_non_abstain_rejected",
+    "all_in_one_selector_unbeaten_rejected",
+    "static_selector_unbeaten_rejected",
+    "no_abstain_unbeaten_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_route_rejected",
+    "two_stage_over_budget_rejected",
+    "two_stage_not_cheaper_rejected",
     "no_runtime_bytes_loaded",
 ];
 
@@ -760,6 +817,11 @@ fn build_report() -> GuardReport {
     let route_scout_ssm_baseline = read_json(Path::new(ROUTE_SCOUT_SSM_BASELINE_PATH));
     let route_scout_ssm_baseline_available =
         artifact_all_axes_true(&route_scout_ssm_baseline, ROUTE_SCOUT_SSM_BASELINE_AXES);
+    let two_stage_route_scout_abstain = read_json(Path::new(TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH));
+    let two_stage_route_scout_abstain_available = artifact_all_axes_true(
+        &two_stage_route_scout_abstain,
+        TWO_STAGE_ROUTE_SCOUT_ABSTAIN_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -856,6 +918,7 @@ fn build_report() -> GuardReport {
         && neural_control_card_ablation_available
         && verifier_regret_ledger_available
         && route_scout_ssm_baseline_available
+        && two_stage_route_scout_abstain_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1066,6 +1129,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "route_scout_ssm_baseline_available",
         route_scout_ssm_baseline_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "two_stage_route_scout_abstain_available",
+        two_stage_route_scout_abstain_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1389,6 +1459,10 @@ fn build_report() -> GuardReport {
                     "path": ROUTE_SCOUT_SSM_BASELINE_PATH,
                     "available": route_scout_ssm_baseline_available
                 },
+                "two_stage_route_scout_abstain": {
+                    "path": TWO_STAGE_ROUTE_SCOUT_ABSTAIN_PATH,
+                    "available": two_stage_route_scout_abstain_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -1564,6 +1638,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_route_scout_ssm_baseline",
             "detail": "Meta Control has verifier-regret evidence, but needs F-RouteScoutSSM-Baseline before the two-stage abstaining scout cursor can advance."
+        }));
+    }
+    if route_scout_ssm_baseline_available && !two_stage_route_scout_abstain_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_two_stage_route_scout_abstain",
+            "detail": "Meta Control has RouteScoutSSM baseline evidence, but needs F-TwoStageRouteScout-Abstain before budgeted uncertainty escalation can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2470,6 +2550,9 @@ mod tests {
         assert!(already_mapped_work.get("verifier_regret_ledger").is_some());
         assert!(already_mapped_work
             .get("route_scout_ssm_baseline")
+            .is_some());
+        assert!(already_mapped_work
+            .get("two_stage_route_scout_abstain")
             .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
