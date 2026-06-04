@@ -73,6 +73,8 @@ const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
 const VERIFIER_BUDGET_AUCTION_PATH: &str =
     "artifacts/falsifiers/verifier_budget_auction/result.json";
 const KV_PAGE_SKETCH_INDEX_PATH: &str = "artifacts/falsifiers/kv_page_sketch_index/result.json";
+const KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH: &str =
+    "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -737,6 +739,87 @@ const KV_PAGE_SKETCH_INDEX_AXES: &[&str] = &[
     "required_evidence_coverage_bps",
     "sketch_index_address",
 ];
+const KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES: &[&str] = &[
+    "upstream_kv_page_sketch_index_pass",
+    "kv_page_bloom_sketch_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "sketch_ids_bound",
+    "source_index_ref_bound",
+    "source_page_refs_bound",
+    "page_candidates_bound",
+    "page_ids_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "compatibility_fences_bound",
+    "feature_hashes_bound",
+    "feature_hash_range_bound",
+    "false_positive_budget_bound",
+    "false_negative_policy_bound",
+    "privacy_classes_bound",
+    "required_evidence_bound",
+    "proof_critical_filter_disabled",
+    "privacy_critical_filter_disabled",
+    "over_include_allowed_bound",
+    "required_evidence_coverage_bound",
+    "required_evidence_coverage_beats_hash_only_baseline",
+    "required_evidence_coverage_beats_recency_baseline",
+    "required_evidence_coverage_beats_tagless_baseline",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "bloom_sketch_address_deterministic",
+    "duplicate_sketch_rejected",
+    "duplicate_page_candidate_rejected",
+    "missing_source_index_rejected",
+    "missing_source_page_ref_rejected",
+    "missing_page_candidate_rejected",
+    "missing_uas_address_rejected",
+    "missing_digest_rejected",
+    "missing_feature_hash_rejected",
+    "feature_hash_out_of_range_rejected",
+    "missing_compatibility_fence_rejected",
+    "incompatible_fence_rejected",
+    "missing_false_positive_budget_rejected",
+    "false_positive_budget_exceeded_rejected",
+    "missing_false_negative_policy_rejected",
+    "required_evidence_false_negative_rejected",
+    "proof_critical_negative_filter_rejected",
+    "privacy_critical_negative_filter_rejected",
+    "missing_required_evidence_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "invalid_privacy_class_rejected",
+    "metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+    "bloom_sketch_count",
+    "page_candidate_count",
+    "training_candidate_count",
+    "held_out_candidate_count",
+    "required_evidence_candidate_count",
+    "proof_critical_candidate_count",
+    "privacy_critical_candidate_count",
+    "overincluded_candidate_count",
+    "bloom_bit_count",
+    "hash_function_count",
+    "required_evidence_coverage_bps",
+    "hash_only_baseline_coverage_bps",
+    "recency_baseline_coverage_bps",
+    "tagless_baseline_coverage_bps",
+    "max_false_positive_budget_bps",
+    "max_bloom_metadata_bytes",
+    "bloom_sketch_address",
+];
 
 fn main() {
     let report = build_report();
@@ -803,6 +886,7 @@ fn build_report() -> KernelReport {
     let sparse_wake_proposal_budget = GateArtifact::read(SPARSE_WAKE_PROPOSAL_BUDGET_PATH);
     let verifier_budget_auction = GateArtifact::read(VERIFIER_BUDGET_AUCTION_PATH);
     let kv_page_sketch_index = GateArtifact::read(KV_PAGE_SKETCH_INDEX_PATH);
+    let kv_page_bloom_sketch_coverage = GateArtifact::read(KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -840,6 +924,7 @@ fn build_report() -> KernelReport {
         &sparse_wake_proposal_budget,
         &verifier_budget_auction,
         &kv_page_sketch_index,
+        &kv_page_bloom_sketch_coverage,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -1210,6 +1295,8 @@ fn build_report() -> KernelReport {
         && verifier_budget_auction.all_axes_true(VERIFIER_BUDGET_AUCTION_AXES);
     let kv_page_sketch_index_pass = kv_page_sketch_index.overall_pass
         && kv_page_sketch_index.all_axes_true(KV_PAGE_SKETCH_INDEX_AXES);
+    let kv_page_bloom_sketch_coverage_pass = kv_page_bloom_sketch_coverage.overall_pass
+        && kv_page_bloom_sketch_coverage.all_axes_true(KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -1247,6 +1334,7 @@ fn build_report() -> KernelReport {
         &sparse_wake_proposal_budget,
         &verifier_budget_auction,
         &kv_page_sketch_index,
+        &kv_page_bloom_sketch_coverage,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -1282,6 +1370,7 @@ fn build_report() -> KernelReport {
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
         kv_page_sketch_index_pass,
+        kv_page_bloom_sketch_coverage_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -1333,6 +1422,7 @@ fn build_report() -> KernelReport {
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
         kv_page_sketch_index_pass,
+        kv_page_bloom_sketch_coverage_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -1388,6 +1478,7 @@ fn build_report() -> KernelReport {
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
         kv_page_sketch_index_pass,
+        kv_page_bloom_sketch_coverage_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -1751,6 +1842,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "kv_page_bloom_sketch_coverage_pass",
+        kv_page_bloom_sketch_coverage_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -1933,6 +2031,11 @@ fn build_report() -> KernelReport {
         "kv_page_sketch_index",
         &kv_page_sketch_index,
     );
+    add_gate_summary(
+        &mut measurements,
+        "kv_page_bloom_sketch_coverage",
+        &kv_page_bloom_sketch_coverage,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -1969,6 +2072,7 @@ fn build_report() -> KernelReport {
         sparse_wake_proposal_budget_pass,
         verifier_budget_auction_pass,
         kv_page_sketch_index_pass,
+        kv_page_bloom_sketch_coverage_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -2238,6 +2342,7 @@ fn classify_route(
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
     kv_page_sketch_index_pass: bool,
+    kv_page_bloom_sketch_coverage_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -2268,6 +2373,7 @@ fn classify_route(
         && sparse_wake_proposal_budget_pass
         && verifier_budget_auction_pass
         && kv_page_sketch_index_pass
+        && kv_page_bloom_sketch_coverage_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -2332,6 +2438,7 @@ fn next_bottleneck(
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
     kv_page_sketch_index_pass: bool,
+    kv_page_bloom_sketch_coverage_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -2428,8 +2535,10 @@ fn next_bottleneck(
             "verifier_budget_auction".to_string()
         } else if !kv_page_sketch_index_pass {
             "kv_page_sketch_index".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !kv_page_bloom_sketch_coverage_pass {
             "kv_page_bloom_sketch_coverage".to_string()
+        } else if !seventy_b_route_pass {
+            "query_aware_kv_selector".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -2492,6 +2601,7 @@ fn build_ordered_gap_queue(
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
     kv_page_sketch_index_pass: bool,
+    kv_page_bloom_sketch_coverage_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -3055,7 +3165,10 @@ fn build_ordered_gap_queue(
             33,
             "kv_page_bloom_sketch_coverage",
             "Meta Control",
-            if kv_page_sketch_index_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+            if kv_page_bloom_sketch_coverage_pass {
+                "completed"
+            } else if kv_page_sketch_index_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_kv_page_sketch_index"
@@ -3064,6 +3177,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Bloom-like KV/page filters may over-include, but they must not silently drop proof-critical or privacy-critical required evidence.",
             "Keep bloom sketches shadow-only until false-negative coverage, rollback, RunEventLog, and AnswerPacket evidence pass.",
+        ),
+        queue_item(
+            34,
+            "query_aware_kv_selector",
+            "Meta Control",
+            if kv_page_bloom_sketch_coverage_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_kv_page_bloom_sketch_coverage"
+            },
+            "F-QueryAwareKVSelector",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Query-aware KV/page selection must beat random, recency-only, and file-order baselines on held-out long-context-style fixtures before live page selection can promote.",
+            "Keep selector output shadow-only until held-out recall/latency, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass.",
         ),
     ]
 }
@@ -3200,6 +3330,7 @@ fn build_anomalies(
     sparse_wake_proposal_budget_pass: bool,
     verifier_budget_auction_pass: bool,
     kv_page_sketch_index_pass: bool,
+    kv_page_bloom_sketch_coverage_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -3456,10 +3587,20 @@ fn build_anomalies(
             "detail": "VerifierBudgetAuction evidence is present; the next non-heavy architecture cursor must prove KV/page sketch indexes preserve required evidence coverage before query-aware selection can advance."
         }));
     }
-    if kv_page_sketch_index_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if kv_page_sketch_index_pass
+        && !kv_page_bloom_sketch_coverage_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "kv_page_bloom_sketch_coverage_missing",
             "detail": "KVPageSketchIndex evidence is present; the next non-heavy architecture cursor must prove bloom-like page filters do not drop required proof or privacy evidence before query-aware selection can advance."
+        }));
+    }
+    if kv_page_bloom_sketch_coverage_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "query_aware_kv_selector_missing",
+            "detail": "KVPageBloomSketch coverage evidence is present; the next non-heavy architecture cursor must prove query-aware KV/page selection beats simple baselines before live selector promotion can advance."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -3615,10 +3756,11 @@ mod tests {
         const SPARSE_WAKE: usize = 27;
         const VERIFIER_AUCTION: usize = 28;
         const KV_PAGE_SKETCH: usize = 29;
-        const SEVENTY_B: usize = 30;
-        const SCHEMA: usize = 31;
+        const KV_PAGE_BLOOM: usize = 30;
+        const SEVENTY_B: usize = 31;
+        const SCHEMA: usize = 32;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 32];
+            let mut values = [false; 33];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -3627,7 +3769,7 @@ mod tests {
                 values[7], values[8], values[9], values[10], values[11], values[12], values[13],
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
-                values[28], values[29], values[30], values[31],
+                values[28], values[29], values[30], values[31], values[32],
             )
         };
         assert_eq!(
@@ -3662,6 +3804,7 @@ mod tests {
                 SPARSE_WAKE,
                 VERIFIER_AUCTION,
                 KV_PAGE_SKETCH,
+                KV_PAGE_BLOOM,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3703,6 +3846,7 @@ mod tests {
                 SPARSE_WAKE,
                 VERIFIER_AUCTION,
                 KV_PAGE_SKETCH,
+                KV_PAGE_BLOOM,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -3765,21 +3909,22 @@ mod tests {
         const SPARSE_WAKE_PROPOSAL_BUDGET: usize = 42;
         const VERIFIER_BUDGET_AUCTION: usize = 43;
         const KV_PAGE_SKETCH_INDEX: usize = 44;
-        const SEVENTY_B: usize = 45;
+        const KV_PAGE_BLOOM_SKETCH_COVERAGE: usize = 45;
+        const SEVENTY_B: usize = 46;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 46] {
-            let mut values = [false; 46];
+        let flags = |true_indexes: &[usize]| -> [bool; 47] {
+            let mut values = [false; 47];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 46], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 47], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -3829,11 +3974,12 @@ mod tests {
                 values[43],
                 values[44],
                 values[45],
+                values[46],
                 &missing,
             )
         };
-        let nb = |values: [bool; 46]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 46]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 47]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 47]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -4820,6 +4966,52 @@ mod tests {
             "kv_page_bloom_sketch_coverage"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+            ]))),
+            "query_aware_kv_selector"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -4885,6 +5077,7 @@ mod tests {
                 SPARSE_WAKE_PROPOSAL_BUDGET,
                 VERIFIER_BUDGET_AUCTION,
                 KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

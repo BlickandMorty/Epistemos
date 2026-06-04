@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_kv_page_sketch_index.sh`
 - Artifact: `artifacts/falsifiers/kv_page_sketch_index/result.json`
-- L1 next cursor: `F-KVPageBloomSketch-Coverage`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `kv_page_bloom_sketch_coverage`
+- L1 next cursor at landing: `F-KVPageBloomSketch-Coverage`; current cursor after the 2026-06-04 `F-KVPageBloomSketch-Coverage` witness is `F-QueryAwareKVSelector`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `query_aware_kv_selector`
 - L3 user-facing/runtime route: unchanged; no live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects duplicate indexes and pages; missing UAS addresses, digest
 
 ## Scope
 
-This advances L1 only. It does not make `KVPageSketchIndex` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. The next architecture unit is `F-KVPageBloomSketch-Coverage`, which must prove bloom-like page filters do not drop required proof or privacy evidence before query-aware page selection can promote.
+This advances L1 only. It does not make `KVPageSketchIndex` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-KVPageBloomSketch-Coverage` now passes as metadata-only evidence; the current architecture unit is `F-QueryAwareKVSelector`, which must prove query-aware KV/page selection beats simple baselines before live route authority can promote.
