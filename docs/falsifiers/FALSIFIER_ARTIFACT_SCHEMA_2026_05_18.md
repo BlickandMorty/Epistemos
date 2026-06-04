@@ -213,6 +213,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-ColdStream-NoHiddenAuthority` | `Tools/falsifiers/f_coldstream_no_hidden_authority.sh` |
 | `F-LargeModelProviderReference-DeferredByMlxRoute` | `Tools/falsifiers/f_large_model_provider_reference_deferred_by_mlx_route.sh` |
 | `F-ProviderRoute-CopySourceGuard` | `Tools/falsifiers/f_provider_route_copy_source_guard.sh` |
+| `F-TransportTrace-AnswerPacket` | `Tools/falsifiers/f_transport_trace_answer_packet.sh` |
 | `F-SourceSignalGraph-Intake` | `Tools/falsifiers/f_source_signal_graph_intake.sh` |
 | `F-TaskWorkingSetQuery-Determinism` | `Tools/falsifiers/f_task_working_set_query_determinism.sh` |
 | `F-SemanticWorkingSetPlan-Budget` | `Tools/falsifiers/f_semantic_working_set_plan_budget.sh` |
@@ -363,6 +364,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-ColdStream-NoHiddenAuthority` | `artifacts/falsifiers/coldstream_no_hidden_authority/` |
 | `F-LargeModelProviderReference-DeferredByMlxRoute` | `artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/` |
 | `F-ProviderRoute-CopySourceGuard` | `artifacts/falsifiers/provider_route_copy_source_guard/` |
+| `F-TransportTrace-AnswerPacket` | `artifacts/falsifiers/transport_trace_answer_packet/` |
 | `F-SourceSignalGraph-Intake` | `artifacts/falsifiers/source_signal_graph_intake/` |
 | `F-TaskWorkingSetQuery-Determinism` | `artifacts/falsifiers/task_working_set_query_determinism/` |
 | `F-SemanticWorkingSetPlan-Budget` | `artifacts/falsifiers/semantic_working_set_plan_budget/` |

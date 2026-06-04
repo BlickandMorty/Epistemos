@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
     PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
+    TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -104,6 +105,8 @@ const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_PATH: &str =
     "artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json";
 const PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH: &str =
     "artifacts/falsifiers/provider_route_copy_source_guard/result.json";
+const TRANSPORT_TRACE_ANSWER_PACKET_PATH: &str =
+    "artifacts/falsifiers/transport_trace_answer_packet/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2772,6 +2775,11 @@ fn build_report() -> GuardReport {
         &provider_route_copy_source_guard,
         PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES,
     );
+    let transport_trace_answer_packet = read_json(Path::new(TRANSPORT_TRACE_ANSWER_PACKET_PATH));
+    let transport_trace_answer_packet_available = artifact_all_axes_true(
+        &transport_trace_answer_packet,
+        TRANSPORT_TRACE_ANSWER_PACKET_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2894,6 +2902,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !large_model_provider_reference_deferral_available
             || provider_route_copy_source_guard_available)
+        && (heavy_long_context_enabled
+            || !provider_route_copy_source_guard_available
+            || transport_trace_answer_packet_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3265,6 +3276,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "provider_route_copy_source_guard_available",
         provider_route_copy_source_guard_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "transport_trace_answer_packet_available",
+        transport_trace_answer_packet_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3680,6 +3698,10 @@ fn build_report() -> GuardReport {
                     "path": PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH,
                     "available": provider_route_copy_source_guard_available
                 },
+                "transport_trace_answer_packet": {
+                    "path": TRANSPORT_TRACE_ANSWER_PACKET_PATH,
+                    "available": transport_trace_answer_packet_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4036,6 +4058,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_provider_route_copy_source_guard",
             "detail": "Large-model provider deferral is present; the next non-heavy cursor must prove provider/GGUF/KV/70B route copy stays source-only and cannot promote L2/L3 capability claims, hidden cloud fallback, provider calls, or route-policy mutation."
+        }));
+    }
+    if provider_route_copy_source_guard_available
+        && !transport_trace_answer_packet_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_transport_trace_answer_packet",
+            "detail": "Provider-route copy/source guard is present; the next non-heavy cursor must prove ColdStream TransportTrace material cannot shape visible answers without byte, stall, copy, fallback, rollback, RunEventLog, and AnswerPacket caveat proof."
         }));
     }
     if !provider_reference_manifest_dry_run_available {

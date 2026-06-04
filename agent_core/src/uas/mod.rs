@@ -48,6 +48,7 @@ pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
+pub mod transport_trace_answer_packet;
 pub mod weight_block;
 pub mod witness;
 
@@ -120,6 +121,12 @@ pub use semantic_working_set::{
     SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
     VerifierNeed, WorkingSetOracleBaselineScore, WorkingSetOracleCard, WorkingSetOracleScore,
     WorkingSetOracleStatus, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+};
+pub use transport_trace_answer_packet::{
+    TransportTraceAnswerPacketError, TransportTraceAnswerPacketFrame,
+    TransportTraceAnswerPacketMetrics, TransportTraceAnswerPacketSurface,
+    TransportTraceAnswerPacketWitness, TransportTraceVisibilityLane,
+    TRANSPORT_TRACE_ANSWER_PACKET_CURSOR, TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

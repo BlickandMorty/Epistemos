@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_provider_route_copy_source_guard.sh`
 - Artifact: `artifacts/falsifiers/provider_route_copy_source_guard/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Next L1 cursor after guard regeneration: `transport_trace_answer_packet`
+- Next L1 cursor after downstream `F-TransportTrace-AnswerPacket`: `ssd_wear_budget`
 
 ## What It Proves
 
@@ -18,8 +18,8 @@ It binds four copy/source claims across provider reference, KV-Direct, dense 70B
 
 ## Layer Truth
 
-- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passes and the regenerated pending-work guard reports `next_existing_work=transport_trace_answer_packet` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=transport_trace_answer_packet`.
+- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passes and the regenerated pending-work guard reports `next_existing_work=ssd_wear_budget` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=ssd_wear_budget`.
 - L3: Not advanced. No user-facing runtime, live provider route, live 70B, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Metrics

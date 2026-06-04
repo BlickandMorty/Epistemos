@@ -29,19 +29,18 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-TransportCancellation` | Route changes cancel obsolete in-flight reads and prevent stale slabs from entering execution. | Cancellation fixture with stale-run rejection. |
 | `F-CachePolicy-Pollution` | Streaming/cache policy choice is measured against repeated hot-route performance. | Cache-pollution benchmark. |
 | `F-ColdPanicFallback` | Missed transport deadlines degrade visibly rather than blocking token-time execution silently. | Fallback fixture linked to AnswerPacket caveat. |
-| `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | AnswerPacket fixture plus UI summary. |
+| `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/transport_trace_answer_packet/result.json`; no live bytes moved. |
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear or energy budgets. | Wear-budget simulation. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 | `F-ProviderRoute-CopySourceGuard` | Provider/KV/70B/practical-MLX route copy cannot source-launder, imply product promotion, call providers, create prompt manifests, mutate route policy, or hide L2/L3 status after large-model deferral. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/provider_route_copy_source_guard/result.json`; no live bytes moved. |
 
-Current cursor after the 2026-06-04 `F-ProviderRoute-CopySourceGuard` metadata-only witness: `transport_trace_answer_packet`.
+Current cursor after the 2026-06-04 `F-TransportTrace-AnswerPacket` metadata-only witness: `ssd_wear_budget`.
 
 `F-ColdStream-NoHiddenAuthority` advances L1 only. `F-ColdStream-vs-Mmap`,
 `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`,
 `F-CachePolicy-Pollution`, `F-ColdPanicFallback`,
-`F-TransportTrace-AnswerPacket`, and `F-SSD-WearBudget` remain separate
-platform/runtime gates before ColdStream can replace mmap or pread on a hot
-path.
+`F-SSD-WearBudget` remains a separate platform/runtime gate before ColdStream
+can replace mmap or pread on a hot path.
 
 ## Promotion rule
 
