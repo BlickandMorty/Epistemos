@@ -1,0 +1,1200 @@
+{
+  "falsifier_id": "F-VerifierRegretFastWeights",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_verifier_regret_fast_weights.sh",
+  "command_digest": "sha256:ab097adf4e4ca63fde8b3c8e45653203dae56905e1461b68524657f4f94ca6f1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "1ad591da6c5e171eb739d69a1972a1ac03cf6e2e",
+  "fixture_id": "verifier_regret_fast_weights_v1",
+  "timestamp_utc": "2026-06-04T11:22:12Z",
+  "result_digest": "sha256:9a5439bd15699f5408dae22e223f8ba25f867e6463d085ec1794633764cf56c1",
+  "measurements": {
+    "affected_policy_field_count": {
+      "value": 5,
+      "unit": "field"
+    },
+    "affected_policy_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "base_policy_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_fast_weight_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_stale_fast_weight_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_policy_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_unbounded_delta_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_candidates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_threshold_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_threshold_delta_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_bound_bps": {
+      "value": 850,
+      "unit": "bps"
+    },
+    "drift_bounds_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_within_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_update_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weight_delta_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weight_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weights_resettable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weights_session_local": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "value": 2,
+      "unit": "fixture"
+    },
+    "fixture_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_result_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_choice_improved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_success_bps": {
+      "value": 9050,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_policy_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_scope_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_delta_metadata_bytes": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "max_drift_bps": {
+      "value": 520,
+      "unit": "bps"
+    },
+    "max_ttl_ms": {
+      "value": 75000,
+      "unit": "ms"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_ttl_ms": {
+      "value": 18000,
+      "unit": "ms"
+    },
+    "missing_affected_policy_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_base_policy_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_consolidation_candidate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_delta_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_drift_bound_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_result_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reset_handle_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_shadow_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_trace_surprise_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ttl_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_rule_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_proof_pressure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_regret_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_fast_weight_baseline_bps": {
+      "value": 8200,
+      "unit": "bps"
+    },
+    "no_fast_weight_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_policy_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_threshold_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_threshold_delta_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reset_handles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_choice_regret_reduced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_logit_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_logit_delta_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_regret_reduction_bps": {
+      "value": 1100,
+      "unit": "bps"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_count": {
+      "value": 3,
+      "unit": "scope"
+    },
+    "scopes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "splits_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_fast_weight_baseline_bps": {
+      "value": 7700,
+      "unit": "bps"
+    },
+    "stale_fast_weight_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "static_policy_baseline_bps": {
+      "value": 7600,
+      "unit": "bps"
+    },
+    "static_policy_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_temperature_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_temperature_delta_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_surprise_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_expired_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_not_expired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbounded_delta_baseline_bps": {
+      "value": 7100,
+      "unit": "bps"
+    },
+    "unbounded_delta_unbeaten_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "update_count": {
+      "value": 10,
+      "unit": "update"
+    },
+    "update_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "update_rules_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_proof_pressure_signal_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_prior_delta_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_prior_delta_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_fast_weights_address": {
+      "value": "uas:verifier-regret-fast-weights:sha256:84dbd29d96a41ef031a4cbeef312d37a2639d7097c05b70d612d838174eff3b0",
+      "unit": "id"
+    },
+    "verifier_regret_fast_weights_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "affected_policy_field_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "field"
+    },
+    "affected_policy_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_coverage_bps": {
+      "operator": ">=",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "base_policy_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "base_weight_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_no_fast_weight_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_stale_fast_weight_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_static_policy_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "beats_unbounded_delta_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_candidates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "consolidation_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_threshold_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "depth_threshold_delta_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_bound_bps": {
+      "operator": "==",
+      "value": 850,
+      "unit": "bps"
+    },
+    "drift_bounds_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "drift_within_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_update_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weight_delta_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weight_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weights_resettable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weights_session_local": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "fixture"
+    },
+    "fixture_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "case"
+    },
+    "held_out_result_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_choice_improved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_route_success_bps": {
+      "operator": ">=",
+      "value": 9000,
+      "unit": "bps"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_policy_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_scope_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_delta_metadata_bytes": {
+      "operator": "<=",
+      "value": 524288,
+      "unit": "bytes"
+    },
+    "max_drift_bps": {
+      "operator": "<=",
+      "value": 850,
+      "unit": "bps"
+    },
+    "max_ttl_ms": {
+      "operator": "<=",
+      "value": 90000,
+      "unit": "ms"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_ttl_ms": {
+      "operator": ">=",
+      "value": 5000,
+      "unit": "ms"
+    },
+    "missing_affected_policy_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_base_policy_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_consolidation_candidate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_delta_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_drift_bound_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_result_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_held_out_split_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reset_handle_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_shadow_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_trace_surprise_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ttl_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_update_rule_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_proof_pressure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_verifier_regret_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_base_weight_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_fast_weight_baseline_bps": {
+      "operator": "<",
+      "value": 9050,
+      "unit": "bps"
+    },
+    "no_fast_weight_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_policy_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_threshold_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_threshold_delta_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reset_handles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_choice_regret_reduced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_logit_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_logit_delta_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_regret_reduction_bps": {
+      "operator": ">=",
+      "value": 1000,
+      "unit": "bps"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "scope"
+    },
+    "scopes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "splits_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_fast_weight_baseline_bps": {
+      "operator": "<",
+      "value": 9050,
+      "unit": "bps"
+    },
+    "stale_fast_weight_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "static_policy_baseline_bps": {
+      "operator": "<",
+      "value": 9050,
+      "unit": "bps"
+    },
+    "static_policy_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_temperature_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tournament_temperature_delta_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "trace_surprise_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_expired_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ttl_not_expired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbounded_delta_baseline_bps": {
+      "operator": "<",
+      "value": 9050,
+      "unit": "bps"
+    },
+    "unbounded_delta_unbeaten_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "update_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "update"
+    },
+    "update_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "update_rules_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_proof_pressure_signal_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_prior_delta_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_prior_delta_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_fast_weights_address": {
+      "operator": "starts_with",
+      "value": "uas:",
+      "unit": "id"
+    },
+    "verifier_regret_fast_weights_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_regret_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "affected_policy_field_count": true,
+    "affected_policy_fields_bound": true,
+    "answer_packet_coverage_bound": true,
+    "answer_packet_coverage_bps": true,
+    "answer_packet_ref_bound": true,
+    "base_policy_digests_bound": true,
+    "base_weight_mutation_rejected": true,
+    "beats_no_fast_weight_baseline": true,
+    "beats_stale_fast_weight_baseline": true,
+    "beats_static_policy_baseline": true,
+    "beats_unbounded_delta_baseline": true,
+    "cloud_source_rejected": true,
+    "compatibility_fence_bound": true,
+    "consolidation_candidates_bound": true,
+    "consolidation_not_promoted": true,
+    "consolidation_promotion_rejected": true,
+    "depth_threshold_delta_bound": true,
+    "depth_threshold_delta_overflow_rejected": true,
+    "drift_bound_bps": true,
+    "drift_bounds_bound": true,
+    "drift_overflow_rejected": true,
+    "drift_within_bound": true,
+    "duplicate_fixture_rejected": true,
+    "duplicate_update_rejected": true,
+    "fast_weight_delta_refs_bound": true,
+    "fast_weight_fixture_present": true,
+    "fast_weights_resettable": true,
+    "fast_weights_session_local": true,
+    "fixture_count": true,
+    "fixture_ids_bound": true,
+    "held_out_case_count": true,
+    "held_out_result_refs_bound": true,
+    "held_out_route_choice_improved": true,
+    "held_out_route_success_bps": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_policy_field_rejected": true,
+    "invalid_privacy_rejected": true,
+    "invalid_scope_rejected": true,
+    "invalid_split_rejected": true,
+    "live_policy_promotion_rejected": true,
+    "max_delta_metadata_bytes": true,
+    "max_drift_bps": true,
+    "max_ttl_ms": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "min_ttl_ms": true,
+    "missing_affected_policy_field_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_base_policy_digest_rejected": true,
+    "missing_consolidation_candidate_rejected": true,
+    "missing_delta_ref_rejected": true,
+    "missing_drift_bound_rejected": true,
+    "missing_fixture_id_rejected": true,
+    "missing_held_out_result_rejected": true,
+    "missing_held_out_split_rejected": true,
+    "missing_reset_handle_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rejected": true,
+    "missing_shadow_policy_rejected": true,
+    "missing_trace_surprise_rejected": true,
+    "missing_ttl_rejected": true,
+    "missing_update_id_rejected": true,
+    "missing_update_rejected": true,
+    "missing_update_rule_rejected": true,
+    "missing_upstream_proof_pressure_rejected": true,
+    "missing_verifier_regret_rejected": true,
+    "model_bytes_rejected": true,
+    "no_base_weight_mutation": true,
+    "no_fast_weight_baseline_bps": true,
+    "no_fast_weight_unbeaten_rejected": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_route_authority": true,
+    "no_live_policy_promotion": true,
+    "no_model_bytes_loaded": true,
+    "no_runtime_bytes_loaded": true,
+    "page_threshold_delta_bound": true,
+    "page_threshold_delta_overflow_rejected": true,
+    "privacy_classes_bound": true,
+    "reset_handles_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "route_choice_regret_reduced": true,
+    "route_logit_delta_bound": true,
+    "route_logit_delta_overflow_rejected": true,
+    "route_regret_reduction_bps": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "scope_count": true,
+    "scopes_bound": true,
+    "splits_bound": true,
+    "stale_fast_weight_baseline_bps": true,
+    "stale_fast_weight_unbeaten_rejected": true,
+    "static_policy_baseline_bps": true,
+    "static_policy_unbeaten_rejected": true,
+    "tournament_temperature_delta_bound": true,
+    "tournament_temperature_delta_overflow_rejected": true,
+    "trace_surprise_refs_bound": true,
+    "ttl_bound": true,
+    "ttl_expired_rejected": true,
+    "ttl_not_expired": true,
+    "unbounded_delta_baseline_bps": true,
+    "unbounded_delta_unbeaten_rejected": true,
+    "update_count": true,
+    "update_ids_bound": true,
+    "update_rules_bound": true,
+    "upstream_proof_pressure_signal_pass": true,
+    "verifier_prior_delta_bound": true,
+    "verifier_prior_delta_overflow_rejected": true,
+    "verifier_regret_fast_weights_address": true,
+    "verifier_regret_fast_weights_address_deterministic": true,
+    "verifier_regret_refs_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "VerifierRegretFastWeights proves bounded shadow selector-policy deltas only; it does not mutate base model weights, consolidate policy, change live routing, wake runtime bytes, or promote product capability."
+    }
+  ],
+  "notes": "metadata-only Meta Control witness; verifier-regret fast weights are scoped, bounded, resettable, TTL-limited, rollback-bound, RunEventLog/AnswerPacket-visible, held-out useful, shadow-only, and blocked from base-weight mutation, live policy promotion, hidden authority, hidden chain, cloud, runtime bytes, and model bytes; L1 only"
+}

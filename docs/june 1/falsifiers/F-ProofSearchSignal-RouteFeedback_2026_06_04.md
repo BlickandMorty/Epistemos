@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_proof_search_signal_route_feedback.sh`
 - Artifact: `artifacts/falsifiers/proof_search_signal_route_feedback/result.json`
-- L1 next cursor at landing: `F-ProofPressureSignal`; current cursor after the 2026-06-04 ProofPressureSignal witness: `F-VerifierRegretFastWeights`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `verifier_regret_fast_weights`
+- L1 next cursor at landing: `F-ProofPressureSignal`; current cursor after the 2026-06-04 VerifierRegretFastWeights witness: `F-FastWeightQuarantine`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `fast_weight_quarantine`
 - L3 user-facing/runtime route: unchanged; no proof feedback live route authority, live sparse routing, local model-byte load, 70B runtime claim, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate fixtures; duplicate signals; mis
 
 ## Scope
 
-This advances L1 only. It does not make proof feedback a live router, does not allow a proof assistant to bypass tests, citations, SCOPE-Rex, SovereignGate, RunEventLog, or AnswerPacket, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ProofPressureSignal` now passes as metadata-only evidence; the current architecture unit is `F-VerifierRegretFastWeights`, which must prove bounded, resettable, TTL-limited, shadow-only verifier-regret fast weights with rollback, held-out wins, RunEventLog, and AnswerPacket evidence.
+This advances L1 only. It does not make proof feedback a live router, does not allow a proof assistant to bypass tests, citations, SCOPE-Rex, SovereignGate, RunEventLog, or AnswerPacket, does not promote sparse wake execution, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ProofPressureSignal` now passes as metadata-only evidence; the current architecture unit is `F-FastWeightQuarantine`, which must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, reset, RunEventLog, and AnswerPacket gates pass.
