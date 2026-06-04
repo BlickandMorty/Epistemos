@@ -70,6 +70,8 @@ const VERIFIER_BUDGET_AUCTION_PATH: &str =
 const KV_PAGE_SKETCH_INDEX_PATH: &str = "artifacts/falsifiers/kv_page_sketch_index/result.json";
 const KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH: &str =
     "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json";
+const QUERY_AWARE_KV_SELECTOR_PATH: &str =
+    "artifacts/falsifiers/query_aware_kv_selector/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -819,6 +821,106 @@ const KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES: &[&str] = &[
     "max_bloom_metadata_bytes",
     "bloom_sketch_address",
 ];
+const QUERY_AWARE_KV_SELECTOR_AXES: &[&str] = &[
+    "upstream_kv_page_sketch_index_pass",
+    "upstream_kv_page_bloom_sketch_coverage_pass",
+    "query_aware_selector_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "selector_ids_bound",
+    "mission_ids_bound",
+    "query_signatures_bound",
+    "model_ids_bound",
+    "tokenizer_ids_bound",
+    "upstream_refs_bound",
+    "page_candidates_bound",
+    "page_ids_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "source_index_refs_bound",
+    "bloom_refs_bound",
+    "compatibility_fences_bound",
+    "semantic_tags_bound",
+    "query_match_signal_bound",
+    "evidence_utility_signal_bound",
+    "verifier_utility_signal_bound",
+    "recency_bound",
+    "file_order_bound",
+    "active_bytes_bound",
+    "restore_latency_bound",
+    "privacy_classes_bound",
+    "required_evidence_bound",
+    "selected_pages_bound",
+    "selected_pages_in_bloom_prefilter",
+    "selected_pages_fit_active_byte_budget",
+    "selected_pages_fit_latency_budget",
+    "false_negative_policy_bound",
+    "quality_floor_bound",
+    "verifier_floor_bound",
+    "query_aware_beats_recency_baseline",
+    "query_aware_beats_random_baseline",
+    "query_aware_beats_file_order_baseline",
+    "query_aware_beats_bloom_only_baseline",
+    "quality_delta_positive",
+    "verifier_delta_positive",
+    "latency_delta_positive",
+    "active_byte_delta_positive",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "query_selector_address_deterministic",
+    "duplicate_selector_rejected",
+    "duplicate_page_rejected",
+    "missing_query_rejected",
+    "missing_selected_page_rejected",
+    "unknown_selected_page_rejected",
+    "unfiltered_page_selected_rejected",
+    "stale_page_rejected",
+    "incompatible_fence_rejected",
+    "missing_digest_rejected",
+    "missing_uas_address_rejected",
+    "missing_bloom_ref_rejected",
+    "missing_required_evidence_rejected",
+    "required_evidence_false_negative_rejected",
+    "missing_false_negative_policy_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "invalid_privacy_class_rejected",
+    "over_budget_selection_rejected",
+    "over_latency_selection_rejected",
+    "verifier_bypass_rejected",
+    "low_quality_selection_rejected",
+    "metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+    "selector_count",
+    "page_candidate_count",
+    "training_candidate_count",
+    "held_out_candidate_count",
+    "selected_page_count",
+    "required_evidence_page_count",
+    "bloom_selected_candidate_count",
+    "max_selected_active_bytes",
+    "max_selected_latency_ms",
+    "min_selected_quality_bps",
+    "min_selected_verifier_bps",
+    "query_selector_success_bps",
+    "recency_baseline_success_bps",
+    "random_baseline_success_bps",
+    "file_order_baseline_success_bps",
+    "bloom_only_baseline_success_bps",
+    "max_selector_metadata_bytes",
+    "query_selector_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1266,6 +1368,9 @@ fn build_report() -> GuardReport {
         &kv_page_bloom_sketch_coverage,
         KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES,
     );
+    let query_aware_kv_selector = read_json(Path::new(QUERY_AWARE_KV_SELECTOR_PATH));
+    let query_aware_kv_selector_available =
+        artifact_all_axes_true(&query_aware_kv_selector, QUERY_AWARE_KV_SELECTOR_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1368,6 +1473,7 @@ fn build_report() -> GuardReport {
         && verifier_budget_auction_available
         && kv_page_sketch_index_available
         && kv_page_bloom_sketch_coverage_available
+        && query_aware_kv_selector_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1620,6 +1726,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "kv_page_bloom_sketch_coverage_available",
         kv_page_bloom_sketch_coverage_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "query_aware_kv_selector_available",
+        query_aware_kv_selector_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1967,6 +2080,10 @@ fn build_report() -> GuardReport {
                     "path": KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH,
                     "available": kv_page_bloom_sketch_coverage_available
                 },
+                "query_aware_kv_selector": {
+                    "path": QUERY_AWARE_KV_SELECTOR_PATH,
+                    "available": query_aware_kv_selector_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2178,6 +2295,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_kv_page_bloom_sketch_coverage",
             "detail": "Meta Control has KV page sketch-index evidence, but needs F-KVPageBloomSketch-Coverage before query-aware page selection work can advance."
+        }));
+    }
+    if kv_page_bloom_sketch_coverage_available && !query_aware_kv_selector_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_query_aware_kv_selector",
+            "detail": "Meta Control has KV page Bloom coverage evidence, but needs F-QueryAwareKVSelector before sparse wake certificates or live page-selector authority can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3099,6 +3222,7 @@ mod tests {
         assert!(already_mapped_work
             .get("kv_page_bloom_sketch_coverage")
             .is_some());
+        assert!(already_mapped_work.get("query_aware_kv_selector").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

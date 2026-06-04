@@ -1,0 +1,1030 @@
+{
+  "falsifier_id": "F-QueryAwareKVSelector",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_query_aware_kv_selector.sh",
+  "command_digest": "sha256:1e31251394e956b19fe8088bbbe33d1485e9362b1fff4b42878094db9b4204a2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "1e4bac30e359ee5d7ec042fd95775a92ab4b327f",
+  "fixture_id": "query_aware_kv_selector_v1",
+  "timestamp_utc": "2026-06-04T06:10:31Z",
+  "result_digest": "sha256:7152b847cfff8de0d01aca1260164c53555f7a48cfe62fb1d5aba055d0dce38e",
+  "measurements": {
+    "active_byte_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bloom_only_baseline_success_bps": {
+      "value": 0,
+      "unit": "bps"
+    },
+    "bloom_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bloom_selected_candidate_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "cloud_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_utility_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_negative_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_baseline_success_bps": {
+      "value": 0,
+      "unit": "bps"
+    },
+    "file_order_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_candidate_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_quality_selection_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_selected_active_bytes": {
+      "value": 425984,
+      "unit": "bytes"
+    },
+    "max_selected_latency_ms": {
+      "value": 9,
+      "unit": "ms"
+    },
+    "max_selector_metadata_bytes": {
+      "value": 147456,
+      "unit": "bytes"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_selected_quality_bps": {
+      "value": 9810,
+      "unit": "bps"
+    },
+    "min_selected_verifier_bps": {
+      "value": 9000,
+      "unit": "bps"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_bloom_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_false_negative_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_query_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_evidence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_selection_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_selection_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_candidate_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "page_candidates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_bloom_only_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_file_order_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_random_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_recency_baseline": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_selector_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_match_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_selector_address": {
+      "value": "uas:query-aware-kv-selector:753e072527fd78db3ad1a6ea3a017364996570e6cfc9a72f611b795501d467b4",
+      "unit": "uas_address"
+    },
+    "query_selector_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_selector_success_bps": {
+      "value": 10000,
+      "unit": "bps"
+    },
+    "query_signatures_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "random_baseline_success_bps": {
+      "value": 0,
+      "unit": "bps"
+    },
+    "recency_baseline_success_bps": {
+      "value": 0,
+      "unit": "bps"
+    },
+    "recency_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_false_negative_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "restore_latency_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_page_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "selected_pages_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_active_byte_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_latency_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_in_bloom_prefilter": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selector_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "selector_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "semantic_tags_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_index_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "training_candidate_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "training_split_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unfiltered_page_selected_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_selected_page_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_bloom_sketch_coverage_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_sketch_index_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_utility_signal_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_byte_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bloom_only_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "bloom_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bloom_selected_candidate_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "count"
+    },
+    "cloud_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fences_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "evidence_utility_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_negative_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_order_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "file_order_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "held_out_candidate_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "count"
+    },
+    "held_out_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_policy_not_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_quality_selection_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_selected_active_bytes": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "max_selected_latency_ms": {
+      "operator": "<=",
+      "value": 18,
+      "unit": "ms"
+    },
+    "max_selector_metadata_bytes": {
+      "operator": "<=",
+      "value": 1048576,
+      "unit": "bytes"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_selected_quality_bps": {
+      "operator": ">=",
+      "value": 8600,
+      "unit": "bps"
+    },
+    "min_selected_verifier_bps": {
+      "operator": ">=",
+      "value": 8500,
+      "unit": "bps"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_bloom_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_false_negative_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_query_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_evidence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_selected_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_uas_address_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mission_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_budget_selection_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_latency_selection_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_candidate_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "count"
+    },
+    "page_candidates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_bloom_only_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_file_order_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_random_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_beats_recency_baseline": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_selector_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_match_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_selector_address": {
+      "operator": "contains",
+      "value": "uas:query-aware-kv-selector:",
+      "unit": "uas_address"
+    },
+    "query_selector_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_selector_success_bps": {
+      "operator": "==",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "query_signatures_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "random_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "recency_baseline_success_bps": {
+      "operator": "<",
+      "value": 10000,
+      "unit": "bps"
+    },
+    "recency_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_false_negative_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_evidence_page_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "count"
+    },
+    "restore_latency_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_shadow_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_page_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "count"
+    },
+    "selected_pages_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_active_byte_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_fit_latency_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_pages_in_bloom_prefilter": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selector_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "selector_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "semantic_tags_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_index_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "training_candidate_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "count"
+    },
+    "training_split_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_page_addresses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbeaten_baseline_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unfiltered_page_selected_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_selected_page_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_bloom_sketch_coverage_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_page_sketch_index_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_delta_positive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "verifier_utility_signal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_byte_delta_positive": true,
+    "active_bytes_bound": true,
+    "answer_packet_ref_bound": true,
+    "bloom_only_baseline_success_bps": true,
+    "bloom_refs_bound": true,
+    "bloom_selected_candidate_count": true,
+    "cloud_source_rejected": true,
+    "compatibility_fences_bound": true,
+    "duplicate_page_rejected": true,
+    "duplicate_selector_rejected": true,
+    "evidence_utility_signal_bound": true,
+    "false_negative_policy_bound": true,
+    "file_order_baseline_success_bps": true,
+    "file_order_bound": true,
+    "held_out_candidate_count": true,
+    "held_out_split_bound": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_live_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_privacy_class_rejected": true,
+    "latency_delta_positive": true,
+    "live_policy_mutation_rejected": true,
+    "live_policy_not_mutated": true,
+    "low_quality_selection_rejected": true,
+    "max_selected_active_bytes": true,
+    "max_selected_latency_ms": true,
+    "max_selector_metadata_bytes": true,
+    "metadata_budget_rejected": true,
+    "min_selected_quality_bps": true,
+    "min_selected_verifier_bps": true,
+    "missing_answer_packet_rejected": true,
+    "missing_bloom_ref_rejected": true,
+    "missing_digest_rejected": true,
+    "missing_false_negative_policy_rejected": true,
+    "missing_query_rejected": true,
+    "missing_required_evidence_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_selected_page_rejected": true,
+    "missing_uas_address_rejected": true,
+    "mission_ids_bound": true,
+    "model_ids_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_runtime_bytes_loaded": true,
+    "over_budget_selection_rejected": true,
+    "over_latency_selection_rejected": true,
+    "page_candidate_count": true,
+    "page_candidates_bound": true,
+    "page_digests_bound": true,
+    "page_ids_bound": true,
+    "privacy_classes_bound": true,
+    "quality_delta_positive": true,
+    "quality_floor_bound": true,
+    "query_aware_beats_bloom_only_baseline": true,
+    "query_aware_beats_file_order_baseline": true,
+    "query_aware_beats_random_baseline": true,
+    "query_aware_beats_recency_baseline": true,
+    "query_aware_selector_fixture_present": true,
+    "query_match_signal_bound": true,
+    "query_selector_address": true,
+    "query_selector_address_deterministic": true,
+    "query_selector_success_bps": true,
+    "query_signatures_bound": true,
+    "random_baseline_success_bps": true,
+    "recency_baseline_success_bps": true,
+    "recency_bound": true,
+    "required_evidence_bound": true,
+    "required_evidence_false_negative_rejected": true,
+    "required_evidence_page_count": true,
+    "restore_latency_bound": true,
+    "rollback_bound": true,
+    "route_authority_shadow_only": true,
+    "run_event_log_bound": true,
+    "selected_page_count": true,
+    "selected_pages_bound": true,
+    "selected_pages_fit_active_byte_budget": true,
+    "selected_pages_fit_latency_budget": true,
+    "selected_pages_in_bloom_prefilter": true,
+    "selector_count": true,
+    "selector_ids_bound": true,
+    "semantic_tags_bound": true,
+    "source_index_refs_bound": true,
+    "stale_page_rejected": true,
+    "tokenizer_ids_bound": true,
+    "training_candidate_count": true,
+    "training_split_bound": true,
+    "uas_page_addresses_bound": true,
+    "unbeaten_baseline_rejected": true,
+    "unfiltered_page_selected_rejected": true,
+    "unknown_selected_page_rejected": true,
+    "upstream_kv_page_bloom_sketch_coverage_pass": true,
+    "upstream_kv_page_sketch_index_pass": true,
+    "upstream_refs_bound": true,
+    "verifier_bypass_rejected": true,
+    "verifier_delta_positive": true,
+    "verifier_floor_bound": true,
+    "verifier_utility_signal_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only QueryAwareKVSelector witness; consumes sketch and Bloom evidence, proves held-out query-aware wins, no live KV restore, no sparse route promotion, no model/runtime bytes, and no hidden route authority"
+    }
+  ],
+  "notes": "scope=metadata_only;organ=QueryAwareKVSelector;reviewer=codex;reviewed_at_utc=2026-06-04T00:00:00Z;validator=falsifier_validator;detail=query-aware KV/page selector consumes sketch-index and Bloom evidence, beats simple baselines, and remains rollback/RunEventLog/AnswerPacket bound before any live selector authority can promote."
+}

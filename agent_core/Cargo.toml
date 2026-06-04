@@ -215,6 +215,10 @@ name = "falsify_kv_page_bloom_sketch_coverage"
 path = "src/bin/falsify_kv_page_bloom_sketch_coverage.rs"
 
 [[bin]]
+name = "falsify_query_aware_kv_selector"
+path = "src/bin/falsify_query_aware_kv_selector.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

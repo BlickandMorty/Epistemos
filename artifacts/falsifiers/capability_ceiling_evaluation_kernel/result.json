@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "5bd0459d05ea85b84ed52353b639db209a296b23",
+  "commit_sha": "1e4bac30e359ee5d7ec042fd95775a92ab4b327f",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T05:26:38Z",
-  "result_digest": "sha256:fbbcfdf12de8171c0370eb91e41ac193319f1c13230583084d98b0549bb66970",
+  "timestamp_utc": "2026-06-04T06:10:32Z",
+  "result_digest": "sha256:ad5262f34891fd3317e827c6f415ca8c00c4adad78250f75ca19482458d340b9",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -346,7 +346,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "query_aware_kv_selector",
+      "value": "sparse_wake_certificate_answer_packet",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -695,11 +695,21 @@
           "order": 34,
           "gap_id": "query_aware_kv_selector",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-QueryAwareKVSelector",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Query-aware KV/page selection must beat random, recency-only, and file-order baselines on held-out long-context-style fixtures before live page selection can promote.",
           "rollback": "Keep selector output shadow-only until held-out recall/latency, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass."
+        },
+        {
+          "order": 35,
+          "gap_id": "sparse_wake_certificate_answer_packet",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-SparseWakeCertificate-AnswerPacket",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Sparse wake and KV/page decisions must become visible proof before any live sparse route can promote.",
+          "rollback": "Expose selected units, budgets, verifier/citation/test results, traces, fallback, rollback, and uncertainty in an AnswerPacket-bound certificate."
         }
       ],
       "unit": "queue"
@@ -779,6 +789,22 @@
     "proof_carrying_route_card_summary": {
       "value": {
         "path": "artifacts/falsifiers/proof_carrying_route_card/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "query_aware_kv_selector_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_aware_kv_selector_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/query_aware_kv_selector/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1207,6 +1233,11 @@
       "value": true,
       "unit": "bool"
     },
+    "query_aware_kv_selector_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "reasoning_state_continuity_pass": {
       "operator": "==",
       "value": true,
@@ -1336,6 +1367,7 @@
     "page_gather_packetized_policy_acceptance_pass": true,
     "proof_carrying_residency_lease_pass": true,
     "proof_carrying_route_card_pass": true,
+    "query_aware_kv_selector_pass": true,
     "reasoning_state_continuity_pass": true,
     "residency_construction_graph_pass": true,
     "route_scout_ssm_baseline_pass": true,
@@ -1367,8 +1399,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "query_aware_kv_selector_missing",
-      "detail": "KVPageBloomSketch coverage evidence is present; the next non-heavy architecture cursor must prove query-aware KV/page selection beats simple baselines before live selector promotion can advance."
+      "kind": "sparse_wake_certificate_answer_packet_missing",
+      "detail": "QueryAwareKVSelector evidence is present; the next non-heavy architecture cursor must prove selected sparse/KV units, budgets, verifier results, traces, fallback, and rollback are exposed in an AnswerPacket certificate."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1376,8 +1408,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "query_aware_kv_selector"
+      "detail": "sparse_wake_certificate_answer_packet"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=query_aware_kv_selector; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_wake_certificate_answer_packet; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

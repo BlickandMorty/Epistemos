@@ -72,6 +72,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-VerifierBudgetAuction",
     "F-KVPageSketchIndex",
     "F-KVPageBloomSketch-Coverage",
+    "F-QueryAwareKVSelector",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
