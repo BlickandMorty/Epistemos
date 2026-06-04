@@ -247,6 +247,10 @@ name = "falsify_verifier_regret_fast_weights"
 path = "src/bin/falsify_verifier_regret_fast_weights.rs"
 
 [[bin]]
+name = "falsify_fast_weight_quarantine"
+path = "src/bin/falsify_fast_weight_quarantine.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

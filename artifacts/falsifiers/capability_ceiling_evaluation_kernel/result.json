@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "3d6a7f417d70544dfc0fe6dce2652fbd6815248f",
+  "commit_sha": "e7a347edea924aea41cce165b32c72a97d1bf3d5",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T11:25:25Z",
-  "result_digest": "sha256:8bfe761332fe52530a0127c05a2053c603cc981492117dff7e346ede510cd679",
+  "timestamp_utc": "2026-06-04T12:07:23Z",
+  "result_digest": "sha256:040e1c68ad293ef9a19fec99021fca4edfdb41a2b9b2f72cfbc02ab7f284dc3e",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -176,6 +176,22 @@
     "construction_search_tournament_summary": {
       "value": {
         "path": "artifacts/falsifiers/construction_search_tournament/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "fast_weight_quarantine_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fast_weight_quarantine_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/fast_weight_quarantine/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -378,7 +394,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "fast_weight_quarantine",
+      "value": "depth_lease_checkpoint",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -807,11 +823,21 @@
           "order": 42,
           "gap_id": "fast_weight_quarantine",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-FastWeightQuarantine",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Fast-weight deltas must remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass.",
           "rollback": "Reject live-control or consolidation attempts unless quarantine state, reset, rollback, held-out wins, and visible route evidence all pass."
+        },
+        {
+          "order": 43,
+          "gap_id": "depth_lease_checkpoint",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-DepthLease-Checkpoint",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Dynamic-depth choices must declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback before route policy can cite depth savings.",
+          "rollback": "Keep depth decisions leased, rollback-bound, AnswerPacket-visible, and unable to hide full-depth fallback."
         }
       ],
       "unit": "queue"
@@ -1290,6 +1316,11 @@
       "value": true,
       "unit": "bool"
     },
+    "fast_weight_quarantine_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "kv_direct_full_suite_run_plan_available": {
       "operator": "==",
       "value": true,
@@ -1559,6 +1590,7 @@
     "cold_assembly_plan_70b_lite_pass": true,
     "cold_miss_ledger_pass": true,
     "construction_search_tournament_pass": true,
+    "fast_weight_quarantine_pass": true,
     "kv_direct_full_suite_run_plan_available": true,
     "kv_direct_live_128k_pass": false,
     "kv_direct_live_contract_present": true,
@@ -1623,8 +1655,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "fast_weight_quarantine_missing",
-      "detail": "VerifierRegretFastWeights evidence is present; the next non-heavy architecture cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
+      "kind": "depth_lease_checkpoint_missing",
+      "detail": "FastWeightQuarantine evidence is present; the next non-heavy architecture cursor must prove dynamic-depth choices declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1632,8 +1664,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "fast_weight_quarantine"
+      "detail": "depth_lease_checkpoint"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=fast_weight_quarantine; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=depth_lease_checkpoint; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
