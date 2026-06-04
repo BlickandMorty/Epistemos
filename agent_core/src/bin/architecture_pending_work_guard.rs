@@ -68,6 +68,8 @@ const SPARSE_WAKE_PROPOSAL_BUDGET_PATH: &str =
 const VERIFIER_BUDGET_AUCTION_PATH: &str =
     "artifacts/falsifiers/verifier_budget_auction/result.json";
 const KV_PAGE_SKETCH_INDEX_PATH: &str = "artifacts/falsifiers/kv_page_sketch_index/result.json";
+const KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH: &str =
+    "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -736,6 +738,87 @@ const KV_PAGE_SKETCH_INDEX_AXES: &[&str] = &[
     "required_evidence_coverage_bps",
     "sketch_index_address",
 ];
+const KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES: &[&str] = &[
+    "upstream_kv_page_sketch_index_pass",
+    "kv_page_bloom_sketch_fixture_present",
+    "training_split_bound",
+    "held_out_split_bound",
+    "sketch_ids_bound",
+    "source_index_ref_bound",
+    "source_page_refs_bound",
+    "page_candidates_bound",
+    "page_ids_bound",
+    "uas_page_addresses_bound",
+    "page_digests_bound",
+    "compatibility_fences_bound",
+    "feature_hashes_bound",
+    "feature_hash_range_bound",
+    "false_positive_budget_bound",
+    "false_negative_policy_bound",
+    "privacy_classes_bound",
+    "required_evidence_bound",
+    "proof_critical_filter_disabled",
+    "privacy_critical_filter_disabled",
+    "over_include_allowed_bound",
+    "required_evidence_coverage_bound",
+    "required_evidence_coverage_beats_hash_only_baseline",
+    "required_evidence_coverage_beats_recency_baseline",
+    "required_evidence_coverage_beats_tagless_baseline",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "live_policy_not_mutated",
+    "bloom_sketch_address_deterministic",
+    "duplicate_sketch_rejected",
+    "duplicate_page_candidate_rejected",
+    "missing_source_index_rejected",
+    "missing_source_page_ref_rejected",
+    "missing_page_candidate_rejected",
+    "missing_uas_address_rejected",
+    "missing_digest_rejected",
+    "missing_feature_hash_rejected",
+    "feature_hash_out_of_range_rejected",
+    "missing_compatibility_fence_rejected",
+    "incompatible_fence_rejected",
+    "missing_false_positive_budget_rejected",
+    "false_positive_budget_exceeded_rejected",
+    "missing_false_negative_policy_rejected",
+    "required_evidence_false_negative_rejected",
+    "proof_critical_negative_filter_rejected",
+    "privacy_critical_negative_filter_rejected",
+    "missing_required_evidence_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_policy_mutation_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "invalid_privacy_class_rejected",
+    "metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "no_runtime_bytes_loaded",
+    "bloom_sketch_count",
+    "page_candidate_count",
+    "training_candidate_count",
+    "held_out_candidate_count",
+    "required_evidence_candidate_count",
+    "proof_critical_candidate_count",
+    "privacy_critical_candidate_count",
+    "overincluded_candidate_count",
+    "bloom_bit_count",
+    "hash_function_count",
+    "required_evidence_coverage_bps",
+    "hash_only_baseline_coverage_bps",
+    "recency_baseline_coverage_bps",
+    "tagless_baseline_coverage_bps",
+    "max_false_positive_budget_bps",
+    "max_bloom_metadata_bytes",
+    "bloom_sketch_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1178,6 +1261,11 @@ fn build_report() -> GuardReport {
     let kv_page_sketch_index = read_json(Path::new(KV_PAGE_SKETCH_INDEX_PATH));
     let kv_page_sketch_index_available =
         artifact_all_axes_true(&kv_page_sketch_index, KV_PAGE_SKETCH_INDEX_AXES);
+    let kv_page_bloom_sketch_coverage = read_json(Path::new(KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH));
+    let kv_page_bloom_sketch_coverage_available = artifact_all_axes_true(
+        &kv_page_bloom_sketch_coverage,
+        KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1279,6 +1367,7 @@ fn build_report() -> GuardReport {
         && sparse_wake_proposal_budget_available
         && verifier_budget_auction_available
         && kv_page_sketch_index_available
+        && kv_page_bloom_sketch_coverage_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1524,6 +1613,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "kv_page_sketch_index_available",
         kv_page_sketch_index_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "kv_page_bloom_sketch_coverage_available",
+        kv_page_bloom_sketch_coverage_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -1867,6 +1963,10 @@ fn build_report() -> GuardReport {
                     "path": KV_PAGE_SKETCH_INDEX_PATH,
                     "available": kv_page_sketch_index_available
                 },
+                "kv_page_bloom_sketch_coverage": {
+                    "path": KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH,
+                    "available": kv_page_bloom_sketch_coverage_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2072,6 +2172,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_kv_page_sketch_index",
             "detail": "Meta Control has verifier budget auction evidence, but needs F-KVPageSketchIndex before bloom-sketch coverage or query-aware page selection work can advance."
+        }));
+    }
+    if kv_page_sketch_index_available && !kv_page_bloom_sketch_coverage_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_kv_page_bloom_sketch_coverage",
+            "detail": "Meta Control has KV page sketch-index evidence, but needs F-KVPageBloomSketch-Coverage before query-aware page selection work can advance."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -2990,6 +3096,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work.get("verifier_budget_auction").is_some());
         assert!(already_mapped_work.get("kv_page_sketch_index").is_some());
+        assert!(already_mapped_work
+            .get("kv_page_bloom_sketch_coverage")
+            .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

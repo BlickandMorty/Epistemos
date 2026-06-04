@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only.
 - Script: `Tools/falsifiers/f_two_stage_route_scout_abstain.sh`
 - Artifact: `artifacts/falsifiers/two_stage_route_scout_abstain/result.json`
-- L1 next cursor at landing: `F-BudgetedUncertaintyEscalator`; current cursor after the 2026-06-04 KVPageSketchIndex witness is `F-KVPageBloomSketch-Coverage`.
+- L1 next cursor at landing: `F-BudgetedUncertaintyEscalator`; current cursor after the 2026-06-04 `F-KVPageBloomSketch-Coverage` witness is `F-QueryAwareKVSelector`.
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L3 user-facing/runtime: unchanged; no live route authority promoted.
 
@@ -19,4 +19,4 @@ The witness binds task signatures, mission IDs, source and verifier features, St
 
 ## Scope Guard
 
-This advances L1 only. It does not make RouteScoutSSM or TwoStageRouteScout a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-BudgetedUncertaintyEscalator`, `F-SparseWakeProposal-Budget`, `F-VerifierBudgetAuction`, and `F-KVPageSketchIndex` now pass as metadata-only evidence; the current architecture unit is `F-KVPageBloomSketch-Coverage`, which must prove bloom-like page filters do not drop required proof or privacy evidence before query-aware page selection can promote.
+This advances L1 only. It does not make RouteScoutSSM or TwoStageRouteScout a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-BudgetedUncertaintyEscalator`, `F-SparseWakeProposal-Budget`, `F-VerifierBudgetAuction`, `F-KVPageSketchIndex`, and `F-KVPageBloomSketch-Coverage` now pass as metadata-only evidence; the current architecture unit is `F-QueryAwareKVSelector`, which must prove query-aware KV/page selection beats simple baselines before live route authority can promote.

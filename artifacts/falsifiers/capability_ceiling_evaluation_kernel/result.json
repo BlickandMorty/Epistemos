@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "5057419d3c96a640277d7f869ef9a0c392e1fd7e",
+  "commit_sha": "5bd0459d05ea85b84ed52353b639db209a296b23",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T04:46:18Z",
-  "result_digest": "sha256:2ab52eda11c7afb869568a5528dfc502fef2e23ac86530cea17a107a39583ba1",
+  "timestamp_utc": "2026-06-04T05:26:38Z",
+  "result_digest": "sha256:fbbcfdf12de8171c0370eb91e41ac193319f1c13230583084d98b0549bb66970",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -249,6 +249,22 @@
       "value": true,
       "unit": "bool"
     },
+    "kv_page_bloom_sketch_coverage_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_page_bloom_sketch_coverage_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "kv_page_control_query_aware_pass": {
       "value": true,
       "unit": "bool"
@@ -330,7 +346,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "kv_page_bloom_sketch_coverage",
+      "value": "query_aware_kv_selector",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -669,11 +685,21 @@
           "order": 33,
           "gap_id": "kv_page_bloom_sketch_coverage",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-KVPageBloomSketch-Coverage",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Bloom-like KV/page filters may over-include, but they must not silently drop proof-critical or privacy-critical required evidence.",
           "rollback": "Keep bloom sketches shadow-only until false-negative coverage, rollback, RunEventLog, and AnswerPacket evidence pass."
+        },
+        {
+          "order": 34,
+          "gap_id": "query_aware_kv_selector",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-QueryAwareKVSelector",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Query-aware KV/page selection must beat random, recency-only, and file-order baselines on held-out long-context-style fixtures before live page selection can promote.",
+          "rollback": "Keep selector output shadow-only until held-out recall/latency, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass."
         }
       ],
       "unit": "queue"
@@ -1121,6 +1147,11 @@
       "value": true,
       "unit": "bool"
     },
+    "kv_page_bloom_sketch_coverage_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "kv_page_control_query_aware_pass": {
       "operator": "==",
       "value": true,
@@ -1293,6 +1324,7 @@
     "kv_direct_spill_trace_available": true,
     "kv_direct_spill_trace_contract_pass": false,
     "kv_direct_tier1_preflight_pass": true,
+    "kv_page_bloom_sketch_coverage_pass": true,
     "kv_page_control_query_aware_pass": true,
     "kv_page_sketch_index_pass": true,
     "lattice_state_controller_pass": true,
@@ -1335,8 +1367,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "kv_page_bloom_sketch_coverage_missing",
-      "detail": "KVPageSketchIndex evidence is present; the next non-heavy architecture cursor must prove bloom-like page filters do not drop required proof or privacy evidence before query-aware selection can advance."
+      "kind": "query_aware_kv_selector_missing",
+      "detail": "KVPageBloomSketch coverage evidence is present; the next non-heavy architecture cursor must prove query-aware KV/page selection beats simple baselines before live selector promotion can advance."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1344,8 +1376,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "kv_page_bloom_sketch_coverage"
+      "detail": "query_aware_kv_selector"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=kv_page_bloom_sketch_coverage; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=query_aware_kv_selector; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
