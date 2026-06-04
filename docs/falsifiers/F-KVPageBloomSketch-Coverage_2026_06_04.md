@@ -13,8 +13,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Result: PASS as a metadata-only primary witness on 2026-06-04.
 - Script: `Tools/falsifiers/f_kv_page_bloom_sketch_coverage.sh`
 - Artifact: `artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json`
-- L1 next cursor at landing: `F-QueryAwareKVSelector`; current cursor after the 2026-06-04 `F-SparseWakeCertificate-AnswerPacket` witness is `F-LayerKVJointLease`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `layer_kv_joint_lease`
+- L1 next cursor at landing: `F-QueryAwareKVSelector`; current cursor after the 2026-06-04 `F-LayerKVJointLease` witness is `F-ConstructionSearchTournament`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; next bottleneck `construction_search_tournament`
 - L3 user-facing/runtime route: unchanged; no live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects duplicate sketches and page candidates; missing source ind
 
 ## Scope
 
-This advances L1 only. It does not make `KVPageBloomSketch` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-QueryAwareKVSelector` now passes as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the active next architecture unit is `F-LayerKVJointLease`, which must prove dynamic depth and KV/page choices are leased together before any sparse route can promote.
+This advances L1 only. It does not make `KVPageBloomSketch` a live selector, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-QueryAwareKVSelector` now passes as metadata-only evidence; `F-SparseWakeCertificate-AnswerPacket` now passes metadata-only evidence; the `F-LayerKVJointLease` now passes metadata-only evidence; the active next architecture unit is `F-ConstructionSearchTournament`, which must prove generate-repair-score-select improves sparse wake plans under fixed budget before construction-search route policy can promote.

@@ -223,6 +223,10 @@ name = "falsify_sparse_wake_certificate_answer_packet"
 path = "src/bin/falsify_sparse_wake_certificate_answer_packet.rs"
 
 [[bin]]
+name = "falsify_layer_kv_joint_lease"
+path = "src/bin/falsify_layer_kv_joint_lease.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
