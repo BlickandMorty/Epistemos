@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only.
 - Script: `Tools/falsifiers/f_budgeted_uncertainty_escalator.sh`
 - Artifact: `artifacts/falsifiers/budgeted_uncertainty_escalator/result.json`
-- L1 next cursor: `F-SparseWakeProposal-Budget`
+- L1 next cursor at landing: `F-SparseWakeProposal-Budget`; current cursor after the 2026-06-04 SparseWakeProposal-Budget witness is `F-VerifierBudgetAuction`
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L3 user-facing/runtime: unchanged; no live route authority promoted.
 
@@ -19,4 +19,4 @@ The witness binds task signatures, mission IDs, upstream TwoStageRouteScout refs
 
 ## Scope Guard
 
-This advances L1 only. It does not make RouteScoutSSM, TwoStageRouteScout, or BudgetedUncertaintyEscalator a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. The next architecture unit must prove `F-SparseWakeProposal-Budget`: sparse wake proposals must name selected and rejected units, hot/KV/cold byte budgets, fallback, uncertainty, verifier need, rollback, RunEventLog, and AnswerPacket evidence before route selection can request residency work.
+This advances L1 only. It does not make RouteScoutSSM, TwoStageRouteScout, or BudgetedUncertaintyEscalator a live router, does not promote sparse wake execution, and does not change MAS/Pro product copy. `F-SparseWakeProposal-Budget` now passes as metadata-only evidence; the current architecture unit is `F-VerifierBudgetAuction`, which must prove candidate wake units compete under explicit verifier, byte, and latency budgets before residency work can promote.
