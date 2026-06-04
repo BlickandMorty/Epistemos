@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_layer_kv_joint_lease.sh`
 - Artifact: `artifacts/falsifiers/layer_kv_joint_lease/result.json`
 - L1 next cursor at landing: `F-ConstructionSearchTournament`; current cursor after the 2026-06-04 RouteDistillationTournament witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `fast_weight_quarantine`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `depth_lease_checkpoint`
 - L3 user-facing/runtime route: unchanged; no live dynamic-depth route, live KV restore, sparse selector promotion, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves
@@ -29,4 +29,4 @@ The falsifier rejects empty fixtures; duplicate leases; duplicate KV pages; miss
 
 ## Scope
 
-This advances L1 only. It does not make `LayerKVJointLease` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ConstructionSearchTournament` now passes as metadata-only evidence; the current architecture unit is `F-FastWeightQuarantine`, which must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, reset, RunEventLog, and AnswerPacket gates pass.
+This advances L1 only. It does not make `LayerKVJointLease` a live router, does not restore live KV pages, does not permit hidden PatternBoost/lattice/Eidos route authority, does not load local model bytes, does not promote the 70B track to product runtime, and does not change MAS/Pro user copy. `F-ConstructionSearchTournament` now passes as metadata-only evidence; the current architecture unit is `F-DepthLease-Checkpoint`, which must prove adaptive depth checkpoints before dynamic-depth or runtime promotion can claim live authority.

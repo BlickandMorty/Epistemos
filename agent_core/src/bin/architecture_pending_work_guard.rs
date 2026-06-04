@@ -86,6 +86,7 @@ const PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK_PATH: &str =
 const PROOF_PRESSURE_SIGNAL_PATH: &str = "artifacts/falsifiers/proof_pressure_signal/result.json";
 const VERIFIER_REGRET_FAST_WEIGHTS_PATH: &str =
     "artifacts/falsifiers/verifier_regret_fast_weights/result.json";
+const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quarantine/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -1624,6 +1625,130 @@ const VERIFIER_REGRET_FAST_WEIGHTS_AXES: &[&str] = &[
     "max_delta_metadata_bytes",
     "verifier_regret_fast_weights_address",
 ];
+const FAST_WEIGHT_QUARANTINE_AXES: &[&str] = &[
+    "upstream_verifier_regret_fast_weights_pass",
+    "quarantine_fixture_present",
+    "fixture_ids_bound",
+    "quarantine_ids_bound",
+    "source_update_refs_bound",
+    "fast_weight_delta_refs_bound",
+    "scopes_bound",
+    "base_policy_digests_bound",
+    "quarantine_policy_refs_bound",
+    "quarantine_states_bound",
+    "admission_gate_refs_bound",
+    "drift_gate_refs_bound",
+    "held_out_replay_refs_bound",
+    "rollback_bound",
+    "ttl_bound",
+    "reset_handles_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "replay_trace_refs_bound",
+    "release_decisions_bound",
+    "write_barriers_bound",
+    "mutation_safety_fences_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "quarantine_shadow_only",
+    "route_authority_shadow_only",
+    "live_control_attempts_rejected",
+    "consolidation_not_promoted",
+    "fast_weights_session_local",
+    "fast_weights_resettable",
+    "ttl_not_expired",
+    "drift_within_bound",
+    "held_out_replay_passed",
+    "rollback_verified",
+    "answer_packet_coverage_bound",
+    "mutation_safety_bound",
+    "no_base_weight_mutation",
+    "no_route_policy_mutation",
+    "no_live_control_authority",
+    "no_hidden_route_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "fast_weight_quarantine_address_deterministic",
+    "metadata_bound",
+    "beats_unquarantined_fast_weight_baseline",
+    "beats_live_promotion_baseline",
+    "beats_stale_quarantine_baseline",
+    "beats_no_answer_packet_baseline",
+    "duplicate_fixture_rejected",
+    "missing_fixture_id_rejected",
+    "missing_upstream_fast_weight_rejected",
+    "missing_quarantine_policy_rejected",
+    "missing_quarantine_record_rejected",
+    "duplicate_quarantine_rejected",
+    "missing_quarantine_id_rejected",
+    "missing_source_update_ref_rejected",
+    "missing_delta_ref_rejected",
+    "missing_scope_rejected",
+    "invalid_scope_rejected",
+    "missing_base_policy_digest_rejected",
+    "missing_quarantine_state_rejected",
+    "invalid_quarantine_state_rejected",
+    "missing_admission_gate_rejected",
+    "missing_drift_gate_rejected",
+    "missing_held_out_replay_rejected",
+    "held_out_replay_failure_rejected",
+    "missing_rollback_rejected",
+    "missing_ttl_rejected",
+    "ttl_expired_rejected",
+    "missing_reset_handle_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "missing_replay_trace_rejected",
+    "missing_release_decision_rejected",
+    "invalid_release_decision_rejected",
+    "missing_write_barrier_rejected",
+    "missing_mutation_safety_fence_rejected",
+    "drift_overflow_rejected",
+    "live_control_authority_rejected",
+    "live_control_attempt_unblocked_rejected",
+    "consolidation_promotion_rejected",
+    "base_weight_mutation_rejected",
+    "route_policy_mutation_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "unquarantined_baseline_unbeaten_rejected",
+    "live_promotion_baseline_unbeaten_rejected",
+    "stale_quarantine_baseline_unbeaten_rejected",
+    "no_answer_packet_baseline_unbeaten_rejected",
+    "metadata_budget_rejected",
+    "missing_held_out_split_rejected",
+    "invalid_split_rejected",
+    "fixture_count",
+    "quarantine_record_count",
+    "scope_count",
+    "state_count",
+    "release_decision_count",
+    "blocked_live_control_attempt_count",
+    "held_out_replay_count",
+    "reset_handle_count",
+    "rollback_handle_count",
+    "min_ttl_ms",
+    "max_ttl_ms",
+    "max_drift_bps",
+    "drift_bound_bps",
+    "held_out_replay_success_bps",
+    "shadow_replay_success_bps",
+    "answer_packet_coverage_bps",
+    "live_control_rejection_bps",
+    "unquarantined_fast_weight_baseline_bps",
+    "live_promotion_baseline_bps",
+    "stale_quarantine_baseline_bps",
+    "no_answer_packet_baseline_bps",
+    "max_quarantine_metadata_bytes",
+    "fast_weight_quarantine_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -2107,6 +2232,9 @@ fn build_report() -> GuardReport {
         &verifier_regret_fast_weights,
         VERIFIER_REGRET_FAST_WEIGHTS_AXES,
     );
+    let fast_weight_quarantine = read_json(Path::new(FAST_WEIGHT_QUARANTINE_PATH));
+    let fast_weight_quarantine_available =
+        artifact_all_axes_true(&fast_weight_quarantine, FAST_WEIGHT_QUARANTINE_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2217,6 +2345,7 @@ fn build_report() -> GuardReport {
         && proof_search_signal_route_feedback_available
         && proof_pressure_signal_available
         && verifier_regret_fast_weights_available
+        && fast_weight_quarantine_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -2525,6 +2654,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "verifier_regret_fast_weights_available",
         verifier_regret_fast_weights_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "fast_weight_quarantine_available",
+        fast_weight_quarantine_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2904,6 +3040,10 @@ fn build_report() -> GuardReport {
                     "path": VERIFIER_REGRET_FAST_WEIGHTS_PATH,
                     "available": verifier_regret_fast_weights_available
                 },
+                "fast_weight_quarantine": {
+                    "path": FAST_WEIGHT_QUARANTINE_PATH,
+                    "available": fast_weight_quarantine_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3183,10 +3323,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has ProofPressureSignal evidence; the next non-heavy cursor must prove verifier-regret fast weights are bounded, resettable, TTL-limited, shadow-scoped, rollback-bound, and held-out useful before consolidation."
         }));
     }
-    if verifier_regret_fast_weights_available && !heavy_long_context_enabled {
+    if verifier_regret_fast_weights_available
+        && !fast_weight_quarantine_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_fast_weight_quarantine",
             "detail": "Meta Control has VerifierRegretFastWeights evidence; the next non-heavy cursor must prove fast-weight deltas remain quarantined and shadow-only until drift, held-out, rollback, TTL, and AnswerPacket gates pass."
+        }));
+    }
+    if fast_weight_quarantine_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_depth_lease_checkpoint",
+            "detail": "Meta Control has FastWeightQuarantine evidence; the next non-heavy cursor must prove DepthLease checkpoints before any adaptive depth/runtime promotion can claim live authority."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4123,6 +4272,7 @@ mod tests {
         assert!(already_mapped_work
             .get("verifier_regret_fast_weights")
             .is_some());
+        assert!(already_mapped_work.get("fast_weight_quarantine").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());
