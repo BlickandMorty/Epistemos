@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "5bd0459d05ea85b84ed52353b639db209a296b23",
+  "commit_sha": "1e4bac30e359ee5d7ec042fd95775a92ab4b327f",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T05:26:38Z",
-  "result_digest": "sha256:262843751209d70297aafcba494329eade153b401194e692e4c83e664f4d176c",
+  "timestamp_utc": "2026-06-04T06:10:33Z",
+  "result_digest": "sha256:17467170c998f0d03603952175ab2758113ead97782c97e79e5bfec193d97f76",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -160,6 +160,10 @@
           },
           "kv_page_bloom_sketch_coverage": {
             "path": "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json",
+            "available": true
+          },
+          "query_aware_kv_selector": {
+            "path": "artifacts/falsifiers/query_aware_kv_selector/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -466,11 +470,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "query_aware_kv_selector",
+      "value": "sparse_wake_certificate_answer_packet",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "query_aware_kv_selector",
+      "value": "sparse_wake_certificate_answer_packet",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -505,6 +509,10 @@
       "value": true,
       "unit": "bool"
     },
+    "query_aware_kv_selector_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "queue_duplicate_gap_id_count": {
       "value": 0,
       "unit": "count"
@@ -518,7 +526,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 35,
+      "value": 36,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -737,6 +745,11 @@
       "value": true,
       "unit": "bool"
     },
+    "query_aware_kv_selector_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "queue_gap_ids_unique": {
       "operator": "==",
       "value": true,
@@ -844,6 +857,7 @@
     "proof_carrying_route_card_available": true,
     "provider_reference_manifest_dry_run_available": true,
     "provider_reference_prompt_level_readiness_witness_available": true,
+    "query_aware_kv_selector_available": true,
     "queue_gap_ids_unique": true,
     "queue_orders_unique": true,
     "queue_required_fields_present": true,
@@ -880,5 +894,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=query_aware_kv_selector; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=sparse_wake_certificate_answer_packet; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
