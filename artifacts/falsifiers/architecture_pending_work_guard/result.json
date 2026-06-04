@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "11044339026b696fdb5f3165b2ae17858b11926a",
+  "commit_sha": "ac2fe4871ea65dd1b22acc5e19b27da060197629",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T07:40:30Z",
-  "result_digest": "sha256:d057bb88ee38fca9316714312588924a2fd25c85b9189b038dfc1b18a29ef6af",
+  "timestamp_utc": "2026-06-04T08:20:17Z",
+  "result_digest": "sha256:68c68fe2d3225ebfd7cf969fe686eb7d83c9a19288ef16e6ac54ad2862313314",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -174,6 +174,10 @@
             "path": "artifacts/falsifiers/layer_kv_joint_lease/result.json",
             "available": true
           },
+          "construction_search_tournament": {
+            "path": "artifacts/falsifiers/construction_search_tournament/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -215,6 +219,10 @@
       "unit": "bool"
     },
     "cold_miss_ledger_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_search_tournament_available": {
       "value": true,
       "unit": "bool"
     },
@@ -482,11 +490,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "construction_search_tournament",
+      "value": "route_distillation_tournament",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "construction_search_tournament",
+      "value": "route_distillation_tournament",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -538,7 +546,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 38,
+      "value": 39,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -637,6 +645,11 @@
       "unit": "bool"
     },
     "cold_miss_ledger_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "construction_search_tournament_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -859,6 +872,7 @@
     "coactivation_tile_prefetch_available": true,
     "cold_assembly_plan_70b_lite_available": true,
     "cold_miss_ledger_available": true,
+    "construction_search_tournament_available": true,
     "kv_full_suite_run_plan_available": true,
     "kv_full_suite_run_plan_shape_ok": true,
     "kv_model_context_inventory_available": true,
@@ -910,8 +924,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "missing_construction_search_tournament",
-      "detail": "Meta Control has LayerKVJointLease evidence; the next non-heavy cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
+      "kind": "missing_route_distillation_tournament",
+      "detail": "Meta Control has ConstructionSearchTournament evidence; the next non-heavy cursor must prove full/proof/oracle route labels improve the small scout on held-out choices before route distillation can promote."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -926,5 +940,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=construction_search_tournament; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=route_distillation_tournament; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

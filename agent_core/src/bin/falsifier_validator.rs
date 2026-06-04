@@ -75,6 +75,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-QueryAwareKVSelector",
     "F-SparseWakeCertificate-AnswerPacket",
     "F-LayerKVJointLease",
+    "F-ConstructionSearchTournament",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

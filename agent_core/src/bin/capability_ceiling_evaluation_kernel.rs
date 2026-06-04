@@ -79,8 +79,9 @@ const QUERY_AWARE_KV_SELECTOR_PATH: &str =
     "artifacts/falsifiers/query_aware_kv_selector/result.json";
 const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH: &str =
     "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json";
-const LAYER_KV_JOINT_LEASE_PATH: &str =
-    "artifacts/falsifiers/layer_kv_joint_lease/result.json";
+const LAYER_KV_JOINT_LEASE_PATH: &str = "artifacts/falsifiers/layer_kv_joint_lease/result.json";
+const CONSTRUCTION_SEARCH_TOURNAMENT_PATH: &str =
+    "artifacts/falsifiers/construction_search_tournament/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -1105,6 +1106,91 @@ const LAYER_KV_JOINT_LEASE_AXES: &[&str] = &[
     "max_lease_metadata_bytes",
     "layer_kv_joint_lease_address",
 ];
+const CONSTRUCTION_SEARCH_TOURNAMENT_AXES: &[&str] = &[
+    "upstream_layer_kv_joint_lease_pass",
+    "construction_search_tournament_fixture_present",
+    "tournament_ids_bound",
+    "mission_families_bound",
+    "generation_policy_bound",
+    "repair_policy_bound",
+    "scoring_policy_bound",
+    "selection_policy_bound",
+    "random_seed_bound",
+    "candidate_genomes_bound",
+    "generation_trace_refs_bound",
+    "repair_trace_refs_bound",
+    "score_trace_refs_bound",
+    "selected_winners_bound",
+    "held_out_split_bound",
+    "diversity_buckets_bound",
+    "exploration_budget_bound",
+    "fixed_budget_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "route_authority_shadow_only",
+    "live_route_not_promoted",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "construction_search_tournament_address_deterministic",
+    "winners_fit_hot_budget",
+    "winners_fit_kv_budget",
+    "winners_fit_cold_budget",
+    "winner_latency_bound",
+    "repair_failure_rate_bound",
+    "tournament_beats_random_generation_baseline",
+    "tournament_beats_greedy_baseline",
+    "tournament_beats_unrepaired_baseline",
+    "held_out_win_rate_bound",
+    "metadata_bound",
+    "duplicate_tournament_rejected",
+    "duplicate_candidate_rejected",
+    "missing_generation_policy_rejected",
+    "missing_repair_policy_rejected",
+    "missing_scoring_policy_rejected",
+    "missing_selection_policy_rejected",
+    "missing_candidate_rejected",
+    "unrepaired_candidate_selected_rejected",
+    "invalid_candidate_selected_rejected",
+    "over_budget_candidate_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "hidden_live_authority_rejected",
+    "live_route_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "metadata_budget_rejected",
+    "random_baseline_unbeaten_rejected",
+    "greedy_baseline_unbeaten_rejected",
+    "unrepaired_baseline_unbeaten_rejected",
+    "insufficient_diversity_rejected",
+    "exploration_budget_exceeded_rejected",
+    "tournament_count",
+    "candidate_count",
+    "repaired_candidate_count",
+    "selected_winner_count",
+    "held_out_case_count",
+    "diversity_bucket_count",
+    "repair_failure_count",
+    "max_generation_budget",
+    "max_compute_steps",
+    "max_exploration_budget",
+    "max_hot_bytes",
+    "max_kv_bytes",
+    "max_cold_bytes",
+    "max_latency_ms",
+    "max_repair_failure_bps",
+    "tournament_success_bps",
+    "held_out_success_bps",
+    "random_generation_baseline_bps",
+    "greedy_baseline_bps",
+    "unrepaired_baseline_bps",
+    "max_tournament_metadata_bytes",
+    "construction_search_tournament_address",
+];
 
 fn main() {
     let report = build_report();
@@ -1176,6 +1262,7 @@ fn build_report() -> KernelReport {
     let sparse_wake_certificate_answer_packet =
         GateArtifact::read(SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH);
     let layer_kv_joint_lease = GateArtifact::read(LAYER_KV_JOINT_LEASE_PATH);
+    let construction_search_tournament = GateArtifact::read(CONSTRUCTION_SEARCH_TOURNAMENT_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -1217,6 +1304,7 @@ fn build_report() -> KernelReport {
         &query_aware_kv_selector,
         &sparse_wake_certificate_answer_packet,
         &layer_kv_joint_lease,
+        &construction_search_tournament,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -1591,13 +1679,14 @@ fn build_report() -> KernelReport {
         && kv_page_bloom_sketch_coverage.all_axes_true(KV_PAGE_BLOOM_SKETCH_COVERAGE_AXES);
     let query_aware_kv_selector_pass = query_aware_kv_selector.overall_pass
         && query_aware_kv_selector.all_axes_true(QUERY_AWARE_KV_SELECTOR_AXES);
-    let sparse_wake_certificate_answer_packet_pass =
-        sparse_wake_certificate_answer_packet.overall_pass
-            && sparse_wake_certificate_answer_packet
-                .all_axes_true(SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES);
-    let layer_kv_joint_lease_pass =
-        layer_kv_joint_lease.overall_pass
-            && layer_kv_joint_lease.all_axes_true(LAYER_KV_JOINT_LEASE_AXES);
+    let sparse_wake_certificate_answer_packet_pass = sparse_wake_certificate_answer_packet
+        .overall_pass
+        && sparse_wake_certificate_answer_packet
+            .all_axes_true(SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES);
+    let layer_kv_joint_lease_pass = layer_kv_joint_lease.overall_pass
+        && layer_kv_joint_lease.all_axes_true(LAYER_KV_JOINT_LEASE_AXES);
+    let construction_search_tournament_pass = construction_search_tournament.overall_pass
+        && construction_search_tournament.all_axes_true(CONSTRUCTION_SEARCH_TOURNAMENT_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -1639,6 +1728,7 @@ fn build_report() -> KernelReport {
         &query_aware_kv_selector,
         &sparse_wake_certificate_answer_packet,
         &layer_kv_joint_lease,
+        &construction_search_tournament,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -1678,6 +1768,7 @@ fn build_report() -> KernelReport {
         query_aware_kv_selector_pass,
         sparse_wake_certificate_answer_packet_pass,
         layer_kv_joint_lease_pass,
+        construction_search_tournament_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -1733,6 +1824,7 @@ fn build_report() -> KernelReport {
         query_aware_kv_selector_pass,
         sparse_wake_certificate_answer_packet_pass,
         layer_kv_joint_lease_pass,
+        construction_search_tournament_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -1792,6 +1884,7 @@ fn build_report() -> KernelReport {
         query_aware_kv_selector_pass,
         sparse_wake_certificate_answer_packet_pass,
         layer_kv_joint_lease_pass,
+        construction_search_tournament_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -2183,6 +2276,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "construction_search_tournament_pass",
+        construction_search_tournament_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -2385,6 +2485,11 @@ fn build_report() -> KernelReport {
         "layer_kv_joint_lease",
         &layer_kv_joint_lease,
     );
+    add_gate_summary(
+        &mut measurements,
+        "construction_search_tournament",
+        &construction_search_tournament,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -2425,6 +2530,7 @@ fn build_report() -> KernelReport {
         query_aware_kv_selector_pass,
         sparse_wake_certificate_answer_packet_pass,
         layer_kv_joint_lease_pass,
+        construction_search_tournament_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -2698,6 +2804,7 @@ fn classify_route(
     query_aware_kv_selector_pass: bool,
     sparse_wake_certificate_answer_packet_pass: bool,
     layer_kv_joint_lease_pass: bool,
+    construction_search_tournament_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -2732,6 +2839,7 @@ fn classify_route(
         && query_aware_kv_selector_pass
         && sparse_wake_certificate_answer_packet_pass
         && layer_kv_joint_lease_pass
+        && construction_search_tournament_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -2800,6 +2908,7 @@ fn next_bottleneck(
     query_aware_kv_selector_pass: bool,
     sparse_wake_certificate_answer_packet_pass: bool,
     layer_kv_joint_lease_pass: bool,
+    construction_search_tournament_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -2904,8 +3013,10 @@ fn next_bottleneck(
             "sparse_wake_certificate_answer_packet".to_string()
         } else if !layer_kv_joint_lease_pass {
             "layer_kv_joint_lease".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !construction_search_tournament_pass {
             "construction_search_tournament".to_string()
+        } else if !seventy_b_route_pass {
+            "route_distillation_tournament".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -2972,6 +3083,7 @@ fn build_ordered_gap_queue(
     query_aware_kv_selector_pass: bool,
     sparse_wake_certificate_answer_packet_pass: bool,
     layer_kv_joint_lease_pass: bool,
+    construction_search_tournament_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -3609,7 +3721,12 @@ fn build_ordered_gap_queue(
             37,
             "construction_search_tournament",
             "Meta Control",
-            if layer_kv_joint_lease_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+            if construction_search_tournament_pass {
+                "completed"
+            } else if layer_kv_joint_lease_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_layer_kv_joint_lease"
@@ -3618,6 +3735,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "PatternBoost/Axplorer-style generate-repair-score-select must improve sparse wake plans over random generation under a fixed budget.",
             "Keep construction search offline/shadow-only until tournament winners beat random generation, preserve rollback, and expose AnswerPacket proof.",
+        ),
+        queue_item(
+            38,
+            "route_distillation_tournament",
+            "Meta Control",
+            if construction_search_tournament_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_construction_search_tournament"
+            },
+            "F-RouteDistillationTournament",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Expensive full/proof/oracle traces must produce held-out route labels that improve the small scout over direct heuristics.",
+            "Keep distillation labels offline/shadow-only until train/held-out split, baseline wins, rollback, RunEventLog, and AnswerPacket proof pass.",
         ),
     ]
 }
@@ -3758,6 +3892,7 @@ fn build_anomalies(
     query_aware_kv_selector_pass: bool,
     sparse_wake_certificate_answer_packet_pass: bool,
     layer_kv_joint_lease_pass: bool,
+    construction_search_tournament_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4054,10 +4189,20 @@ fn build_anomalies(
             "detail": "SparseWakeCertificate AnswerPacket evidence is present; the next non-heavy architecture cursor must prove depth, KV/page choice, error budgets, fallback, and rollback are leased together before any sparse route can promote."
         }));
     }
-    if layer_kv_joint_lease_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if layer_kv_joint_lease_pass
+        && !construction_search_tournament_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "construction_search_tournament_missing",
             "detail": "LayerKVJointLease evidence is present; the next non-heavy architecture cursor must prove generate-repair-score-select improves sparse wake plans under fixed budget without live route authority."
+        }));
+    }
+    if construction_search_tournament_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+        anomalies.push(serde_json::json!({
+            "kind": "route_distillation_tournament_missing",
+            "detail": "ConstructionSearchTournament evidence is present; the next non-heavy architecture cursor must prove full/proof/oracle trace labels improve the small scout on held-out route choices before distillation policy can promote."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -4217,10 +4362,11 @@ mod tests {
         const QUERY_AWARE_KV: usize = 31;
         const SPARSE_CERT: usize = 32;
         const LAYER_KV_LEASE: usize = 33;
-        const SEVENTY_B: usize = 34;
-        const SCHEMA: usize = 35;
+        const CONSTRUCTION_SEARCH: usize = 34;
+        const SEVENTY_B: usize = 35;
+        const SCHEMA: usize = 36;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 36];
+            let mut values = [false; 37];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -4230,7 +4376,7 @@ mod tests {
                 values[14], values[15], values[16], values[17], values[18], values[19], values[20],
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
-                values[35],
+                values[35], values[36],
             )
         };
         assert_eq!(
@@ -4269,6 +4415,7 @@ mod tests {
                 QUERY_AWARE_KV,
                 SPARSE_CERT,
                 LAYER_KV_LEASE,
+                CONSTRUCTION_SEARCH,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4314,6 +4461,7 @@ mod tests {
                 QUERY_AWARE_KV,
                 SPARSE_CERT,
                 LAYER_KV_LEASE,
+                CONSTRUCTION_SEARCH,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -4380,21 +4528,22 @@ mod tests {
         const QUERY_AWARE_KV_SELECTOR: usize = 46;
         const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET: usize = 47;
         const LAYER_KV_JOINT_LEASE: usize = 48;
-        const SEVENTY_B: usize = 49;
+        const CONSTRUCTION_SEARCH_TOURNAMENT: usize = 49;
+        const SEVENTY_B: usize = 50;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 50] {
-            let mut values = [false; 50];
+        let flags = |true_indexes: &[usize]| -> [bool; 51] {
+            let mut values = [false; 51];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 50], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 51], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -4448,11 +4597,12 @@ mod tests {
                 values[47],
                 values[48],
                 values[49],
+                values[50],
                 &missing,
             )
         };
-        let nb = |values: [bool; 50]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 50]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 51]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 51]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -5629,6 +5779,56 @@ mod tests {
             "construction_search_tournament"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+            ]))),
+            "route_distillation_tournament"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -5698,6 +5898,7 @@ mod tests {
                 QUERY_AWARE_KV_SELECTOR,
                 SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
                 LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"
