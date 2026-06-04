@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1e4bac30e359ee5d7ec042fd95775a92ab4b327f",
+  "commit_sha": "23f6e8cee6955019c8a8f2b7e4e784c6b7d60732",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T06:10:32Z",
-  "result_digest": "sha256:ad5262f34891fd3317e827c6f415ca8c00c4adad78250f75ca19482458d340b9",
+  "timestamp_utc": "2026-06-04T06:59:33Z",
+  "result_digest": "sha256:d1f0878bed83f51b342e8f9f5a178276c1c095a5f2e936865bacea2df99d46ea",
   "measurements": {
     "acs_anchor_lookup_pass": {
       "value": true,
@@ -346,7 +346,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "sparse_wake_certificate_answer_packet",
+      "value": "layer_kv_joint_lease",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -705,11 +705,21 @@
           "order": 35,
           "gap_id": "sparse_wake_certificate_answer_packet",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-SparseWakeCertificate-AnswerPacket",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Sparse wake and KV/page decisions must become visible proof before any live sparse route can promote.",
           "rollback": "Expose selected units, budgets, verifier/citation/test results, traces, fallback, rollback, and uncertainty in an AnswerPacket-bound certificate."
+        },
+        {
+          "order": 36,
+          "gap_id": "layer_kv_joint_lease",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-LayerKVJointLease",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Dynamic depth and KV/page choice must be leased together with error, byte, latency, fallback, rollback, and AnswerPacket accounting.",
+          "rollback": "Keep depth and KV decisions shadow-only until joint lease evidence rejects stale state, missing rollback, verifier bypass, and hidden route authority."
         }
       ],
       "unit": "queue"
@@ -913,6 +923,22 @@
     "sparse_runtime_split_summary": {
       "value": {
         "path": "artifacts/falsifiers/sparse_runtime_split/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "sparse_wake_certificate_answer_packet_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_answer_packet_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -1278,6 +1304,11 @@
       "value": true,
       "unit": "bool"
     },
+    "sparse_wake_certificate_answer_packet_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "sparse_wake_proposal_budget_pass": {
       "operator": "==",
       "value": true,
@@ -1376,6 +1407,7 @@
     "seventy_b_route_pass": false,
     "source_artifacts_present": true,
     "sparse_runtime_split_artifact_pass": true,
+    "sparse_wake_certificate_answer_packet_pass": true,
     "sparse_wake_proposal_budget_pass": true,
     "swiftlm_source_intake_pass": true,
     "two_stage_route_scout_abstain_pass": true,
@@ -1399,8 +1431,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "sparse_wake_certificate_answer_packet_missing",
-      "detail": "QueryAwareKVSelector evidence is present; the next non-heavy architecture cursor must prove selected sparse/KV units, budgets, verifier results, traces, fallback, and rollback are exposed in an AnswerPacket certificate."
+      "kind": "layer_kv_joint_lease_missing",
+      "detail": "SparseWakeCertificate AnswerPacket evidence is present; the next non-heavy architecture cursor must prove depth, KV/page choice, error budgets, fallback, and rollback are leased together before any sparse route can promote."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1408,8 +1440,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "sparse_wake_certificate_answer_packet"
+      "detail": "layer_kv_joint_lease"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_wake_certificate_answer_packet; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=layer_kv_joint_lease; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

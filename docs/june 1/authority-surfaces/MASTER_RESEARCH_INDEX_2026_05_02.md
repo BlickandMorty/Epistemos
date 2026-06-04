@@ -1059,8 +1059,8 @@ regret.
 | `F-KVPageSketchIndex` | PASS metadata-only witness on 2026-06-04. Proves page sketches bind UAS address, byte count, compatibility fence, sketches/tags, hits, misses, required-evidence coverage, privacy class, rollback, RunEventLog, AnswerPacket, and shadow-only authority; stale/incompatible pages and hidden/unsafe cases reject before selection. Artifact: `artifacts/falsifiers/kv_page_sketch_index/result.json`; live KV restore remains unpromoted. |
 | `F-KVPageBloomSketch-Coverage` | PASS metadata-only witness on 2026-06-04. Proves cheap page filters may over-include but do not drop required proof/privacy evidence under the declared coverage target. |
 | `F-QueryAwareKVSelector` | PASS metadata-only witness on 2026-06-04. Proves query-aware page selection beats random, recency-only, file-order, and Bloom-only baselines while staying shadow-only, rollback-bound, AnswerPacket-visible, and zero-runtime-byte. Artifact: `artifacts/falsifiers/query_aware_kv_selector/result.json`. |
-| `F-SparseWakeCertificate-AnswerPacket` | Current active cursor. Proves selected sparse/KV units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback are exposed in an AnswerPacket-bound certificate before live route authority can promote. |
-| `F-LayerKVJointLease` | Proves dynamic depth and KV/page choice are leased together with error and fallback accounting. |
+| `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04. Proves selected sparse/KV units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback are exposed in an AnswerPacket-bound certificate before live route authority can promote. Artifact: `artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json`. |
+| `F-LayerKVJointLease` | Current active cursor. Proves dynamic depth and KV/page choice are leased together with error and fallback accounting. |
 | `F-ConstructionSearchTournament` | Proves PatternBoost/Axplorer-style generate-repair-score-select improves sparse wake plans over random generation under fixed budget. |
 | `F-RouteDistillationTournament` | Proves expensive full/proof/oracle traces improve the small scout on held-out route choices. |
 | `F-ProofSearchSignal-RouteFeedback` | Proves Lean/proof outcomes become route features without becoming hidden truth or bypassing AnswerPacket. |
@@ -1070,7 +1070,7 @@ regret.
 | `F-DepthLease-Checkpoint` | Proves dynamic-depth choices declare shallow exit, deeper wake, verifier margin, maximum extra layers, and full-depth fallback. |
 | `F-ShadowWakeOracle` | Proves full-wake/proof/test oracle traces provide labels without becoming a live runtime dependency. |
 | `F-AblationShadowRun` | Proves claimed useful units survive counterfactual remove-one-unit comparison. |
-| `F-SparseWakeCertificate-AnswerPacket` | Proves sparse route answers expose selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback. |
+| `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04: sparse route answers expose selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback; no live sparse route authority promotes. |
 | `F-AxiomAxiomatic-SourceDistinction` | Proves Axiom, Axiomatic AI, Harmonic, UlamAI, and Math Inc motifs stay source-distinct instead of being blurred into one authority. |
 | `F-SparseRoute-NoHiddenAuthority` | Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, or override SCOPE-Rex/SovereignGate alone. |
 

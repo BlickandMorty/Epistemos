@@ -72,6 +72,8 @@ const KV_PAGE_BLOOM_SKETCH_COVERAGE_PATH: &str =
     "artifacts/falsifiers/kv_page_bloom_sketch_coverage/result.json";
 const QUERY_AWARE_KV_SELECTOR_PATH: &str =
     "artifacts/falsifiers/query_aware_kv_selector/result.json";
+const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH: &str =
+    "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -921,6 +923,98 @@ const QUERY_AWARE_KV_SELECTOR_AXES: &[&str] = &[
     "max_selector_metadata_bytes",
     "query_selector_address",
 ];
+const SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES: &[&str] = &[
+    "upstream_sparse_wake_proposal_budget_pass",
+    "upstream_verifier_budget_auction_pass",
+    "upstream_query_aware_kv_selector_pass",
+    "sparse_wake_certificate_fixture_present",
+    "certificate_ids_bound",
+    "mission_ids_bound",
+    "answer_packet_refs_bound",
+    "upstream_refs_bound",
+    "route_card_refs_bound",
+    "selected_units_bound",
+    "uas_addresses_bound",
+    "selected_reasons_bound",
+    "verifier_results_bound",
+    "citation_results_bound",
+    "test_results_bound",
+    "trace_refs_bound",
+    "compatibility_fences_bound",
+    "privacy_classes_bound",
+    "answer_packet_required_fields_bound",
+    "fallback_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "route_authority_shadow_only",
+    "live_route_not_promoted",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_runtime_bytes_loaded",
+    "sparse_wake_certificate_address_deterministic",
+    "selected_units_fit_hot_budget",
+    "selected_units_fit_kv_budget",
+    "selected_units_fit_cold_budget",
+    "certificate_latency_bound",
+    "uncertainty_bound",
+    "verifier_floor_bound",
+    "citation_floor_bound",
+    "test_floor_bound",
+    "certificate_beats_proposal_only_baseline",
+    "certificate_beats_route_only_baseline",
+    "certificate_beats_hidden_answer_baseline",
+    "certificate_metadata_bound",
+    "duplicate_certificate_rejected",
+    "duplicate_unit_rejected",
+    "missing_selected_unit_rejected",
+    "unknown_selected_unit_rejected",
+    "missing_verifier_result_rejected",
+    "missing_citation_result_rejected",
+    "missing_test_result_rejected",
+    "missing_trace_ref_rejected",
+    "missing_answer_packet_field_rejected",
+    "stale_unit_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_class_rejected",
+    "over_hot_budget_rejected",
+    "over_kv_budget_rejected",
+    "over_cold_budget_rejected",
+    "over_latency_rejected",
+    "uncertainty_too_high_rejected",
+    "verifier_bypass_rejected",
+    "citation_bypass_rejected",
+    "test_bypass_rejected",
+    "missing_fallback_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "hidden_live_authority_rejected",
+    "live_route_promotion_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_source_rejected",
+    "runtime_bytes_rejected",
+    "metadata_budget_rejected",
+    "unbeaten_baseline_rejected",
+    "certificate_count",
+    "selected_unit_count",
+    "kv_unit_count",
+    "verifier_unit_count",
+    "citation_unit_count",
+    "test_unit_count",
+    "max_hot_bytes",
+    "max_kv_bytes",
+    "max_cold_bytes",
+    "max_latency_ms",
+    "max_uncertainty_bps",
+    "min_verifier_bps",
+    "min_citation_bps",
+    "min_test_bps",
+    "certificate_success_bps",
+    "proposal_only_baseline_bps",
+    "route_only_baseline_bps",
+    "hidden_answer_baseline_bps",
+    "max_certificate_metadata_bytes",
+    "sparse_wake_certificate_address",
+];
 
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
@@ -1371,6 +1465,12 @@ fn build_report() -> GuardReport {
     let query_aware_kv_selector = read_json(Path::new(QUERY_AWARE_KV_SELECTOR_PATH));
     let query_aware_kv_selector_available =
         artifact_all_axes_true(&query_aware_kv_selector, QUERY_AWARE_KV_SELECTOR_AXES);
+    let sparse_wake_certificate_answer_packet =
+        read_json(Path::new(SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH));
+    let sparse_wake_certificate_answer_packet_available = artifact_all_axes_true(
+        &sparse_wake_certificate_answer_packet,
+        SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -1474,6 +1574,7 @@ fn build_report() -> GuardReport {
         && kv_page_sketch_index_available
         && kv_page_bloom_sketch_coverage_available
         && query_aware_kv_selector_available
+        && sparse_wake_certificate_answer_packet_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -1733,6 +1834,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "query_aware_kv_selector_available",
         query_aware_kv_selector_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "sparse_wake_certificate_answer_packet_available",
+        sparse_wake_certificate_answer_packet_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -2084,6 +2192,10 @@ fn build_report() -> GuardReport {
                     "path": QUERY_AWARE_KV_SELECTOR_PATH,
                     "available": query_aware_kv_selector_available
                 },
+                "sparse_wake_certificate_answer_packet": {
+                    "path": SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET_PATH,
+                    "available": sparse_wake_certificate_answer_packet_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -2301,6 +2413,18 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_query_aware_kv_selector",
             "detail": "Meta Control has KV page Bloom coverage evidence, but needs F-QueryAwareKVSelector before sparse wake certificates or live page-selector authority can advance."
+        }));
+    }
+    if query_aware_kv_selector_available && !sparse_wake_certificate_answer_packet_available {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_sparse_wake_certificate_answer_packet",
+            "detail": "Meta Control has QueryAwareKVSelector evidence, but needs F-SparseWakeCertificate-AnswerPacket before depth/KV joint leases or live sparse route authority can advance."
+        }));
+    }
+    if sparse_wake_certificate_answer_packet_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_layer_kv_joint_lease",
+            "detail": "Meta Control has SparseWakeCertificate AnswerPacket evidence; the next non-heavy cursor must prove depth and KV/page choices are leased together with fallback, rollback, and AnswerPacket proof."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -3223,6 +3347,9 @@ mod tests {
             .get("kv_page_bloom_sketch_coverage")
             .is_some());
         assert!(already_mapped_work.get("query_aware_kv_selector").is_some());
+        assert!(already_mapped_work
+            .get("sparse_wake_certificate_answer_packet")
+            .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

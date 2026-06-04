@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1e4bac30e359ee5d7ec042fd95775a92ab4b327f",
+  "commit_sha": "23f6e8cee6955019c8a8f2b7e4e784c6b7d60732",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T06:10:33Z",
-  "result_digest": "sha256:17467170c998f0d03603952175ab2758113ead97782c97e79e5bfec193d97f76",
+  "timestamp_utc": "2026-06-04T06:59:39Z",
+  "result_digest": "sha256:ddfead6ab62eb7bef30f1dcc157fd3d280daa85abd3b24c49efb9add43d464df",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -164,6 +164,10 @@
           },
           "query_aware_kv_selector": {
             "path": "artifacts/falsifiers/query_aware_kv_selector/result.json",
+            "available": true
+          },
+          "sparse_wake_certificate_answer_packet": {
+            "path": "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -470,11 +474,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "sparse_wake_certificate_answer_packet",
+      "value": "layer_kv_joint_lease",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "sparse_wake_certificate_answer_packet",
+      "value": "layer_kv_joint_lease",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -526,7 +530,7 @@
       "unit": "bool"
     },
     "queue_item_count": {
-      "value": 36,
+      "value": 37,
       "unit": "count"
     },
     "queue_missing_required_field_count": {
@@ -566,6 +570,10 @@
       "unit": "bool"
     },
     "shard_cursor_mapped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_wake_certificate_answer_packet_available": {
       "value": true,
       "unit": "bool"
     },
@@ -795,6 +803,11 @@
       "value": true,
       "unit": "bool"
     },
+    "sparse_wake_certificate_answer_packet_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "sparse_wake_proposal_budget_available": {
       "operator": "==",
       "value": true,
@@ -867,6 +880,7 @@
     "route_scout_ssm_baseline_available": true,
     "rust_route_kernel_model_check_available": true,
     "shard_cursor_mapped": true,
+    "sparse_wake_certificate_answer_packet_available": true,
     "sparse_wake_proposal_budget_available": true,
     "swiftlm_source_intake_available": true,
     "two_stage_route_scout_abstain_available": true,
@@ -882,6 +896,10 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
+      "kind": "missing_layer_kv_joint_lease",
+      "detail": "Meta Control has SparseWakeCertificate AnswerPacket evidence; the next non-heavy cursor must prove depth and KV/page choices are leased together with fallback, rollback, and AnswerPacket proof."
+    },
+    {
       "kind": "partial_kv_shard_outputs",
       "detail": "At least one KV shard output directory is partial; repair or rerun that shard before starting a later shard."
     },
@@ -894,5 +912,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=sparse_wake_certificate_answer_packet; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=layer_kv_joint_lease; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
