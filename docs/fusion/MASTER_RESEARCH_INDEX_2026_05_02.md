@@ -1071,8 +1071,8 @@ regret.
 | `F-ShadowWakeOracle` | PASS metadata-only witness on 2026-06-04. Proves full-wake/proof/test oracle traces provide labels without becoming a live runtime dependency. Artifact: `artifacts/falsifiers/shadow_wake_oracle/result.json`. |
 | `F-AblationShadowRun` | PASS metadata-only witness on 2026-06-04. Proves claimed useful units survive counterfactual remove-one-unit comparison without hidden live route authority or runtime/model bytes. Artifact: `artifacts/falsifiers/ablation_shadow_run/result.json`. |
 | `F-SparseWakeCertificate-AnswerPacket` | PASS metadata-only witness on 2026-06-04: sparse route answers expose selected units, budgets, verifier/citation/test results, traces, uncertainty, fallback, and rollback; no live sparse route authority promotes. |
-| `F-AxiomAxiomatic-SourceDistinction` | Current active cursor. Proves Axiom, Axiomatic AI, Harmonic, UlamAI, and Math Inc motifs stay source-distinct instead of being blurred into one authority. |
-| `F-SparseRoute-NoHiddenAuthority` | Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, or override SCOPE-Rex/SovereignGate alone. |
+| `F-AxiomAxiomatic-SourceDistinction` | PASS metadata-only witness on 2026-06-04. Proves Axiom, Axiomatic AI, OProver, Harmonic, UlamAI, Math Inc/OpenGauss, and Lean tooling motifs stay source-distinct, source-prior-only, and unable to promote hidden source/route/proof authority. Artifact: `artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json`. |
+| `F-SparseRoute-NoHiddenAuthority` | Current active cursor. Proves the compiler cannot wake bytes, mutate policy, consolidate fast weights, override SCOPE-Rex/SovereignGate, or treat source priors/proof traces/oracle labels as hidden live authority. |
 
 **Agent rule.** Any PR touching Axiom/Axplorer/PatternBoost, Axiomatic
 AI/AxProver/OProver, proof construction loops, proof-pressure labels, sparse

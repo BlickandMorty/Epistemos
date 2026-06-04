@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d45726425cc089da77f06396265b234332daa3d7",
+  "commit_sha": "7967ea611fcafe5e9d5a0543bc7e9adf0472a0e6",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T14:31:09Z",
-  "result_digest": "sha256:32cfcbd6c338e9c0b53faefd100de2eec89770357dce4a4a038328fd4b604433",
+  "timestamp_utc": "2026-06-04T15:18:13Z",
+  "result_digest": "sha256:ebeaacd54db919c286fba6c05ebd375a5896467dbf2fa78dd50e067c97a3714c",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -96,6 +96,22 @@
     "all_gate_artifacts_schema_normalized": {
       "value": true,
       "unit": "bool"
+    },
+    "axiom_axiomatic_source_distinction_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axiomatic_source_distinction_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
     },
     "brain_route_card_multi_model_pass": {
       "value": true,
@@ -426,7 +442,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "axiom_axiomatic_source_distinction",
+      "value": "sparse_route_no_hidden_authority",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -895,11 +911,21 @@
           "order": 46,
           "gap_id": "axiom_axiomatic_source_distinction",
           "tier": "Meta Control",
-          "status": "next_active_architecture_cursor",
+          "status": "completed",
           "falsifier_or_gate": "F-AxiomAxiomatic-SourceDistinction",
           "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
           "promotion_condition": "Axioms, retrieved sources, oracle labels, verifier traces, and route priors must stay source-distinct before sparse route control can cite them.",
           "rollback": "Reject source conflation, hidden oracle authority, missing provenance, missing rollback, or AnswerPacket-invisible route evidence."
+        },
+        {
+          "order": 47,
+          "gap_id": "sparse_route_no_hidden_authority",
+          "tier": "Meta Control",
+          "status": "next_active_architecture_cursor",
+          "falsifier_or_gate": "F-SparseRoute-NoHiddenAuthority",
+          "witness": "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+          "promotion_condition": "Sparse route control must prove source-prior labels cannot become hidden live authority before any formal-math or oracle-derived route citation promotes.",
+          "rollback": "Keep sparse route policy shadow-only until SCOPE-Rex/SovereignGate, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass."
         }
       ],
       "unit": "queue"
@@ -1364,6 +1390,11 @@
       "value": true,
       "unit": "bool"
     },
+    "axiom_axiomatic_source_distinction_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "brain_route_card_multi_model_pass": {
       "operator": "==",
       "value": true,
@@ -1677,6 +1708,7 @@
     "active_assembly_shape_proof_available": true,
     "agent_local_model_runtime_bridge_pass": true,
     "all_gate_artifacts_schema_normalized": true,
+    "axiom_axiomatic_source_distinction_pass": true,
     "brain_route_card_multi_model_pass": true,
     "budgeted_uncertainty_escalator_pass": true,
     "canonical_build_queue_present": true,
@@ -1751,8 +1783,8 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "axiom_axiomatic_source_distinction_missing",
-      "detail": "AblationShadowRun evidence is present; the next non-heavy architecture cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
+      "kind": "sparse_route_no_hidden_authority_missing",
+      "detail": "Source-distinction evidence is present; the next non-heavy architecture cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
     },
     {
       "kind": "seventy_b_route_deferred_by_mlx_route",
@@ -1760,8 +1792,8 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "axiom_axiomatic_source_distinction"
+      "detail": "sparse_route_no_hidden_authority"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=axiom_axiomatic_source_distinction; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=sparse_route_no_hidden_authority; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

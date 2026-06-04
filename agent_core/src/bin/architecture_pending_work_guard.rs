@@ -90,6 +90,8 @@ const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quar
 const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
 const SHADOW_WAKE_ORACLE_PATH: &str = "artifacts/falsifiers/shadow_wake_oracle/result.json";
 const ABLATION_SHADOW_RUN_PATH: &str = "artifacts/falsifiers/ablation_shadow_run/result.json";
+const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH: &str =
+    "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2121,6 +2123,117 @@ const ABLATION_SHADOW_RUN_AXES: &[&str] = &[
     "ablation_shadow_run_address",
 ];
 
+const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES: &[&str] = &[
+    "upstream_ablation_shadow_run_pass",
+    "source_fixture_present",
+    "fixture_ids_bound",
+    "source_cards_bound",
+    "source_ids_bound",
+    "source_urls_bound",
+    "source_titles_bound",
+    "source_classes_bound",
+    "motif_classes_bound",
+    "license_notes_bound",
+    "usage_notes_bound",
+    "source_digests_bound",
+    "claim_status_bound",
+    "product_build_bound",
+    "pro_status_bound",
+    "allowed_use_bound",
+    "forbidden_claims_bound",
+    "route_impact_bound",
+    "admission_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "false_merge_negatives_bound",
+    "source_class_diversity_bound",
+    "motif_class_diversity_bound",
+    "source_urls_unique",
+    "source_ids_unique",
+    "external_sources_not_local_capability",
+    "source_prior_only_route_impact",
+    "stale_overclaim_strings_guarded",
+    "no_hidden_source_authority",
+    "no_hidden_route_authority",
+    "no_hidden_proof_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_raw_code_import",
+    "no_product_claim_promotion",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "metadata_bound",
+    "axiom_axle_distinct_from_axiomatic_axprover",
+    "axiom_axplorer_distinct_from_axiomatic_oprover",
+    "harmonic_distinct_from_math_inc",
+    "ulamai_distinct_from_axiom",
+    "lean_tooling_distinct_from_provers",
+    "math_inc_workflow_distinct_from_harmonic_artifact",
+    "axiom_axiomatic_source_distinction_address_deterministic",
+    "empty_fixture_rejected",
+    "duplicate_source_id_rejected",
+    "duplicate_source_url_rejected",
+    "missing_fixture_id_rejected",
+    "missing_source_card_rejected",
+    "missing_source_id_rejected",
+    "missing_source_url_rejected",
+    "invalid_source_url_rejected",
+    "missing_source_title_rejected",
+    "missing_source_class_rejected",
+    "unknown_source_class_rejected",
+    "forbidden_merged_source_class_rejected",
+    "missing_motif_class_rejected",
+    "missing_license_rejected",
+    "missing_usage_note_rejected",
+    "missing_source_digest_rejected",
+    "invalid_source_digest_rejected",
+    "missing_claim_status_rejected",
+    "product_claim_status_rejected",
+    "missing_product_build_rejected",
+    "mas_product_build_rejected",
+    "missing_pro_status_rejected",
+    "live_pro_status_rejected",
+    "missing_allowed_use_rejected",
+    "missing_forbidden_claims_rejected",
+    "hidden_source_authority_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_proof_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_runtime_dependency_rejected",
+    "raw_code_import_rejected",
+    "product_claim_promotion_rejected",
+    "missing_route_impact_rejected",
+    "live_route_impact_rejected",
+    "missing_admission_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "metadata_budget_rejected",
+    "source_class_diversity_missing_rejected",
+    "motif_class_diversity_missing_rejected",
+    "false_merge_negatives_missing_rejected",
+    "false_merge_not_rejected_rejected",
+    "false_merge_same_source_rejected",
+    "required_false_merge_pair_missing_rejected",
+    "missing_stale_overclaim_guard_rejected",
+    "stale_overclaim_string_rejected",
+    "fixture_count",
+    "source_card_count",
+    "source_class_count",
+    "motif_class_count",
+    "false_merge_case_count",
+    "stale_overclaim_string_count",
+    "max_source_card_metadata_bytes",
+    "axiom_axiomatic_source_distinction_address",
+];
+
 const CONTRACT_FILES: [&str; 5] = [
     "manifest.json",
     "reference_logits.json",
@@ -2615,6 +2728,12 @@ fn build_report() -> GuardReport {
     let ablation_shadow_run = read_json(Path::new(ABLATION_SHADOW_RUN_PATH));
     let ablation_shadow_run_available =
         artifact_all_axes_true(&ablation_shadow_run, ABLATION_SHADOW_RUN_AXES);
+    let axiom_axiomatic_source_distinction =
+        read_json(Path::new(AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH));
+    let axiom_axiomatic_source_distinction_available = artifact_all_axes_true(
+        &axiom_axiomatic_source_distinction,
+        AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2729,6 +2848,7 @@ fn build_report() -> GuardReport {
         && depth_lease_checkpoint_available
         && shadow_wake_oracle_available
         && ablation_shadow_run_available
+        && axiom_axiomatic_source_distinction_available
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3065,6 +3185,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "ablation_shadow_run_available",
         ablation_shadow_run_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "axiom_axiomatic_source_distinction_available",
+        axiom_axiomatic_source_distinction_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3460,6 +3587,10 @@ fn build_report() -> GuardReport {
                     "path": ABLATION_SHADOW_RUN_PATH,
                     "available": ablation_shadow_run_available
                 },
+                "axiom_axiomatic_source_distinction": {
+                    "path": AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH,
+                    "available": axiom_axiomatic_source_distinction_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -3773,10 +3904,19 @@ fn build_report() -> GuardReport {
             "detail": "Meta Control has ShadowWakeOracle evidence; the next non-heavy cursor must prove ablation shadow runs identify unit importance without hidden live route authority."
         }));
     }
-    if ablation_shadow_run_available && !heavy_long_context_enabled {
+    if ablation_shadow_run_available
+        && !axiom_axiomatic_source_distinction_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "missing_axiom_axiomatic_source_distinction",
             "detail": "Meta Control has AblationShadowRun evidence; the next non-heavy cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
+        }));
+    }
+    if axiom_axiomatic_source_distinction_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_sparse_route_no_hidden_authority",
+            "detail": "Meta Control has source-distinction evidence; the next non-heavy cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -4717,6 +4857,9 @@ mod tests {
         assert!(already_mapped_work.get("depth_lease_checkpoint").is_some());
         assert!(already_mapped_work.get("shadow_wake_oracle").is_some());
         assert!(already_mapped_work.get("ablation_shadow_run").is_some());
+        assert!(already_mapped_work
+            .get("axiom_axiomatic_source_distinction")
+            .is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());

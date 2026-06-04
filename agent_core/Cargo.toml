@@ -263,6 +263,10 @@ name = "falsify_ablation_shadow_run"
 path = "src/bin/falsify_ablation_shadow_run.rs"
 
 [[bin]]
+name = "falsify_axiom_axiomatic_source_distinction"
+path = "src/bin/falsify_axiom_axiomatic_source_distinction.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -93,6 +93,8 @@ const FAST_WEIGHT_QUARANTINE_PATH: &str = "artifacts/falsifiers/fast_weight_quar
 const DEPTH_LEASE_CHECKPOINT_PATH: &str = "artifacts/falsifiers/depth_lease_checkpoint/result.json";
 const SHADOW_WAKE_ORACLE_PATH: &str = "artifacts/falsifiers/shadow_wake_oracle/result.json";
 const ABLATION_SHADOW_RUN_PATH: &str = "artifacts/falsifiers/ablation_shadow_run/result.json";
+const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH: &str =
+    "artifacts/falsifiers/axiom_axiomatic_source_distinction/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -2120,6 +2122,117 @@ const ABLATION_SHADOW_RUN_AXES: &[&str] = &[
     "ablation_shadow_run_address",
 ];
 
+const AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES: &[&str] = &[
+    "upstream_ablation_shadow_run_pass",
+    "source_fixture_present",
+    "fixture_ids_bound",
+    "source_cards_bound",
+    "source_ids_bound",
+    "source_urls_bound",
+    "source_titles_bound",
+    "source_classes_bound",
+    "motif_classes_bound",
+    "license_notes_bound",
+    "usage_notes_bound",
+    "source_digests_bound",
+    "claim_status_bound",
+    "product_build_bound",
+    "pro_status_bound",
+    "allowed_use_bound",
+    "forbidden_claims_bound",
+    "route_impact_bound",
+    "admission_bound",
+    "rollback_bound",
+    "run_event_log_bound",
+    "answer_packet_ref_bound",
+    "compatibility_fence_bound",
+    "privacy_classes_bound",
+    "false_merge_negatives_bound",
+    "source_class_diversity_bound",
+    "motif_class_diversity_bound",
+    "source_urls_unique",
+    "source_ids_unique",
+    "external_sources_not_local_capability",
+    "source_prior_only_route_impact",
+    "stale_overclaim_strings_guarded",
+    "no_hidden_source_authority",
+    "no_hidden_route_authority",
+    "no_hidden_proof_authority",
+    "no_hidden_chain",
+    "no_hidden_cloud",
+    "no_raw_code_import",
+    "no_product_claim_promotion",
+    "no_runtime_bytes_loaded",
+    "no_model_bytes_loaded",
+    "metadata_bound",
+    "axiom_axle_distinct_from_axiomatic_axprover",
+    "axiom_axplorer_distinct_from_axiomatic_oprover",
+    "harmonic_distinct_from_math_inc",
+    "ulamai_distinct_from_axiom",
+    "lean_tooling_distinct_from_provers",
+    "math_inc_workflow_distinct_from_harmonic_artifact",
+    "axiom_axiomatic_source_distinction_address_deterministic",
+    "empty_fixture_rejected",
+    "duplicate_source_id_rejected",
+    "duplicate_source_url_rejected",
+    "missing_fixture_id_rejected",
+    "missing_source_card_rejected",
+    "missing_source_id_rejected",
+    "missing_source_url_rejected",
+    "invalid_source_url_rejected",
+    "missing_source_title_rejected",
+    "missing_source_class_rejected",
+    "unknown_source_class_rejected",
+    "forbidden_merged_source_class_rejected",
+    "missing_motif_class_rejected",
+    "missing_license_rejected",
+    "missing_usage_note_rejected",
+    "missing_source_digest_rejected",
+    "invalid_source_digest_rejected",
+    "missing_claim_status_rejected",
+    "product_claim_status_rejected",
+    "missing_product_build_rejected",
+    "mas_product_build_rejected",
+    "missing_pro_status_rejected",
+    "live_pro_status_rejected",
+    "missing_allowed_use_rejected",
+    "missing_forbidden_claims_rejected",
+    "hidden_source_authority_rejected",
+    "hidden_route_authority_rejected",
+    "hidden_proof_authority_rejected",
+    "hidden_chain_exposure_rejected",
+    "cloud_runtime_dependency_rejected",
+    "raw_code_import_rejected",
+    "product_claim_promotion_rejected",
+    "missing_route_impact_rejected",
+    "live_route_impact_rejected",
+    "missing_admission_rejected",
+    "missing_rollback_rejected",
+    "missing_run_event_log_rejected",
+    "missing_answer_packet_rejected",
+    "incompatible_fence_rejected",
+    "invalid_privacy_rejected",
+    "runtime_bytes_rejected",
+    "model_bytes_rejected",
+    "metadata_budget_rejected",
+    "source_class_diversity_missing_rejected",
+    "motif_class_diversity_missing_rejected",
+    "false_merge_negatives_missing_rejected",
+    "false_merge_not_rejected_rejected",
+    "false_merge_same_source_rejected",
+    "required_false_merge_pair_missing_rejected",
+    "missing_stale_overclaim_guard_rejected",
+    "stale_overclaim_string_rejected",
+    "fixture_count",
+    "source_card_count",
+    "source_class_count",
+    "motif_class_count",
+    "false_merge_case_count",
+    "stale_overclaim_string_count",
+    "max_source_card_metadata_bytes",
+    "axiom_axiomatic_source_distinction_address",
+];
+
 fn main() {
     let report = build_report();
     let path =
@@ -2200,6 +2313,8 @@ fn build_report() -> KernelReport {
     let depth_lease_checkpoint = GateArtifact::read(DEPTH_LEASE_CHECKPOINT_PATH);
     let shadow_wake_oracle = GateArtifact::read(SHADOW_WAKE_ORACLE_PATH);
     let ablation_shadow_run = GateArtifact::read(ABLATION_SHADOW_RUN_PATH);
+    let axiom_axiomatic_source_distinction =
+        GateArtifact::read(AXIOM_AXIOMATIC_SOURCE_DISTINCTION_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2250,6 +2365,7 @@ fn build_report() -> KernelReport {
         &depth_lease_checkpoint,
         &shadow_wake_oracle,
         &ablation_shadow_run,
+        &axiom_axiomatic_source_distinction,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2649,6 +2765,9 @@ fn build_report() -> KernelReport {
         && shadow_wake_oracle.all_axes_true(SHADOW_WAKE_ORACLE_AXES);
     let ablation_shadow_run_pass = ablation_shadow_run.overall_pass
         && ablation_shadow_run.all_axes_true(ABLATION_SHADOW_RUN_AXES);
+    let axiom_axiomatic_source_distinction_pass = axiom_axiomatic_source_distinction.overall_pass
+        && axiom_axiomatic_source_distinction
+            .all_axes_true(AXIOM_AXIOMATIC_SOURCE_DISTINCTION_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2699,6 +2818,7 @@ fn build_report() -> KernelReport {
         &depth_lease_checkpoint,
         &shadow_wake_oracle,
         &ablation_shadow_run,
+        &axiom_axiomatic_source_distinction,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -2747,6 +2867,7 @@ fn build_report() -> KernelReport {
         depth_lease_checkpoint_pass,
         shadow_wake_oracle_pass,
         ablation_shadow_run_pass,
+        axiom_axiomatic_source_distinction_pass,
         seventy_b_route_pass,
         all_gate_artifacts_schema_normalized,
     );
@@ -2811,6 +2932,7 @@ fn build_report() -> KernelReport {
         depth_lease_checkpoint_pass,
         shadow_wake_oracle_pass,
         ablation_shadow_run_pass,
+        axiom_axiomatic_source_distinction_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -2879,6 +3001,7 @@ fn build_report() -> KernelReport {
         depth_lease_checkpoint_pass,
         shadow_wake_oracle_pass,
         ablation_shadow_run_pass,
+        axiom_axiomatic_source_distinction_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3333,6 +3456,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "axiom_axiomatic_source_distinction_pass",
+        axiom_axiomatic_source_distinction_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3576,6 +3706,11 @@ fn build_report() -> KernelReport {
         "ablation_shadow_run",
         &ablation_shadow_run,
     );
+    add_gate_summary(
+        &mut measurements,
+        "axiom_axiomatic_source_distinction",
+        &axiom_axiomatic_source_distinction,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3625,6 +3760,7 @@ fn build_report() -> KernelReport {
         depth_lease_checkpoint_pass,
         shadow_wake_oracle_pass,
         ablation_shadow_run_pass,
+        axiom_axiomatic_source_distinction_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -3907,6 +4043,7 @@ fn classify_route(
     depth_lease_checkpoint_pass: bool,
     shadow_wake_oracle_pass: bool,
     ablation_shadow_run_pass: bool,
+    axiom_axiomatic_source_distinction_pass: bool,
     seventy_b_route_pass: bool,
     all_gate_artifacts_schema_normalized: bool,
 ) -> String {
@@ -3950,6 +4087,7 @@ fn classify_route(
         && depth_lease_checkpoint_pass
         && shadow_wake_oracle_pass
         && ablation_shadow_run_pass
+        && axiom_axiomatic_source_distinction_pass
         && seventy_b_route_pass
         && all_gate_artifacts_schema_normalized
     {
@@ -4027,6 +4165,7 @@ fn next_bottleneck(
     depth_lease_checkpoint_pass: bool,
     shadow_wake_oracle_pass: bool,
     ablation_shadow_run_pass: bool,
+    axiom_axiomatic_source_distinction_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4149,8 +4288,10 @@ fn next_bottleneck(
             "shadow_wake_oracle".to_string()
         } else if !ablation_shadow_run_pass {
             "ablation_shadow_run".to_string()
-        } else if !seventy_b_route_pass {
+        } else if !axiom_axiomatic_source_distinction_pass {
             "axiom_axiomatic_source_distinction".to_string()
+        } else if !seventy_b_route_pass {
+            "sparse_route_no_hidden_authority".to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4226,6 +4367,7 @@ fn build_ordered_gap_queue(
     depth_lease_checkpoint_pass: bool,
     shadow_wake_oracle_pass: bool,
     ablation_shadow_run_pass: bool,
+    axiom_axiomatic_source_distinction_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5031,7 +5173,10 @@ fn build_ordered_gap_queue(
             46,
             "axiom_axiomatic_source_distinction",
             "Meta Control",
-            if ablation_shadow_run_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+            if axiom_axiomatic_source_distinction_pass {
+                "completed"
+            } else if ablation_shadow_run_pass && !heavy_long_context_enabled && !seventy_b_route_pass
+            {
                 "next_active_architecture_cursor"
             } else {
                 "planned_after_ablation_shadow_run"
@@ -5040,6 +5185,23 @@ fn build_ordered_gap_queue(
             "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
             "Axioms, retrieved sources, oracle labels, verifier traces, and route priors must stay source-distinct before sparse route control can cite them.",
             "Reject source conflation, hidden oracle authority, missing provenance, missing rollback, or AnswerPacket-invisible route evidence.",
+        ),
+        queue_item(
+            47,
+            "sparse_route_no_hidden_authority",
+            "Meta Control",
+            if axiom_axiomatic_source_distinction_pass
+                && !heavy_long_context_enabled
+                && !seventy_b_route_pass
+            {
+                "next_active_architecture_cursor"
+            } else {
+                "planned_after_axiom_axiomatic_source_distinction"
+            },
+            "F-SparseRoute-NoHiddenAuthority",
+            "docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md",
+            "Sparse route control must prove source-prior labels cannot become hidden live authority before any formal-math or oracle-derived route citation promotes.",
+            "Keep sparse route policy shadow-only until SCOPE-Rex/SovereignGate, rollback, RunEventLog, AnswerPacket, and no-hidden-authority evidence pass.",
         ),
     ]
 }
@@ -5189,6 +5351,7 @@ fn build_anomalies(
     depth_lease_checkpoint_pass: bool,
     shadow_wake_oracle_pass: bool,
     ablation_shadow_run_pass: bool,
+    axiom_axiomatic_source_distinction_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -5575,10 +5738,23 @@ fn build_anomalies(
             "detail": "ShadowWakeOracle evidence is present; the next non-heavy architecture cursor must prove counterfactual ablation shadow runs identify which oracle-labeled units mattered without hidden live route authority."
         }));
     }
-    if ablation_shadow_run_pass && !heavy_long_context_enabled && !seventy_b_route_pass {
+    if ablation_shadow_run_pass
+        && !axiom_axiomatic_source_distinction_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
         anomalies.push(serde_json::json!({
             "kind": "axiom_axiomatic_source_distinction_missing",
             "detail": "AblationShadowRun evidence is present; the next non-heavy architecture cursor must keep axioms, retrieved sources, oracle labels, verifier traces, and route priors source-distinct before sparse route control can cite them."
+        }));
+    }
+    if axiom_axiomatic_source_distinction_pass
+        && !heavy_long_context_enabled
+        && !seventy_b_route_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "sparse_route_no_hidden_authority_missing",
+            "detail": "Source-distinction evidence is present; the next non-heavy architecture cursor must prove sparse route control cannot treat source priors, proof traces, oracle labels, or formal-math motifs as hidden live authority."
         }));
     }
     if !seventy_b_route_pass && !heavy_long_context_enabled {
@@ -5747,10 +5923,11 @@ mod tests {
         const DEPTH_LEASE_CHECKPOINT: usize = 40;
         const SHADOW_WAKE_ORACLE: usize = 41;
         const ABLATION_SHADOW_RUN: usize = 42;
-        const SEVENTY_B: usize = 43;
-        const SCHEMA: usize = 44;
+        const AXIOM_AXIOMATIC_SOURCE_DISTINCTION: usize = 43;
+        const SEVENTY_B: usize = 44;
+        const SCHEMA: usize = 45;
         let classify = |true_indexes: &[usize]| -> String {
-            let mut values = [false; 45];
+            let mut values = [false; 46];
             for index in true_indexes {
                 values[*index] = true;
             }
@@ -5761,7 +5938,7 @@ mod tests {
                 values[21], values[22], values[23], values[24], values[25], values[26], values[27],
                 values[28], values[29], values[30], values[31], values[32], values[33], values[34],
                 values[35], values[36], values[37], values[38], values[39], values[40], values[41],
-                values[42], values[43], values[44],
+                values[42], values[43], values[44], values[45],
             )
         };
         assert_eq!(
@@ -5809,6 +5986,7 @@ mod tests {
                 DEPTH_LEASE_CHECKPOINT,
                 SHADOW_WAKE_ORACLE,
                 ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5863,6 +6041,7 @@ mod tests {
                 DEPTH_LEASE_CHECKPOINT,
                 SHADOW_WAKE_ORACLE,
                 ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SEVENTY_B,
                 SCHEMA,
             ]),
@@ -5938,21 +6117,22 @@ mod tests {
         const DEPTH_LEASE_CHECKPOINT: usize = 55;
         const SHADOW_WAKE_ORACLE: usize = 56;
         const ABLATION_SHADOW_RUN: usize = 57;
-        const SEVENTY_B: usize = 58;
+        const AXIOM_AXIOMATIC_SOURCE_DISTINCTION: usize = 58;
+        const SEVENTY_B: usize = 59;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 59] {
-            let mut values = [false; 59];
+        let flags = |true_indexes: &[usize]| -> [bool; 60] {
+            let mut values = [false; 60];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 59], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 60], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6015,11 +6195,12 @@ mod tests {
                 values[56],
                 values[57],
                 values[58],
+                values[59],
                 &missing,
             )
         };
-        let nb = |values: [bool; 59]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 59]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 60]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 60]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -7630,6 +7811,65 @@ mod tests {
             "axiom_axiomatic_source_distinction"
         );
         assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+            ]))),
+            "sparse_route_no_hidden_authority"
+        );
+        assert_eq!(
             nb_heavy(flags(&with_floor(&[
                 PAGE_PACKETIZED,
                 PAGE_CALLER,
@@ -7708,6 +7948,7 @@ mod tests {
                 DEPTH_LEASE_CHECKPOINT,
                 SHADOW_WAKE_ORACLE,
                 ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
                 SEVENTY_B,
             ]))),
             "ready_for_product_route_review"

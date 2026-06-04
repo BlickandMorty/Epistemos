@@ -1,0 +1,1130 @@
+{
+  "falsifier_id": "F-AxiomAxiomatic-SourceDistinction",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_axiom_axiomatic_source_distinction.sh",
+  "command_digest": "sha256:de3db0017dd188146c2c19441bbbb58b01bfe4212157f330d659b4f63e7a444b",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "7967ea611fcafe5e9d5a0543bc7e9adf0472a0e6",
+  "fixture_id": "axiom_axiomatic_source_distinction_v1",
+  "timestamp_utc": "2026-06-04T15:17:58Z",
+  "result_digest": "sha256:85f0313aef3c367aeb9a2328949abfbd90db9027467a163ee34164a045f89823",
+  "measurements": {
+    "admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allowed_use_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axiomatic_source_distinction_address": {
+      "value": "uas:axiom-axiomatic-source-distinction:sha256:a5078e7617ac2325fc94b35ac1cbb3f8a0b76ef17977ee3ed67e5030681afadc",
+      "unit": "uas_address"
+    },
+    "axiom_axiomatic_source_distinction_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axle_distinct_from_axiomatic_axprover": {
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axplorer_distinct_from_axiomatic_oprover": {
+      "value": true,
+      "unit": "bool"
+    },
+    "claim_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_runtime_dependency_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_url_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_fixture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "external_sources_not_local_capability": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_case_count": {
+      "value": 6,
+      "unit": "cases"
+    },
+    "false_merge_negatives_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_negatives_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_not_rejected_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_same_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "value": 1,
+      "unit": "fixtures"
+    },
+    "fixture_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_claims_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_merged_source_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "harmonic_distinct_from_math_inc": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_proof_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_source_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_source_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_source_url_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lean_tooling_distinct_from_provers": {
+      "value": true,
+      "unit": "bool"
+    },
+    "license_notes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_impact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "math_inc_workflow_distinct_from_harmonic_artifact": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_source_card_metadata_bytes": {
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_allowed_use_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_claim_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_motif_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_pro_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_product_build_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_impact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_card_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_title_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_url_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stale_overclaim_guard_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_usage_note_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_class_count": {
+      "value": 9,
+      "unit": "classes"
+    },
+    "motif_class_diversity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_class_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_proof_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_source_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_claim_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_code_import": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_claim_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_claim_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_code_import_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_false_merge_pair_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_impact_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 9,
+      "unit": "cards"
+    },
+    "source_cards_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_class_count": {
+      "value": 8,
+      "unit": "classes"
+    },
+    "source_class_diversity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_class_diversity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ids_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_prior_only_route_impact": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_titles_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_urls_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_urls_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_overclaim_string_count": {
+      "value": 11,
+      "unit": "strings"
+    },
+    "stale_overclaim_string_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_overclaim_strings_guarded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ulamai_distinct_from_axiom": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_class_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_ablation_shadow_run_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "usage_notes_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allowed_use_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axiomatic_source_distinction_address": {
+      "operator": "starts_with",
+      "value": "uas:axiom-axiomatic-source-distinction:sha256:",
+      "unit": "uas_address"
+    },
+    "axiom_axiomatic_source_distinction_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axle_distinct_from_axiomatic_axprover": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "axiom_axplorer_distinct_from_axiomatic_oprover": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "claim_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_runtime_dependency_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_url_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_fixture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "external_sources_not_local_capability": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "cases"
+    },
+    "false_merge_negatives_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_negatives_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_not_rejected_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "false_merge_same_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "fixtures"
+    },
+    "fixture_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_claims_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_merged_source_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "harmonic_distinct_from_math_inc": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_exposure_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_proof_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_source_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incompatible_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_source_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_source_url_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lean_tooling_distinct_from_provers": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "license_notes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_pro_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_route_impact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "math_inc_workflow_distinct_from_harmonic_artifact": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_source_card_metadata_bytes": {
+      "operator": "<=",
+      "value": 917504,
+      "unit": "bytes"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_allowed_use_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_claim_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_fixture_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_motif_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_pro_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_product_build_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_impact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_card_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_title_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_url_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stale_overclaim_guard_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_usage_note_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_class_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "classes"
+    },
+    "motif_class_diversity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_class_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "motif_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_proof_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_source_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_claim_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_code_import": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_claim_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_claim_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_code_import_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_false_merge_pair_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_impact_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "cards"
+    },
+    "source_cards_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_class_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "classes"
+    },
+    "source_class_diversity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_class_diversity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ids_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_prior_only_route_impact": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_titles_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_urls_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_urls_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_overclaim_string_count": {
+      "operator": "==",
+      "value": 11,
+      "unit": "strings"
+    },
+    "stale_overclaim_string_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_overclaim_strings_guarded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ulamai_distinct_from_axiom": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_class_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_ablation_shadow_run_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "usage_notes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "admission_bound": true,
+    "allowed_use_bound": true,
+    "answer_packet_ref_bound": true,
+    "axiom_axiomatic_source_distinction_address": true,
+    "axiom_axiomatic_source_distinction_address_deterministic": true,
+    "axiom_axle_distinct_from_axiomatic_axprover": true,
+    "axiom_axplorer_distinct_from_axiomatic_oprover": true,
+    "claim_status_bound": true,
+    "cloud_runtime_dependency_rejected": true,
+    "compatibility_fence_bound": true,
+    "duplicate_source_id_rejected": true,
+    "duplicate_source_url_rejected": true,
+    "empty_fixture_rejected": true,
+    "external_sources_not_local_capability": true,
+    "false_merge_case_count": true,
+    "false_merge_negatives_bound": true,
+    "false_merge_negatives_missing_rejected": true,
+    "false_merge_not_rejected_rejected": true,
+    "false_merge_same_source_rejected": true,
+    "fixture_count": true,
+    "fixture_ids_bound": true,
+    "forbidden_claims_bound": true,
+    "forbidden_merged_source_class_rejected": true,
+    "harmonic_distinct_from_math_inc": true,
+    "hidden_chain_exposure_rejected": true,
+    "hidden_proof_authority_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "hidden_source_authority_rejected": true,
+    "incompatible_fence_rejected": true,
+    "invalid_privacy_rejected": true,
+    "invalid_source_digest_rejected": true,
+    "invalid_source_url_rejected": true,
+    "lean_tooling_distinct_from_provers": true,
+    "license_notes_bound": true,
+    "live_pro_status_rejected": true,
+    "live_route_impact_rejected": true,
+    "mas_product_build_rejected": true,
+    "math_inc_workflow_distinct_from_harmonic_artifact": true,
+    "max_source_card_metadata_bytes": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "missing_admission_rejected": true,
+    "missing_allowed_use_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_claim_status_rejected": true,
+    "missing_fixture_id_rejected": true,
+    "missing_forbidden_claims_rejected": true,
+    "missing_license_rejected": true,
+    "missing_motif_class_rejected": true,
+    "missing_pro_status_rejected": true,
+    "missing_product_build_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_route_impact_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_source_card_rejected": true,
+    "missing_source_class_rejected": true,
+    "missing_source_digest_rejected": true,
+    "missing_source_id_rejected": true,
+    "missing_source_title_rejected": true,
+    "missing_source_url_rejected": true,
+    "missing_stale_overclaim_guard_rejected": true,
+    "missing_usage_note_rejected": true,
+    "model_bytes_rejected": true,
+    "motif_class_count": true,
+    "motif_class_diversity_bound": true,
+    "motif_class_diversity_missing_rejected": true,
+    "motif_classes_bound": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud": true,
+    "no_hidden_proof_authority": true,
+    "no_hidden_route_authority": true,
+    "no_hidden_source_authority": true,
+    "no_model_bytes_loaded": true,
+    "no_product_claim_promotion": true,
+    "no_raw_code_import": true,
+    "no_runtime_bytes_loaded": true,
+    "privacy_classes_bound": true,
+    "pro_status_bound": true,
+    "product_build_bound": true,
+    "product_claim_promotion_rejected": true,
+    "product_claim_status_rejected": true,
+    "raw_code_import_rejected": true,
+    "required_false_merge_pair_missing_rejected": true,
+    "rollback_bound": true,
+    "route_impact_bound": true,
+    "run_event_log_bound": true,
+    "runtime_bytes_rejected": true,
+    "source_card_count": true,
+    "source_cards_bound": true,
+    "source_class_count": true,
+    "source_class_diversity_bound": true,
+    "source_class_diversity_missing_rejected": true,
+    "source_classes_bound": true,
+    "source_digests_bound": true,
+    "source_fixture_present": true,
+    "source_ids_bound": true,
+    "source_ids_unique": true,
+    "source_prior_only_route_impact": true,
+    "source_titles_bound": true,
+    "source_urls_bound": true,
+    "source_urls_unique": true,
+    "stale_overclaim_string_count": true,
+    "stale_overclaim_string_rejected": true,
+    "stale_overclaim_strings_guarded": true,
+    "ulamai_distinct_from_axiom": true,
+    "unknown_source_class_rejected": true,
+    "upstream_ablation_shadow_run_pass": true,
+    "usage_notes_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_source_card_witness",
+      "detail": "Architecture cursor advances only. No external prover, source handle, Lean tool, route label, or formal-math motif is promoted to live product capability."
+    }
+  ],
+  "notes": "Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof. F-AxiomAxiomatic-SourceDistinction is metadata-only: Axiom AXLE/Axplorer, Axiomatic AxProver/OProver, UlamAI, Harmonic, Math Inc/OpenGauss, and Lean tooling remain distinct source-card motifs with source-prior-only route impact."
+}
