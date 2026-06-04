@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "65a4dae7d1db46cdebdaa6b1d227e2cfd7567e8a",
+  "commit_sha": "b0eedf5211ec1a024d5239ac087d26b265dfc446",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T21:11:17Z",
-  "result_digest": "sha256:e8a2b7259e8412d6394bd0037882d6980b86819ec426f8fbb3bed5fa7cd11bce",
+  "timestamp_utc": "2026-06-04T22:03:58Z",
+  "result_digest": "sha256:3e0ef0d34220457d1155cb78218e09e93636084fa4b1db6da48d09e460711907",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -208,6 +208,22 @@
     "coldstream_no_hidden_authority_summary": {
       "value": {
         "path": "artifacts/falsifiers/coldstream_no_hidden_authority/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "coldstream_vs_mmap_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "coldstream_vs_mmap_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/coldstream_vs_mmap/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -474,7 +490,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "coldstream_vs_mmap",
+      "value": "slab_arena_copy_count",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -583,7 +599,7 @@
           "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
-          "status": "deferred_l1_ssd_wear_budgeted",
+          "status": "deferred_l1_coldstream_vs_mmap_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research.",
@@ -593,7 +609,7 @@
           "order": 11,
           "gap_id": "seventy_b_prompt_level_cocktail",
           "tier": "Vault / Beyond",
-          "status": "deferred_l1_ssd_wear_budgeted",
+          "status": "deferred_l1_coldstream_vs_mmap_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "No active provider-reference prompt-level work is required for the MLX route.",
@@ -1536,6 +1552,11 @@
       "value": true,
       "unit": "bool"
     },
+    "coldstream_vs_mmap_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "construction_search_tournament_pass": {
       "operator": "==",
       "value": true,
@@ -1852,6 +1873,7 @@
     "cold_assembly_plan_70b_lite_pass": true,
     "cold_miss_ledger_pass": true,
     "coldstream_no_hidden_authority_pass": true,
+    "coldstream_vs_mmap_pass": true,
     "construction_search_tournament_pass": true,
     "depth_lease_checkpoint_pass": true,
     "fast_weight_quarantine_pass": true,
@@ -1925,13 +1947,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "ssd_wear_budget_metadata_only",
-      "detail": "ColdStream trace-to-AnswerPacket visibility and repeated SSD wear/energy/cache budgeting are witnessed at L1, but no live ColdStream-vs-mmap benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+      "kind": "coldstream_vs_mmap_metadata_only",
+      "detail": "ColdStream-vs-mmap benchmark-plan rows are witnessed at L1 with same-fixture mmap, pread, and ColdStream comparisons, visible caveats, rollback, RunEventLog, and AnswerPacket refs, but no live mmap/pread/ColdStream benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "coldstream_vs_mmap"
+      "detail": "slab_arena_copy_count"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=coldstream_vs_mmap; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=slab_arena_copy_count; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

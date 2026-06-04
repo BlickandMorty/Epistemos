@@ -17,7 +17,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Command: `Tools/falsifiers/f_ssd_wear_budget.sh`
 - Artifact: `artifacts/falsifiers/ssd_wear_budget/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after this witness: `coldstream_vs_mmap`
+- Current L1 cursor after downstream `F-ColdStream-vs-Mmap`: `slab_arena_copy_count`
 
 ## What It Proves
 
@@ -31,12 +31,12 @@ Invalid fixtures reject empty plans, duplicate plan IDs, duplicate surface IDs, 
 
 ## Truth Layers
 
-- L1: Advanced. The regenerated architecture guard reports `next_existing_work=coldstream_vs_mmap` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `coldstream_vs_mmap`.
+- L1: Advanced at landing to `coldstream_vs_mmap`. Downstream `F-ColdStream-vs-Mmap` now passes metadata-only, and the regenerated architecture guard reports `next_existing_work=slab_arena_copy_count` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `slab_arena_copy_count`.
 - L3: Not advanced. No user-facing runtime, live ColdStream transport, mmap replacement, Metal I/O path, SSD stress safety, live sparse 70B, or product-route claim was promoted.
 
 ## Notes
 
 This is not evidence that SSD can be treated as RAM, not a live transport benchmark, not a platform cache-pollution measurement, not a mmap replacement proof, and not a 70B runtime pass. It is the metadata witness that prevents ColdStream planning from hiding wear, energy, cache, or visible-proof debt.
 
-Next gate: `F-ColdStream-vs-Mmap` / `coldstream_vs_mmap` must prove platform/runtime baselines before any ColdStream hot-path replacement claim can advance.
+Downstream update: `F-ColdStream-vs-Mmap` / `coldstream_vs_mmap` now passes as a metadata-only benchmark-plan witness. The next gate is `F-SlabArena-CopyCount` / `slab_arena_copy_count`.

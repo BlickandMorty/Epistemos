@@ -4,20 +4,23 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-NoHiddenAuthority passed metadata-only on 2026-06-04; no product promotion without mmap-vs-transport benchmarks, copy-count proof, p99 stall proof, rollback, and feature gates
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap passed metadata-only benchmark-plan witness on 2026-06-04; no product promotion without live mmap-vs-transport benchmarks, copy-count proof, p99 stall proof, rollback, and feature gates
 ---
 
 # ColdStream Residency Transport - 2026-06-01
 
 North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
-2026-06-04 status note: `F-ColdStream-NoHiddenAuthority` now passes as a
-metadata-only primary witness at
-`artifacts/falsifiers/coldstream_no_hidden_authority/result.json`. This proves
-transport manifests cannot claim hidden byte wake, route-policy mutation,
-admission override, invisible trace, or AnswerPacket suppression. It does not
-prove live ColdStream transport, mmap replacement, Metal I/O, SSD wear, cache
-policy, or user-facing runtime performance.
+2026-06-04 status note: `F-ColdStream-NoHiddenAuthority`,
+`F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, and
+`F-ColdStream-vs-Mmap` now pass as metadata-only primary witnesses. The newest
+artifact at `artifacts/falsifiers/coldstream_vs_mmap/result.json` proves the
+benchmark-plan table is same-fixture, source-grounded, visible, rollback-bound,
+and non-runtime before live transport benchmarks can promote. It does not prove
+live ColdStream transport, live mmap replacement, live pread/Dispatch I/O/Metal
+I/O performance, cache policy, SSD stress safety, or user-facing runtime
+performance. Current L1 cursor: `slab_arena_copy_count`; L2 and L3 remain
+unpromoted.
 
 ## Thesis
 

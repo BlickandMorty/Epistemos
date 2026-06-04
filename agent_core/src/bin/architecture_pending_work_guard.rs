@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
-    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
+    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
+    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
     PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
     SSD_WEAR_BUDGET_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
@@ -108,6 +109,7 @@ const PROVIDER_ROUTE_COPY_SOURCE_GUARD_PATH: &str =
 const TRANSPORT_TRACE_ANSWER_PACKET_PATH: &str =
     "artifacts/falsifiers/transport_trace_answer_packet/result.json";
 const SSD_WEAR_BUDGET_PATH: &str = "artifacts/falsifiers/ssd_wear_budget/result.json";
+const COLDSTREAM_VS_MMAP_PATH: &str = "artifacts/falsifiers/coldstream_vs_mmap/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2783,6 +2785,9 @@ fn build_report() -> GuardReport {
     );
     let ssd_wear_budget = read_json(Path::new(SSD_WEAR_BUDGET_PATH));
     let ssd_wear_budget_available = artifact_all_axes_true(&ssd_wear_budget, SSD_WEAR_BUDGET_AXES);
+    let coldstream_vs_mmap = read_json(Path::new(COLDSTREAM_VS_MMAP_PATH));
+    let coldstream_vs_mmap_available =
+        artifact_all_axes_true(&coldstream_vs_mmap, COLDSTREAM_VS_MMAP_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2911,6 +2916,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !transport_trace_answer_packet_available
             || ssd_wear_budget_available)
+        && (heavy_long_context_enabled
+            || !ssd_wear_budget_available
+            || coldstream_vs_mmap_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3296,6 +3304,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "ssd_wear_budget_available",
         ssd_wear_budget_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "coldstream_vs_mmap_available",
+        coldstream_vs_mmap_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3719,6 +3734,10 @@ fn build_report() -> GuardReport {
                     "path": SSD_WEAR_BUDGET_PATH,
                     "available": ssd_wear_budget_available
                 },
+                "coldstream_vs_mmap": {
+                    "path": COLDSTREAM_VS_MMAP_PATH,
+                    "available": coldstream_vs_mmap_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4093,6 +4112,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_ssd_wear_budget",
             "detail": "TransportTrace AnswerPacket visibility is present; the next non-heavy cursor must prove repeated ColdStream transport plans budget read/write volume, burst volume, energy, cache pollution, write amplification, rollback, and visible AnswerPacket caveats before live transport promotion."
+        }));
+    }
+    if ssd_wear_budget_available && !coldstream_vs_mmap_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_coldstream_vs_mmap",
+            "detail": "SSD wear budgeting is present; the next non-heavy cursor must prove the ColdStream-vs-mmap benchmark-plan table is same-fixture, source-grounded, visible, rollback-bound, and metadata-only before live mmap/pread/ColdStream benchmarks can promote."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
