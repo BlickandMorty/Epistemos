@@ -286,6 +286,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `vault_research_route_with_packetized_mitigation`, and L3 product capability
   plus release readiness remain unchanged until the full automated suite,
   log/manual/distribution review, and three uninterrupted zero-fail passes land.
+- Updated **2026-06-05** · automated-check repair checkpoint: persisted
+  authority now gates Command Center, local pipeline, and managed Rust-agent
+  tool permission paths before executor resolution. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has an
+  address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The Swift path now delegates read-only and human-gated tool
+  requests through `promptForToolApproval`, records policy denials, emits
+  `authority_checked` metadata, preserves budget-gate prompts, and verifies the
+  main chat visible-proof path through `AssistantInlineTranscriptView` /
+  `InlineToolTranscriptSegment` instead of a stale preview call. Focused
+  verification passed `EpistemosTests/AgentAuthorityPersistenceTests` (5 tests)
+  and `EpistemosTests/AuditFixRegressionTests` (30 tests). This is a safety and
+  visible-proof repair inside the red release-audit gate only: the L1 cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  with `duplicate_risk_count=0`, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  plus release readiness remain unchanged until the full automated suite,
+  log/manual/distribution review, and three uninterrupted zero-fail passes land.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates

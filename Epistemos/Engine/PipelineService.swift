@@ -606,40 +606,43 @@ final class PipelineService {
                 toolEventHandler?(.started(id: callID, name: effectiveName, inputJson: effectiveArgumentsJson))
             }
 
-            if permissionRequest.requiresHumanApproval {
-                let approved = await toolApprovalHandler?(permissionRequest) ?? false
-                if !approved {
-                    let deniedResult = LocalToolResult(
-                        toolName: effectiveName,
-                        resultJson: Self.toolErrorJSON("Tool '\(effectiveName)' was denied by the user."),
-                        isError: true
-                    )
-                    let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
-                    let durationMs = UInt64(elapsedSeconds * 1000)
-                    await recordAgentToolEvent(
-                        kind: .toolCallDenied,
-                        status: .denied,
-                        resultJson: deniedResult.resultJson,
-                        durationMs: durationMs,
-                        approvalID: permissionRequest.id,
-                        errorMessage: "Tool '\(effectiveName)' was denied by the user."
-                    )
-
-                    await MainActor.run {
-                        toolEventHandler?(
-                            .completed(
-                                id: callID,
-                                name: effectiveName,
-                                inputJson: effectiveArgumentsJson,
-                                resultJson: deniedResult.resultJson,
-                                isError: true,
-                                durationMs: durationMs
-                            )
-                        )
-                    }
-
-                    return deniedResult
+            let approved =
+                if let toolApprovalHandler {
+                    await toolApprovalHandler(permissionRequest)
+                } else {
+                    !permissionRequest.requiresHumanApproval
                 }
+            if !approved {
+                let deniedResult = LocalToolResult(
+                    toolName: effectiveName,
+                    resultJson: Self.toolErrorJSON("Tool '\(effectiveName)' was denied by policy."),
+                    isError: true
+                )
+                let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
+                let durationMs = UInt64(elapsedSeconds * 1000)
+                await recordAgentToolEvent(
+                    kind: .toolCallDenied,
+                    status: .denied,
+                    resultJson: deniedResult.resultJson,
+                    durationMs: durationMs,
+                    approvalID: permissionRequest.id,
+                    errorMessage: "Tool '\(effectiveName)' was denied by policy."
+                )
+
+                await MainActor.run {
+                    toolEventHandler?(
+                        .completed(
+                            id: callID,
+                            name: effectiveName,
+                            inputJson: effectiveArgumentsJson,
+                            resultJson: deniedResult.resultJson,
+                            isError: true,
+                            durationMs: durationMs
+                        )
+                    )
+                }
+
+                return deniedResult
             }
 
             await recordAgentToolEvent(
@@ -648,6 +651,7 @@ final class PipelineService {
                 approvalID: permissionRequest.id,
                 metadata: [
                     "approval_required": permissionRequest.requiresHumanApproval ? "true" : "false",
+                    "authority_checked": toolApprovalHandler == nil ? "false" : "true",
                 ]
             )
             await recordAgentToolEvent(

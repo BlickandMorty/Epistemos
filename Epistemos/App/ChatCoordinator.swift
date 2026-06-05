@@ -564,7 +564,6 @@ final class ChatCoordinator {
             executionPlan: executionPlan,
             toolApprovalHandler: { [weak self] request in
               guard let self else { return false }
-              guard request.requiresHumanApproval else { return true }
               return await self.promptForToolApproval(request)
             }
           )
@@ -855,10 +854,8 @@ final class ChatCoordinator {
         let approved: Bool
         if request.isBudgetGate {
           approved = await promptUserForBudgetGateApproval(request)
-        } else if request.requiresHumanApproval {
-          approved = await promptForToolApproval(request)
         } else {
-          approved = true
+          approved = await promptForToolApproval(request)
         }
         recordRustAgentToolEvent(
           recorder: commandCenterProvenanceRecorder,
@@ -879,9 +876,7 @@ final class ChatCoordinator {
             id: request.id,
             toolName: request.toolName,
             riskLevel: String(describing: request.riskLevel),
-            decision: request.requiresHumanApproval
-              ? (approved ? .approvedByUser : .deniedByUser)
-              : .approvedAutoReadOnly,
+            decision: approved ? .approvedByUser : .deniedByPolicy,
             at: Date()
           )
         )
@@ -1189,72 +1184,67 @@ final class ChatCoordinator {
           description: "This chat requested \(name) during a tools run."
         )
 
-        if permissionRequest.requiresHumanApproval {
-          let approved = await self.promptForToolApproval(permissionRequest)
-          await MainActor.run {
-            accState.diagnostics.recordPermissionDecision(
-              CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
-                id: callID,
-                toolName: name,
-                riskLevel: self.riskLabel(for: permissionRequest.riskLevel),
-                decision: approved ? .approvedByUser : .deniedByUser,
-                at: Date()
-              )
-            )
-          }
-          if !approved {
-            let deniedResult = LocalToolResult(
+        let storedDecision = await MainActor.run {
+          self.storedAuthorityDecision(for: permissionRequest)
+        }
+        let approved = await self.promptForToolApproval(permissionRequest)
+        let diagnosticDecision: CommandCenterExecutionDiagnostics.PermissionDecisionRecord.Decision =
+          approved
+          ? (storedDecision == .autoAllow && !permissionRequest.requiresHumanApproval
+              ? .approvedAutoReadOnly
+              : .approvedByUser)
+          : .deniedByPolicy
+        await MainActor.run {
+          accState.diagnostics.recordPermissionDecision(
+            CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
+              id: callID,
               toolName: name,
-              resultJson: Self.commandCenterToolErrorJSON(
-                "Tool '\(name)' was denied by the user."
-              ),
-              isError: true
+              riskLevel: self.riskLabel(for: permissionRequest.riskLevel),
+              decision: diagnosticDecision,
+              at: Date()
             )
-            let durationMs = UInt64(Date().timeIntervalSince(startedAt) * 1000)
-            await MainActor.run {
-              agentChat.recordToolResult(
-                toolUseId: callID,
-                result: deniedResult.resultJson,
-                isError: deniedResult.isError,
-                durationMs: durationMs
-              )
-              agentChat.activeToolName = nil
-              agentChat.isAgentExecuting = false
-              accState.diagnostics.recordToolExecution(
-                ACCToolExecutionRecord(
-                  id: callID,
+          )
+        }
+        if !approved {
+          let deniedResult = LocalToolResult(
+            toolName: name,
+            resultJson: Self.commandCenterToolErrorJSON(
+              "Tool '\(name)' was denied by policy."
+            ),
+            isError: true
+          )
+          let durationMs = UInt64(Date().timeIntervalSince(startedAt) * 1000)
+          await MainActor.run {
+            agentChat.recordToolResult(
+              toolUseId: callID,
+              result: deniedResult.resultJson,
+              isError: deniedResult.isError,
+              durationMs: durationMs
+            )
+            agentChat.activeToolName = nil
+            agentChat.isAgentExecuting = false
+            accState.diagnostics.recordToolExecution(
+              ACCToolExecutionRecord(
+                id: callID,
                 toolName: name,
                 inputSummary: String(normalizedArgumentsJson.prefix(200)),
-                resultSummary: "Denied by user",
+                resultSummary: "Denied by policy",
                 durationMs: durationMs,
                 isError: true
-                )
-              )
-              accState.diagnostics.recordActiveTool(name: nil)
-            }
-            await MainActor.run {
-              self.bootstrap.mcpBridge.logExecution(
-                toolName: name,
-                argumentsJson: normalizedArgumentsJson,
-                resultJson: deniedResult.resultJson,
-                durationMs: durationMs,
-                success: false
-              )
-            }
-            return deniedResult
-          }
-        } else {
-          await MainActor.run {
-            accState.diagnostics.recordPermissionDecision(
-              CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
-                id: callID,
-                toolName: name,
-                riskLevel: self.riskLabel(for: permissionRequest.riskLevel),
-                decision: .approvedAutoReadOnly,
-                at: Date()
               )
             )
+            accState.diagnostics.recordActiveTool(name: nil)
           }
+          await MainActor.run {
+            self.bootstrap.mcpBridge.logExecution(
+              toolName: name,
+              argumentsJson: normalizedArgumentsJson,
+              resultJson: deniedResult.resultJson,
+              durationMs: durationMs,
+              success: false
+            )
+          }
+          return deniedResult
         }
 
         let result = await baseToolExecutor(name, normalizedArgumentsJson)
@@ -2226,7 +2216,6 @@ final class ChatCoordinator {
             },
             toolApprovalHandler: { [weak self] request in
               guard let self else { return false }
-              guard request.requiresHumanApproval else { return true }
               return await self.promptForToolApproval(request)
             },
             modelInputCaptureHandler: { captured in
@@ -3014,17 +3003,10 @@ final class ChatCoordinator {
           metadata: permissionMetadata
         )
         let approved: Bool
-        if request.requiresHumanApproval {
-          switch storedAuthorityDecision(for: request) {
-          case .autoAllow:
-            approved = true
-          case .neverAllow:
-            approved = false
-          case .askFirst:
-            approved = await promptForToolApproval(request)
-          }
+        if request.isBudgetGate {
+          approved = await promptUserForBudgetGateApproval(request)
         } else {
-          approved = true
+          approved = await promptForToolApproval(request)
         }
         recordRustAgentToolEvent(
           recorder: managedChatProvenanceRecorder,
