@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1 retained-live product AnswerPacket handoff witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_product_answer_packet_live_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_product_answer_packet_live_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`
 - Scope: binds retained Qwen3-4B first-token runtime evidence and real AnswerPacket/RunEventLog sidecars to product-visible source surfaces; no fresh product runtime/model bytes, no MAS Live, no L2 green, no live 70B, and no 128K shard rerun.
 
 ## What It Proves
@@ -22,8 +22,8 @@ The primitive rejects missing product WRV, missing first-token artifact, missing
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` passes, downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` now passes, and that landing cursor is historical; downstream safety, live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` passes, downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` now passes, and that landing cursor is historical; downstream safety, live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
 - L3: Product surface handoff advanced only as retained-live evidence. Source-visible AnswerPacket/RunEventLog handoff is bound, but a fresh app runtime route and full user-facing local-agent claim are still not green.
 
 ## Caveat

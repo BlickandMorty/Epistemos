@@ -22,8 +22,8 @@ The primitive rejects missing upstream AnswerPacket artifact, missing source/tes
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessProductWrvProbe` passes and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessProductWrvProbe` passes and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
 - L3: Source WRV advanced, live runtime not advanced. The app source and tests show the route is wired/reachable/visible/verified, but a live product AnswerPacket route probe has not yet proven the product path with fresh runtime evidence.
 
 ## Caveat
