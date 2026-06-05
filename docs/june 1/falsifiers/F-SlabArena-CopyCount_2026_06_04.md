@@ -35,7 +35,7 @@ cache-policy, cold-panic fallback, ProductRouteReview, small-model harness
 safety-plan, dry-run, owner-approved, abortable-runtime, fresh safety, fresh
 live, fresh AnswerPacket, fresh WRV, and fresh capability-recheck witnesses now
 pass. The regenerated guard reports
-`next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`; L2
+`next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`; L2
 remains `vault_research_route_with_packetized_mitigation`, and broader L3
 user-facing/product capability is unchanged until log-correlated runtime proof
 lands.

@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Date: 2026-06-05
 - Falsifier id: `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe`
 - L2 route: still `vault_research_route_with_packetized_mitigation`
 
 ## Three Layers

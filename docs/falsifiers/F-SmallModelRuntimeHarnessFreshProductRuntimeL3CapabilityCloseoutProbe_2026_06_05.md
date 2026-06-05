@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1/L3 red closeout only.
 - Script: `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe`
 - L2 route status: `vault_research_route_with_packetized_mitigation`
 - L3 product capability: unchanged; this is not a ship/readiness claim.
 
@@ -19,8 +19,8 @@ It binds 8 residual blocker cards, 12 phases, upstream runtime/model bytes `1677
 
 ## Three Layers
 
-- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` and `duplicate_risk_count=0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`.
+- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` and `duplicate_risk_count=0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L3: Not fully shipped. Manual runtime proof is visible and closed, but broader product capability and final release readiness still require release-audit preflight and the normal zero-fail/manual runtime process.
 
 ## Rejections

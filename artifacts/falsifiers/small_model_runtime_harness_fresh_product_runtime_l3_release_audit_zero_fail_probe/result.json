@@ -1,0 +1,940 @@
+{
+  "falsifier_id": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe.sh",
+  "command_digest": "sha256:420e422fee96f046223d5ccd396cc1dd05d83f8bb077057be18403571d79681d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9b3e5ed849ddccbfdd43bafdb365781ac523b8e6",
+  "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_v1",
+  "timestamp_utc": "2026-06-05T20:56:57Z",
+  "result_digest": "sha256:b0d4027f870a41cd0ad52d0c058265e6bdbdb1bd54edaf7cfc59200f8a1a0990",
+  "measurements": {
+    "answer_packet_run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_still_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "blocker_count": {
+      "value": 14,
+      "unit": "count"
+    },
+    "blocker_green_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "blocker_ids": {
+      "value": [
+        "blocker:l2_capability_kernel_red",
+        "blocker:l3_fresh_runtime_manual_review_l1_only",
+        "blocker:release_audit_skill_log_first_required",
+        "blocker:release_audit_zero_fail_not_run",
+        "blocker:release_audit_automated_checks_not_run",
+        "blocker:release_audit_log_evidence_missing",
+        "blocker:release_audit_manual_runtime_missing",
+        "blocker:release_audit_distribution_compliance_missing",
+        "blocker:release_audit_three_passes_missing",
+        "blocker:mas_live_agent_not_promoted",
+        "blocker:live_70b_route_not_promoted",
+        "blocker:kv_direct_128k_not_promoted",
+        "blocker:autogenous_kernel_not_promoted",
+        "blocker:ship_call_not_authorized"
+      ],
+      "unit": "ids"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_l3_release_audit_zero_fail_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status": {
+      "value": "vault_research_route_with_packetized_mitigation",
+      "unit": "status"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_blocker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_engine_cargo_check_surface_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_l3_release_audit_zero_fail_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_routes_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_still_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_70b_still_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_runtime_evidence_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_agent_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "value": 27034,
+      "unit": "bytes"
+    },
+    "missing_release_audit_log_first_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_release_audit_skill_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_release_audit_zero_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_blocker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_preflight_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_l3_release_audit_automated_checks_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_ax_cargo_check_surface_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_mcp_cargo_check_surface_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "value": 18,
+      "unit": "count"
+    },
+    "product_capability_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_capability_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_gated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_log_first_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_ref": {
+      "value": ".agents/skills/epistemos_release_audit/SKILL.md",
+      "unit": "path"
+    },
+    "release_audit_skill_zero_fail_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_three_pass_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_zero_fail_not_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_blockers_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "residual_blockers_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_zero_fail_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_product_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_authorized_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address": {
+      "value": "sha256:41796d9badc5bdf4d3ba7c9849f4de07036be86263f271e29444cf370d1b85fd",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_l3_release_audit_preflight_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_bytes_loaded": {
+      "value": 2137326367,
+      "unit": "bytes"
+    },
+    "upstream_model_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_bytes_loaded": {
+      "value": 16777216,
+      "unit": "bytes"
+    },
+    "upstream_runtime_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_check_surface_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_completion_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "zero_fail_model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_model_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_pass_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "zero_fail_pass_count_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_pass_count_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "zero_fail_runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_runtime_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_still_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "blocker_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "count"
+    },
+    "blocker_green_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "blocker_ids": {
+      "operator": "==",
+      "value": [
+        "blocker:l2_capability_kernel_red",
+        "blocker:l3_fresh_runtime_manual_review_l1_only",
+        "blocker:release_audit_skill_log_first_required",
+        "blocker:release_audit_zero_fail_not_run",
+        "blocker:release_audit_automated_checks_not_run",
+        "blocker:release_audit_log_evidence_missing",
+        "blocker:release_audit_manual_runtime_missing",
+        "blocker:release_audit_distribution_compliance_missing",
+        "blocker:release_audit_three_passes_missing",
+        "blocker:mas_live_agent_not_promoted",
+        "blocker:live_70b_route_not_promoted",
+        "blocker:kv_direct_128k_not_promoted",
+        "blocker:autogenous_kernel_not_promoted",
+        "blocker:ship_call_not_authorized"
+      ],
+      "unit": "ids"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_l3_release_audit_zero_fail_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status": {
+      "operator": "==",
+      "value": "vault_research_route_with_packetized_mitigation",
+      "unit": "status"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_blocker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_engine_cargo_check_surface_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_l3_release_audit_zero_fail_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_routes_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_still_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_70b_still_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_runtime_evidence_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_agent_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "operator": "<=",
+      "value": 917504,
+      "unit": "bytes"
+    },
+    "missing_release_audit_log_first_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_release_audit_skill_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_release_audit_zero_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_blocker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_preflight_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_l3_release_audit_automated_checks_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_ax_cargo_check_surface_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_mcp_cargo_check_surface_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "operator": "==",
+      "value": 18,
+      "unit": "count"
+    },
+    "product_capability_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_capability_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_gated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_log_first_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_skill_ref": {
+      "operator": "==",
+      "value": ".agents/skills/epistemos_release_audit/SKILL.md",
+      "unit": "path"
+    },
+    "release_audit_skill_zero_fail_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_three_pass_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_audit_zero_fail_not_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_blockers_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "residual_blockers_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_zero_fail_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_product_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_authorized_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address": {
+      "operator": "==",
+      "value": "sha256:41796d9badc5bdf4d3ba7c9849f4de07036be86263f271e29444cf370d1b85fd",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_l3_release_audit_preflight_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "upstream_model_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "upstream_runtime_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_check_surface_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_completion_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "zero_fail_model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_model_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_pass_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "zero_fail_pass_count_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_pass_count_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "zero_fail_runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_runtime_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_run_event_log_bound": true,
+    "autogenous_kernel_rejected": true,
+    "autogenous_kernel_still_research": true,
+    "automated_checks_claim_rejected": true,
+    "automated_checks_not_claimed": true,
+    "blocker_count": true,
+    "blocker_green_rejected": true,
+    "blocker_ids": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_l3_release_audit_zero_fail_or_advanced": true,
+    "capability_route_status": true,
+    "capability_route_status_vault_research": true,
+    "distribution_compliance_claim_rejected": true,
+    "distribution_compliance_not_claimed": true,
+    "duplicate_blocker_rejected": true,
+    "graph_engine_cargo_check_surface_present": true,
+    "guard_cursor_l3_release_audit_zero_fail_or_advanced": true,
+    "heavy_routes_deferred": true,
+    "hidden_authority_rejected": true,
+    "kv_direct_128k_still_red": true,
+    "l1_l2_l3_separation_bound": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "live_70b_still_red": true,
+    "log_evidence_claim_rejected": true,
+    "log_runtime_evidence_not_claimed": true,
+    "long_context_shard_claim_rejected": true,
+    "manual_runtime_evidence_claim_rejected": true,
+    "manual_runtime_evidence_not_claimed": true,
+    "mas_floor_preserved": true,
+    "mas_live_agent_overclaim_rejected": true,
+    "metadata_budget_rejected": true,
+    "metadata_bytes": true,
+    "missing_release_audit_log_first_rejected": true,
+    "missing_release_audit_skill_rejected": true,
+    "missing_release_audit_zero_fail_rejected": true,
+    "missing_required_blocker_rejected": true,
+    "missing_upstream_preflight_rejected": true,
+    "next_cursor": true,
+    "next_cursor_mismatch_rejected": true,
+    "next_l3_release_audit_automated_checks_bound": true,
+    "no_hidden_route_authority": true,
+    "no_l2_green_claim": true,
+    "no_l3_green_claim": true,
+    "no_mas_live_agent_overclaim": true,
+    "no_route_policy_mutation": true,
+    "omega_ax_cargo_check_surface_present": true,
+    "omega_mcp_cargo_check_surface_present": true,
+    "phase_count": true,
+    "product_capability_not_promoted": true,
+    "product_capability_promotion_rejected": true,
+    "product_status_gated": true,
+    "release_audit_skill_log_first_required": true,
+    "release_audit_skill_present": true,
+    "release_audit_skill_ref": true,
+    "release_audit_skill_zero_fail_required": true,
+    "release_audit_three_pass_required": true,
+    "release_audit_zero_fail_not_run": true,
+    "required_blockers_present": true,
+    "required_phases_bound": true,
+    "residual_blockers_visible": true,
+    "route_authority_zero_fail_only": true,
+    "route_policy_mutation_rejected": true,
+    "seventy_b_product_claim_rejected": true,
+    "ship_call_authorized_rejected": true,
+    "ship_call_not_authorized": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_address_deterministic": true,
+    "upstream_l3_release_audit_preflight_probe_pass": true,
+    "upstream_model_bytes_loaded": true,
+    "upstream_model_bytes_nonzero": true,
+    "upstream_model_missing_rejected": true,
+    "upstream_runtime_bytes_loaded": true,
+    "upstream_runtime_bytes_nonzero": true,
+    "upstream_runtime_missing_rejected": true,
+    "xcodebuild_check_surface_present": true,
+    "zero_fail_completion_claim_rejected": true,
+    "zero_fail_model_bytes_loaded": true,
+    "zero_fail_model_bytes_rejected": true,
+    "zero_fail_model_bytes_zero": true,
+    "zero_fail_pass_count": true,
+    "zero_fail_pass_count_overclaim_rejected": true,
+    "zero_fail_pass_count_zero": true,
+    "zero_fail_runtime_bytes_loaded": true,
+    "zero_fail_runtime_bytes_rejected": true,
+    "zero_fail_runtime_bytes_zero": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "small_model_fresh_product_runtime_l3_release_audit_zero_fail_gate_red",
+      "detail": "Zero-fail release audit remains required and unclaimed: automated checks, runtime logs, manual runtime evidence, distribution/compliance review, and three uninterrupted passes are all blockers. This advances L1 only and queues the automated-checks probe."
+    }
+  ],
+  "notes": "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe: hardens the zero-fail release-audit claim boundary, preserves red L2/L3 blockers, opens zero fresh bytes, and advances only to the automated-checks release-audit probe."
+}
