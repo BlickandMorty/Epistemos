@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "624c948cff19320ca043e62c7d7b8760a8156e35",
+  "commit_sha": "a058bb58feff430055ef9e365be4266a63dade24",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T13:51:10Z",
-  "result_digest": "sha256:cf1b7d73fa37dcdf55ff569863ddeb2005eff42072ea6edd8a12492657eeefef",
+  "timestamp_utc": "2026-06-05T14:35:11Z",
+  "result_digest": "sha256:c801dbbb1ef3baa3fa3b9b2938a9500aae2e5f64281c1d11d5f3d0c4438cc936",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -312,6 +312,10 @@
           },
           "small_model_runtime_harness_product_route_capability_recheck": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_fresh_product_runtime_safety_lease": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_safety_lease/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -666,11 +670,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_safety_lease",
+      "value": "small_model_runtime_harness_fresh_product_runtime_live_probe",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_safety_lease",
+      "value": "small_model_runtime_harness_fresh_product_runtime_live_probe",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -806,6 +810,10 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_first_token_runtime_probe_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1203,6 +1211,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_logged_runtime_smoke_available": {
       "operator": "==",
       "value": true,
@@ -1359,6 +1372,7 @@
     "small_model_runtime_harness_answer_packet_runtime_probe_available": true,
     "small_model_runtime_harness_dry_run_witness_available": true,
     "small_model_runtime_harness_first_token_runtime_probe_available": true,
+    "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": true,
     "small_model_runtime_harness_logged_runtime_smoke_available": true,
     "small_model_runtime_harness_owner_approved_probe_available": true,
     "small_model_runtime_harness_product_answer_packet_live_probe_available": true,
@@ -1386,8 +1400,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "small_model_runtime_harness_product_route_capability_recheck_red_state",
-      "detail": "SmallModelRuntimeHarnessProductRouteCapabilityRecheck is present as an L1 red-state blocker witness. It preserves L2 vault_research_route_with_packetized_mitigation and queues a fresh product runtime safety lease; no MAS/70B/128K/L3 claim promotes."
+      "kind": "small_model_runtime_harness_fresh_product_runtime_safety_lease_metadata_only",
+      "detail": "SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease is present as an L1 metadata-only lease. It preserves L2 vault_research_route_with_packetized_mitigation and L3 unverified product runtime while queuing only a separate fresh product runtime live probe; no MAS/70B/128K/autogenous-kernel claim promotes."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1402,5 +1416,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_live_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

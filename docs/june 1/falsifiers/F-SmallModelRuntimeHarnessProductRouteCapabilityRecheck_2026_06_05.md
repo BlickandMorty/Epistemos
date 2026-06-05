@@ -7,12 +7,12 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1 product-route capability blocker recheck.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_product_route_capability_recheck.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_safety_lease`
-- Scope: consumes the retained-live product AnswerPacket handoff witness and regenerated L2 kernel state, enumerates the live blockers, and queues a safety lease before any fresh product runtime attempt. It opens zero fresh runtime/model bytes and does not promote L2 or L3.
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_live_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease`
+- Scope: consumes the retained-live product AnswerPacket handoff witness and regenerated L2 kernel state, enumerates the live blockers, and queued the safety lease that has now landed before any fresh product runtime attempt. It opens zero fresh runtime/model bytes and does not promote L2 or L3.
 
 ## What It Proves
 
-This witness consumes `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe`, the regenerated architecture guard, and the regenerated capability ceiling kernel. It proves that the retained Qwen3-4B AnswerPacket handoff evidence is real enough for L1, while the product route is still red until a separate safety lease and fresh runtime witness exist.
+This witness consumes `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe`, the regenerated architecture guard, and the regenerated capability ceiling kernel. It proves that the retained Qwen3-4B AnswerPacket handoff evidence is real enough for L1, while the product route stays red until the now-landed safety lease is followed by a separate fresh runtime witness.
 
 The artifact records 10 required phases, 6 required blocker cards, retained nonzero Qwen3-4B runtime/model byte evidence (`2153272351` bytes), fresh product runtime/model byte counts of `0`, capability route status `vault_research_route_with_packetized_mitigation`, deterministic address evidence, and the next cursor `small_model_runtime_harness_fresh_product_runtime_safety_lease`.
 
@@ -26,10 +26,10 @@ The primitive rejects missing product handoff evidence, missing required blocker
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_safety_lease`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` passed at landing and queued `small_model_runtime_harness_fresh_product_runtime_safety_lease`; downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` now passes, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_live_probe` with duplicate risk `0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_live_probe`.
 - L3: Not promoted. Product WRV and retained AnswerPacket handoff remain visible source/proof evidence, but the fresh app runtime route is still unverified.
 
 ## Caveat
 
-This is a blocker recheck, not a runtime success. It depends on retained first-token/AnswerPacket evidence but loads no fresh product runtime/model bytes. It does not prove MAS live-agent mode, a fresh product UI runtime session, live 70B, KV-Direct 128K, or autogenous kernel work. The next unit must build the fresh product runtime safety lease before any new live product runtime attempt.
+This is a blocker recheck, not a runtime success. It depends on retained first-token/AnswerPacket evidence but loads no fresh product runtime/model bytes. It does not prove MAS live-agent mode, a fresh product UI runtime session, live 70B, KV-Direct 128K, or autogenous kernel work. The safety lease is now landed as L1-only; the next unit is the fresh product runtime live probe under that lease.
