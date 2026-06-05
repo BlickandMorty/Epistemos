@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4a84494e1202e0fa1ac37bbea8217c52f847f07f",
+  "commit_sha": "529070cbc4fd42444ca013cc95371f885eb41eaf",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-05T02:47:25Z",
-  "result_digest": "sha256:356a4179d9fb59f033dc2ce0314c39eb36e1f0076d43f45be2ff23dd8e92b063",
+  "timestamp_utc": "2026-06-05T03:59:33Z",
+  "result_digest": "sha256:f2f63f50be15082dafeafa33bca32bbbb2d9355e1003b9f972acff896c8fc4f4",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -136,6 +136,22 @@
     "budgeted_uncertainty_escalator_summary": {
       "value": {
         "path": "artifacts/falsifiers/budgeted_uncertainty_escalator/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "cache_policy_pollution_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_policy_pollution_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/cache_policy_pollution/result.json",
         "exists": true,
         "schema_normalized": true,
         "overall_pass": true,
@@ -522,7 +538,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "cache_policy_pollution",
+      "value": "cold_panic_fallback",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -631,7 +647,7 @@
           "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
-          "status": "deferred_l1_cache_policy_pollution_planned",
+          "status": "deferred_l1_cold_panic_fallback_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research.",
@@ -641,7 +657,7 @@
           "order": 11,
           "gap_id": "seventy_b_prompt_level_cocktail",
           "tier": "Vault / Beyond",
-          "status": "deferred_l1_cache_policy_pollution_planned",
+          "status": "deferred_l1_cold_panic_fallback_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "No active provider-reference prompt-level work is required for the MLX route.",
@@ -1591,6 +1607,11 @@
       "value": true,
       "unit": "bool"
     },
+    "cache_policy_pollution_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "canonical_build_queue_present": {
       "operator": "==",
       "value": true,
@@ -1952,6 +1973,7 @@
     "axiom_axiomatic_source_distinction_pass": true,
     "brain_route_card_multi_model_pass": true,
     "budgeted_uncertainty_escalator_pass": true,
+    "cache_policy_pollution_pass": true,
     "canonical_build_queue_present": true,
     "coactivation_tile_prefetch_pass": true,
     "codec_stage_latency_pass": true,
@@ -2035,13 +2057,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "transport_cancellation_metadata_only",
-      "detail": "Transport cancellation is witnessed at L1 with route epoch, cancellation groups/tokens, obsolete-read rejection, stale-slab rejection, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, compatibility fences, and visible AnswerPacket caveats, but no live transport benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+      "kind": "cache_policy_pollution_metadata_only",
+      "detail": "Cache-policy pollution is witnessed at L1 with explicit NoCache/HotReuse/metadata policy choices, repeated hot-route probes, p95/p99 regression budgets, cache-pollution bounds, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, compatibility fences, and visible AnswerPacket caveats, but no live transport benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "cache_policy_pollution"
+      "detail": "cold_panic_fallback"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=cache_policy_pollution; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=cold_panic_fallback; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

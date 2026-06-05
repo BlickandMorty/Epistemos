@@ -29,6 +29,7 @@ pub mod acs_anchor;
 pub mod address;
 pub mod anchor_registry;
 pub mod app_cold_store;
+pub mod cache_policy_pollution;
 pub mod coactivation_tile;
 pub mod codec_stage_latency;
 pub mod cold_assembly_plan;
@@ -64,6 +65,11 @@ pub use anchor_registry::AcsAnchorRegistry;
 pub use app_cold_store::{
     AppColdStorePlacement, AppColdStoreRouteCard, AppColdStoreRouteCardError,
     AppColdStoreRouteCardTotals, AppColdStoreUnit,
+};
+pub use cache_policy_pollution::{
+    CachePolicyLane, CachePolicyMetrics, CachePolicyPollutionError, CachePolicyPollutionWitness,
+    CachePolicySurface, CachePolicyTrial, CACHE_POLICY_POLLUTION_CURSOR,
+    CACHE_POLICY_POLLUTION_NEXT_CURSOR,
 };
 pub use coactivation_tile::{
     CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,

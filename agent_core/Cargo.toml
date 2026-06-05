@@ -311,6 +311,10 @@ name = "falsify_transport_cancellation"
 path = "src/bin/falsify_transport_cancellation.rs"
 
 [[bin]]
+name = "falsify_cache_policy_pollution"
+path = "src/bin/falsify_cache_policy_pollution.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
