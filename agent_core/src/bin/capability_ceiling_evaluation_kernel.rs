@@ -17,6 +17,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
@@ -157,6 +158,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_PATH: &str 
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_safety_lease/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_live_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -199,6 +202,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_NEXT: &str 
     "small_model_runtime_harness_fresh_product_runtime_live_probe";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_NEXT: &str =
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT: &str =
+    "small_model_runtime_harness_fresh_product_runtime_wrv_probe";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2454,6 +2459,9 @@ fn build_report() -> KernelReport {
         GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_PATH);
     let small_model_runtime_harness_fresh_product_runtime_live_probe =
         GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_PATH);
+    let small_model_runtime_harness_fresh_product_runtime_answer_packet_probe = GateArtifact::read(
+        SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_PATH,
+    );
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2531,6 +2539,7 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_product_route_capability_recheck,
         &small_model_runtime_harness_fresh_product_runtime_safety_lease,
         &small_model_runtime_harness_fresh_product_runtime_live_probe,
+        &small_model_runtime_harness_fresh_product_runtime_answer_packet_probe,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -3011,6 +3020,11 @@ fn build_report() -> KernelReport {
         small_model_runtime_harness_fresh_product_runtime_live_probe.overall_pass
             && small_model_runtime_harness_fresh_product_runtime_live_probe
                 .all_axes_true(SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES);
+    let small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass =
+        small_model_runtime_harness_fresh_product_runtime_answer_packet_probe.overall_pass
+            && small_model_runtime_harness_fresh_product_runtime_answer_packet_probe.all_axes_true(
+                SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_AXES,
+            );
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -3088,6 +3102,7 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_product_route_capability_recheck,
         &small_model_runtime_harness_fresh_product_runtime_safety_lease,
         &small_model_runtime_harness_fresh_product_runtime_live_probe,
+        &small_model_runtime_harness_fresh_product_runtime_answer_packet_probe,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -3229,6 +3244,15 @@ fn build_report() -> KernelReport {
         &cocktail,
     );
     let next_bottleneck = if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && small_model_runtime_harness_product_route_capability_recheck_pass
+        && small_model_runtime_harness_fresh_product_runtime_safety_lease_pass
+        && small_model_runtime_harness_fresh_product_runtime_live_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass
+        && base_next_bottleneck == SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_NEXT
+    {
+        SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT.to_string()
+    } else if !seventy_b_route_pass
         && !heavy_long_context_enabled
         && small_model_runtime_harness_product_route_capability_recheck_pass
         && small_model_runtime_harness_fresh_product_runtime_safety_lease_pass
@@ -3997,6 +4021,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass",
+        small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -4366,6 +4397,11 @@ fn build_report() -> KernelReport {
         &mut measurements,
         "small_model_runtime_harness_fresh_product_runtime_live_probe",
         &small_model_runtime_harness_fresh_product_runtime_live_probe,
+    );
+    add_gate_summary(
+        &mut measurements,
+        "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe",
+        &small_model_runtime_harness_fresh_product_runtime_answer_packet_probe,
     );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 

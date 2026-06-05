@@ -59,6 +59,7 @@ pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_first_token_runtime_probe;
+pub mod small_model_runtime_harness_fresh_product_runtime_answer_packet_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_live_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_safety_lease;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
@@ -207,6 +208,18 @@ pub use small_model_runtime_harness_first_token_runtime_probe::{
     SmallModelRuntimeHarnessFirstTokenProbeMetrics, SmallModelRuntimeHarnessFirstTokenProbeWitness,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_fresh_product_runtime_answer_packet_probe::{
+    redacted_fresh_product_runtime_run_event_log,
+    required_fresh_product_runtime_answer_packet_probe_phases,
+    SmallModelFreshProductRuntimeAnswerPacketPacket,
+    SmallModelFreshProductRuntimeAnswerPacketPhase,
+    SmallModelFreshProductRuntimeAnswerPacketProbeError,
+    SmallModelFreshProductRuntimeAnswerPacketProbeMetrics,
+    SmallModelFreshProductRuntimeAnswerPacketProbeWitness,
+    SmallModelFreshProductRuntimeAnswerPacketSurface,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_live_probe::{
     fresh_product_runtime_live_probe_max_first_token_ms,
