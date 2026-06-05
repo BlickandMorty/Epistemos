@@ -8,7 +8,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_verifier_budget_auction.sh`
 - Artifact: `artifacts/falsifiers/verifier_budget_auction/result.json`
 - L1 next cursor at landing: `F-KVPageSketchIndex`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`
 - L3 user-facing/runtime route: unchanged; no live sparse route, local model-byte load, 70B runtime claim, or UI claim is promoted.
 
 ## What It Proves

@@ -8,7 +8,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_answer_packet_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/result.json`
 - Sidecars: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/answer_packet.json`, `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/run_event_log.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`
 - Scope: consumes `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe` and packetizes the fresh product-runtime sidecar into a real Rust AnswerPacket plus dense RunEventLog. It performs no new inference, opens no new model/runtime bytes, and does not promote L2, L3, MAS live-agent, live 70B, KV-Direct 128K, or autogenous-kernel claims.
 
 ## What It Proves
@@ -23,8 +23,8 @@ The primitive rejects missing fresh live artifact refs, missing sidecar refs, mi
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe` with duplicate risk `0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`.
 - L3: Not promoted. Fresh product-runtime WRV is source-verified, but broader product capability still waits on the fresh capability recheck.
 
 ## Caveat
