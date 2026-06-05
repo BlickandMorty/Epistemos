@@ -40,6 +40,7 @@ pub mod five_planes;
 pub mod kind;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
+pub mod metal_io_feature_gate;
 pub mod pattern_boost;
 pub mod proof_carrying_residency_lease;
 pub mod provider_reference;
@@ -91,6 +92,11 @@ pub use large_model_deferral::{
 pub use lattice_state_controller::{
     LatticeControllerBaseline, LatticeRouteAction, LatticeStateController,
     LatticeStateControllerError,
+};
+pub use metal_io_feature_gate::{
+    MetalFeatureStatus, MetalIoFeatureDecision, MetalIoFeatureGateError, MetalIoFeatureGateMetrics,
+    MetalIoFeatureGateWitness, MetalIoFeatureSurface, MetalIoLane, METAL_IO_FEATURE_GATE_CURSOR,
+    METAL_IO_FEATURE_GATE_NEXT_CURSOR,
 };
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,

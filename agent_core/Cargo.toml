@@ -299,6 +299,10 @@ name = "falsify_slab_arena_copy_count"
 path = "src/bin/falsify_slab_arena_copy_count.rs"
 
 [[bin]]
+name = "falsify_metal_io_feature_gate"
+path = "src/bin/falsify_metal_io_feature_gate.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

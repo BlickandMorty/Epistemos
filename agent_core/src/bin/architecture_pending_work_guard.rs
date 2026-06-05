@@ -14,8 +14,8 @@ use std::path::{Path, PathBuf};
 use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
-    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
-    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
+    METAL_IO_FEATURE_GATE_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES,
+    SLAB_ARENA_COPY_COUNT_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
@@ -112,6 +112,7 @@ const TRANSPORT_TRACE_ANSWER_PACKET_PATH: &str =
 const SSD_WEAR_BUDGET_PATH: &str = "artifacts/falsifiers/ssd_wear_budget/result.json";
 const COLDSTREAM_VS_MMAP_PATH: &str = "artifacts/falsifiers/coldstream_vs_mmap/result.json";
 const SLAB_ARENA_COPY_COUNT_PATH: &str = "artifacts/falsifiers/slab_arena_copy_count/result.json";
+const METAL_IO_FEATURE_GATE_PATH: &str = "artifacts/falsifiers/metal_io_feature_gate/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2793,6 +2794,9 @@ fn build_report() -> GuardReport {
     let slab_arena_copy_count = read_json(Path::new(SLAB_ARENA_COPY_COUNT_PATH));
     let slab_arena_copy_count_available =
         artifact_all_axes_true(&slab_arena_copy_count, SLAB_ARENA_COPY_COUNT_AXES);
+    let metal_io_feature_gate = read_json(Path::new(METAL_IO_FEATURE_GATE_PATH));
+    let metal_io_feature_gate_available =
+        artifact_all_axes_true(&metal_io_feature_gate, METAL_IO_FEATURE_GATE_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2927,6 +2931,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !coldstream_vs_mmap_available
             || slab_arena_copy_count_available)
+        && (heavy_long_context_enabled
+            || !slab_arena_copy_count_available
+            || metal_io_feature_gate_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3326,6 +3333,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "slab_arena_copy_count_available",
         slab_arena_copy_count_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "metal_io_feature_gate_available",
+        metal_io_feature_gate_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3757,6 +3771,10 @@ fn build_report() -> GuardReport {
                     "path": SLAB_ARENA_COPY_COUNT_PATH,
                     "available": slab_arena_copy_count_available
                 },
+                "metal_io_feature_gate": {
+                    "path": METAL_IO_FEATURE_GATE_PATH,
+                    "available": metal_io_feature_gate_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4146,6 +4164,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_slab_arena_copy_count",
             "detail": "ColdStream-vs-mmap benchmark-plan evidence is present; the next non-heavy cursor must prove CPU SlabArena preallocation, lease ranges, copy counts, allocation samples, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, and AnswerPacket visibility before live transport promotion."
+        }));
+    }
+    if slab_arena_copy_count_available
+        && !metal_io_feature_gate_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_metal_io_feature_gate",
+            "detail": "SlabArena copy-count evidence is present; the next non-heavy cursor must prove Metal I/O is platform feature-gated and visibly falls back to CPU slabs before live transport promotion."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -5120,6 +5147,7 @@ mod tests {
             .get("coldstream_no_hidden_authority")
             .is_some());
         assert!(already_mapped_work.get("slab_arena_copy_count").is_some());
+        assert!(already_mapped_work.get("metal_io_feature_gate").is_some());
         assert!(already_mapped_work
             .get("provider_reference_prompt_level_readiness")
             .is_some());
