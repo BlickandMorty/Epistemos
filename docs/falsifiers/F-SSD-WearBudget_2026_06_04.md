@@ -17,7 +17,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Command: `Tools/falsifiers/f_ssd_wear_budget.sh`
 - Artifact: `artifacts/falsifiers/ssd_wear_budget/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream `F-ColdStream-vs-Mmap`: `slab_arena_copy_count`
+- Current L1 cursor after downstream transport, product-route review, safety-plan, and dry-run witnesses: `small_model_runtime_harness_owner_approved_probe`
 
 ## What It Proves
 

@@ -184,7 +184,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   runtime/model/transport bytes, unbeaten baselines, and metadata overflow
   reject. L1 advances only to `ready_for_product_route_review`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is
   unchanged.
 - Updated **2026-06-05** · `F-CachePolicy-Pollution` landed:
   `Tools/falsifiers/f_cache_policy_pollution.sh` emits and validates
@@ -205,7 +205,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   runtime/model/transport bytes, unbeaten baselines, and metadata overflow
   reject. L1 advances only to `cold_panic_fallback`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-05** · `F-TransportCancellation` landed:
   `Tools/falsifiers/f_transport_cancellation.sh` emits and validates
   `artifacts/falsifiers/transport_cancellation/result.json` as a metadata-only
@@ -224,7 +224,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `cache_policy_pollution` at landing; downstream `F-CachePolicy-Pollution` now
   passes metadata-only, so the current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`. L2
   remains `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-05** · `F-CodecStage-Latency` landed:
   `Tools/falsifiers/f_codec_stage_latency.sh` emits and validates
   `artifacts/falsifiers/codec_stage_latency/result.json` as a metadata-only
@@ -243,7 +243,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   landing; downstream `F-TransportCancellation` and `F-CachePolicy-Pollution`
   now pass metadata-only, so the current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`. L2
   remains `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-MetalIO-FeatureGate` landed:
   `Tools/falsifiers/f_metal_io_feature_gate.sh` emits and validates
   `artifacts/falsifiers/metal_io_feature_gate/result.json` as a metadata-only
@@ -263,7 +263,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-TransportCancellation`, and `F-CachePolicy-Pollution` now pass
   metadata-only, so the current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`. L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-SparseRoute-NoHiddenAuthority` landed:
   `Tools/falsifiers/f_sparse_route_no_hidden_authority.sh` emits
   `artifacts/falsifiers/sparse_route_no_hidden_authority/result.json` as a
@@ -285,7 +285,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-TransportCancellation`, and `F-CachePolicy-Pollution` now pass
   metadata-only, so the current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-ColdStream-NoHiddenAuthority` landed:
   `Tools/falsifiers/f_coldstream_no_hidden_authority.sh` emits
   `artifacts/falsifiers/coldstream_no_hidden_authority/result.json` as a
@@ -304,7 +304,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-TransportCancellation`, and `F-CachePolicy-Pollution` now pass, so current
   L1 cursor is `cold_panic_fallback`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-LargeModelProviderReference-DeferredByMlxRoute`
   landed: `Tools/falsifiers/f_large_model_provider_reference_deferred_by_mlx_route.sh`
   emits
@@ -324,7 +324,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   and `F-CachePolicy-Pollution` now pass, so current L1 cursor is
   `cold_panic_fallback`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-ProviderRoute-CopySourceGuard` landed:
   `Tools/falsifiers/f_provider_route_copy_source_guard.sh` emits
   `artifacts/falsifiers/provider_route_copy_source_guard/result.json` as a
@@ -342,7 +342,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-CachePolicy-Pollution` now passes metadata-only, so current L1 cursor is
   `cold_panic_fallback`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-TransportTrace-AnswerPacket` landed:
   `Tools/falsifiers/f_transport_trace_answer_packet.sh` emits
   `artifacts/falsifiers/transport_trace_answer_packet/result.json` as a
@@ -365,7 +365,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-CachePolicy-Pollution` now passes metadata-only, so current L1 cursor is
   `cold_panic_fallback`. L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-SSD-WearBudget` landed:
   `Tools/falsifiers/f_ssd_wear_budget.sh` emits
   `artifacts/falsifiers/ssd_wear_budget/result.json` as a metadata-only
@@ -386,7 +386,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-MetalIO-FeatureGate`, and `F-CachePolicy-Pollution` now pass
   metadata-only, so current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-ColdStream-vs-Mmap` landed:
   `Tools/falsifiers/f_coldstream_vs_mmap.sh` emits
   `artifacts/falsifiers/coldstream_vs_mmap/result.json` as a metadata-only
@@ -406,7 +406,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-MetalIO-FeatureGate`, and `F-CachePolicy-Pollution` now pass
   metadata-only, so current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-04** · `F-SlabArena-CopyCount` landed:
   `Tools/falsifiers/f_slab_arena_copy_count.sh` emits
   `artifacts/falsifiers/slab_arena_copy_count/result.json` as a metadata-only
@@ -424,7 +424,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-MetalIO-FeatureGate` and `F-CachePolicy-Pollution` now pass metadata-only,
   so current L1 cursor is `small_model_runtime_harness_owner_approved_probe` after `F-SmallModelRuntimeHarnessDryRunWitness`; L2 remains
   `vault_research_route_with_packetized_mitigation` with next bottleneck
-  `small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan`; L3 user-facing/product runtime is unchanged.
+  `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`; L3 user-facing/product runtime is unchanged.
 - Updated **2026-06-01** · Substrate trace observatory added:
   `docs/fusion/SUBSTRATE_TRACE_OBSERVATORY_2026_06_01.md`. Recursive
   browser/bookmark/X intake plus primary validation of LLM/transformer

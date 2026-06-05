@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_provider_route_copy_source_guard.sh`
 - Artifact: `artifacts/falsifiers/provider_route_copy_source_guard/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, and `F-SmallModelRuntimeHarnessSafetyPlan`: `small_model_runtime_harness_dry_run_witness`
+- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness`: `small_model_runtime_harness_owner_approved_probe`
 
 ## What It Proves
 
