@@ -60,6 +60,7 @@ pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_first_token_runtime_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_answer_packet_probe;
+pub mod small_model_runtime_harness_fresh_product_runtime_capability_recheck;
 pub mod small_model_runtime_harness_fresh_product_runtime_live_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_safety_lease;
 pub mod small_model_runtime_harness_fresh_product_runtime_wrv_probe;
@@ -221,6 +222,17 @@ pub use small_model_runtime_harness_fresh_product_runtime_answer_packet_probe::{
     SmallModelFreshProductRuntimeAnswerPacketSurface,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_fresh_product_runtime_capability_recheck::{
+    fresh_product_runtime_capability_recheck_metadata_budget_bytes,
+    required_fresh_product_runtime_capability_blockers,
+    required_fresh_product_runtime_capability_recheck_phases,
+    SmallModelFreshProductRuntimeCapabilityRecheckError,
+    SmallModelFreshProductRuntimeCapabilityRecheckMetrics,
+    SmallModelFreshProductRuntimeCapabilityRecheckPhase,
+    SmallModelFreshProductRuntimeCapabilityRecheckWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_live_probe::{
     fresh_product_runtime_live_probe_max_first_token_ms,

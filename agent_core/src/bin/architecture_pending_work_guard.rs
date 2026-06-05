@@ -21,6 +21,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_AXES,
@@ -160,6 +161,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_PATH
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_wrv_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_capability_recheck/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2961,6 +2964,14 @@ fn build_report() -> GuardReport {
             &small_model_runtime_harness_fresh_product_runtime_wrv_probe,
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_AXES,
         );
+    let small_model_runtime_harness_fresh_product_runtime_capability_recheck = read_json(
+        Path::new(SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_PATH),
+    );
+    let small_model_runtime_harness_fresh_product_runtime_capability_recheck_available =
+        artifact_all_axes_true(
+            &small_model_runtime_harness_fresh_product_runtime_capability_recheck,
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_AXES,
+        );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3151,6 +3162,9 @@ fn build_report() -> GuardReport {
         && (next_existing_work
             != "small_model_runtime_harness_fresh_product_runtime_capability_recheck"
             || small_model_runtime_harness_fresh_product_runtime_wrv_probe_available)
+        && (next_existing_work
+            != "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe"
+            || small_model_runtime_harness_fresh_product_runtime_capability_recheck_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3695,6 +3709,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_fresh_product_runtime_capability_recheck_available",
+        small_model_runtime_harness_fresh_product_runtime_capability_recheck_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -4200,6 +4221,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_fresh_product_runtime_wrv_probe": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_PATH,
                     "available": small_model_runtime_harness_fresh_product_runtime_wrv_probe_available
+                },
+                "small_model_runtime_harness_fresh_product_runtime_capability_recheck": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_PATH,
+                    "available": small_model_runtime_harness_fresh_product_runtime_capability_recheck_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -4746,11 +4771,22 @@ fn build_report() -> GuardReport {
         && small_model_runtime_harness_fresh_product_runtime_live_probe_available
         && small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_available
         && small_model_runtime_harness_fresh_product_runtime_wrv_probe_available
+        && small_model_runtime_harness_fresh_product_runtime_capability_recheck_available
         && !heavy_long_context_enabled
     {
         anomalies.push(serde_json::json!({
-            "kind": "small_model_runtime_harness_fresh_product_runtime_wrv_probe_source_only",
-            "detail": "SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe is present as L1/L3-source proof: fresh Qwen3-4B AnswerPacket and RunEventLog evidence is wired to product source, Settings diagnostics, message packet visibility, System G replay, and focused tests without new runtime/model bytes. The next cursor is a fresh capability recheck; L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K/autogenous-kernel claim promotes."
+            "kind": "small_model_runtime_harness_fresh_product_runtime_capability_recheck_red",
+            "detail": "SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck is present as an L1 blocker ledger after fresh runtime WRV: upstream Qwen3-4B runtime/model bytes are preserved, no new runtime/model bytes open, and the next cursor is L3 log-correlation proof. L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K/autogenous-kernel claim promotes."
+        }));
+    } else if small_model_runtime_harness_fresh_product_runtime_safety_lease_available
+        && small_model_runtime_harness_fresh_product_runtime_live_probe_available
+        && small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_available
+        && small_model_runtime_harness_fresh_product_runtime_wrv_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_small_model_runtime_harness_fresh_product_runtime_capability_recheck",
+            "detail": "SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe is present as L1/L3-source proof. The next cursor must recheck fresh product-runtime capability, enumerate remaining L2/L3 blockers, preserve upstream Qwen3-4B runtime bytes, open zero new bytes, and keep MAS/70B/128K/autogenous-kernel claims gated."
         }));
     } else if small_model_runtime_harness_fresh_product_runtime_safety_lease_available
         && small_model_runtime_harness_fresh_product_runtime_live_probe_available

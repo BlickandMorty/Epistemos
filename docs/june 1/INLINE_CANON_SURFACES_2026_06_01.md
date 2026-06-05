@@ -33,12 +33,17 @@ owner-approved, dry-run-first, serialized, cancellable, rollback-bound,
 RunEventLog-bound, AnswerPacket-visible, privacy-fenced lease before any fresh
 product runtime probe, plus `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe`
 as the L1-only fresh product-runtime sidecar proving exactly one redacted
-Qwen3-4B token under the safety lease.
+Qwen3-4B token under the safety lease, plus
+`F-SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe` as fresh
+AnswerPacket/RunEventLog proof with zero new packetization bytes, plus
+`F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe` as source/test WRV
+proof, plus `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`
+as the blocker-ledger proof that keeps L2/L3 red before L3 log correlation.
 Current L1 cursor is
-`small_model_runtime_harness_fresh_product_runtime_answer_packet_probe`; L2
-remains `vault_research_route_with_packetized_mitigation` with the same fresh
-AnswerPacket packaging bottleneck; L3 fresh app runtime is unchanged until the
-fresh runtime AnswerPacket/WRV gates pass.
+`small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe`;
+L2 remains `vault_research_route_with_packetized_mitigation` with the same L3
+log-correlation bottleneck; broader L3 fresh app runtime is unchanged until
+log-correlated runtime proof lands.
 
 ## Copied Authority Surfaces
 

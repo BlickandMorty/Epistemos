@@ -16,7 +16,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Script: `Tools/falsifiers/f_sparse_wake_certificate_answer_packet.sh`
 - Artifact: `artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json`
 - L1 next cursor at landing: `F-LayerKVJointLease`; current cursor after the 2026-06-04 `F-RouteDistillationTournament` witness is `F-ProofSearchSignal-RouteFeedback`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_fresh_product_runtime_capability_recheck` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`
 - L3 user-facing/runtime: unchanged; no live sparse route, live KV restore, live 70B inference, hidden route authority, or MAS/Pro product-copy change
 - Scope: metadata-only; `no_runtime_bytes_loaded=true`
 
