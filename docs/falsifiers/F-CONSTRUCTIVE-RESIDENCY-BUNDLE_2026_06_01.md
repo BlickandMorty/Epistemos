@@ -123,4 +123,4 @@ A future artifact fails immediately if it:
 - First Research Construction witness: `docs/falsifiers/F-ResidencyConstructionGraph_2026_06_03.md`
 - Coactivation tile prefetch witness: `docs/falsifiers/F-CoactivationTile-Prefetch_2026_06_03.md`
 - Proof-carrying lease witness: `docs/falsifiers/F-ProofCarryingResidencyLease_2026_06_03.md`
-- Current cursor after the 2026-06-05 `F-CachePolicy-Pollution` metadata-only witness: `cold_panic_fallback`. This remains L1-only; L2 product capability and L3 user-facing runtime are unchanged.
+- Current cursor after the 2026-06-05 `F-ColdPanicFallback` metadata-only witness: `ready_for_product_route_review`. This remains L1-only; L2 product capability and L3 user-facing runtime are unchanged.

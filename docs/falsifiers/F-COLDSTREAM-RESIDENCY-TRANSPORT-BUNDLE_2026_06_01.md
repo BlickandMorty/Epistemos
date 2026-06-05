@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source: docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md
-status: F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, and F-CachePolicy-Pollution passed metadata-only witnesses; no live cold transport promotion without panic fallback and live platform benchmarks
+status: F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, and F-ColdPanicFallback passed metadata-only witnesses; no live cold transport promotion without live platform benchmarks
 ---
 
 # Falsifier Bundle - ColdStream Residency Transport
@@ -28,13 +28,13 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-CodecStage-Latency` | Decompression/conversion latency and copies are measured separately from file read time. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/codec_stage_latency/result.json`; no live codec benchmark, transport, model, or runtime bytes moved. |
 | `F-TransportCancellation` | Route changes cancel obsolete in-flight reads and prevent stale slabs from entering execution. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/transport_cancellation/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-CachePolicy-Pollution` | Streaming/cache policy choice is measured against repeated hot-route performance. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/cache_policy_pollution/result.json`; no live transport, model, or runtime bytes moved. |
-| `F-ColdPanicFallback` | Missed transport deadlines degrade visibly rather than blocking token-time execution silently. | Fallback fixture linked to AnswerPacket caveat. |
+| `F-ColdPanicFallback` | Missed transport deadlines degrade visibly rather than blocking token-time execution silently. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/cold_panic_fallback/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/transport_trace_answer_packet/result.json`; no live bytes moved. |
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear, energy, cache-pollution, or write-amplification budgets. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/ssd_wear_budget/result.json`; no live bytes moved and no SSD stress run. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 | `F-ProviderRoute-CopySourceGuard` | Provider/KV/70B/practical-MLX route copy cannot source-launder, imply product promotion, call providers, create prompt manifests, mutate route policy, or hide L2/L3 status after large-model deferral. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/provider_route_copy_source_guard/result.json`; no live bytes moved. |
 
-Current cursor after the 2026-06-05 `F-CachePolicy-Pollution` metadata-only cache-policy witness: `cold_panic_fallback`.
+Current cursor after the 2026-06-05 `F-ColdPanicFallback` metadata-only panic-fallback witness: `ready_for_product_route_review`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1
@@ -44,8 +44,10 @@ only as a platform feature-gate and fallback witness. `F-CodecStage-Latency`
 advances L1 only as codec/read-trace separation evidence.
 `F-TransportCancellation` advances L1 only as cancellation/stale-slab rejection
 evidence. `F-CachePolicy-Pollution` advances L1 only as cache-policy and
-hot-route regression evidence; `F-ColdPanicFallback` remains a separate
-platform/runtime gate before ColdStream can replace mmap or pread on a hot path.
+hot-route regression evidence. `F-ColdPanicFallback` advances L1 only as
+missed-deadline fallback evidence; live platform benchmarks, p99 stall proof,
+and user-facing transport remain separate before ColdStream can replace mmap
+or pread on a hot path.
 
 ## Promotion rule
 

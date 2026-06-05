@@ -13,8 +13,9 @@ use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
     CACHE_POLICY_POLLUTION_AXES, CODEC_STAGE_LATENCY_AXES, COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES,
-    COLDSTREAM_VS_MMAP_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
-    METAL_IO_FEATURE_GATE_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
+    COLDSTREAM_VS_MMAP_AXES, COLD_PANIC_FALLBACK_AXES,
+    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
+    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
     SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
@@ -116,6 +117,7 @@ const METAL_IO_FEATURE_GATE_PATH: &str = "artifacts/falsifiers/metal_io_feature_
 const CODEC_STAGE_LATENCY_PATH: &str = "artifacts/falsifiers/codec_stage_latency/result.json";
 const TRANSPORT_CANCELLATION_PATH: &str = "artifacts/falsifiers/transport_cancellation/result.json";
 const CACHE_POLICY_POLLUTION_PATH: &str = "artifacts/falsifiers/cache_policy_pollution/result.json";
+const COLD_PANIC_FALLBACK_PATH: &str = "artifacts/falsifiers/cold_panic_fallback/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2809,6 +2811,9 @@ fn build_report() -> GuardReport {
     let cache_policy_pollution = read_json(Path::new(CACHE_POLICY_POLLUTION_PATH));
     let cache_policy_pollution_available =
         artifact_all_axes_true(&cache_policy_pollution, CACHE_POLICY_POLLUTION_AXES);
+    let cold_panic_fallback = read_json(Path::new(COLD_PANIC_FALLBACK_PATH));
+    let cold_panic_fallback_available =
+        artifact_all_axes_true(&cold_panic_fallback, COLD_PANIC_FALLBACK_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2955,6 +2960,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !transport_cancellation_available
             || cache_policy_pollution_available)
+        && (heavy_long_context_enabled
+            || !cache_policy_pollution_available
+            || cold_panic_fallback_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3382,6 +3390,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "cache_policy_pollution_available",
         cache_policy_pollution_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_panic_fallback_available",
+        cold_panic_fallback_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3829,6 +3844,10 @@ fn build_report() -> GuardReport {
                     "path": CACHE_POLICY_POLLUTION_PATH,
                     "available": cache_policy_pollution_available
                 },
+                "cold_panic_fallback": {
+                    "path": COLD_PANIC_FALLBACK_PATH,
+                    "available": cold_panic_fallback_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4254,6 +4273,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_cache_policy_pollution",
             "detail": "Transport cancellation evidence is present; the next non-heavy cursor must prove explicit cache policy choices preserve repeated hot-route performance and expose cache-pollution caveats before live transport promotion."
+        }));
+    }
+    if cache_policy_pollution_available
+        && !cold_panic_fallback_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_cold_panic_fallback",
+            "detail": "Cache-policy pollution evidence is present; the next non-heavy cursor must prove missed ColdStream deadlines degrade visibly through ColdPanicFallback instead of silently blocking token-time execution."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -5234,6 +5262,7 @@ mod tests {
             .is_some());
         assert!(already_mapped_work.get("transport_cancellation").is_some());
         assert!(already_mapped_work.get("cache_policy_pollution").is_some());
+        assert!(already_mapped_work.get("cold_panic_fallback").is_some());
     }
 
     #[test]

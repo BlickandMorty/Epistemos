@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, and F-CachePolicy-Pollution passed metadata-only witnesses; no product promotion without panic fallback, live p99 stall proof, rollback, and platform benchmarks
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, and F-ColdPanicFallback passed metadata-only witnesses; no product promotion without live p99 stall proof, rollback, and platform benchmarks
 ---
 
 # ColdStream Residency Transport - 2026-06-01
@@ -29,11 +29,16 @@ caveats stay explicit before live transport work can promote.
 no-cache, hot-reuse, and metadata-only cache lanes, repeated hot-route probes,
 regression and pollution budgets, rollback, RunEventLog, AnswerPacket,
 admission, compatibility fence, and visible caveats stay explicit before live
+transport work can promote. `F-ColdPanicFallback` passes at
+`artifacts/falsifiers/cold_panic_fallback/result.json`: it proves missed
+ColdStream deadlines abort cold wakes, reject stale slabs, queue repair, expose
+fallback caveats through AnswerPacket and RunEventLog, bind rollback and
+admission evidence, and keep runtime/model/transport bytes at zero before live
 transport work can promote. These do not
 prove live ColdStream transport, live mmap replacement, live pread/Dispatch
 I/O/Metal I/O performance, SSD stress safety, or user-facing
 runtime performance.
-Current L1 cursor: `cold_panic_fallback`; L2 and L3 remain unpromoted.
+Current L1 cursor: `ready_for_product_route_review`; L2 and L3 remain unpromoted.
 
 ## Thesis
 

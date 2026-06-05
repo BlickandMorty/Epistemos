@@ -19,7 +19,7 @@ It binds four copy/source claims across provider reference, KV-Direct, dense 70B
 ## Layer Truth
 
 - L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, and `F-CachePolicy-Pollution` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=cold_panic_fallback` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=cold_panic_fallback` after downstream cache-policy evidence landed.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=ready_for_product_route_review` after downstream cache-policy evidence landed.
 - L3: Not advanced. No user-facing runtime, live provider route, live 70B, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Metrics
