@@ -55,8 +55,9 @@ pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
-pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
+pub mod small_model_runtime_harness_dry_run;
+pub mod small_model_runtime_harness_logged_runtime_smoke;
 pub mod small_model_runtime_harness_owner_approved_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
@@ -170,19 +171,25 @@ pub use slab_arena_copy_count::{
     SlabArenaCopyCountWitness, SlabArenaCopyEvent, SlabArenaLease, SlabArenaPlan, SlabArenaSurface,
     SlabCopyClass, SLAB_ARENA_COPY_COUNT_CURSOR, SLAB_ARENA_COPY_COUNT_NEXT_CURSOR,
 };
+pub use small_model_runtime_harness_abortable_runtime_probe::{
+    SmallModelAbortableRuntimeProbePhase, SmallModelAbortableRuntimeProbeRun,
+    SmallModelAbortableRuntimeProbeSurface, SmallModelRuntimeHarnessAbortableProbeError,
+    SmallModelRuntimeHarnessAbortableProbeMetrics, SmallModelRuntimeHarnessAbortableProbeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR,
+};
 pub use small_model_runtime_harness_dry_run::{
     SmallModelDryRunPhase, SmallModelDryRunRecord, SmallModelDryRunSurface,
     SmallModelRuntimeHarnessDryRunError, SmallModelRuntimeHarnessDryRunMetrics,
     SmallModelRuntimeHarnessDryRunWitness, SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT_CURSOR,
 };
-pub use small_model_runtime_harness_abortable_runtime_probe::{
-    SmallModelAbortableRuntimeProbePhase, SmallModelAbortableRuntimeProbeRun,
-    SmallModelAbortableRuntimeProbeSurface, SmallModelRuntimeHarnessAbortableProbeError,
-    SmallModelRuntimeHarnessAbortableProbeMetrics,
-    SmallModelRuntimeHarnessAbortableProbeWitness,
-    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR,
-    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR,
+pub use small_model_runtime_harness_logged_runtime_smoke::{
+    SmallModelLoggedRuntimeSmokePhase, SmallModelLoggedRuntimeSmokeRun,
+    SmallModelLoggedRuntimeSmokeSurface, SmallModelRuntimeHarnessLoggedSmokeError,
+    SmallModelRuntimeHarnessLoggedSmokeMetrics, SmallModelRuntimeHarnessLoggedSmokeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_owner_approved_probe::{
     SmallModelOwnerProbeLease, SmallModelOwnerProbePhase, SmallModelOwnerProbeSurface,

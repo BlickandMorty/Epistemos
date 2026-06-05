@@ -1,0 +1,1460 @@
+{
+  "falsifier_id": "F-SmallModelRuntimeHarnessLoggedRuntimeSmoke",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_model_runtime_harness_logged_runtime_smoke.sh",
+  "command_digest": "sha256:d0ecd350ef5cfce356b595cabf36f6815c7484887a245e3251b07903d0d4e82a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9bdc82150b3dadecdca5b7fe91a9cd82eb9ad265",
+  "fixture_id": "small_model_runtime_harness_logged_runtime_smoke_v1",
+  "timestamp_utc": "2026-06-05T09:57:42Z",
+  "result_digest": "sha256:92591802e636b2a8c7c6d67c5253e44a426fa6dffed8a833c6c0ab2d911734f2",
+  "measurements": {
+    "abortable_probe_artifact_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_logged_runtime_smoke_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_fallback_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "compatibility_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "context_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "context_budget_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "decode_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "decode_budget_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_run_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "elapsed_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_reason_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_not_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_observed_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "first_token_observed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_runtime_claims_absent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_logged_runtime_smoke_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_html_surface_scan_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "living_index_surface_scan_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_context_tokens": {
+      "value": 8192,
+      "unit": "tokens"
+    },
+    "max_decode_tokens": {
+      "value": 192,
+      "unit": "tokens"
+    },
+    "max_memory_budget_bytes": {
+      "value": 4294967296,
+      "unit": "bytes"
+    },
+    "max_observed_elapsed_ms": {
+      "value": 34,
+      "unit": "ms"
+    },
+    "max_prompt_tokens": {
+      "value": 1024,
+      "unit": "tokens"
+    },
+    "max_runtime_seconds": {
+      "value": 120,
+      "unit": "seconds"
+    },
+    "memory_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_budget_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "value": 17055,
+      "unit": "bytes"
+    },
+    "missing_abortable_probe_artifact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_failure_reason_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_catalog_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_snapshot_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_phase_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_privacy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_envelope_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_lane_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_serial_controller_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_snapshot_logged": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_snapshot_logged_count": {
+      "value": 3,
+      "unit": "runs"
+    },
+    "missing_snapshot_not_logged_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_swift_runtime_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_catalog_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_open_attempted_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "model_open_attempted_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_open_not_attempted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_snapshot_missing_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mutation_committed_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "mutation_committed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_70b_probe_attempt": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_autogenous_kernel_attempt": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_gate_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mutation_committed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_subprocess_spawn": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_transport_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "north_star_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_elapsed_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "output_token_count": {
+      "value": 0,
+      "unit": "tokens"
+    },
+    "output_tokens_not_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "output_tokens_observed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "value": 11,
+      "unit": "phases"
+    },
+    "privacy_fence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_budget_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_envelope_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_lane_count": {
+      "value": 3,
+      "unit": "lanes"
+    },
+    "required_lanes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_logged_failure_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_count": {
+      "value": 3,
+      "unit": "runs"
+    },
+    "run_event_log_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_attempt_logged": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_attempt_logged_count": {
+      "value": 3,
+      "unit": "runs"
+    },
+    "runtime_attempt_not_logged_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_budget_overflow_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_completed_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "runtime_completed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_completed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_started": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_started_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "runtime_started_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "serial_controller_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_probe_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "seventy_b_probe_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_logged_runtime_smoke_address": {
+      "value": "sha256:8de5fdb48e0d27ac74e0b4f530fc3e24d92ed45d684ba29aa9d62a516fa92a39",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_logged_runtime_smoke_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "snapshot_availability_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "snapshot_unavailable_recorded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_spawn_count": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "subprocess_spawn_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "value": 4,
+      "unit": "surfaces"
+    },
+    "swift_runtime_surface_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "transport_runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "transport_runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unavailable_snapshot_count": {
+      "value": 3,
+      "unit": "runs"
+    },
+    "upstream_small_model_runtime_harness_abortable_runtime_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abortable_probe_artifact_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "budget_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_logged_runtime_smoke_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cloud_fallback_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "compatibility_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "context_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "context_budget_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "decode_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "decode_budget_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_run_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "elapsed_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_reason_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_not_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_observed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "first_token_observed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_runtime_claims_absent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_logged_runtime_smoke_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_html_surface_scan_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "living_index_surface_scan_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_context_tokens": {
+      "operator": "<=",
+      "value": 40960,
+      "unit": "tokens"
+    },
+    "max_decode_tokens": {
+      "operator": "<=",
+      "value": 512,
+      "unit": "tokens"
+    },
+    "max_memory_budget_bytes": {
+      "operator": "<=",
+      "value": 8589934592,
+      "unit": "bytes"
+    },
+    "max_observed_elapsed_ms": {
+      "operator": "<=",
+      "value": 1000,
+      "unit": "ms"
+    },
+    "max_prompt_tokens": {
+      "operator": "<=",
+      "value": 8192,
+      "unit": "tokens"
+    },
+    "max_runtime_seconds": {
+      "operator": "<=",
+      "value": 300,
+      "unit": "seconds"
+    },
+    "memory_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_budget_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "operator": "<=",
+      "value": 458752,
+      "unit": "bytes"
+    },
+    "missing_abortable_probe_artifact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_admission_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_fence_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_failure_reason_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_catalog_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_model_snapshot_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_phase_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_privacy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_envelope_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_lane_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scope_rex_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_serial_controller_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_snapshot_logged": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_snapshot_logged_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "runs"
+    },
+    "missing_snapshot_not_logged_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_sovereign_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_swift_runtime_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_catalog_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_open_attempted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "model_open_attempted_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_open_not_attempted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_snapshot_missing_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mutation_committed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "mutation_committed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_70b_probe_attempt": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_autogenous_kernel_attempt": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_gate_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mutation_committed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_subprocess_spawn": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_transport_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "north_star_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observed_elapsed_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "output_token_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "tokens"
+    },
+    "output_tokens_not_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "output_tokens_observed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "operator": ">=",
+      "value": 11,
+      "unit": "phases"
+    },
+    "privacy_fence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_budget_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_envelope_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_lane_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "lanes"
+    },
+    "required_lanes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_logged_failure_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "runs"
+    },
+    "run_event_log_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_attempt_logged": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_attempt_logged_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "runs"
+    },
+    "runtime_attempt_not_logged_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_budget_overflow_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_completed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "runtime_completed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_completed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_started": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "runtime_started_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_rex_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "serial_controller_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_probe_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "seventy_b_probe_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_logged_runtime_smoke_address": {
+      "operator": "present",
+      "value": true,
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_logged_runtime_smoke_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "snapshot_availability_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "snapshot_unavailable_recorded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_spawn_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "subprocess_spawn_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "surfaces"
+    },
+    "swift_runtime_surface_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "transport_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "transport_runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unavailable_snapshot_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "runs"
+    },
+    "upstream_small_model_runtime_harness_abortable_runtime_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abortable_probe_artifact_ref_bound": true,
+    "admission_bound": true,
+    "answer_packet_bound": true,
+    "answer_packet_suppression_rejected": true,
+    "autogenous_kernel_rejected": true,
+    "budget_refs_bound": true,
+    "cancellation_bound": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_logged_runtime_smoke_or_advanced": true,
+    "capability_route_status_vault_research": true,
+    "cloud_fallback_count": true,
+    "compatibility_fence_bound": true,
+    "context_budget_bound": true,
+    "context_budget_overflow_rejected": true,
+    "decode_budget_bound": true,
+    "decode_budget_overflow_rejected": true,
+    "duplicate_run_rejected": true,
+    "elapsed_overflow_rejected": true,
+    "failure_reason_bound": true,
+    "first_token_not_observed": true,
+    "first_token_observed_count": true,
+    "first_token_observed_rejected": true,
+    "forbidden_runtime_claims_absent": true,
+    "gate_bypass_rejected": true,
+    "guard_cursor_logged_runtime_smoke_or_advanced": true,
+    "hidden_authority_rejected": true,
+    "hidden_chain_rejected": true,
+    "hidden_cloud_rejected": true,
+    "l1_l2_l3_separation_bound": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "lattice_html_surface_scan_pass": true,
+    "living_index_surface_scan_pass": true,
+    "mas_floor_preserved": true,
+    "mas_overclaim_rejected": true,
+    "max_context_tokens": true,
+    "max_decode_tokens": true,
+    "max_memory_budget_bytes": true,
+    "max_observed_elapsed_ms": true,
+    "max_prompt_tokens": true,
+    "max_runtime_seconds": true,
+    "memory_budget_bound": true,
+    "memory_budget_overflow_rejected": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "metadata_bytes": true,
+    "missing_abortable_probe_artifact_rejected": true,
+    "missing_admission_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_budget_rejected": true,
+    "missing_cancellation_rejected": true,
+    "missing_compatibility_fence_rejected": true,
+    "missing_failure_reason_rejected": true,
+    "missing_model_catalog_rejected": true,
+    "missing_model_snapshot_rejected": true,
+    "missing_phase_rejected": true,
+    "missing_privacy_rejected": true,
+    "missing_prompt_envelope_rejected": true,
+    "missing_required_lane_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_scope_rex_rejected": true,
+    "missing_serial_controller_rejected": true,
+    "missing_snapshot_logged": true,
+    "missing_snapshot_logged_count": true,
+    "missing_snapshot_not_logged_rejected": true,
+    "missing_sovereign_gate_rejected": true,
+    "missing_swift_runtime_surface_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_rejected": true,
+    "model_catalog_refs_bound": true,
+    "model_open_attempted_count": true,
+    "model_open_attempted_rejected": true,
+    "model_open_not_attempted": true,
+    "model_snapshot_missing_refs_bound": true,
+    "mutation_committed_count": true,
+    "mutation_committed_rejected": true,
+    "no_70b_probe_attempt": true,
+    "no_answer_packet_suppression": true,
+    "no_autogenous_kernel_attempt": true,
+    "no_gate_bypass": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud_fallback": true,
+    "no_hidden_route_authority": true,
+    "no_l2_green_claim": true,
+    "no_l3_green_claim": true,
+    "no_model_bytes_loaded": true,
+    "no_mutation_committed": true,
+    "no_route_policy_mutation": true,
+    "no_runtime_bytes_loaded": true,
+    "no_subprocess_spawn": true,
+    "no_transport_runtime_bytes_loaded": true,
+    "north_star_present": true,
+    "observed_elapsed_bound": true,
+    "output_token_count": true,
+    "output_tokens_not_observed": true,
+    "output_tokens_observed_rejected": true,
+    "phase_count": true,
+    "privacy_fence_bound": true,
+    "product_status_research_only": true,
+    "prompt_budget_bound": true,
+    "prompt_budget_overflow_rejected": true,
+    "prompt_envelope_refs_bound": true,
+    "required_lane_count": true,
+    "required_lanes_bound": true,
+    "required_phases_bound": true,
+    "rollback_bound": true,
+    "route_authority_logged_failure_only": true,
+    "route_policy_mutation_rejected": true,
+    "run_count": true,
+    "run_event_log_bound": true,
+    "runtime_attempt_logged": true,
+    "runtime_attempt_logged_count": true,
+    "runtime_attempt_not_logged_rejected": true,
+    "runtime_budget_bound": true,
+    "runtime_budget_overflow_rejected": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_rejected": true,
+    "runtime_completed_count": true,
+    "runtime_completed_rejected": true,
+    "runtime_not_completed": true,
+    "runtime_not_started": true,
+    "runtime_started_count": true,
+    "runtime_started_rejected": true,
+    "scope_rex_bound": true,
+    "serial_controller_bound": true,
+    "seventy_b_probe_count": true,
+    "seventy_b_probe_rejected": true,
+    "small_model_runtime_harness_logged_runtime_smoke_address": true,
+    "small_model_runtime_harness_logged_runtime_smoke_address_deterministic": true,
+    "snapshot_availability_overclaim_rejected": true,
+    "snapshot_unavailable_recorded": true,
+    "sovereign_gate_bound": true,
+    "subprocess_spawn_count": true,
+    "subprocess_spawn_rejected": true,
+    "surface_count": true,
+    "swift_runtime_surface_bound": true,
+    "transport_runtime_bytes_loaded": true,
+    "transport_runtime_bytes_rejected": true,
+    "unavailable_snapshot_count": true,
+    "upstream_small_model_runtime_harness_abortable_runtime_probe_pass": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "small_model_runtime_harness_logged_runtime_smoke_metadata_only",
+      "detail": "The logged runtime smoke proves the runtime harness logs an owner-approved small-model attempt and visible missing-local-snapshot failure with rollback, RunEventLog, AnswerPacket, admission, privacy, and budget evidence. It intentionally opens no runtime/model bytes, emits no first token, and does not promote L2 capability or L3 product runtime."
+    }
+  ],
+  "notes": "metadata-only F-SmallModelRuntimeHarnessLoggedRuntimeSmoke: proves owner-approved abortable small-model smoke reaches the runtime logging boundary and records missing local snapshots visibly; no MLX inference success, first token, runtime/model bytes, route mutation, hidden cloud, MAS overclaim, or L2/L3 promotion."
+}

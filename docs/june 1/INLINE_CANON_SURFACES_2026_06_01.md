@@ -13,11 +13,14 @@ This file exists so the inline edits are not silently lost. The exact copied
 files live in `authority-surfaces/`; this is the map of what each one preserves.
 
 2026-06-05 mirror note: live S0 canon now includes
-`F-SmallModelRuntimeHarnessSafetyPlan` and
-`F-SmallModelRuntimeHarnessDryRunWitness` as metadata-only witnesses. Current L1
-cursor is `small_model_runtime_harness_owner_approved_probe`; L2 remains
-`vault_research_route_with_packetized_mitigation`; L3 user-facing/product
-runtime is unchanged.
+`F-SmallModelRuntimeHarnessSafetyPlan`,
+`F-SmallModelRuntimeHarnessDryRunWitness`,
+`F-SmallModelRuntimeHarnessOwnerApprovedProbe`,
+`F-SmallModelRuntimeHarnessAbortableRuntimeProbe`, and
+`F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` as metadata-only witnesses.
+Current L1 cursor is `small_model_runtime_harness_first_token_runtime_probe`;
+L2 remains `vault_research_route_with_packetized_mitigation`; L3
+user-facing/product runtime is unchanged.
 
 ## Copied Authority Surfaces
 

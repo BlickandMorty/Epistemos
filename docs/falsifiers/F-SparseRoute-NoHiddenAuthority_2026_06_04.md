@@ -25,7 +25,7 @@ Invalid fixtures reject empty fixtures, duplicate fixture IDs, duplicate route I
 
 ## Truth Layers
 
-L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream, large-model deferral, ProviderRoute copy-source guard, TransportTrace, SSD wear-budget, ColdStream-vs-mmap, SlabArena copy-count, Metal I/O feature-gate, CodecStage latency, TransportCancellation, and CachePolicy witnesses now pass metadata-only and the current cursor is `small_model_runtime_harness_logged_runtime_smoke` after downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`.
+L1 advanced at landing. The architecture cursor moved from `F-SparseRoute-NoHiddenAuthority` to `F-ColdStream-NoHiddenAuthority`; downstream ColdStream, large-model deferral, ProviderRoute copy-source guard, TransportTrace, SSD wear-budget, ColdStream-vs-mmap, SlabArena copy-count, Metal I/O feature-gate, CodecStage latency, TransportCancellation, and CachePolicy witnesses now pass metadata-only and the current cursor is `small_model_runtime_harness_first_token_runtime_probe` after downstream `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke`.
 
 L2 did not advance to product-green. The capability kernel still reports `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `cache_policy_pollution`.
 
