@@ -20,6 +20,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
     SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
@@ -148,6 +149,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_product_wrv_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_product_answer_packet_live_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -184,6 +187,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_NEXT: &str =
     "small_model_runtime_harness_product_answer_packet_live_probe";
 const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_NEXT: &str =
     "small_model_runtime_harness_product_route_capability_recheck";
+const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_NEXT: &str =
+    "small_model_runtime_harness_fresh_product_runtime_safety_lease";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2433,6 +2438,8 @@ fn build_report() -> KernelReport {
         GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_PATH);
     let small_model_runtime_harness_product_answer_packet_live_probe =
         GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_PATH);
+    let small_model_runtime_harness_product_route_capability_recheck =
+        GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2507,6 +2514,7 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_answer_packet_runtime_probe,
         &small_model_runtime_harness_product_wrv_probe,
         &small_model_runtime_harness_product_answer_packet_live_probe,
+        &small_model_runtime_harness_product_route_capability_recheck,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2975,6 +2983,10 @@ fn build_report() -> KernelReport {
         small_model_runtime_harness_product_answer_packet_live_probe.overall_pass
             && small_model_runtime_harness_product_answer_packet_live_probe
                 .all_axes_true(SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_AXES);
+    let small_model_runtime_harness_product_route_capability_recheck_pass =
+        small_model_runtime_harness_product_route_capability_recheck.overall_pass
+            && small_model_runtime_harness_product_route_capability_recheck
+                .all_axes_true(SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -3045,6 +3057,11 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_owner_approved_probe,
         &small_model_runtime_harness_abortable_runtime_probe,
         &small_model_runtime_harness_logged_runtime_smoke,
+        &small_model_runtime_harness_first_token_runtime_probe,
+        &small_model_runtime_harness_answer_packet_runtime_probe,
+        &small_model_runtime_harness_product_wrv_probe,
+        &small_model_runtime_harness_product_answer_packet_live_probe,
+        &small_model_runtime_harness_product_route_capability_recheck,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -3186,6 +3203,12 @@ fn build_report() -> KernelReport {
         &cocktail,
     );
     let next_bottleneck = if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && small_model_runtime_harness_product_route_capability_recheck_pass
+        && base_next_bottleneck == SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_NEXT
+    {
+        SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_NEXT.to_string()
+    } else if !seventy_b_route_pass
         && !heavy_long_context_enabled
         && small_model_runtime_harness_answer_packet_runtime_probe_pass
         && small_model_runtime_harness_product_wrv_probe_pass
@@ -3912,6 +3935,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_product_route_capability_recheck_pass",
+        small_model_runtime_harness_product_route_capability_recheck_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -4267,6 +4297,11 @@ fn build_report() -> KernelReport {
         "small_model_runtime_harness_product_answer_packet_live_probe",
         &small_model_runtime_harness_product_answer_packet_live_probe,
     );
+    add_gate_summary(
+        &mut measurements,
+        "small_model_runtime_harness_product_route_capability_recheck",
+        &small_model_runtime_harness_product_route_capability_recheck,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let mut anomalies = build_anomalies(
@@ -4350,6 +4385,14 @@ fn build_report() -> KernelReport {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_product_wrv_probe_source_only",
             "detail": "Small-model runtime harness product WRV is source/test-visible through the app route, Settings diagnostics, MessageBubble AnswerPacket chips, and focused tests. L2 remains red until a live product AnswerPacket route probe proves the app path with runtime evidence; no 70B/128K/MAS live-agent promotion is implied."
+        }));
+    } else if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && small_model_runtime_harness_product_route_capability_recheck_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_product_route_capability_recheck_red_state",
+            "detail": "Small-model product route capability has been rechecked after retained AnswerPacket handoff. L2 remains vault_research_route_with_packetized_mitigation, L3 fresh app runtime remains unverified, and the next bottleneck is a fresh product runtime safety lease; no 70B/128K/MAS live-agent promotion is implied."
         }));
     } else if !seventy_b_route_pass
         && !heavy_long_context_enabled

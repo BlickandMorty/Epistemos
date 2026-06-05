@@ -132,4 +132,5 @@ A future artifact fails immediately if it:
 - Small-model harness answer-packet runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe_2026_06_05.md`
 - Small-model harness product WRV witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductWrvProbe_2026_06_05.md`
 - Small-model harness product AnswerPacket handoff witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe_2026_06_05.md`
-- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` retained-live product handoff witness: `small_model_runtime_harness_product_route_capability_recheck`. This advances L1 retained-live product proof only; L2 product capability remains `vault_research_route_with_packetized_mitigation`, and L3 fresh app runtime remains unchanged.
+- Small-model harness product-route capability recheck witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck_2026_06_05.md`
+- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` blocker ledger: `small_model_runtime_harness_fresh_product_runtime_safety_lease`. This advances L1 red-state blocker proof only; L2 product capability remains `vault_research_route_with_packetized_mitigation`, and L3 fresh app runtime remains unchanged.

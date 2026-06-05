@@ -14,7 +14,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Script: `Tools/falsifiers/f_proof_pressure_signal.sh`
 - Artifact: `artifacts/falsifiers/proof_pressure_signal/result.json`
 - L1 next cursor at landing: `F-VerifierRegretFastWeights`; current cursor after the 2026-06-04 VerifierRegretFastWeights witness: `F-FastWeightQuarantine`
-- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_product_route_capability_recheck` after downstream `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe`
+- L2 product route: unchanged, `vault_research_route_with_packetized_mitigation`; current next bottleneck `small_model_runtime_harness_fresh_product_runtime_safety_lease` after downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck`
 - L3 user-facing/runtime route: unchanged; no proof pressure live route authority, live sparse routing, local model-byte load, 70B runtime claim, fast-weight consolidation, autogenous-kernel mutation, or UI claim is promoted.
 
 ## What It Proves

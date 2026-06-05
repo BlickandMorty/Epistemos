@@ -359,6 +359,10 @@ name = "falsify_small_model_runtime_harness_product_answer_packet_live_probe"
 path = "src/bin/falsify_small_model_runtime_harness_product_answer_packet_live_probe.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_product_route_capability_recheck"
+path = "src/bin/falsify_small_model_runtime_harness_product_route_capability_recheck.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

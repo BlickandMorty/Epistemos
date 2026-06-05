@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1f76922955124d4be9b602cf2df3386f862d89b4",
+  "commit_sha": "624c948cff19320ca043e62c7d7b8760a8156e35",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T12:57:36Z",
-  "result_digest": "sha256:437e33b0a80321c65f1c90749ca792ff4e0c23c53b8b681431e3d70c202cb812",
+  "timestamp_utc": "2026-06-05T13:51:10Z",
+  "result_digest": "sha256:cf1b7d73fa37dcdf55ff569863ddeb2005eff42072ea6edd8a12492657eeefef",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -308,6 +308,10 @@
           },
           "small_model_runtime_harness_product_answer_packet_live_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_product_answer_packet_live_probe/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_product_route_capability_recheck": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -662,11 +666,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_product_route_capability_recheck",
+      "value": "small_model_runtime_harness_fresh_product_runtime_safety_lease",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_product_route_capability_recheck",
+      "value": "small_model_runtime_harness_fresh_product_runtime_safety_lease",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -814,6 +818,10 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_product_answer_packet_live_probe_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_product_route_capability_recheck_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1210,6 +1218,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_product_route_capability_recheck_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_product_wrv_probe_available": {
       "operator": "==",
       "value": true,
@@ -1349,6 +1362,7 @@
     "small_model_runtime_harness_logged_runtime_smoke_available": true,
     "small_model_runtime_harness_owner_approved_probe_available": true,
     "small_model_runtime_harness_product_answer_packet_live_probe_available": true,
+    "small_model_runtime_harness_product_route_capability_recheck_available": true,
     "small_model_runtime_harness_product_wrv_probe_available": true,
     "small_model_runtime_harness_safety_plan_available": true,
     "sparse_route_no_hidden_authority_available": true,
@@ -1372,8 +1386,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "small_model_runtime_harness_product_answer_packet_live_probe_retained_handoff",
-      "detail": "SmallModelRuntimeHarnessProductAnswerPacketLiveProbe is present as retained-live product handoff evidence. It binds bounded Qwen3-4B runtime bytes to product AnswerPacket/RunEventLog surfaces without fresh model bytes, while L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K claim promotes."
+      "kind": "small_model_runtime_harness_product_route_capability_recheck_red_state",
+      "detail": "SmallModelRuntimeHarnessProductRouteCapabilityRecheck is present as an L1 red-state blocker witness. It preserves L2 vault_research_route_with_packetized_mitigation and queues a fresh product runtime safety lease; no MAS/70B/128K/L3 claim promotes."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1388,5 +1402,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_product_route_capability_recheck; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

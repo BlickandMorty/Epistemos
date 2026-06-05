@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1f76922955124d4be9b602cf2df3386f862d89b4",
+  "commit_sha": "624c948cff19320ca043e62c7d7b8760a8156e35",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-05T12:57:20Z",
-  "result_digest": "sha256:0b24e14ba18e78eec291e27aa4362a3b4b811f9e02e47b72827fb09cb543ecca",
+  "timestamp_utc": "2026-06-05T13:50:50Z",
+  "result_digest": "sha256:b48161f703ca5e5b6459ea6ebd50f2316a1ec4457bf147f8723fcef275ee34b2",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -554,7 +554,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_product_route_capability_recheck",
+      "value": "small_model_runtime_harness_fresh_product_runtime_safety_lease",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -1464,6 +1464,22 @@
       },
       "unit": "object"
     },
+    "small_model_runtime_harness_product_route_capability_recheck_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_product_route_capability_recheck_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "small_model_runtime_harness_product_wrv_probe_pass": {
       "value": true,
       "unit": "bool"
@@ -2093,6 +2109,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_product_route_capability_recheck_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_product_wrv_probe_pass": {
       "operator": "==",
       "value": true,
@@ -2266,6 +2287,7 @@
     "small_model_runtime_harness_logged_runtime_smoke_pass": true,
     "small_model_runtime_harness_owner_approved_probe_pass": true,
     "small_model_runtime_harness_product_answer_packet_live_probe_pass": true,
+    "small_model_runtime_harness_product_route_capability_recheck_pass": true,
     "small_model_runtime_harness_product_wrv_probe_pass": true,
     "small_model_runtime_harness_safety_plan_pass": true,
     "source_artifacts_present": true,
@@ -2304,12 +2326,12 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "small_model_runtime_harness_product_route_capability_recheck"
+      "detail": "small_model_runtime_harness_fresh_product_runtime_safety_lease"
     },
     {
-      "kind": "small_model_runtime_harness_product_answer_packet_live_probe_retained_handoff",
-      "detail": "Small-model runtime harness product AnswerPacket handoff is present as retained-live L1 evidence: bounded Qwen3-4B runtime bytes are tied to product AnswerPacket/RunEventLog surfaces without fresh model bytes. L2 remains red for broader product-route requirements; no 70B/128K/MAS live-agent promotion is implied."
+      "kind": "small_model_runtime_harness_product_route_capability_recheck_red_state",
+      "detail": "Small-model product route capability has been rechecked after retained AnswerPacket handoff. L2 remains vault_research_route_with_packetized_mitigation, L3 fresh app runtime remains unverified, and the next bottleneck is a fresh product runtime safety lease; no 70B/128K/MAS live-agent promotion is implied."
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_product_route_capability_recheck; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_fresh_product_runtime_safety_lease; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
