@@ -13,8 +13,9 @@ use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_VS_MMAP_AXES, COLD_PANIC_FALLBACK_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
     PRODUCT_ROUTE_REVIEW_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
-    SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
-    SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES, SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES,
+    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES,
+    TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -124,6 +125,8 @@ const COLD_PANIC_FALLBACK_PATH: &str = "artifacts/falsifiers/cold_panic_fallback
 const PRODUCT_ROUTE_REVIEW_PATH: &str = "artifacts/falsifiers/product_route_review/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -144,6 +147,8 @@ const PRODUCT_ROUTE_REVIEW: &str = "ready_for_product_route_review";
 const SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN: &str = "small_model_runtime_harness_safety_plan";
 const SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT: &str =
     "small_model_runtime_harness_dry_run_witness";
+const SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT: &str =
+    "small_model_runtime_harness_owner_approved_probe";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2377,6 +2382,8 @@ fn build_report() -> KernelReport {
     let product_route_review = GateArtifact::read(PRODUCT_ROUTE_REVIEW_PATH);
     let small_model_runtime_harness_safety_plan =
         GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_PATH);
+    let small_model_runtime_harness_dry_run_witness =
+        GateArtifact::read(SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2879,6 +2886,10 @@ fn build_report() -> KernelReport {
         .overall_pass
         && small_model_runtime_harness_safety_plan
             .all_axes_true(SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES);
+    let small_model_runtime_harness_dry_run_witness_pass =
+        small_model_runtime_harness_dry_run_witness.overall_pass
+            && small_model_runtime_harness_dry_run_witness
+                .all_axes_true(SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -3076,6 +3087,7 @@ fn build_report() -> KernelReport {
         cold_panic_fallback_pass,
         product_route_review_pass,
         small_model_runtime_harness_safety_plan_pass,
+        small_model_runtime_harness_dry_run_witness_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3160,6 +3172,7 @@ fn build_report() -> KernelReport {
         cold_panic_fallback_pass,
         product_route_review_pass,
         small_model_runtime_harness_safety_plan_pass,
+        small_model_runtime_harness_dry_run_witness_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3726,6 +3739,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_dry_run_witness_pass",
+        small_model_runtime_harness_dry_run_witness_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -4041,6 +4061,11 @@ fn build_report() -> KernelReport {
         "small_model_runtime_harness_safety_plan",
         &small_model_runtime_harness_safety_plan,
     );
+    add_gate_summary(
+        &mut measurements,
+        "small_model_runtime_harness_dry_run_witness",
+        &small_model_runtime_harness_dry_run_witness,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -4106,6 +4131,7 @@ fn build_report() -> KernelReport {
         cold_panic_fallback_pass,
         product_route_review_pass,
         small_model_runtime_harness_safety_plan_pass,
+        small_model_runtime_harness_dry_run_witness_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4530,6 +4556,7 @@ fn next_bottleneck(
     cold_panic_fallback_pass: bool,
     product_route_review_pass: bool,
     small_model_runtime_harness_safety_plan_pass: bool,
+    small_model_runtime_harness_dry_run_witness_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4684,17 +4711,19 @@ fn next_bottleneck(
             PRODUCT_ROUTE_REVIEW.to_string()
         } else if !seventy_b_route_pass && !small_model_runtime_harness_safety_plan_pass {
             SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN.to_string()
+        } else if !seventy_b_route_pass && !small_model_runtime_harness_dry_run_witness_pass {
+            SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT.to_string()
         } else if !seventy_b_route_pass {
-            SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT.to_string()
+            SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT.to_string()
         } else {
-            SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT.to_string()
+            SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT.to_string()
         }
     } else if !seventy_b_route_pass {
         cocktail
             .measurement_string("primary_bottleneck")
             .unwrap_or_else(|| "run_70b_local_cocktail_with_real_inputs".to_string())
     } else {
-        SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT.to_string()
+        SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT.to_string()
     }
 }
 
@@ -4777,6 +4806,7 @@ fn build_ordered_gap_queue(
     cold_panic_fallback_pass: bool,
     product_route_review_pass: bool,
     small_model_runtime_harness_safety_plan_pass: bool,
+    small_model_runtime_harness_dry_run_witness_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4928,6 +4958,23 @@ fn build_ordered_gap_queue(
                 && cold_panic_fallback_pass
                 && product_route_review_pass
                 && small_model_runtime_harness_safety_plan_pass
+                && small_model_runtime_harness_dry_run_witness_pass
+            {
+                "deferred_l1_small_model_harness_dry_run_witnessed"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+                && codec_stage_latency_pass
+                && transport_cancellation_pass
+                && cache_policy_pollution_pass
+                && cold_panic_fallback_pass
+                && product_route_review_pass
+                && small_model_runtime_harness_safety_plan_pass
             {
                 "deferred_l1_small_model_harness_safety_planned"
             } else if !heavy_long_context_enabled
@@ -5062,6 +5109,23 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+                && codec_stage_latency_pass
+                && transport_cancellation_pass
+                && cache_policy_pollution_pass
+                && cold_panic_fallback_pass
+                && product_route_review_pass
+                && small_model_runtime_harness_safety_plan_pass
+                && small_model_runtime_harness_dry_run_witness_pass
+            {
+                "deferred_l1_small_model_harness_dry_run_witnessed"
             } else if !heavy_long_context_enabled
                 && large_model_provider_reference_deferral_pass
                 && provider_route_copy_source_guard_pass
@@ -6053,6 +6117,7 @@ fn build_anomalies(
     cold_panic_fallback_pass: bool,
     product_route_review_pass: bool,
     small_model_runtime_harness_safety_plan_pass: bool,
+    small_model_runtime_harness_dry_run_witness_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -6620,6 +6685,49 @@ fn build_anomalies(
         && cold_panic_fallback_pass
         && product_route_review_pass
         && small_model_runtime_harness_safety_plan_pass
+        && !small_model_runtime_harness_dry_run_witness_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_dry_run_witness_missing",
+            "detail": "Small-model runtime harness safety planning is present; the next L1 cursor must prove a dry-run-only harness transcript with admission, serialized executor, cancellation, rollback, RunEventLog, AnswerPacket, privacy, budget, and zero runtime/model bytes before any owner-approved MLX runtime probe."
+        }));
+    }
+    if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && metal_io_feature_gate_pass
+        && codec_stage_latency_pass
+        && transport_cancellation_pass
+        && cache_policy_pollution_pass
+        && cold_panic_fallback_pass
+        && product_route_review_pass
+        && small_model_runtime_harness_safety_plan_pass
+        && small_model_runtime_harness_dry_run_witness_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_dry_run_witness_metadata_only",
+            "detail": "Small-model runtime harness dry-run evidence is witnessed at L1 and points to owner-approved runtime probe gating next. L2 capability remains vault_research_route_with_packetized_mitigation and L3 user-facing/product runtime is unchanged."
+        }));
+    } else if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && metal_io_feature_gate_pass
+        && codec_stage_latency_pass
+        && transport_cancellation_pass
+        && cache_policy_pollution_pass
+        && cold_panic_fallback_pass
+        && product_route_review_pass
+        && small_model_runtime_harness_safety_plan_pass
     {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_safety_plan_metadata_only",
@@ -7170,21 +7278,22 @@ mod tests {
         const COLD_PANIC_FALLBACK: usize = 71;
         const PRODUCT_ROUTE_REVIEW: usize = 72;
         const SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN: usize = 73;
-        const SEVENTY_B: usize = 74;
+        const SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS: usize = 74;
+        const SEVENTY_B: usize = 75;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 75] {
-            let mut values = [false; 75];
+        let flags = |true_indexes: &[usize]| -> [bool; 76] {
+            let mut values = [false; 76];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 75], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 76], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -7263,11 +7372,12 @@ mod tests {
                 values[72],
                 values[73],
                 values[74],
+                values[75],
                 &missing,
             )
         };
-        let nb = |values: [bool; 75]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 75]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 76]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 76]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -10025,6 +10135,81 @@ mod tests {
                 SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN,
             ]))),
             "small_model_runtime_harness_dry_run_witness"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL,
+                PROVIDER_ROUTE_COPY_SOURCE_GUARD,
+                TRANSPORT_TRACE_ANSWER_PACKET,
+                SSD_WEAR_BUDGET,
+                COLDSTREAM_VS_MMAP,
+                SLAB_ARENA_COPY_COUNT,
+                METAL_IO_FEATURE_GATE,
+                CODEC_STAGE_LATENCY,
+                TRANSPORT_CANCELLATION,
+                CACHE_POLICY_POLLUTION,
+                COLD_PANIC_FALLBACK,
+                PRODUCT_ROUTE_REVIEW,
+                SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN,
+                SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS,
+            ]))),
+            "small_model_runtime_harness_owner_approved_probe"
         );
     }
 
