@@ -4,24 +4,26 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, and F-MetalIO-FeatureGate passed metadata-only witnesses on 2026-06-04; no product promotion without codec latency, cancellation, cache-pollution, panic fallback, live p99 stall proof, rollback, and platform benchmarks
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, and F-CodecStage-Latency passed metadata-only witnesses; no product promotion without cancellation, cache-pollution, panic fallback, live p99 stall proof, rollback, and platform benchmarks
 ---
 
 # ColdStream Residency Transport - 2026-06-01
 
 North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
-2026-06-04 status note: `F-ColdStream-NoHiddenAuthority`,
+2026-06-05 status note: `F-ColdStream-NoHiddenAuthority`,
 `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`,
 `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, and
-`F-MetalIO-FeatureGate` now pass as metadata-only primary witnesses. The newest
-artifact at `artifacts/falsifiers/metal_io_feature_gate/result.json` proves
-Metal I/O is selected only after explicit platform support and otherwise falls
-back to visible CPU slabs with rollback, RunEventLog, AnswerPacket, and
-SCOPE-Rex/SovereignGate admission. It does not prove live ColdStream transport,
-live mmap replacement, live pread/Dispatch I/O/Metal I/O performance, codec
-latency, cache policy, SSD stress safety, or user-facing runtime performance.
-Current L1 cursor: `codec_stage_latency`; L2 and L3 remain unpromoted.
+`F-MetalIO-FeatureGate` now pass as metadata-only primary witnesses.
+`F-CodecStage-Latency` also passes as a metadata-only witness at
+`artifacts/falsifiers/codec_stage_latency/result.json`: it proves file-read
+traces, codec latency traces, checksums, copy counts, rollback, RunEventLog,
+AnswerPacket, admission, cancellation, and visible caveats stay separate before
+live codec or transport work can promote. It does not prove live ColdStream
+transport, live mmap replacement, live pread/Dispatch I/O/Metal I/O
+performance, cache policy, SSD stress safety, or user-facing runtime
+performance.
+Current L1 cursor: `transport_cancellation`; L2 and L3 remain unpromoted.
 
 ## Thesis
 

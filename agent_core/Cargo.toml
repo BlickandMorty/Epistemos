@@ -303,6 +303,10 @@ name = "falsify_metal_io_feature_gate"
 path = "src/bin/falsify_metal_io_feature_gate.rs"
 
 [[bin]]
+name = "falsify_codec_stage_latency"
+path = "src/bin/falsify_codec_stage_latency.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

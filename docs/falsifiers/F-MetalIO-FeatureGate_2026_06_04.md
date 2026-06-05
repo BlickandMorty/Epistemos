@@ -29,7 +29,7 @@ fence, cancellation group, fallback slab, and visible caveat.
   `codec_stage_latency`.
 - L2 product route remains
   `vault_research_route_with_packetized_mitigation`; next bottleneck is
-  `codec_stage_latency`.
+  `transport_cancellation`.
 - L3 user-facing/product runtime is unchanged.
 
 ## Hardening
