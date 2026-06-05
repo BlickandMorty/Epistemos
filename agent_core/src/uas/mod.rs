@@ -34,6 +34,7 @@ pub mod coactivation_tile;
 pub mod codec_stage_latency;
 pub mod cold_assembly_plan;
 pub mod cold_miss_ledger;
+pub mod cold_panic_fallback;
 pub mod coldstream;
 pub mod coldstream_vs_mmap;
 pub mod construction_card;
@@ -84,6 +85,11 @@ pub use cold_assembly_plan::{
     ColdAssemblyTileRole,
 };
 pub use cold_miss_ledger::{ColdMissLedger, ColdMissLedgerEntry, ColdMissLedgerError};
+pub use cold_panic_fallback::{
+    ColdFallbackRoute, ColdPanicFallbackError, ColdPanicFallbackMetrics, ColdPanicFallbackRun,
+    ColdPanicFallbackWitness, ColdPanicSurface, COLD_PANIC_FALLBACK_CURSOR,
+    COLD_PANIC_FALLBACK_NEXT_CURSOR,
+};
 pub use coldstream::{
     ColdStreamAuthority, ColdStreamCachePolicy, ColdStreamDestination, ColdStreamError,
     ColdStreamPageRun, ColdStreamPriority, ColdStreamTransportManifest, ColdStreamTransportTrace,
