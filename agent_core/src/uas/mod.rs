@@ -61,6 +61,7 @@ pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_first_token_runtime_probe;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
 pub mod small_model_runtime_harness_owner_approved_probe;
+pub mod small_model_runtime_harness_product_answer_packet_live_probe;
 pub mod small_model_runtime_harness_product_wrv_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
@@ -218,11 +219,19 @@ pub use small_model_runtime_harness_owner_approved_probe::{
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR,
 };
+pub use small_model_runtime_harness_product_answer_packet_live_probe::{
+    product_answer_packet_live_metadata_budget_bytes, required_product_answer_packet_live_phases,
+    SmallModelProductAnswerPacketLiveMetrics, SmallModelProductAnswerPacketLivePhase,
+    SmallModelProductAnswerPacketLiveProbeError, SmallModelProductAnswerPacketLiveSurface,
+    SmallModelProductAnswerPacketLiveWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_NEXT_CURSOR,
+};
 pub use small_model_runtime_harness_product_wrv_probe::{
-    product_wrv_metadata_budget_bytes, required_product_wrv_phases,
-    SmallModelProductWrvMetrics, SmallModelProductWrvPhase, SmallModelProductWrvProbeError,
-    SmallModelProductWrvSourceRef, SmallModelProductWrvSurface, SmallModelProductWrvTestRef,
-    SmallModelProductWrvWitness, SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_CURSOR,
+    product_wrv_metadata_budget_bytes, required_product_wrv_phases, SmallModelProductWrvMetrics,
+    SmallModelProductWrvPhase, SmallModelProductWrvProbeError, SmallModelProductWrvSourceRef,
+    SmallModelProductWrvSurface, SmallModelProductWrvTestRef, SmallModelProductWrvWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_safety_plan::{

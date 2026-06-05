@@ -131,4 +131,5 @@ A future artifact fails immediately if it:
 - Small-model harness first-token runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`
 - Small-model harness answer-packet runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe_2026_06_05.md`
 - Small-model harness product WRV witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductWrvProbe_2026_06_05.md`
-- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductWrvProbe` source/test WRV witness: `small_model_runtime_harness_product_answer_packet_live_probe`. This advances L1/source WRV only; L2 product capability remains `vault_research_route_with_packetized_mitigation`, and L3 live product runtime is unchanged.
+- Small-model harness product AnswerPacket handoff witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe_2026_06_05.md`
+- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` retained-live product handoff witness: `small_model_runtime_harness_product_route_capability_recheck`. This advances L1 retained-live product proof only; L2 product capability remains `vault_research_route_with_packetized_mitigation`, and L3 fresh app runtime remains unchanged.

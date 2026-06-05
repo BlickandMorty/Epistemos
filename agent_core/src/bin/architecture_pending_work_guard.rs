@@ -22,6 +22,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
     SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
@@ -142,6 +143,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_answer_packet_runtime_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_product_wrv_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_product_answer_packet_live_probe/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2895,6 +2898,14 @@ fn build_report() -> GuardReport {
         &small_model_runtime_harness_product_wrv_probe,
         SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_AXES,
     );
+    let small_model_runtime_harness_product_answer_packet_live_probe = read_json(Path::new(
+        SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_PATH,
+    ));
+    let small_model_runtime_harness_product_answer_packet_live_probe_available =
+        artifact_all_axes_true(
+            &small_model_runtime_harness_product_answer_packet_live_probe,
+            SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_AXES,
+        );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3068,6 +3079,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !small_model_runtime_harness_answer_packet_runtime_probe_available
             || small_model_runtime_harness_product_wrv_probe_available)
+        && (heavy_long_context_enabled
+            || !small_model_runtime_harness_product_wrv_probe_available
+            || small_model_runtime_harness_product_answer_packet_live_probe_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3570,6 +3584,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_product_answer_packet_live_probe_available",
+        small_model_runtime_harness_product_answer_packet_live_probe_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -4051,6 +4072,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_product_wrv_probe": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_WRV_PROBE_PATH,
                     "available": small_model_runtime_harness_product_wrv_probe_available
+                },
+                "small_model_runtime_harness_product_answer_packet_live_probe": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_PATH,
+                    "available": small_model_runtime_harness_product_answer_packet_live_probe_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -4568,12 +4593,21 @@ fn build_report() -> GuardReport {
             "kind": "missing_small_model_runtime_harness_product_wrv_probe",
             "detail": "SmallModelRuntimeHarnessAnswerPacketRuntimeProbe is present as retained L1 packetized runtime evidence. The next cursor must prove product WRV source/test reachability through TriageService, LLMService, NoteChatState, AnswerPacketEmitter, Settings diagnostics, MessageBubble chips, and focused tests without loading model/runtime bytes or promoting L2."
         }));
-    } else if small_model_runtime_harness_product_wrv_probe_available
+    }
+    if small_model_runtime_harness_product_wrv_probe_available
+        && !small_model_runtime_harness_product_answer_packet_live_probe_available
         && !heavy_long_context_enabled
     {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_product_wrv_probe_source_only",
             "detail": "SmallModelRuntimeHarnessProductWrvProbe is present as source/test WRV evidence. It proves the practical small-model route is wired, reachable, visible, and verified at the source level, while L2 remains vault_research_route_with_packetized_mitigation and the next bottleneck is a live product AnswerPacket route probe."
+        }));
+    } else if small_model_runtime_harness_product_answer_packet_live_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_product_answer_packet_live_probe_retained_handoff",
+            "detail": "SmallModelRuntimeHarnessProductAnswerPacketLiveProbe is present as retained-live product handoff evidence. It binds bounded Qwen3-4B runtime bytes to product AnswerPacket/RunEventLog surfaces without fresh model bytes, while L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K claim promotes."
         }));
     } else if small_model_runtime_harness_first_token_runtime_probe_available
         && !heavy_long_context_enabled

@@ -39,7 +39,7 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SmallModelRuntimeHarnessOwnerApprovedProbe` | The first small-model smoke probe must be owner-approved, dry-run-bound, local-catalog-bound, serialized, cancellable, rollback-bound, AnswerPacket-visible, privacy-fenced, and execution-deferred. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/small_model_runtime_harness_owner_approved_probe/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` | The owner-approved small-model smoke lanes must prove pre-runtime cancellation, deadlines, rollback, RunEventLog, AnswerPacket, privacy, budget, and mutation-free abort before any logged runtime smoke. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/small_model_runtime_harness_abortable_runtime_probe/result.json`; no live transport, model, or runtime bytes moved. |
 
-Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductWrvProbe` source/test WRV witness: `small_model_runtime_harness_product_answer_packet_live_probe`.
+Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` retained-live product handoff witness: `small_model_runtime_harness_product_route_capability_recheck`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1
