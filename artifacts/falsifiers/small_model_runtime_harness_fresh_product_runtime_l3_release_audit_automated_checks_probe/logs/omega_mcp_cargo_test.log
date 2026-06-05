@@ -1,0 +1,203 @@
+   Compiling ring v0.17.14
+   Compiling libsqlite3-sys v0.28.0
+   Compiling rustls v0.23.40
+   Compiling rustls-webpki v0.103.13
+   Compiling rusqlite v0.31.0
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling omega-mcp v0.1.0 (/Users/jojo/Downloads/Epistemos/omega-mcp)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.24s
+     Running unittests src/lib.rs (omega-mcp/target/aarch64-apple-darwin/debug/deps/omega_mcp-dc8fe40e0c691895)
+
+running 175 tests
+test arena::tests::arena_reset_returns_to_same_address ... ok
+test arena::tests::arena_supports_bump_string_collection ... ok
+test arena::tests::nested_with_frame_panics ... ok
+test catalog::tests::destructive_tools_require_confirmation ... ok
+test catalog::tests::builtin_catalog_has_all_agents ... ok
+test catalog::tests::builtin_catalog_exposes_d3_memory_verbs ... ok
+test catalog::tests::builtin_catalog_exposes_d3_web_search_verbs ... ok
+test catalog::tests::builtin_catalog_exposes_d2_graph_verbs ... ok
+test catalog::tests::builtin_catalog_exposes_d3_filesystem_verbs ... ok
+test catalog::tests::builtin_tool_names_are_unique ... ok
+test catalog::tests::builtin_catalog_exposes_d3_git_verbs ... ok
+test catalog::tests::builtin_catalog_exposes_d3_github_verbs ... ok
+test catalog::tests::all_schemas_are_valid_json ... ok
+test dataset_formatter::tests::test_format_traces ... ok
+test dataset_formatter::tests::test_mix_empty_categories ... ok
+test dataset_formatter::tests::test_sample_with_repeat ... ok
+test dataset_formatter::tests::test_mix_training_data ... ok
+test config::tests::test_get_nonexistent ... ok
+test config::tests::test_keys ... ok
+test config::tests::test_set_and_get ... ok
+test config::tests::test_delete ... ok
+test config::tests::test_upsert ... ok
+test dispatcher::tests::test_dispatch_tools_call_valid ... ok
+test dispatcher::tests::test_destructive_tool_flagged_in_dispatch ... ok
+test dispatcher::tests::test_dispatch_invalid_json ... ok
+test dispatcher::tests::test_dispatch_tools_call_destructive ... ok
+test dispatcher::tests::test_dispatch_tools_call_not_found ... ok
+test dispatcher::tests::test_dispatch_tools_call_missing_required_arg ... ok
+test dispatcher::tests::test_dispatch_unknown_method ... ok
+test dispatcher::tests::test_dispatch_tools_list ... ok
+test dispatcher::tests::test_concurrent_logging ... ok
+test github::tests::github_credentials_are_rejected_in_tool_args ... ok
+test github::tests::github_issues_normalization_filters_pull_requests ... ok
+test github::tests::github_repo_endpoint_rejects_path_traversal_owner ... ok
+test github::tests::github_unknown_tool_returns_not_found ... ok
+test graph_search_backend::tests::bm25_like_scorer_clamps_to_unit_interval ... ok
+test graph_search_backend::tests::bm25_like_scorer_is_byte_stable_across_calls ... ok
+test graph_search_backend::tests::bm25_like_scorer_returns_none_for_no_match ... ok
+test dispatcher::tests::test_list_tools_json ... ok
+test graph_search_backend::tests::bm25_like_scorer_scores_higher_for_more_matches ... ok
+test graph_search_backend::tests::graph_search_backend_constructs_scorers_for_both_variants ... ok
+test dispatcher::tests::test_full_tool_lifecycle ... ok
+test graph_search_backend::tests::graph_search_backend_default_is_in_memory_deterministic ... ok
+test dispatcher::tests::test_log_and_query ... ok
+test dispatcher::tests::test_get_tool_json ... ok
+test dispatcher::tests::test_register_and_count ... ok
+test dispatcher::tests::test_unregister_tool ... ok
+test dispatcher::tests::test_validation_roundtrip ... ok
+test graph_search_backend::tests::trigram_semantic_scorer_handles_short_queries ... ok
+test graph_search_backend::tests::trigram_semantic_scorer_is_byte_stable ... ok
+test graph_search_backend::tests::trigram_semantic_scorer_returns_higher_for_similar_text ... ok
+test memory::tests::memory_keeps_episode_and_semantic_append_only ... ok
+test logger::tests::test_open_in_memory ... ok
+test memory::tests::memory_put_get_search_roundtrip_uses_schema_id ... ok
+test logger::tests::test_empty_queries ... ok
+test memory::tests::memory_rejects_unknown_schema_and_bad_id ... ok
+test memory::tests::memory_allows_mutable_soul_replacement_only_when_requested ... ok
+test logger::tests::test_by_tool_filter ... ok
+test logger::tests::test_recent_ordering ... ok
+test logger::tests::test_log_and_retrieve ... ok
+test orchestrator::tests::test_agent_toolset_validation ... ok
+test moa::tests::test_consensus_picks_longest ... ok
+test moa::tests::test_caps_at_max_parallel ... ok
+test moa::tests::test_mixed_success_failure ... ok
+test orchestrator::tests::test_agent_toolset_validation_accepts_legacy_aliases ... ok
+test moa::tests::test_parallel_execution ... ok
+test orchestrator::tests::test_confirmation_gate ... ok
+test orchestrator::tests::test_default_agents ... ok
+test orchestrator::tests::test_graph_completion ... ok
+test orchestrator::tests::test_graph_failure ... ok
+test orchestrator::tests::test_heuristic_default_is_notes ... ok
+test orchestrator::tests::test_heuristic_delete_is_high_risk ... ok
+test orchestrator::tests::test_heuristic_list_files ... ok
+test orchestrator::tests::test_heuristic_open_routes_to_safari ... ok
+test orchestrator::tests::test_heuristic_search_routes_to_safari ... ok
+test orchestrator::tests::test_heuristic_shell_command ... ok
+test orchestrator::tests::test_heuristic_write_routes_to_notes ... ok
+test orchestrator::tests::test_task_graph_ready_steps ... ok
+test osascript::tests::test_app_not_running_error_is_retryable ... ok
+test osascript::tests::test_parse_error_generic ... ok
+test osascript::tests::test_parse_error_no_open_windows ... ok
+test osascript::tests::test_parse_error_not_found ... ok
+test osascript::tests::test_parse_error_permission ... ok
+test osascript::tests::test_parse_error_timeout ... ok
+test osascript::tests::test_run_command_allow_list ... ok
+test osascript::tests::test_run_safari_applescript_retries_until_launch_succeeds ... ok
+test osascript::tests::test_run_safari_applescript_returns_launch_error ... ok
+test osascript::tests::test_run_safari_applescript_stops_retry_after_non_retryable_error ... ok
+test osascript::tests::test_safari_open_script_activates_before_opening ... ok
+test osascript::tests::test_safari_window_value_script_requires_front_window ... ok
+test osascript::tests::test_tool_result_err ... ok
+test osascript::tests::test_tool_result_ok ... ok
+test pty::tests::build_hardened_envp_includes_term_dumb ... ok
+test pty::tests::build_hardened_envp_excludes_ld_preload ... ok
+test pty::tests::pty_denylist_and_allowlist_are_disjoint ... ok
+test pty::tests::build_hardened_envp_only_contains_allowlist_or_extras ... ok
+test pty::tests::pty_denylist_covers_canonical_24_vector_doctrine ... ok
+test pty::tests::spawn_rejects_relative_shell_path ... ok
+test dispatcher::tests::test_file_persistence ... ok
+test osascript::tests::test_run_command_echo ... ok
+test quality_filter::tests::test_empty_steps_rejected ... ok
+test quality_filter::tests::test_failed_step_rejected ... ok
+test quality_filter::tests::test_failed_trace_rejected ... ok
+test quality_filter::tests::test_filter_with_stats ... ok
+test quality_filter::tests::test_good_trace_passes ... ok
+test quality_filter::tests::test_invalid_json_rejected ... ok
+test recipe::tests::test_delete ... ok
+test recipe::tests::test_increment_use ... ok
+test recipe::tests::test_list_sorted_by_use ... ok
+test recipe::tests::test_not_found ... ok
+test recipe::tests::test_save_and_load ... ok
+test recipe::tests::test_upsert ... ok
+test registry::tests::test_duplicate_registration ... ok
+test registry::tests::test_invalid_schema_rejected ... ok
+test registry::tests::test_list_tools ... ok
+test registry::tests::test_not_found ... ok
+test registry::tests::test_register_and_get ... ok
+test osascript::tests::test_run_command_scrubs_provider_secrets ... ok
+test registry::tests::test_unregister ... ok
+test registry::tests::test_validate_args_invalid_json ... ok
+test registry::tests::test_validate_args_missing_required ... ok
+test registry::tests::test_validate_args_not_object ... ok
+test registry::tests::test_validate_args_valid ... ok
+test server::tests::test_parse_empty_method ... ok
+test server::tests::test_parse_invalid_json ... ok
+test server::tests::test_parse_request_with_params ... ok
+test server::tests::test_parse_valid_request ... ok
+test server::tests::test_parse_wrong_version ... ok
+test server::tests::test_response_error ... ok
+test server::tests::test_response_success ... ok
+test state::tests::test_create_and_query_conversation ... ok
+test state::tests::test_add_and_search_messages ... ok
+test state::tests::test_empty_state ... ok
+test state::tests::test_fts5_search_no_results ... ok
+test subprocess::tests::denylist_contains_agent_core_provider_secret_aliases ... ok
+test trace_logger::tests::test_empty_trace ... ok
+test trace_logger::tests::test_odia_filters_failures ... ok
+test trace_logger::tests::test_trace_to_odia ... ok
+test transport::tests::closed_transport_returns_error ... ok
+test transport::tests::json_rpc_error_response ... ok
+test transport::tests::malformed_json_handling ... ok
+test state::tests::test_log_and_query_traces ... ok
+test transport::tests::newline_delimiting ... ok
+test transport::tests::receive_valid_json_line ... ok
+test transport::tests::round_trip_json_rpc_encode_decode ... ok
+test transport::tests::server_round_trip ... ok
+test transport::tests::transport_accepts_canonical_server_json_rpc_response ... ok
+test transport::tests::transport_response_serialization_omits_null_fields ... ok
+test vault::tests::test_execute_vault_tool_accepts_canonical_file_search ... ok
+test vault::tests::test_execute_vault_tool_dispatch ... ok
+test vault::tests::test_execute_vault_tool_dispatches_d2_graph_verbs ... ok
+test vault::tests::test_d2_graph_verbs_round_trip_with_event_stream ... ok
+test vault::tests::test_list_files ... ok
+test vault::tests::test_path_traversal_blocked ... ok
+test vault::tests::test_read_file ... ok
+test vault::tests::test_read_nonexistent ... ok
+test vault::tests::test_search_deep ... ok
+test vault::tests::test_search_notes ... ok
+test web_search::tests::brave_normalization_maps_web_results ... ok
+test web_search::tests::kagi_normalization_filters_related_searches ... ok
+test web_search::tests::query_is_required_and_bounded ... ok
+test web_search::tests::web_search_credentials_are_rejected_in_tool_args ... ok
+test web_search::tests::web_search_rejects_unknown_provider ... ok
+test web_search::tests::web_search_unknown_tool_returns_not_found ... ok
+test vault::tests::test_write_file ... ok
+test git::tests::git_diff_rejects_path_traversal ... ok
+test git::tests::git_status_reports_porcelain_entries ... ok
+test git::tests::git_log_limits_count ... ok
+test pty::tests::test_close_all_for_session ... ok
+test pty::tests::test_extract_working_dir_ignores_echoed_marker ... ok
+test pty::tests::test_pty_cleanup ... ok
+test pty::tests::test_pty_spawn_and_execute ... ok
+test pty::tests::test_pty_timeout ... ok
+test pty::tests::test_pty_working_dir_persistence ... ok
+test pty::tests::test_strip_ansi ... ok
+
+test result: ok. 175 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.53s
+
+     Running unittests src/bin/uniffi_bindgen.rs (omega-mcp/target/aarch64-apple-darwin/debug/deps/uniffi_bindgen-a0131c0b3d69eaca)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests omega_mcp
+
+running 1 test
+test src/arena.rs - arena (line 14) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s

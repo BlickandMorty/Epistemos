@@ -403,6 +403,10 @@ name = "falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_aud
 path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"
+path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
