@@ -248,6 +248,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   status `vault_research_route_with_packetized_mitigation` and that same next
   bottleneck. L3 user-facing/product capability and release readiness remain
   unchanged; this is not a ship call.
+- Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe` is implemented and currently RED:
+  `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.sh`
+  emits and validates
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
+  as the automated release-check evidence ledger after the zero-fail boundary.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The current artifact records five
+  required automated checks with bound logs and digests:
+  `xcodebuild_build`, `xcodebuild_test`, `graph_engine_cargo_test`,
+  `omega_mcp_cargo_test`, and `omega_ax_cargo_test`. Four checks passed and
+  `xcodebuild_test` failed, so `overall_pass=false`, `failed_check_count=1`,
+  and the guard cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  with `duplicate_risk_count=0`. This is a useful hard blocker, not a promotion:
+  L1 queue integrity is honest but not advanced, L2 remains `overall_pass=false`
+  with route status `vault_research_route_with_packetized_mitigation`, and L3
+  user-facing/product capability plus release readiness remain unchanged until
+  the Swift test suite is repaired and the log/manual/distribution/three-pass
+  release-audit gates land.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates
