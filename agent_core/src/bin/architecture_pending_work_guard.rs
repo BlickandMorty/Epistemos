@@ -20,6 +20,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
@@ -151,6 +152,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ROUTE_CAPABILITY_RECHECK_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_safety_lease/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_live_probe/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2928,6 +2931,14 @@ fn build_report() -> GuardReport {
             &small_model_runtime_harness_fresh_product_runtime_safety_lease,
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_AXES,
         );
+    let small_model_runtime_harness_fresh_product_runtime_live_probe = read_json(Path::new(
+        SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_PATH,
+    ));
+    let small_model_runtime_harness_fresh_product_runtime_live_probe_available =
+        artifact_all_axes_true(
+            &small_model_runtime_harness_fresh_product_runtime_live_probe,
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
+        );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3110,6 +3121,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !small_model_runtime_harness_product_route_capability_recheck_available
             || small_model_runtime_harness_fresh_product_runtime_safety_lease_available)
+        && (next_existing_work
+            != "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe"
+            || small_model_runtime_harness_fresh_product_runtime_live_probe_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3633,6 +3647,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_fresh_product_runtime_live_probe_available",
+        small_model_runtime_harness_fresh_product_runtime_live_probe_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -4126,6 +4147,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_fresh_product_runtime_safety_lease": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_PATH,
                     "available": small_model_runtime_harness_fresh_product_runtime_safety_lease_available
+                },
+                "small_model_runtime_harness_fresh_product_runtime_live_probe": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_PATH,
+                    "available": small_model_runtime_harness_fresh_product_runtime_live_probe_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -4667,6 +4692,14 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_small_model_runtime_harness_fresh_product_runtime_safety_lease",
             "detail": "SmallModelRuntimeHarnessProductRouteCapabilityRecheck is present as an L1 red-state blocker witness. The next non-heavy cursor must prove a fresh product runtime safety lease with owner approval, dry-run fallback, serialized executor, cancellation/deadline, rollback, RunEventLog, AnswerPacket, privacy, MAS/Pro honesty, zero fresh bytes, and no 70B/128K/autogenous-kernel drift."
+        }));
+    } else if small_model_runtime_harness_fresh_product_runtime_safety_lease_available
+        && small_model_runtime_harness_fresh_product_runtime_live_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_fresh_product_runtime_live_probe_l1_only",
+            "detail": "SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe is present as an L1-only fresh product-path sidecar: exactly one redacted Qwen3-4B token under byte/timing budgets. It preserves L2 vault_research_route_with_packetized_mitigation and L3 unpromoted product runtime while queuing fresh product AnswerPacket packaging; no MAS/70B/128K/autogenous-kernel claim promotes."
         }));
     } else if small_model_runtime_harness_fresh_product_runtime_safety_lease_available
         && !heavy_long_context_enabled

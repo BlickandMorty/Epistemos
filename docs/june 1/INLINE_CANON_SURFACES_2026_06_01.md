@@ -31,12 +31,14 @@ blocker ledger that keeps L2/L3 red before fresh runtime leases, plus
 `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` as the metadata-only
 owner-approved, dry-run-first, serialized, cancellable, rollback-bound,
 RunEventLog-bound, AnswerPacket-visible, privacy-fenced lease before any fresh
-product runtime probe.
+product runtime probe, plus `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe`
+as the L1-only fresh product-runtime sidecar proving exactly one redacted
+Qwen3-4B token under the safety lease.
 Current L1 cursor is
-`small_model_runtime_harness_fresh_product_runtime_live_probe`; L2 remains
-`vault_research_route_with_packetized_mitigation` with the same live-probe next
-bottleneck; L3 fresh app runtime is unchanged until the fresh runtime witness
-closes the remaining live gates.
+`small_model_runtime_harness_fresh_product_runtime_answer_packet_probe`; L2
+remains `vault_research_route_with_packetized_mitigation` with the same fresh
+AnswerPacket packaging bottleneck; L3 fresh app runtime is unchanged until the
+fresh runtime AnswerPacket/WRV gates pass.
 
 ## Copied Authority Surfaces
 

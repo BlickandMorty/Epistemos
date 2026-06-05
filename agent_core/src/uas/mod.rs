@@ -59,6 +59,7 @@ pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_first_token_runtime_probe;
+pub mod small_model_runtime_harness_fresh_product_runtime_live_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_safety_lease;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
 pub mod small_model_runtime_harness_owner_approved_probe;
@@ -206,6 +207,17 @@ pub use small_model_runtime_harness_first_token_runtime_probe::{
     SmallModelRuntimeHarnessFirstTokenProbeMetrics, SmallModelRuntimeHarnessFirstTokenProbeWitness,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_fresh_product_runtime_live_probe::{
+    fresh_product_runtime_live_probe_max_first_token_ms,
+    fresh_product_runtime_live_probe_max_load_ms, fresh_product_runtime_live_probe_max_total_ms,
+    fresh_product_runtime_live_probe_metadata_budget_bytes,
+    fresh_product_runtime_live_probe_route_authority,
+    required_fresh_product_runtime_live_probe_phases, SmallModelFreshProductRuntimeLiveProbeError,
+    SmallModelFreshProductRuntimeLiveProbeMetrics, SmallModelFreshProductRuntimeLiveProbePhase,
+    SmallModelFreshProductRuntimeLiveProbeRecord, SmallModelFreshProductRuntimeLiveProbeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_safety_lease::{
     fresh_product_runtime_safety_lease_max_deadline_ms,
