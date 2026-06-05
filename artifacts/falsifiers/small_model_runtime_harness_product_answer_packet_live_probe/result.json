@@ -1,0 +1,840 @@
+{
+  "falsifier_id": "F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_model_runtime_harness_product_answer_packet_live_probe.sh",
+  "command_digest": "sha256:17af4c42942dad8b6e07de2fc418791c6485f7b61b90ff8aa883f3c55d9b2fa3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "1f76922955124d4be9b602cf2df3386f862d89b4",
+  "fixture_id": "small_model_runtime_harness_product_answer_packet_live_probe_v1",
+  "timestamp_utc": "2026-06-05T12:56:29Z",
+  "result_digest": "sha256:b0e6aa268784d2b905b265c2effa65d50ab70a21595535ec5dd20ecb08e23838",
+  "measurements": {
+    "answer_packet_id": {
+      "value": "answer_packet:qwen3_4b:first-token-runtime:packetized",
+      "unit": "id"
+    },
+    "answer_packet_id_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_sidecar_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_path_subprocess_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_product_answer_packet_live_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_sidecar_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_product_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "fresh_product_model_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_product_runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "fresh_product_runtime_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_product_answer_packet_live_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_probe_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_agent_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "value": 1724,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_artifact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_first_token_artifact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_product_wrv_artifact_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_retained_model_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_retained_runtime_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_product_route_capability_recheck",
+      "unit": "cursor"
+    },
+    "no_70b_probe_attempt": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_app_path_subprocess_spawn": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_autogenous_kernel_attempt": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_gate_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_long_context_shard_probe": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_prompt_user_data_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_token_text_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "value": 10,
+      "unit": "count"
+    },
+    "product_marker_count": {
+      "value": 9,
+      "unit": "count"
+    },
+    "product_packet_projected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_run_event_log_projected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_gated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_surfaces_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_user_data_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_text_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_model_bytes_loaded": {
+      "value": 2153272351,
+      "unit": "bytes"
+    },
+    "retained_model_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_runtime_bytes_loaded": {
+      "value": 2153272351,
+      "unit": "bytes"
+    },
+    "retained_runtime_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_token_digest_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_retained_handoff_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_entries_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_sidecar_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_probe_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_product_answer_packet_live_probe_address": {
+      "value": "sha256:dc69ae936ff3cd99d00a6a90482ba8b5bbdf5094e77ebe50514f4ef99ea9ebe5",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_product_answer_packet_live_probe_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_markers_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "upstream_answer_packet_runtime_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_first_token_runtime_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_product_wrv_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_id": {
+      "operator": "starts_with",
+      "value": "answer_packet:",
+      "unit": "id"
+    },
+    "answer_packet_id_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_sidecar_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_suppression_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_path_subprocess_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_product_answer_packet_live_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_sidecar_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_product_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "fresh_product_model_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_product_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "fresh_product_runtime_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_product_answer_packet_live_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_probe_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_floor_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_agent_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_artifact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_first_token_artifact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_product_wrv_artifact_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_retained_model_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_retained_runtime_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "small_model_runtime_harness_product_route_capability_recheck",
+      "unit": "cursor"
+    },
+    "no_70b_probe_attempt": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_answer_packet_suppression": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_app_path_subprocess_spawn": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_autogenous_kernel_attempt": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_gate_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_long_context_shard_probe": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_prompt_user_data_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_token_text_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "count"
+    },
+    "product_marker_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "count"
+    },
+    "product_packet_projected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_run_event_log_projected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_status_gated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_surfaces_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_user_data_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_text_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_model_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "retained_model_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_runtime_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "retained_runtime_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_token_digest_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_retained_handoff_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_entries_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_sidecar_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_probe_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_product_answer_packet_live_probe_address": {
+      "operator": "==",
+      "value": "sha256:dc69ae936ff3cd99d00a6a90482ba8b5bbdf5094e77ebe50514f4ef99ea9ebe5",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_product_answer_packet_live_probe_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_markers_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "surface_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "upstream_answer_packet_runtime_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_first_token_runtime_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_product_wrv_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_id": true,
+    "answer_packet_id_bound": true,
+    "answer_packet_sidecar_present": true,
+    "answer_packet_suppression_rejected": true,
+    "app_path_subprocess_rejected": true,
+    "autogenous_kernel_rejected": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_product_answer_packet_live_or_advanced": true,
+    "capability_route_status_vault_research": true,
+    "first_token_sidecar_present": true,
+    "fresh_model_bytes_rejected": true,
+    "fresh_product_model_bytes_loaded": true,
+    "fresh_product_model_bytes_zero": true,
+    "fresh_product_runtime_bytes_loaded": true,
+    "fresh_product_runtime_bytes_zero": true,
+    "fresh_runtime_bytes_rejected": true,
+    "gate_bypass_rejected": true,
+    "guard_cursor_product_answer_packet_live_or_advanced": true,
+    "hidden_authority_rejected": true,
+    "hidden_chain_rejected": true,
+    "hidden_cloud_rejected": true,
+    "l1_l2_l3_separation_bound": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "long_context_shard_probe_rejected": true,
+    "mas_floor_preserved": true,
+    "mas_live_agent_overclaim_rejected": true,
+    "metadata_bound": true,
+    "metadata_budget_rejected": true,
+    "metadata_bytes": true,
+    "missing_answer_packet_artifact_rejected": true,
+    "missing_first_token_artifact_rejected": true,
+    "missing_product_wrv_artifact_rejected": true,
+    "missing_retained_model_rejected": true,
+    "missing_retained_runtime_rejected": true,
+    "missing_surface_marker_rejected": true,
+    "missing_surface_rejected": true,
+    "next_cursor": true,
+    "no_70b_probe_attempt": true,
+    "no_answer_packet_suppression": true,
+    "no_app_path_subprocess_spawn": true,
+    "no_autogenous_kernel_attempt": true,
+    "no_gate_bypass": true,
+    "no_hidden_chain": true,
+    "no_hidden_cloud_fallback": true,
+    "no_hidden_route_authority": true,
+    "no_l2_green_claim": true,
+    "no_l3_green_claim": true,
+    "no_long_context_shard_probe": true,
+    "no_mas_live_agent_overclaim": true,
+    "no_prompt_user_data_retained": true,
+    "no_raw_token_text_retained": true,
+    "no_route_policy_mutation": true,
+    "phase_count": true,
+    "product_marker_count": true,
+    "product_packet_projected": true,
+    "product_run_event_log_projected": true,
+    "product_status_gated": true,
+    "product_surfaces_visible": true,
+    "prompt_user_data_rejected": true,
+    "raw_token_text_rejected": true,
+    "required_phases_bound": true,
+    "retained_model_bytes_loaded": true,
+    "retained_model_bytes_nonzero": true,
+    "retained_runtime_bytes_loaded": true,
+    "retained_runtime_bytes_nonzero": true,
+    "retained_token_digest_bound": true,
+    "route_authority_retained_handoff_only": true,
+    "route_policy_mutation_rejected": true,
+    "run_event_log_entries_bound": true,
+    "run_event_log_sidecar_present": true,
+    "seventy_b_probe_rejected": true,
+    "small_model_runtime_harness_product_answer_packet_live_probe_address": true,
+    "small_model_runtime_harness_product_answer_packet_live_probe_address_deterministic": true,
+    "source_markers_bound": true,
+    "surface_count": true,
+    "upstream_answer_packet_runtime_probe_pass": true,
+    "upstream_first_token_runtime_probe_pass": true,
+    "upstream_product_wrv_probe_pass": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "retained_live_product_answer_packet_handoff",
+      "detail": "Product route surfaces are bound to retained Qwen3-4B first-token runtime evidence and real AnswerPacket/RunEventLog sidecars. This opens no fresh model bytes and does not promote L2, MAS live-agent, 70B, or 128K claims."
+    }
+  ],
+  "notes": "L1 F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe: binds retained small-model runtime evidence to product AnswerPacket/RunEventLog handoff surfaces with strict privacy, cancellation, rollback, MAS/Pro, and no-promotion gates; no fresh model/runtime bytes loaded."
+}

@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1/L3-source WRV witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_product_wrv_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_product_wrv_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_product_answer_packet_live_probe`
+- Current L1 cursor: `small_model_runtime_harness_product_route_capability_recheck`
 - Scope: source/test WRV proof for the practical small-model product route; no MLX/model bytes opened, no live product AnswerPacket runtime proof, no L2 green, no MAS live-agent claim, no live 70B, and no 128K shard rerun.
 
 ## What It Proves
@@ -23,7 +23,7 @@ The primitive rejects missing upstream AnswerPacket artifact, missing source/tes
 ## Three-Layer Truth
 
 - L1: Advanced. `F-SmallModelRuntimeHarnessProductWrvProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_product_answer_packet_live_probe` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_product_answer_packet_live_probe`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_product_route_capability_recheck`.
 - L3: Source WRV advanced, live runtime not advanced. The app source and tests show the route is wired/reachable/visible/verified, but a live product AnswerPacket route probe has not yet proven the product path with fresh runtime evidence.
 
 ## Caveat

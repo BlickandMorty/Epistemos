@@ -23,10 +23,14 @@ evidence for one redacted Qwen3-4B first token, and
 `F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe` as L1 packetized
 AnswerPacket/RunEventLog proof with zero new runtime/model bytes, plus
 `F-SmallModelRuntimeHarnessProductWrvProbe` as source/test WRV proof for the
-practical small-model product route. Current L1 cursor is
-`small_model_runtime_harness_product_answer_packet_live_probe`; L2 remains
-`vault_research_route_with_packetized_mitigation`; L3 user-facing/product
-runtime is unchanged until the live product AnswerPacket route probe passes.
+practical small-model product route, plus
+`F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` as retained-live
+product AnswerPacket handoff proof with zero fresh product runtime/model bytes.
+Current L1 cursor is
+`small_model_runtime_harness_product_route_capability_recheck`; L2 remains
+`vault_research_route_with_packetized_mitigation`; L3 fresh app runtime is
+unchanged until the product route capability recheck closes the remaining live
+gates.
 
 ## Copied Authority Surfaces
 
