@@ -56,6 +56,7 @@ pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_model_runtime_harness_dry_run;
+pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_owner_approved_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
@@ -174,6 +175,14 @@ pub use small_model_runtime_harness_dry_run::{
     SmallModelRuntimeHarnessDryRunError, SmallModelRuntimeHarnessDryRunMetrics,
     SmallModelRuntimeHarnessDryRunWitness, SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_abortable_runtime_probe::{
+    SmallModelAbortableRuntimeProbePhase, SmallModelAbortableRuntimeProbeRun,
+    SmallModelAbortableRuntimeProbeSurface, SmallModelRuntimeHarnessAbortableProbeError,
+    SmallModelRuntimeHarnessAbortableProbeMetrics,
+    SmallModelRuntimeHarnessAbortableProbeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_owner_approved_probe::{
     SmallModelOwnerProbeLease, SmallModelOwnerProbePhase, SmallModelOwnerProbeSurface,

@@ -18,8 +18,8 @@ It rejects missing or duplicate lanes/leases, missing phases, missing dry-run ar
 
 ## Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessOwnerApprovedProbe` passes metadata-only and the regenerated pending-work guard must report `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_abortable_runtime_probe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessOwnerApprovedProbe` passes metadata-only; downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` now passes metadata-only and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_logged_runtime_smoke` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_logged_runtime_smoke` after downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`.
 - L3: Not advanced. No user-facing runtime, live local-model agent route, live 70B, provider route, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Notes
