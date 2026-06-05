@@ -30,4 +30,9 @@ The Rust primitive and falsifier reject empty plans, duplicate plans, duplicate 
 
 ## Next Link
 
-The regenerated guard now reports `next_existing_work=cold_panic_fallback` after downstream Metal I/O feature-gate, codec-stage latency, transport cancellation, and cache-policy witnesses passed metadata-only. The next rung must prove missed transport deadlines degrade visibly instead of silently blocking token-time execution.
+Downstream Metal I/O feature-gate, codec-stage latency, transport cancellation,
+cache-policy, cold-panic fallback, and ProductRouteReview witnesses now pass
+metadata-only. The regenerated guard reports
+`next_existing_work=small_model_runtime_harness_safety_plan`; L2 remains
+`vault_research_route_with_packetized_mitigation`, and L3 user-facing/product
+runtime is unchanged.

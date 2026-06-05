@@ -45,6 +45,7 @@ pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod metal_io_feature_gate;
 pub mod pattern_boost;
+pub mod product_route_review;
 pub mod proof_carrying_residency_lease;
 pub mod provider_reference;
 pub mod provider_route_copy_source_guard;
@@ -120,6 +121,11 @@ pub use metal_io_feature_gate::{
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,
     UasAssemblyGenomeError,
+};
+pub use product_route_review::{
+    ProductRouteRedRoute, ProductRouteReviewDecision, ProductRouteReviewError,
+    ProductRouteReviewMetrics, ProductRouteReviewPacket, ProductRouteReviewSurface,
+    PRODUCT_ROUTE_REVIEW_CURSOR, PRODUCT_ROUTE_REVIEW_NEXT_CURSOR,
 };
 pub use proof_carrying_residency_lease::{
     authorize_cold_byte_wake, AuthorizedColdByteWake, ProofCarryingResidencyLease,

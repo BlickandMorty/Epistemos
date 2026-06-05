@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, and F-ColdPanicFallback passed metadata-only witnesses; no product promotion without live p99 stall proof, rollback, and platform benchmarks
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, F-ColdPanicFallback, and F-ProductRouteReview passed metadata-only witnesses; no product promotion without live p99 stall proof, rollback, and platform benchmarks
 ---
 
 # ColdStream Residency Transport - 2026-06-01
@@ -34,11 +34,15 @@ transport work can promote. `F-ColdPanicFallback` passes at
 ColdStream deadlines abort cold wakes, reject stale slabs, queue repair, expose
 fallback caveats through AnswerPacket and RunEventLog, bind rollback and
 admission evidence, and keep runtime/model/transport bytes at zero before live
-transport work can promote. These do not
+transport work can promote. `F-ProductRouteReview` passes at
+`artifacts/falsifiers/product_route_review/result.json`: it proves KV-Direct
+128K, live sparse 70B, dense 70B runtime, and live ColdStream transport remain
+red Pro Research routes while S0 surfaces preserve the north-star, red L2
+route status, and L3 user-facing/product runtime caveat. These do not
 prove live ColdStream transport, live mmap replacement, live pread/Dispatch
 I/O/Metal I/O performance, SSD stress safety, or user-facing
 runtime performance.
-Current L1 cursor: `ready_for_product_route_review`; L2 and L3 remain unpromoted.
+Current L1 cursor: `small_model_runtime_harness_safety_plan`; L2 and L3 remain unpromoted.
 
 ## Thesis
 

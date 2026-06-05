@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "22e2ad386503db2be1f0808bdf56e67429e54124",
+  "commit_sha": "5ae1452d0c0484a09f4b449e365f73cd36efb630",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T04:55:29Z",
-  "result_digest": "sha256:99c6bbfdceb25460e967ba5bb5f4c345673748d9c63d67ab0247c83986fa8937",
+  "timestamp_utc": "2026-06-05T05:49:58Z",
+  "result_digest": "sha256:29031483d4eb4051a7cbd6966905d02bef6065da31e97d265dace7753449ce11",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -268,6 +268,10 @@
           },
           "cold_panic_fallback": {
             "path": "artifacts/falsifiers/cold_panic_fallback/result.json",
+            "available": true
+          },
+          "product_route_review": {
+            "path": "artifacts/falsifiers/product_route_review/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -622,11 +626,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "ready_for_product_route_review",
+      "value": "small_model_runtime_harness_safety_plan",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "ready_for_product_route_review",
+      "value": "small_model_runtime_harness_safety_plan",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -638,6 +642,10 @@
       "unit": "bool"
     },
     "pending_work_cursor_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_review_available": {
       "value": true,
       "unit": "bool"
     },
@@ -990,6 +998,11 @@
       "value": true,
       "unit": "bool"
     },
+    "product_route_review_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "proof_carrying_residency_lease_available": {
       "operator": "==",
       "value": true,
@@ -1191,6 +1204,7 @@
     "no_duplicate_rebuild_risk": true,
     "ordered_queue_available": true,
     "pending_work_cursor_available": true,
+    "product_route_review_available": true,
     "proof_carrying_residency_lease_available": true,
     "proof_carrying_route_card_available": true,
     "proof_pressure_signal_available": true,
@@ -1232,6 +1246,10 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
+      "kind": "product_route_review_metadata_only",
+      "detail": "ProductRouteReview is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_safety_plan."
+    },
+    {
       "kind": "partial_kv_shard_outputs",
       "detail": "At least one KV shard output directory is partial; repair or rerun that shard before starting a later shard."
     },
@@ -1244,5 +1262,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=ready_for_product_route_review; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_safety_plan; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
