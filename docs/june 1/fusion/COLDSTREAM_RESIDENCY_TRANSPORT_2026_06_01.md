@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, and F-CodecStage-Latency passed metadata-only witnesses; no product promotion without cancellation, cache-pollution, panic fallback, live p99 stall proof, rollback, and platform benchmarks
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, and F-TransportCancellation passed metadata-only witnesses; no product promotion without cache-pollution, panic fallback, live p99 stall proof, rollback, and platform benchmarks
 ---
 
 # ColdStream Residency Transport - 2026-06-01
@@ -19,11 +19,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 `artifacts/falsifiers/codec_stage_latency/result.json`: it proves file-read
 traces, codec latency traces, checksums, copy counts, rollback, RunEventLog,
 AnswerPacket, admission, cancellation, and visible caveats stay separate before
-live codec or transport work can promote. It does not prove live ColdStream
-transport, live mmap replacement, live pread/Dispatch I/O/Metal I/O
-performance, cache policy, SSD stress safety, or user-facing runtime
-performance.
-Current L1 cursor: `transport_cancellation`; L2 and L3 remain unpromoted.
+live codec or transport work can promote. `F-TransportCancellation` passes at
+`artifacts/falsifiers/transport_cancellation/result.json`: it proves route
+epochs, cancellation tokens, obsolete-read rejection, stale-slab rejection,
+rollback, RunEventLog, AnswerPacket, admission, compatibility fence, and visible
+caveats stay explicit before live transport work can promote. These do not
+prove live ColdStream transport, live mmap replacement, live pread/Dispatch
+I/O/Metal I/O performance, cache policy, SSD stress safety, or user-facing
+runtime performance.
+Current L1 cursor: `cache_policy_pollution`; L2 and L3 remain unpromoted.
 
 ## Thesis
 

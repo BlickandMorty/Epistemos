@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_large_model_provider_reference_deferred_by_mlx_route.sh`
 - Artifact: `artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency`: `transport_cancellation`
+- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, and `F-TransportCancellation`: `cache_policy_pollution`
 
 ## What It Proves
 
@@ -18,12 +18,12 @@ It binds upstream guard, capability kernel, provider-readiness, and 70B prefligh
 
 ## Layer Truth
 
-- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard`, `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=transport_cancellation` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=transport_cancellation`.
+- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard`, `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, and `F-TransportCancellation` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=cache_policy_pollution` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=cache_policy_pollution`.
 - L3: Not advanced. No user-facing runtime, live 70B, provider route, KV-Direct 128K, or product copy claim was promoted.
 
 ## Notes
 
 This is not a 70B runtime pass, not a provider-reference pass, not a KV-Direct 128K pass, and not evidence that dense 70B can run as a product route. It is the default-loop safety proof that those heavy lanes remain gated while the architecture continues through visible, falsifier-backed work.
 
-Downstream update: `F-ProviderRoute-CopySourceGuard` added the copy/source honesty guard over the Living Index and lattice HTML, `F-TransportTrace-AnswerPacket` binds cold-transport traces to visible AnswerPacket proof, `F-SSD-WearBudget` binds wear/energy/cache budgets, `F-ColdStream-vs-Mmap` proves same-fixture benchmark-plan rows, `F-SlabArena-CopyCount` passes metadata-only, `F-MetalIO-FeatureGate` passes metadata-only, and `F-CodecStage-Latency` now passes metadata-only. The active next unit is `F-TransportCancellation` (`transport_cancellation`).
+Downstream update: `F-ProviderRoute-CopySourceGuard` added the copy/source honesty guard over the Living Index and lattice HTML, `F-TransportTrace-AnswerPacket` binds cold-transport traces to visible AnswerPacket proof, `F-SSD-WearBudget` binds wear/energy/cache budgets, `F-ColdStream-vs-Mmap` proves same-fixture benchmark-plan rows, `F-SlabArena-CopyCount` passes metadata-only, `F-MetalIO-FeatureGate` passes metadata-only, `F-CodecStage-Latency` passes metadata-only, and `F-TransportCancellation` now passes metadata-only. The active next unit is `F-CachePolicyPollution` (`cache_policy_pollution`).

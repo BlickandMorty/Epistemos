@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_provider_route_copy_source_guard.sh`
 - Artifact: `artifacts/falsifiers/provider_route_copy_source_guard/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency`: `transport_cancellation`
+- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, and `F-TransportCancellation`: `cache_policy_pollution`
 
 ## What It Proves
 
@@ -18,8 +18,8 @@ It binds four copy/source claims across provider reference, KV-Direct, dense 70B
 
 ## Layer Truth
 
-- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=transport_cancellation` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=transport_cancellation`.
+- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, and `F-TransportCancellation` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=cache_policy_pollution` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=cache_policy_pollution`.
 - L3: Not advanced. No user-facing runtime, live provider route, live 70B, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Metrics

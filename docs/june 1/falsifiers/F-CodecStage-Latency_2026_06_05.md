@@ -18,11 +18,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 ColdStream codec witness.
 
 L1 architecture cursor advanced from `codec_stage_latency` to
-`transport_cancellation`.
+`transport_cancellation` at landing. Downstream `F-TransportCancellation` now
+passes metadata-only, so the current architecture cursor is
+`cache_policy_pollution`.
 
 L2 did not advance to product-green. The capability kernel remains
 `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`,
-with next bottleneck `transport_cancellation`.
+with next bottleneck `cache_policy_pollution`.
 
 L3 did not change. No live codec benchmark, live ColdStream transport, live
 Metal I/O, KV-Direct 128K route, sparse 70B route, provider route, or
