@@ -857,6 +857,10 @@ nonisolated enum UserFacingModelOutput {
             return directAnswer
         }
 
+        if assistantControlEnvelopeLeavesNoUserAnswer(raw: raw, cleaned: cleaned) {
+            return ""
+        }
+
         let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
         guard hasReasoningArtifacts else {
             return cleaned
@@ -884,6 +888,10 @@ nonisolated enum UserFacingModelOutput {
 
         if let directAnswer = directAnswerText(in: cleaned) {
             return directAnswer
+        }
+
+        if assistantControlEnvelopeLeavesNoUserAnswer(raw: raw, cleaned: cleaned) {
+            return ""
         }
 
         let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
@@ -1246,6 +1254,84 @@ nonisolated enum UserFacingModelOutput {
     private static func containsResidualAssistantControlArtifacts(in cleaned: String) -> Bool {
         AssistantControlTagSyntax.openingMatch(in: cleaned) != nil
             || AssistantControlTagSyntax.closingMatch(in: cleaned) != nil
+    }
+
+    private static func assistantControlEnvelopeLeavesNoUserAnswer(raw: String, cleaned: String) -> Bool {
+        guard AssistantControlTagSyntax.openingMatch(in: raw) != nil
+                || AssistantControlTagSyntax.closingMatch(in: raw) != nil else {
+            return false
+        }
+        guard ThinkingPreludeSyntax.answerMatch(in: raw) == nil,
+              ThinkingPreludeSyntax.answerMatch(in: cleaned) == nil else {
+            return false
+        }
+
+        let visibleFragments = paragraphs(in: cleaned)
+        guard !visibleFragments.isEmpty else { return true }
+        return visibleFragments.allSatisfy(isAssistantControlNarration)
+    }
+
+    private static func isAssistantControlNarration(_ paragraph: String) -> Bool {
+        let normalized = normalizedReasoningText(paragraph)
+        guard !normalized.isEmpty else { return true }
+
+        if isToolPlanningNarrative(normalized) {
+            return true
+        }
+
+        let controlPreludePrefixes = [
+            "let me try",
+            "let me call",
+            "let me use",
+            "let me invoke",
+            "let me check",
+            "let me run",
+            "let me create",
+            "i will try",
+            "i will call",
+            "i will use",
+            "i will invoke",
+            "i will check",
+            "i will run",
+            "i will create",
+            "i'll try",
+            "ill try",
+            "i'll call",
+            "ill call",
+            "i'll use",
+            "ill use",
+            "i'll invoke",
+            "ill invoke",
+            "i'll check",
+            "ill check",
+            "i'll run",
+            "ill run",
+            "i'll create",
+            "ill create",
+            "i am going to try",
+            "i am going to call",
+            "i am going to use",
+            "i am going to invoke",
+            "i am going to check",
+            "i am going to run",
+            "i am going to create",
+            "i'm going to try",
+            "im going to try",
+            "i'm going to call",
+            "im going to call",
+            "i'm going to use",
+            "im going to use",
+            "i'm going to invoke",
+            "im going to invoke",
+            "i'm going to check",
+            "im going to check",
+            "i'm going to run",
+            "im going to run",
+            "i'm going to create",
+            "im going to create",
+        ]
+
+        return controlPreludePrefixes.contains { normalized.hasPrefix($0) }
     }
 
     private static func directAnswerText(in text: String) -> String? {
