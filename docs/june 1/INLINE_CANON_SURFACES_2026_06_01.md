@@ -17,10 +17,12 @@ files live in `authority-surfaces/`; this is the map of what each one preserves.
 `F-SmallModelRuntimeHarnessDryRunWitness`,
 `F-SmallModelRuntimeHarnessOwnerApprovedProbe`,
 `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`, and
-`F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` as metadata-only witnesses.
-Current L1 cursor is `small_model_runtime_harness_first_token_runtime_probe`;
-L2 remains `vault_research_route_with_packetized_mitigation`; L3
-user-facing/product runtime is unchanged.
+`F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` as metadata-only witnesses, plus
+`F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe` as retained L1 runtime
+evidence for one redacted Qwen3-4B first token. Current L1 cursor is
+`small_model_runtime_harness_answer_packet_runtime_probe`; L2 remains
+`vault_research_route_with_packetized_mitigation`; L3 user-facing/product
+runtime is unchanged.
 
 ## Copied Authority Surfaces
 

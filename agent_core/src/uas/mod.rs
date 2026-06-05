@@ -57,6 +57,7 @@ pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
+pub mod small_model_runtime_harness_first_token_runtime_probe;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
 pub mod small_model_runtime_harness_owner_approved_probe;
 pub mod small_model_runtime_harness_safety_plan;
@@ -183,6 +184,14 @@ pub use small_model_runtime_harness_dry_run::{
     SmallModelRuntimeHarnessDryRunError, SmallModelRuntimeHarnessDryRunMetrics,
     SmallModelRuntimeHarnessDryRunWitness, SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_first_token_runtime_probe::{
+    required_phases as required_first_token_runtime_probe_phases,
+    SmallModelFirstTokenRuntimeProbePhase, SmallModelFirstTokenRuntimeProbeRun,
+    SmallModelFirstTokenRuntimeProbeSurface, SmallModelRuntimeHarnessFirstTokenProbeError,
+    SmallModelRuntimeHarnessFirstTokenProbeMetrics, SmallModelRuntimeHarnessFirstTokenProbeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_logged_runtime_smoke::{
     SmallModelLoggedRuntimeSmokePhase, SmallModelLoggedRuntimeSmokeRun,

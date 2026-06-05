@@ -18,6 +18,7 @@ use agent_core::falsifier_artifacts::axes::{
     PRODUCT_ROUTE_REVIEW_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
@@ -133,6 +134,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_abortable_runtime_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_logged_runtime_smoke/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_first_token_runtime_probe/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2865,6 +2868,13 @@ fn build_report() -> GuardReport {
         &small_model_runtime_harness_logged_runtime_smoke,
         SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_AXES,
     );
+    let small_model_runtime_harness_first_token_runtime_probe = read_json(Path::new(
+        SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_PATH,
+    ));
+    let small_model_runtime_harness_first_token_runtime_probe_available = artifact_all_axes_true(
+        &small_model_runtime_harness_first_token_runtime_probe,
+        SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3029,6 +3039,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !small_model_runtime_harness_abortable_runtime_probe_available
             || small_model_runtime_harness_logged_runtime_smoke_available)
+        && (heavy_long_context_enabled
+            || !small_model_runtime_harness_logged_runtime_smoke_available
+            || small_model_runtime_harness_first_token_runtime_probe_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3510,6 +3523,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_first_token_runtime_probe_available",
+        small_model_runtime_harness_first_token_runtime_probe_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -3979,6 +3999,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_logged_runtime_smoke": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_PATH,
                     "available": small_model_runtime_harness_logged_runtime_smoke_available
+                },
+                "small_model_runtime_harness_first_token_runtime_probe": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_PATH,
+                    "available": small_model_runtime_harness_first_token_runtime_probe_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -4470,7 +4494,25 @@ fn build_report() -> GuardReport {
             "detail": "SmallModelRuntimeHarnessAbortableRuntimeProbe is present; the next non-heavy cursor must prove the runtime harness logs an owner-approved small-model attempt and visible missing-local-snapshot failure with rollback, RunEventLog, AnswerPacket, privacy, budget, and zero runtime/model bytes before any first-token runtime probe."
         }));
     }
-    if small_model_runtime_harness_logged_runtime_smoke_available && !heavy_long_context_enabled {
+    if small_model_runtime_harness_logged_runtime_smoke_available
+        && !small_model_runtime_harness_first_token_runtime_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_small_model_runtime_harness_first_token_runtime_probe",
+            "detail": "SmallModelRuntimeHarnessLoggedRuntimeSmoke is present; the next non-heavy cursor must prove one owner-approved small local-model first token with redacted token text, rollback, RunEventLog, AnswerPacket, privacy, budget, and explicit L2/L3 non-promotion."
+        }));
+    }
+    if small_model_runtime_harness_first_token_runtime_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_first_token_runtime_probe_l1_runtime_only",
+            "detail": "SmallModelRuntimeHarnessFirstTokenRuntimeProbe is present as retained L1 runtime evidence. It proves one redacted Qwen3-4B first token through an offline falsifier helper, but L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_answer_packet_runtime_probe."
+        }));
+    } else if small_model_runtime_harness_logged_runtime_smoke_available
+        && !heavy_long_context_enabled
+    {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_logged_runtime_smoke_metadata_only",
             "detail": "SmallModelRuntimeHarnessLoggedRuntimeSmoke is present as L1 metadata only. It proves missing local snapshots are logged visibly and no MLX/runtime/model bytes are opened; L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_first_token_runtime_probe."
@@ -5499,6 +5541,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("small_model_runtime_harness_logged_runtime_smoke")
+            .is_some());
+        assert!(already_mapped_work
+            .get("small_model_runtime_harness_first_token_runtime_probe")
             .is_some());
     }
 
