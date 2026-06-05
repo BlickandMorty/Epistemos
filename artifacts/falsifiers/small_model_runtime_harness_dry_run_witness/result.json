@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "725f8b56d0c866f4083224ef24d72dad37928ede",
+  "commit_sha": "289c5acc29c3533bf18f2d6fee1c299f51c5fbbb",
   "fixture_id": "small_model_runtime_harness_dry_run_witness_v1",
-  "timestamp_utc": "2026-06-05T07:18:10Z",
+  "timestamp_utc": "2026-06-05T07:21:53Z",
   "result_digest": "sha256:8a6ab647f4a63a67cb5f5949274092fac5c726090132457f1dc1b83c70ab737c",
   "measurements": {
     "admission_bound": {
