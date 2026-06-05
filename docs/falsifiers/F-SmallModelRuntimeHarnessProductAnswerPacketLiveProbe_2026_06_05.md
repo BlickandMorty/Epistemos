@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1 retained-live product AnswerPacket handoff witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_product_answer_packet_live_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_product_answer_packet_live_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_product_route_capability_recheck`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_safety_lease` after downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck`
 - Scope: binds retained Qwen3-4B first-token runtime evidence and real AnswerPacket/RunEventLog sidecars to product-visible source surfaces; no fresh product runtime/model bytes, no MAS Live, no L2 green, no live 70B, and no 128K shard rerun.
 
 ## What It Proves
@@ -22,10 +22,10 @@ The primitive rejects missing product WRV, missing first-token artifact, missing
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_product_route_capability_recheck` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_product_route_capability_recheck`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe` passes, downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` now passes, and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease` with duplicate risk `0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_safety_lease`.
 - L3: Product surface handoff advanced only as retained-live evidence. Source-visible AnswerPacket/RunEventLog handoff is bound, but a fresh app runtime route and full user-facing local-agent claim are still not green.
 
 ## Caveat
 
-This is not metadata-only, because it depends on retained first-token runtime evidence, but it opens no fresh product runtime/model bytes. It does not prove MAS live-agent mode, a fresh product UI runtime session, live 70B, KV-Direct 128K, or autogenous kernel work. The next unit must recheck product-route capability honestly against the remaining live gates.
+This is not metadata-only, because it depends on retained first-token runtime evidence, but it opens no fresh product runtime/model bytes. It does not prove MAS live-agent mode, a fresh product UI runtime session, live 70B, KV-Direct 128K, or autogenous kernel work. The downstream recheck keeps those blockers visible; the next unit is the fresh product runtime safety lease.

@@ -34,6 +34,6 @@ Downstream Metal I/O feature-gate, codec-stage latency, transport cancellation,
 cache-policy, cold-panic fallback, ProductRouteReview, small-model harness
 safety-plan, dry-run, owner-approved, and abortable-runtime witnesses now pass
 metadata-only. The regenerated guard reports
-`next_existing_work=small_model_runtime_harness_product_route_capability_recheck` after downstream `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe`; L2
+`next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease` after downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck`; L2
 remains `vault_research_route_with_packetized_mitigation`, and L3
 user-facing/product runtime is unchanged.
