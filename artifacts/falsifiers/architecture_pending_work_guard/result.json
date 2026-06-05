@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "c04c71de00912face6be3bf06cf9bede001e36f6",
+  "commit_sha": "35762f817dc70232386890828fc14af5a8ff2ee6",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T15:56:50Z",
-  "result_digest": "sha256:72fd67f64f1a4f2e041dadaaec8253b8a4485a9bc8fe6b093bbfe93c3c4f7886",
+  "timestamp_utc": "2026-06-05T16:39:37Z",
+  "result_digest": "sha256:fd213025dc9a482d8baa3d057bc0eb281608e64a50dca6ef6fe973d8a9993fb9",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -324,6 +324,10 @@
           },
           "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_fresh_product_runtime_wrv_probe": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_wrv_probe/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -678,11 +682,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_wrv_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_capability_recheck",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_wrv_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_capability_recheck",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -830,6 +834,10 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_wrv_probe_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1242,6 +1250,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_wrv_probe_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_logged_runtime_smoke_available": {
       "operator": "==",
       "value": true,
@@ -1401,6 +1414,7 @@
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": true,
+    "small_model_runtime_harness_fresh_product_runtime_wrv_probe_available": true,
     "small_model_runtime_harness_logged_runtime_smoke_available": true,
     "small_model_runtime_harness_owner_approved_probe_available": true,
     "small_model_runtime_harness_product_answer_packet_live_probe_available": true,
@@ -1428,8 +1442,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_l1_only",
-      "detail": "SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe is present as an L1-only packetization witness: the fresh Qwen3-4B product-runtime sidecar is bound into a real AnswerPacket and dense RunEventLog with rollback, admission, privacy, budget, and no new model/runtime bytes. L2 remains vault_research_route_with_packetized_mitigation and L3 WRV remains unpromoted while the next cursor moves to fresh product-runtime WRV."
+      "kind": "small_model_runtime_harness_fresh_product_runtime_wrv_probe_source_only",
+      "detail": "SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe is present as L1/L3-source proof: fresh Qwen3-4B AnswerPacket and RunEventLog evidence is wired to product source, Settings diagnostics, message packet visibility, System G replay, and focused tests without new runtime/model bytes. The next cursor is a fresh capability recheck; L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K/autogenous-kernel claim promotes."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1444,5 +1458,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_wrv_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_capability_recheck; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
