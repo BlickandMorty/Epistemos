@@ -128,4 +128,5 @@ A future artifact fails immediately if it:
 - Small-model harness owner-approved probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessOwnerApprovedProbe_2026_06_05.md`
 - Small-model harness abortable runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessAbortableRuntimeProbe_2026_06_05.md`
 - Small-model harness logged runtime smoke witness: `docs/falsifiers/F-SmallModelRuntimeHarnessLoggedRuntimeSmoke_2026_06_05.md`
-- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` metadata-only missing-snapshot logging witness: `small_model_runtime_harness_first_token_runtime_probe`. This remains L1-only; L2 product capability and L3 user-facing runtime are unchanged.
+- Small-model harness first-token runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`
+- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe` retained Qwen3-4B first-token witness: `small_model_runtime_harness_answer_packet_runtime_probe`. This remains L1-only runtime evidence; L2 product capability and L3 user-facing runtime are unchanged.

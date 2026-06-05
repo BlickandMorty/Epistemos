@@ -108,6 +108,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-SparseRoute-NoHiddenAuthority`; L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing/product
   runtime is unchanged.
+- Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe` landed:
+  `Tools/falsifiers/f_small_model_runtime_harness_first_token_runtime_probe.sh`
+  emits and validates
+  `artifacts/falsifiers/small_model_runtime_harness_first_token_runtime_probe/result.json`
+  with retained sidecar
+  `artifacts/falsifiers/small_model_runtime_harness_first_token_runtime_probe/live_probe.json`.
+  It consumes `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` and proves one
+  owner-approved, bounded `Qwen/Qwen3-4B-MLX-4bit` MLX first-token probe from a
+  synthetic non-user prompt: `load_ms=1525`, `first_token_ms=737`,
+  `total_ms=2261`, `chunks_observed=1`, `output_token_count=1`, raw token text
+  redacted, prompt/token hashes retained, rollback/RunEventLog/AnswerPacket,
+  SCOPE-Rex/SovereignGate admission, privacy, budget, compatibility, and
+  cancellation refs bound. This is L1 runtime evidence, not metadata-only:
+  small local model bytes were opened in the retained falsifier sidecar, while
+  70B, 128K shard, app-path subprocess, hidden cloud, hidden chain, mutation,
+  MAS, L2, and L3 promotions are explicitly rejected. L1 advances only to
+  `small_model_runtime_harness_answer_packet_runtime_probe`; L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing/product
+  runtime is unchanged.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_logged_runtime_smoke.sh`
   emits and validates
@@ -695,7 +714,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 	`F-Capability-Ceiling-Evaluation-Kernel` emits
 	`artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` and
 	  currently reports `vault_research_route_with_packetized_mitigation` with
-	  next bottleneck `small_model_runtime_harness_first_token_runtime_probe` after downstream `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke`.
+	  next bottleneck `small_model_runtime_harness_answer_packet_runtime_probe`
+	  after downstream `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe`.
   `F-UAS-CopyCount` and `F-ACS-AnchorLookup` are now schema-normalized primary
   witnesses. `F-UAS-ACS-MmapResidency` is now a primary witness for a 16 MiB
   file-backed mmap KV-page slice with UAS address round-trip, AcsAnchor projection
@@ -910,7 +930,7 @@ for the exact current commit.
 - `Tools/falsifiers/kv_direct_prompt_suite.sh` now emits `artifacts/falsifiers/kv_direct_gate/prompt_suite.json`: the canonical 100-prompt / 128K / 256-decode input manifest for the live Qwen3-8B KV run.
 - `Tools/falsifiers/run_kv_direct_mlx_live.sh` now loads the local Qwen3-8B MLX snapshot and emits MLX runner outputs under `artifacts/falsifiers/kv_direct_gate/live_mlx/`. The 2026-05-28 smoke runs produced paired full-vocabulary logit rows and a `prompt_cache_reload` file-backed cache witness; the prompt-cache smoke wrote a 75 MB cache file and had low D_KL, but it used only 1 prompt / 512 context / 1 decode token with `spill_labeling=false`. The runner also accepts `--prompt-offset`, and `Tools/falsifiers/merge_kv_direct_mlx_shards.sh` merges restartable shards into the canonical falsifier input bundle. This is plumbing evidence only, not a green KV-Direct witness.
 - `Tools/falsifiers/plan_kv_direct_mlx_shards.sh --shard-size 1 --prefill-step-size 512 --write-shell` now writes `artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json` plus `run_all_shards.sh`: a 100-shard, one-prompt-per-shard 128K / 256-decode execution map. The Capability Ceiling kernel reads this as `kv_direct_full_suite_run_plan_available=true`, while preserving `falsifier_green_capable=false` for the current `prompt_cache_reload` development route. The planner now records model identity and supports explicit `--model-path`; the separate candidate plan at `artifacts/falsifiers/kv_direct_gate/live_mlx_candidate_qwen3_coder_next_plan/full_suite_run_plan.json` targets `mlx-community/Qwen3-Coder-Next-4bit` and is marked `model_identity_matches_canonical=false`, so it is runtime research evidence only.
-- `Tools/falsifiers/f_architecture_pending_work_guard.sh` now emits `artifacts/falsifiers/architecture_pending_work_guard/result.json`: the de-dup cursor for recursive loops. Current default cursor is `small_model_runtime_harness_first_token_runtime_probe` after the metadata-only `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` witness; the 128K Qwen/GGUF/KV shard lane and 70B provider-reference lane are preserved as red research evidence but deferred unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set. The preserved MLX `shard_000_000` failure still proves the first 128K prompt emitted zero rows (`2048` prefill: Metal interactivity abort; `512` prefill: stopped after about 14 minutes), but agents must not repair or rerun that shard or create provider-reference manifests in the default architecture loop.
+- `Tools/falsifiers/f_architecture_pending_work_guard.sh` now emits `artifacts/falsifiers/architecture_pending_work_guard/result.json`: the de-dup cursor for recursive loops. Current default cursor is `small_model_runtime_harness_answer_packet_runtime_probe` after the retained L1 runtime `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe` witness; the first-token sidecar proves one redacted Qwen3-4B token only and does not promote L2/L3. The 128K Qwen/GGUF/KV shard lane and 70B provider-reference lane are preserved as red research evidence but deferred unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set. The preserved MLX `shard_000_000` failure still proves the first 128K prompt emitted zero rows (`2048` prefill: Metal interactivity abort; `512` prefill: stopped after about 14 minutes), but agents must not repair or rerun that shard or create provider-reference manifests in the default architecture loop.
 - `Tools/falsifiers/f_residency_construction_graph.sh` now emits and validates `artifacts/falsifiers/residency_construction_graph/result.json` as the first Research Construction Engine primary witness. It proves a metadata-only `ResidencyConstructionGraph` binds task signature, source-card-backed candidate units, coactivation edges, incompatibility edges, verifier edges, and cold-miss history into a deterministic assembly score; invalid, over-budget, and rollback-missing assemblies reject before runtime; runtime/model bytes loaded remain zero.
 - `Tools/falsifiers/f_coactivation_tile_prefetch.sh` now emits and validates `artifacts/falsifiers/coactivation_tile_prefetch/result.json` as the second Research Construction Engine primary witness. It proves metadata-only `CoactivationTile` manifests bind UAS addresses, byte ranges, codecs, verifier history, prefetch cost, reuse horizon, and rollback, then compile a bounded prefetch order with `0` compiled misses versus `2` file-order misses and `2` deterministic-random misses. Runtime/model bytes loaded remain zero.
 - `Tools/falsifiers/f_proof_carrying_residency_lease.sh` now emits and validates `artifacts/falsifiers/proof_carrying_residency_lease/result.json` as the third Research Construction Engine primary witness. It proves metadata-only `ProofCarryingResidencyLease` envelopes bind UAS address, reason, active byte cost, expected utility, proof/falsifier reference, expiry, fallback, and rollback; `2` valid cold-byte wakes authorize while `8` missing/expired/wrong/over-budget cases reject; runtime/model bytes loaded remain zero.
