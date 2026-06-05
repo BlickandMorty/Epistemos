@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "9c8dee7d72ca5ae046450de17c603beb8ddd2aac",
+  "commit_sha": "b507c02eeb61a2dea200d95791cc9f46a5992e41",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-04T23:10:20Z",
-  "result_digest": "sha256:74c85d4cd09f7a23ef4ebc73c29ad69f0e961c9b04f6ddfdfdc8380d856fee8e",
+  "timestamp_utc": "2026-06-05T00:27:55Z",
+  "result_digest": "sha256:13ce6f26d16a1d7c5f73e604b056415e040035e978b2b5ef466c069f3089d4f0",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -248,6 +248,10 @@
           },
           "slab_arena_copy_count": {
             "path": "artifacts/falsifiers/slab_arena_copy_count/result.json",
+            "available": true
+          },
+          "metal_io_feature_gate": {
+            "path": "artifacts/falsifiers/metal_io_feature_gate/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -581,16 +585,20 @@
       "value": true,
       "unit": "bool"
     },
+    "metal_io_feature_gate_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "neural_control_card_ablation_available": {
       "value": true,
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "metal_io_feature_gate",
+      "value": "codec_stage_latency",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "metal_io_feature_gate",
+      "value": "codec_stage_latency",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -910,6 +918,11 @@
       "value": true,
       "unit": "bool"
     },
+    "metal_io_feature_gate_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "neural_control_card_ablation_available": {
       "operator": "==",
       "value": true,
@@ -1118,6 +1131,7 @@
     "local_worktree_inventory_available": true,
     "local_worktree_inventory_non_destructive": true,
     "meta_breakthrough_card_registry_available": true,
+    "metal_io_feature_gate_available": true,
     "neural_control_card_ablation_available": true,
     "no_duplicate_rebuild_risk": true,
     "ordered_queue_available": true,
@@ -1174,5 +1188,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=metal_io_feature_gate; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=codec_stage_latency; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
-    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
-    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
+    METAL_IO_FEATURE_GATE_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES,
+    SLAB_ARENA_COPY_COUNT_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
@@ -115,6 +115,7 @@ const TRANSPORT_TRACE_ANSWER_PACKET_PATH: &str =
 const SSD_WEAR_BUDGET_PATH: &str = "artifacts/falsifiers/ssd_wear_budget/result.json";
 const COLDSTREAM_VS_MMAP_PATH: &str = "artifacts/falsifiers/coldstream_vs_mmap/result.json";
 const SLAB_ARENA_COPY_COUNT_PATH: &str = "artifacts/falsifiers/slab_arena_copy_count/result.json";
+const METAL_IO_FEATURE_GATE_PATH: &str = "artifacts/falsifiers/metal_io_feature_gate/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -127,6 +128,7 @@ const SSD_WEAR_BUDGET: &str = "ssd_wear_budget";
 const COLDSTREAM_VS_MMAP: &str = "coldstream_vs_mmap";
 const SLAB_ARENA_COPY_COUNT: &str = "slab_arena_copy_count";
 const METAL_IO_FEATURE_GATE: &str = "metal_io_feature_gate";
+const CODEC_STAGE_LATENCY: &str = "codec_stage_latency";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2352,6 +2354,7 @@ fn build_report() -> KernelReport {
     let ssd_wear_budget = GateArtifact::read(SSD_WEAR_BUDGET_PATH);
     let coldstream_vs_mmap = GateArtifact::read(COLDSTREAM_VS_MMAP_PATH);
     let slab_arena_copy_count = GateArtifact::read(SLAB_ARENA_COPY_COUNT_PATH);
+    let metal_io_feature_gate = GateArtifact::read(METAL_IO_FEATURE_GATE_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2411,6 +2414,7 @@ fn build_report() -> KernelReport {
         &ssd_wear_budget,
         &coldstream_vs_mmap,
         &slab_arena_copy_count,
+        &metal_io_feature_gate,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2831,6 +2835,8 @@ fn build_report() -> KernelReport {
         && coldstream_vs_mmap.all_axes_true(COLDSTREAM_VS_MMAP_AXES);
     let slab_arena_copy_count_pass = slab_arena_copy_count.overall_pass
         && slab_arena_copy_count.all_axes_true(SLAB_ARENA_COPY_COUNT_AXES);
+    let metal_io_feature_gate_pass = metal_io_feature_gate.overall_pass
+        && metal_io_feature_gate.all_axes_true(METAL_IO_FEATURE_GATE_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2890,6 +2896,7 @@ fn build_report() -> KernelReport {
         &ssd_wear_budget,
         &coldstream_vs_mmap,
         &slab_arena_copy_count,
+        &metal_io_feature_gate,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -3014,6 +3021,7 @@ fn build_report() -> KernelReport {
         ssd_wear_budget_pass,
         coldstream_vs_mmap_pass,
         slab_arena_copy_count_pass,
+        metal_io_feature_gate_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3091,6 +3099,7 @@ fn build_report() -> KernelReport {
         ssd_wear_budget_pass,
         coldstream_vs_mmap_pass,
         slab_arena_copy_count_pass,
+        metal_io_feature_gate_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3608,6 +3617,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "metal_io_feature_gate_pass",
+        metal_io_feature_gate_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3888,6 +3904,11 @@ fn build_report() -> KernelReport {
         "slab_arena_copy_count",
         &slab_arena_copy_count,
     );
+    add_gate_summary(
+        &mut measurements,
+        "metal_io_feature_gate",
+        &metal_io_feature_gate,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -3946,6 +3967,7 @@ fn build_report() -> KernelReport {
         ssd_wear_budget_pass,
         coldstream_vs_mmap_pass,
         slab_arena_copy_count_pass,
+        metal_io_feature_gate_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4363,6 +4385,7 @@ fn next_bottleneck(
     ssd_wear_budget_pass: bool,
     coldstream_vs_mmap_pass: bool,
     slab_arena_copy_count_pass: bool,
+    metal_io_feature_gate_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4503,8 +4526,10 @@ fn next_bottleneck(
             COLDSTREAM_VS_MMAP.to_string()
         } else if !seventy_b_route_pass && !slab_arena_copy_count_pass {
             SLAB_ARENA_COPY_COUNT.to_string()
-        } else if !seventy_b_route_pass {
+        } else if !seventy_b_route_pass && !metal_io_feature_gate_pass {
             METAL_IO_FEATURE_GATE.to_string()
+        } else if !seventy_b_route_pass {
+            CODEC_STAGE_LATENCY.to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4589,6 +4614,7 @@ fn build_ordered_gap_queue(
     ssd_wear_budget_pass: bool,
     coldstream_vs_mmap_pass: bool,
     slab_arena_copy_count_pass: bool,
+    metal_io_feature_gate_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4733,6 +4759,16 @@ fn build_ordered_gap_queue(
                 && ssd_wear_budget_pass
                 && coldstream_vs_mmap_pass
                 && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+            {
+                "deferred_l1_metal_io_feature_gate_planned"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
             {
                 "deferred_l1_slab_arena_copy_count_planned"
             } else if !heavy_long_context_enabled
@@ -4783,6 +4819,16 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+            {
+                "deferred_l1_metal_io_feature_gate_planned"
             } else if !heavy_long_context_enabled
                 && large_model_provider_reference_deferral_pass
                 && provider_route_copy_source_guard_pass
@@ -5676,6 +5722,7 @@ fn build_anomalies(
     ssd_wear_budget_pass: bool,
     coldstream_vs_mmap_pass: bool,
     slab_arena_copy_count_pass: bool,
+    metal_io_feature_gate_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -6103,6 +6150,35 @@ fn build_anomalies(
         }));
     }
     if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && !metal_io_feature_gate_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "metal_io_feature_gate_missing",
+            "detail": "SlabArena copy-count evidence is present; the next non-heavy cursor must prove Metal I/O is feature-gated and falls back to visible CPU slabs before live transport promotion."
+        }));
+    }
+    if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && metal_io_feature_gate_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "metal_io_feature_gate_metadata_only",
+            "detail": "Metal I/O feature-gate decisions are witnessed at L1 with supported-feature MetalBufferLease refs, unsupported/unknown CPU slab fallback, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, and visible AnswerPacket caveats, but no live Metal I/O benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+        }));
+    } else if !seventy_b_route_pass
         && !heavy_long_context_enabled
         && large_model_provider_reference_deferral_pass
         && provider_route_copy_source_guard_pass
@@ -6541,21 +6617,22 @@ mod tests {
         const SSD_WEAR_BUDGET: usize = 64;
         const COLDSTREAM_VS_MMAP: usize = 65;
         const SLAB_ARENA_COPY_COUNT: usize = 66;
-        const SEVENTY_B: usize = 67;
+        const METAL_IO_FEATURE_GATE: usize = 67;
+        const SEVENTY_B: usize = 68;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 68] {
-            let mut values = [false; 68];
+        let flags = |true_indexes: &[usize]| -> [bool; 69] {
+            let mut values = [false; 69];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 68], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 69], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6627,11 +6704,12 @@ mod tests {
                 values[65],
                 values[66],
                 values[67],
+                values[68],
                 &missing,
             )
         };
-        let nb = |values: [bool; 68]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 68]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 69]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 69]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -8954,9 +9032,12 @@ mod tests {
                 LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL,
                 PROVIDER_ROUTE_COPY_SOURCE_GUARD,
                 TRANSPORT_TRACE_ANSWER_PACKET,
-                SEVENTY_B,
+                SSD_WEAR_BUDGET,
+                COLDSTREAM_VS_MMAP,
+                SLAB_ARENA_COPY_COUNT,
+                METAL_IO_FEATURE_GATE,
             ]))),
-            "ready_for_product_route_review"
+            "codec_stage_latency"
         );
     }
 

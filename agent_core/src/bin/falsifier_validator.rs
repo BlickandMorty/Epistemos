@@ -93,6 +93,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SSD-WearBudget",
     "F-ColdStream-vs-Mmap",
     "F-SlabArena-CopyCount",
+    "F-MetalIO-FeatureGate",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source_prompt: user request to invent a better-than-mmap architecture for UAS/AppColdStore hot paths when SSD/page faults become the bottleneck
-status: speculative architecture doctrine; F-ColdStream-vs-Mmap and F-SlabArena-CopyCount passed metadata-only witnesses on 2026-06-04; no product promotion without live mmap-vs-transport benchmarks, live copy-count proof, p99 stall proof, rollback, and feature gates
+status: speculative architecture doctrine; F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, and F-MetalIO-FeatureGate passed metadata-only witnesses on 2026-06-04; no product promotion without codec latency, cancellation, cache-pollution, panic fallback, live p99 stall proof, rollback, and platform benchmarks
 ---
 
 # ColdStream Residency Transport - 2026-06-01
@@ -12,16 +12,16 @@ status: speculative architecture doctrine; F-ColdStream-vs-Mmap and F-SlabArena-
 North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
 2026-06-04 status note: `F-ColdStream-NoHiddenAuthority`,
-`F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, and
-`F-ColdStream-vs-Mmap`, and `F-SlabArena-CopyCount` now pass as metadata-only
-primary witnesses. The newest artifact at
-`artifacts/falsifiers/slab_arena_copy_count/result.json` proves CPU slab plans
-preallocate buffers, lease byte ranges, report copy counts, and expose zero
-per-token allocation deltas before Metal I/O can promote. It does not prove live
-ColdStream transport, live mmap replacement, live pread/Dispatch I/O/Metal I/O
-performance, cache policy, SSD stress safety, or user-facing runtime
-performance. Current L1 cursor: `metal_io_feature_gate`; L2 and L3 remain
-unpromoted.
+`F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`,
+`F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, and
+`F-MetalIO-FeatureGate` now pass as metadata-only primary witnesses. The newest
+artifact at `artifacts/falsifiers/metal_io_feature_gate/result.json` proves
+Metal I/O is selected only after explicit platform support and otherwise falls
+back to visible CPU slabs with rollback, RunEventLog, AnswerPacket, and
+SCOPE-Rex/SovereignGate admission. It does not prove live ColdStream transport,
+live mmap replacement, live pread/Dispatch I/O/Metal I/O performance, codec
+latency, cache policy, SSD stress safety, or user-facing runtime performance.
+Current L1 cursor: `codec_stage_latency`; L2 and L3 remain unpromoted.
 
 ## Thesis
 
@@ -106,6 +106,8 @@ AnswerPacket proof.
   `https://developer.apple.com/documentation/dispatch/dispatch-i-o`
 - Apple Metal resource loading:
   `https://developer.apple.com/documentation/metal/resource-loading`
+- Apple `MTLDevice.supportsFamily(_:)`:
+  `https://developer.apple.com/documentation/metal/mtldevice/supportsfamily(_:)`
 - Apple Metal feature set tables:
   `https://developer.apple.com/metal/capabilities/`
 

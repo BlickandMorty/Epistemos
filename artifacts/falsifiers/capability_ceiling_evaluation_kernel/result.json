@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "9c8dee7d72ca5ae046450de17c603beb8ddd2aac",
+  "commit_sha": "b507c02eeb61a2dea200d95791cc9f46a5992e41",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-04T23:10:19Z",
-  "result_digest": "sha256:c29ce157a9e0840a7b428adb8220ff0ff445932c8afe25bffda531284537ad41",
+  "timestamp_utc": "2026-06-05T00:27:48Z",
+  "result_digest": "sha256:14384643766440d7c53645a6489ce6be2b3da032d66cde84ea55ed6d7d14f22c",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -473,6 +473,22 @@
       },
       "unit": "object"
     },
+    "metal_io_feature_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metal_io_feature_gate_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/metal_io_feature_gate/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "neural_control_card_ablation_pass": {
       "value": true,
       "unit": "bool"
@@ -490,7 +506,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "metal_io_feature_gate",
+      "value": "codec_stage_latency",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -599,7 +615,7 @@
           "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
-          "status": "deferred_l1_slab_arena_copy_count_planned",
+          "status": "deferred_l1_metal_io_feature_gate_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research.",
@@ -609,7 +625,7 @@
           "order": 11,
           "gap_id": "seventy_b_prompt_level_cocktail",
           "tier": "Vault / Beyond",
-          "status": "deferred_l1_slab_arena_copy_count_planned",
+          "status": "deferred_l1_metal_io_feature_gate_planned",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "No active provider-reference prompt-level work is required for the MLX route.",
@@ -1693,6 +1709,11 @@
       "value": true,
       "unit": "bool"
     },
+    "metal_io_feature_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "neural_control_card_ablation_pass": {
       "operator": "==",
       "value": true,
@@ -1919,6 +1940,7 @@
     "lattice_state_controller_pass": true,
     "layer_kv_joint_lease_pass": true,
     "meta_breakthrough_card_registry_pass": true,
+    "metal_io_feature_gate_pass": true,
     "neural_control_card_ablation_pass": true,
     "page_gather_dense_primary_pass": false,
     "page_gather_packetized_caller_pass": true,
@@ -1969,13 +1991,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "slab_arena_copy_count_metadata_only",
-      "detail": "SlabArena copy-count traces are witnessed at L1 with preallocated CPU slabs, bounded leases, zero per-token allocation spikes, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, and AnswerPacket refs, but no live ColdStream benchmark, Metal I/O route, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+      "kind": "metal_io_feature_gate_metadata_only",
+      "detail": "Metal I/O feature-gate decisions are witnessed at L1 with supported-feature MetalBufferLease refs, unsupported/unknown CPU slab fallback, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, and visible AnswerPacket caveats, but no live Metal I/O benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "metal_io_feature_gate"
+      "detail": "codec_stage_latency"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=metal_io_feature_gate; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=codec_stage_latency; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
