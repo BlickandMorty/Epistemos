@@ -99,6 +99,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-CachePolicy-Pollution",
     "F-ColdPanicFallback",
     "F-ProductRouteReview",
+    "F-SmallModelRuntimeHarnessSafetyPlan",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",

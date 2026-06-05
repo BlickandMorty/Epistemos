@@ -12,9 +12,9 @@ status: snapshot
 This file exists so the inline edits are not silently lost. The exact copied
 files live in `authority-surfaces/`; this is the map of what each one preserves.
 
-2026-06-05 mirror note: live S0 canon now includes `F-ProductRouteReview` as a
-metadata-only witness. Current L1 cursor is
-`small_model_runtime_harness_safety_plan`; L2 remains
+2026-06-05 mirror note: live S0 canon now includes
+`F-SmallModelRuntimeHarnessSafetyPlan` as a metadata-only witness. Current L1
+cursor is `small_model_runtime_harness_dry_run_witness`; L2 remains
 `vault_research_route_with_packetized_mitigation`; L3 user-facing/product
 runtime is unchanged.
 
