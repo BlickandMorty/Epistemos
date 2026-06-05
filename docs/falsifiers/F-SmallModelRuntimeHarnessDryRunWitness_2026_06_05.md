@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_dry_run_witness.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor: `small_model_runtime_harness_owner_approved_probe`
+- Current L1 cursor after downstream `F-SmallModelRuntimeHarnessOwnerApprovedProbe`: `small_model_runtime_harness_abortable_runtime_probe`
 
 ## What It Proves
 
@@ -18,8 +18,8 @@ It rejects missing or duplicate records, missing phases, missing prompt envelope
 
 ## Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessDryRunWitness` passes metadata-only and the regenerated pending-work guard must report `next_existing_work=small_model_runtime_harness_owner_approved_probe` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_owner_approved_probe`.
+- L1: Advanced at landing to `small_model_runtime_harness_owner_approved_probe`; downstream `F-SmallModelRuntimeHarnessOwnerApprovedProbe` now passes metadata-only and the regenerated pending-work guard must report `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_abortable_runtime_probe`.
 - L3: Not advanced. No user-facing runtime, live local-model agent route, live 70B, provider route, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Notes

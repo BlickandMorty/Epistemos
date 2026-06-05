@@ -17,7 +17,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Command: `Tools/falsifiers/f_ssd_wear_budget.sh`
 - Artifact: `artifacts/falsifiers/ssd_wear_budget/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream transport, product-route review, safety-plan, and dry-run witnesses: `small_model_runtime_harness_owner_approved_probe`
+- Current L1 cursor after downstream transport, product-route review, safety-plan, dry-run, and owner-approved probe witnesses: `small_model_runtime_harness_abortable_runtime_probe`
 
 ## What It Proves
 
@@ -31,8 +31,8 @@ Invalid fixtures reject empty plans, duplicate plan IDs, duplicate surface IDs, 
 
 ## Truth Layers
 
-- L1: Advanced at landing to `coldstream_vs_mmap`. Downstream `F-ColdStream-vs-Mmap` now passes metadata-only, and the regenerated architecture guard reports `next_existing_work=small_model_runtime_harness_owner_approved_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessDryRunWitness` evidence.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness`.
+- L1: Advanced at landing to `coldstream_vs_mmap`. Downstream `F-ColdStream-vs-Mmap` now passes metadata-only, and the regenerated architecture guard reports `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessDryRunWitness` evidence.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `small_model_runtime_harness_abortable_runtime_probe` after downstream `F-SmallModelRuntimeHarnessOwnerApprovedProbe`.
 - L3: Not advanced. No user-facing runtime, live ColdStream transport, mmap replacement, Metal I/O path, SSD stress safety, live sparse 70B, or product-route claim was promoted.
 
 ## Notes

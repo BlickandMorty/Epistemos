@@ -8,7 +8,7 @@ Epistemos is a local cognitive substrate where every meaningful object has an ad
 - Command: `Tools/falsifiers/f_provider_route_copy_source_guard.sh`
 - Artifact: `artifacts/falsifiers/provider_route_copy_source_guard/result.json`
 - Scope: L1 architecture cursor only. L2 product route and L3 user-facing/runtime claims do not advance.
-- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness`: `small_model_runtime_harness_owner_approved_probe`
+- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, `F-SmallModelRuntimeHarnessDryRunWitness`, and `F-SmallModelRuntimeHarnessOwnerApprovedProbe`: `small_model_runtime_harness_abortable_runtime_probe`
 
 ## What It Proves
 
@@ -18,8 +18,8 @@ It binds four copy/source claims across provider reference, KV-Direct, dense 70B
 
 ## Layer Truth
 
-- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_owner_approved_probe` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness` evidence landed.
+- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_abortable_runtime_probe` after downstream `F-SmallModelRuntimeHarnessOwnerApprovedProbe` evidence landed.
 - L3: Not advanced. No user-facing runtime, live provider route, live 70B, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Metrics

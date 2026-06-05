@@ -331,6 +331,10 @@ name = "falsify_small_model_runtime_harness_dry_run_witness"
 path = "src/bin/falsify_small_model_runtime_harness_dry_run_witness.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_owner_approved_probe"
+path = "src/bin/falsify_small_model_runtime_harness_owner_approved_probe.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
