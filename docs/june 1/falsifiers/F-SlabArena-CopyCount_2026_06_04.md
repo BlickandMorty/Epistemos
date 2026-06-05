@@ -32,8 +32,10 @@ The Rust primitive and falsifier reject empty plans, duplicate plans, duplicate 
 
 Downstream Metal I/O feature-gate, codec-stage latency, transport cancellation,
 cache-policy, cold-panic fallback, ProductRouteReview, small-model harness
-safety-plan, dry-run, owner-approved, and abortable-runtime witnesses now pass
-metadata-only. The regenerated guard reports
-`next_existing_work=small_model_runtime_harness_fresh_product_runtime_safety_lease` after downstream `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck`; L2
-remains `vault_research_route_with_packetized_mitigation`, and L3
-user-facing/product runtime is unchanged.
+safety-plan, dry-run, owner-approved, abortable-runtime, fresh safety, fresh
+live, fresh AnswerPacket, fresh WRV, and fresh capability-recheck witnesses now
+pass. The regenerated guard reports
+`next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`; L2
+remains `vault_research_route_with_packetized_mitigation`, and broader L3
+user-facing/product capability is unchanged until log-correlated runtime proof
+lands.

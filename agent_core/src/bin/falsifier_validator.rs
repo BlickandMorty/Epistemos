@@ -113,6 +113,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe",
     "F-SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe",
     "F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe",
+    "F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
