@@ -191,6 +191,40 @@ struct UserFacingModelOutputTests {
         #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
     }
 
+    @Test("incomplete function call envelopes suppress prelude-only control narration")
+    func incompleteFunctionCallEnvelopesSuppressPreludeOnlyControlNarration() {
+        let raw = """
+        Let me call the tool.
+
+        <function_call>
+        {"name":"vault.search","arguments":{"query":"private"}}
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
+    @Test("explicit final answers remain visible after control envelopes")
+    func explicitFinalAnswersRemainVisibleAfterControlEnvelopes() {
+        let raw = """
+        <function_call>
+        {"name":"vault.search","arguments":{"query":"local models"}}
+        </function_call>
+
+        Final Answer:
+        Use the local model route only after the harness witness passes.
+        """
+
+        #expect(
+            UserFacingModelOutput.streamingVisibleText(from: raw)
+                == "Use the local model route only after the harness witness passes."
+        )
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "Use the local model route only after the harness witness passes."
+        )
+    }
+
     @Test("streaming reasoning strips dangling final-answer markers without content")
     func streamingReasoningTextDropsDanglingAnswerMarker() {
         let raw = """

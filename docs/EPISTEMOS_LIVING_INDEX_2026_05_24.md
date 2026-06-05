@@ -269,6 +269,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing/product capability plus release readiness remain unchanged until
   the Swift test suite is repaired and the log/manual/distribution/three-pass
   release-audit gates land.
+- Updated **2026-06-05** · automated-check repair checkpoint: the first scoped
+  Swift-suite blocker cluster under the red release-audit ledger was hardened in
+  `UserFacingModelOutput`. North-star sentence: Epistemos is a local cognitive
+  substrate where every meaningful object has an address, plane, budget, status,
+  and witness; MAS ships the safe floor, Pro contains the
+  gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. Assistant control envelopes such as `<function_call>` and `<action>`
+  no longer leak prelude-only tool/control narration into visible chat output
+  when no explicit final answer exists, while explicit `Final Answer:` text
+  remains visible. Focused verification passed
+  `EpistemosTests/UserFacingModelOutputTests` (30 tests). This is a privacy and
+  no-hidden-authority repair inside the red gate: the L1 cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  with `duplicate_risk_count=0`, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  plus release readiness remain unchanged until the full automated suite,
+  log/manual/distribution review, and three uninterrupted zero-fail passes land.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates
