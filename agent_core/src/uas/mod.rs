@@ -30,6 +30,7 @@ pub mod address;
 pub mod anchor_registry;
 pub mod app_cold_store;
 pub mod coactivation_tile;
+pub mod codec_stage_latency;
 pub mod cold_assembly_plan;
 pub mod cold_miss_ledger;
 pub mod coldstream;
@@ -65,6 +66,11 @@ pub use app_cold_store::{
 };
 pub use coactivation_tile::{
     CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,
+};
+pub use codec_stage_latency::{
+    CodecStageLane, CodecStageLatencyError, CodecStageLatencyMetrics, CodecStageLatencyWitness,
+    CodecStageRecord, CodecStageSurface, CODEC_STAGE_LATENCY_CURSOR,
+    CODEC_STAGE_LATENCY_NEXT_CURSOR,
 };
 pub use cold_assembly_plan::{
     ColdAssemblyBaseline, ColdAssemblyPlan, ColdAssemblyPlanError, ColdAssemblyTileRef,

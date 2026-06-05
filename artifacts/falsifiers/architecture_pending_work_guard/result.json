@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "b507c02eeb61a2dea200d95791cc9f46a5992e41",
+  "commit_sha": "0e6e2e8dbdc19df75c73d9bce9e4ef51702399c3",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T00:27:55Z",
-  "result_digest": "sha256:13ce6f26d16a1d7c5f73e604b056415e040035e978b2b5ef466c069f3089d4f0",
+  "timestamp_utc": "2026-06-05T01:46:57Z",
+  "result_digest": "sha256:8b26c95f2121842b78df2be3a291b6e207d9f6f954d54d6e85521a7e3babca27",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -254,6 +254,10 @@
             "path": "artifacts/falsifiers/metal_io_feature_gate/result.json",
             "available": true
           },
+          "codec_stage_latency": {
+            "path": "artifacts/falsifiers/codec_stage_latency/result.json",
+            "available": true
+          },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
             "available": true
@@ -291,6 +295,10 @@
       "unit": "bool"
     },
     "coactivation_tile_prefetch_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_stage_latency_available": {
       "value": true,
       "unit": "bool"
     },
@@ -594,11 +602,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "codec_stage_latency",
+      "value": "transport_cancellation",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "codec_stage_latency",
+      "value": "transport_cancellation",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -789,6 +797,11 @@
       "unit": "bool"
     },
     "coactivation_tile_prefetch_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "codec_stage_latency_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -1106,6 +1119,7 @@
     "budgeted_uncertainty_escalator_available": true,
     "capability_kernel_artifact_available": true,
     "coactivation_tile_prefetch_available": true,
+    "codec_stage_latency_available": true,
     "cold_assembly_plan_70b_lite_available": true,
     "cold_miss_ledger_available": true,
     "coldstream_no_hidden_authority_available": true,
@@ -1188,5 +1202,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=codec_stage_latency; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=transport_cancellation; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

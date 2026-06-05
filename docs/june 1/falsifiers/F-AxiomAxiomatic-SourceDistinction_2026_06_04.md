@@ -11,10 +11,10 @@
 - Artifact kind: `primary_witness`
 - Scope: source-card / route-prior metadata only; no runtime bytes, no model bytes, no external prover integration, and no live sparse route authority.
 - L1 next cursor at landing: `F-SparseRoute-NoHiddenAuthority`
-- Current L1 cursor after downstream `F-SlabArena-CopyCount` and `F-MetalIO-FeatureGate`: `codec_stage_latency`
+- Current L1 cursor after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency`: `transport_cancellation`
 - L2 product route: still `vault_research_route_with_packetized_mitigation`
 - L2 landing bottleneck: `sparse_route_no_hidden_authority`
-- Current L2 next bottleneck after downstream `F-SlabArena-CopyCount` and `F-MetalIO-FeatureGate`: `codec_stage_latency`
+- Current L2 next bottleneck after downstream `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, and `F-CodecStage-Latency`: `transport_cancellation`
 - L3 user-facing/product runtime: unchanged.
 
 ## What Passed

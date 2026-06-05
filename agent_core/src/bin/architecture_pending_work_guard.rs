@@ -12,10 +12,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
-    COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
-    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
-    METAL_IO_FEATURE_GATE_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES,
-    SLAB_ARENA_COPY_COUNT_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
+    CODEC_STAGE_LATENCY_AXES, COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
+    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
+    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
+    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
@@ -113,6 +113,7 @@ const SSD_WEAR_BUDGET_PATH: &str = "artifacts/falsifiers/ssd_wear_budget/result.
 const COLDSTREAM_VS_MMAP_PATH: &str = "artifacts/falsifiers/coldstream_vs_mmap/result.json";
 const SLAB_ARENA_COPY_COUNT_PATH: &str = "artifacts/falsifiers/slab_arena_copy_count/result.json";
 const METAL_IO_FEATURE_GATE_PATH: &str = "artifacts/falsifiers/metal_io_feature_gate/result.json";
+const CODEC_STAGE_LATENCY_PATH: &str = "artifacts/falsifiers/codec_stage_latency/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2797,6 +2798,9 @@ fn build_report() -> GuardReport {
     let metal_io_feature_gate = read_json(Path::new(METAL_IO_FEATURE_GATE_PATH));
     let metal_io_feature_gate_available =
         artifact_all_axes_true(&metal_io_feature_gate, METAL_IO_FEATURE_GATE_AXES);
+    let codec_stage_latency = read_json(Path::new(CODEC_STAGE_LATENCY_PATH));
+    let codec_stage_latency_available =
+        artifact_all_axes_true(&codec_stage_latency, CODEC_STAGE_LATENCY_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2934,6 +2938,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !slab_arena_copy_count_available
             || metal_io_feature_gate_available)
+        && (heavy_long_context_enabled
+            || !metal_io_feature_gate_available
+            || codec_stage_latency_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3340,6 +3347,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "metal_io_feature_gate_available",
         metal_io_feature_gate_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "codec_stage_latency_available",
+        codec_stage_latency_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3775,6 +3789,10 @@ fn build_report() -> GuardReport {
                     "path": METAL_IO_FEATURE_GATE_PATH,
                     "available": metal_io_feature_gate_available
                 },
+                "codec_stage_latency": {
+                    "path": CODEC_STAGE_LATENCY_PATH,
+                    "available": codec_stage_latency_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4173,6 +4191,15 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_metal_io_feature_gate",
             "detail": "SlabArena copy-count evidence is present; the next non-heavy cursor must prove Metal I/O is platform feature-gated and visibly falls back to CPU slabs before live transport promotion."
+        }));
+    }
+    if metal_io_feature_gate_available
+        && !codec_stage_latency_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_codec_stage_latency",
+            "detail": "Metal I/O feature-gate evidence is present; the next non-heavy cursor must prove decode/conversion latency, checksums, and copy counts are measured separately from file-read time before live transport promotion."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
