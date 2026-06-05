@@ -1,0 +1,750 @@
+{
+  "falsifier_id": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe.sh",
+  "command_digest": "sha256:f89e887e5f46d24db6f230812fe09064a6685edafbb93657d0c5e507a07e29c4",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8faf1c7910b3fe79e4635631c9fe1386ae330bdf",
+  "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_v1",
+  "timestamp_utc": "2026-06-05T18:51:56Z",
+  "result_digest": "sha256:d6dae995e9057e43ad820d41418ebe3f99bce6d6495543c858273d7c6e6b1b26",
+  "measurements": {
+    "answer_packet_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref": {
+      "value": "answer_packet:qwen3_4b:fresh-product-runtime:packetized",
+      "unit": "ref"
+    },
+    "autogenous_kernel_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_still_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_l3_manual_verification_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status": {
+      "value": "vault_research_route_with_packetized_mitigation",
+      "unit": "status"
+    },
+    "capability_route_status_vault_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_observation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_l3_manual_verification_or_advanced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_routes_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_still_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_status_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_cursor_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_70b_still_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "living_index_cursor_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_observation_floor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_step_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "manual_step_count_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_verification_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "manual_verification_model_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_verification_runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "manual_verification_runtime_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "value": 695739,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lattice_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_living_index_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_north_star_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_log_correlation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_capability_closeout_probe_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "north_star_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observation_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "phase_count": {
+      "value": 12,
+      "unit": "count"
+    },
+    "product_status_gated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_privacy_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_user_data_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_retained_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cancellation_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_manual_verification_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_product_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address": {
+      "value": "sha256:0ebd0987f7648a9a6630e64dd70fe77d5b083c34c75e09007f9ecd7936bfa463",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 10,
+      "unit": "count"
+    },
+    "source_wrv_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_ref_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "token_digest_observed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_digest_ref": {
+      "value": "token_sha256:75a11da44c802486bc6f65640aa48a730f0f684c5c07a42ba3cd1735eb3fb070",
+      "unit": "token_digest"
+    },
+    "upstream_l3_log_correlation_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_bytes_loaded": {
+      "value": 2137326367,
+      "unit": "bytes"
+    },
+    "upstream_model_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_bytes_loaded": {
+      "value": 16777216,
+      "unit": "bytes"
+    },
+    "upstream_runtime_bytes_nonzero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_surface_count": {
+      "value": 3,
+      "unit": "count"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_ref": {
+      "operator": "==",
+      "value": "answer_packet:qwen3_4b:fresh-product-runtime:packetized",
+      "unit": "ref"
+    },
+    "autogenous_kernel_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "autogenous_kernel_still_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_kernel_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_next_bottleneck_l3_manual_verification_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_route_status": {
+      "operator": "==",
+      "value": "vault_research_route_with_packetized_mitigation",
+      "unit": "status"
+    },
+    "capability_route_status_vault_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_observation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_l3_manual_verification_or_advanced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_routes_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_128k_still_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_separation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l1_l2_l3_status_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_cursor_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_70b_still_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "living_index_cursor_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "long_context_shard_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_observation_floor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_step_count": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "count"
+    },
+    "manual_step_count_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_verification_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "manual_verification_model_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_verification_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "manual_verification_runtime_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_lattice_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_living_index_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_north_star_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_log_correlation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_capability_closeout_probe_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l3_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_live_agent_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_policy_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "north_star_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observation_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "count"
+    },
+    "phase_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "count"
+    },
+    "product_status_gated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_privacy_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_user_data_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_retained_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_cancellation_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_manual_verification_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_product_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address": {
+      "operator": "==",
+      "value": "sha256:0ebd0987f7648a9a6630e64dd70fe77d5b083c34c75e09007f9ecd7936bfa463",
+      "unit": "sha256"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": ">=",
+      "value": 10,
+      "unit": "count"
+    },
+    "source_wrv_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_ref_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "token_digest_observed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_digest_ref": {
+      "operator": "==",
+      "value": "token_sha256:75a11da44c802486bc6f65640aa48a730f0f684c5c07a42ba3cd1735eb3fb070",
+      "unit": "token_digest"
+    },
+    "upstream_l3_log_correlation_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "upstream_model_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_runtime_bytes_loaded": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "upstream_runtime_bytes_nonzero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_surface_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "count"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_observed": true,
+    "answer_packet_ref": true,
+    "autogenous_kernel_rejected": true,
+    "autogenous_kernel_still_research": true,
+    "capability_kernel_red": true,
+    "capability_next_bottleneck_l3_manual_verification_or_advanced": true,
+    "capability_route_status": true,
+    "capability_route_status_vault_research": true,
+    "duplicate_observation_rejected": true,
+    "guard_cursor_l3_manual_verification_or_advanced": true,
+    "heavy_routes_deferred": true,
+    "kv_direct_128k_still_red": true,
+    "l1_l2_l3_separation_bound": true,
+    "l1_l2_l3_status_visible": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "lattice_cursor_visible": true,
+    "live_70b_still_red": true,
+    "living_index_cursor_visible": true,
+    "long_context_shard_claim_rejected": true,
+    "manual_model_bytes_rejected": true,
+    "manual_observation_floor_bound": true,
+    "manual_runtime_bytes_rejected": true,
+    "manual_step_count": true,
+    "manual_step_count_bound": true,
+    "manual_verification_model_bytes_loaded": true,
+    "manual_verification_model_bytes_zero": true,
+    "manual_verification_runtime_bytes_loaded": true,
+    "manual_verification_runtime_bytes_zero": true,
+    "metadata_budget_rejected": true,
+    "metadata_bytes": true,
+    "missing_answer_packet_rejected": true,
+    "missing_lattice_cursor_rejected": true,
+    "missing_living_index_cursor_rejected": true,
+    "missing_north_star_rejected": true,
+    "missing_run_event_log_rejected": true,
+    "missing_upstream_log_correlation_rejected": true,
+    "next_capability_closeout_probe_bound": true,
+    "next_cursor": true,
+    "next_cursor_mismatch_rejected": true,
+    "no_hidden_route_authority": true,
+    "no_l2_green_claim": true,
+    "no_l3_green_claim": true,
+    "no_mas_live_agent_overclaim": true,
+    "no_route_policy_mutation": true,
+    "north_star_visible": true,
+    "observation_count": true,
+    "phase_count": true,
+    "product_status_gated": true,
+    "prompt_privacy_observed": true,
+    "prompt_user_data_rejected": true,
+    "raw_token_retained_rejected": true,
+    "required_phases_bound": true,
+    "rollback_cancellation_visible": true,
+    "route_authority_manual_verification_only": true,
+    "run_event_log_observed": true,
+    "seventy_b_product_claim_rejected": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address_deterministic": true,
+    "source_ref_count": true,
+    "source_wrv_coverage_bound": true,
+    "test_ref_count": true,
+    "token_digest_observed": true,
+    "token_digest_ref": true,
+    "upstream_l3_log_correlation_probe_pass": true,
+    "upstream_model_bytes_loaded": true,
+    "upstream_model_bytes_nonzero": true,
+    "upstream_runtime_bytes_loaded": true,
+    "upstream_runtime_bytes_nonzero": true,
+    "visible_surface_count": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "small_model_fresh_product_runtime_l3_manual_runtime_verification_packet",
+      "detail": "Fresh product-runtime manual-verification evidence is visible across Living Index, lattice HTML, AnswerPacket, RunEventLog, and the red capability ledger. This opens zero new model/runtime bytes and queues a capability closeout/recheck; L2 remains vault_research_route_with_packetized_mitigation."
+    }
+  ],
+  "notes": "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe: binds visible manual-review evidence for the fresh Qwen3-4B product-runtime packet/log/source proof with zero new bytes; L2 remains red and capability closeout remains queued."
+}

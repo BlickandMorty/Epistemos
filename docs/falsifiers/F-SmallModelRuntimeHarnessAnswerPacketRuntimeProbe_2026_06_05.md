@@ -23,8 +23,8 @@ The primitive rejects missing first-token artifact or sidecar refs, missing Answ
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe` passes as packetized retained runtime evidence and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe` passes as packetized retained runtime evidence and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
 - L3: Not advanced. User-facing/product runtime and WRV are unchanged; the app has not yet proven a reachable local-model AnswerPacket path from the product surface, MAS live agent mode, live 70B, or KV-Direct 128K.
 
 ## Caveat
