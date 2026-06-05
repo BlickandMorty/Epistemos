@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1 metadata-only fresh product runtime safety lease.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_safety_lease/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`
 - Scope: consumes the product-route capability recheck and installs the safety lease required before any fresh product runtime probe can open bytes. It opens zero fresh runtime/model bytes and does not promote L2 or L3.
 
 ## What It Proves
@@ -18,8 +18,8 @@ The artifact records 3 required lease cards, 12 required phases, maximum lease d
 
 ## Three-Layer Truth
 
-- L1: Advanced at landing. `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` queued `small_model_runtime_harness_fresh_product_runtime_live_probe`; downstream live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`.
+- L1: Advanced at landing. `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` queued `small_model_runtime_harness_fresh_product_runtime_live_probe`; downstream live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
 - L3: Not promoted. Product WRV and retained AnswerPacket handoff remain visible proof evidence, but the fresh app runtime route still needs a separate live probe.
 
 ## Caveat

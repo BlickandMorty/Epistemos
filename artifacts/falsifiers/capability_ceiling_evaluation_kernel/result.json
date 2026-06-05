@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "e81a91e5b85cc9e2b42bdac73234d091583ee5db",
+  "commit_sha": "8faf1c7910b3fe79e4635631c9fe1386ae330bdf",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-05T17:59:25Z",
-  "result_digest": "sha256:41bfa97e5f7b8e9d3cd0363874773d1dc1c88a5d9895d5aebb0a62560f00c032",
+  "timestamp_utc": "2026-06-05T18:52:07Z",
+  "result_digest": "sha256:3a3062ebb0ba1c7f1a5160c8be2fa28baff1a4c2fa6a464b1edcf61aa2fe0995",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -554,7 +554,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -1464,6 +1464,22 @@
       },
       "unit": "object"
     },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "small_model_runtime_harness_fresh_product_runtime_live_probe_pass": {
       "value": true,
       "unit": "bool"
@@ -2205,6 +2221,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_fresh_product_runtime_live_probe_pass": {
       "operator": "==",
       "value": true,
@@ -2413,6 +2434,7 @@
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_capability_recheck_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_pass": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_live_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_safety_lease_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_wrv_probe_pass": true,
@@ -2458,12 +2480,12 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe"
+      "detail": "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe"
     },
     {
-      "kind": "small_model_harness_fresh_product_runtime_l3_log_correlation_bound",
-      "detail": "Fresh product-runtime L3 log correlation is present: the Qwen3-4B live sidecar, AnswerPacket JSON, RunEventLog JSON, source WRV, and blocker ledger correlate on token digest, stop reason, prompt privacy, and visible surfaces. No new model/runtime bytes open, and L2 remains vault_research_route_with_packetized_mitigation until manual product-runtime verification lands."
+      "kind": "small_model_harness_fresh_product_runtime_l3_manual_runtime_verification_bound",
+      "detail": "Fresh product-runtime L3 manual verification is present: Living Index, lattice HTML, AnswerPacket, RunEventLog, and the red capability ledger bind the fresh Qwen3-4B proof to visible operator-review evidence. No new model/runtime bytes open, and L2 remains vault_research_route_with_packetized_mitigation until capability closeout/recheck and broader route blockers pass."
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
