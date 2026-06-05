@@ -45,7 +45,7 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe` | Fresh product-runtime AnswerPacket proof must be wired, reachable, visible, and source/test verified before product capability can be rechecked. | PASS on 2026-06-05 as L1/L3-source WRV witness at `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_wrv_probe/result.json`; 10 source refs, 29 source markers, 3 visible surfaces, 4 focused test refs, 9 test markers, 12 WRV phases, zero new model/runtime bytes, no L2 product promotion. |
 | `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck` | Fresh product-runtime WRV must remain capability-red until L3 log correlation and manual runtime verification land. | PASS on 2026-06-05 as L1 blocker-ledger witness at `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_capability_recheck/result.json`; 7 blocker cards, 12 phases, upstream runtime/model bytes retained, zero recheck bytes, no L2/L3/MAS/70B/128K/autogenous-kernel promotion. |
 
-Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`: `small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe`.
+Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`: `small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1

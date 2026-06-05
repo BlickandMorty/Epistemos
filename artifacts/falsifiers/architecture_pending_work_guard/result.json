@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fc0db9505c19f72b8f5ae5f8ae4fc47819ba6839",
+  "commit_sha": "e81a91e5b85cc9e2b42bdac73234d091583ee5db",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T17:20:31Z",
-  "result_digest": "sha256:3283242ac7e8ebc52e5740c3446b74becb9a6d0df67a6269163b02bcfbbb424a",
+  "timestamp_utc": "2026-06-05T17:59:26Z",
+  "result_digest": "sha256:8810c02d63c95523bded390b19ac02e22722ca8279deca960bddfd8e7ff91ee3",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -332,6 +332,10 @@
           },
           "small_model_runtime_harness_fresh_product_runtime_capability_recheck": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_capability_recheck/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -686,11 +690,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -834,6 +838,10 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_capability_recheck_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1253,6 +1261,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": {
       "operator": "==",
       "value": true,
@@ -1426,6 +1439,7 @@
     "small_model_runtime_harness_first_token_runtime_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_capability_recheck_available": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": true,
     "small_model_runtime_harness_fresh_product_runtime_wrv_probe_available": true,
@@ -1456,8 +1470,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "small_model_runtime_harness_fresh_product_runtime_capability_recheck_red",
-      "detail": "SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck is present as an L1 blocker ledger after fresh runtime WRV: upstream Qwen3-4B runtime/model bytes are preserved, no new runtime/model bytes open, and the next cursor is L3 log-correlation proof. L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K/autogenous-kernel claim promotes."
+      "kind": "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_bound",
+      "detail": "SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe is present as L1/L3-source proof: the fresh Qwen3-4B live sidecar, AnswerPacket JSON, RunEventLog JSON, source WRV, and capability blocker ledger correlate on token digest, stop reason, prompt privacy, and visible app surfaces with zero new runtime/model bytes. The next cursor is manual product-runtime verification; L2 remains vault_research_route_with_packetized_mitigation and no MAS/70B/128K/autogenous-kernel claim promotes."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1472,5 +1486,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
