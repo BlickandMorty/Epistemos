@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4781223e7143f5018653198d2a9b788d817635ca",
+  "commit_sha": "9bdc82150b3dadecdca5b7fe91a9cd82eb9ad265",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-05T08:54:36Z",
-  "result_digest": "sha256:9acc8ccd367e35d71eb343e553121c766b78f048b04bfc8cc34d1787d17f7d0f",
+  "timestamp_utc": "2026-06-05T09:57:50Z",
+  "result_digest": "sha256:4dc1730c86ad825f65affc0b6c2ae6db22e2f8ea195ad9881bcc8d6f677ac3d6",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -554,7 +554,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_logged_runtime_smoke",
+      "value": "small_model_runtime_harness_first_token_runtime_probe",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -663,7 +663,7 @@
           "order": 10,
           "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
           "tier": "Vault / Capability Ceiling",
-          "status": "deferred_l1_small_model_harness_abortable_probe_witnessed",
+          "status": "deferred_l1_small_model_harness_logged_runtime_smoke_witnessed",
           "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
           "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
           "promotion_condition": "Deferred under the active MLX route; do not require GGUF/provider-reference setup unless explicitly re-enabled for research.",
@@ -1384,6 +1384,22 @@
       },
       "unit": "object"
     },
+    "small_model_runtime_harness_logged_runtime_smoke_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_logged_runtime_smoke_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/small_model_runtime_harness_logged_runtime_smoke/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "small_model_runtime_harness_owner_approved_probe_pass": {
       "value": true,
       "unit": "bool"
@@ -1988,6 +2004,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_logged_runtime_smoke_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_owner_approved_probe_pass": {
       "operator": "==",
       "value": true,
@@ -2156,6 +2177,7 @@
     "slab_arena_copy_count_pass": true,
     "small_model_runtime_harness_abortable_runtime_probe_pass": true,
     "small_model_runtime_harness_dry_run_witness_pass": true,
+    "small_model_runtime_harness_logged_runtime_smoke_pass": true,
     "small_model_runtime_harness_owner_approved_probe_pass": true,
     "small_model_runtime_harness_safety_plan_pass": true,
     "source_artifacts_present": true,
@@ -2189,13 +2211,13 @@
       "detail": "The Qwen/GGUF 128K KV-Direct lane remains red research evidence, but it is not the active architecture cursor unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set."
     },
     {
-      "kind": "small_model_runtime_harness_abortable_runtime_probe_metadata_only",
-      "detail": "Small-model runtime harness abortability is witnessed at L1 and points to logged runtime smoke next. No MLX/runtime/model bytes were loaded by this witness; L2 capability remains vault_research_route_with_packetized_mitigation and L3 user-facing/product runtime is unchanged."
+      "kind": "small_model_runtime_harness_logged_runtime_smoke_metadata_only",
+      "detail": "Small-model runtime harness logged smoke is witnessed at L1 and points to first-token runtime probe next. The witness logs missing local snapshots visibly and opens no MLX/runtime/model bytes; L2 capability remains vault_research_route_with_packetized_mitigation and L3 user-facing/product runtime is unchanged."
     },
     {
       "kind": "next_bottleneck",
-      "detail": "small_model_runtime_harness_logged_runtime_smoke"
+      "detail": "small_model_runtime_harness_first_token_runtime_probe"
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_logged_runtime_smoke; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_first_token_runtime_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

@@ -47,10 +47,9 @@ and metadata overflow.
 
 ## Layer Truth
 
-- L1: advanced to `ssd_wear_budget` at landing; downstream `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, `F-SmallModelRuntimeHarnessDryRunWitness`, `F-SmallModelRuntimeHarnessOwnerApprovedProbe`, and `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` now pass metadata-only, so the current cursor is `small_model_runtime_harness_logged_runtime_smoke` after downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`; `duplicate_risk_count=0`.
+- L1: advanced to `ssd_wear_budget` at landing; downstream `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, `F-SmallModelRuntimeHarnessDryRunWitness`, `F-SmallModelRuntimeHarnessOwnerApprovedProbe`, and `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` now pass metadata-only, so the current cursor is `small_model_runtime_harness_first_token_runtime_probe` after downstream `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke`; `duplicate_risk_count=0`.
 - L2: remains `vault_research_route_with_packetized_mitigation`; current
-  `next_bottleneck=small_model_runtime_harness_logged_runtime_smoke` after
-  downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`.
+  `next_bottleneck=small_model_runtime_harness_first_token_runtime_probe` after downstream `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke`.
 - L3: unchanged; no product runtime or UI WRV claim is promoted by this
   metadata-only witness.
 
