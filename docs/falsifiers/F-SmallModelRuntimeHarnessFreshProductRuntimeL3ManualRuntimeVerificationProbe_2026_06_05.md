@@ -23,6 +23,6 @@ Invalid fixtures reject missing upstream log-correlation proof, duplicate observ
 
 ## Three Layers
 
-- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe`.
+- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` with duplicate risk `0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe`.
 - L3: Manual-review evidence is visible and packet-bound for this fresh small-model proof. Broader product capability, MAS live-agent claims, live 70B, live KV-Direct 128K, and autogenous-kernel behavior remain unpromoted.

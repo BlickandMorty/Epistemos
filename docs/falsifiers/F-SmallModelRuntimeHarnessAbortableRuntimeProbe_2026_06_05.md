@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only primary witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_abortable_runtime_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_abortable_runtime_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`
 - Scope: L1 abort-path proof only; not an MLX runtime success, not a local-agent product route, not a 70B route, and not MAS Live capability.
 
 ## What It Proves
@@ -22,8 +22,8 @@ The primitive rejects missing or duplicate lanes/runs, missing phases, missing o
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` passes metadata-only and that landing cursor is historical; downstream safety, live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` passes metadata-only and that landing cursor is historical; downstream safety, live, AnswerPacket, and WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`.
 - L3: Not advanced. User-facing/product runtime is unchanged; no live model route, 70B route, or MAS agent mode promotes.
 
 ## Caveat
