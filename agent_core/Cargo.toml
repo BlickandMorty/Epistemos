@@ -367,6 +367,10 @@ name = "falsify_small_model_runtime_harness_fresh_product_runtime_safety_lease"
 path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_safety_lease.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_fresh_product_runtime_live_probe"
+path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_live_probe.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -40,8 +40,9 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` | The owner-approved small-model smoke lanes must prove pre-runtime cancellation, deadlines, rollback, RunEventLog, AnswerPacket, privacy, budget, and mutation-free abort before any logged runtime smoke. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/small_model_runtime_harness_abortable_runtime_probe/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck` | Product-route capability blockers must remain visible after retained AnswerPacket handoff before fresh runtime leases can resume. | PASS on 2026-06-05 as L1 blocker-ledger primary witness at `artifacts/falsifiers/small_model_runtime_harness_product_route_capability_recheck/result.json`; no fresh product runtime/model bytes moved. |
 | `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` | Fresh product runtime leases must bind owner approval, dry-run fallback, serialized execution, cancellation/deadline, rollback, RunEventLog, AnswerPacket, privacy, and MAS/Pro honesty before any fresh live probe. | PASS on 2026-06-05 as L1 metadata-only safety-lease primary witness at `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_safety_lease/result.json`; no fresh product runtime/model bytes moved. |
+| `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe` | Fresh product runtime sidecars must prove exactly one redacted local small-model token under the safety lease before product AnswerPacket packaging can move. | PASS on 2026-06-05 as L1-only fresh runtime sidecar witness at `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_live_probe/result.json`; one redacted Qwen3-4B token, nonzero bounded small-model bytes, no L2/L3 promotion. |
 
-Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease`: `small_model_runtime_harness_fresh_product_runtime_live_probe`.
+Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe`: `small_model_runtime_harness_fresh_product_runtime_answer_packet_probe`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1
@@ -56,7 +57,7 @@ missed-deadline fallback evidence, and `F-ProductRouteReview` advances L1 only
 as red-route review evidence. `F-SmallModelRuntimeHarnessSafetyPlan` advances
 L1 only as small-model harness safety planning; live platform benchmarks, p99
 stall proof, MLX probes, and user-facing transport remain separate before
-ColdStream can replace mmap or pread on a hot path.
+ColdStream can replace mmap or pread on a hot path. `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe` advances L1 only as one fresh redacted product-path Qwen3-4B token; fresh product AnswerPacket packaging, L2 capability, and L3 user-facing proof remain separate.
 
 ## Promotion rule
 
