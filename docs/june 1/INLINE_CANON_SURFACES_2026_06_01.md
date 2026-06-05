@@ -19,8 +19,11 @@ files live in `authority-surfaces/`; this is the map of what each one preserves.
 `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`, and
 `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` as metadata-only witnesses, plus
 `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe` as retained L1 runtime
-evidence for one redacted Qwen3-4B first token. Current L1 cursor is
-`small_model_runtime_harness_answer_packet_runtime_probe`; L2 remains
+evidence for one redacted Qwen3-4B first token, and
+`F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe` as L1 packetized
+AnswerPacket/RunEventLog proof with zero new runtime/model bytes. Current L1
+cursor is
+`small_model_runtime_harness_product_wrv_probe`; L2 remains
 `vault_research_route_with_packetized_mitigation`; L3 user-facing/product
 runtime is unchanged.
 

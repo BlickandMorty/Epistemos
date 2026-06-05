@@ -56,6 +56,7 @@ pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
+pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
 pub mod small_model_runtime_harness_first_token_runtime_probe;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
@@ -178,6 +179,15 @@ pub use small_model_runtime_harness_abortable_runtime_probe::{
     SmallModelRuntimeHarnessAbortableProbeMetrics, SmallModelRuntimeHarnessAbortableProbeWitness,
     SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_answer_packet_runtime_probe::{
+    redacted_first_token_run_event_log, required_answer_packet_runtime_probe_phases,
+    SmallModelAnswerPacketRuntimeProbePacket, SmallModelAnswerPacketRuntimeProbePhase,
+    SmallModelAnswerPacketRuntimeProbeSurface, SmallModelRuntimeHarnessAnswerPacketProbeError,
+    SmallModelRuntimeHarnessAnswerPacketProbeMetrics,
+    SmallModelRuntimeHarnessAnswerPacketProbeWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_dry_run::{
     SmallModelDryRunPhase, SmallModelDryRunRecord, SmallModelDryRunSurface,
