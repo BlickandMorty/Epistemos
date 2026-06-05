@@ -62,6 +62,7 @@ pub mod small_model_runtime_harness_first_token_runtime_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_answer_packet_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_live_probe;
 pub mod small_model_runtime_harness_fresh_product_runtime_safety_lease;
+pub mod small_model_runtime_harness_fresh_product_runtime_wrv_probe;
 pub mod small_model_runtime_harness_logged_runtime_smoke;
 pub mod small_model_runtime_harness_owner_approved_probe;
 pub mod small_model_runtime_harness_product_answer_packet_live_probe;
@@ -244,6 +245,15 @@ pub use small_model_runtime_harness_fresh_product_runtime_safety_lease::{
     SmallModelFreshProductRuntimeSafetyLeasePhase, SmallModelFreshProductRuntimeSafetyLeaseWitness,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_fresh_product_runtime_wrv_probe::{
+    fresh_product_runtime_wrv_metadata_budget_bytes, required_fresh_product_runtime_wrv_phases,
+    SmallModelFreshProductRuntimeWrvMetrics, SmallModelFreshProductRuntimeWrvPhase,
+    SmallModelFreshProductRuntimeWrvProbeError, SmallModelFreshProductRuntimeWrvSourceRef,
+    SmallModelFreshProductRuntimeWrvSurface, SmallModelFreshProductRuntimeWrvTestRef,
+    SmallModelFreshProductRuntimeWrvWitness,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_logged_runtime_smoke::{
     SmallModelLoggedRuntimeSmokePhase, SmallModelLoggedRuntimeSmokeRun,
