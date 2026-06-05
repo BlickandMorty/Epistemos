@@ -36,7 +36,7 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-ProductRouteReview` | Product-route review keeps KV-Direct 128K, live sparse 70B, dense 70B runtime, and live ColdStream transport red before runtime harness planning. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/product_route_review/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-SmallModelRuntimeHarnessSafetyPlan` | Small-model runtime harness planning is serialized, owner-gated, dry-run-first, cancellable, rollback-bound, AnswerPacket-visible, privacy-fenced, and metadata-only before any MLX probe. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.json`; no live transport, model, or runtime bytes moved. |
 
-Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessSafetyPlan` metadata-only harness safety witness: `small_model_runtime_harness_dry_run_witness`.
+Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessDryRunWitness` metadata-only dry-run witness: `small_model_runtime_harness_owner_approved_probe`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1

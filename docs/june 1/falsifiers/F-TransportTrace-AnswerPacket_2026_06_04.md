@@ -47,9 +47,10 @@ and metadata overflow.
 
 ## Layer Truth
 
-- L1: advanced to `ssd_wear_budget` at landing; downstream `F-SSD-WearBudget` advanced the cursor to `coldstream_vs_mmap`, and downstream `F-ColdStream-vs-Mmap` now advances the current cursor to `slab_arena_copy_count`; `duplicate_risk_count=0`.
+- L1: advanced to `ssd_wear_budget` at landing; downstream `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness` now pass metadata-only, so the current cursor is `small_model_runtime_harness_owner_approved_probe`; `duplicate_risk_count=0`.
 - L2: remains `vault_research_route_with_packetized_mitigation`; current
-  `next_bottleneck=slab_arena_copy_count`.
+  `next_bottleneck=small_model_runtime_harness_owner_approved_probe` after
+  downstream `F-SmallModelRuntimeHarnessDryRunWitness`.
 - L3: unchanged; no product runtime or UI WRV claim is promoted by this
   metadata-only witness.
 

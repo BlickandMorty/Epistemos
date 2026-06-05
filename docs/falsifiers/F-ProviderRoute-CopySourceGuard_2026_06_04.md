@@ -18,8 +18,8 @@ It binds four copy/source claims across provider reference, KV-Direct, dense 70B
 
 ## Layer Truth
 
-- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, and `F-SmallModelRuntimeHarnessSafetyPlan` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_dry_run_witness` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_dry_run_witness` after downstream `F-SmallModelRuntimeHarnessSafetyPlan` evidence landed.
+- L1: Advanced. `F-ProviderRoute-CopySourceGuard` passed at landing; downstream `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_owner_approved_probe` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_owner_approved_probe` after downstream `F-SmallModelRuntimeHarnessDryRunWitness` evidence landed.
 - L3: Not advanced. No user-facing runtime, live provider route, live 70B, KV-Direct 128K, cloud fallback, or product copy claim was promoted.
 
 ## Metrics

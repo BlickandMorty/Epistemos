@@ -16,8 +16,9 @@ use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_VS_MMAP_AXES, COLD_PANIC_FALLBACK_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
     PRODUCT_ROUTE_REVIEW_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
-    SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
-    SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES, TRANSPORT_TRACE_ANSWER_PACKET_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES, SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES,
+    SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES,
+    TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
@@ -121,6 +122,8 @@ const COLD_PANIC_FALLBACK_PATH: &str = "artifacts/falsifiers/cold_panic_fallback
 const PRODUCT_ROUTE_REVIEW_PATH: &str = "artifacts/falsifiers/product_route_review/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2826,6 +2829,12 @@ fn build_report() -> GuardReport {
         &small_model_runtime_harness_safety_plan,
         SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES,
     );
+    let small_model_runtime_harness_dry_run_witness =
+        read_json(Path::new(SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH));
+    let small_model_runtime_harness_dry_run_witness_available = artifact_all_axes_true(
+        &small_model_runtime_harness_dry_run_witness,
+        SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -2978,6 +2987,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !product_route_review_available
             || small_model_runtime_harness_safety_plan_available)
+        && (heavy_long_context_enabled
+            || !small_model_runtime_harness_safety_plan_available
+            || small_model_runtime_harness_dry_run_witness_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3426,6 +3438,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "small_model_runtime_harness_safety_plan_available",
         small_model_runtime_harness_safety_plan_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "small_model_runtime_harness_dry_run_witness_available",
+        small_model_runtime_harness_dry_run_witness_available,
     );
     add_bool_axis(
         &mut measurements,
@@ -3885,6 +3904,10 @@ fn build_report() -> GuardReport {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_PATH,
                     "available": small_model_runtime_harness_safety_plan_available
                 },
+                "small_model_runtime_harness_dry_run_witness": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH,
+                    "available": small_model_runtime_harness_dry_run_witness_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4339,7 +4362,21 @@ fn build_report() -> GuardReport {
             "detail": "ProductRouteReview is present; the next non-heavy cursor must prove the small-model runtime harness is serialized, owner-gated, dry-run-first, cancellable, rollback-bound, RunEventLog-bound, AnswerPacket-visible, privacy-fenced, MAS-honest, and metadata-only before any MLX runtime probe."
         }));
     }
-    if small_model_runtime_harness_safety_plan_available && !heavy_long_context_enabled {
+    if small_model_runtime_harness_safety_plan_available
+        && !small_model_runtime_harness_dry_run_witness_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_small_model_runtime_harness_dry_run_witness",
+            "detail": "SmallModelRuntimeHarnessSafetyPlan is present; the next non-heavy cursor must prove a dry-run-only harness transcript with admission, serialized executor, cancellation, rollback, RunEventLog, AnswerPacket, privacy, budget, and zero runtime/model bytes before any owner-approved MLX runtime probe."
+        }));
+    }
+    if small_model_runtime_harness_dry_run_witness_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_dry_run_witness_metadata_only",
+            "detail": "SmallModelRuntimeHarnessDryRunWitness is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_owner_approved_probe."
+        }));
+    } else if small_model_runtime_harness_safety_plan_available && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_safety_plan_metadata_only",
             "detail": "SmallModelRuntimeHarnessSafetyPlan is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_dry_run_witness."
@@ -5332,6 +5369,9 @@ mod tests {
         assert!(already_mapped_work.get("product_route_review").is_some());
         assert!(already_mapped_work
             .get("small_model_runtime_harness_safety_plan")
+            .is_some());
+        assert!(already_mapped_work
+            .get("small_model_runtime_harness_dry_run_witness")
             .is_some());
     }
 

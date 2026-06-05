@@ -42,11 +42,18 @@ passes at `artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.j
 it proves the small-model runtime harness safety plan is serialized,
 owner-gated, dry-run-first, cancellable, rollback-bound, AnswerPacket-visible,
 privacy-fenced, subprocess-free, and zero-runtime-byte before a dry-run witness.
+`F-SmallModelRuntimeHarnessDryRunWitness` passes at
+`artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json`:
+it proves the small-model runtime harness can replay a runtime-shaped transcript
+with catalog refs, prompt envelopes, SCOPE-Rex/SovereignGate admission,
+serialized executor refs, cancellation, rollback, RunEventLog, AnswerPacket,
+privacy, budget, and compatibility evidence while keeping runtime/model/
+transport bytes at zero.
 These do not
 prove live ColdStream transport, live mmap replacement, live pread/Dispatch
 I/O/Metal I/O performance, SSD stress safety, or user-facing
 runtime performance.
-Current L1 cursor: `small_model_runtime_harness_dry_run_witness`; L2 and L3 remain unpromoted.
+Current L1 cursor: `small_model_runtime_harness_owner_approved_probe`; L2 and L3 remain unpromoted.
 
 ## Thesis
 

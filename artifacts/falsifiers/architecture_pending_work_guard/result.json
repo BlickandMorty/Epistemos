@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "23d7ae2aa2cc520ccb5d64d0a2c4cf2fccde7278",
+  "commit_sha": "725f8b56d0c866f4083224ef24d72dad37928ede",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T06:33:52Z",
-  "result_digest": "sha256:47f7d1441f8d5ef95312d078ec5ea85473eb4088d2778b7935435dd20d72a816",
+  "timestamp_utc": "2026-06-05T07:18:12Z",
+  "result_digest": "sha256:6d516cced49d6843920d8205d999a1628fc6be84a27838a7289d255f4427783f",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -276,6 +276,10 @@
           },
           "small_model_runtime_harness_safety_plan": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_dry_run_witness": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -630,11 +634,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_dry_run_witness",
+      "value": "small_model_runtime_harness_owner_approved_probe",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_dry_run_witness",
+      "value": "small_model_runtime_harness_owner_approved_probe",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -754,6 +758,10 @@
       "unit": "bool"
     },
     "slab_arena_copy_count_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_dry_run_witness_available": {
       "value": true,
       "unit": "bool"
     },
@@ -1111,6 +1119,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_dry_run_witness_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_safety_plan_available": {
       "operator": "==",
       "value": true,
@@ -1238,6 +1251,7 @@
     "shadow_wake_oracle_available": true,
     "shard_cursor_mapped": true,
     "slab_arena_copy_count_available": true,
+    "small_model_runtime_harness_dry_run_witness_available": true,
     "small_model_runtime_harness_safety_plan_available": true,
     "sparse_route_no_hidden_authority_available": true,
     "sparse_wake_certificate_answer_packet_available": true,
@@ -1260,8 +1274,8 @@
       "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
     },
     {
-      "kind": "small_model_runtime_harness_safety_plan_metadata_only",
-      "detail": "SmallModelRuntimeHarnessSafetyPlan is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_dry_run_witness."
+      "kind": "small_model_runtime_harness_dry_run_witness_metadata_only",
+      "detail": "SmallModelRuntimeHarnessDryRunWitness is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_owner_approved_probe."
     },
     {
       "kind": "partial_kv_shard_outputs",
@@ -1276,5 +1290,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_dry_run_witness; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_owner_approved_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
