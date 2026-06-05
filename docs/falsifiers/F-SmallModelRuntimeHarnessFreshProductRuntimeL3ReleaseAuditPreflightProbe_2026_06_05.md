@@ -8,7 +8,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Falsifier id: `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe`
 - Scope: L1/L3 release-audit preflight proof only. This is not a release audit, zero-fail pass, ship call, MAS Live promotion, live 70B promotion, or KV-Direct 128K promotion.
 
 ## What It Proves
@@ -19,9 +19,9 @@ It binds 9 residual blocker cards, 13 phases, upstream runtime/model bytes `1677
 
 ## Three Layers
 
-- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` and `duplicate_risk_count=0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`.
-- L3: Not ship-ready. The Living Index and lattice HTML now expose the preflight state, but release readiness still requires an actual log-first zero-fail release audit and broader product-route blocker closure.
+- L1: Advanced. The regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` and `duplicate_risk_count=0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3: Not ship-ready. The Living Index and lattice HTML now expose the preflight and downstream zero-fail claim boundary, but release readiness still requires automated checks, log evidence, manual runtime evidence, distribution/compliance review, three uninterrupted zero-fail passes, and broader product-route blocker closure.
 
 ## Rejections
 

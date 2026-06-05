@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, metadata-only primary witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_logged_runtime_smoke.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_logged_runtime_smoke/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe`
 - Scope: L1 logged missing-snapshot proof only; not an MLX inference success, not a local-agent product route, not a 70B route, and not MAS Live capability.
 
 ## What It Proves
@@ -22,8 +22,8 @@ The primitive rejects missing or duplicate lanes/runs, missing phases, missing a
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` passes metadata-only and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessLoggedRuntimeSmoke` passes metadata-only and that landing cursor is historical; downstream product AnswerPacket, product-route recheck, fresh safety, fresh live, fresh AnswerPacket, and fresh WRV rungs now pass, and the current regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`.
 - L3: Not advanced. User-facing/product runtime is unchanged; no live model route, first token, 70B route, or MAS agent mode promotes.
 
 ## Caveat

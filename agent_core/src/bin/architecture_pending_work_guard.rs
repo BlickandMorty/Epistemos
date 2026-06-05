@@ -1,4 +1,4 @@
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 //! Architecture Pending Work Guard.
 //!
@@ -26,6 +26,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_LOG_CORRELATION_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_SAFETY_LEASE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_AXES,
@@ -175,6 +176,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_P
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -3019,6 +3022,15 @@ fn build_report() -> GuardReport {
             &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe,
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_AXES,
         );
+    let small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe =
+        read_json(Path::new(
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_PATH,
+        ));
+    let small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_available =
+        artifact_all_axes_true(
+            &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe,
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_AXES,
+        );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3224,6 +3236,9 @@ fn build_report() -> GuardReport {
         && (next_existing_work
             != "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe"
             || small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_available)
+        && (next_existing_work
+            != "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"
+            || small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -4321,6 +4336,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_PATH,
                     "available": small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_available
+                },
+                "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_PATH,
+                    "available": small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,

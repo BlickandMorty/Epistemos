@@ -7,7 +7,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 - Status: PASS, L1/L3-source fresh product-runtime log-correlation witness.
 - Command: `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe.sh`
 - Artifact: `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe/result.json`
-- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`
+- Current L1 cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after downstream `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe`
 - Scope: consumes fresh capability recheck, fresh AnswerPacket, fresh RunEventLog, fresh live sidecar, and fresh WRV proof; opens no new runtime/model bytes; does not promote L2, broader L3 product capability, MAS live-agent, live 70B, KV-Direct 128K, or autogenous-kernel claims.
 
 ## What It Proves
@@ -22,8 +22,8 @@ The primitive rejects missing capability-recheck proof, token digest mismatches,
 
 ## Three-Layer Truth
 
-- L1: Advanced. `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` with duplicate risk `0`.
-- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe`.
+- L1: Advanced. `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe` passes and the regenerated guard reports `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` with duplicate risk `0`.
+- L2: Not green. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and `next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L3: Partially advanced. Log correlation is now proven from visible sidecars and source WRV, but broader product capability still needs manual runtime verification before any wider user-facing runtime claim can promote.
 
 ## Caveat
