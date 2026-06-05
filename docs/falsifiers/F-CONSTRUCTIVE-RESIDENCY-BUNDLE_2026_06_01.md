@@ -130,4 +130,5 @@ A future artifact fails immediately if it:
 - Small-model harness logged runtime smoke witness: `docs/falsifiers/F-SmallModelRuntimeHarnessLoggedRuntimeSmoke_2026_06_05.md`
 - Small-model harness first-token runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`
 - Small-model harness answer-packet runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe_2026_06_05.md`
-- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe` packetized retained-runtime witness: `small_model_runtime_harness_product_wrv_probe`. This remains L1-only visible-proof evidence; L2 product capability and L3 user-facing runtime are unchanged.
+- Small-model harness product WRV witness: `docs/falsifiers/F-SmallModelRuntimeHarnessProductWrvProbe_2026_06_05.md`
+- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessProductWrvProbe` source/test WRV witness: `small_model_runtime_harness_product_answer_packet_live_probe`. This advances L1/source WRV only; L2 product capability remains `vault_research_route_with_packetized_mitigation`, and L3 live product runtime is unchanged.

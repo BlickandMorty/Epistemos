@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "79f185db414ec2f686af6444f859921edee937bc",
+  "commit_sha": "1ee7d5917941cc488b56e634b2b4739e91a24a4a",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-05T11:16:46Z",
-  "result_digest": "sha256:6cf9fd34eb961eb8fc3a42127cd8c057771363b495e66ff8ba70ff334ae019c0",
+  "timestamp_utc": "2026-06-05T12:01:37Z",
+  "result_digest": "sha256:d41747bea4c1a0dd9725fe78e68d0de30934491c9778a6d2fd1690f218ae8c75",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -554,7 +554,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_product_wrv_probe",
+      "value": "small_model_runtime_harness_product_answer_packet_live_probe",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -1448,6 +1448,22 @@
       },
       "unit": "object"
     },
+    "small_model_runtime_harness_product_wrv_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_product_wrv_probe_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/small_model_runtime_harness_product_wrv_probe/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
     "small_model_runtime_harness_safety_plan_pass": {
       "value": true,
       "unit": "bool"
@@ -2056,6 +2072,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_product_wrv_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_safety_plan_pass": {
       "operator": "==",
       "value": true,
@@ -2223,6 +2244,7 @@
     "small_model_runtime_harness_first_token_runtime_probe_pass": true,
     "small_model_runtime_harness_logged_runtime_smoke_pass": true,
     "small_model_runtime_harness_owner_approved_probe_pass": true,
+    "small_model_runtime_harness_product_wrv_probe_pass": true,
     "small_model_runtime_harness_safety_plan_pass": true,
     "source_artifacts_present": true,
     "sparse_route_no_hidden_authority_pass": true,
@@ -2260,8 +2282,12 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "small_model_runtime_harness_product_wrv_probe"
+      "detail": "small_model_runtime_harness_product_answer_packet_live_probe"
+    },
+    {
+      "kind": "small_model_runtime_harness_product_wrv_probe_source_only",
+      "detail": "Small-model runtime harness product WRV is source/test-visible through the app route, Settings diagnostics, MessageBubble AnswerPacket chips, and focused tests. L2 remains red until a live product AnswerPacket route probe proves the app path with runtime evidence; no 70B/128K/MAS live-agent promotion is implied."
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_product_wrv_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_product_answer_packet_live_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }
