@@ -92,6 +92,7 @@ struct AuditFixRegressionTests {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
         let delegate = try loadAuditSource("Epistemos/Bridge/StreamingDelegate.swift")
         let bubble = try loadAuditSource("Epistemos/Views/Chat/MessageBubble.swift")
+        let inlineTranscript = try loadAuditSource("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift")
         let rustBridge = try loadAuditSource("agent_core/src/bridge.rs")
         let agentLoop = try loadAuditSource("agent_core/src/agent_loop.rs")
 
@@ -99,7 +100,10 @@ struct AuditFixRegressionTests {
         #expect(coordinator.contains("chatState.recordToolUse("))
         #expect(coordinator.contains("chatState.recordToolResult("))
         #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
-        #expect(bubble.contains("ToolExecutionPreviewList("))
+        #expect(bubble.contains("AssistantInlineTranscriptView("))
+        #expect(bubble.contains("contentBlocks: message.contentBlocks"))
+        #expect(inlineTranscript.contains("case .tool(let tool):"))
+        #expect(inlineTranscript.contains("InlineToolTranscriptSegment("))
         #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))
         #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
         #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
@@ -108,9 +112,15 @@ struct AuditFixRegressionTests {
     @Test("chat coordinator auto-approved permissions do not append a fake approval banner")
     func autoApprovedPermissionsDoNotAppendFakeApprovalBanner() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let promptStart = try #require(
+            coordinator.range(of: "private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool")
+        )
+        let promptTail = coordinator[promptStart.lowerBound...]
+        let promptEnd = try #require(promptTail.range(of: "private func seedApprovedR5WriteGrantIfNeeded"))
+        let promptBlock = String(promptTail[..<promptEnd.lowerBound])
 
-        #expect(coordinator.contains("case .autoAllow:"))
-        #expect(coordinator.contains("approved = true"))
+        #expect(promptBlock.contains("case .autoAllow:"))
+        #expect(promptBlock.contains("return true"))
         #expect(!coordinator.contains("case .autoAllow:\n                        approved = await promptForToolApproval(request)"))
         #expect(!coordinator.contains("case .autoAllow:\n                        chatState.appendStreamingText"))
     }
@@ -125,13 +135,15 @@ struct AuditFixRegressionTests {
         let permissionEnd = try #require(permissionTail.range(of: "case .complete("))
         let permissionBlock = String(permissionTail[..<permissionEnd.lowerBound])
 
-        #expect(permissionBlock.contains("if request.requiresHumanApproval"))
+        #expect(permissionBlock.contains("if request.isBudgetGate"))
+        #expect(permissionBlock.contains("approved = await promptUserForBudgetGateApproval(request)"))
         #expect(permissionBlock.contains("approved = await promptForToolApproval(request)"))
-        #expect(permissionBlock.contains("approved = true"))
-        #expect(permissionBlock.contains("decision: request.requiresHumanApproval"))
-        #expect(permissionBlock.contains("approved ? .approvedByUser : .deniedByUser"))
+        #expect(permissionBlock.contains("decision: approved ? .approvedByUser : .deniedByPolicy"))
+        #expect(!permissionBlock.contains("if request.requiresHumanApproval"))
+        #expect(!permissionBlock.contains("approved = true"))
+        #expect(!permissionBlock.contains("decision: request.requiresHumanApproval"))
         #expect(!permissionBlock.contains("approved = !request.requiresHumanApproval"))
-        #expect(!permissionBlock.contains("decision: approved ? .approvedAutoReadOnly : .deniedByPolicy"))
+        #expect(!permissionBlock.contains("guard request.requiresHumanApproval else { return true }"))
     }
 
     @Test("managed Rust agent entry points keep read approvals delegated to Swift")

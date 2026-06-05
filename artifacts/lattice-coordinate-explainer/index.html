@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="8b9f9f06b527c46d114adb3c965e83b48438a1a3">
+  <meta name="epistemos-commit-sha" content="d7a0e34c3901b14d0a4b91914ebd05cd23919c53">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -442,6 +442,20 @@
   while preserving explicit <code>Final Answer:</code> text. Focused
   <code>EpistemosTests/UserFacingModelOutputTests</code> passed 30 tests. This hardens privacy and
   no-hidden-authority behavior inside the red release-audit gate only: the cursor remains
+  <code>small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe</code>,
+  L2 remains red, and L3 release readiness is still unclaimed.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-05 authority repair checkpoint.</strong>
+  Command Center, local pipeline, and managed Rust-agent tool paths now consult persisted
+  authority before executor resolution, record policy denials, preserve budget-gate prompts,
+  and mark tool approval metadata with <code>authority_checked</code>. The main chat visible-proof
+  guard now follows the current inline transcript renderer:
+  <code>AssistantInlineTranscriptView</code> / <code>InlineToolTranscriptSegment</code>. Focused
+  <code>EpistemosTests/AgentAuthorityPersistenceTests</code> passed 5 tests and
+  <code>EpistemosTests/AuditFixRegressionTests</code> passed 30 tests. This is a red-gate repair:
+  the cursor remains
   <code>small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe</code>,
   L2 remains red, and L3 release readiness is still unclaimed.
 </div>

@@ -170,7 +170,7 @@ struct AgentAuthorityPersistenceTests {
         try expectOrdered(
             in: commandCenterLocalBlock,
             "let approved = await self.promptForToolApproval(permissionRequest)",
-            "let result = await baseToolExecutor(name, argumentsJson)"
+            "let result = await baseToolExecutor(name, normalizedArgumentsJson)"
         )
 
         let commandCenterRustBlock = try sourceSlice(
@@ -191,9 +191,20 @@ struct AgentAuthorityPersistenceTests {
         )
         try expectOrdered(
             in: managedRustBlock,
-            "switch storedAuthorityDecision(for: request)",
+            "approved = await promptForToolApproval(request)",
             "capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"
         )
+
+        let pipeline = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
+        let observedExecutorBlock = try sourceSlice(
+            pipeline,
+            from: ") -> LocalAgentToolExecutor {",
+            to: "await recordAgentToolEvent(\n                kind: .toolCallApproved,"
+        )
+        #expect(observedExecutorBlock.contains("await toolApprovalHandler(permissionRequest)"))
+        #expect(observedExecutorBlock.contains("!permissionRequest.requiresHumanApproval"))
+        #expect(!observedExecutorBlock.contains("if permissionRequest.requiresHumanApproval {\n                let approved = await toolApprovalHandler"))
+        #expect(observedExecutorBlock.contains("was denied by policy"))
 
         let pipelineHandlerCount = coordinator.components(
             separatedBy: "return await self.promptForToolApproval(request)"
