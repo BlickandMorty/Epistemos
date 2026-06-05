@@ -9,9 +9,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::axes::{
-    CODEC_STAGE_LATENCY_AXES, COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES, COLDSTREAM_VS_MMAP_AXES,
-    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
-    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
+    CACHE_POLICY_POLLUTION_AXES, CODEC_STAGE_LATENCY_AXES, COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES,
+    COLDSTREAM_VS_MMAP_AXES, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES,
+    METAL_IO_FEATURE_GATE_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
     SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
@@ -118,6 +118,7 @@ const SLAB_ARENA_COPY_COUNT_PATH: &str = "artifacts/falsifiers/slab_arena_copy_c
 const METAL_IO_FEATURE_GATE_PATH: &str = "artifacts/falsifiers/metal_io_feature_gate/result.json";
 const CODEC_STAGE_LATENCY_PATH: &str = "artifacts/falsifiers/codec_stage_latency/result.json";
 const TRANSPORT_CANCELLATION_PATH: &str = "artifacts/falsifiers/transport_cancellation/result.json";
+const CACHE_POLICY_POLLUTION_PATH: &str = "artifacts/falsifiers/cache_policy_pollution/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -133,6 +134,7 @@ const METAL_IO_FEATURE_GATE: &str = "metal_io_feature_gate";
 const CODEC_STAGE_LATENCY: &str = "codec_stage_latency";
 const TRANSPORT_CANCELLATION: &str = "transport_cancellation";
 const CACHE_POLICY_POLLUTION: &str = "cache_policy_pollution";
+const COLD_PANIC_FALLBACK: &str = "cold_panic_fallback";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -2361,6 +2363,7 @@ fn build_report() -> KernelReport {
     let metal_io_feature_gate = GateArtifact::read(METAL_IO_FEATURE_GATE_PATH);
     let codec_stage_latency = GateArtifact::read(CODEC_STAGE_LATENCY_PATH);
     let transport_cancellation = GateArtifact::read(TRANSPORT_CANCELLATION_PATH);
+    let cache_policy_pollution = GateArtifact::read(CACHE_POLICY_POLLUTION_PATH);
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2423,6 +2426,7 @@ fn build_report() -> KernelReport {
         &metal_io_feature_gate,
         &codec_stage_latency,
         &transport_cancellation,
+        &cache_policy_pollution,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -2849,6 +2853,8 @@ fn build_report() -> KernelReport {
         && codec_stage_latency.all_axes_true(CODEC_STAGE_LATENCY_AXES);
     let transport_cancellation_pass = transport_cancellation.overall_pass
         && transport_cancellation.all_axes_true(TRANSPORT_CANCELLATION_AXES);
+    let cache_policy_pollution_pass = cache_policy_pollution.overall_pass
+        && cache_policy_pollution.all_axes_true(CACHE_POLICY_POLLUTION_AXES);
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -2910,6 +2916,8 @@ fn build_report() -> KernelReport {
         &slab_arena_copy_count,
         &metal_io_feature_gate,
         &codec_stage_latency,
+        &transport_cancellation,
+        &cache_policy_pollution,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -3037,6 +3045,7 @@ fn build_report() -> KernelReport {
         metal_io_feature_gate_pass,
         codec_stage_latency_pass,
         transport_cancellation_pass,
+        cache_policy_pollution_pass,
         seventy_b_route_pass,
         &cocktail,
     );
@@ -3117,6 +3126,7 @@ fn build_report() -> KernelReport {
         metal_io_feature_gate_pass,
         codec_stage_latency_pass,
         transport_cancellation_pass,
+        cache_policy_pollution_pass,
         seventy_b_route_pass,
         &cocktail_primary_bottleneck,
     );
@@ -3655,6 +3665,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "cache_policy_pollution_pass",
+        cache_policy_pollution_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -3950,6 +3967,11 @@ fn build_report() -> KernelReport {
         "transport_cancellation",
         &transport_cancellation,
     );
+    add_gate_summary(
+        &mut measurements,
+        "cache_policy_pollution",
+        &cache_policy_pollution,
+    );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
     let anomalies = build_anomalies(
@@ -4011,6 +4033,7 @@ fn build_report() -> KernelReport {
         metal_io_feature_gate_pass,
         codec_stage_latency_pass,
         transport_cancellation_pass,
+        cache_policy_pollution_pass,
         seventy_b_route_pass,
         &next_bottleneck,
     );
@@ -4431,6 +4454,7 @@ fn next_bottleneck(
     metal_io_feature_gate_pass: bool,
     codec_stage_latency_pass: bool,
     transport_cancellation_pass: bool,
+    cache_policy_pollution_pass: bool,
     seventy_b_route_pass: bool,
     cocktail: &GateArtifact,
 ) -> String {
@@ -4577,8 +4601,10 @@ fn next_bottleneck(
             CODEC_STAGE_LATENCY.to_string()
         } else if !seventy_b_route_pass && !transport_cancellation_pass {
             TRANSPORT_CANCELLATION.to_string()
-        } else if !seventy_b_route_pass {
+        } else if !seventy_b_route_pass && !cache_policy_pollution_pass {
             CACHE_POLICY_POLLUTION.to_string()
+        } else if !seventy_b_route_pass {
+            COLD_PANIC_FALLBACK.to_string()
         } else {
             "ready_for_product_route_review".to_string()
         }
@@ -4666,6 +4692,7 @@ fn build_ordered_gap_queue(
     metal_io_feature_gate_pass: bool,
     codec_stage_latency_pass: bool,
     transport_cancellation_pass: bool,
+    cache_policy_pollution_pass: bool,
     seventy_b_route_pass: bool,
     cocktail_primary_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -4813,6 +4840,19 @@ fn build_ordered_gap_queue(
                 && metal_io_feature_gate_pass
                 && codec_stage_latency_pass
                 && transport_cancellation_pass
+                && cache_policy_pollution_pass
+            {
+                "deferred_l1_cold_panic_fallback_planned"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+                && codec_stage_latency_pass
+                && transport_cancellation_pass
             {
                 "deferred_l1_cache_policy_pollution_planned"
             } else if !heavy_long_context_enabled
@@ -4893,6 +4933,19 @@ fn build_ordered_gap_queue(
             "Vault / Beyond",
             if seventy_b_route_pass {
                 "completed"
+            } else if !heavy_long_context_enabled
+                && large_model_provider_reference_deferral_pass
+                && provider_route_copy_source_guard_pass
+                && transport_trace_answer_packet_pass
+                && ssd_wear_budget_pass
+                && coldstream_vs_mmap_pass
+                && slab_arena_copy_count_pass
+                && metal_io_feature_gate_pass
+                && codec_stage_latency_pass
+                && transport_cancellation_pass
+                && cache_policy_pollution_pass
+            {
+                "deferred_l1_cold_panic_fallback_planned"
             } else if !heavy_long_context_enabled
                 && large_model_provider_reference_deferral_pass
                 && provider_route_copy_source_guard_pass
@@ -5822,6 +5875,7 @@ fn build_anomalies(
     metal_io_feature_gate_pass: bool,
     codec_stage_latency_pass: bool,
     transport_cancellation_pass: bool,
+    cache_policy_pollution_pass: bool,
     seventy_b_route_pass: bool,
     next_bottleneck: &str,
 ) -> Vec<serde_json::Value> {
@@ -6297,6 +6351,41 @@ fn build_anomalies(
         }));
     }
     if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && metal_io_feature_gate_pass
+        && codec_stage_latency_pass
+        && transport_cancellation_pass
+        && !cache_policy_pollution_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "cache_policy_pollution_missing",
+            "detail": "Transport cancellation evidence is present; the next non-heavy cursor must prove explicit cache policy choices preserve repeated hot-route performance and expose cache-pollution caveats before live transport promotion."
+        }));
+    }
+    if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && large_model_provider_reference_deferral_pass
+        && provider_route_copy_source_guard_pass
+        && transport_trace_answer_packet_pass
+        && ssd_wear_budget_pass
+        && coldstream_vs_mmap_pass
+        && slab_arena_copy_count_pass
+        && metal_io_feature_gate_pass
+        && codec_stage_latency_pass
+        && transport_cancellation_pass
+        && cache_policy_pollution_pass
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "cache_policy_pollution_metadata_only",
+            "detail": "Cache-policy pollution is witnessed at L1 with explicit NoCache/HotReuse/metadata policy choices, repeated hot-route probes, p95/p99 regression budgets, cache-pollution bounds, rollback, RunEventLog, SCOPE-Rex/SovereignGate admission, compatibility fences, and visible AnswerPacket caveats, but no live transport benchmark, KV-Direct 128K route, live sparse 70B route, provider route, or product runtime capability is promoted."
+        }));
+    } else if !seventy_b_route_pass
         && !heavy_long_context_enabled
         && large_model_provider_reference_deferral_pass
         && provider_route_copy_source_guard_pass
@@ -6783,21 +6872,22 @@ mod tests {
         const METAL_IO_FEATURE_GATE: usize = 67;
         const CODEC_STAGE_LATENCY: usize = 68;
         const TRANSPORT_CANCELLATION: usize = 69;
-        const SEVENTY_B: usize = 70;
+        const CACHE_POLICY_POLLUTION: usize = 70;
+        const SEVENTY_B: usize = 71;
 
         let with_floor = |true_indexes: &[usize]| -> Vec<usize> {
             let mut indexes = vec![SCHEMA, UAS_COPY, ACS_LOOKUP, UAS_ACS_MMAP];
             indexes.extend_from_slice(true_indexes);
             indexes
         };
-        let flags = |true_indexes: &[usize]| -> [bool; 71] {
-            let mut values = [false; 71];
+        let flags = |true_indexes: &[usize]| -> [bool; 72] {
+            let mut values = [false; 72];
             for index in true_indexes {
                 values[*index] = true;
             }
             values
         };
-        let nb_with_heavy = |values: [bool; 71], heavy_long_context_enabled: bool| -> String {
+        let nb_with_heavy = |values: [bool; 72], heavy_long_context_enabled: bool| -> String {
             next_bottleneck(
                 values[0],
                 values[1],
@@ -6872,11 +6962,12 @@ mod tests {
                 values[68],
                 values[69],
                 values[70],
+                values[71],
                 &missing,
             )
         };
-        let nb = |values: [bool; 71]| -> String { nb_with_heavy(values, false) };
-        let nb_heavy = |values: [bool; 71]| -> String { nb_with_heavy(values, true) };
+        let nb = |values: [bool; 72]| -> String { nb_with_heavy(values, false) };
+        let nb_heavy = |values: [bool; 72]| -> String { nb_with_heavy(values, true) };
         assert_eq!(
             nb(flags(&[PAGE_PACKETIZED])),
             "normalize_legacy_uas_and_acs_artifacts"
@@ -9344,6 +9435,77 @@ mod tests {
                 TRANSPORT_CANCELLATION,
             ]))),
             "cache_policy_pollution"
+        );
+        assert_eq!(
+            nb(flags(&with_floor(&[
+                PAGE_PACKETIZED,
+                PAGE_CALLER,
+                PAGE_POLICY,
+                KV_CONTRACT,
+                MODEL_ASSETS,
+                MODEL_IDENTITY,
+                MODEL_CONTEXT,
+                PROMPT_MANIFEST,
+                PROMPT_SHAPE,
+                FULL_PLAN,
+                LOGITS,
+                METRICS,
+                SPILL_TRACE,
+                SPILL_CONTRACT,
+                SHAPE_FLOOR,
+                LIVE_128K,
+                AGENT_LOCAL_BRIDGE,
+                ACTIVE_ASSEMBLY,
+                SPARSE_RUNTIME,
+                RESIDENCY_CONSTRUCTION_GRAPH,
+                COACTIVATION_TILE_PREFETCH,
+                PROOF_CARRYING_RESIDENCY_LEASE,
+                COLD_ASSEMBLY_PLAN_70B_LITE,
+                LATTICE_STATE_CONTROLLER,
+                REASONING_STATE_CONTINUITY,
+                COLD_MISS_LEDGER,
+                SWIFTLM_SOURCE_INTAKE,
+                META_BREAKTHROUGH_CARD_REGISTRY,
+                PROOF_CARRYING_ROUTE_CARD,
+                RUST_ROUTE_KERNEL_MODEL_CHECK,
+                BRAIN_ROUTE_CARD_MULTI_MODEL,
+                KV_PAGE_CONTROL_QUERY_AWARE,
+                NEURAL_CONTROL_CARD_ABLATION,
+                VERIFIER_REGRET_LEDGER,
+                ROUTE_SCOUT_SSM_BASELINE,
+                TWO_STAGE_ROUTE_SCOUT_ABSTAIN,
+                BUDGETED_UNCERTAINTY_ESCALATOR,
+                SPARSE_WAKE_PROPOSAL_BUDGET,
+                VERIFIER_BUDGET_AUCTION,
+                KV_PAGE_SKETCH_INDEX,
+                KV_PAGE_BLOOM_SKETCH_COVERAGE,
+                QUERY_AWARE_KV_SELECTOR,
+                SPARSE_WAKE_CERTIFICATE_ANSWER_PACKET,
+                LAYER_KV_JOINT_LEASE,
+                CONSTRUCTION_SEARCH_TOURNAMENT,
+                ROUTE_DISTILLATION_TOURNAMENT,
+                PROOF_SEARCH_SIGNAL_ROUTE_FEEDBACK,
+                PROOF_PRESSURE_SIGNAL,
+                VERIFIER_REGRET_FAST_WEIGHTS,
+                FAST_WEIGHT_QUARANTINE,
+                DEPTH_LEASE_CHECKPOINT,
+                SHADOW_WAKE_ORACLE,
+                ABLATION_SHADOW_RUN,
+                AXIOM_AXIOMATIC_SOURCE_DISTINCTION,
+                SPARSE_ROUTE_NO_HIDDEN_AUTHORITY,
+                COLDSTREAM_NO_HIDDEN_AUTHORITY,
+                LARGE_MODEL_PROVIDER_REFERENCE_DEFERRAL,
+                PROVIDER_ROUTE_COPY_SOURCE_GUARD,
+                TRANSPORT_TRACE_ANSWER_PACKET,
+                SSD_WEAR_BUDGET,
+                COLDSTREAM_VS_MMAP,
+                SLAB_ARENA_COPY_COUNT,
+                METAL_IO_FEATURE_GATE,
+                CODEC_STAGE_LATENCY,
+                TRANSPORT_CANCELLATION,
+                CACHE_POLICY_POLLUTION,
+            ]))),
+            "cold_panic_fallback"
         );
     }
 

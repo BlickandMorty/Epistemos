@@ -30,4 +30,4 @@ The Rust primitive and falsifier reject empty plans, duplicate plans, duplicate 
 
 ## Next Link
 
-The regenerated guard now reports `next_existing_work=metal_io_feature_gate`. That next rung must feature-gate any Metal I/O path and force visible CPU-slab fallback before GPU/Metal transport evidence can promote.
+The regenerated guard now reports `next_existing_work=cold_panic_fallback` after downstream Metal I/O feature-gate, codec-stage latency, transport cancellation, and cache-policy witnesses passed metadata-only. The next rung must prove missed transport deadlines degrade visibly instead of silently blocking token-time execution.

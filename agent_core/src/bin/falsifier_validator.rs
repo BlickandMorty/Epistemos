@@ -96,6 +96,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-MetalIO-FeatureGate",
     "F-CodecStage-Latency",
     "F-TransportCancellation",
+    "F-CachePolicy-Pollution",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-TaskWorkingSetQuery-Determinism",
