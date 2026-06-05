@@ -323,6 +323,10 @@ name = "falsify_product_route_review"
 path = "src/bin/falsify_product_route_review.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_safety_plan"
+path = "src/bin/falsify_small_model_runtime_harness_safety_plan.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

@@ -55,6 +55,7 @@ pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
+pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
@@ -165,6 +166,12 @@ pub use slab_arena_copy_count::{
     SlabArenaAllocationSample, SlabArenaCopyCountError, SlabArenaCopyCountMetrics,
     SlabArenaCopyCountWitness, SlabArenaCopyEvent, SlabArenaLease, SlabArenaPlan, SlabArenaSurface,
     SlabCopyClass, SLAB_ARENA_COPY_COUNT_CURSOR, SLAB_ARENA_COPY_COUNT_NEXT_CURSOR,
+};
+pub use small_model_runtime_harness_safety_plan::{
+    SmallModelHarnessLane, SmallModelHarnessSafetySurface, SmallModelHarnessStage,
+    SmallModelRuntimeHarnessSafetyError, SmallModelRuntimeHarnessSafetyMetrics,
+    SmallModelRuntimeHarnessSafetyPlan, SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_NEXT_CURSOR,
 };
 pub use ssd_wear_budget::{
     SsdWearBudgetError, SsdWearBudgetMetrics, SsdWearBudgetPlan, SsdWearBudgetSurface,

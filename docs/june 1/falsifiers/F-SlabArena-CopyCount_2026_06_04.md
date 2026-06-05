@@ -33,6 +33,6 @@ The Rust primitive and falsifier reject empty plans, duplicate plans, duplicate 
 Downstream Metal I/O feature-gate, codec-stage latency, transport cancellation,
 cache-policy, cold-panic fallback, and ProductRouteReview witnesses now pass
 metadata-only. The regenerated guard reports
-`next_existing_work=small_model_runtime_harness_safety_plan`; L2 remains
+`next_existing_work=small_model_runtime_harness_dry_run_witness`; L2 remains
 `vault_research_route_with_packetized_mitigation`, and L3 user-facing/product
 runtime is unchanged.

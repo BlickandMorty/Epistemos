@@ -4,7 +4,7 @@ created_on: 2026-06-01
 umbrella_tag: JUNE1-PATTERNBOOST-LOCK
 thread_umbrella_tag: JUNE1-CANON-FUSION-LOCK
 source: docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md
-status: F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, F-ColdPanicFallback, and F-ProductRouteReview passed metadata-only witnesses; no live cold transport promotion without live platform benchmarks
+status: F-ColdStream-vs-Mmap, F-SlabArena-CopyCount, F-MetalIO-FeatureGate, F-CodecStage-Latency, F-TransportCancellation, F-CachePolicy-Pollution, F-ColdPanicFallback, F-ProductRouteReview, and F-SmallModelRuntimeHarnessSafetyPlan passed metadata-only witnesses; no live cold transport or runtime promotion without dry-run, live platform, and user-facing proof
 ---
 
 # Falsifier Bundle - ColdStream Residency Transport
@@ -29,13 +29,14 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-TransportCancellation` | Route changes cancel obsolete in-flight reads and prevent stale slabs from entering execution. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/transport_cancellation/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-CachePolicy-Pollution` | Streaming/cache policy choice is measured against repeated hot-route performance. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/cache_policy_pollution/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-ColdPanicFallback` | Missed transport deadlines degrade visibly rather than blocking token-time execution silently. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/cold_panic_fallback/result.json`; no live transport, model, or runtime bytes moved. |
-| `F-ProductRouteReview` | Product-route review keeps KV-Direct 128K, live sparse 70B, dense 70B runtime, and live ColdStream transport red before runtime harness planning. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/product_route_review/result.json`; no live transport, model, or runtime bytes moved. |
 | `F-TransportTrace-AnswerPacket` | User-visible answers that depend on cold transport link to bytes, stalls, copies, fallback, and caveats. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/transport_trace_answer_packet/result.json`; no live bytes moved. |
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear, energy, cache-pollution, or write-amplification budgets. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/ssd_wear_budget/result.json`; no live bytes moved and no SSD stress run. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 | `F-ProviderRoute-CopySourceGuard` | Provider/KV/70B/practical-MLX route copy cannot source-launder, imply product promotion, call providers, create prompt manifests, mutate route policy, or hide L2/L3 status after large-model deferral. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/provider_route_copy_source_guard/result.json`; no live bytes moved. |
+| `F-ProductRouteReview` | Product-route review keeps KV-Direct 128K, live sparse 70B, dense 70B runtime, and live ColdStream transport red before runtime harness planning. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/product_route_review/result.json`; no live transport, model, or runtime bytes moved. |
+| `F-SmallModelRuntimeHarnessSafetyPlan` | Small-model runtime harness planning is serialized, owner-gated, dry-run-first, cancellable, rollback-bound, AnswerPacket-visible, privacy-fenced, and metadata-only before any MLX probe. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/small_model_runtime_harness_safety_plan/result.json`; no live transport, model, or runtime bytes moved. |
 
-Current cursor after the 2026-06-05 `F-ProductRouteReview` metadata-only product-route review witness: `small_model_runtime_harness_safety_plan`.
+Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessSafetyPlan` metadata-only harness safety witness: `small_model_runtime_harness_dry_run_witness`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1
@@ -47,9 +48,10 @@ advances L1 only as codec/read-trace separation evidence.
 evidence. `F-CachePolicy-Pollution` advances L1 only as cache-policy and
 hot-route regression evidence. `F-ColdPanicFallback` advances L1 only as
 missed-deadline fallback evidence, and `F-ProductRouteReview` advances L1 only
-as red-route review evidence; live platform benchmarks, p99 stall proof,
-and user-facing transport remain separate before ColdStream can replace mmap
-or pread on a hot path.
+as red-route review evidence. `F-SmallModelRuntimeHarnessSafetyPlan` advances
+L1 only as small-model harness safety planning; live platform benchmarks, p99
+stall proof, MLX probes, and user-facing transport remain separate before
+ColdStream can replace mmap or pread on a hot path.
 
 ## Promotion rule
 
