@@ -391,6 +391,10 @@ name = "falsify_small_model_runtime_harness_fresh_product_runtime_l3_manual_runt
 path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe.rs"
 
 [[bin]]
+name = "falsify_small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe"
+path = "src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 
