@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4e716c47173b21abe119a433a2a6d6990e7c9208",
+  "commit_sha": "7842c6e988d9b99d360e83802d9346040d858a40",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-05T19:32:15Z",
-  "result_digest": "sha256:37950b30568b46cb502db904e4826e5d3bdb12a15ea5fccf053f1fd4a313480e",
+  "timestamp_utc": "2026-06-05T20:14:03Z",
+  "result_digest": "sha256:5ecf05ae7ffbc9e211d04446de89a752be2b7afdcf01da716f40c906b47b526b",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -344,6 +344,10 @@
           },
           "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe/result.json",
+            "available": true
+          },
+          "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe/result.json",
             "available": true
           },
           "provider_reference_manifest_dry_run": {
@@ -698,11 +702,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -1514,5 +1518,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }
