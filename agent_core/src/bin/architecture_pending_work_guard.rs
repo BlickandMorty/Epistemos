@@ -15,7 +15,7 @@ use agent_core::falsifier_artifacts::axes::{
     CACHE_POLICY_POLLUTION_AXES, CODEC_STAGE_LATENCY_AXES, COLDSTREAM_NO_HIDDEN_AUTHORITY_AXES,
     COLDSTREAM_VS_MMAP_AXES, COLD_PANIC_FALLBACK_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
-    PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
+    PRODUCT_ROUTE_REVIEW_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
     SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES, SSD_WEAR_BUDGET_AXES, TRANSPORT_CANCELLATION_AXES,
     TRANSPORT_TRACE_ANSWER_PACKET_AXES,
 };
@@ -118,6 +118,7 @@ const CODEC_STAGE_LATENCY_PATH: &str = "artifacts/falsifiers/codec_stage_latency
 const TRANSPORT_CANCELLATION_PATH: &str = "artifacts/falsifiers/transport_cancellation/result.json";
 const CACHE_POLICY_POLLUTION_PATH: &str = "artifacts/falsifiers/cache_policy_pollution/result.json";
 const COLD_PANIC_FALLBACK_PATH: &str = "artifacts/falsifiers/cold_panic_fallback/result.json";
+const PRODUCT_ROUTE_REVIEW_PATH: &str = "artifacts/falsifiers/product_route_review/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2814,6 +2815,9 @@ fn build_report() -> GuardReport {
     let cold_panic_fallback = read_json(Path::new(COLD_PANIC_FALLBACK_PATH));
     let cold_panic_fallback_available =
         artifact_all_axes_true(&cold_panic_fallback, COLD_PANIC_FALLBACK_AXES);
+    let product_route_review = read_json(Path::new(PRODUCT_ROUTE_REVIEW_PATH));
+    let product_route_review_available =
+        artifact_all_axes_true(&product_route_review, PRODUCT_ROUTE_REVIEW_AXES);
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3402,6 +3406,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "product_route_review_available",
+        product_route_review_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -3848,6 +3859,10 @@ fn build_report() -> GuardReport {
                     "path": COLD_PANIC_FALLBACK_PATH,
                     "available": cold_panic_fallback_available
                 },
+                "product_route_review": {
+                    "path": PRODUCT_ROUTE_REVIEW_PATH,
+                    "available": product_route_review_available
+                },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
                     "available": provider_reference_manifest_dry_run_available
@@ -4282,6 +4297,21 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_cold_panic_fallback",
             "detail": "Cache-policy pollution evidence is present; the next non-heavy cursor must prove missed ColdStream deadlines degrade visibly through ColdPanicFallback instead of silently blocking token-time execution."
+        }));
+    }
+    if cold_panic_fallback_available
+        && !product_route_review_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_product_route_review",
+            "detail": "ColdPanicFallback is present; the next non-heavy cursor must prove ProductRouteReview keeps red routes red, preserves MAS/Pro and L1/L2/L3 separation, and refuses live 70B/ColdStream/KV promotion before planning the small-model runtime harness."
+        }));
+    }
+    if product_route_review_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "product_route_review_metadata_only",
+            "detail": "ProductRouteReview is present as L1 metadata only. L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_safety_plan."
         }));
     }
     if !provider_reference_manifest_dry_run_available {
@@ -5263,6 +5293,7 @@ mod tests {
         assert!(already_mapped_work.get("transport_cancellation").is_some());
         assert!(already_mapped_work.get("cache_policy_pollution").is_some());
         assert!(already_mapped_work.get("cold_panic_fallback").is_some());
+        assert!(already_mapped_work.get("product_route_review").is_some());
     }
 
     #[test]

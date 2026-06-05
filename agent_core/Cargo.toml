@@ -319,6 +319,10 @@ name = "falsify_cold_panic_fallback"
 path = "src/bin/falsify_cold_panic_fallback.rs"
 
 [[bin]]
+name = "falsify_product_route_review"
+path = "src/bin/falsify_product_route_review.rs"
+
+[[bin]]
 name = "falsify_app_cold_store_layout"
 path = "src/bin/falsify_app_cold_store_layout.rs"
 

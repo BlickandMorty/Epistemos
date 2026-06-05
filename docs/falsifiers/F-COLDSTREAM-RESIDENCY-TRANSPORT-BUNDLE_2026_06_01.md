@@ -33,8 +33,9 @@ destinations, cancellation, measured copies, and visible fallback.
 | `F-SSD-WearBudget` | Repeated transport plans report read/write volume and reject routes over wear, energy, cache-pollution, or write-amplification budgets. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/ssd_wear_budget/result.json`; no live bytes moved and no SSD stress run. |
 | `F-ColdStream-NoHiddenAuthority` | Transport cannot wake bytes or change route policy without SemanticWorkingSetPlan, ResidencyPageTable, SCOPE-Rex/SovereignGate admission, rollback, RunEventLog, and AnswerPacket proof. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/coldstream_no_hidden_authority/result.json`; no live bytes moved. |
 | `F-ProviderRoute-CopySourceGuard` | Provider/KV/70B/practical-MLX route copy cannot source-launder, imply product promotion, call providers, create prompt manifests, mutate route policy, or hide L2/L3 status after large-model deferral. | PASS on 2026-06-04 as metadata-only primary witness at `artifacts/falsifiers/provider_route_copy_source_guard/result.json`; no live bytes moved. |
+| `F-ProductRouteReview` | Product-route review keeps KV-Direct 128K, live sparse 70B, dense 70B runtime, and live ColdStream transport red before runtime harness planning. | PASS on 2026-06-05 as metadata-only primary witness at `artifacts/falsifiers/product_route_review/result.json`; no live transport, model, or runtime bytes moved. |
 
-Current cursor after the 2026-06-05 `F-ColdPanicFallback` metadata-only panic-fallback witness: `ready_for_product_route_review`.
+Current cursor after the 2026-06-05 `F-ProductRouteReview` metadata-only product-route review witness: `small_model_runtime_harness_safety_plan`.
 
 `F-ColdStream-NoHiddenAuthority`, `F-TransportTrace-AnswerPacket`, and
 `F-SSD-WearBudget` advance L1 only. `F-ColdStream-vs-Mmap` also advances L1
@@ -45,7 +46,8 @@ advances L1 only as codec/read-trace separation evidence.
 `F-TransportCancellation` advances L1 only as cancellation/stale-slab rejection
 evidence. `F-CachePolicy-Pollution` advances L1 only as cache-policy and
 hot-route regression evidence. `F-ColdPanicFallback` advances L1 only as
-missed-deadline fallback evidence; live platform benchmarks, p99 stall proof,
+missed-deadline fallback evidence, and `F-ProductRouteReview` advances L1 only
+as red-route review evidence; live platform benchmarks, p99 stall proof,
 and user-facing transport remain separate before ColdStream can replace mmap
 or pread on a hot path.
 
