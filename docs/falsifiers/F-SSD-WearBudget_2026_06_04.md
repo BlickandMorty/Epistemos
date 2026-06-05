@@ -31,8 +31,8 @@ Invalid fixtures reject empty plans, duplicate plan IDs, duplicate surface IDs, 
 
 ## Truth Layers
 
-- L1: Advanced at landing to `coldstream_vs_mmap`. Downstream `F-ColdStream-vs-Mmap` now passes metadata-only, and the regenerated architecture guard reports `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0` after downstream `F-SmallModelRuntimeHarnessDryRunWitness` evidence.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `small_model_runtime_harness_abortable_runtime_probe` after downstream `F-SmallModelRuntimeHarnessOwnerApprovedProbe`.
+- L1: Advanced at landing to `coldstream_vs_mmap`. Downstream `F-ColdStream-vs-Mmap`, `F-SmallModelRuntimeHarnessDryRunWitness`, `F-SmallModelRuntimeHarnessOwnerApprovedProbe`, and `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` now pass metadata-only, and the regenerated architecture guard reports `next_existing_work=small_model_runtime_harness_logged_runtime_smoke` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, and next bottleneck `small_model_runtime_harness_logged_runtime_smoke` after downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe`.
 - L3: Not advanced. No user-facing runtime, live ColdStream transport, mmap replacement, Metal I/O path, SSD stress safety, live sparse 70B, or product-route claim was promoted.
 
 ## Notes

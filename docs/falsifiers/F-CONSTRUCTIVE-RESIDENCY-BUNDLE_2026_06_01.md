@@ -126,4 +126,5 @@ A future artifact fails immediately if it:
 - Small-model harness safety witness: `docs/falsifiers/F-SmallModelRuntimeHarnessSafetyPlan_2026_06_05.md`
 - Small-model harness dry-run witness: `docs/falsifiers/F-SmallModelRuntimeHarnessDryRunWitness_2026_06_05.md`
 - Small-model harness owner-approved probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessOwnerApprovedProbe_2026_06_05.md`
-- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessOwnerApprovedProbe` metadata-only witness: `small_model_runtime_harness_abortable_runtime_probe`. This remains L1-only; L2 product capability and L3 user-facing runtime are unchanged.
+- Small-model harness abortable runtime probe witness: `docs/falsifiers/F-SmallModelRuntimeHarnessAbortableRuntimeProbe_2026_06_05.md`
+- Current cursor after the 2026-06-05 `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` metadata-only abort-path witness: `small_model_runtime_harness_logged_runtime_smoke`. This remains L1-only; L2 product capability and L3 user-facing runtime are unchanged.

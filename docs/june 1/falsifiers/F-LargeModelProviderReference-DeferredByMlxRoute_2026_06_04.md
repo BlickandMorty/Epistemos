@@ -18,8 +18,8 @@ It binds upstream guard, capability kernel, provider-readiness, and 70B prefligh
 
 ## Layer Truth
 
-- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard`, `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, and `F-SmallModelRuntimeHarnessDryRunWitness` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_abortable_runtime_probe` with duplicate risk `0`.
-- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_abortable_runtime_probe` after downstream owner-approved probe evidence landed.
+- L1: Advanced. `F-LargeModelProviderReference-DeferredByMlxRoute` passed at landing; downstream `F-ProviderRoute-CopySourceGuard`, `F-TransportTrace-AnswerPacket`, `F-SSD-WearBudget`, `F-ColdStream-vs-Mmap`, `F-SlabArena-CopyCount`, `F-MetalIO-FeatureGate`, `F-CodecStage-Latency`, `F-TransportCancellation`, `F-CachePolicy-Pollution`, `F-ColdPanicFallback`, `F-ProductRouteReview`, `F-SmallModelRuntimeHarnessSafetyPlan`, `F-SmallModelRuntimeHarnessDryRunWitness`, `F-SmallModelRuntimeHarnessOwnerApprovedProbe`, and `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` now pass metadata-only, and the regenerated pending-work guard reports `next_existing_work=small_model_runtime_harness_logged_runtime_smoke` with duplicate risk `0`.
+- L2: Not advanced. The capability kernel remains `overall_pass=false`, route status `vault_research_route_with_packetized_mitigation`, with `next_bottleneck=small_model_runtime_harness_logged_runtime_smoke` after downstream `F-SmallModelRuntimeHarnessAbortableRuntimeProbe` evidence landed.
 - L3: Not advanced. No user-facing runtime, live 70B, provider route, KV-Direct 128K, or product copy claim was promoted.
 
 ## Notes

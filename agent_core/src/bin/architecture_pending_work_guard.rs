@@ -16,6 +16,7 @@ use agent_core::falsifier_artifacts::axes::{
     COLDSTREAM_VS_MMAP_AXES, COLD_PANIC_FALLBACK_AXES,
     LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_BY_MLX_ROUTE_AXES, METAL_IO_FEATURE_GATE_AXES,
     PRODUCT_ROUTE_REVIEW_AXES, PROVIDER_ROUTE_COPY_SOURCE_GUARD_AXES, SLAB_ARENA_COPY_COUNT_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_SAFETY_PLAN_AXES, SPARSE_ROUTE_NO_HIDDEN_AUTHORITY_AXES,
@@ -127,6 +128,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_dry_run_witness/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_owner_approved_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_abortable_runtime_probe/result.json";
 const PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH: &str =
     "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json";
 const PROVIDER_REFERENCE_PROMPT_LEVEL_READINESS_PATH: &str =
@@ -2844,6 +2847,12 @@ fn build_report() -> GuardReport {
         &small_model_runtime_harness_owner_approved_probe,
         SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_AXES,
     );
+    let small_model_runtime_harness_abortable_runtime_probe =
+        read_json(Path::new(SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_PATH));
+    let small_model_runtime_harness_abortable_runtime_probe_available = artifact_all_axes_true(
+        &small_model_runtime_harness_abortable_runtime_probe,
+        SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_AXES,
+    );
     let provider_reference_manifest_dry_run =
         read_json(Path::new(PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH));
     let provider_reference_manifest_dry_run_available = artifact_all_axes_true(
@@ -3002,6 +3011,9 @@ fn build_report() -> GuardReport {
         && (heavy_long_context_enabled
             || !small_model_runtime_harness_dry_run_witness_available
             || small_model_runtime_harness_owner_approved_probe_available)
+        && (heavy_long_context_enabled
+            || !small_model_runtime_harness_owner_approved_probe_available
+            || small_model_runtime_harness_abortable_runtime_probe_available)
         && provider_reference_manifest_dry_run_available
         && (!heavy_long_context_enabled
             || provider_reference_prompt_level_readiness_witness_available)
@@ -3469,6 +3481,13 @@ fn build_report() -> GuardReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_abortable_runtime_probe_available",
+        small_model_runtime_harness_abortable_runtime_probe_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "provider_reference_manifest_dry_run_available",
         provider_reference_manifest_dry_run_available,
     );
@@ -3930,6 +3949,10 @@ fn build_report() -> GuardReport {
                 "small_model_runtime_harness_owner_approved_probe": {
                     "path": SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_PATH,
                     "available": small_model_runtime_harness_owner_approved_probe_available
+                },
+                "small_model_runtime_harness_abortable_runtime_probe": {
+                    "path": SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_PATH,
+                    "available": small_model_runtime_harness_abortable_runtime_probe_available
                 },
                 "provider_reference_manifest_dry_run": {
                     "path": PROVIDER_REFERENCE_MANIFEST_DRY_RUN_PATH,
@@ -4403,7 +4426,21 @@ fn build_report() -> GuardReport {
             "detail": "SmallModelRuntimeHarnessDryRunWitness is present; the next non-heavy cursor must prove owner-approval leases, selected local model catalog refs, admission, serialized execution, cancellation, rollback, RunEventLog, AnswerPacket, privacy, and bounded budgets before any abortable runtime probe."
         }));
     }
-    if small_model_runtime_harness_owner_approved_probe_available && !heavy_long_context_enabled {
+    if small_model_runtime_harness_owner_approved_probe_available
+        && !small_model_runtime_harness_abortable_runtime_probe_available
+        && !heavy_long_context_enabled
+    {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_small_model_runtime_harness_abortable_runtime_probe",
+            "detail": "SmallModelRuntimeHarnessOwnerApprovedProbe is present; the next non-heavy cursor must prove the owner-approved small-model smoke lanes are cancelable before runtime/model bytes open, rollback-bound, RunEventLog-bound, AnswerPacket-visible, privacy-fenced, budgeted, and mutation-free."
+        }));
+    }
+    if small_model_runtime_harness_abortable_runtime_probe_available && !heavy_long_context_enabled {
+        anomalies.push(serde_json::json!({
+            "kind": "small_model_runtime_harness_abortable_runtime_probe_metadata_only",
+            "detail": "SmallModelRuntimeHarnessAbortableRuntimeProbe is present as L1 metadata only. It proves pre-runtime abort/cancellation discipline but loads no MLX/runtime/model bytes; L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_logged_runtime_smoke."
+        }));
+    } else if small_model_runtime_harness_owner_approved_probe_available && !heavy_long_context_enabled {
         anomalies.push(serde_json::json!({
             "kind": "small_model_runtime_harness_owner_approved_probe_metadata_only",
             "detail": "SmallModelRuntimeHarnessOwnerApprovedProbe is present as L1 metadata only. It arms owner-approved small-model probe leases but loads no runtime/model bytes; L2 capability and L3 user-facing/product runtime remain unpromoted while the next cursor moves to small_model_runtime_harness_abortable_runtime_probe."
@@ -5412,6 +5449,9 @@ mod tests {
             .is_some());
         assert!(already_mapped_work
             .get("small_model_runtime_harness_owner_approved_probe")
+            .is_some());
+        assert!(already_mapped_work
+            .get("small_model_runtime_harness_abortable_runtime_probe")
             .is_some());
     }
 
