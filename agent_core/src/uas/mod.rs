@@ -53,6 +53,7 @@ pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod ssd_wear_budget;
+pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
 pub mod weight_block;
 pub mod witness;
@@ -150,6 +151,11 @@ pub use slab_arena_copy_count::{
 pub use ssd_wear_budget::{
     SsdWearBudgetError, SsdWearBudgetMetrics, SsdWearBudgetPlan, SsdWearBudgetSurface,
     SsdWearBudgetWitness, SSD_WEAR_BUDGET_CURSOR, SSD_WEAR_BUDGET_NEXT_CURSOR,
+};
+pub use transport_cancellation::{
+    TransportCancellationError, TransportCancellationMetrics, TransportCancellationRun,
+    TransportCancellationState, TransportCancellationSurface, TransportCancellationWitness,
+    TRANSPORT_CANCELLATION_CURSOR, TRANSPORT_CANCELLATION_NEXT_CURSOR,
 };
 pub use transport_trace_answer_packet::{
     TransportTraceAnswerPacketError, TransportTraceAnswerPacketFrame,
