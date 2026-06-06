@@ -421,6 +421,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   promotion, unsafe KV combos, benchmark laundering, privacy predicates applied
   after ranking, missing rollback/RunEventLog/AnswerPacket refs, MAS/Live
   promotion, source-class collapse, and stale overclaim copy all reject. This is
+  paired with pass seven's accepted source-prior fixture pack: TurboVec,
+  LiteRT-LM, llama.cpp, `mlx-swift-lm`, `mlx-lm`, LocalLLMClient, Gemma 4 QAT
+  GGUF E2B/E4B/12B, Gemma 4 LiteRT E2B/E4B/12B, Qwen3-Coder 30B MLX, and
+  Granite 4.0 H Micro MLX. "Accepted" here means source-card hygiene only:
+  unique locators, license/usage notes, import modes, source-prior authority,
+  zero runtime/model/index bytes, rollback/log/packet refs, and no product
+  capability claim. MLX Gemma 4 12B QAT 4bit, 26B/31B, TurboQuant/KV/lattice
+  repos, server runtimes, and unknown-license forks stay deferred or
+  quarantine-reference until stricter witnesses land. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
