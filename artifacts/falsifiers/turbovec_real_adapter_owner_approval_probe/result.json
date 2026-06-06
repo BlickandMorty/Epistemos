@@ -1,0 +1,280 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterOwnerApprovalProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_owner_approval_probe.sh",
+  "command_digest": "sha256:cea631e2dfb566d74242c6cf1a0d6358dbf3e67031d97b8d956339db5acd7e4f",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "86628688db8cf11c45b093a1f4d5a7294fde4cde",
+  "fixture_id": "turbovec_real_adapter_owner_approval_probe_v1",
+  "timestamp_utc": "2026-06-06T13:08:34Z",
+  "result_digest": "sha256:1965758245fe72065af406c438db038155924e848b566e6c0f976752a732249d",
+  "measurements": {
+    "external_and_product_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_sweep_required_before_source_pin": {
+      "value": true,
+      "unit": "bool"
+    },
+    "language_and_api_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_quarantine_bytes": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_source_pin_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_owner_approval_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "pending_source_pin_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "primary_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_dependency_and_benchmark_caveats_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_reference_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "real_adapter_owner_approval_address": {
+      "value": "turbovec_real_adapter_owner_approval_probe:694aedb3ab2f1c70671cc1863e1d829af1b2cd311604cbc718a903e4b873c0b5@1779040800000",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "source_card_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_pending_until_owner_selection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quarantine_microbench_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "external_and_product_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_sweep_required_before_source_pin": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "language_and_api_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_quarantine_bytes": {
+      "operator": "==",
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_source_pin_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_owner_approval_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "pending_source_pin_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "primary_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_dependency_and_benchmark_caveats_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_reference_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "real_adapter_owner_approval_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_owner_approval_probe:",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 40,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "source_card_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_pending_until_owner_selection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quarantine_microbench_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "external_and_product_bytes_zero": true,
+    "fork_sweep_required_before_source_pin": true,
+    "language_and_api_refs_bound": true,
+    "layer_separation_required": true,
+    "max_planned_quarantine_bytes": true,
+    "next_research_to_build_unit": true,
+    "no_route_context_or_hidden_authority": true,
+    "owner_approval_pending_fail_closed": true,
+    "pending_owner_approval_count": true,
+    "pending_source_pin_count": true,
+    "primary_source_bound": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "provenance_dependency_and_benchmark_caveats_required": true,
+    "quarantine_reference_only": true,
+    "real_adapter_owner_approval_address": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "source_card_count": true,
+    "source_card_present": true,
+    "source_pin_pending_until_owner_selection": true,
+    "upstream_quarantine_microbench_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "owner_approval_pending_scope",
+      "detail": "No repository bytes fetched or cloned, no external crate imported, no product files copied, no adapter built or run, no product index opened, no model/runtime bytes loaded, no provider calls, no route mutation, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterOwnerApprovalProbe from the synthetic quarantine microbench. Scope is T1/L1 source/provenance gating only: upstream TurboVec source card, MIT/license/source URL binding, owner approval pending, source pin pending, fork sweep required, quarantine-reference-only action, clean-room provenance, dependency manifest, upstream benchmark caveat, rollback, RunEventLog, AnswerPacket, compatibility fence, zero external/product/model/provider bytes, and no live large-model claim."
+}

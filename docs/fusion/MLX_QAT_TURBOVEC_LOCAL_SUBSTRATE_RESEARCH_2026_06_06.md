@@ -664,14 +664,16 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
     retrieval.
 11. `F-TurboVec-QuarantineAdapterMicrobenchProbe` is implemented; preserve it
     as the synthetic-only adapter-shaped proof boundary before external code.
-12. Implement `turbovec_quarantine_real_adapter_owner_approval_probe` before
-    any real TurboVec crate/fork bytes, live fixture, or model-route quality
-    claim.
-13. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
-14. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
-15. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
-16. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
-17. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
+12. `F-TurboVec-RealAdapterOwnerApprovalProbe` is implemented; preserve it as
+    the owner/provenance gate for the first real upstream TurboVec source card.
+13. Implement `turbovec_quarantine_real_adapter_source_pin_probe` before any
+    real TurboVec crate/fork bytes, live fixture, source import, or model-route
+    quality claim.
+14. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
+15. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
+16. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
+17. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
+18. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
 
 ## Hard Do Not Do
 
@@ -1551,7 +1553,7 @@ product capability green. The privacy step is covered by
 by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is
 covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
-safer retrieval/index step is `turbovec_quarantine_real_adapter_owner_approval_probe`.
+safer retrieval/index step is `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Filter-Before-Rank Privacy Gate Implementation Note
 
@@ -1582,7 +1584,7 @@ covered by `F-TurboVec-RecallQualityExactBaseline`; latency, memory, timeout,
 and abstention envelopes are now covered by
 `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
 covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch now moves to
-`turbovec_quarantine_real_adapter_owner_approval_probe`.
+`turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Crash-Safe Persistent Index Implementation Note
 
@@ -1615,7 +1617,7 @@ capability green. Exact-baseline recall quality is now covered by
 abstention proof is now covered by `F-TurboVec-LatencyMemoryAbstention`; the
 runtime shadow benchmark plan is now covered by
 `F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch now moves to
-`turbovec_quarantine_real_adapter_owner_approval_probe`.
+`turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Exact-Baseline Recall Quality Implementation Note
 
@@ -1645,7 +1647,7 @@ product capability green. Latency, memory, timeout, and abstention proof is
 now covered by `F-TurboVec-LatencyMemoryAbstention`; the TurboVec branch moves
 through the now-landed `F-TurboVec-RuntimeShadowBenchmarkPlan` and onward to
 the next safer retrieval/index step:
-`turbovec_quarantine_real_adapter_owner_approval_probe`.
+`turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Latency/Memory Abstention Implementation Note
 
@@ -1670,7 +1672,7 @@ This pass does not import TurboVec code, build an index, run a benchmark,
 allocate runtime buffers, measure live latency, choose RuntimeRouter/System G
 routes, or make L2/L3 product capability green. Runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch
-now moves to `turbovec_quarantine_real_adapter_owner_approval_probe`.
+now moves to `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Runtime Shadow Benchmark Implementation Note
 
@@ -1696,7 +1698,7 @@ runtime bytes, model/runtime bytes, provider calls, or copied product files.
 This pass does not import TurboVec code, build or open an index, run a
 benchmark, allocate runtime buffers, load Gemma/QAT/GGUF/MLX/LiteRT bytes,
 choose RuntimeRouter/System G routes, or make L2/L3 product capability green.
-The branch now moves to `turbovec_quarantine_real_adapter_owner_approval_probe`.
+The branch now moves to `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 ### 2026-06-06 TurboVec Quarantine Adapter Microbench Implementation Note
 
@@ -1725,5 +1727,31 @@ This pass does not import TurboVec code, clone or copy fork code, build or
 open a real index, run a real adapter, load Gemma/QAT/GGUF/MLX/LiteRT/model
 bytes, choose RuntimeRouter/System G routes, or make L2/L3 product capability
 green. The branch now moves to
-`turbovec_quarantine_real_adapter_owner_approval_probe`, which must remain
-owner-approved, Pro Research, quarantine-only, and non-authoritative.
+`turbovec_quarantine_real_adapter_source_pin_probe`, which must remain
+source-pinned, fork-swept, Pro Research, quarantine-only, and non-authoritative.
+
+### 2026-06-06 TurboVec Real Adapter Owner Approval Implementation Note
+
+`F-TurboVec-RealAdapterOwnerApprovalProbe` is now implemented as the
+metadata-only owner/provenance witness after the synthetic quarantine
+microbench. The artifact lives at
+`artifacts/falsifiers/turbovec_real_adapter_owner_approval_probe/result.json`
+and accepts 1 upstream source card for
+`https://github.com/RyanCodrai/turbovec` while rejecting 45 red fixtures.
+
+The implementation makes the first real external source step fail closed:
+owner approval remains pending, source pin remains pending, fork sweep is
+required, and the only allowed action is quarantine reference. It binds
+MIT/license/source URL, Rust/Python/API refs, clean-room provenance,
+dependency manifest, upstream benchmark caveat, rollback, RunEventLog,
+AnswerPacket, and compatibility fence before any external adapter bytes are
+allowed near Eidos/AppColdStore or System G.
+
+This pass does not clone TurboVec, inspect fork code, import/build/run an
+adapter, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
+RuntimeRouter/System G routes, or make L2/L3 product capability green. It
+records max planned quarantine bytes `8388608`, zero fetched/cloned/product/
+index/model/runtime/provider/external-code bytes, no copied product files, no
+route/context authority, no hidden large-model routing, and no live dense 70B
+or SSD-as-RAM claim. The branch now moves to
+`turbovec_quarantine_real_adapter_source_pin_probe`.
