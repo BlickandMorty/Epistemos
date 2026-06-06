@@ -515,6 +515,35 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   This moves the research-to-build loop from T0 to T1/L1 for model inventory
   only; L2 capability, L3 user-facing runtime, live large-model capability,
   and release readiness remain unchanged.
+- Updated **2026-06-06** · proprietary compression provenance gate built as
+  L1 research-to-build architecture:
+  `F-ProprietaryCompression-ProvenanceGate` now has Rust module
+  `agent_core/src/uas/proprietary_compression_provenance_gate.rs`, exports in
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_proprietary_compression_provenance_gate.rs`,
+  script `Tools/falsifiers/f_proprietary_compression_provenance_gate.sh`,
+  witness page
+  `docs/falsifiers/F-ProprietaryCompression-ProvenanceGate_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/proprietary_compression_provenance_gate/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 10
+  TurboVec/QAT/runtime/fork/model-card/benchmark/local-canon source overlays,
+  covers all five import modes and six allowed-action classes, binds three
+  model-inventory candidates, and rejects 39 red fixtures for no-license,
+  unclear-license, or copyleft direct import; unsafe adapter wrapping; missing
+  quarantine, clean-room, attribution, test-plan, proof-ref, or source digest
+  evidence; benchmark laundering; unknown transitive dependencies; copied
+  product files; nonzero model/index/runtime/provider bytes; hidden route
+  authority; hidden cloud fallback; live dense 70B; SSD-as-RAM; MAS/Live and
+  product-green promotion; and missing L1/L2/L3 separation. This moves the
+  breakthrough research loop to T1/L1 for provenance/import gating only. It
+  does not import third-party code, create a compressed Eidos index, choose
+  MLX/GGUF/LiteRT, load Gemma QAT, prove TurboVec recall quality, advance L2,
+  or make L3 user-facing model capability green. The guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

@@ -2,7 +2,7 @@
 state: research_synthesis
 created_on: 2026-06-06
 scope: recursive breakthrough research loop for large local models, compression, residency, routing, and proof
-status: T0 research/canon synthesis only; no product-code edit, no runtime probe, no product promotion
+status: T0 research/canon synthesis plus T1/L1 source-card, model-inventory, and provenance-gate architecture; no runtime probe or product promotion
 authority: Living Index, Master Research Index, June 1 canon, June 6 TurboVec/QAT canon, local Downloads research, primary external sources
 ---
 
@@ -60,7 +60,7 @@ AnswerPacket dry-run evidence before any live runtime work.
 | Concept | Canon source | Current status | Missing proof |
 |---|---|---|---|
 | Promotion tiers | `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` | T0-T5 canon; green means T4+ only | Future claims must cite tier and evidence |
-| Runtime-plural compression | `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` | T0 canon-candidate intake | `F-ProprietaryCompression-ProvenanceGate` and route cards |
+| Runtime-plural compression | `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` | T1/L1 provenance gate built; runtime lanes still unpromoted | `F-CompressedModelSourceCard-Intake`, route cards, byte/runtime proof, and WRV |
 | Detailed TurboVec/QAT research | `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md` | T0 research synthesis | Source-card falsifiers and small runtime harness proof |
 | Semantic working set | `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` | T0/T1 doctrine with metadata witnesses downstream | Live prefetch and miss-improvement proof |
 | ColdStream transport | `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` | Metadata-only transport witnesses; no live transport | p95/p99 platform benchmark, cancellation, rollback |
@@ -150,7 +150,8 @@ risks.
 
 Organ: UAS/OAS, SCOPE-Rex/SovereignGate, RuntimeRouter.
 
-Tier: T0 now. T1 after `F-ProprietaryCompression-ProvenanceGate`.
+Tier: T1/L1 for provenance after `F-ProprietaryCompression-ProvenanceGate`;
+runtime/import/product claims still need later T2-T4 evidence.
 
 Why it matters: Epistemos can be ambitious with public repos without losing
 proprietary hygiene or accidentally importing unsafe code.
@@ -215,7 +216,7 @@ route mutation without AnswerPacket and rollback.
 
 | Falsifier | Purpose | Product claim allowed |
 |---|---|---|
-| `F-ProprietaryCompression-ProvenanceGate` | Classify repos/forks/models/codecs by source, license, digest, quarantine, import mode, and clean-room path | None; source hygiene only |
+| `F-ProprietaryCompression-ProvenanceGate` | PASS T1/L1: classify repos/forks/models/codecs by source, license, digest, quarantine, import mode, and clean-room path | None; source hygiene only |
 | `F-CompressedModelSourceCard-Intake` | Prove model/index/codec source card completeness | None |
 | `F-TurboVec-Eidos-CompressedIndex-Plan` | Prove UAS IDs, byte math, allowlist-before-rank, rebuild, and no-hidden-authority | None |
 | `F-QAT-ModelRouteCard-MemoryPreflight` | Prove file size, predicted resident bytes, runtime candidates, hardware budget, fallback | None |
@@ -2355,3 +2356,107 @@ Next research query: "Which source-card fields and red fixtures should
 `F-ProprietaryCompression-ProvenanceGate` implement first so TurboVec/QAT/GGUF
 repo mining can safely feed Epistemos-owned compression logic without hidden
 route authority or license/provenance contamination?"
+
+## 28. Pass 14 - Proprietary Compression Provenance Gate Built
+
+Question answered: can the deep breakthrough research loop become a buildable
+provenance gate instead of staying as a research memo?
+
+Yes. `F-ProprietaryCompression-ProvenanceGate` is now implemented as a
+metadata-only Rust UAS primitive plus falsifier witness:
+
+- primitive:
+  `agent_core/src/uas/proprietary_compression_provenance_gate.rs`
+- export surface: `agent_core/src/uas/mod.rs`
+- falsifier binary:
+  `agent_core/src/bin/falsify_proprietary_compression_provenance_gate.rs`
+- command:
+  `Tools/falsifiers/f_proprietary_compression_provenance_gate.sh`
+- artifact:
+  `artifacts/falsifiers/proprietary_compression_provenance_gate/result.json`
+- witness doc:
+  `docs/falsifiers/F-ProprietaryCompression-ProvenanceGate_2026_06_06.md`
+
+North-star preserved: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### 28.1 What It Builds
+
+The new primitive gives Epistemos a safe intake lane for ambitious public and
+local research:
+
+```text
+TurboVec / TurboQuant / Gemma QAT / forks / runtime packages / local canon
+  -> accepted SourceCard / SourceSignalGraph
+  -> ModelInventoryCandidateSet where model/runtime evidence exists
+  -> ProprietaryCompressionSourceOverlay
+  -> ProprietaryCompressionProvenanceGate
+  -> later source-card, route-card, compressed-index, QAT, byte, runtime, WRV witnesses
+```
+
+Accepted fixtures cover repo, fork, paper, blog, model-card, runtime-package,
+local-canon, and benchmark-report sources; all five import modes
+(`direct_import`, `adapter_wrap`, `quarantine_reference`,
+`clean_room_rewrite`, `research_only`); all six allowed actions; seven license
+classes; ten extracted behavior kinds; three model-inventory bindings; zero
+model/index/runtime/provider bytes; zero copied product files; rollback,
+RunEventLog, AnswerPacket, compatibility refs; deterministic addresses; and
+bounded metadata/quarantine source-byte budgets.
+
+Red fixtures reject no-license, unclear-license, or copyleft direct import;
+unsafe adapter wrapping; missing attribution, local tests, quarantine refs, or
+clean-room notes; benchmark laundering; unknown transitive dependencies;
+verbatim code mining; copied product files; nonzero model/index/runtime bytes;
+provider calls; hidden route authority; hidden cloud fallback; live dense 70B;
+SSD-as-RAM; MAS/Live and product-green promotion; bad proof refs; bad
+model-inventory bindings; metadata overflow; quarantine-source overflow; and
+missing L1/L2/L3 separation.
+
+### 28.2 What It Does Not Build
+
+This pass does not import third-party code, create a compressed Eidos index,
+choose MLX/GGUF/LiteRT, load Gemma QAT, prove TurboVec recall quality, run a
+small model, prove 70B-class local runtime capability, or make any user-facing
+model feature green. It advances T1/L1 architecture only. L2 capability and L3
+user-facing/product truth remain unchanged.
+
+### 28.3 Why It Matters
+
+The research loop can now be aggressive without being reckless. Future agents
+can mine forks, repos, Hugging Face cards, papers, and local Downloads notes
+for API shapes, parser behavior, cache logic, benchmark harnesses, tests,
+memory assumptions, and failure cases. The gate decides whether a source is
+eligible for compatible direct import, adapter wrapping, quarantine reference,
+clean-room rewrite, or research-only preservation before any code touches the
+product build graph.
+
+### 28.4 Pass-Fourteen Register
+
+Best breakthrough candidate: a provenance-gated compression/runtime source
+portfolio that lets Epistemos harvest public research while preserving
+proprietary hygiene, source identity, rollback, AnswerPacket visibility, and
+no-hidden-authority discipline.
+
+Safest next falsifier: `F-CompressedModelSourceCard-Intake`, because model,
+index, quantizer, codec, and runtime source cards now need a typed source-card
+shape before Gemma QAT, TurboVec, GGUF, LiteRT, MLX, and lattice-codec route
+cards can become byte/runtime candidates.
+
+Best near-term code unit: implement a metadata-only compressed-model source
+card that records model/index kind, claimed format, expected runtime lanes,
+license/provenance digest, import mode, byte-zero scope, rollback, RunEventLog,
+AnswerPacket, and explicit non-loadability/non-quality caveats.
+
+Biggest false-claim risk: treating a provenance-approved source as imported
+code, runtime support, local model loadability, or user-facing product
+capability. Provenance is only the first gate.
+
+Biggest missing source: fork-level and model-card-level current scans for the
+best TurboVec/TurboQuant/QAT/GGUF/LiteRT repos after quarantine source-carding.
+
+Next research query: "Which compressed model/index source-card fields should
+`F-CompressedModelSourceCard-Intake` require so provenance-approved research can
+become route-card material without proving runtime, recall quality, or product
+capability too early?"
