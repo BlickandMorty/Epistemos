@@ -322,6 +322,19 @@ server runtimes, lattice codecs, and unknown-license forks. These labels are
 metadata fixture priorities only; none is runtime authority, product
 capability, MAS eligibility, or release readiness.
 
+**Pass-nine minimal fixture model.** The memo now answers the next design
+question for `F-ProprietaryCompression-ProvenanceGate`: do not create a second
+source authority. Keep Rust `SourceCard` and `SourceSignalGraph::intake` as
+the identity/provenance spine, then attach fixture-only overlay rows keyed by
+`source_id` for lane class, import mode, overlay kind, authority level, MAS/Pro
+status, zero byte/provider counts, rollback, RunEventLog, AnswerPacket,
+compatibility fence, build-graph status, copied-file count, dependency closure,
+benchmark caveat, local test plan, and stale-overclaim strings. The gate should
+validate the base graph first, then reject orphan overlays, duplicate overlays,
+duplicate source locators, hidden route authority, fallback-as-default,
+deferred-lane hiding, build-graph contamination, nonzero bytes, provider calls,
+and any primary-source-prior runtime claim.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is

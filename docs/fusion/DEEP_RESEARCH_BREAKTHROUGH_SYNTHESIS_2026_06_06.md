@@ -1352,3 +1352,202 @@ model snapshots; this pass uses external metadata only.
 Next research query: "What is the smallest metadata-only Rust fixture model
 that can encode the Pass 6 red fixtures, Pass 7 accepted fixtures, and Pass 8
 lane classes without creating a second source authority beside `SourceCard`?"
+
+## 23. Pass 9 - Minimal Fixture Model For The Provenance Gate
+
+Observed on 2026-06-06 through local Rust code only:
+`agent_core/src/uas/semantic_working_set.rs::SourceCard`,
+`SourceSignalGraph::intake`, `falsify_source_signal_graph_intake`, and
+`falsify_swiftlm_source_intake`. No product code was edited, no source was
+cloned, no model/index/runtime bytes were opened, no benchmark was run, and no
+provider was called.
+
+### 23.1 Answer To The Pass-Eight Query
+
+The smallest safe fixture model is not a new source authority. It is:
+
+```text
+Vec<SourceCard>
+  -> SourceSignalGraph::intake(...)
+  -> Vec<ProvenanceGateOverlay keyed by SourceCard.source_id>
+  -> red/accepted/deferred fixture checks
+  -> metadata-only falsifier artifact
+```
+
+`SourceCard` remains the only authority for source identity, locator, digest,
+license or usage note, privacy class, no-poison status, credibility rank, and
+route affinity. The new fixture rows attach only lane, import, proof, byte,
+build-boundary, and overclaim facts to an accepted or blocked `source_id`.
+They do not own URLs, licenses, digests, or source truth unless those fields
+are copied into the existing `SourceCard` usage note or verified against the
+base card.
+
+### 23.2 Minimal Types To Implement
+
+The fixture-only Rust shape should be small and intentionally boring:
+
+```rust
+enum SourcePriorLane {
+    Primary,
+    Fallback,
+    Deferred,
+}
+
+enum ImportMode {
+    DirectImport,
+    AdapterWrap,
+    QuarantineReference,
+    CleanRoomRewrite,
+    ResearchOnly,
+}
+
+enum OverlayKind {
+    ModelRuntime,
+    CompressedIndex,
+    KvCache,
+    RepoImport,
+    Benchmark,
+}
+
+struct ProvenanceGateOverlay {
+    source_id: &'static str,
+    lane: SourcePriorLane,
+    import_mode: ImportMode,
+    overlay_kind: OverlayKind,
+    authority_level: &'static str, // always source_prior_only in this gate
+    product_build: &'static str,   // Pro unless a later MAS witness proves it
+    pro_status: &'static str,      // ResearchCandidate, Gated, Blocked, etc.
+    runtime_bytes_loaded: u64,
+    model_bytes_loaded: u64,
+    index_bytes_loaded: u64,
+    provider_calls_made: u64,
+    rollback_ref: &'static str,
+    run_event_log_ref: &'static str,
+    answer_packet_ref: &'static str,
+    compatibility_fence_ref: &'static str,
+    build_graph_status: &'static str,
+    copied_file_count: u64,
+    dependency_closure_present: bool,
+    benchmark_caveat_present: bool,
+    local_test_plan_present: bool,
+    overclaim_strings: &'static [&'static str],
+}
+```
+
+The implementation should use owned `String` only where generated fixtures
+need them; static fixture data can stay `&'static str`. The important rule is
+that every overlay must resolve to exactly one base `SourceCard` by
+`source_id` before any overlay predicate runs.
+
+### 23.3 Validation Order
+
+1. Construct base `SourceCard` values with BLAKE3 digests and nonempty route
+   affinities.
+2. Run `SourceSignalGraph::intake` so duplicate IDs, blocked sources, invalid
+   edges, bad digests, missing route affinity, and empty cards stay owned by
+   the existing primitive.
+3. Build an accepted ID set and a rejected ID set from the graph.
+4. Validate every overlay has exactly one matching source card. Missing,
+   duplicate, or orphan overlays reject.
+5. Normalize source locators from base cards and reject duplicate source URLs
+   unless the duplicate is explicitly represented as an edge relation instead
+   of a second authority.
+6. Validate import mode, lane class, overlay kind, and authority level.
+7. Run the Pass 6 red fixtures, Pass 7 accepted fixture counts, and Pass 8 lane
+   counts.
+8. Emit only metadata axes. All byte/provider counts must remain zero.
+
+This order means the provenance gate inherits `SourceCard` and
+`SourceSignalGraph` guarantees first, then adds compression/runtime-specific
+rejection logic.
+
+### 23.4 Minimal Accepted Fixture Pack
+
+The first implementation can stay compact while still covering the canon:
+
+| Lane class | Required fixture count | Source examples |
+|---|---:|---|
+| `Primary` | 9 or more | TurboVec, LiteRT-LM, `mlx-swift-lm`, Gemma 4 E2B/E4B QAT GGUF, Gemma 4 E2B/E4B LiteRT, Gemma 4 12B GGUF/LiteRT, Qwen3-Coder 30B MLX, Granite 4.0 H Micro MLX |
+| `Fallback` | 3 or more | llama.cpp, `mlx-lm`, LocalLLMClient |
+| `Deferred` | 6 or more | MLX Gemma QAT without loader/license proof, 26B/31B, KV/TurboQuant, server runtimes, lattice codecs, unknown-license forks |
+| Red fixtures | 18 or more | Pass 6 rejection matrix |
+
+The table is intentionally source-prior. It must not be described as a route
+preference, default runtime, MAS capability, or live large-model plan.
+
+### 23.5 Required Axes
+
+Use axes that prove the shape, not the runtime:
+
+- `base_source_graph_intake_pass`
+- `overlay_source_ids_bound`
+- `orphan_overlay_rejected`
+- `duplicate_overlay_rejected`
+- `duplicate_source_url_rejected`
+- `primary_source_prior_count`
+- `fallback_source_prior_count`
+- `deferred_source_prior_count`
+- `negative_fixture_count`
+- `red_fixture_rejection_count`
+- `route_authority_source_prior_only`
+- `runtime_plurality_no_winner_from_metadata`
+- `no_product_code_imported`
+- `no_build_graph_contamination`
+- `no_runtime_bytes_loaded`
+- `no_model_bytes_loaded`
+- `no_index_bytes_loaded`
+- `no_provider_calls_made`
+- `rollback_refs_present`
+- `run_event_log_refs_present`
+- `answer_packet_refs_present`
+- `compatibility_fence_refs_present`
+- `stale_overclaim_copy_rejected`
+
+The artifact should fail if a later edit makes `Primary` mean route authority,
+lets a fallback become default, hides a deferred lane, or allows any byte count
+above zero.
+
+### 23.6 Architecture Fusion
+
+This model keeps one provenance spine:
+
+```text
+SourceCard owns identity and provenance
+Overlay owns lane/import/proof status for that source_id
+F-ProprietaryCompression-ProvenanceGate proves source-prior hygiene
+Later route cards must cite graph_address + source_id + overlay class
+Runtime proof must come from a different byte/route/WRV falsifier
+```
+
+For Epistemos, that is the cleanest path to ambitious local large-model work:
+TurboVec, QAT, GGUF, LiteRT, MLX, KV compression, server-runtime motifs, and
+lattice codecs can all enter the same research ledger, but none can become
+hidden Eidos, PatternBoost, RuntimeRouter, or SovereignGate authority.
+
+### 23.7 Pass-Nine Register
+
+Best breakthrough candidate: a source-card-anchored overlay fixture model that
+lets Epistemos mine aggressive external compression/runtime ideas without
+creating a second source authority or contaminating product code.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate` implemented
+as a metadata-only witness that calls `SourceSignalGraph::intake` first, then
+validates overlays by `source_id`.
+
+Best near-term code unit: add a fixture-only Rust module and falsifier binary
+for the overlay model, with tests for orphan overlays, duplicate overlays,
+duplicate locators, primary overclaim, fallback route authority, hidden
+deferred lanes, nonzero bytes, build graph contamination, and stale claim
+strings.
+
+Biggest false-claim risk: saying the overlay model chooses a runtime. It does
+not. It only says which source-prior fixtures are safe enough to enter the
+next provenance gate.
+
+Biggest missing source: a local model-snapshot file-hash inventory that can be
+attached to future runtime candidate cards without opening model bytes in this
+metadata gate.
+
+Next research query: "Which exact local file-hash and package-manifest sources
+should feed future model/runtime candidate cards while preserving zero-byte
+metadata-only provenance gates?"

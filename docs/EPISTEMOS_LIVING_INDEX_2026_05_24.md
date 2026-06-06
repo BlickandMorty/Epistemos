@@ -436,7 +436,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   llama.cpp/GGUF, `mlx-lm`, LocalLLMClient, and runtime-plurality comparison;
   deliberately deferred lanes are MLX Gemma 4 QAT without license/loader proof,
   26B/31B, KV/TurboQuant, server runtimes, lattice codecs, and unknown-license
-  forks. This is
+  forks. Pass nine answers the minimal fixture-model question: keep Rust
+  `SourceCard` and `SourceSignalGraph::intake` as the only identity/provenance
+  authority, then attach small overlay rows keyed by `source_id` for lane
+  class, import mode, proof refs, byte/provider zeros, build-boundary status,
+  and overclaim rejection. The first provenance gate should validate the base
+  source graph before overlay checks and fail orphan overlays, duplicate
+  overlays, duplicate locators, hidden route authority, nonzero bytes, build
+  graph contamination, stale overclaim copy, and any attempt to treat primary
+  source-priors as runtime choices. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
