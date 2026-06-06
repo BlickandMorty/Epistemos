@@ -280,6 +280,16 @@ This strengthens the ladder: small Granite/Qwen evidence first, Gemma 4
 E2B/E4B next, Gemma 4 12B as Pro Gated, Qwen3-Coder 30B as Pro coding
 comparator, and 26B/31B/TurboQuant KV as Vault/Pro Research.
 
+**Pass-five unified source-card schema.** The memo now answers the open schema
+question: `F-ProprietaryCompression-ProvenanceGate` and
+`F-GemmaQAT-LocalRuntimeCandidateCard` should share one source-card provenance
+spine. The current Rust `SourceCard` remains the minimal intake primitive,
+while route-specific overlays cover model/runtime cards, TurboVec-style
+compressed indexes, KV/cache byte-budget cards, repo import/quarantine cards,
+and benchmark oracles. This keeps every source/fork/model/research motif as
+source-prior evidence until later falsifiers prove runtime bytes, route
+authority, rollback, RunEventLog, AnswerPacket, and WRV user-facing proof.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
