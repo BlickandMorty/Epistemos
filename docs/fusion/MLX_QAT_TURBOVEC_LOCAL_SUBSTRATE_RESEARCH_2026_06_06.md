@@ -342,6 +342,7 @@ Each falsifier must emit a machine-readable artifact under `artifacts/falsifiers
 | F-TurboVec-CrashSafePersistentIndex | manifest with temp, fsync, rename, digest, rebuild report | truncated file, corrupt magic, version mismatch, duplicate IDs | crash mid-write, old `.tv`/`.tvim` | rebuild recovers from AppColdStore; old manifest remains usable | 0 | metadata | L1 gate; blocks L2 | AppColdStore docs | trusting upstream persistence as durable truth |
 | F-TurboVec-RecallQualityExactBaseline | exact AppColdStore baseline pack with held-out queries, allowlists, recall floor, miss abstention, and AnswerPacket refs | missing exact baseline, laundered recall, below-floor no fallback, deleted/private/unknown result, duplicate IDs | exact hit, private/deleted exclusion, duplicate source dedupe, miss abstention, empty allowed result | recall calculation matches exact baseline; below-floor recall abstains visibly | 0 | metadata | L1 gate; blocks L2 | Eidos/AppColdStore docs | treating persistent cache as recall quality |
 | F-TurboVec-LatencyMemoryAbstention | latency, memory, timeout, cancellation, fallback, and abstention envelope | timeout selected, negative headroom selected, high uncertainty selected, missing fallback, byte load | fast use, timeout abstain, memory abstain, uncertainty abstain, empty visible | use only when p95/p99, timeout, memory headroom, and uncertainty fit budget; otherwise abstain visibly | 0 | metadata | L1 gate; blocks L2 | Eidos/AppColdStore docs, lattice HTML | treating accurate recall as safe context routing |
+| F-TurboVec-RuntimeShadowBenchmarkPlan | deterministic non-authoritative shadow replay plan before any adapter microbench | missing scenario, low samples, bad seed, recall regression win, p95/p99 timeout, route/context mutation, byte load | warm hit, cold miss, cancellation, memory pressure, empty allowlist, recall regression | one shadow win and five visible fallbacks; no route/context authority | 0 | metadata | L1 gate; blocks L2 | Eidos/AppColdStore docs, lattice HTML | treating a tiny shadow win as live routing authority |
 | F-CompressedRetrieval-NoHiddenRouteAuthority | RunEventLog/AnswerPacket route proof | retrieval score changes model route without SCOPE-Rex | high score forbidden doc, empty retrieval | route decision cites policy, not raw score | 0 or tiny | metadata/live | blocks L2/L3 | RuntimeRouter docs | Eidos silently picks model |
 | F-GemmaQAT-LocalRuntimeCandidateCard | model card JSON with ids, license, file sizes, hash, runtime path | missing license, unpinned repo, wrong format, no context cap | MLX vs GGUF confusion, mmproj mismatch | every claim source-backed; no runtime claim | 0 | metadata | L1 | docs/fusion, model catalog docs | saying repo exists means app can load |
 | F-GemmaQAT-MemoryBudgetProbe | RSS/Metal/TTFT/cancel/thermal ledger | double-load, unload leak, OOM, thermal critical | 8k/32k/64k contexts, cancellation during prefill | no crash; cancellation bounded; memory under lease | model bytes | live | L2 | small-model harness docs | file size treated as runtime memory |
@@ -658,12 +659,15 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
 9. `F-TurboVec-LatencyMemoryAbstention` is implemented; preserve it as the
    latency, memory, timeout, cancellation, uncertainty, fallback, and visible
    abstention prerequisite for compressed retrieval.
-10. Implement `turbovec_runtime_shadow_benchmark_plan` before any tiny live
-   TurboVec fixture or model-route quality claim.
-11. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
-12. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
-13. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
-14. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
+10. `F-TurboVec-RuntimeShadowBenchmarkPlan` is implemented; preserve it as the
+    deterministic, non-authoritative shadow replay prerequisite for compressed
+    retrieval.
+11. Implement `turbovec_quarantine_adapter_microbench_probe` before any tiny
+    live TurboVec fixture or model-route quality claim.
+12. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
+13. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
+14. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
+15. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
 14. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
 
 ## Hard Do Not Do
@@ -1542,8 +1546,9 @@ product capability green. The privacy step is covered by
 `F-TurboVec-FilterBeforeRankPrivacyGate`; crash-safe persistence is covered by
 `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall quality is covered
 by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is
-covered by `F-TurboVec-LatencyMemoryAbstention`; the next safer retrieval/index
-step is `turbovec_runtime_shadow_benchmark_plan`.
+covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
+planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+safer retrieval/index step is `turbovec_quarantine_adapter_microbench_probe`.
 
 ### 2026-06-06 TurboVec Filter-Before-Rank Privacy Gate Implementation Note
 
@@ -1572,8 +1577,9 @@ capability green. Crash-safe persistence is now covered by
 `F-TurboVec-CrashSafePersistentIndex`, and exact-baseline recall quality is
 covered by `F-TurboVec-RecallQualityExactBaseline`; latency, memory, timeout,
 and abstention envelopes are now covered by
-`F-TurboVec-LatencyMemoryAbstention`; the branch now moves to tiny shadow
-benchmark proof: `turbovec_runtime_shadow_benchmark_plan`.
+`F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
+covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch now moves to
+`turbovec_quarantine_adapter_microbench_probe`.
 
 ### 2026-06-06 TurboVec Crash-Safe Persistent Index Implementation Note
 
@@ -1604,8 +1610,9 @@ recall quality, choose RuntimeRouter/System G routes, or make L2/L3 product
 capability green. Exact-baseline recall quality is now covered by
 `F-TurboVec-RecallQualityExactBaseline`; latency, memory, timeout, and
 abstention proof is now covered by `F-TurboVec-LatencyMemoryAbstention`; the
-branch now moves to tiny shadow benchmark proof:
-`turbovec_runtime_shadow_benchmark_plan`.
+runtime shadow benchmark plan is now covered by
+`F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch now moves to
+`turbovec_quarantine_adapter_microbench_probe`.
 
 ### 2026-06-06 TurboVec Exact-Baseline Recall Quality Implementation Note
 
@@ -1633,7 +1640,9 @@ This pass does not import TurboVec code, build an index, open exact baseline
 files, prove live recall, choose RuntimeRouter/System G routes, or make L2/L3
 product capability green. Latency, memory, timeout, and abstention proof is
 now covered by `F-TurboVec-LatencyMemoryAbstention`; the TurboVec branch moves
-to the next safer retrieval/index step: `turbovec_runtime_shadow_benchmark_plan`.
+through the now-landed `F-TurboVec-RuntimeShadowBenchmarkPlan` and onward to
+the next safer retrieval/index step:
+`turbovec_quarantine_adapter_microbench_probe`.
 
 ### 2026-06-06 TurboVec Latency/Memory Abstention Implementation Note
 
@@ -1656,5 +1665,32 @@ abstention fixture.
 
 This pass does not import TurboVec code, build an index, run a benchmark,
 allocate runtime buffers, measure live latency, choose RuntimeRouter/System G
-routes, or make L2/L3 product capability green. The branch now moves to
-`turbovec_runtime_shadow_benchmark_plan`.
+routes, or make L2/L3 product capability green. Runtime shadow benchmark
+planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the branch
+now moves to `turbovec_quarantine_adapter_microbench_probe`.
+
+### 2026-06-06 TurboVec Runtime Shadow Benchmark Implementation Note
+
+`F-TurboVec-RuntimeShadowBenchmarkPlan` is now implemented as the
+metadata-only deterministic shadow replay witness after latency/memory
+abstention. The artifact lives at
+`artifacts/falsifiers/turbovec_runtime_shadow_benchmark_plan/result.json` and
+accepts 1 runtime shadow benchmark plan while rejecting 59 red fixtures. It
+covers 6 tiny replay scenarios: warm hit, cold miss, cancellation, memory
+pressure, empty allowlist, and recall regression.
+
+The implementation makes the first runtime-shaped retrieval evidence
+non-authoritative by construction: deterministic seeds, sample counts,
+exact-baseline recall, p95/p99 latency, timeout, cancellation, memory
+headroom, fallback reason, rollback, RunEventLog, AnswerPacket, compatibility
+fence, route/context-authority rejection, and no product promotion are all
+required before any quarantined adapter microbench can be attempted. It records
+1 shadow win, 5 visible fallback/abstention cases, max p99 latency `40000`
+micros, max planned replay bytes `160000`, min planned headroom `-32000`, max
+recall delta `200000` micros, and zero opened/loaded index bytes, allocated
+runtime bytes, model/runtime bytes, provider calls, or copied product files.
+
+This pass does not import TurboVec code, build or open an index, run a
+benchmark, allocate runtime buffers, load Gemma/QAT/GGUF/MLX/LiteRT bytes,
+choose RuntimeRouter/System G routes, or make L2/L3 product capability green.
+The branch now moves to `turbovec_quarantine_adapter_microbench_probe`.

@@ -1,0 +1,350 @@
+{
+  "falsifier_id": "F-TurboVec-RuntimeShadowBenchmarkPlan",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_runtime_shadow_benchmark_plan.sh",
+  "command_digest": "sha256:73ba4f30dd06e8c40e92c3515ae2a735ed8f73f3994ad94124b45f10f7f81ac6",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "432d29f082736c5ebe9e468116964259d5562a22",
+  "fixture_id": "turbovec_runtime_shadow_benchmark_plan_v1",
+  "timestamp_utc": "2026-06-06T12:04:58Z",
+  "result_digest": "sha256:bbe693f823bdce85cc63c5f2768d463de32e5a1ece1db57df3d7153fff1bdd71",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_shadow_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "value": 6,
+      "unit": "cases"
+    },
+    "deterministic_replay_seed_and_sample_floor_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_replay_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_case_count": {
+      "value": 5,
+      "unit": "cases"
+    },
+    "fallback_reason_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_timeout_cancellation_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_total_bytes": {
+      "value": 160000,
+      "unit": "bytes"
+    },
+    "max_predicted_p99_latency_micros": {
+      "value": 40000,
+      "unit": "micros"
+    },
+    "max_recall_delta_micros": {
+      "value": 200000,
+      "unit": "micros"
+    },
+    "memory_envelope_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_memory_headroom_bytes": {
+      "value": -32000,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_adapter_microbench_probe",
+      "unit": "cursor"
+    },
+    "no_route_or_context_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 59,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "replay_scenario_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_shadow_plan_address": {
+      "value": "turbovec_runtime_shadow_benchmark_plan:3b10b4f388e95d4009649ee03a53fdb2dbba633539a03eeb50fc2469f3b98478@1779039600000",
+      "unit": "uas_address"
+    },
+    "shadow_win_count": {
+      "value": 1,
+      "unit": "cases"
+    },
+    "shadow_win_gate_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_latency_memory_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_shadow_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "cases"
+    },
+    "deterministic_replay_seed_and_sample_floor_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_replay_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_case_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cases"
+    },
+    "fallback_reason_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_timeout_cancellation_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_total_bytes": {
+      "operator": "==",
+      "value": 160000,
+      "unit": "bytes"
+    },
+    "max_predicted_p99_latency_micros": {
+      "operator": "==",
+      "value": 40000,
+      "unit": "micros"
+    },
+    "max_recall_delta_micros": {
+      "operator": "==",
+      "value": 200000,
+      "unit": "micros"
+    },
+    "memory_envelope_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_memory_headroom_bytes": {
+      "operator": "==",
+      "value": -32000,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_adapter_microbench_probe",
+      "unit": "cursor"
+    },
+    "no_route_or_context_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 44,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "replay_scenario_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_shadow_plan_address": {
+      "operator": "starts_with",
+      "value": "turbovec_runtime_shadow_benchmark_plan:",
+      "unit": "uas_address"
+    },
+    "shadow_win_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cases"
+    },
+    "shadow_win_gate_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_latency_memory_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_shadow_fixture_present": true,
+    "case_count": true,
+    "deterministic_replay_seed_and_sample_floor_required": true,
+    "exact_baseline_replay_required": true,
+    "fallback_case_count": true,
+    "fallback_reason_required": true,
+    "large_model_and_ssd_claims_rejected": true,
+    "latency_timeout_cancellation_enforced": true,
+    "layer_separation_required": true,
+    "max_planned_total_bytes": true,
+    "max_predicted_p99_latency_micros": true,
+    "max_recall_delta_micros": true,
+    "memory_envelope_enforced": true,
+    "metadata_budget_enforced": true,
+    "min_memory_headroom_bytes": true,
+    "next_research_to_build_unit": true,
+    "no_route_or_context_authority": true,
+    "product_promotion_rejected": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "replay_scenario_coverage_complete": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "runtime_and_index_bytes_zero": true,
+    "runtime_shadow_plan_address": true,
+    "shadow_win_count": true,
+    "shadow_win_gate_enforced": true,
+    "upstream_cursor_verified": true,
+    "upstream_latency_memory_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec crate imported, no index files opened, no runtime buffers allocated, no model/runtime bytes loaded, no live benchmark claim, no route mutation, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RuntimeShadowBenchmarkPlan from the latency/memory abstention gate. Scope is T1/L1 metadata/tiny-fixture only: deterministic shadow replay plan, sample floor, exact-baseline comparison, timeout/cancellation/memory fallbacks, rollback, RunEventLog, AnswerPacket, compatibility fence, zero runtime/index/model/provider bytes, and no product/runtime promotion."
+}

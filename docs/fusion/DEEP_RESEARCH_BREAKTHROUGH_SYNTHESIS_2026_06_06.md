@@ -3652,10 +3652,12 @@ Best breakthrough candidate: tiny shadow benchmarking for compressed retrieval
 where the first runtime-shaped proof is still non-authoritative, AnswerPacket
 visible, cancellable, budgeted, and unable to mutate model routes.
 
-Safest next falsifier: `turbovec_runtime_shadow_benchmark_plan`, because
-latency/memory envelopes are now specified but no witness has yet replayed a
-tiny shadow benchmark with runtime-shaped timing, memory sampling, cancellation,
-fallback, and rollback evidence.
+Safest next falsifier at pass twenty-nine time was
+`turbovec_runtime_shadow_benchmark_plan`, because latency/memory envelopes were
+specified but no witness had yet replayed a tiny shadow benchmark with
+runtime-shaped timing, memory sampling, cancellation, fallback, and rollback
+evidence. This is now landed as
+`F-TurboVec-RuntimeShadowBenchmarkPlan`.
 
 Best near-term code unit: implement a metadata-only or tiny-fixture shadow
 benchmark plan that binds a local fixture, no product route mutation, timing
@@ -3668,6 +3670,75 @@ speed, live model-routing authority, or product-ready large-model context.
 Biggest missing source: exact tiny local fixture shape for a shadow TurboVec
 benchmark that can run without contaminating product route state.
 
-Next research query: "What tiny shadow benchmark and replay envelope proves
+Next research query: "What tiny quarantined adapter microbench can prove
 compressed retrieval timing/memory behavior without promoting live route
 authority or product large-model capability?"
+
+## 44. Runtime Shadow Benchmark Plan Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, and the
+current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_runtime_shadow_benchmark_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_runtime_shadow_benchmark_plan.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_runtime_shadow_benchmark_plan.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_runtime_shadow_benchmark_plan/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RuntimeShadowBenchmarkPlan_2026_06_06.md`
+
+`F-TurboVec-RuntimeShadowBenchmarkPlan` is now PASS as a metadata-only T1/L1
+witness. It accepts 1 runtime shadow benchmark plan, covers 6 tiny replay
+scenarios, rejects 59 red fixtures, records 1 shadow win and 5 visible
+fallback/abstention cases, records max p99 latency `40000` micros, max planned
+replay bytes `160000`, min planned headroom `-32000`, max recall delta
+`200000` micros, and records zero opened/loaded index bytes, zero allocated
+runtime bytes, zero model/runtime/provider bytes, and zero copied product
+files.
+
+### 44.1 Architecture Fusion
+
+This is the bridge between pure metadata and the first safe runtime-shaped
+retrieval evidence. It keeps the breakthrough path ambitious for Gemma/QAT and
+larger local models while refusing hidden authority: a compressed retrieval
+shadow win is only proof material. It must be deterministic, sample-counted,
+exact-baseline compared, latency/memory/cancellation bounded, fallback-visible,
+rollback/log/AnswerPacket witnessed, unable to mutate RuntimeRouter/System G,
+and unable to inject model context.
+
+### 44.2 Non-Promotion
+
+This pass does not import TurboVec code, build or open an index, run a
+benchmark, allocate runtime buffers, load model bytes, choose RuntimeRouter or
+System G routes, make L2/L3 product capability green, or prove live dense 70B.
+It advances the research-to-build ladder only.
+
+### 44.3 Pass-Thirty Register
+
+Best breakthrough candidate: quarantined compressed-retrieval microbenching
+that can eventually provide real timing/memory evidence while staying
+non-authoritative, rollbackable, and AnswerPacket-visible.
+
+Safest next falsifier: `turbovec_quarantine_adapter_microbench_probe`, because
+the shadow replay contract is specified but no witness has yet run an actual
+adapter microbench under quarantine with byte, cancellation, fallback, and
+route-context isolation proof.
+
+Best near-term code unit: implement a quarantine adapter microbench probe that
+uses tiny local fixtures, explicit owner/runtime gating, no product route
+mutation, no model-context injection, byte accounting, timeout/cancellation,
+rollback, RunEventLog, AnswerPacket, and exact-baseline comparison.
+
+Biggest false-claim risk: treating a shadow replay plan as live TurboVec speed,
+live model-routing authority, or product-ready large-model context.
+
+Biggest missing source: exact quarantine fixture shape for a tiny TurboVec
+adapter run that avoids product state, model bytes, hidden downloads, and route
+mutation.
+
+Next research query: "What tiny quarantined TurboVec adapter microbench proves
+timing, memory, recall delta, cancellation, rollback, and AnswerPacket
+visibility without promoting live large-model routing?"

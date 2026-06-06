@@ -324,9 +324,9 @@ If a source/canon guard is needed before the next runtime step, use this order:
    route authority, no Eidos-as-live-router, no route mutation, no MAS/L2/L3
    promotion, no live dense 70B, and no SSD-as-RAM. Stable external IDs,
    filter-before-rank privacy, crash-safe persistence, exact-baseline recall
-   quality, and latency/memory abstention are now covered; the next
-   retrieval/index research-to-build unit is now
-   `turbovec_runtime_shadow_benchmark_plan`.
+   quality, latency/memory abstention, and runtime shadow benchmark planning
+   are now covered; the next retrieval/index research-to-build unit is now
+   `turbovec_quarantine_adapter_microbench_probe`.
 7. `F-TurboVec-UASAddressStableExternalIds`:
    now built metadata-only; preserve the UAS-address-stable external `u64`
    registry plan, tombstone/generation handling, collision alias rejection,
@@ -339,9 +339,10 @@ If a source/canon guard is needed before the next runtime step, use this order:
    mutable vector slots, duplicate UAS, duplicate active IDs, zero IDs, ID
    mismatches, missing tombstones, unsafe generations, missing collision
    ledger, and alias reuse. Filter-before-rank privacy, crash-safe
-   persistence, exact-baseline recall quality, and latency/memory abstention
-   are now covered; the next retrieval/index research-to-build unit is now
-   `turbovec_runtime_shadow_benchmark_plan`.
+   persistence, exact-baseline recall quality, latency/memory abstention, and
+   runtime shadow benchmark planning are now covered; the next retrieval/index
+   research-to-build unit is now
+   `turbovec_quarantine_adapter_microbench_probe`.
 8. `F-TurboVec-FilterBeforeRankPrivacyGate`:
    now built metadata-only; preserve Scope-Rex/SovereignGate allowlist
    compilation from UAS-derived external IDs before rank/search, one-allowed,
@@ -355,8 +356,10 @@ If a source/canon guard is needed before the next runtime step, use this order:
    persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`;
    exact-baseline recall quality is now covered by
    `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
-   covered by `F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-   research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+   covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
+   planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
+   next retrieval/index research-to-build unit is
+   `turbovec_quarantine_adapter_microbench_probe`.
 9. `F-TurboVec-CrashSafePersistentIndex`:
    now built metadata-only; preserve the `.tvim` / manifest crash-safe
    persistent-cache plan, AppColdStore truth, source-card refs,
@@ -369,8 +372,10 @@ If a source/canon guard is needed before the next runtime step, use this order:
    no MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM.
    Exact-baseline recall quality is now covered by
    `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
-   covered by `F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-   research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+   covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
+   planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
+   next retrieval/index research-to-build unit is
+   `turbovec_quarantine_adapter_microbench_probe`.
 10. `F-TurboVec-RecallQualityExactBaseline`:
    now built metadata-only; preserve exact AppColdStore baseline comparison,
    held-out query packs, recall-at-k micros, allowlist-subset enforcement,
@@ -381,8 +386,10 @@ If a source/canon guard is needed before the next runtime step, use this order:
    provider bytes, no copied product files, no hidden route authority, no
    Eidos-as-live-router, no route mutation, no MAS/L2/L3 promotion, no live
    dense 70B, and no SSD-as-RAM. Latency/memory abstention is now covered by
-   `F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-   research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+   `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is
+   now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+   retrieval/index research-to-build unit is
+   `turbovec_quarantine_adapter_microbench_probe`.
 11. `F-TurboVec-LatencyMemoryAbstention`:
    now built metadata-only; preserve p95/p99 latency, timeout, cancellation,
    memory headroom, uncertainty, fallback, rollback, RunEventLog, AnswerPacket,
@@ -390,21 +397,34 @@ If a source/canon guard is needed before the next runtime step, use this order:
    visible abstention cases, zero opened/loaded index bytes, zero allocated
    runtime/model/provider bytes, no copied product files, no hidden route
    authority, no score-to-route mutation, no route mutation, no MAS/L2/L3
+   promotion, no live dense 70B, and no SSD-as-RAM. Runtime shadow benchmark
+   planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
+   next retrieval/index research-to-build unit is
+   `turbovec_quarantine_adapter_microbench_probe`.
+12. `F-TurboVec-RuntimeShadowBenchmarkPlan`:
+   now built metadata-only; preserve deterministic seeds, replay sample
+   counts, warm-hit/cold-miss/cancellation/memory-pressure/empty-allowlist/
+   recall-regression scenario coverage, exact-baseline recall comparison,
+   p95/p99 latency, timeout, cancellation, memory headroom, fallback reason,
+   rollback, RunEventLog, AnswerPacket, compatibility fence, one shadow win,
+   five visible fallback/abstention cases, zero opened/loaded index bytes, zero
+   allocated runtime/model/provider bytes, no copied product files, no hidden
+   route authority, no route mutation, no model context injection, no MAS/L2/L3
    promotion, no live dense 70B, and no SSD-as-RAM. The next retrieval/index
-   research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
-12. `F-GemmaQAT-LocalRuntimeCandidateCard`:
+   research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
+13. `F-GemmaQAT-LocalRuntimeCandidateCard`:
    now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
    GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B
    small-harness status, 12B Pro Gated target status, 31B vault-only status,
    zero model/runtime/provider bytes, false Swift MLX/MTP/MAS/product rejection,
    and no L2/L3 promotion boundary.
-13. `F-QAT-ModelRouteCard-MemoryPreflight`:
+14. `F-QAT-ModelRouteCard-MemoryPreflight`:
    now built metadata-only; preserve declared file bytes, predicted
    resident/KV/scratch bytes, hardware budget, headroom, abstention, timeout,
    cancellation, rollback, RunEventLog, and AnswerPacket caveats before any
    runtime bytes. E2B/E4B may proceed only to later dry-run packetization; 12B
    abstains on the declared M2 Pro 16 GB UMA profile; 31B remains vault-only.
-14. `F-CompressedRoute-AnswerPacket-DryRun`:
+15. `F-CompressedRoute-AnswerPacket-DryRun`:
    now built metadata-only; preserve visible compressed-route AnswerPackets for
    E2B/E4B only, 12B as an insufficient-headroom abstention packet, 31B as a
    vault packet, planned/opened/resident/loaded/provider byte separation,

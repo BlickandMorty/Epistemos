@@ -219,7 +219,7 @@ build an index, prove recall quality, choose System G routes, make L2/L3
 product capability green, or promote live dense 70B. Filter-before-rank
 privacy, crash-safe persistence, exact-baseline recall quality, and
 latency/memory abstention are now covered; the next retrieval/index
-research-to-build unit is now `turbovec_runtime_shadow_benchmark_plan`.
+research-to-build unit is now `turbovec_quarantine_adapter_microbench_probe`.
 
 2026-06-06 TurboVec filter-before-rank privacy clarification:
 `F-TurboVec-FilterBeforeRankPrivacyGate` is T1/L1 only. It strengthens the
@@ -236,8 +236,10 @@ G routes, make L2/L3 product capability green, or promote live dense 70B.
 Crash-safe persistence is now covered by
 `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall quality is now
 covered by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention
-is now covered by `F-TurboVec-LatencyMemoryAbstention`; the next
-retrieval/index research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+is now covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow
+benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`;
+the next retrieval/index research-to-build unit is
+`turbovec_quarantine_adapter_microbench_probe`.
 
 2026-06-06 TurboVec crash-safe persistent-index clarification:
 `F-TurboVec-CrashSafePersistentIndex` is T1/L1 only. It strengthens the
@@ -253,8 +255,10 @@ loaded index/model/runtime/provider bytes. It does not import TurboVec, write
 `.tv`/`.tvim` files, choose System G routes, make L2/L3 product capability
 green, or promote live dense 70B. Exact-baseline recall quality is now covered
 by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
-covered by `F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
+planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+retrieval/index research-to-build unit is
+`turbovec_quarantine_adapter_microbench_probe`.
 
 2026-06-06 TurboVec exact-baseline recall-quality clarification:
 `F-TurboVec-RecallQualityExactBaseline` is T1/L1 only. It strengthens the
@@ -271,8 +275,9 @@ MAS/L2/L3 promotion, and nonzero exact-baseline/index/model/runtime/provider
 bytes. It does not import TurboVec, build an index, run model bytes, prove
 live latency, choose System G routes, make L2/L3 product capability green, or
 promote live dense 70B. Latency/memory abstention is now covered by
-`F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+`F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
+covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next retrieval/index
+research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
 
 2026-06-06 TurboVec latency/memory abstention clarification:
 `F-TurboVec-LatencyMemoryAbstention` is T1/L1 only. It strengthens the
@@ -289,8 +294,26 @@ promotion, and nonzero opened/loaded index, allocated runtime, model/runtime,
 or provider bytes. It does not import TurboVec, build an index, run a
 benchmark, allocate runtime buffers, measure live latency, choose System G
 routes, make L2/L3 product capability green, or promote live dense 70B. The
-next retrieval/index research-to-build unit is
-`turbovec_runtime_shadow_benchmark_plan`.
+runtime shadow benchmark plan is now covered by
+`F-TurboVec-RuntimeShadowBenchmarkPlan`; the next retrieval/index
+research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
+
+`F-TurboVec-RuntimeShadowBenchmarkPlan` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving the first
+runtime-shaped compressed-retrieval evidence must be deterministic,
+sample-counted, exact-baseline compared, timeout/cancellation/memory bounded,
+fallback-visible, rollback/log/AnswerPacket witnessed, and unable to mutate
+routes or inject model context. It accepts one shadow win and five visible
+fallback/abstention cases for cold miss, cancellation, memory pressure, empty
+allowlist, and recall regression; it rejects low samples, bad seeds, recall
+regression wins, p95/p99 timeout laundering, route/context mutation, hidden
+authority, hidden cloud fallback, live dense 70B, SSD-as-RAM, MAS/L2/L3
+promotion, and nonzero opened/loaded index, allocated runtime, model/runtime,
+provider, or copied product bytes. It does not import TurboVec, build or open
+an index, run a benchmark, allocate runtime buffers, choose System G routes,
+make L2/L3 product capability green, or promote live dense 70B. The next
+retrieval/index research-to-build unit is
+`turbovec_quarantine_adapter_microbench_probe`.
 
 ## Required Surface Updates
 
