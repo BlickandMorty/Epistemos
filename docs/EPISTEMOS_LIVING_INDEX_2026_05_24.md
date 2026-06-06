@@ -1039,8 +1039,41 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   codeload archives, write quarantine files, add a product dependency,
   import/build/run an adapter, probe native links, open index bytes, load
   Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
+  user-facing model capability green. Its former next retrieval unit,
+  `turbovec_quarantine_real_adapter_motif_extraction_card_probe`, has now
+  landed in `F-TurboVec-RealAdapterMotifExtractionCardProbe`; the current
+  retrieval unit is
+  `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`. The
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-RealAdapterMotifExtractionCardProbe`
+  is now built as the metadata-only clean-room motif-card gate for bounded
+  TurboVec source/docs/tests/benchmark/issue/fork observations:
+  `agent_core/src/uas/turbovec_real_adapter_motif_extraction_card_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_motif_extraction_card_probe.rs`,
+  script
+  `Tools/falsifiers/f_turbovec_real_adapter_motif_extraction_card_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterMotifExtractionCardProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to 11 clean-room motif cards, 10
+  motif classes, 11 required source paths, selected raw-source byte ledger
+  `184472` under cap `196608`, 54 rejected red fixtures, deterministic
+  motif-extraction-card address, API-shape, stable-ID, filter-before-rank,
+  lazy-cache/concurrency, input-validation, versioned-I/O, benchmark-caveat,
+  Swift-binding-risk, public-I/O-gap, fork/release-drift, and
+  large-local-model working-set motifs. This is T1/L1 metadata only. It does
+  not clone TurboVec, import source, add product dependencies, build adapters,
+  probe native links, run benchmarks, open index bytes, load
+  Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
   user-facing model capability green. The next retrieval unit is
-  `turbovec_quarantine_real_adapter_motif_extraction_card_probe`; the
+  `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

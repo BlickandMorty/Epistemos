@@ -423,11 +423,31 @@ Recommended first units, in order:
      integration/benchmark-authority blocks, rollback, RunEventLog,
      AnswerPacket, compatibility fence, no-product-graph proof, zero current
      raw source/archive/quarantine/product/index/model/runtime/provider bytes,
+     and the no-L2/L3-promotion boundary. Its former next unit,
+     `turbovec_quarantine_real_adapter_motif_extraction_card_probe`, is now
+     landed by `F-TurboVec-RealAdapterMotifExtractionCardProbe`.
+
+19. `F-TurboVec-RealAdapterMotifExtractionCardProbe`
+   - Proves bounded TurboVec source/docs/tests/benchmark/issue/fork
+     observations can become clean-room motif cards before adapter plans,
+     native-link probes, compressed retrieval routes, or model-context
+     selection cite them.
+   - Does not clone TurboVec, import source, add a product dependency,
+     build/run adapters, probe native links, run benchmarks, open index bytes,
+     load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate routes, or promote
+     product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/result.json`.
+     It binds 11 clean-room motif cards, 10 motif classes, 11 required source
+     paths, selected raw-source byte ledger `184472` under cap `196608`, 54
+     rejected red fixtures, deterministic motif-card address, API/stable-ID/
+     filter-before-rank/input-validation/I/O/benchmark-caveat/Swift-binding/
+     fork-drift/large-local-model working-set motifs, no hidden route authority,
      and the no-L2/L3-promotion boundary. The next retrieval/index
      research-to-build unit is
-     `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
+     `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
 
-19. `F-QAT-ModelRouteCard-MemoryPreflight`
+20. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

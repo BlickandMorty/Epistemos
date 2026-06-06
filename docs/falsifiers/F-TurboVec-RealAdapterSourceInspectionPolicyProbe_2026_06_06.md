@@ -29,7 +29,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Blocked rows: 6.
 - Future raw-source byte cap for later witnesses: `196608`.
 - Red fixtures rejected: 72.
-- Next research-to-build unit:
+- Former next research-to-build unit landed:
+  `F-TurboVec-RealAdapterMotifExtractionCardProbe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
+- Historical next cursor recorded in this artifact:
   `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 
 ## What This Proves
@@ -67,3 +71,10 @@ rollback, RunEventLog, and AnswerPacket visibility. This lets Epistemos study
 TurboVec for compressed retrieval and context-selection motifs that may later
 support Gemma/QAT and 70B-class cold assembly without contaminating product code
 or turning research into hidden route authority.
+
+## 2026-06-06 Follow-On
+
+`F-TurboVec-RealAdapterMotifExtractionCardProbe` is now landed. The source
+inspection policy remains the upstream gate, and the next safe research-to-build
+step is a clean-room adapter plan, not product import, native-link probing,
+benchmark authority, route mutation, or model/runtime execution.
