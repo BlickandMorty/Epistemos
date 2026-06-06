@@ -29,8 +29,8 @@ Artifact:
 - 55 red fixtures rejected.
 - Deterministic registry set address:
   `turbovec_stable_external_id_registry_plan:ae1b3fc3949acde1280012131e10616882005dcc58965f1db30a33cd2cfe93b0@1779039100000`
-- Next research-to-build unit after privacy and persistence:
-  `turbovec_recall_quality_exact_baseline_plan`
+- Next research-to-build unit after privacy, persistence, and recall quality:
+  `turbovec_latency_memory_abstention_plan`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, and crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`. The next retrieval/index research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`, because stable UAS external IDs, pre-rank privacy, and crash-safe cache persistence are now specified before compressed recall quality can be trusted.
+The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, and exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`. The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because compressed recall now needs latency, memory, timeout, and abstention envelopes before it can help large-local-model context selection.

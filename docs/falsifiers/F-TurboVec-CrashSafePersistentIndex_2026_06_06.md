@@ -29,8 +29,8 @@ Artifact:
 - 89 red fixtures rejected.
 - Deterministic persistent-index plan address:
   `turbovec_crash_safe_persistent_index_plan:04b2c79884199631f604c3436b157ac988b988c991ff266fe7d443ab52d9371b@1779039300000`
-- Next research-to-build unit:
-  `turbovec_recall_quality_exact_baseline_plan`
+- Next research-to-build unit after recall:
+  `turbovec_latency_memory_abstention_plan`
 
 ## Hardening Axes
 
@@ -47,7 +47,7 @@ The witness proves:
 
 ## Scope Boundary
 
-This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, write `.tv` / `.tvim` files, open model/index bytes, prove recall quality, prove latency, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green.
+This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, write `.tv` / `.tvim` files, open model/index bytes, prove recall quality, prove latency, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green. Exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`.
 
 Correct phrasing:
 
@@ -55,4 +55,4 @@ Correct phrasing:
 
 ## Next
 
-The next retrieval/index research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`, because crash-safe persistence is only useful after a later witness proves compressed recall is measured against exact AppColdStore baselines with privacy and rollback intact.
+The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`. The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because compressed retrieval still needs latency, memory, timeout, and abstention proof before it can help large-local-model context selection.

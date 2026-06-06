@@ -121,9 +121,10 @@ Recommended first units, in order:
      IDs are now covered by `F-TurboVec-UASAddressStableExternalIds`;
      filter-before-rank privacy is now covered by
      `F-TurboVec-FilterBeforeRankPrivacyGate`; crash-safe persistence is now
-     covered by `F-TurboVec-CrashSafePersistentIndex`; the next
-     retrieval/index research-to-build unit is
-     `turbovec_recall_quality_exact_baseline_plan`.
+     covered by `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall
+     quality is now covered by `F-TurboVec-RecallQualityExactBaseline`; the
+     next retrieval/index research-to-build unit is
+     `turbovec_latency_memory_abstention_plan`.
 
 5. `F-TurboVec-UASAddressStableExternalIds`
    - Proves UAS-address-stable external `u64` IDs, tombstones, generations,
@@ -142,9 +143,9 @@ Recommended first units, in order:
      hidden route/cloud authority, live dense 70B, and SSD-as-RAM. It loads
      zero registry/index/model/runtime/provider bytes, copies zero product
      files, and preserves the no-L2/L3-promotion boundary.
-     Filter-before-rank privacy and crash-safe persistence are now covered;
-     the next retrieval/index research-to-build unit is now
-     `turbovec_recall_quality_exact_baseline_plan`.
+     Filter-before-rank privacy, crash-safe persistence, and exact-baseline
+     recall quality are now covered; the next retrieval/index
+     research-to-build unit is now `turbovec_latency_memory_abstention_plan`.
 
 6. `F-TurboVec-FilterBeforeRankPrivacyGate`
    - Proves Scope-Rex/SovereignGate allowlists compile from UAS-derived
@@ -163,9 +164,10 @@ Recommended first units, in order:
      SSD-as-RAM. It loads zero search/index/model/runtime/provider bytes,
      copies zero product files, and preserves the no-L2/L3-promotion boundary.
      Crash-safe persistence is now covered by
-     `F-TurboVec-CrashSafePersistentIndex`; the next retrieval/index
-     research-to-build unit is
-     `turbovec_recall_quality_exact_baseline_plan`.
+     `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall quality is
+     now covered by `F-TurboVec-RecallQualityExactBaseline`; the next
+     retrieval/index research-to-build unit is
+     `turbovec_latency_memory_abstention_plan`.
 
 7. `F-TurboVec-CrashSafePersistentIndex`
    - Proves `.tvim` / manifest cache persistence is atomic, digest-bound,
@@ -182,21 +184,38 @@ Recommended first units, in order:
      digest, magic/version checks, duplicate-ID rejection, corrupt-cache
      rebuild, partial-write rollback, stale-pointer rejection, permission-denied
      refusal, rollback, RunEventLog, AnswerPacket, and compatibility fence, and
-     preserves the no-L2/L3-promotion boundary. The next retrieval/index
-     research-to-build unit is
-     `turbovec_recall_quality_exact_baseline_plan`.
+     preserves the no-L2/L3-promotion boundary. Exact-baseline recall quality
+     is now covered by `F-TurboVec-RecallQualityExactBaseline`; the next
+     retrieval/index research-to-build unit is
+     `turbovec_latency_memory_abstention_plan`.
 
-8. `F-QAT-ModelRouteCard-MemoryPreflight`
+8. `F-TurboVec-RecallQualityExactBaseline`
+   - Proves compressed Eidos/TurboVec results are compared with exact
+     AppColdStore baselines, remain within Scope/Sovereign allowlists, exclude
+     deleted/private/unknown IDs, dedupe duplicate sources, emit visible empty
+     AnswerPackets, and abstain/fallback on below-floor recall.
+   - Does not import TurboVec, build an index, open exact baseline files,
+     measure live recall, prove latency, or choose model/runtime routes.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_recall_quality_exact_baseline/result.json`.
+     It accepts 1 recall-quality plan, covers 5 held-out synthetic query
+     fixtures, rejects 53 red fixtures, records worst non-empty recall
+     `500000` only in the explicit abstention fixture, records zero
+     exact-baseline/index/model/runtime/provider bytes opened or loaded, and
+     preserves the no-L2/L3-promotion boundary. The next retrieval/index
+     research-to-build unit is `turbovec_latency_memory_abstention_plan`.
+
+9. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-9. `F-CompressedRoute-AnswerPacket-DryRun`
+10. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. It accepts 4 compressed-route packets, rejects 48 red fixtures, packetizes E2B/E4B as visible dry-run AnswerPackets only, carries 12B as an insufficient-headroom abstention packet, carries 31B as VaultPreserved, records planned/opened/resident/loaded/provider bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-10. `F-SmallCompressedModel-LiveHarness`
+11. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
    - 2026-06-06 preflight status: `F-SmallCompressedModel-LiveHarnessPreflight` PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`. It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp as the only future owner-approved tiny probe candidate, keeps E4B as a deferred alternate, requires later LiteRT package proof, preserves the MLX Swift loader caveat, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

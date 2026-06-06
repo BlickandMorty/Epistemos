@@ -30,8 +30,8 @@ Artifact:
 - 0 forbidden/private/unknown candidates exposed in results.
 - Deterministic privacy gate address:
   `turbovec_filter_before_rank_privacy_gate_plan:de30abe8e8e7564126ffac2452b6af6eff19db6249b0909306cb3b9d4ad74c53@1779039200000`
-- Next research-to-build unit after persistence:
-  `turbovec_recall_quality_exact_baseline_plan`
+- Next research-to-build unit after persistence and recall quality:
+  `turbovec_latency_memory_abstention_plan`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The persistence unit is now covered by `F-TurboVec-CrashSafePersistentIndex`. The next retrieval/index research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`, because compressed recall must beat exact AppColdStore baselines before any large-model route can cite TurboVec cache quality.
+Crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, and exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`. The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because compressed recall now needs latency, memory, timeout, and abstention envelopes before any large-model route can cite TurboVec cache quality.
