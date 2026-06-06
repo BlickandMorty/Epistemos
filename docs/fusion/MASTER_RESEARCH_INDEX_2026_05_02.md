@@ -77,6 +77,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > claim, and no L2/L3 product capability. The next retrieval/index
 > research-to-build unit is
 > `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`.
+> Current runtime-plural research-to-build truth also includes Deep Research
+> Pass 59 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`, which
+> source-cards current `RyanCodrai/turbovec`, `google-ai-edge/LiteRT-LM`,
+> `ggml-org/llama.cpp`, sampled TurboVec forks, old local Downloads research,
+> `LocalGGUFClient`, `MLXInferenceService`, and `RuntimeRouter` anchors into
+> buildable falsifier backlog. It recommends
+> `F-LiteRTLM-NativeSwiftAdmission`,
+> `F-GGUF-QAT-BaselineCommandEquivalence`,
+> `F-RuntimePlural-QATLaneTournamentPlan`,
+> `F-TurboVec-ForkDeltaSourceCard`, and
+> `F-DownloadsLocalResearchDedupeProvenanceCard`; it does not import runtime
+> dependencies, run models, run benchmarks, open indexes, or promote L2/L3.
 
 ---
 

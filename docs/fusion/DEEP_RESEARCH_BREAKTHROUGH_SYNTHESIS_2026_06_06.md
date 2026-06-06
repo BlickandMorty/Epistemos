@@ -4910,3 +4910,187 @@ opening index/model bytes.
 Next research query: "How should Epistemos run the smallest quarantined
 TurboVec native dry-run execution with owner approval, no product dependency,
 bounded files, rollback, RunEventLog, AnswerPacket, and no L2/L3 promotion?"
+
+---
+
+## 59. Pass 59 - Runtime-Plural QAT / Fork / Local-Research Build Synthesis
+
+Observed on 2026-06-06. This pass is research-to-build canon. It edits no
+product code, runs no model, opens no index bytes, and does not promote L2/L3.
+
+### 59.1 External Source Reality Check
+
+Current external checks sharpen the local-model path:
+
+- `RyanCodrai/turbovec` is MIT, active enough for source-carding, and exposes
+  the motifs Epistemos already needs: Rust and Python surfaces, stable external
+  IDs through `IdMapIndex`, search-time allowlists, persistence APIs, NEON/
+  AVX-512 kernels, and recall/latency benchmark fixtures. GitHub API observed
+  5,178 stars, 498 forks, 5 open issues, and last push `2026-05-30T13:12:07Z`.
+  The visible top fork sweep returned many shallow one-star forks, including
+  `AKHtun/turbovec-wecos` pushed on `2026-06-06`; that means forks are useful
+  for delta/failure mining but not authority.
+- `google-ai-edge/LiteRT-LM` is Apache-2.0 and currently active. Its README
+  says v0.13 adds Gemma 4 12B support, OpenAI-compatible CLI serving, a Swift
+  package for macOS/iOS, and tool-use support. GitHub API observed 5,457 stars,
+  559 forks, 332 open issues, and last push `2026-06-06T04:28:05Z`.
+- LiteRT-LM's `Package.swift` is a real Swift-package signal, but also a risk
+  signal: it uses prebuilt binary targets for `CLiteRTLM` and
+  `CLiteRTLM_mac` at v0.13.1 and an unsafe linker flag `-all_load`. Its Swift
+  `Engine` is an actor over a native handle and warns initialization can take
+  significant time. Its `Tool` API builds JSON schemas. For Epistemos this is
+  promising, but never MAS/Pro-safe until binary provenance, linker behavior,
+  sandboxing, cancellation, tool schema, and AnswerPacket proof land.
+- `ggml-org/llama.cpp` remains the broad GGUF/Metal baseline: MIT, Apple
+  Silicon first-class through ARM NEON, Accelerate, and Metal; integer
+  quantization from 1.5-bit through 8-bit; direct Hugging Face GGUF support;
+  `llama-cli`; and an OpenAI-compatible `llama-server`. GitHub API observed
+  114,997 stars, 19,262 forks, 1,749 open issues, and last push
+  `2026-06-06T20:16:00Z`. This makes GGUF a baseline truth lane, but the
+  server path is a sidecar and must remain denied-by-default for MAS/product
+  routing.
+
+Source refs for this pass:
+
+- https://github.com/RyanCodrai/turbovec
+- https://github.com/google-ai-edge/LiteRT-LM
+- https://github.com/google-ai-edge/LiteRT-LM/blob/main/Package.swift
+- https://github.com/google-ai-edge/LiteRT-LM/tree/main/swift
+- https://github.com/ggml-org/llama.cpp
+- https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/
+- https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/
+- https://ai.google.dev/edge/litert-lm
+
+### 59.2 Downloads / Local Research Recovery Map
+
+The `/Users/jojo/Downloads` sweep found useful older material:
+
+- TurboQuant / PolarQuant / QJL technical deep-dive files under
+  `/Users/jojo/Downloads/old research/`
+- `/Users/jojo/Downloads/Epistemos  Low-Memory Model Expansion + TurboQuant Implementation Guide for Claude Code.md`
+- `/Users/jojo/Downloads/vector quant.md`
+- `/Users/jojo/Downloads/mass research folder/old research/...`
+- `/Users/jojo/Downloads/GPT Research/crates/helios-quant`
+- `/Users/jojo/Downloads/kimis deep research/epistenos/crates/helios-mlx`
+- local app backups containing `mlx-swift_Cmlx.bundle` and `llama.framework`
+
+These are high-value motif sources, not product authority. The low-memory guide
+contains useful mechanisms (GGUF lane, KV compression, Apple UMA reasoning) but
+also contains overclaim-prone statements about SSD/offload and model viability
+that must be downgraded until Epistemos witnesses them. Treat the local corpus
+as `quarantine_reference` unless a source card, license/provenance record,
+clean-room note, runtime proof, and AnswerPacket-visible route make a narrower
+claim true.
+
+### 59.3 Architecture Fusion
+
+| Mechanism | Epistemos organ | Tier now | Build status | Required next proof |
+|---|---|---|---|---|
+| LiteRT-LM Swift/macOS lane | RuntimeRouter/System G, SovereignGate, AnswerPacket | T0/T1 | Pro ResearchCandidate | `F-LiteRTLM-NativeSwiftAdmission` proving binary target provenance, unsafe linker review, MAS denial/default-off Pro gate, cancellation, tool-schema bounds, RunEventLog, AnswerPacket, rollback. |
+| llama.cpp/GGUF QAT baseline | Local model ladder, LocalGGUFClient, System G | T1/T2 candidate | Pro Gated, MAS only after source/build proof | `F-GGUF-QAT-BaselineCommandEquivalence` proving `llama-cli` command card, model path, no hidden `llama-server`, no cloud, memory preflight, output packet, cancellation. |
+| MLX first-lane but not monopoly | MLXInferenceService, LocalAgent loop, RuntimeRouter | T2 candidate where existing models work | MAS/Pro by model | `F-RuntimePlural-QATLaneTournamentPlan` comparing MLX, GGUF, and LiteRT on the same redacted task with bytes, latency, cancellation, JSON/tool behavior, and visible route choice. |
+| TurboVec forks and upstream deltas | Eidos/AppColdStore, SemanticWorkingSetPlan | T1 source-card ladder | Pro ResearchCandidate | `F-TurboVec-ForkDeltaSourceCard` recording fork ancestry, changed files, activity, issue/PR motifs, no import, no build, no route authority. |
+| Old local research corpus | Master Research Index, source cards, falsifier backlog | T0 | quarantine_reference | `F-DownloadsLocalResearchDedupeProvenanceCard` dedupes local docs, extracts motifs, flags overclaims, and maps each to direct_import/adapter_wrap/quarantine_reference/clean_room_rewrite/research_only. |
+
+### 59.4 Large-Local-Model Ladder Implication
+
+The near-term build path should be a runtime-plural local ladder:
+
+1. Keep the official guard-owned cursor on
+   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+2. Continue the TurboVec side-ladder with
+   `turbovec_quarantine_real_adapter_native_dry_run_execution_probe` only after
+   owner approval and quarantine execution constraints are explicit.
+3. Add source-card/backlog pressure for LiteRT-LM and GGUF rather than waiting
+   for MLX to be perfect:
+   - E2B/E4B QAT are small harness candidates.
+   - Gemma 4 12B QAT is the main Pro Gated local assistant target.
+   - 26B/31B and 70B-class stay Pro Research/Vault until host-class memory,
+     thermal, cancellation, route, and AnswerPacket proof exists.
+   - Qwen Coder / Qwen 30B-A3B / Granite remain specialist comparators, not
+     hidden replacements.
+
+This is the practical route to the user's no-compromise goal: large models
+become usable through proved lane selection, compressed recall, smaller verified
+resident assemblies, cold assembly, transport leases, and visible AnswerPackets,
+not by declaring one runtime or one quantization label magic.
+
+### 59.5 Breakthrough Candidate
+
+Best breakthrough candidate: `RuntimePluralQATLaneTournament`, because it turns
+Gemma 4 QAT, MLX, GGUF/llama.cpp, LiteRT-LM, and compressed retrieval into the
+same measurable route contract instead of a runtime preference fight.
+
+Mechanism: source-card every candidate lane, then run the same small redacted
+agentic task through one approved small model first and later through Gemma 4
+12B candidates. Each lane must report model ID, quant label, runtime kind,
+binary/source provenance, opened bytes, resident bytes, first-token latency,
+tokens/sec, cancellation, stop reason, structured-output validity, route
+caveat, rollback, RunEventLog, and AnswerPacket. System G chooses only among
+lanes that pass admission; unsupported lanes abstain visibly.
+
+Why it could be a breakthrough: it lets Epistemos adopt the best available
+local stack without becoming MLX-only, GGUF-only, LiteRT-only, or TurboVec-
+driven. It also lets the 70B-class architecture use compression/routing gains
+as evidence while still preventing dense-live overclaims.
+
+Why it might be wrong: the first available runtime might win a small task but
+fail tool use, memory pressure, long context, multimodal input, structured
+output, MAS packaging, or cancellation. That is why the tournament must start
+small, packetized, and fail-closed.
+
+### 59.6 Candidate Falsifier Backlog
+
+- `F-LiteRTLM-NativeSwiftAdmission`: source-card LiteRT-LM Swift package,
+  binary targets, unsafe linker flag, native handle lifecycle, tool schemas,
+  MAS/Pro gate, cancellation, rollback, RunEventLog, AnswerPacket.
+- `F-GGUF-QAT-BaselineCommandEquivalence`: prove the GGUF `llama-cli`
+  command-card route remains equivalent to the LocalGGUF in-process surface
+  without hidden server fallback.
+- `F-RuntimePlural-QATLaneTournamentPlan`: plan same-fixture comparison across
+  MLX, GGUF, LiteRT-LM, and optional local endpoints with explicit abstention.
+- `F-TurboVec-ForkDeltaSourceCard`: inspect upstream plus sampled forks for
+  changed files, issues, PRs, tests, benchmark deltas, dependencies, and
+  failure motifs; no import, no execution.
+- `F-DownloadsLocalResearchDedupeProvenanceCard`: map local research files to
+  source-card status and reject stale SSD-as-RAM, dense-live-70B, hidden
+  fallback, or unaudited code-copy claims.
+
+### 59.7 Non-Promotion
+
+This pass does not add LiteRT-LM, llama.cpp, TurboVec, MLX, or local endpoint
+dependencies to product code. It does not run `llama-cli`, `llama-server`,
+LiteRT-LM, MLX, TurboVec, GGUF, model downloads, indexes, benchmarks, or
+native dry-run execution. It does not claim Gemma 4 12B is product-ready, does
+not claim LiteRT-LM is MAS-safe, does not promote live dense 70B, and does not
+change L2/L3 product capability.
+
+### 59.8 Pass-Fifty-Nine Register
+
+Best breakthrough candidate: runtime-plural QAT lane tournament with GGUF,
+LiteRT-LM, MLX, and local endpoint candidates behind one System G admission
+contract.
+
+Safest next falsifier:
+`F-DownloadsLocalResearchDedupeProvenanceCard`, because local Downloads research
+contains both valuable motifs and stale/overclaim-prone guidance; it should be
+source-carded before future agents copy its model viability or SSD/offload
+claims.
+
+Best near-term code unit: after the official guard unit, add a metadata-only
+`F-LiteRTLM-NativeSwiftAdmission` or `F-GGUF-QAT-BaselineCommandEquivalence`
+depending on whether the next session is targeting native Swift or existing
+GGUF plumbing.
+
+Biggest false-claim risk: treating LiteRT-LM Swift package availability,
+llama.cpp Metal support, TurboVec fork count, or old local research tables as
+product capability instead of source-card evidence.
+
+Biggest missing source: a source-carded, same-fixture route tournament that
+compares MLX/GGUF/LiteRT on one redacted task with visible byte, latency,
+cancellation, tool/JSON, rollback, RunEventLog, and AnswerPacket evidence.
+
+Next research query: "What is the smallest source-carded runtime-plural QAT
+lane tournament that compares MLX, GGUF/llama.cpp, and LiteRT-LM for Gemma 4
+E2B/E4B/12B without hidden server fallback, MAS leakage, model-byte loading by
+default, or L2/L3 overclaim?"

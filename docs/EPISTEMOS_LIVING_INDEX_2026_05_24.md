@@ -1264,6 +1264,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · Deep Research Pass 59 folds a runtime-plural
+  Gemma/QAT/TurboVec/fork/local-research build synthesis into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The pass records current GitHub/API and local
+  Downloads evidence for `RyanCodrai/turbovec`, `google-ai-edge/LiteRT-LM`,
+  `ggml-org/llama.cpp`, old TurboQuant/local-model research files, local GGUF
+  and MLX anchors, and then converts them into falsifier backlog instead of
+  product claims: `F-LiteRTLM-NativeSwiftAdmission`,
+  `F-GGUF-QAT-BaselineCommandEquivalence`,
+  `F-RuntimePlural-QATLaneTournamentPlan`,
+  `F-TurboVec-ForkDeltaSourceCard`, and
+  `F-DownloadsLocalResearchDedupeProvenanceCard`. This is T0/T1 canon/backlog
+  only. It does not add LiteRT-LM, llama.cpp, TurboVec, MLX, local endpoint, or
+  model dependencies; does not run models/indexes/benchmarks; does not promote
+  live dense 70B; and does not change L2/L3. The guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface
