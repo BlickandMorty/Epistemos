@@ -301,6 +301,16 @@ allowlist-after-rank privacy errors, missing rollback/RunEventLog/AnswerPacket
 refs, MAS/Live promotion, source-class collapse, and stale overclaim copy. The
 gate remains source-prior hygiene only; it does not prove any runtime lane.
 
+**Pass-seven accepted source-prior fixtures.** The memo now pairs the red
+fixtures with the first accepted metadata fixture pack: TurboVec, LiteRT-LM,
+llama.cpp, `mlx-swift-lm`, `mlx-lm`, LocalLLMClient, Gemma 4 QAT GGUF
+E2B/E4B/12B, Gemma 4 LiteRT E2B/E4B/12B, Qwen3-Coder 30B MLX, and Granite 4.0
+H Micro MLX. Accepted means the card may pass source hygiene only: unique
+locator, license/usage, import mode, source-prior authority, zero runtime/model
+bytes loaded, rollback/log/packet refs, and no product capability claim. MLX
+Gemma 4 12B QAT 4bit, 26B/31B, TurboQuant/KV/lattice repos, server runtimes,
+and unknown-license forks remain deferred or quarantine-reference.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is

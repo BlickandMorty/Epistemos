@@ -1084,3 +1084,146 @@ defines the red side of the gate.
 Next research query: "Which current local and external model/runtime candidates
 should become the first accepted green-side fixture set for
 `F-ProprietaryCompression-ProvenanceGate` after the red fixtures are defined?"
+
+## 21. Pass 7 - Accepted Source-Prior Fixture Set
+
+Observed on 2026-06-06 through local canon, local Swift/RuntimeRouter evidence,
+GitHub repository metadata, and Hugging Face model metadata APIs. This pass did
+not clone repos, import code, download model files, open model/index bytes,
+run MLX/GGUF/LiteRT, or call a provider.
+
+### 21.1 Meaning Of "Accepted"
+
+In this pass, "accepted" means accepted by a future metadata-only provenance
+gate as source-prior evidence. It does not mean T4 green, product-ready,
+runtime-proven, MAS-shippable, or user-facing. Every accepted fixture below
+must still carry:
+
+- `authority_level=source_prior_only`
+- `runtime_bytes_loaded=0`
+- `model_bytes_loaded=0`
+- `index_bytes_loaded=0`
+- `provider_calls=0`
+- `route_policy_mutated=false`
+- `hidden_route_authority=false`
+- `product_capability_claim=false`
+- `download_popularity_is_not_proof=true`
+
+The purpose is to seed the "good side" of
+`F-ProprietaryCompression-ProvenanceGate` beside the red fixtures from Pass 6.
+
+### 21.2 First Accepted Repo Fixtures
+
+| Fixture ID | Source | License | Import mode | Overlay | Epistemos organ | Accepted reason | Still missing |
+|---|---|---|---|---|---|---|---|
+| `source:repo:turbovec` | `RyanCodrai/turbovec`, pushed 2026-05-30, 4527 stars / 438 forks | MIT | `adapter_wrap` first; `direct_import` only after dependency closure | `CompressedIndexOverlay` + `RepoImportOverlay` | Eidos, AppColdStore, UAS/OAS | compressed vector search, external IDs, allowlist-before-rank motifs | dependency closure, local fixture oracle, exact UAS external-ID map, no-hidden-route witness |
+| `source:repo:litert-lm` | `google-ai-edge/LiteRT-LM`, pushed 2026-06-06, 5426 stars / 557 forks | Apache-2.0 | `adapter_wrap` / `research_only` until sandbox proof | `RepoImportOverlay` + `ModelRuntimeOverlay` | RuntimeRouter/System G | official edge runtime lane candidate for Gemma/LiteRT cards | MAS sandbox review, Swift packaging story, cancellation and AnswerPacket proof |
+| `source:repo:llama-cpp` | `ggml-org/llama.cpp`, pushed 2026-06-05, 114866 stars / 19226 forks | MIT | `adapter_wrap` through owned local-client boundary | `RepoImportOverlay` + `ModelRuntimeOverlay` | RuntimeRouter/System G | mature GGUF/Metal local lane candidate | no hidden server/subprocess path on MAS, same-fixture memory preflight, rollback |
+| `source:repo:mlx-swift-lm` | `ml-explore/mlx-swift-lm`, pushed 2026-06-04, 542 stars / 250 forks | MIT | existing MLX Swift lane source card | `RepoImportOverlay` + `ModelRuntimeOverlay` | MLX lane under RuntimeRouter | local Swift MLX evidence and tool/KV docs | Gemma 4 loader witness, unsafe KV rejection, cancellation/log correlation |
+| `source:repo:mlx-lm` | `ml-explore/mlx-lm`, pushed 2026-06-05, 5537 stars / 737 forks | MIT | `research_only` / compatibility oracle | `RepoImportOverlay` | model compatibility research | Python MLX ecosystem evidence without Swift product claim | Swift parity proof and no product dependency claim |
+| `source:repo:local-llm-client` | `tattn/LocalLLMClient`, pushed 2026-04-29, 218 stars / 64 forks | MIT | `adapter_wrap` / local package source card | `RepoImportOverlay` | RuntimeRouter adapter surface | documents GGUF, MLX, FoundationModels, streaming, tool-calling motifs | API stability, MAS boundary, no hidden subprocess/provider fallback |
+
+### 21.3 First Accepted Model Fixtures
+
+These model cards may pass source-card hygiene only. File sizes and SHA-256
+values below came from Hugging Face metadata APIs, not local downloads.
+
+| Fixture ID | Model source | License | Runtime lane | Primary file evidence | Product status | Accepted reason | Still missing |
+|---|---|---|---|---|---|---|---|
+| `source:model:gemma4-e2b-qat-gguf` | `google/gemma-4-E2B-it-qat-q4_0-gguf`, revision `1894d1fc0a19d86697abd40483f5983c867df03f` | Apache-2.0 | GGUF/llama.cpp | `gemma-4-E2B_q4_0-it.gguf` 3349514112 bytes, plus mmproj 986833312 bytes | Pro ResearchCandidate; MAS eligibility unclaimed | small Gemma QAT source-card candidate | package-size policy, GGUF loader proof, structured output, cancellation |
+| `source:model:gemma4-e4b-qat-gguf` | `google/gemma-4-E4B-it-qat-q4_0-gguf`, revision `99ef3d9bbf819591699ffa9084c4be12db1fbe6c` | Apache-2.0 | GGUF/llama.cpp | GGUF and mmproj files present in card | Pro ResearchCandidate; MAS eligibility unclaimed | next-size Gemma QAT candidate | file-size hash ledger, local memory preflight, AnswerPacket proof |
+| `source:model:gemma4-12b-qat-gguf` | `google/gemma-4-12B-it-qat-q4_0-gguf`, revision `f6e7774e6148da3b7f201e42ba37cf084c1db35f` | Apache-2.0 | GGUF/llama.cpp | `gemma-4-12b-it-qat-q4_0.gguf` 6975877728 bytes, mmproj 175115264 bytes | Pro Gated target | flagship QAT local model source card | owner-approved memory probe, cancellation, thermal, quality, rollback |
+| `source:model:gemma4-e2b-litert` | `litert-community/gemma-4-E2B-it-litert-lm`, revision `361a4010ad6d88fc5c86e148e333c0342b99763d` | Apache-2.0 | LiteRT-LM | `.litertlm` and `.task` files with SHA-256 metadata | Pro ResearchCandidate | small LiteRT candidate with strong download signal | LiteRT app integration, MAS sandbox, no popularity-as-proof |
+| `source:model:gemma4-e4b-litert` | `litert-community/gemma-4-E4B-it-litert-lm`, revision `f7ad3343bd6ebc9607f4dc3bc4f2398bd5749bc5` | Apache-2.0 | LiteRT-LM | `.litertlm` and `.task` files present | Pro ResearchCandidate | E4B LiteRT step between E2B and 12B | local package-size and runtime proof |
+| `source:model:gemma4-12b-litert` | `litert-community/gemma-4-12B-it-litert-lm`, revision `44cf85a326f79b814fa86a60af414c042755b43a` | Apache-2.0 | LiteRT-LM | `gemma-4-12B-it.litertlm` 6547589312 bytes | Pro Gated target | LiteRT counterpart to 12B GGUF QAT | Swift/MAS route, cancellation, AnswerPacket, rollback |
+| `source:model:qwen3-coder-30b-a3b-mlx` | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit`, revision `6e302ea604ad9ab206367e2c501d1571023e7b6d` | Apache-2.0 | MLX Swift/Python source card | four safetensor shards plus index; first shard 5321473414 bytes | Pro ResearchCandidate coding comparator | already appears in local RuntimeRouter code preference table | memory lease, tool-call parser fit, no default route claim |
+| `source:model:granite-4-h-micro-mlx` | `mlx-community/granite-4.0-h-micro-4bit`, revision `0a29e17503da7de371af61a0a532853810637627` | Apache-2.0 | MLX | `model.safetensors` 1796848117 bytes | Pro ResearchCandidate / small baseline | useful lower-risk MLX baseline candidate | same-fixture local harness proof, structured output, cancellation |
+
+### 21.4 Deliberately Deferred From The Accepted Set
+
+| Source | Why not accepted first |
+|---|---|
+| `mlx-community/gemma-4-12B-it-qat-4bit` | Hugging Face API returned `NOASSERTION` license metadata in this pass; MLX card availability is also not Swift Gemma 4 loader proof. Keep as `research_only` until base/conversion provenance and loader witness exist. |
+| Gemma 4 26B/31B QAT and large MoE routes | They belong in Pro Vault/Research first; they need cold assembly, byte preflight, memory lease, cancellation, and rollback before runtime consideration. |
+| TurboQuant/KIVI/asymmetric KV/lattice codec repos | High-value but should enter through separate KV/cache or codec source-card fixtures after dependency/license and compatibility red fixtures land. |
+| vLLM, SGLang, KTransformers, LMCache, FlexGen, PowerInfer | Useful server/page-table motifs, but not first accepted product-adjacent fixtures because Epistemos must preserve local app boundaries and avoid hidden server/runtime authority. |
+| Unknown/no-license forks | Keep visible as `quarantine_reference`; they can supply tests/specs/failure cases, not accepted import fixtures. |
+
+### 21.5 Suggested Accepted-Fixture Measurements
+
+The next implementation should expose accepted-side axes in addition to the red
+fixtures from Pass 6:
+
+- `accepted_source_card_count >= 14`
+- `accepted_repo_fixture_count >= 6`
+- `accepted_model_fixture_count >= 8`
+- `accepted_unique_locator_count == accepted_source_card_count`
+- `accepted_license_note_count == accepted_source_card_count`
+- `accepted_import_mode_count == accepted_source_card_count`
+- `accepted_source_prior_only_count == accepted_source_card_count`
+- `accepted_zero_runtime_bytes_count == accepted_source_card_count`
+- `accepted_zero_model_bytes_loaded_count == accepted_source_card_count`
+- `accepted_visibility_ref_count == accepted_source_card_count`
+- `deferred_fixture_count >= 5`
+- `download_popularity_not_proof_count == accepted_source_card_count`
+
+The accepted cards should fail if any card claims runtime proof, product
+capability, MAS readiness, live sparse 70B, live dense 70B, hidden cloud
+fallback, or hidden route authority.
+
+### 21.6 Architecture Fusion
+
+The accepted fixture pack gives Epistemos a balanced first source-prior
+portfolio:
+
+```text
+compressed recall: TurboVec
+runtime lanes: GGUF/llama.cpp, LiteRT-LM, MLX Swift, MLX Python, LocalLLMClient
+model cards: Gemma 4 QAT GGUF, Gemma 4 LiteRT, Qwen3-Coder MLX, Granite MLX
+```
+
+This is enough for `F-ProprietaryCompression-ProvenanceGate` to prove both
+sides of the ledger: bad cards reject, and good cards remain merely
+source-prior until a later byte/runtime/WRV witness promotes them.
+
+### 21.7 Pass-Seven Register
+
+Best breakthrough candidate: a balanced source-prior fixture portfolio that
+lets Epistemos compare GGUF, LiteRT, MLX, compressed retrieval, and local
+adapter surfaces under one provenance gate before any runtime experiment.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate`, now with red
+fixtures from Pass 6 and accepted source-prior fixtures from this pass.
+
+Best near-term code unit: implement fixture data structs for accepted repo
+cards and accepted model cards, including locator uniqueness, license/usage,
+import mode, file hash/size metadata, deferred-source ledger, and zero-byte
+authority checks.
+
+Biggest false-claim risk: calling the accepted fixtures "green" in the T4
+product sense. They are accepted by source-card hygiene only.
+
+Biggest missing source: local same-fixture AnswerPacket/RunEventLog evidence
+for the first tiny runtime harness candidate after the current guard-owned L3
+release-audit cursor is handled.
+
+Next research query: "Which accepted source-prior fixtures should become
+primary, fallback, and deliberately-deferred lanes in the first
+`F-ProprietaryCompression-ProvenanceGate` implementation?"
+
+### 21.8 Pass-Seven Source URLs
+
+- `https://github.com/RyanCodrai/turbovec`
+- `https://github.com/google-ai-edge/LiteRT-LM`
+- `https://github.com/ml-explore/mlx-swift-lm`
+- `https://github.com/ml-explore/mlx-lm`
+- `https://github.com/ggml-org/llama.cpp`
+- `https://github.com/tattn/LocalLLMClient`
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+- `https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm`
+- `https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm`
+- `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
+- `https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `https://huggingface.co/mlx-community/granite-4.0-h-micro-4bit`
