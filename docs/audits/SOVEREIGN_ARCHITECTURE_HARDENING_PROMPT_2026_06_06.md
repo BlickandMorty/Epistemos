@@ -335,11 +335,15 @@ If a source/canon guard is needed before the next runtime step, use this order:
    AnswerPacket, no-mutation envelope, zero runtime/model/provider bytes, and
    no L2/L3 promotion boundary.
 10. `F-SmallCompressedModel-LiveHarness`:
-   next model-ladder research-to-build unit; prove the smallest
-   owner-approved compressed model can load, emit one redacted retained token,
-   cancel cleanly, log memory/runtime proof, and return an AnswerPacket without
-   hidden provider fallback. Do not use this to rerun 128K shards, dense 70B,
-   12B/31B, mmap/SSD stress, or product-live claims by default.
+   preflight now built metadata-only as `F-SmallCompressedModel-LiveHarnessPreflight`;
+   preserve E2B GGUF/llama.cpp as the only selected future owner-approved
+   one-token probe candidate, E4B as deferred alternate, LiteRT-LM as requiring
+   later package proof, MLX Swift as loader-caveat blocked, owner approval
+   required but not granted, zero runtime/model/provider bytes, and no L2/L3
+   promotion boundary. The next research-to-build unit is
+   `small_compressed_model_owner_approved_runtime_probe`; it must not run
+   without explicit owner approval and must not rerun 128K shards, dense 70B,
+   12B/31B, mmap/SSD stress, or hidden provider fallback by default.
 11. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.

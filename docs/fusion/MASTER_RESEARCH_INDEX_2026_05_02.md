@@ -493,12 +493,29 @@ opened, resident, loaded, and provider bytes, all of which remain zero. The
 next model-ladder research-to-build unit is `F-SmallCompressedModel-LiveHarness`
 under owner-approved runtime rules.
 
+**Pass-nineteen implementation.** `F-SmallCompressedModel-LiveHarnessPreflight`
+is now built as the owner-approval lease before the first tiny compressed-model
+runtime probe. Implemented anchors:
+`agent_core/src/uas/small_compressed_model_live_harness_preflight.rs`,
+`agent_core/src/bin/falsify_small_compressed_model_live_harness_preflight.rs`,
+`Tools/falsifiers/f_small_compressed_model_live_harness_preflight.sh`,
+`docs/falsifiers/F-SmallCompressedModel-LiveHarnessPreflight_2026_06_06.md`,
+and
+`artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`.
+The witness accepts 2 candidates and rejects 56 red fixtures. E2B GGUF/llama.cpp
+is selected only as a pending owner-approved one-token probe candidate; E4B is
+a visible deferred alternate; LiteRT requires later package proof; MLX Swift
+keeps its loader caveat. No model/runtime/provider bytes are opened or loaded.
+The next model-ladder research-to-build unit is
+`small_compressed_model_owner_approved_runtime_probe`.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
-`F-GemmaQAT-LocalRuntimeCandidateCard`, and
-`F-QAT-ModelRouteCard-MemoryPreflight`, and
-`F-CompressedRoute-AnswerPacket-DryRun` are T1/L1 metadata architecture only.
+`F-GemmaQAT-LocalRuntimeCandidateCard`,
+`F-QAT-ModelRouteCard-MemoryPreflight`,
+`F-CompressedRoute-AnswerPacket-DryRun`, and
+`F-SmallCompressedModel-LiveHarnessPreflight` are T1/L1 metadata architecture only.
 They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor

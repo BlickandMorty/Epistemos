@@ -1,0 +1,415 @@
+{
+  "falsifier_id": "F-SmallCompressedModel-LiveHarnessPreflight",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_compressed_model_live_harness_preflight.sh",
+  "command_digest": "sha256:db6add67e3b6f7797643064c4eaab05c7741f271b99493f863dac17712cb61fd",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "769f990ad82dae17ae65d6579f89b32598c0f93e",
+  "fixture_id": "small_compressed_model_live_harness_preflight_v1",
+  "timestamp_utc": "2026-06-06T06:32:50Z",
+  "result_digest": "sha256:a751c60cbe6a905b0578f507425e4535ab8801cac486619ffddfead2de3b7174",
+  "measurements": {
+    "accepted_candidate_count": {
+      "value": 2,
+      "unit": "candidates"
+    },
+    "answer_packet_log_rollback_cancellation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_plan_consistent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "e4b_alternate_deferred_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_llamacpp_primary_lane": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_requires_later_package_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_swift_loader_caveat_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "no_live_execution_or_first_token": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_required_not_granted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_route_bytes_total": {
+      "value": 15971909632,
+      "unit": "bytes"
+    },
+    "preflight_set_address": {
+      "value": "small_compressed_model_live_harness_preflight:7e5f0b5be943b5a10e7898006ef47801b876c2e482072f796361fe604aa9e28f@1779034900000",
+      "unit": "uas_address"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 56,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 56,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_candidate_count": {
+      "value": 1,
+      "unit": "candidates"
+    },
+    "selected_candidate_id": {
+      "value": "gemma4_e2b_qat_gguf_harness_preflight",
+      "unit": "candidate_id"
+    },
+    "selected_smallest_packetized_candidate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_thirty_one_b_not_selected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_route_packets_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_candidate_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "candidates"
+    },
+    "answer_packet_log_rollback_cancellation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_plan_consistent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "e4b_alternate_deferred_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_llamacpp_primary_lane": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_requires_later_package_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_swift_loader_caveat_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "no_live_execution_or_first_token": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_required_not_granted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_route_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "preflight_set_address": {
+      "operator": "starts_with",
+      "value": "small_compressed_model_live_harness_preflight:",
+      "unit": "uas_address"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 40,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 56,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_candidate_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "candidates"
+    },
+    "selected_candidate_id": {
+      "operator": "==",
+      "value": "gemma4_e2b_qat_gguf_harness_preflight",
+      "unit": "candidate_id"
+    },
+    "selected_smallest_packetized_candidate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_thirty_one_b_not_selected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_route_packets_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_candidate_count": true,
+    "answer_packet_log_rollback_cancellation_required": true,
+    "byte_plan_consistent": true,
+    "e4b_alternate_deferred_visible": true,
+    "gguf_llamacpp_primary_lane": true,
+    "hidden_authority_rejected": true,
+    "layer_separation_required": true,
+    "litert_requires_later_package_proof": true,
+    "metadata_budget_enforced": true,
+    "mlx_swift_loader_caveat_preserved": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "no_live_execution_or_first_token": true,
+    "owner_approval_required_not_granted": true,
+    "planned_route_bytes_total": true,
+    "preflight_set_address": true,
+    "product_promotion_rejected": true,
+    "proof_refs_required": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_probe_deferred": true,
+    "selected_candidate_count": true,
+    "selected_candidate_id": true,
+    "selected_smallest_packetized_candidate": true,
+    "set_address_deterministic": true,
+    "twelve_b_thirty_one_b_not_selected": true,
+    "upstream_compressed_route_packets_bound": true,
+    "visibility_required": true,
+    "zero_model_bytes_loaded": true,
+    "zero_opened_model_bytes": true,
+    "zero_opened_runtime_bytes": true,
+    "zero_provider_calls": true,
+    "zero_resident_model_bytes": true,
+    "zero_resident_runtime_bytes": true,
+    "zero_runtime_bytes_loaded": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-SmallCompressedModel-LiveHarnessPreflight from the compressed-route AnswerPacket dry-run witness. Scope is T1/L1 metadata only: Gemma 4 E2B QAT GGUF is the smallest owner-approval candidate for a future one-token runtime probe, E4B is visible deferred fallback, LiteRT requires later package proof, MLX Swift remains blocked by loader caveat, and no model/runtime/provider bytes are opened or loaded."
+}

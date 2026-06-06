@@ -74,7 +74,8 @@ runtime remain unchanged.
 ## Queue Effect
 
 `F-CompressedRoute-AnswerPacket-DryRun` gives the model ladder visible,
-cancellable, reversible, byte-accounted AnswerPacket dry-run packets for later
-`F-SmallCompressedModel-LiveHarness` work. The guard-owned product cursor
-remains
+cancellable, reversible, byte-accounted AnswerPacket dry-run packets for
+`F-SmallCompressedModel-LiveHarnessPreflight`, now landed as metadata-only, and
+later owner-approved small compressed model runtime work. The guard-owned
+product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

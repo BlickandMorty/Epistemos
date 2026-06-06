@@ -650,6 +650,31 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing product truth. The next research-to-build model-ladder unit is
   `F-SmallCompressedModel-LiveHarness`; the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-SmallCompressedModel-LiveHarnessPreflight` is now
+  built as the owner-approval lease before the first tiny compressed-model
+  runtime probe:
+  `agent_core/src/uas/small_compressed_model_live_harness_preflight.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_small_compressed_model_live_harness_preflight.rs`,
+  script `Tools/falsifiers/f_small_compressed_model_live_harness_preflight.sh`,
+  witness page
+  `docs/falsifiers/F-SmallCompressedModel-LiveHarnessPreflight_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 2 candidates and
+  rejects 56 red fixtures: E2B Gemma 4 QAT GGUF on GGUF/llama.cpp is the only
+  selected future one-token probe candidate, E4B is a visible deferred
+  alternate, LiteRT-LM requires later local package proof, and MLX Swift remains
+  blocked by loader caveat. Owner approval is required but not granted. This is
+  T1/L1 metadata only: zero model/runtime bytes, zero provider calls, no first
+  token, no loadability, no quality, no MAS readiness, no L2 capability, and no
+  L3 user-facing product truth. The next research-to-build model-ladder unit is
+  `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
