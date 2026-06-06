@@ -77,7 +77,8 @@ unchanged.
 
 `F-TurboVec-Eidos-CompressedIndex-Plan` gives Eidos/AppColdStore a strict
 compressed retrieval contract for later stable external-ID registry, byte,
-index-build, recall-quality, and WRV witnesses. The next research-to-build
-unit is `turbovec_stable_external_id_registry_plan`. The guard-owned product
-cursor remains
+index-build, recall-quality, and WRV witnesses. The stable-ID registry step is
+now covered by `F-TurboVec-UASAddressStableExternalIds`; the next
+research-to-build unit is `turbovec_filter_before_rank_privacy_gate_plan`.
+The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

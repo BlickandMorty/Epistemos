@@ -3271,6 +3271,7 @@ TurboVec/QAT research
   -> compressed model/index source cards
   -> TurboVec Eidos compressed-index plan
   -> stable UAS-to-u64 external-ID registry plan
+  -> filter-before-rank privacy gate
   -> bounded index-build/byte witness
   -> exact-vs-compressed recall witness
   -> Eidos/AppColdStore WRV
@@ -3293,15 +3294,17 @@ Best breakthrough candidate: source-carded compressed retrieval where Eidos
 uses a rebuildable TurboVec-style cache with UAS-truth identity and
 allowlist-before-rank privacy.
 
-Safest next falsifier: `turbovec_stable_external_id_registry_plan`, because
-the plan exists but external ID stability, tombstones, generations, collision
-ledger behavior, and rebuild semantics must become explicit before any index
-bytes are generated.
+Safest next falsifier at pass twenty-four time:
+`turbovec_stable_external_id_registry_plan`, because the plan existed but
+external ID stability, tombstones, generations, collision ledger behavior, and
+rebuild semantics still needed to become explicit before any index bytes were
+generated. This is now covered by pass twenty-five below.
 
-Best near-term code unit: implement a metadata-only stable external-ID
-registry witness that maps UAS addresses to stable u64 IDs, rejects rowid and
-unstable insert-order identities, proves tombstone/generation behavior, and
-records collision/rebuild policy without building a TurboVec index.
+Best near-term code unit at pass twenty-four time: implement a metadata-only
+stable external-ID registry witness that maps UAS addresses to stable u64 IDs,
+rejects rowid and unstable insert-order identities, proves tombstone/generation
+behavior, and records collision/rebuild policy without building a TurboVec
+index. This code unit is now landed as `F-TurboVec-UASAddressStableExternalIds`.
 
 Biggest false-claim risk: treating compressed vector search as product recall
 quality, live route authority, or proof that large local models are already
@@ -3315,3 +3318,71 @@ Next research query: "What stable UAS-to-u64 registry shape, tombstone/
 generation policy, collision ledger, and rebuild manifest are sufficient to
 let TurboVec-style compressed indexes be rebuilt safely from AppColdStore
 without using rowids or leaking private vectors into rank?"
+
+## 39. Stable External-ID Registry Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, and the
+current TurboVec/QAT canon:
+
+- primitive:
+  `agent_core/src/uas/turbovec_stable_external_id_registry_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_uas_address_stable_external_ids.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_uas_address_stable_external_ids.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_uas_address_stable_external_ids/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-UASAddressStableExternalIds_2026_06_06.md`
+
+`F-TurboVec-UASAddressStableExternalIds` is now PASS as a metadata-only
+T1/L1 witness. It accepts 1 stable-ID registry plan, records 2 active entries,
+1 tombstoned entry, 1 reinserted generation fixture, 1 collision-ledger row,
+and rejects 55 red fixtures. It proves same-UAS-to-same-external-`u64`
+determinism across rebuild order and rejects SQLite row IDs, insert order,
+mutable vector slots, duplicate UAS addresses, duplicate active IDs, zero IDs,
+ID mismatches, missing tombstones, unsafe generations, missing collision
+ledger, and alias reuse.
+
+### 39.1 Larger-Local-Model Bias
+
+This helps the large-local-model plan because compressed retrieval only matters
+if source truth survives deletion, rebuild, privacy filtering, and cache
+corruption. Gemma 4 QAT, Qwen3-Coder, 31B/Vault, and 70B-class cold assembly
+lanes all need Eidos/AppColdStore evidence that cannot silently alias deleted
+or forbidden content. The stable-ID witness is small, but it is a prerequisite
+for ambitious local model routing that remains private and explainable.
+
+### 39.2 Non-Promotion
+
+This pass does not import TurboVec code, persist registry bytes, build a
+compressed index, prove recall quality, prove latency, choose RuntimeRouter/
+System G routes, run models, make L2/L3 product capability green, or prove
+live dense 70B. It advances the research-to-build ladder only.
+
+### 39.3 Pass-Twenty-Five Register
+
+Best breakthrough candidate: UAS-addressed compressed retrieval where
+TurboVec-style IDs are stable, tombstoned, generation-aware, collision-ledgered,
+and then privacy-filtered before approximate rank.
+
+Safest next falsifier: `turbovec_filter_before_rank_privacy_gate_plan`, because
+stable external IDs now exist but no witness has yet proved that forbidden
+planes and private IDs are excluded before rank/search can score them.
+
+Best near-term code unit: implement a metadata-only or tiny-fixture
+filter-before-rank privacy witness that compiles UAS predicates to allowed
+external IDs, rejects unknown IDs, emits visible empty AnswerPackets, and proves
+no forbidden ID can be scored or exposed.
+
+Biggest false-claim risk: treating stable IDs as recall quality, route
+authority, live TurboVec integration, or product model capability.
+
+Biggest missing source: exact Eidos privacy fixture shape for all-denied,
+one-allowed, duplicate-allowed, forbidden-plane, unknown-ID, and empty-allowlist
+search cases.
+
+Next research query: "What allowlist compiler, ID sanitizer, empty-result
+AnswerPacket, forbidden-hit audit, and exact-source rerank proof are sufficient
+to prove TurboVec-style compressed retrieval filters before rank instead of
+ranking private vectors and filtering afterward?"

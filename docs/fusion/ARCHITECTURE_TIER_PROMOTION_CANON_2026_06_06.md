@@ -204,6 +204,21 @@ router, make L2/L3 product capability green, or promote live dense 70B. T2+
 requires byte/index-build and recall-quality proof; T3+ requires WRV; T4+
 requires build-green MAS/Pro and release-audit proof.
 
+2026-06-06 TurboVec stable external-ID clarification:
+`F-TurboVec-UASAddressStableExternalIds` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving that TurboVec/Eidos
+compressed-cache adapters must use UAS-address-stable external `u64` IDs with
+tombstones, generations, collision-ledger alias rejection, AppColdStore truth,
+cache-manifest semantics, atomic rebuild, rollback, RunEventLog, AnswerPacket,
+and compatibility fence. It rejects SQLite row IDs, insert order, mutable
+vector slots, duplicate UAS, duplicate active IDs, zero IDs, missing
+tombstones, unsafe generations, hidden route authority, route mutation, hidden
+cloud fallback, live dense 70B, SSD-as-RAM, and nonzero registry/index/model/
+runtime/provider bytes. It does not import TurboVec, persist registry bytes,
+build an index, prove recall quality, choose System G routes, make L2/L3
+product capability green, or promote live dense 70B. The next retrieval/index
+research-to-build unit is `turbovec_filter_before_rank_privacy_gate_plan`.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

@@ -439,6 +439,10 @@ name = "falsify_turbovec_eidos_compressed_index_plan"
 path = "src/bin/falsify_turbovec_eidos_compressed_index_plan.rs"
 
 [[bin]]
+name = "falsify_turbovec_uas_address_stable_external_ids"
+path = "src/bin/falsify_turbovec_uas_address_stable_external_ids.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

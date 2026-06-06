@@ -645,7 +645,8 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
 2. Implement `F-ProprietaryCompression-ProvenanceGate`.
 3. Implement `F-GemmaQAT-LocalRuntimeCandidateCard` metadata-only for all Gemma 4 QAT IDs.
 4. Implement `F-LargeModelCompression-ClaimBoundaryGuard`.
-5. Implement `F-TurboVec-UASAddressStableExternalIds`.
+5. `F-TurboVec-UASAddressStableExternalIds` is implemented; preserve it as the
+   identity prerequisite for compressed retrieval.
 6. Implement `F-TurboVec-FilterBeforeRankPrivacyGate`.
 7. Implement `F-TurboVec-CrashSafePersistentIndex`.
 8. Run tiny live TurboVec fixtures only after wrappers exist.
@@ -1501,7 +1502,34 @@ model/index/runtime/provider bytes.
 
 This pass does not import TurboVec code, build or persist an index, prove
 recall quality, prove latency, choose RuntimeRouter/System G routes, or make
-L2/L3 product capability green. It makes the next retrieval/index step safer:
-`turbovec_stable_external_id_registry_plan` should prove the exact UAS-to-u64
+L2/L3 product capability green. Its next retrieval/index step is now covered
+by `F-TurboVec-UASAddressStableExternalIds`, which proves the exact UAS-to-u64
 external-ID registry, tombstone/generation behavior, collision ledger, and
 rebuild semantics before any compressed index bytes are generated.
+
+### 2026-06-06 TurboVec Stable External-ID Registry Implementation Note
+
+`F-TurboVec-UASAddressStableExternalIds` is now implemented as the
+metadata-only identity witness after the compressed-index plan. The artifact
+lives at
+`artifacts/falsifiers/turbovec_uas_address_stable_external_ids/result.json`
+and accepts 1 stable-ID registry plan while rejecting 55 red fixtures. It
+binds the upstream TurboVec Eidos compressed-index artifact, records 2 active
+entries, 1 tombstoned entry, 1 reinserted generation fixture, and 1 collision
+ledger row.
+
+The implementation makes the dangerous identity shortcuts explicit and
+rejected: SQLite `rowid`, insert order, mutable vector slots, duplicate UAS
+addresses, duplicate active IDs, zero IDs, ID mismatches, missing tombstones,
+unsafe generations, missing collision ledger, and alias reuse. It requires
+AppColdStore truth, cache-manifest semantics, UAS-compiled allowlists,
+export/import roundtrip, atomic manifest, corrupt-manifest rebuild, rollback,
+RunEventLog, AnswerPacket, and compatibility fence.
+
+This pass does not import TurboVec code, persist registry bytes, build an
+index, prove recall quality, prove latency, choose RuntimeRouter/System G
+routes, or make L2/L3 product capability green. It moves the TurboVec branch
+to the next safer retrieval/index step:
+`turbovec_filter_before_rank_privacy_gate_plan`, which should prove that
+privacy allowlists are compiled before approximate rank/search can score
+anything.

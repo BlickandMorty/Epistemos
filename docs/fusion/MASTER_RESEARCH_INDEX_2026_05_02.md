@@ -36,7 +36,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-SmallCompressedModel-LocalRuntimeCommandCard` ->
 > `F-SmallCompressedModel-ModelPathReadinessCard` ->
 > `F-SmallCompressedModel-RuntimeProbeProofEnvelope`, plus the retrieval/index
-> branch `F-TurboVec-Eidos-CompressedIndex-Plan`. Current model-ladder built truth:
+> branch `F-TurboVec-Eidos-CompressedIndex-Plan` ->
+> `F-TurboVec-UASAddressStableExternalIds`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -603,10 +604,26 @@ manifest, rollback, RunEventLog, AnswerPacket, compatibility fence, corrected
 `384` q2 payload bytes), zero model/index/runtime/provider bytes, and no
 hidden route authority or L2/L3 promotion.
 
+**Pass-twenty-five retrieval implementation.**
+`F-TurboVec-UASAddressStableExternalIds` is now built as the stable-ID
+registry branch after the TurboVec compressed-index plan. Implemented anchors
+include `agent_core/src/uas/turbovec_stable_external_id_registry_plan.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_uas_address_stable_external_ids/`. The
+witness accepts 1 stable-ID registry plan, records 2 active entries, 1
+tombstoned entry, 1 reinserted generation fixture, 1 collision-ledger row, and
+rejects 55 red fixtures: SQLite row IDs, insert order, mutable vector slots,
+duplicate UAS, duplicate active IDs, zero IDs, ID mismatches, missing
+tombstones, unsafe generations, missing collision ledger, alias reuse, hidden
+route/cloud authority, live dense 70B, SSD-as-RAM, byte loads, and L2/L3
+promotion. The next retrieval/index research-to-build unit is
+`turbovec_filter_before_rank_privacy_gate_plan`.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
 `F-TurboVec-Eidos-CompressedIndex-Plan`,
+`F-TurboVec-UASAddressStableExternalIds`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
