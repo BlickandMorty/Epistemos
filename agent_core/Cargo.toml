@@ -435,6 +435,10 @@ name = "falsify_compressed_model_source_card_intake"
 path = "src/bin/falsify_compressed_model_source_card_intake.rs"
 
 [[bin]]
+name = "falsify_turbovec_eidos_compressed_index_plan"
+path = "src/bin/falsify_turbovec_eidos_compressed_index_plan.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

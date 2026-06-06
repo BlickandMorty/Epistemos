@@ -107,6 +107,19 @@ Recommended first units, in order:
 4. `F-TurboVec-Eidos-CompressedIndex-Plan`
    - Proves UAS ID stability, corrected byte accounting, allowlist-before-rank privacy policy, cache-rebuild plan, and no hidden route authority.
    - Does not prove recall quality or live integration.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json`.
+     It accepts 1 TurboVec Eidos/AppColdStore compressed-index plan, rejects 53
+     red fixtures, binds the upstream compressed source-card intake, enforces
+     UAS-truth external IDs, stable u64 registry, tombstone/generation,
+     collision ledger, allowlist-before-rank privacy, rebuildable-cache
+     semantics, rollback, RunEventLog, AnswerPacket, and corrected
+     1536-dimensional byte math (`6144` float32 bytes, `768` q4 payload bytes,
+     `384` q2 payload bytes before overhead). It imports no TurboVec code,
+     builds no index, loads zero model/index/runtime bytes, makes zero provider
+     calls, and preserves the no-L2/L3-promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_stable_external_id_registry_plan`.
 
 5. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.

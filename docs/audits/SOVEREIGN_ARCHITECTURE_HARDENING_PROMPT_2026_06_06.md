@@ -312,9 +312,18 @@ If a source/canon guard is needed before the next runtime step, use this order:
    TurboVec Eidos-cache-only placement, rowid rejection, and explicit
    non-loadability/non-quality caveats.
 6. `F-TurboVec-Eidos-CompressedIndex-Plan`:
-   next retrieval/index research-to-build unit; prove placement in
-   Eidos/AppColdStore compressed retrieval, not durable truth and not live route
-   authority.
+   now built metadata-only; preserve placement in Eidos/AppColdStore compressed
+   retrieval, not durable truth and not live route authority. Preserve
+   UAS-truth external IDs, stable u64 registry, tombstone/generation handling,
+   collision ledger, allowlist-before-rank privacy, empty-allowlist
+   AnswerPacket behavior, rebuildable-cache semantics, corrupt-cache rebuild,
+   atomic manifest, rollback, RunEventLog, AnswerPacket, compatibility fence,
+   corrected 1536-dimensional byte math (`6144` float32 bytes, `768` q4
+   payload bytes, `384` q2 payload bytes before overhead), zero
+   model/index/runtime/provider bytes, no copied product files, no hidden
+   route authority, no Eidos-as-live-router, no route mutation, no MAS/L2/L3
+   promotion, no live dense 70B, and no SSD-as-RAM. The next retrieval/index
+   research-to-build unit is `turbovec_stable_external_id_registry_plan`.
 7. `F-GemmaQAT-LocalRuntimeCandidateCard`:
    now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
    GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B

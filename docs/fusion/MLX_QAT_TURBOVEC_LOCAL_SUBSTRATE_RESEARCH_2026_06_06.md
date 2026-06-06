@@ -1475,3 +1475,33 @@ ambitious at once: once the owner explicitly approves a real E2B model path,
 the same proof envelope becomes the harness pattern that Gemma 4 12B QAT,
 31B/Vault, and 70B-class cold-assembly work must generalize rather than
 bypass.
+
+### 2026-06-06 TurboVec Eidos Compressed-Index Plan Implementation Note
+
+`F-TurboVec-Eidos-CompressedIndex-Plan` is now implemented as the
+metadata-only retrieval/index witness after the compressed source-card intake.
+The artifact lives at
+`artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json` and
+accepts 1 Eidos/AppColdStore compressed-index plan while rejecting 53 red
+fixtures. It binds the upstream `turbovec_eidos_cache` source card, official
+TurboVec repo/API refs, Eidos/AppColdStore/SemanticWorkingSetPlan/AnswerPacket
+organs, UAS-truth external IDs, stable u64 registry requirements,
+tombstone/generation handling, collision ledger, allowlist-before-rank
+privacy, corrupt-cache rebuild, atomic manifest, rollback, RunEventLog,
+AnswerPacket, and compatibility fence.
+
+The implementation corrects and locks the 1536-dimensional vector byte math:
+float32 is `6144` bytes, q4 coordinate payload is `768` bytes, and q2
+coordinate payload is `384` bytes before side-table overhead. It rejects the
+old dangerous shortcuts: SQLite row IDs as identity, post-filtering private
+IDs after rank, scoring forbidden/private vectors, treating compressed cache as
+truth, letting Eidos score select live routes, route mutation, hidden route
+authority, hidden cloud fallback, live dense 70B, SSD-as-RAM, and any nonzero
+model/index/runtime/provider bytes.
+
+This pass does not import TurboVec code, build or persist an index, prove
+recall quality, prove latency, choose RuntimeRouter/System G routes, or make
+L2/L3 product capability green. It makes the next retrieval/index step safer:
+`turbovec_stable_external_id_registry_plan` should prove the exact UAS-to-u64
+external-ID registry, tombstone/generation behavior, collision ledger, and
+rebuild semantics before any compressed index bytes are generated.

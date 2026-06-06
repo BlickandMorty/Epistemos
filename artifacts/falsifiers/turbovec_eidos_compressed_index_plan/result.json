@@ -1,0 +1,350 @@
+{
+  "falsifier_id": "F-TurboVec-Eidos-CompressedIndex-Plan",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_eidos_compressed_index_plan.sh",
+  "command_digest": "sha256:839a56e0f07f2635999f583455d8e203177628162b37635ee4bcab5b708df7ce",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6021c10861ab0fe727c029c95a72a356e8485c65",
+  "fixture_id": "turbovec_eidos_compressed_index_plan_v1",
+  "timestamp_utc": "2026-06-06T08:53:23Z",
+  "result_digest": "sha256:94905eb56b556d1ef8b27f94b166c8a71c2cfe42237f413e2193fbda6e70f909",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_fixture_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allowlist_before_rank_privacy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_rebuild_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compressed_index_cache_not_truth": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dimension_and_byte_math_correct": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dimension_count": {
+      "value": 1536,
+      "unit": "dimensions"
+    },
+    "float32_vector_bytes": {
+      "value": 6144,
+      "unit": "bytes"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 60000,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_stable_external_id_registry_plan",
+      "unit": "cursor"
+    },
+    "plan_set_address": {
+      "value": "turbovec_eidos_compressed_index_plan:6b484ad954d0f1745fad08385c305005aca4379b15e50217d6193c3ea0c522b4@1779038600000",
+      "unit": "uas_address"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "q2_coordinate_payload_bytes": {
+      "value": 384,
+      "unit": "bytes"
+    },
+    "q4_coordinate_payload_bytes": {
+      "value": 768,
+      "unit": "bytes"
+    },
+    "red_fixture_count": {
+      "value": 53,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 53,
+      "unit": "fixtures"
+    },
+    "rowid_identity_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_eidos_cache_source_card_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_external_id_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_source_card_intake_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_fixture_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allowlist_before_rank_privacy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_rebuild_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compressed_index_cache_not_truth": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dimension_and_byte_math_correct": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dimension_count": {
+      "operator": "==",
+      "value": 1536,
+      "unit": "dimensions"
+    },
+    "float32_vector_bytes": {
+      "operator": "==",
+      "value": 6144,
+      "unit": "bytes"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 524288,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_stable_external_id_registry_plan",
+      "unit": "cursor"
+    },
+    "plan_set_address": {
+      "operator": "starts_with",
+      "value": "turbovec_eidos_compressed_index_plan:",
+      "unit": "uas_address"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "q2_coordinate_payload_bytes": {
+      "operator": "==",
+      "value": 384,
+      "unit": "bytes"
+    },
+    "q4_coordinate_payload_bytes": {
+      "operator": "==",
+      "value": 768,
+      "unit": "bytes"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 34,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 53,
+      "unit": "fixtures"
+    },
+    "rowid_identity_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_eidos_cache_source_card_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_external_id_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_source_card_intake_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_fixture_pack_present": true,
+    "allowlist_before_rank_privacy_bound": true,
+    "app_cold_store_rebuild_policy_bound": true,
+    "compressed_index_cache_not_truth": true,
+    "dimension_and_byte_math_correct": true,
+    "dimension_count": true,
+    "float32_vector_bytes": true,
+    "hidden_route_authority_rejected": true,
+    "index_bytes_loaded": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "metadata_bytes_read": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "plan_set_address": true,
+    "product_promotion_rejected": true,
+    "proof_surfaces_required": true,
+    "q2_coordinate_payload_bytes": true,
+    "q4_coordinate_payload_bytes": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rowid_identity_rejected": true,
+    "runtime_and_index_bytes_zero": true,
+    "runtime_bytes_loaded": true,
+    "runtime_deferred_required": true,
+    "set_address_deterministic": true,
+    "turbovec_eidos_cache_source_card_bound": true,
+    "uas_external_id_policy_bound": true,
+    "upstream_compressed_source_card_intake_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec code imported, no compressed index built, no runtime/index/model bytes loaded, no hidden route authority, and no product capability promoted."
+    }
+  ],
+  "notes": "Builds F-TurboVec-Eidos-CompressedIndex-Plan from the compressed source-card intake and current TurboVec research. Scope is T1/L1 metadata only: TurboVec is Eidos/AppColdStore rebuildable cache material with UAS truth identity, allowlist-before-rank privacy, corrected 1536-dimension byte math, rollback, RunEventLog, AnswerPacket, and no L2/L3/product promotion."
+}

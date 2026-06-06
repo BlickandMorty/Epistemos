@@ -90,6 +90,7 @@ pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
+pub mod turbovec_eidos_compressed_index_plan;
 pub mod weight_block;
 pub mod witness;
 
@@ -503,6 +504,14 @@ pub use transport_trace_answer_packet::{
     TransportTraceAnswerPacketMetrics, TransportTraceAnswerPacketSurface,
     TransportTraceAnswerPacketWitness, TransportTraceVisibilityLane,
     TRANSPORT_TRACE_ANSWER_PACKET_CURSOR, TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR,
+};
+pub use turbovec_eidos_compressed_index_plan::{
+    TurboVecAllowlistPrivacyPolicy, TurboVecEidosCompressedIndexPlan,
+    TurboVecEidosCompressedIndexPlanSet, TurboVecExternalIdPolicy, TurboVecIndexByteLedger,
+    TurboVecIndexOrgan, TurboVecIndexPlanError, TurboVecIndexPlanMetrics,
+    TurboVecIndexPlanStatus, TurboVecIndexPromotionTier, TurboVecIndexProofRefs,
+    TurboVecRebuildPolicy, TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_CURSOR,
+    TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_NEXT_CURSOR,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,
