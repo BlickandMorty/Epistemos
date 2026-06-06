@@ -3228,3 +3228,90 @@ local file path, timeout, memory sampling ledger, redaction digest, rollback
 handle, RunEventLog row, and AnswerPacket shape are sufficient for the first
 one-token proof, and which parts must remain unchanged when the ladder
 escalates to Gemma 4 12B QAT?"
+
+## Pass 38 - TurboVec Retrieval Plan Becomes A Buildable Eidos Contract
+
+`F-TurboVec-Eidos-CompressedIndex-Plan` is now implemented as the retrieval
+side of the large-local-model breakthrough loop. It consumes the compressed
+source-card intake and turns TurboVec from "interesting repo" into a strict
+Epistemos Eidos/AppColdStore plan:
+
+- primitive: `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_eidos_compressed_index_plan.rs`
+- command: `Tools/falsifiers/f_turbovec_eidos_compressed_index_plan.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-Eidos-CompressedIndex-Plan_2026_06_06.md`
+
+The witness accepts 1 compressed-index plan and rejects 53 red fixtures. It
+requires Eidos/AppColdStore/SemanticWorkingSetPlan/AnswerPacket placement,
+UAS-truth external IDs, stable u64 registry, tombstone/generation handling,
+collision ledger, allowlist-before-rank privacy, empty-allowlist AnswerPacket
+behavior, corrupt-cache rebuild, atomic manifest, rollback, RunEventLog,
+AnswerPacket, and compatibility fence. It locks corrected 1536-dimensional
+byte math: `6144` float32 bytes, `768` q4 coordinate payload bytes, and `384`
+q2 coordinate payload bytes before side-table overhead.
+
+### 38.1 Larger-Local-Model Bias
+
+This pass is in favor of large local models because it strengthens the
+retrieval and working-set side of the architecture. A future Gemma 4 12B/31B/
+70B-class lane cannot simply depend on bigger weights; it needs compressed
+local evidence, stable IDs, privacy-filtered retrieval, rebuildable caches,
+and visible AnswerPackets. TurboVec belongs here as Eidos/AppColdStore cache
+material, not as hidden route authority.
+
+The retrieval ladder is now:
+
+```text
+TurboVec/QAT research
+  -> provenance gate
+  -> compressed model/index source cards
+  -> TurboVec Eidos compressed-index plan
+  -> stable UAS-to-u64 external-ID registry plan
+  -> bounded index-build/byte witness
+  -> exact-vs-compressed recall witness
+  -> Eidos/AppColdStore WRV
+  -> System G route-prior use only after visible proof
+```
+
+### 38.2 Non-Promotion
+
+This pass advances T1/L1 architecture only. It does not import TurboVec code,
+build an index, prove recall quality, prove latency, choose RuntimeRouter/
+System G routes, run models, make L2/L3 product capability green, or prove
+live dense 70B. It rejects rowid identity, post-filtering private data after
+rank, private/forbidden vector scoring, durable-truth cache claims, Eidos
+score-as-router claims, route mutation, hidden cloud fallback, live dense 70B,
+SSD-as-RAM, and all nonzero model/index/runtime/provider bytes.
+
+### 38.3 Pass-Twenty-Four Register
+
+Best breakthrough candidate: source-carded compressed retrieval where Eidos
+uses a rebuildable TurboVec-style cache with UAS-truth identity and
+allowlist-before-rank privacy.
+
+Safest next falsifier: `turbovec_stable_external_id_registry_plan`, because
+the plan exists but external ID stability, tombstones, generations, collision
+ledger behavior, and rebuild semantics must become explicit before any index
+bytes are generated.
+
+Best near-term code unit: implement a metadata-only stable external-ID
+registry witness that maps UAS addresses to stable u64 IDs, rejects rowid and
+unstable insert-order identities, proves tombstone/generation behavior, and
+records collision/rebuild policy without building a TurboVec index.
+
+Biggest false-claim risk: treating compressed vector search as product recall
+quality, live route authority, or proof that large local models are already
+usable.
+
+Biggest missing source: local exact-vs-compressed recall fixture design for
+notes/research/code embeddings, including privacy allowlists and AnswerPacket
+visibility.
+
+Next research query: "What stable UAS-to-u64 registry shape, tombstone/
+generation policy, collision ledger, and rebuild manifest are sufficient to
+let TurboVec-style compressed indexes be rebuilt safely from AppColdStore
+without using rowids or leaking private vectors into rank?"

@@ -570,6 +570,37 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   choose MLX/GGUF/LiteRT, load Gemma QAT, prove recall quality, advance L2, or
   make L3 user-facing model capability green. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
+  built as the Eidos/AppColdStore compressed-index planning witness:
+  `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_eidos_compressed_index_plan.rs`,
+  script `Tools/falsifiers/f_turbovec_eidos_compressed_index_plan.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-Eidos-CompressedIndex-Plan_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1 TurboVec Eidos
+  compressed-index plan, rejects 53 red fixtures, binds the upstream
+  compressed source-card intake, keeps TurboVec in Eidos/AppColdStore as a
+  rebuildable cache, requires UAS-truth external IDs, a stable external-ID
+  registry, tombstone/generation handling, collision ledger, allowlist before
+  rank, empty-allowlist AnswerPacket behavior, corrupt-cache rebuild, atomic
+  manifest, rollback, RunEventLog, AnswerPacket, and compatibility fence. It
+  corrects 1536-dimensional vector byte math to `6144` float32 bytes, `768`
+  q4 coordinate payload bytes, and `384` q2 coordinate payload bytes before
+  side-table overhead; it rejects rowid identity, post-filtering privacy,
+  forbidden/private-ID scoring, hidden route authority, Eidos-as-live-router,
+  route mutation, nonzero model/index/runtime/provider bytes, copied product
+  files, MAS/Live/T2+ promotion, live dense 70B, and SSD-as-RAM. This is T1/L1
+  metadata only. It does not import TurboVec, build an index, prove recall
+  quality, choose model routes, advance L2, or make L3 user-facing model
+  capability green. The next research-to-build retrieval unit is
+  `turbovec_stable_external_id_registry_plan`; the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface

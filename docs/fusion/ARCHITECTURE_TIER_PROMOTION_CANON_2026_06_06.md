@@ -191,6 +191,19 @@ make E2B live, does not prove Gemma 4 12B/31B readiness, and does not promote
 runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
+2026-06-06 TurboVec compressed-index plan clarification:
+`F-TurboVec-Eidos-CompressedIndex-Plan` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving the Eidos/AppColdStore
+compressed retrieval contract before index bytes: UAS-truth external IDs,
+stable u64 registry, tombstone/generation and collision ledger requirements,
+allowlist-before-rank privacy, rebuildable-cache semantics, rollback,
+RunEventLog, AnswerPacket, compatibility fence, corrected 1536-dimensional
+byte math, and no hidden route authority. It does not import TurboVec, build an
+index, prove recall quality, choose System G routes, make Eidos a hidden
+router, make L2/L3 product capability green, or promote live dense 70B. T2+
+requires byte/index-build and recall-quality proof; T3+ requires WRV; T4+
+requires build-green MAS/Pro and release-audit proof.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

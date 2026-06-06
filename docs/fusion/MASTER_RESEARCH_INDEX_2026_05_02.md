@@ -35,7 +35,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-SmallCompressedModel-OwnerApprovalRuntimeGate` ->
 > `F-SmallCompressedModel-LocalRuntimeCommandCard` ->
 > `F-SmallCompressedModel-ModelPathReadinessCard` ->
-> `F-SmallCompressedModel-RuntimeProbeProofEnvelope`. Current built truth:
+> `F-SmallCompressedModel-RuntimeProbeProofEnvelope`, plus the retrieval/index
+> branch `F-TurboVec-Eidos-CompressedIndex-Plan`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -44,7 +45,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > L2/L3 product capability. E2B is the harness proving lane; Gemma 4 12B QAT
 > remains the Pro Gated target; and 31B/70B-class routes remain Pro
 > Research/Vault until residency, routing, transport, memory, rollback,
-> RunEventLog, and AnswerPacket proof exists.
+> RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
+> truth:
+> `artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json`
+> passes T1/L1 metadata with 1 Eidos/AppColdStore compressed-index plan, 53
+> red-fixture rejections, UAS-truth external IDs, allowlist-before-rank
+> privacy, rebuildable-cache semantics, corrected 1536-dimensional byte math,
+> zero model/index/runtime/provider bytes, no route authority, and no L2/L3
+> product capability.
 
 ---
 
@@ -457,9 +465,10 @@ TurboVec-as-router, package-manifest-as-loader-proof, rowid identity, hidden
 route/cloud authority, nonzero model/index/runtime/provider bytes, copied
 product files, MAS/Live/product-green promotion, live dense 70B, SSD-as-RAM,
 bad proof refs, and missing layer separation. The next research-to-build units
-are `F-GemmaQAT-LocalRuntimeCandidateCard`,
+were `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-TurboVec-Eidos-CompressedIndex-Plan`, and
-`F-QAT-ModelRouteCard-MemoryPreflight`.
+`F-QAT-ModelRouteCard-MemoryPreflight`; all three now have built T1/L1
+metadata witnesses.
 
 **Pass-sixteen implementation.** `F-GemmaQAT-LocalRuntimeCandidateCard` is now
 built as the source-backed Gemma 4 QAT local runtime candidate-card witness.
@@ -579,9 +588,25 @@ Docker/token/server flags, 16 proof phases, memory sampling, cancellation,
 rollback, RunEventLog, AnswerPacket, larger-model escalation blockers, zero
 download/open/hash/model/runtime/provider bytes, and no L2/L3 promotion.
 
+**Pass-twenty-four retrieval implementation.**
+`F-TurboVec-Eidos-CompressedIndex-Plan` is now built as the retrieval/index
+branch after the compressed source-card intake. Implemented anchors include
+`agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, its falsifier
+binary and script, witness doc, schema/handbook rows, and artifact under
+`artifacts/falsifiers/turbovec_eidos_compressed_index_plan/`. The witness
+accepts 1 Eidos/AppColdStore compressed-index plan and rejects 53 red fixtures:
+official TurboVec repo/API refs, UAS-truth external IDs, stable u64 registry,
+tombstone/generation handling, collision ledger, allowlist-before-rank
+privacy, empty-allowlist AnswerPacket behavior, corrupt-cache rebuild, atomic
+manifest, rollback, RunEventLog, AnswerPacket, compatibility fence, corrected
+1536-dimensional byte math (`6144` float32 bytes, `768` q4 payload bytes,
+`384` q2 payload bytes), zero model/index/runtime/provider bytes, and no
+hidden route authority or L2/L3 promotion.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
+`F-TurboVec-Eidos-CompressedIndex-Plan`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
