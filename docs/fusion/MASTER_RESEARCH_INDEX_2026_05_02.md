@@ -107,15 +107,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > no server, daemon, remote cache, offload benchmark, model/KV byte load,
 > hidden cache authority, SSD-as-RAM claim, or L2/L3 promotion.
 > Deep Research Pass 61 turns that cluster into an implementable
-> `F-KVRuntimeSourceCard` blueprint. It names accepted source-card fixtures for
-> vLLM/PagedAttention, LMCache, SGLang HiCache/RadixAttention, KTransformers,
-> FlexLLMGen, PowerInfer, KIVI, Transformers `QuantizedCache`, and llama.cpp
-> prompt-cache flags, plus reject cases for server/daemon laundering,
-> remote-cache-as-local, prompt-cache compatibility gaps, KV quantization
-> without backend/axis/residual/quality caveat, hidden cache authority,
-> nonzero runtime/model/KV bytes, live dense 70B, SSD-as-RAM, and L2/L3
-> promotion. This is still T0/T1 canon/backlog only; the guard-owned cursor
-> remains the small-model L3 release-audit automated-checks probe.
+> `F-KVRuntimeSourceCard` blueprint, and Pass 62 lands it as a T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/kv_runtime_source_card/result.json`. The built witness
+> accepts 9 KV/runtime source cards for vLLM/PagedAttention, LMCache, SGLang
+> HiCache/RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI,
+> Transformers `QuantizedCache`, and llama.cpp prompt-cache flags, rejects 38
+> red fixtures for server/daemon laundering, remote-cache-as-local,
+> prompt-cache compatibility gaps, KV quantization caveat gaps, hidden cache
+> authority, nonzero runtime/model/KV/index/provider/source-tree/product bytes,
+> live dense 70B, SSD-as-RAM, and L2/L3 promotion. This advances L1
+> source-card coverage only; the guard-owned cursor remains the small-model L3
+> release-audit automated-checks probe and L2/L3 do not promote.
 
 ---
 
@@ -382,6 +385,16 @@ compressed indexes, KV/cache byte-budget cards, repo import/quarantine cards,
 and benchmark oracles. This keeps every source/fork/model/research motif as
 source-prior evidence until later falsifiers prove runtime bytes, route
 authority, rollback, RunEventLog, AnswerPacket, and WRV user-facing proof.
+
+**Pass-sixty-two KV runtime source-card build.** The memo's KV/offload/cache
+blueprint is now code-backed by `F-KVRuntimeSourceCard`. It adds
+`agent_core/src/uas/kv_runtime_source_card.rs`,
+`agent_core/src/bin/falsify_kv_runtime_source_card.rs`,
+`Tools/falsifiers/f_kv_runtime_source_card.sh`, and
+`docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md`, with a passing artifact
+at `artifacts/falsifiers/kv_runtime_source_card/result.json`. This is L1/T1
+metadata-only source-card coverage for larger-local-model KV/runtime motifs;
+it is not runtime proof, product capability, or L3 user-facing green.
 
 **Pass-six provenance-gate red fixtures.** The memo now gives the next
 metadata-only gate its first negative-fixture matrix. The highest-priority

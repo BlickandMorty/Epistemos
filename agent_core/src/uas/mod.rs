@@ -44,6 +44,7 @@ pub mod copy_counter;
 pub mod five_planes;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod kind;
+pub mod kv_runtime_source_card;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod metal_io_feature_gate;
@@ -180,6 +181,12 @@ pub use gemma_qat_local_runtime_candidate_card::{
     GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_NEXT_CURSOR,
 };
 pub use kind::UasKind;
+pub use kv_runtime_source_card::{
+    KvAppleSiliconStatus, KvDefaultDeploymentShape, KvMasStatus, KvRuntimeByteScope,
+    KvRuntimeMechanism, KvRuntimeProofRefs, KvRuntimeShape, KvRuntimeSourceCard,
+    KvRuntimeSourceCardError, KvRuntimeSourceCardMetrics, KvRuntimeSourceCardSet,
+    KvRuntimeStorageTier, KV_RUNTIME_SOURCE_CARD_CURSOR, KV_RUNTIME_SOURCE_CARD_NEXT_CURSOR,
+};
 pub use large_model_deferral::{
     LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,
     LargeModelProviderDeferralCard, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,

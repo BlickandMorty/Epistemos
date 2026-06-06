@@ -1,0 +1,860 @@
+{
+  "falsifier_id": "F-KVRuntimeSourceCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_runtime_source_card.sh",
+  "command_digest": "sha256:3e6d2d491f236e8d54d1c6df4b0ac137edfa2b3c72d5591ffa73074f4a9a6df0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "b643de245aee5a6d0d65c19257128e21aa1916a1",
+  "fixture_id": "kv_runtime_source_card_v1",
+  "timestamp_utc": "2026-06-06T21:43:51Z",
+  "result_digest": "sha256:6fcbf4a71920bfcf93ef7bab2337a0bc58826552c06aea5056b107ae45d8af15",
+  "measurements": {
+    "accepted_fixture_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_fallback_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_fallback_gap": {
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_source_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "apple_and_mas_promotion_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compressed_model_source_card_intake_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "daemon_as_product": {
+      "value": true,
+      "unit": "bool"
+    },
+    "daemon_cache_layer_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "deployment_shape_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "distributed_cluster_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "duplicate_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_card_set": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_caveat_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_caveat_gap": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_source_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "kv_runtime_source_card_address": {
+      "value": "kv_runtime_source_card:2b975f7d2fc0c062e5851637b824a819c08a6aa4ae0c400b51991512b88b687e@1779050000000",
+      "unit": "uas_address"
+    },
+    "kv_runtime_source_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_runtime_source_card_count": {
+      "value": 9,
+      "unit": "count"
+    },
+    "l1_l2_l3_separated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_overclaims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_only_source_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "mas_live_from_server_daemon": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mechanism_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "metadata_budget_exceeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 18432,
+      "unit": "bytes"
+    },
+    "missing_byte_ledger": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_identity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_policy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_field": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compressed_model_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_quality_caveat": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_remote_storage_boundary": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_server_daemon_boundary": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_backlog_unit": {
+      "value": "kv_source_card_fork_and_daemon_boundary",
+      "unit": "cursor"
+    },
+    "offload_latency_throughput_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_latency_throughput_gap": {
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_policy_source_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "product_file_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_from_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_compatibility_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_compatibility_gap": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_source_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "proof_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 38,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "value": 38,
+      "unit": "count"
+    },
+    "remote_storage_as_local": {
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_storage_source_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_shape_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "server_as_product": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_daemon_remote_product_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_framework_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "set_metadata_bytes": {
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "source_cards_have_provenance_mode": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_signal_graph_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_imported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_tier_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "unknown_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_apple_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_index_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_kv_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_product_files_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_source_tree_bytes_imported": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_fallback_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_fallback_gap": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "activation_locality_source_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "apple_and_mas_promotion_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compressed_model_source_card_intake_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "daemon_as_product": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "daemon_cache_layer_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "deployment_shape_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "distributed_cluster_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "duplicate_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_card_set": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_caveat_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_caveat_gap": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_quantization_source_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "kv_runtime_source_card_address": {
+      "operator": "starts_with",
+      "value": "kv_runtime_source_card:",
+      "unit": "uas_address"
+    },
+    "kv_runtime_source_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_runtime_source_card_count": {
+      "operator": ">=",
+      "value": 9,
+      "unit": "count"
+    },
+    "l1_l2_l3_separated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_overclaims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_only_source_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "mas_live_from_server_daemon": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mechanism_count": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "count"
+    },
+    "metadata_budget_exceeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "missing_byte_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_identity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_policy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compatibility_field": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_compressed_model_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_quality_caveat": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_remote_storage_boundary": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_server_daemon_boundary": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_backlog_unit": {
+      "operator": "==",
+      "value": "kv_source_card_fork_and_daemon_boundary",
+      "unit": "cursor"
+    },
+    "offload_latency_throughput_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_latency_throughput_gap": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_policy_source_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "product_file_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_from_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_compatibility_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_compatibility_gap": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_source_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "proof_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 34,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 38,
+      "unit": "count"
+    },
+    "remote_storage_as_local": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_storage_source_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_shape_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "server_as_product": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_daemon_remote_product_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_framework_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "set_metadata_bytes": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "source_cards_have_provenance_mode": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_signal_graph_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_imported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "storage_tier_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "unknown_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_apple_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_index_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_kv_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_product_files_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_source_tree_bytes_imported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_pack_present": true,
+    "activation_locality_fallback_enforced": true,
+    "activation_locality_fallback_gap": true,
+    "activation_locality_source_count": true,
+    "apple_and_mas_promotion_blocked": true,
+    "bad_proof_ref_prefix": true,
+    "blocked_source_id": true,
+    "compressed_model_source_card_intake_bound": true,
+    "daemon_as_product": true,
+    "daemon_cache_layer_count": true,
+    "deployment_shape_count": true,
+    "distributed_cluster_count": true,
+    "duplicate_card_id": true,
+    "duplicate_source_id": true,
+    "empty_card_set": true,
+    "hidden_authority_rejected": true,
+    "hidden_cache_authority": true,
+    "hidden_route_authority": true,
+    "index_bytes_loaded": true,
+    "kv_bytes_loaded": true,
+    "kv_quantization_caveat_enforced": true,
+    "kv_quantization_caveat_gap": true,
+    "kv_quantization_source_count": true,
+    "kv_runtime_source_card_address": true,
+    "kv_runtime_source_card_address_deterministic": true,
+    "kv_runtime_source_card_count": true,
+    "l1_l2_l3_separated": true,
+    "large_model_overclaims_rejected": true,
+    "live_dense_70b_claim": true,
+    "local_only_source_count": true,
+    "mas_live_from_server_daemon": true,
+    "mechanism_count": true,
+    "metadata_budget_exceeded": true,
+    "metadata_bytes_read": true,
+    "missing_byte_ledger": true,
+    "missing_cache_identity": true,
+    "missing_cache_policy": true,
+    "missing_compatibility_field": true,
+    "missing_compressed_model_ref": true,
+    "missing_layer_separation": true,
+    "missing_quality_caveat": true,
+    "missing_remote_storage_boundary": true,
+    "missing_server_daemon_boundary": true,
+    "model_bytes_loaded": true,
+    "next_backlog_unit": true,
+    "offload_latency_throughput_enforced": true,
+    "offload_latency_throughput_gap": true,
+    "offload_policy_source_count": true,
+    "product_file_copied": true,
+    "product_promotion_from_research": true,
+    "prompt_cache_compatibility_enforced": true,
+    "prompt_cache_compatibility_gap": true,
+    "prompt_cache_source_count": true,
+    "proof_refs_present": true,
+    "provider_call_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "remote_storage_as_local": true,
+    "remote_storage_source_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_shape_count": true,
+    "server_as_product": true,
+    "server_daemon_remote_product_blocked": true,
+    "server_framework_count": true,
+    "set_metadata_bytes": true,
+    "source_cards_have_provenance_mode": true,
+    "source_digest_mismatch": true,
+    "source_digests_bound": true,
+    "source_signal_graph_bound": true,
+    "source_tree_bytes_imported": true,
+    "ssd_as_ram_claim": true,
+    "storage_tier_count": true,
+    "unknown_source_id": true,
+    "unsupported_apple_promotion": true,
+    "zero_index_bytes_loaded": true,
+    "zero_kv_bytes_loaded": true,
+    "zero_model_bytes_loaded": true,
+    "zero_product_files_copied": true,
+    "zero_provider_calls": true,
+    "zero_runtime_bytes_loaded": true,
+    "zero_source_tree_bytes_imported": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only KV/runtime source cards; no model, KV, index, runtime, provider, source-tree, product, server, daemon, or prompt-cache bytes loaded"
+    }
+  ],
+  "notes": "Builds F-KVRuntimeSourceCard from Pass 61 runtime research. Scope is T1/L1 metadata only: vLLM/LMCache/SGLang/KTransformers/FlexGen/PowerInfer/KIVI/Transformers/llama.cpp motifs are source-carded for later KV/offload/cache gates without promoting L2/L3 product capability."
+}

@@ -99,6 +99,11 @@ Recommended first units, in order:
    - Does not prove loadability or quality.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_model_source_card_intake/result.json`. It accepts 11 compressed model/index/codec/runtime source cards, covers 6 formats, 5 runtime lanes, and 4 organs, rejects 40 red fixtures, preserves the Gemma 4 MLX loader caveat, keeps TurboVec in Eidos/AppColdStore cache semantics, loads zero model/index/runtime bytes, makes zero provider calls, copies zero product files, and preserves the no-L2/L3-promotion boundary.
 
+Companion KV/runtime source-card gate: `F-KVRuntimeSourceCard`
+  - Proves KV/page/offload/prompt-cache runtime motifs are source-carded before RuntimeRouter/System G, fork quarantine, daemon boundaries, or prompt-cache work can cite them.
+  - Does not prove loadability, Apple Silicon support, quality, latency, memory fit, server/daemon safety, or product capability.
+  - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/kv_runtime_source_card/result.json`. It accepts 9 KV/runtime source cards, rejects 38 red fixtures, covers vLLM/LMCache/SGLang/KTransformers/FlexGen/PowerInfer/KIVI/Transformers/llama.cpp motifs, loads zero model/KV/index/runtime/provider/source-tree/product bytes, and preserves the no-L2/L3-promotion boundary. The next KV unit is `kv_source_card_fork_and_daemon_boundary`.
+
 3. `F-GemmaQAT-LocalRuntimeCandidateCard`
    - Proves source-backed Gemma 4 QAT E2B/E4B/12B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, candidate bands, and claim boundaries.
    - Does not prove runtime load, Swift MLX support, MTP speedup, MAS readiness, or product capability.
@@ -655,15 +660,18 @@ no model/index/KV/runtime bytes; and does not promote live dense 70B, live
 sparse 70B, live KV-Direct, 128K context, SSD-as-RAM, hidden cache authority,
 or L2/L3.
 
-Deep Research Pass 61 in the same synthesis file narrows this companion
-addendum into a future `F-KVRuntimeSourceCard` implementation blueprint. The
-first accepted fixture pack should include vLLM/PagedAttention, LMCache,
-SGLang HiCache/RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI,
-Transformers `QuantizedCache`, and llama.cpp prompt-cache flags. The first red
-matrix should reject server-as-product, daemon-as-product,
-remote-cache-as-local, missing cache identity, missing compatibility fence,
-missing privacy/purge policy, KV quantization without backend/nbits/axis/group
-size/residual/quality caveat, offload without latency-throughput boundary,
+Deep Research Pass 61 in the same synthesis file narrowed this companion
+addendum into `F-KVRuntimeSourceCard`; Pass 62 has now landed the
+metadata-only implementation at
+`artifacts/falsifiers/kv_runtime_source_card/result.json`. The accepted
+fixture pack includes vLLM/PagedAttention, LMCache, SGLang
+HiCache/RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI,
+Transformers `QuantizedCache`, and llama.cpp prompt-cache flags. The red
+matrix rejects server-as-product, daemon-as-product, remote-cache-as-local,
+missing cache identity, missing compatibility fields, missing byte ledger,
+missing cache policy, KV quantization without backend/nbits/axis/group
+size/residual_length, offload without latency-throughput boundary,
 unsupported Apple/MAS promotion, hidden route/cache authority, nonzero model/
 KV/index/runtime/provider bytes, copied product files, live dense 70B,
-SSD-as-RAM, and L2/L3 promotion. This remains T0/T1 canon/backlog only.
+SSD-as-RAM, and L2/L3 promotion. This is T1/L1 metadata-only architecture
+truth, not L2 runtime proof or L3 user-facing model capability.

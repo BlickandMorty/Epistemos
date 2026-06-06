@@ -570,6 +570,35 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   choose MLX/GGUF/LiteRT, load Gemma QAT, prove recall quality, advance L2, or
   make L3 user-facing model capability green. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-KVRuntimeSourceCard` is now built as the
+  research-to-build KV/runtime source-card witness:
+  `agent_core/src/uas/kv_runtime_source_card.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_kv_runtime_source_card.rs`, script
+  `Tools/falsifiers/f_kv_runtime_source_card.sh`, witness page
+  `docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/kv_runtime_source_card/result.json`. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the
+  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness accepts 9 source cards for vLLM
+  virtual block tables, LMCache reusable KV, SGLang cache hierarchy,
+  KTransformers heterogeneous placement, FlexGen offload policy, PowerInfer
+  activation locality, KIVI asymmetric KV, Transformers quantized cache, and
+  llama.cpp prompt-cache files; it rejects 38 red fixtures for server/daemon/
+  remote-cache laundering, prompt-cache compatibility gaps, KV-quantization
+  caveat gaps, offload and activation-locality gaps, MAS/Apple overclaims,
+  hidden route/cache authority, nonzero model/KV/index/runtime/provider/
+  source-tree/product bytes, live dense 70B, SSD-as-RAM, product promotion,
+  bad proof refs, and missing L1/L2/L3 separation. This is T1/L1 metadata
+  only. It does not run vLLM, LMCache, SGLang, KTransformers, FlexGen,
+  PowerInfer, KIVI, Transformers, llama.cpp, MLX, GGUF, LiteRT, Gemma 4, or
+  any local runtime; it does not advance L2 or make L3 user-facing model
+  capability green. The next KV unit is
+  `kv_source_card_fork_and_daemon_boundary`; the guard-owned product cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
   `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
@@ -1310,8 +1339,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   live sparse 70B, live KV-Direct, 128K context, or hidden cache authority; and
   does not change L2/L3. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
-- Updated **2026-06-06** · Deep Research Pass 61 converts the KV residency
-  research into a concrete future falsifier blueprint:
+- Updated **2026-06-06** · Deep Research Pass 61 converted the KV residency
+  research into a concrete falsifier blueprint, and Pass 62 has now landed it:
   `F-KVRuntimeSourceCard`. North-star sentence: Epistemos is a local cognitive
   substrate where every meaningful object has an address, plane, budget,
   status, and witness; MAS ships the safe floor, Pro contains the gated/
@@ -1323,17 +1352,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `docs/falsifiers/F-QueryAwareKVSelector_2026_06_04.md`, and
   `docs/falsifiers/F-LayerKVJointLease_2026_06_04.md` to current external
   source-card evidence for `sgl-project/sglang`,
-  `huggingface/transformers`, and `ggml-org/llama.cpp`. The proposed accepted
+  `huggingface/transformers`, and `ggml-org/llama.cpp`. The landed accepted
   fixture pack covers vLLM/PagedAttention, LMCache, SGLang HiCache/
   RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI, Transformers
-  `QuantizedCache`, and llama.cpp prompt-cache flags. The proposed red matrix
+  `QuantizedCache`, and llama.cpp prompt-cache flags. The landed red matrix
   rejects server-as-product, daemon-as-product, remote-cache-as-local, prompt
   cache without compatibility identity, KV quantization without backend/axis/
   residual/quality caveat, offload without latency-throughput boundary, hidden
   route/cache authority, nonzero model/KV/index/runtime/provider bytes, live
-  dense 70B, SSD-as-RAM, and L2/L3 promotion. This is T0/T1 canon/backlog
-  only; it does not add or run any runtime dependency and does not change the
-  guard-owned cursor.
+  dense 70B, SSD-as-RAM, and L2/L3 promotion. The built witness lives at
+  `artifacts/falsifiers/kv_runtime_source_card/result.json`; this is T1/L1
+  metadata only, does not add or run any runtime dependency, does not advance
+  L2/L3, and does not change the guard-owned cursor.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface
@@ -2549,6 +2579,13 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 ### Wired and on main
 - 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
 - Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, SCOPE-Rex/SovereignGate production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, Agent Capability Truth closeout, and the compact AnswerPacket provenance/residency detail path. **Post-Wave-4 LEGENDARY estimate: ~42/53 strictly wired, ~49/53 strict+meaningful partial, ~96% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
+- 2026-06-06 research-to-build large-local-model canon now includes the new
+  L1/T1 `F-KVRuntimeSourceCard` witness. It source-cards 9 KV/runtime/offload/
+  prompt-cache motifs and rejects 38 red fixtures while loading zero model,
+  KV, index, runtime, provider, source-tree, or product bytes. This advances
+  L1 source-card coverage only; L2 product capability remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing large
+  model/runtime capability is still not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus
