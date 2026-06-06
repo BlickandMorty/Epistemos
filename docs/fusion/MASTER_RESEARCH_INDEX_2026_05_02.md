@@ -50,7 +50,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-RealAdapterSandboxLayoutProbe` ->
 > `F-TurboVec-RealAdapterFetchLeaseProbe` ->
 > `F-TurboVec-RealAdapterSourceByteManifestProbe` ->
-> `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`. Current model-ladder built truth:
+> `F-TurboVec-RealAdapterSourceInspectionPolicyProbe` ->
+> `F-TurboVec-RealAdapterMotifExtractionCardProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -61,16 +62,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Research/Vault until residency, routing, transport, memory, rollback,
 > RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
 > truth extends through
-> `artifacts/falsifiers/turbovec_real_adapter_source_inspection_policy_probe/result.json`,
+> `artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/result.json`,
 > which passes T1/L1 metadata with the pinned TurboVec revision
-> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 22 policy rows, 16
-> future-readable rows, 6 blocked rows, future raw-source cap `196608`, 72
-> red-fixture rejections, clean-room/paraphrase output policy, native-link/
-> symlink/binary/integration/benchmark-authority blocks, zero current raw
-> source/archive/quarantine/product/index/model/runtime/provider bytes, no route
-> authority, and no L2/L3 product capability. The next retrieval/index
+> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 11 clean-room motif cards, 10
+> motif classes, 11 required source paths, selected raw-source byte ledger
+> `184472` under cap `196608`, 54 red-fixture rejections, API/stable-ID/
+> filter-before-rank/input-validation/I/O/benchmark/Swift-binding/fork-drift/
+> large-local-model working-set motifs, no product import, no native-link build,
+> no benchmark authority, zero product/index/model/runtime/provider bytes, no
+> route authority, and no L2/L3 product capability. The next retrieval/index
 > research-to-build unit is
-> `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
+> `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
 
 ---
 
@@ -860,6 +862,25 @@ the next real TurboVec/fork step must pass a motif-extraction card before
 source-derived API/test/behavior motifs can feed Eidos/AppColdStore,
 compressed retrieval, Gemma/QAT context planning, or 70B-class cold assembly.
 
+`F-TurboVec-RealAdapterMotifExtractionCardProbe` is now built as the
+metadata-only clean-room motif-card witness for the pinned TurboVec branch.
+Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_motif_extraction_card_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/`.
+The witness binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to 11 motif cards, 10 motif
+classes, 11 required source paths, selected raw-source byte ledger `184472`
+under cap `196608`, 54 rejected red fixtures, deterministic motif-card address,
+API-shape, stable external ID, filter-before-rank, lazy cache/concurrency,
+finite input validation, versioned I/O, benchmark caveat, Swift/macOS binding
+risk, public I/O gap, fork/release drift, and large-local-model working-set
+retrieval motifs. It proves the next real TurboVec/fork step must pass a
+clean-room adapter plan before any adapter source import, dependency insertion,
+native-link probe, benchmark claim, compressed retrieval route, or model-context
+authority can be attempted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -878,6 +899,7 @@ compressed retrieval, Gemma/QAT context planning, or 70B-class cold assembly.
 `F-TurboVec-RealAdapterFetchLeaseProbe`,
 `F-TurboVec-RealAdapterSourceByteManifestProbe`,
 `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`,
+`F-TurboVec-RealAdapterMotifExtractionCardProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

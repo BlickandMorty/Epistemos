@@ -4374,3 +4374,96 @@ larger Gemma/Qwen/Granite lane can cite it.
 Next research query: "Which source-carded TurboVec API, test, benchmark, fork,
 and failure-case motifs can be extracted under clean-room rules to improve
 large-local-model working sets without copied code or hidden route authority?"
+
+## Pass 53 - TurboVec Real Adapter Motif Extraction Card Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, bounded
+TurboVec source-card reads, GitHub issue/PR/fork metadata, and the current
+TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_motif_extraction_card_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_motif_extraction_card_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_motif_extraction_card_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterMotifExtractionCardProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterMotifExtractionCardProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to 11 clean-room motif cards, 10
+motif classes, 11 required source paths, selected raw-source byte ledger
+`184472` under cap `196608`, 54 rejected red fixtures, deterministic
+motif-extraction-card address, rollback, RunEventLog, AnswerPacket,
+compatibility fence, no hidden route authority, no live dense 70B claim, and no
+L2/L3 promotion.
+
+The accepted motifs are API shape/index type, stable external IDs, filter before
+rank, lazy/prepared caches with concurrency caveats, input validation for
+poisoned vectors and lazy dimension rollback, versioned I/O with rebuild hints,
+benchmark non-authority, Swift/macOS binding risk, public I/O API gap, fork/
+release drift, and large-local-model working-set retrieval. Source cards came
+from bounded upstream rows such as `docs/api.md`, `README.md`, Rust core search,
+ID-map, and I/O rows, filtering and input-validation tests, benchmark harness
+scripts, Swift binding issue #86, public I/O issue #70, centroid-cache issue
+#68, audit/release PRs #83/#84, and the public fork sweep.
+
+### 53.1 Architecture Fusion
+
+This pass makes compressed retrieval research more buildable for large local
+models without turning it into product code. The key insight is that a
+Gemma/QAT/Qwen/Granite/70B-class route does not only need smaller weights; it
+needs the smallest sufficient working set: UAS-stable IDs, privacy-filtered
+candidate pools, finite-vector guards, rebuildable compressed caches, versioned
+storage, benchmark caveats, rollback, and visible AnswerPackets. TurboVec-style
+compression is useful to Epistemos only when it is subordinate to Eidos,
+AppColdStore, SemanticWorkingSetPlan, SCOPE-Rex/SovereignGate, and System G
+visibility.
+
+The next buildable path is now: motif cards -> clean-room adapter plan -> exact
+baseline shadow replay -> held-out wins -> privacy/latency abstention ->
+AnswerPacket-visible route caveat. That route can eventually help larger models
+because it reduces context and retrieval pressure before model execution, but
+it remains runtime-agnostic and does not require MLX to be the only lane.
+
+### 53.2 Non-Promotion
+
+This pass does not clone TurboVec, import source, add dependencies, build/run an
+adapter, probe native links, run benchmarks, open index bytes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate RuntimeRouter/System G routes,
+make L2 product capability green, make L3 user-facing model capability green,
+or prove live dense 70B. It advances the research-to-build ladder only.
+
+### 53.3 Pass-Fifty-Three Register
+
+Best breakthrough candidate: a clean-room TurboVec adapter plan that keeps
+stable UAS external IDs, filter-before-rank privacy, versioned rebuildable I/O,
+finite input guards, source-card provenance, and AnswerPacket caveats while
+feeding Eidos/AppColdStore working sets for larger local models.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, because motif
+cards now exist but no adapter plan, buffer-backed I/O boundary, UAS ID mapping,
+shadow replay contract, or product-graph no-contamination proof has landed.
+
+Best near-term code unit: implement the clean-room adapter-plan schema with
+fields for UAS external ID preservation, filter-before-rank ordering,
+buffer-backed serialized index plan, version/rebuild policy, exact baseline
+shadow replay target, rollback, RunEventLog, AnswerPacket, no-native-link
+default, and no route authority.
+
+Biggest false-claim risk: treating motif extraction as implementation,
+benchmark proof, model-context quality proof, route authority, or local
+large-model runtime capability.
+
+Biggest missing source: an Epistemos-owned adapter plan and shadow replay
+harness that demonstrates compressed retrieval can improve a small local model
+working set before any larger model lane cites it.
+
+Next research query: "How should Epistemos design a clean-room TurboVec adapter
+plan around UAS stable IDs, filter-before-rank privacy, buffer-backed I/O,
+versioned rebuilds, exact baselines, and AnswerPacket-visible caveats without
+importing upstream source or creating hidden route authority?"

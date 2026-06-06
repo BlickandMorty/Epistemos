@@ -97,6 +97,7 @@ pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
 pub mod turbovec_real_adapter_dependency_envelope_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
+pub mod turbovec_real_adapter_motif_extraction_card_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
 pub mod turbovec_real_adapter_source_byte_manifest_probe;
@@ -620,6 +621,16 @@ pub use turbovec_real_adapter_source_inspection_policy_probe::{
     TurboVecSourceInspectionStatus, TurboVecSourceInspectionTier,
     TURBOVEC_REAL_ADAPTER_SOURCE_INSPECTION_POLICY_CURSOR,
     TURBOVEC_REAL_ADAPTER_SOURCE_INSPECTION_POLICY_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_motif_extraction_card_probe::{
+    motif_extraction_digest, TurboVecMotifCard, TurboVecMotifClass,
+    TurboVecMotifExtractionByteLedger, TurboVecMotifExtractionError,
+    TurboVecMotifExtractionMetrics, TurboVecMotifExtractionPolicy,
+    TurboVecMotifExtractionProofRefs, TurboVecMotifExtractionStatus,
+    TurboVecMotifExtractionTier, TurboVecMotifOutputMode,
+    TurboVecRealAdapterMotifExtractionCardProbeSet,
+    TURBOVEC_REAL_ADAPTER_MOTIF_EXTRACTION_CARD_CURSOR,
+    TURBOVEC_REAL_ADAPTER_MOTIF_EXTRACTION_CARD_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

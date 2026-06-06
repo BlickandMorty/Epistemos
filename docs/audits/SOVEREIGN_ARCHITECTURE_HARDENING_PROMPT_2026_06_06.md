@@ -300,6 +300,18 @@ If a source/canon guard is needed before the next runtime step, use this order:
 3. L1/L2/L3 truth guard:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
+3a. Current retrieval/index truth:
+   `F-TurboVec-RealAdapterMotifExtractionCardProbe` is now built
+   metadata-only; preserve its 11 clean-room motif cards, 10 motif classes, 11
+   source paths, selected raw-source byte ledger `184472` under cap `196608`,
+   API/stable-ID/filter-before-rank/input-validation/I/O/benchmark-caveat/
+   Swift-binding/fork-drift/large-local-model working-set motifs, no product
+   import, no native-link build, no benchmark authority, no hidden route
+   authority, no live dense 70B, and no L2/L3 promotion. The next
+   retrieval/index research-to-build unit is
+   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`. Older
+   TurboVec rows in this prompt remain historical context and must not move the
+   cursor backwards.
 4. `F-ProprietaryCompression-ProvenanceGate`:
    now built metadata-only; preserve its source URL, digest,
    license/provenance, quarantine status, extracted behavior/tests/failure
