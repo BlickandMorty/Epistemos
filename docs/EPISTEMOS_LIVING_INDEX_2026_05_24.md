@@ -730,6 +730,37 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** ·
+  `F-SmallCompressedModel-ModelPathReadinessCard` is now the model-path
+  readiness bridge after the local GGUF command card:
+  `agent_core/src/uas/small_compressed_model_model_path_readiness_card.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_small_compressed_model_model_path_readiness_card.rs`,
+  script
+  `Tools/falsifiers/f_small_compressed_model_model_path_readiness_card.sh`,
+  witness page
+  `docs/falsifiers/F-SmallCompressedModel-ModelPathReadinessCard_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/small_compressed_model_model_path_readiness_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1 model-path
+  readiness card and rejects 59 red fixtures: the selected
+  `google/gemma-4-E2B-it-qat-q4_0-gguf` source revision, Xet hash, required
+  `gemma-4-E2B_q4_0-it.gguf` filename, and expected file bytes `3349514112`
+  are recorded, but the local model path remains missing or unverified.
+  Owner/download approval remains pending, no download/open/hash/load/runtime
+  provider bytes are used, provider fallback, hidden route authority, server
+  sidecar defaults, first-token claims, L2/L3 promotion, live dense 70B, and
+  SSD-as-RAM are rejected. This is research-to-build T1/L1 metadata only: E2B
+  is the harness proving lane, Gemma 4 12B QAT remains the Pro Gated target,
+  and 31B/70B-class routes remain Pro Research/Vault until residency, routing,
+  transport, memory, rollback, RunEventLog, and AnswerPacket proof exists. The
+  next research-to-build model-ladder unit remains
+  `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

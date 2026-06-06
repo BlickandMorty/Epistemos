@@ -1425,3 +1425,28 @@ SSD-as-RAM are rejected. The next research-to-build unit remains
 `small_compressed_model_owner_approved_runtime_probe`, but it must now consume
 the visible command card and still produce cancellation, memory-ledger,
 rollback, RunEventLog, and AnswerPacket proof before any capability claim.
+
+### 2026-06-06 Model Path Readiness Implementation Note
+
+`F-SmallCompressedModel-ModelPathReadinessCard` is now implemented as the
+model-path readiness witness after the local command card. The artifact lives
+at
+`artifacts/falsifiers/small_compressed_model_model_path_readiness_card/result.json`
+and accepts 1 E2B QAT GGUF model-path card while rejecting 59 red fixtures. It
+records the exact selected source
+`google/gemma-4-E2B-it-qat-q4_0-gguf`, required file
+`gemma-4-E2B_q4_0-it.gguf`, source revision
+`1894d1fc0a19d86697abd40483f5983c867df03f`, Xet hash
+`f9eedc0d3f769aa9c59341e9b230f2d6b4726cc355b1f0101b60a524a6584a30`,
+and expected file bytes `3349514112`. The local model path remains
+missing-or-unverified and owner/download approval remains pending. The witness
+does not download, open, hash, load, or run model bytes.
+
+This keeps the larger-local-model bias intact without weakening safety: E2B is
+the harness proving lane, Gemma 4 12B QAT remains the flagship Pro Gated Mac
+target, and 31B/70B-class lanes remain Pro Research/Vault until residency,
+routing, transport, memory, cancellation, rollback, RunEventLog, and
+AnswerPacket proof exists. The next buildable step is still
+`small_compressed_model_owner_approved_runtime_probe`, but it must consume a
+visible model path rather than inheriting a research source card as runtime
+permission.

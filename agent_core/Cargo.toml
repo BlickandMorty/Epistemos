@@ -459,6 +459,10 @@ name = "falsify_small_compressed_model_local_runtime_command_card"
 path = "src/bin/falsify_small_compressed_model_local_runtime_command_card.rs"
 
 [[bin]]
+name = "falsify_small_compressed_model_model_path_readiness_card"
+path = "src/bin/falsify_small_compressed_model_model_path_readiness_card.rs"
+
+[[bin]]
 name = "falsify_task_working_set_query_determinism"
 path = "src/bin/falsify_task_working_set_query_determinism.rs"
 

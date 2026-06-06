@@ -33,12 +33,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > cards -> Gemma QAT candidate cards -> QAT route-card memory preflight ->
 > compressed-route AnswerPackets -> small compressed-model preflight ->
 > `F-SmallCompressedModel-OwnerApprovalRuntimeGate` ->
-> `F-SmallCompressedModel-LocalRuntimeCommandCard`. Current built truth:
-> `artifacts/falsifiers/small_compressed_model_local_runtime_command_card/result.json`
-> passes T1/L1 metadata with `/opt/homebrew/bin/llama-cli` visible as the only
-> direct future E2B command card, `/opt/homebrew/bin/llama-server` visible only
-> as a denied-by-default sidecar, owner approval pending, command unarmed, zero
-> model/runtime bytes, zero provider calls, and no L2/L3 product capability.
+> `F-SmallCompressedModel-LocalRuntimeCommandCard` ->
+> `F-SmallCompressedModel-ModelPathReadinessCard`. Current built truth:
+> `artifacts/falsifiers/small_compressed_model_model_path_readiness_card/result.json`
+> passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF source
+> revision, Xet hash, required filename, expected file bytes, local path
+> missing-or-unverified, owner/download approval pending, zero download/open/
+> hash/model/runtime/provider bytes, and no L2/L3 product capability. E2B is
+> the harness proving lane; Gemma 4 12B QAT remains the Pro Gated target; and
+> 31B/70B-class routes remain Pro Research/Vault until residency, routing,
+> transport, memory, rollback, RunEventLog, and AnswerPacket proof exists.
 
 ---
 
@@ -542,6 +546,21 @@ card, `/opt/homebrew/bin/llama-server` is denied by default, owner approval
 and model path remain pending, and command execution, provider fallback, first
 token, L2/L3 promotion, live dense 70B, and SSD-as-RAM are rejected.
 
+**Pass-twenty-two implementation.**
+`F-SmallCompressedModel-ModelPathReadinessCard` is now built as the
+model-path readiness bridge after the local command card. Implemented anchors
+include
+`agent_core/src/uas/small_compressed_model_model_path_readiness_card.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/small_compressed_model_model_path_readiness_card/`.
+The witness accepts 1 source-backed E2B QAT GGUF model-path card and rejects
+59 red fixtures: selected model ID, source revision, Xet hash, required
+filename, and expected file bytes are visible; local path remains missing or
+unverified; owner/download approval remains pending; no download, file open,
+hash, model/runtime byte load, provider call, first-token, L2/L3 promotion,
+live dense 70B, or SSD-as-RAM claim is allowed.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -549,8 +568,9 @@ token, L2/L3 promotion, live dense 70B, and SSD-as-RAM are rejected.
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
 `F-SmallCompressedModel-LiveHarnessPreflight`,
-`F-SmallCompressedModel-OwnerApprovalRuntimeGate`, and
-`F-SmallCompressedModel-LocalRuntimeCommandCard` are T1/L1 metadata architecture only.
+`F-SmallCompressedModel-OwnerApprovalRuntimeGate`,
+`F-SmallCompressedModel-LocalRuntimeCommandCard`, and
+`F-SmallCompressedModel-ModelPathReadinessCard` are T1/L1 metadata architecture only.
 They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor
