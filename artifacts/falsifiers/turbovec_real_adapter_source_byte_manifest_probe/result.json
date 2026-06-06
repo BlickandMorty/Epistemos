@@ -1,0 +1,290 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterSourceByteManifestProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_source_byte_manifest_probe.sh",
+  "command_digest": "sha256:296851b14fb553c8bdef367c90c4efe8e9a26ade83a754c3fe4d05ebac5f193f",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "5afad37f01efda7b39ae409c9071a8f90511b4f1",
+  "fixture_id": "turbovec_real_adapter_source_byte_manifest_probe_v1",
+  "timestamp_utc": "2026-06-06T15:53:22Z",
+  "result_digest": "sha256:9d9acfe0809fae509951362ab5e94068e4a42a65b8247408c74454a8863a2d12",
+  "measurements": {
+    "bytes_remain_metadata_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_local_model_research_bias_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_source_inspection_policy_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "path_and_product_root_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 100,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_entry_count": {
+      "value": 22,
+      "unit": "entries"
+    },
+    "required_manifest_entries_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "root_bucket_count": {
+      "value": 15,
+      "unit": "buckets"
+    },
+    "root_bucket_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_byte_manifest_address": {
+      "value": "turbovec_real_adapter_source_byte_manifest_probe:44bd136396f6a19cc12f01ec82ef57968c5826e7cae6ac30116eef5e724328ba@1779040902000",
+      "unit": "uas_address"
+    },
+    "source_tree_metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "symlink_binary_benchmark_dispositions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_blob_count": {
+      "value": 180,
+      "unit": "blobs"
+    },
+    "upstream_fetch_lease_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_total_blob_bytes": {
+      "value": 1615603,
+      "unit": "bytes"
+    },
+    "upstream_tree_entry_count": {
+      "value": 207,
+      "unit": "entries"
+    },
+    "upstream_tree_node_count": {
+      "value": 27,
+      "unit": "trees"
+    }
+  },
+  "acceptance_thresholds": {
+    "bytes_remain_metadata_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_local_model_research_bias_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "starts_with",
+      "value": "turbovec_quarantine_real_adapter_source_inspection_policy_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "path_and_product_root_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "starts_with",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 100,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_entry_count": {
+      "operator": "==",
+      "value": 22,
+      "unit": "entries"
+    },
+    "required_manifest_entries_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "root_bucket_count": {
+      "operator": "==",
+      "value": 15,
+      "unit": "buckets"
+    },
+    "root_bucket_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_byte_manifest_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_source_byte_manifest_probe:",
+      "unit": "uas_address"
+    },
+    "source_tree_metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "symlink_binary_benchmark_dispositions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_blob_count": {
+      "operator": "==",
+      "value": 180,
+      "unit": "blobs"
+    },
+    "upstream_fetch_lease_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_total_blob_bytes": {
+      "operator": "==",
+      "value": 1615603,
+      "unit": "bytes"
+    },
+    "upstream_tree_entry_count": {
+      "operator": "==",
+      "value": 207,
+      "unit": "entries"
+    },
+    "upstream_tree_node_count": {
+      "operator": "==",
+      "value": 27,
+      "unit": "trees"
+    }
+  },
+  "pass_per_axis": {
+    "bytes_remain_metadata_only": true,
+    "large_local_model_research_bias_preserved": true,
+    "manifest_policy_fail_closed": true,
+    "next_research_to_build_unit": true,
+    "no_route_context_or_hidden_authority": true,
+    "path_and_product_root_policy_bound": true,
+    "pinned_revision": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "required_entry_count": true,
+    "required_manifest_entries_bound": true,
+    "reversed_order_address_deterministic": true,
+    "root_bucket_count": true,
+    "root_bucket_coverage_bound": true,
+    "source_byte_manifest_address": true,
+    "source_tree_metadata_bound": true,
+    "symlink_binary_benchmark_dispositions_bound": true,
+    "upstream_blob_count": true,
+    "upstream_fetch_lease_bound": true,
+    "upstream_total_blob_bytes": true,
+    "upstream_tree_entry_count": true,
+    "upstream_tree_node_count": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_source_manifest_scope",
+      "detail": "Pinned TurboVec Git tree metadata only. No repo clone, codeload archive open, raw source read, quarantine file write, product source import, dependency insertion, adapter build, native-link probe, index/model/runtime/provider bytes, route/context authority, or live large-local-model claim."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterSourceByteManifestProbe as a T1/L1 metadata-only manifest for pinned TurboVec Git tree rows. It makes the large-local-model compression path more buildable by binding critical source/test/build/benchmark/docs rows, root bucket counts, symlink and binary-asset blocks, benchmark caveats, cleanup/rollback, RunEventLog, AnswerPacket, compatibility fence, and no-product-graph proof before source inspection or adapter rewrite can proceed. L2 capability and L3 user-facing model surfaces remain unchanged."
+}

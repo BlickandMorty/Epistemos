@@ -99,6 +99,7 @@ pub mod turbovec_real_adapter_dependency_envelope_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
+pub mod turbovec_real_adapter_source_byte_manifest_probe;
 pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
@@ -600,6 +601,15 @@ pub use turbovec_real_adapter_sandbox_layout_probe::{
     TurboVecSandboxProofRefs, TurboVecSandboxSlot, TurboVecSandboxSlotKind,
     TURBOVEC_REAL_ADAPTER_SANDBOX_LAYOUT_CURSOR,
     TURBOVEC_REAL_ADAPTER_SANDBOX_LAYOUT_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_source_byte_manifest_probe::{
+    source_byte_manifest_digest, TurboVecRealAdapterSourceByteManifestProbeSet,
+    TurboVecSourceManifestByteLedger, TurboVecSourceManifestDisposition,
+    TurboVecSourceManifestEntry, TurboVecSourceManifestError, TurboVecSourceManifestKind,
+    TurboVecSourceManifestMetrics, TurboVecSourceManifestPolicy, TurboVecSourceManifestProofRefs,
+    TurboVecSourceManifestRootBucket, TurboVecSourceManifestSource, TurboVecSourceManifestStatus,
+    TurboVecSourceManifestTier, TURBOVEC_REAL_ADAPTER_SOURCE_BYTE_MANIFEST_CURSOR,
+    TURBOVEC_REAL_ADAPTER_SOURCE_BYTE_MANIFEST_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

@@ -38,7 +38,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-SmallCompressedModel-RuntimeProbeProofEnvelope`, plus the retrieval/index
 > branch `F-TurboVec-Eidos-CompressedIndex-Plan` ->
 > `F-TurboVec-UASAddressStableExternalIds` ->
-> `F-TurboVec-FilterBeforeRankPrivacyGate`. Current model-ladder built truth:
+> `F-TurboVec-FilterBeforeRankPrivacyGate` ->
+> `F-TurboVec-CrashSafePersistentIndex` ->
+> `F-TurboVec-RecallQualityExactBaseline` ->
+> `F-TurboVec-LatencyMemoryAbstention` ->
+> `F-TurboVec-RuntimeShadowBenchmarkPlan` ->
+> `F-TurboVec-QuarantineAdapterMicrobenchProbe` ->
+> `F-TurboVec-RealAdapterOwnerApprovalProbe` ->
+> `F-TurboVec-RealAdapterSourcePinProbe` ->
+> `F-TurboVec-RealAdapterDependencyEnvelopeProbe` ->
+> `F-TurboVec-RealAdapterSandboxLayoutProbe` ->
+> `F-TurboVec-RealAdapterFetchLeaseProbe` ->
+> `F-TurboVec-RealAdapterSourceByteManifestProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -48,13 +59,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > remains the Pro Gated target; and 31B/70B-class routes remain Pro
 > Research/Vault until residency, routing, transport, memory, rollback,
 > RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
-> truth:
-> `artifacts/falsifiers/turbovec_eidos_compressed_index_plan/result.json`
-> passes T1/L1 metadata with 1 Eidos/AppColdStore compressed-index plan, 53
-> red-fixture rejections, UAS-truth external IDs, allowlist-before-rank
-> privacy, rebuildable-cache semantics, corrected 1536-dimensional byte math,
-> zero model/index/runtime/provider bytes, no route authority, and no L2/L3
-> product capability.
+> truth extends through
+> `artifacts/falsifiers/turbovec_real_adapter_source_byte_manifest_probe/result.json`,
+> which passes T1/L1 metadata with the pinned TurboVec revision
+> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 22 required manifest rows, 15
+> root buckets, 207 upstream tree entries, 180 blobs, declared blob bytes
+> `1615603`, 100 red-fixture rejections, symlink/binary/benchmark/native-link
+> blocks, zero raw source/archive/quarantine/product/index/model/runtime/
+> provider bytes, no route authority, and no L2/L3 product capability. The
+> next retrieval/index research-to-build unit is
+> `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
 
 ---
 
@@ -808,6 +822,24 @@ must pass a source-byte manifest before any source inspection, product import,
 adapter build, native-link probe, compressed retrieval route, or large-model
 context authority can be attempted.
 
+`F-TurboVec-RealAdapterSourceByteManifestProbe` is now built as the
+metadata-only Git tree source-byte manifest for the pinned TurboVec branch.
+Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_source_byte_manifest_probe.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_real_adapter_source_byte_manifest_probe/`.
+The witness binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to GitHub tree metadata with 22
+required manifest rows, 15 root buckets, 207 tree entries, 180 blobs, declared
+blob bytes `1615603`, 100 rejected red fixtures, source/test/build/benchmark/
+docs coverage, symlink and binary-asset blocking, benchmark non-authority,
+cleanup/rollback, RunEventLog, AnswerPacket, compatibility fence,
+no-product-graph audit, native-link block, benchmark caveat, and zero raw
+source/archive/quarantine/product/index/model/runtime/provider bytes. It proves
+the next real TurboVec/fork step must pass a source-inspection policy before
+any source reading, product import, adapter rewrite, native-link probe,
+compressed retrieval route, or large-model context authority can be attempted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -824,6 +856,7 @@ context authority can be attempted.
 `F-TurboVec-RealAdapterDependencyEnvelopeProbe`,
 `F-TurboVec-RealAdapterSandboxLayoutProbe`,
 `F-TurboVec-RealAdapterFetchLeaseProbe`,
+`F-TurboVec-RealAdapterSourceByteManifestProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

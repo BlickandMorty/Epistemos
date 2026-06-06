@@ -29,8 +29,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Planned unpacked bytes: `33554432`.
 - Max planned file count: `2000`.
 - Lease expiry: `1800` seconds.
-- Next research-to-build unit:
+- Former next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterSourceByteManifestProbe`:
   `turbovec_quarantine_real_adapter_source_byte_manifest_probe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
 
 ## What This Proves
 
