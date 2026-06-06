@@ -1335,3 +1335,20 @@ claims, MAS/product promotion, hidden cloud/route authority, live dense 70B,
 SSD-as-RAM, 31B non-vault promotion, and undeferred runtime. It is T1/L1
 metadata only: no model bytes, runtime bytes, provider calls, loadability,
 quality, or user-facing capability are proven.
+
+### 2026-06-06 Route-Preflight Implementation Note
+
+`F-QAT-ModelRouteCard-MemoryPreflight` is now implemented as the next
+model-ladder route-card witness after the Gemma QAT candidate cards. The
+artifact lives at
+`artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json` and
+accepts 4 route-preflight cards while rejecting 44 red fixtures. On the
+declared M2 Pro 16 GB UMA profile, E2B/E4B are admitted only for later dry-run
+packetization, 12B abstains for insufficient headroom, and 31B remains
+vault-only. The witness keeps file bytes, resident bytes, KV bytes, scratch
+bytes, available route bytes, headroom, timeout, cancellation, rollback,
+RunEventLog, AnswerPacket, and compatibility refs distinct; it loads zero
+model/runtime bytes, makes zero provider calls, and does not prove loadability,
+first token, quality, MAS readiness, L2 capability, or L3 user-facing product
+truth. The next model-ladder research-to-build unit is
+`F-CompressedRoute-AnswerPacket-DryRun`.

@@ -2641,3 +2641,69 @@ Next research query: "Which route-card memory-preflight fields keep Gemma QAT
 file bytes, resident bytes, KV bytes, scratch bytes, Metal/UMA pressure,
 timeout, cancellation, rollback, and AnswerPacket caveats distinct before a
 small compressed model runtime probe?"
+
+## 31. Pass Seventeen: QAT Route-Card Memory Preflight Built
+
+Pass seventeen implements `F-QAT-ModelRouteCard-MemoryPreflight` as the
+model-ladder bridge after `F-GemmaQAT-LocalRuntimeCandidateCard`. It converts
+the accepted Gemma 4 QAT GGUF candidate cards into byte-accounted route-card
+preflights for the declared M2 Pro 16 GB UMA profile.
+
+| Route card | Admission | Predicted route bytes | Headroom | Meaning |
+|---|---:|---:|---:|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | dry-run preflight | `6174015488` | `6710886400` | May proceed only to later dry-run packetization |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | dry-run preflight | `9797894144` | `3087007744` | May proceed only to later dry-run packetization |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | abstain | `15569256448` | `-2684354560` | Pro Gated target, insufficient headroom on this profile |
+| `google/gemma-4-31B-it-qat-q4_0-gguf` | vault-only | `37580963840` | `-24696061952` | VaultPreserved large candidate, no runtime probe |
+
+The artifact at
+`artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`
+passes with 4 accepted route cards and 44 red-fixture rejections. It records
+declared file bytes, predicted resident bytes, KV bytes, scratch bytes, UMA
+budget, reserved system bytes, available route bytes, headroom, timeout,
+cancellation, rollback, RunEventLog, AnswerPacket, and compatibility refs
+while loading zero model bytes, zero runtime bytes, and making zero provider
+calls.
+
+### 31.1 Research-To-Build Meaning
+
+This pass turns the June 6 QAT research from "promising model cards" into a
+hard route-preflight contract. E2B/E4B are now the next compressed-model dry-run
+packetization candidates. The 12B flagship remains important, but it must not
+bypass headroom and runtime proof. The 31B path remains useful research/vault
+material, not an app-local runtime claim.
+
+### 31.2 Non-Promotion
+
+This pass does not prove GGUF loadability, Swift MLX Gemma support, LiteRT
+support, first token, memory residency, quality, tool use, MAS readiness, L2
+capability, or L3 user-facing product truth. It advances T1/L1 metadata
+architecture only. L2 capability remains
+`vault_research_route_with_packetized_mitigation`; L3 product truth remains
+unchanged.
+
+### 31.3 Pass-Seventeen Register
+
+Best breakthrough candidate: compressed local model routing that admits only
+the smallest byte-accounted support set and turns larger QAT models into
+explicit abstention or vault cards until hardware/runtime proof exists.
+
+Safest next falsifier: `F-CompressedRoute-AnswerPacket-DryRun`, because the
+admitted E2B/E4B routes now need route-caveat visibility, planned/opened/
+resident byte placeholders, fallback, rollback, and AnswerPacket packetization
+before any live runtime.
+
+Best near-term code unit: build `F-CompressedRoute-AnswerPacket-DryRun` as a
+metadata-only packet witness over the admitted E2B/E4B preflight routes,
+keeping all runtime bytes at zero.
+
+Biggest false-claim risk: treating dry-run preflight admission as first token,
+quality, product capability, memory residency, or a 12B/31B local runtime
+green light.
+
+Biggest missing source: source-carded LiteRT package-size metadata and local
+runtime-package constraints for the E2B/E4B dry-run candidates.
+
+Next research query: "Which AnswerPacket route-card fields prove that a
+compressed-model dry-run is visible, cancellable, reversible, byte-accounted,
+and unable to mutate product truth before first-token runtime proof?"
