@@ -306,6 +306,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `vault_research_route_with_packetized_mitigation`, and L3 product capability
   plus release readiness remain unchanged until the full automated suite,
   log/manual/distribution review, and three uninterrupted zero-fail passes land.
+- Updated **2026-06-05** · automated-check repair checkpoint: Overseer routing
+  now keeps short fast-mode main-chat turns local-only unless explicit context,
+  attachments, long input, explicit agent mode, or managed research signals
+  require tools. North-star sentence: Epistemos is a local cognitive substrate
+  where every meaningful object has an address, plane, budget, status, and
+  witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega
+  ladder, and no claim promotes without visible proof. The router now checks
+  long-running/managed research before local tool planning, treats write/edit
+  tool permissions as native approval (`ask`) while delete/trash remains denied,
+  keeps Core App Store fallback permissions from surfacing the Pro gateway
+  `web.fetch`, and tokenizes graph keywords so ordinary words like `paragraph`
+  cannot open graph/tool authority. Focused verification passed
+  `EpistemosTests/OverseerComplexityRouterTests` (9 tests) and
+  `EpistemosTests/OverseerProtocolTests` (7 tests). This is a routing
+  authority repair inside the red release-audit gate only: the L1 cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  with `duplicate_risk_count=0`, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  plus release readiness remain unchanged until the full automated suite,
+  log/manual/distribution review, and three uninterrupted zero-fail passes land.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates
