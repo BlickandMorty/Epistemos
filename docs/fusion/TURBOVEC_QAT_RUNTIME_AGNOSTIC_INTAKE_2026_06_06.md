@@ -589,3 +589,29 @@ The current research bias is:
 ## Implementation Bias
 
 Default to source cards, schemas, route cards, deterministic digests, and tests first. Move to runtime only when the lease is explicit. Use exact names: TurboVec for vector indexing, TurboQuant for compression research, Gemma QAT for quantization-aware model checkpoints, MLX/GGUF/LiteRT/Transformers/Metal as runtime lanes, and Epistemos UAS/ColdStore/ActiveAssembly/Eidos/SCOPE-Rex/RuntimeRouter/AnswerPacket as the governing architecture.
+
+## Runtime-Plural Build Backlog Addendum
+
+Deep Research Pass 59 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` adds a
+runtime-plural source-card sweep for current TurboVec, LiteRT-LM, llama.cpp/
+GGUF, sampled TurboVec forks, old local Downloads research, and local
+Epistemos MLX/GGUF/RuntimeRouter anchors. The practical build backlog is:
+
+- `F-LiteRTLM-NativeSwiftAdmission`: LiteRT-LM Swift/macOS binary-target,
+  unsafe-linker, tool-schema, cancellation, MAS/Pro, rollback, RunEventLog, and
+  AnswerPacket admission.
+- `F-GGUF-QAT-BaselineCommandEquivalence`: GGUF/llama.cpp QAT baseline command
+  equivalence through the local GGUF path, with `llama-server` denied by
+  default.
+- `F-RuntimePlural-QATLaneTournamentPlan`: same-fixture comparison across MLX,
+  GGUF/llama.cpp, LiteRT-LM, and optional explicit local endpoints.
+- `F-TurboVec-ForkDeltaSourceCard`: upstream plus sampled-fork delta cards
+  before any fork code or behavior can influence product logic.
+- `F-DownloadsLocalResearchDedupeProvenanceCard`: local research motif recovery
+  with stale/overclaim rejection before future agents reuse old model-viability
+  or SSD/offload claims.
+
+This addendum is T0/T1 canon/backlog only. It adds no product dependency, runs
+no runtime, loads no model/index bytes, runs no benchmark, and does not promote
+L2/L3.
