@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="b9f9ec1901f82b5a87dc0920454070d0a8d8a245">
+  <meta name="epistemos-commit-sha" content="0dc8f7e28d61e22a1a5dd8d083e45e8f902b651a">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -548,7 +548,14 @@
   llama.cpp, <code>mlx-swift-lm</code>, <code>mlx-lm</code>, LocalLLMClient,
   Gemma 4 QAT GGUF E2B/E4B/12B, Gemma 4 LiteRT E2B/E4B/12B, Qwen3-Coder 30B
   MLX, and Granite 4.0 H Micro MLX. Accepted means source-card hygiene only,
-  with zero runtime/model/index bytes and no product capability claim. This is
+  with zero runtime/model/index bytes and no product capability claim. Pass
+  eight classifies first implementation lanes: primary source-priors are
+  TurboVec compressed retrieval, small Gemma QAT GGUF/LiteRT, 12B Gemma Pro
+  Gated cards, Qwen3-Coder MLX, and Granite MLX; fallback source-priors are
+  llama.cpp/GGUF, <code>mlx-lm</code>, LocalLLMClient, and runtime-plurality
+  comparison; deferred lanes are MLX Gemma QAT without license/loader proof,
+  26B/31B, KV/TurboQuant, server runtimes, lattice codecs, and unknown-license
+  forks. This is
   T0
   research only and does not promote product capability, live dense 70B, live
   sparse 70B, or release readiness.

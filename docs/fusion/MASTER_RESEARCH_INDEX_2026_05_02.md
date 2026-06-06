@@ -311,6 +311,17 @@ bytes loaded, rollback/log/packet refs, and no product capability claim. MLX
 Gemma 4 12B QAT 4bit, 26B/31B, TurboQuant/KV/lattice repos, server runtimes,
 and unknown-license forks remain deferred or quarantine-reference.
 
+**Pass-eight lane classification.** The memo now classifies the accepted pack
+into first implementation lanes for `F-ProprietaryCompression-ProvenanceGate`.
+Primary source-priors are TurboVec compressed retrieval, small Gemma QAT GGUF,
+small Gemma LiteRT, 12B Gemma Pro Gated target cards, Qwen3-Coder MLX, and
+Granite MLX. Fallback source-priors are llama.cpp/GGUF, `mlx-lm`,
+LocalLLMClient, and runtime-plurality comparison. Deliberately deferred lanes
+are MLX Gemma 4 QAT without license/loader proof, 26B/31B, KV/TurboQuant,
+server runtimes, lattice codecs, and unknown-license forks. These labels are
+metadata fixture priorities only; none is runtime authority, product
+capability, MAS eligibility, or release readiness.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
