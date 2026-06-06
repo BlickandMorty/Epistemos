@@ -2439,15 +2439,17 @@ portfolio that lets Epistemos harvest public research while preserving
 proprietary hygiene, source identity, rollback, AnswerPacket visibility, and
 no-hidden-authority discipline.
 
-Safest next falsifier: `F-CompressedModelSourceCard-Intake`, because model,
-index, quantizer, codec, and runtime source cards now need a typed source-card
-shape before Gemma QAT, TurboVec, GGUF, LiteRT, MLX, and lattice-codec route
-cards can become byte/runtime candidates.
+Safest next falsifier at pass fourteen:
+`F-CompressedModelSourceCard-Intake`, because model, index, quantizer, codec,
+and runtime source cards needed a typed source-card shape before Gemma QAT,
+TurboVec, GGUF, LiteRT, MLX, and lattice-codec route cards could become
+byte/runtime candidates. This is now implemented in pass fifteen.
 
-Best near-term code unit: implement a metadata-only compressed-model source
-card that records model/index kind, claimed format, expected runtime lanes,
-license/provenance digest, import mode, byte-zero scope, rollback, RunEventLog,
-AnswerPacket, and explicit non-loadability/non-quality caveats.
+Best near-term code unit at pass fourteen: implement a metadata-only
+compressed-model source card that records model/index kind, claimed format,
+expected runtime lanes, license/provenance digest, import mode, byte-zero
+scope, rollback, RunEventLog, AnswerPacket, and explicit non-loadability/
+non-quality caveats. This is now implemented in pass fifteen.
 
 Biggest false-claim risk: treating a provenance-approved source as imported
 code, runtime support, local model loadability, or user-facing product
@@ -2460,3 +2462,107 @@ Next research query: "Which compressed model/index source-card fields should
 `F-CompressedModelSourceCard-Intake` require so provenance-approved research can
 become route-card material without proving runtime, recall quality, or product
 capability too early?"
+
+## 29. Pass 15 - Compressed Model Source-Card Intake Built
+
+Question answered: can provenance-approved large-model research become a typed
+source-card portfolio that later route/runtime witnesses may cite without
+accidentally proving loadability or user-facing capability?
+
+Yes. `F-CompressedModelSourceCard-Intake` is now implemented as a metadata-only
+Rust UAS primitive plus falsifier witness:
+
+- primitive:
+  `agent_core/src/uas/compressed_model_source_card_intake.rs`
+- export surface: `agent_core/src/uas/mod.rs`
+- falsifier binary:
+  `agent_core/src/bin/falsify_compressed_model_source_card_intake.rs`
+- command:
+  `Tools/falsifiers/f_compressed_model_source_card_intake.sh`
+- artifact:
+  `artifacts/falsifiers/compressed_model_source_card_intake/result.json`
+- witness doc:
+  `docs/falsifiers/F-CompressedModelSourceCard-Intake_2026_06_06.md`
+
+North-star preserved: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### 29.1 What It Builds
+
+The new primitive gives Epistemos a typed source-card spine:
+
+```text
+SourceSignalGraph
+  -> ModelInventoryCandidateSet
+  -> ProprietaryCompressionProvenanceGate
+  -> CompressedModelSourceCardIntake
+  -> later Gemma QAT card / TurboVec plan / memory preflight / byte witness
+```
+
+Accepted cards cover Gemma 4 QAT GGUF E2B, Gemma 4 mobile LiteRT E4B, Gemma 4
+12B QAT GGUF, MLX Gemma 4 preview with loader caveat preserved, TurboVec as an
+Eidos compressed-cache card, llama.cpp, LiteRT-LM, MLX Swift LM, Qwen3-Coder
+MLX, Granite Micro MLX, and custom-Metal local canon. The witness covers 6
+formats, 5 runtime lanes, 4 organs, inventory refs, provenance overlays,
+declared artifact-byte facts, declared runtime-memory-floor facts, rollback,
+RunEventLog, AnswerPacket, compatibility refs, and zero loaded model/index/
+runtime/provider bytes.
+
+Red fixtures reject bad or duplicate source cards, blocked sources, digest
+drift, unknown or mismatched inventory/provenance refs, missing license refs,
+missing declared bytes or route caveats, Gemma 4 MLX loader-caveat bypass,
+package manifest as loader proof, TurboVec as hidden router instead of
+Eidos/AppColdStore cache, GGUF/LiteRT lane mismatch, rowid semantic identity,
+hidden route/cloud authority, product file copy, weight blob open/hash, nonzero
+model/index/runtime/provider bytes, live dense 70B, SSD-as-RAM, MAS/Live/
+product-green promotion, T2+ promotion, bad proof refs, metadata overflow, and
+missing L1/L2/L3 separation.
+
+### 29.2 What It Does Not Build
+
+This pass does not import code, choose a runtime, create a TurboVec index,
+load Gemma QAT, prove LiteRT/GGUF/MLX support, prove recall quality, run a
+small model, prove 12B/30B/70B local capability, or make user-facing model
+capability green. It advances T1/L1 architecture only. L2 capability and L3
+user-facing/product truth remain unchanged.
+
+### 29.3 Why It Matters
+
+The deep research loop now has a buildable bridge between source hygiene and
+future route cards. This is the piece that lets Epistemos stay ambitious about
+TurboVec, QAT, GGUF, LiteRT, MLX, custom Metal, and local coding/research
+models while keeping every source-card claim separate from loadability,
+runtime quality, product readiness, MAS copy, and 70B-class capability.
+
+### 29.4 Pass-Fifteen Register
+
+Best breakthrough candidate: a source-carded compression/runtime portfolio
+where Gemma QAT, TurboVec, GGUF/LiteRT/MLX lanes, and custom-Metal motifs can
+be compared by the same provenance, byte, route, rollback, and AnswerPacket
+contract before runtime.
+
+Safest next falsifier: `F-TurboVec-Eidos-CompressedIndex-Plan` if the next unit
+stays retrieval/index focused, or `F-GemmaQAT-LocalRuntimeCandidateCard` if the
+next unit stays model-ladder focused. The guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+Best near-term code unit: implement `F-TurboVec-Eidos-CompressedIndex-Plan`
+as a metadata-only plan that proves UAS-stable external IDs, allowlist-before-
+rank filtering, rebuildable cache semantics, byte accounting, rollback,
+RunEventLog, AnswerPacket, and no hidden route authority before any TurboVec
+index is built.
+
+Biggest false-claim risk: treating source-carded Gemma QAT, TurboVec, or
+runtime packages as loader support, route authority, local 70B success, or
+product-green capability.
+
+Biggest missing source: current fork-level TurboVec/TurboQuant/KV/lattice
+quarantine scans tied to `CompressedModelSourceCard` IDs, plus local hardware
+measurement plans for the small-to-12B model ladder.
+
+Next research query: "Which TurboVec/Eidos compressed-index plan fields prove
+rebuildability, privacy allowlists, UAS external IDs, recall-quality baselines,
+and AnswerPacket visibility before any compressed index can affect live
+retrieval?"

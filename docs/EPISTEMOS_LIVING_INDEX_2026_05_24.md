@@ -544,6 +544,32 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   MLX/GGUF/LiteRT, load Gemma QAT, prove TurboVec recall quality, advance L2,
   or make L3 user-facing model capability green. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-CompressedModelSourceCard-Intake` is now built
+  as the next research-to-build source-card witness:
+  `agent_core/src/uas/compressed_model_source_card_intake.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_compressed_model_source_card_intake.rs`, script
+  `Tools/falsifiers/f_compressed_model_source_card_intake.sh`, witness page
+  `docs/falsifiers/F-CompressedModelSourceCard-Intake_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/compressed_model_source_card_intake/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 11 cards across
+  Gemma 4 QAT GGUF, Gemma 4 mobile LiteRT, MLX Gemma 4 preview with loader
+  caveat, TurboVec Eidos cache, llama.cpp, LiteRT-LM, MLX Swift LM,
+  Qwen3-Coder MLX, Granite Micro MLX, and custom-Metal local canon; it covers
+  6 formats, 5 runtime lanes, 4 organs, and rejects 40 red fixtures for bad
+  source/provenance/inventory binding, missing declared bytes/caveats, Gemma 4
+  loader-caveat bypass, TurboVec-as-router, package-manifest-as-loader-proof,
+  rowid identity, hidden route/cloud authority, nonzero model/index/runtime/
+  provider bytes, copied product files, MAS/Live/product-green promotion, live
+  dense 70B, SSD-as-RAM, bad proof refs, and missing L1/L2/L3 separation. This
+  is T1/L1 metadata only. It does not import code, create a TurboVec index,
+  choose MLX/GGUF/LiteRT, load Gemma QAT, prove recall quality, advance L2, or
+  make L3 user-facing model capability green. The guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

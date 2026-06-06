@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="c7e9bf76b1b58ca4b3c1a302133114b440304682">
+  <meta name="epistemos-commit-sha" content="250a09a7b1e93df951ed7ef8c3c224799f7966b9">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -600,9 +600,18 @@
   It accepts repo/fork/paper/blog/model-card/runtime-package/local-canon/benchmark overlays,
   covers all import modes and allowed actions, binds model-inventory candidates, and rejects
   unsafe import, quarantine, clean-room, benchmark, dependency, byte-load, hidden-authority,
-  hidden-cloud, live-70B, SSD-as-RAM, MAS/green, proof-ref, and budget failures. This is
-  T1/L1 provenance architecture only; the next research-to-build unit is
-  <code>F-CompressedModelSourceCard-Intake</code>.
+  hidden-cloud, live-70B, SSD-as-RAM, MAS/green, proof-ref, and budget failures. Pass
+  fifteen implements <code>F-CompressedModelSourceCard-Intake</code> with Rust primitive,
+  binary, script, witness doc, schema/handbook coverage, and artifact at
+  <code>artifacts/falsifiers/compressed_model_source_card_intake/result.json</code>.
+  It accepts 11 compressed model/index/codec/runtime cards across Gemma 4 QAT GGUF,
+  Gemma 4 mobile LiteRT, MLX Gemma 4 preview with loader caveat, TurboVec Eidos cache,
+  llama.cpp, LiteRT-LM, MLX Swift LM, Qwen3-Coder MLX, Granite Micro MLX, and
+  custom-Metal local canon; it rejects 40 red fixtures, keeps model/index/runtime bytes
+  at zero, and remains T1/L1 metadata architecture only. The next research-to-build
+  units are <code>F-TurboVec-Eidos-CompressedIndex-Plan</code>,
+  <code>F-GemmaQAT-LocalRuntimeCandidateCard</code>, and
+  <code>F-QAT-ModelRouteCard-MemoryPreflight</code>.
 </div>
 
 <div class="canon-hook">
@@ -1174,6 +1183,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
     <tr><td>SourceSignalGraph</td><td>Bookmark, repo, paper, X, local-doc, and trace sources with digest, credibility, license note, and route affinities.</td><td>F-SourceSignalGraph-Intake</td></tr>
     <tr><td>ModelInventoryCandidateCard</td><td>Local model, package, cache, sidecar, and runtime-preference evidence bound to accepted SourceCard digests, zero-byte scopes, rollback, RunEventLog, AnswerPacket, MAS/Pro, and no-promotion fences.</td><td>F-ModelInventory-ZeroByteCandidateCards</td></tr>
     <tr><td>ProprietaryCompressionProvenanceGate</td><td>TurboVec/QAT/runtime/fork/local-canon sources classified into direct-import, adapter-wrap, quarantine-reference, clean-room, or research-only overlays before copied code, route authority, runtime bytes, or product claims are allowed.</td><td>F-ProprietaryCompression-ProvenanceGate</td></tr>
+    <tr><td>CompressedModelSourceCard</td><td>Gemma QAT, GGUF, LiteRT, MLX, TurboVec, runtime-package, and custom-Metal source cards bound to source/inventory/provenance refs, expected lanes, explicit caveats, zero-byte scope, rollback, RunEventLog, AnswerPacket, and no product promotion.</td><td>F-CompressedModelSourceCard-Intake</td></tr>
     <tr><td>TaskWorkingSetQuery</td><td>Mission-shaped privacy, quality, evidence, verifier, max-hot, max-KV, and max-cold-I/O budgets.</td><td>F-TaskWorkingSetQuery-Determinism</td></tr>
     <tr><td>SemanticWorkingSetPlan</td><td>Selected evidence, KV, adapters, weight pages, kernels, verifiers, rejected units, byte budgets, fallback, and rollback.</td><td>F-SemanticWorkingSetPlan-Budget</td></tr>
     <tr><td>ResidencyPageTable</td><td>Semantic unit to UAS address, storage tier, byte range, codec, checksum, compatibility fence, lease, and prefetch priority.</td><td>F-ResidencyPageTable-Addressability</td></tr>
