@@ -981,8 +981,37 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   quarantine directories, write source bytes, add a product dependency,
   import/build/run an adapter, probe native links, open index bytes, load
   Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
-  user-facing model capability green. The next retrieval unit is
-  `turbovec_quarantine_real_adapter_source_byte_manifest_probe`; the
+  user-facing model capability green. The former next retrieval unit,
+  `turbovec_quarantine_real_adapter_source_byte_manifest_probe`, has now
+  landed in the next row; the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-RealAdapterSourceByteManifestProbe` is
+  now built as the metadata-only Git tree source-byte-manifest gate for the
+  pinned real TurboVec source branch:
+  `agent_core/src/uas/turbovec_real_adapter_source_byte_manifest_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_byte_manifest_probe.rs`,
+  script `Tools/falsifiers/f_turbovec_real_adapter_source_byte_manifest_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterSourceByteManifestProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_source_byte_manifest_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to GitHub tree metadata: 22
+  required manifest rows, 15 root buckets, 207 upstream Git tree entries, 180
+  blobs, declared blob bytes `1615603`, 100 rejected red fixtures, symlink and
+  binary-asset blocking, benchmark non-authority, cleanup/rollback,
+  RunEventLog, AnswerPacket, compatibility fence, no-product-graph audit,
+  native-link block, and benchmark caveat. This is T1/L1 metadata only. It does
+  not clone TurboVec, open codeload archives, read raw source, write quarantine
+  files, add a product dependency, import/build/run an adapter, probe native
+  links, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
+  routes, advance L2, or make L3 user-facing model capability green. The next
+  retrieval unit is
+  `turbovec_quarantine_real_adapter_source_inspection_policy_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

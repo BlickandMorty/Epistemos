@@ -4194,3 +4194,91 @@ Next research query: "What source-byte manifest, digest ledger, file allowlist,
 license/provenance split, cleanup replay, no-product-graph audit, native-link
 block, RunEventLog, AnswerPacket, rollback, and benchmark caveat must gate
 pinned TurboVec before source inspection or adapter rewrite begins?"
+
+## Pass 51 - TurboVec Real Adapter Source Byte Manifest Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, the pinned
+TurboVec upstream tree metadata, GitHub source metadata, and the current
+TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_source_byte_manifest_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_byte_manifest_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_source_byte_manifest_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_source_byte_manifest_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterSourceByteManifestProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterSourceByteManifestProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to GitHub tree metadata with 22
+required manifest rows, 15 root buckets, 207 upstream Git tree entries, 180
+blobs, declared blob bytes `1615603`, 100 rejected red fixtures, source/test/
+build/benchmark/docs coverage, symlink and binary-asset blocking, benchmark
+non-authority, cleanup/rollback, RunEventLog, AnswerPacket, compatibility
+fence, no-product-graph audit, native-link block, benchmark caveat, zero raw
+source/archive/quarantine/product/index/model/runtime/provider bytes, and no
+L2/L3 promotion.
+
+### 51.1 Architecture Fusion
+
+This moves the retrieval/compression branch from "future source bytes need a
+lease" to "source inspection now has a manifest-bound policy target." That is
+important for large local models because model size is only half the problem:
+Gemma 4 QAT, GGUF/llama.cpp, LiteRT, MLX lanes, Qwen3-class coding models, and
+70B-class cold assemblies all need compressed retrieval and context selection
+that can be trusted under privacy, recall, latency, rollback, and provenance
+pressure.
+
+The breakthrough direction is practical rather than magical. TurboVec and
+TurboQuant-style ideas should help Epistemos reduce retrieval/cache/context
+pressure, feed larger local models higher-signal working sets, and make
+ActiveAssembly smaller without letting a compressed index become durable truth
+or hidden route authority. Gemma 4 12B QAT remains the flagship Pro Gated Mac
+target; E2B/E4B remain harness proving lanes; 31B/70B-class routes remain Pro
+Research/Vault until memory, routing, transport, cancellation, quality,
+RunEventLog, and AnswerPacket witnesses exist.
+
+### 51.2 Non-Promotion
+
+This pass does not clone TurboVec, open codeload archives, write quarantine
+files, read raw source content, import product source, add a dependency,
+build/run an adapter, probe native links, open index bytes, load Gemma/QAT/
+GGUF/MLX/LiteRT/model bytes, choose RuntimeRouter/System G routes, make L2
+product capability green, make L3 user-facing model capability green, or prove
+live dense 70B. It advances the research-to-build ladder only.
+
+### 51.3 Pass-Fifty-One Register
+
+Best breakthrough candidate: a source-inspection policy gate for manifest-bound
+TurboVec rows that extracts API shapes, tests, benchmarks, failure cases, and
+clean-room motifs without importing source, enabling route authority, or
+contaminating product code.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_source_inspection_policy_probe`, because the
+manifest exists but no exact read/extract policy, clean-room note schema,
+source-content boundary, benchmark authority caveat, or no-product-import proof
+has landed.
+
+Best near-term code unit: build the source-inspection policy gate that decides
+which manifest rows may be read as quarantine reference material, which are
+blocked as symlink/binary/native-link/benchmark-only rows, which observations
+may become source cards, and which must wait for adapter-wrap or clean-room
+rewrite proof.
+
+Biggest false-claim risk: treating Git tree metadata as source inspection,
+adapter readiness, benchmark proof, compressed retrieval quality, or local
+model capability.
+
+Biggest missing source: the exact source-inspection and clean-room policy for
+TurboVec critical rows, including docs/API, Rust source, tests, benchmark
+scripts, Python bindings, native-link surfaces, and binary/symlink exclusions.
+
+Next research query: "What manifest-bound source-inspection policy should
+allow reading or extracting APIs/tests/failure cases from TurboVec while
+blocking product import, native-link builds, benchmark laundering, hidden route
+authority, raw model/index bytes, and large-local-model product claims?"

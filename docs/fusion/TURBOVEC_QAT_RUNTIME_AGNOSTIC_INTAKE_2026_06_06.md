@@ -380,10 +380,32 @@ Recommended first units, in order:
      cleanup/rollback, RunEventLog, AnswerPacket, compatibility fence,
      no-product-graph audit, native-link block, benchmark caveat, zero
      fetched/cloned/product/index/model/runtime/provider bytes, and the
-     no-L2/L3-promotion boundary. The next retrieval/index research-to-build
-     unit is `turbovec_quarantine_real_adapter_source_byte_manifest_probe`.
+     no-L2/L3-promotion boundary. Its former next unit,
+     `turbovec_quarantine_real_adapter_source_byte_manifest_probe`, is now
+     landed by `F-TurboVec-RealAdapterSourceByteManifestProbe`.
 
-17. `F-QAT-ModelRouteCard-MemoryPreflight`
+17. `F-TurboVec-RealAdapterSourceByteManifestProbe`
+   - Proves the pinned upstream TurboVec tree has a metadata-only
+     source-byte manifest before source inspection, adapter rewrite,
+     native-link probes, route mutation, or model-context use can cite it.
+   - Does not clone TurboVec, open codeload archives, write quarantine files,
+     read raw source content, add a product dependency, import/build/run
+     adapters, probe native links, open index bytes, load
+     Gemma/QAT/GGUF/MLX/LiteRT/model bytes, or promote product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_source_byte_manifest_probe/result.json`.
+     It binds the pinned revision to GitHub tree metadata with 22 required
+     manifest rows, 15 root buckets, 207 upstream Git tree entries, 180 blobs,
+     declared blob bytes `1615603`, 100 rejected red fixtures,
+     source/test/build/benchmark/docs coverage, symlink and binary-asset
+     blocking, benchmark non-authority, cleanup/rollback, RunEventLog,
+     AnswerPacket, compatibility fence, no-product-graph audit, native-link
+     block, benchmark caveat, zero raw source/archive/quarantine/product/index/
+     model/runtime/provider bytes, and the no-L2/L3-promotion boundary. The
+     next retrieval/index research-to-build unit is
+     `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
+
+18. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
