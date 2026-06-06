@@ -920,3 +920,167 @@ rollback, RunEventLog, and AnswerPacket evidence.
 Next research query: "Which concrete negative fixtures should
 `F-ProprietaryCompression-ProvenanceGate` include first so it catches the most
 dangerous source-card mistakes before any model/runtime probe is allowed?"
+
+## 20. Pass 6 - Provenance Gate Negative-Fixture Matrix
+
+Observed on 2026-06-06 through `SourceCard` primitive tests,
+`F-SwiftLM-SourceIntake`, `F-SourceToResidency-NoPoison`,
+`F-AxiomAxiomatic-SourceDistinction`, the June 6 TurboVec/QAT intake, and the
+Pass 5 overlay schema. This pass is research/canon only: no product code,
+runtime bytes, model bytes, index bytes, benchmark bytes, source clone, or
+external provider call was executed.
+
+### 20.1 Design Rule
+
+`F-ProprietaryCompression-ProvenanceGate` should be a red-fixture-heavy
+metadata witness. Its first value is not proving that a runtime works; its
+first value is proving that bad source cards cannot create product claims,
+route authority, build graph contamination, or live model probes.
+
+The gate should keep three levels separate:
+
+| Level | Existing authority | New negative-fixture responsibility |
+|---|---|---|
+| Primitive card | Rust `SourceCard` and `SourceSignalGraph` | reject empty cards, duplicate source IDs, invalid BLAKE3 digests, zero credibility, missing route affinity, blocked sources, and unknown edge endpoints |
+| Source-card witness | SwiftLM/Axiom/source-to-residency falsifiers | reject missing license/usage notes, missing benchmark caveats, missing local tests, raw implementation import, poisoned/stale/private/license-blocked/low-credibility sources, missing rollback, missing falsifier gate, hidden authority, and stale overclaim copy |
+| Compression/runtime overlay | New provenance gate | reject duplicate URLs, bad import modes, direct import without dependency closure, quarantine leakage, nonzero bytes, unsafe KV combinations, model-card-to-runtime promotion, benchmark laundering, and MAS/Live overclaims |
+
+### 20.2 First Negative Fixtures To Implement
+
+Priority order for the next metadata-only gate:
+
+1. `duplicate_source_url_rejected`: two source IDs point at the same URL or
+   model card but disagree about license, import mode, or runtime lane.
+2. `missing_license_or_usage_rejected`: source card lacks SPDX/license state,
+   model terms, setup caveat, or usage note.
+3. `unknown_import_mode_rejected`: import mode is absent or not one of
+   `direct_import`, `adapter_wrap`, `quarantine_reference`,
+   `clean_room_rewrite`, or `research_only`.
+4. `direct_import_without_dependency_closure_rejected`: permissive-looking repo
+   claims direct import but has no dependency-license closure, notice plan,
+   commit pin, or tests.
+5. `quarantine_reference_in_build_graph_rejected`: GPL/AGPL/no-license or
+   unclear source appears inside MAS/Pro build graph, package manifest, product
+   module path, or linkable dependency list.
+6. `clean_room_with_copied_files_rejected`: clean-room card has copied-file
+   count above zero or points to implementation text rather than behavior
+   specs/tests.
+7. `raw_code_import_rejected`: card claims source-prior-only but contains a
+   product import path, vendored module, generated binding, or runtime bridge.
+8. `nonzero_runtime_or_model_bytes_rejected`: metadata witness records any
+   model/runtime/index bytes loaded, opened, decoded, resident, or benchmarked.
+9. `provider_or_cloud_dependency_rejected`: card depends on hosted provider
+   output, hidden cloud fallback, non-replayable receipt, or remote runtime.
+10. `hidden_authority_rejected`: TurboVec, PatternBoost, Eidos, lattice,
+    benchmark, model card, or source prior tries to mutate a live route or
+    bypass SCOPE-Rex/SovereignGate.
+11. `model_card_promotes_runtime_rejected`: HF/GitHub card, QAT label, MLX
+    conversion, download count, or repo maturity is treated as loader proof,
+    cancellation proof, structured-output proof, or L2/L3 evidence.
+12. `unsafe_kv_combo_rejected`: rotating plus quantized KV, asymmetric KV, MTP,
+    or TurboQuant KV is proposed without compatibility fence, NIAH/factual
+    recall fixtures, rollback, and route abstention.
+13. `benchmark_laundering_rejected`: source cites benchmark speed/quality
+    without fixture hash, sample count, hardware context, failure cases, and
+    "not product proof" caveat.
+14. `allowlist_after_rank_rejected`: compressed retrieval ranks before privacy
+    and metadata predicates compile to allowlists.
+15. `missing_visibility_refs_rejected`: no rollback, RunEventLog, AnswerPacket,
+    source refs, or compatibility fence.
+16. `mas_or_live_promotion_rejected`: ProductBuild or ProStatus claims MAS,
+    Live, green, release-ready, live sparse 70B, live dense 70B, SSD-as-RAM, or
+    cloud fallback from source-card metadata.
+17. `source_class_collapse_rejected`: model card, runtime repo, fork, paper,
+    benchmark, and local package collapse into one authority class.
+18. `stale_overclaim_copy_rejected`: exact stale phrases from prior witnesses
+    reappear, including cloud fallback, weights live on SSD, 70B behaves like,
+    or route-green from research.
+
+### 20.3 Overlay-Specific Red Fixtures
+
+| Overlay | Highest-value red fixture | Why it matters |
+|---|---|---|
+| `ModelRuntimeOverlay` | QAT/MLX/GGUF/LiteRT model card sets `loader_support=proven` with no local loader witness | Stops model-card availability from becoming product runtime proof |
+| `CompressedIndexOverlay` | TurboVec-like index stores compressed vector IDs without exact source truth refs or allowlist-before-rank policy | Protects privacy and prevents compressed cache from becoming durable truth |
+| `KVCacheOverlay` | KV card proposes rotating plus quantized or MTP KV without compatibility failure ledger | Blocks kernel-panic-class and silent quality-collapse paths |
+| `RepoImportOverlay` | no-license/GPL fork marked `direct_import` or appears in build graph | Preserves proprietary path while still allowing quarantine mining |
+| `BenchmarkOverlay` | upstream benchmark replaces same-fixture Epistemos artifact | Prevents benchmark laundering into L2/L3 claims |
+
+### 20.4 Suggested Measurement Axes
+
+The witness should expose at least these axes in `measurements`:
+
+- `source_card_count`
+- `overlay_card_count`
+- `negative_fixture_count`
+- `duplicate_source_url_rejected`
+- `missing_license_or_usage_rejected`
+- `unknown_import_mode_rejected`
+- `direct_import_without_dependency_closure_rejected`
+- `quarantine_reference_in_build_graph_rejected`
+- `clean_room_with_copied_files_rejected`
+- `raw_code_import_rejected`
+- `nonzero_runtime_or_model_bytes_rejected`
+- `provider_or_cloud_dependency_rejected`
+- `hidden_authority_rejected`
+- `model_card_promotes_runtime_rejected`
+- `unsafe_kv_combo_rejected`
+- `benchmark_laundering_rejected`
+- `allowlist_after_rank_rejected`
+- `missing_visibility_refs_rejected`
+- `mas_or_live_promotion_rejected`
+- `source_class_collapse_rejected`
+- `stale_overclaim_copy_rejected`
+- `no_product_code_imported`
+- `no_runtime_bytes_loaded`
+- `no_model_bytes_loaded`
+- `no_index_bytes_loaded`
+- `route_authority_source_prior_only`
+
+All boolean rejection axes should require `true`. Byte axes should require `0`.
+The gate may pass only when every red fixture is rejected and every accepted
+card remains source-prior metadata.
+
+### 20.5 Architecture Fusion
+
+The red-fixture matrix lets Epistemos move fast without lowering the safety
+bar. It permits aggressive mining of TurboVec, TurboQuant, Gemma QAT, MLX,
+GGUF, LiteRT-LM, KTransformers, LMCache, KIVI, llama.cpp, forks, no-license
+repos, and math/lattice papers, but it forces every useful idea through the
+same local path:
+
+```text
+source/fork/model/paper -> source card -> overlay -> red-fixture gate
+  -> source-prior only -> later route/card/byte/WRV falsifier
+```
+
+That keeps the architecture ambitious and proprietary while preserving the
+hard line: research can create candidates and tests, but it cannot create
+hidden authority, product capability, or live large-model claims.
+
+### 20.6 Pass-Six Register
+
+Best breakthrough candidate: a red-fixture-heavy provenance gate that turns
+messy public research into safe source-prior material without contaminating
+product code or overclaiming runtime capability.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate` with the
+18-fixture rejection matrix above, implemented metadata-only and wired to the
+existing source-card primitive instead of creating a parallel source authority.
+
+Best near-term code unit: create fixture structs for base source cards and the
+five overlays, then implement rejection helpers for URL uniqueness, import
+mode, build-graph quarantine leakage, nonzero bytes, hidden authority, unsafe
+KV, benchmark laundering, and MAS/Live promotion.
+
+Biggest false-claim risk: treating the red-fixture gate itself as proof that
+TurboVec, Gemma QAT, GGUF, LiteRT-LM, MLX, or KV compression runs in the app.
+It is T1 architecture hygiene at most when implemented, not L2/L3 capability.
+
+Biggest missing source: local source-card fixture inventory for exact current
+model/runtime candidates with pinned revisions and file hashes; this pass only
+defines the red side of the gate.
+
+Next research query: "Which current local and external model/runtime candidates
+should become the first accepted green-side fixture set for
+`F-ProprietaryCompression-ProvenanceGate` after the red fixtures are defined?"
