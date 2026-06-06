@@ -493,6 +493,28 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   RuntimeRouter route authority, MAS/Live promotion, filesystem path as UAS ID,
   and Gemma 4 loader-caveat removal. This is still T0 research/canon only and
   did not edit product code.
+- Updated **2026-06-06** · zero-byte model inventory built as L1 metadata
+  architecture: `F-ModelInventory-ZeroByteCandidateCards` now has Rust module
+  `agent_core/src/uas/model_inventory_candidate.rs`, exports in
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs`,
+  script `Tools/falsifiers/f_model_inventory_zero_byte_candidate_cards.sh`,
+  witness page
+  `docs/falsifiers/F-ModelInventory-ZeroByteCandidateCards_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 12
+  source-card-bound model/package/cache fixtures and rejects 32 red fixtures
+  for duplicate/orphan/blocked/stale sources, snapshot/hash laundering,
+  LFS/local-hash confusion, blob opens/hashing, nonzero model/index/runtime
+  bytes, provider calls, hidden route/cloud authority, MAS/L2/L3 promotion,
+  live dense 70B, SSD-as-RAM, missing proof refs, and Gemma 4 caveat bypass.
+  This moves the research-to-build loop from T0 to T1/L1 for model inventory
+  only; L2 capability, L3 user-facing runtime, live large-model capability,
+  and release readiness remain unchanged.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

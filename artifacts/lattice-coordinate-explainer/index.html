@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="10edf2777255ef373baf1fb7d6a391e71feca755">
+  <meta name="epistemos-commit-sha" content="7faa139ce04cf0ab7cc37ca3a4be9b844b5fd221">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -586,7 +586,14 @@
   evidence/status/claim/hash enums, byte scope, proof refs, sidecar policy, and
   validation errors; the falsifier binary/script/artifact root are named, while
   <code>SourceCard</code> and <code>SourceSignalGraph::intake</code> remain the
-  source authority.
+  source authority. Pass thirteen implements the gate as
+  <code>F-ModelInventory-ZeroByteCandidateCards</code> with Rust primitive,
+  binary, script, witness doc, schema/handbook coverage, and artifact at
+  <code>artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/result.json</code>.
+  It accepts 12 source-bound fixtures and rejects 32 red fixtures while keeping
+  model/index/runtime bytes and provider calls at zero. This is T1/L1 metadata
+  architecture only: L2 capability, L3 user-facing runtime, live large-model
+  capability, and release readiness remain unchanged.
 </div>
 
 <div class="canon-hook">
@@ -1156,6 +1163,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
   <thead><tr><th>Primitive</th><th>What it makes concrete</th><th>Promotion gate</th></tr></thead>
   <tbody>
     <tr><td>SourceSignalGraph</td><td>Bookmark, repo, paper, X, local-doc, and trace sources with digest, credibility, license note, and route affinities.</td><td>F-SourceSignalGraph-Intake</td></tr>
+    <tr><td>ModelInventoryCandidateCard</td><td>Local model, package, cache, sidecar, and runtime-preference evidence bound to accepted SourceCard digests, zero-byte scopes, rollback, RunEventLog, AnswerPacket, MAS/Pro, and no-promotion fences.</td><td>F-ModelInventory-ZeroByteCandidateCards</td></tr>
     <tr><td>TaskWorkingSetQuery</td><td>Mission-shaped privacy, quality, evidence, verifier, max-hot, max-KV, and max-cold-I/O budgets.</td><td>F-TaskWorkingSetQuery-Determinism</td></tr>
     <tr><td>SemanticWorkingSetPlan</td><td>Selected evidence, KV, adapters, weight pages, kernels, verifiers, rejected units, byte budgets, fallback, and rollback.</td><td>F-SemanticWorkingSetPlan-Budget</td></tr>
     <tr><td>ResidencyPageTable</td><td>Semantic unit to UAS address, storage tier, byte range, codec, checksum, compatibility fence, lease, and prefetch priority.</td><td>F-ResidencyPageTable-Addressability</td></tr>
