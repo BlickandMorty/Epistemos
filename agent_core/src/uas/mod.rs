@@ -100,6 +100,7 @@ pub mod turbovec_real_adapter_dependency_envelope_probe;
 pub mod turbovec_real_adapter_exact_baseline_shadow_replay_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_motif_extraction_card_probe;
+pub mod turbovec_real_adapter_native_link_absence_preflight_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_product_graph_no_contamination_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
@@ -663,6 +664,16 @@ pub use turbovec_real_adapter_product_graph_no_contamination_probe::{
     TurboVecRealAdapterProductGraphNoContaminationProbeSet,
     TURBOVEC_REAL_ADAPTER_PRODUCT_GRAPH_NO_CONTAMINATION_CURSOR,
     TURBOVEC_REAL_ADAPTER_PRODUCT_GRAPH_NO_CONTAMINATION_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_native_link_absence_preflight_probe::{
+    native_link_absence_preflight_digest, TurboVecNativeLinkAction,
+    TurboVecNativeLinkPreflightByteLedger, TurboVecNativeLinkPreflightError,
+    TurboVecNativeLinkPreflightMetrics, TurboVecNativeLinkPreflightPolicy,
+    TurboVecNativeLinkPreflightProofRefs, TurboVecNativeLinkPreflightRow,
+    TurboVecNativeLinkPreflightStatus, TurboVecNativeLinkPreflightTier,
+    TurboVecNativeLinkSurface, TurboVecRealAdapterNativeLinkAbsencePreflightProbeSet,
+    TURBOVEC_REAL_ADAPTER_NATIVE_LINK_ABSENCE_PREFLIGHT_CURSOR,
+    TURBOVEC_REAL_ADAPTER_NATIVE_LINK_ABSENCE_PREFLIGHT_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

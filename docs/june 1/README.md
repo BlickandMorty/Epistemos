@@ -35,9 +35,11 @@ easy to browse in one place.
 > `F-TurboVec-RealAdapterMotifExtractionCardProbe`, and
 > `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`, and
 > `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`, and
-> `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` as metadata-only T1/L1. It
+> `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`, and
+> `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` as metadata-only
+> T1/L1. It
 > now points next at
-> `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
+> `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
 > Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:

@@ -1044,9 +1044,11 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   landed in `F-TurboVec-RealAdapterMotifExtractionCardProbe`; its intermediate
   retrieval unit,
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, has now
-  landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; the current
+  landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; downstream
+  native-link absence preflight has also landed in
+  `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`. The
+  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterMotifExtractionCardProbe`
@@ -1077,9 +1079,11 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
   user-facing model capability green. Its former next retrieval unit,
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, has now
-  landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; the current
+  landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; downstream
+  native-link absence preflight has also landed in
+  `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`. The
+  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`
@@ -1185,7 +1189,43 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   baseline/index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
   routes, mutate product graphs, advance L2, or make L3 user-facing model
   capability green. The next retrieval unit is
+  now-landed
   `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`; the
+  current TurboVec retrieval side-ladder unit is
+  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; the
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** ·
+  `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is now built as the
+  metadata-only native-link absence preflight after product-graph
+  no-contamination:
+  `agent_core/src/uas/turbovec_real_adapter_native_link_absence_preflight_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_native_link_absence_preflight_probe.rs`,
+  script
+  `Tools/falsifiers/f_turbovec_real_adapter_native_link_absence_preflight_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_native_link_absence_preflight_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to 11 native-link/build risk rows,
+  2 target-specific native-link surfaces, 3 Python native-boundary surfaces, 2
+  product surface preflight rows, 56 rejected red fixtures, deterministic
+  native-link absence preflight address, rollback, RunEventLog, AnswerPacket,
+  compatibility fence, and zero build script executions, Cargo builds, linker
+  invocations, dynamic-library loads, Python extension builds, environment
+  mutations, product dependencies, product route mutations, benchmark runs,
+  runtime/model/provider bytes, hidden route authority, live dense 70B claims,
+  or L2/L3 promotion. This is T1/L1 metadata-only. It does not inspect
+  additional TurboVec raw source, clone TurboVec, import source, build adapters,
+  probe runtime, open indexes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+  mutate RuntimeRouter/System G routes, advance L2, or make L3 user-facing
+  model capability green. The next TurboVec retrieval side-ladder unit is
+  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

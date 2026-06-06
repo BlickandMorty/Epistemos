@@ -74,9 +74,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > imports, 0 product dependencies, 0 native-link mentions, 0 route-policy
 > mentions, 0 model-context mentions, 0 user-facing green-copy mentions, 50
 > red-fixture rejections, no product graph mutation, no hidden route authority,
-> no live dense 70B claim, and no L2/L3 product capability. The next
-> retrieval/index research-to-build unit is
-> `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
+> no live dense 70B claim, and no L2/L3 product capability. Downstream
+> native-link absence preflight is now landed; the next retrieval/index
+> research-to-build unit is
+> `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
 
 ---
 
@@ -939,6 +940,25 @@ product-graph no-contamination address, rollback, RunEventLog, AnswerPacket,
 compatibility fence, no hidden route authority, no live dense 70B, and no L2/L3
 promotion. It proves the next real TurboVec/fork step must pass native-link
 absence preflight before any adapter build, runtime, or model-context route can
+promote.
+
+`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is now built as the
+metadata-only native-link absence preflight after product-graph
+no-contamination. Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_native_link_absence_preflight_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_native_link_absence_preflight_probe/`.
+The witness binds 11 native-link/build risk rows, 2 target-specific native-link
+surfaces, 3 Python native-boundary surfaces, 2 product surface preflight rows,
+56 rejected red fixtures, deterministic native-link absence preflight address,
+rollback, RunEventLog, AnswerPacket, compatibility fence, and zero build script
+executions, Cargo builds, linker invocations, dynamic-library loads, Python
+extension builds, environment mutations, product dependencies, product route
+mutations, benchmark runs, runtime/model/provider bytes, hidden route
+authority, live dense 70B, or L2/L3 promotion. It proves the next real
+TurboVec/fork step must be owner-approved native dry-run proof before any
+adapter build, runtime, compressed retrieval route, or model-context route can
 promote.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
