@@ -119,6 +119,36 @@ while Parameter Golf is the large runnable fork ecosystem. Therefore agents
 should mine Erdos for the lift/search/project/witness doctrine and Parameter
 Golf for the reproducible compression/search discipline.
 
+## 0E. 2026-06-06 Candidate Intake - TurboVec / QAT Runtime-Agnostic Large-Model Compression
+
+**New candidate-intake source:** `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`.
+
+**Detailed research companion:** `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
+
+**Why it exists.** TurboVec, Google TurboQuant, and Gemma 4 QAT sharpen the
+large-local-model route without replacing the substrate. Epistemos keeps MLX as
+one runtime lane, not the architecture; GGUF/llama.cpp, LiteRT, Transformers,
+custom Metal, and future runtimes remain candidates when they prove quality,
+memory, latency, privacy, licensing, rollback, and AnswerPacket visibility on
+the same task.
+
+**Status discipline.** This is a canon-candidate intake, not product capability.
+TurboVec is first an Eidos/AppColdStore compressed vector index candidate;
+TurboQuant is compression research; Gemma QAT is a source-card/model-route
+candidate. None of these proves live dense 70B, live sparse 70B, or release
+readiness. Public repos and forks may be mined for motifs, tests, schemas, and
+performance ideas, but code import requires license/provenance review or a
+clean-room reimplementation note.
+
+**Agent rule.** Any PR touching TurboVec, TurboQuant, Gemma QAT, low-bit KV,
+compressed vector indexes, MLX-vs-GGUF-vs-LiteRT routing, or large-model
+compression must cite this source and include a compression-route check:
+addressed unit, source card, license/provenance, import mode, bit width, byte
+accounting, runtime lane, memory preflight, admission verdict, rollback,
+RunEventLog, AnswerPacket, and explicit L1/L2/L3 claim boundary. Use
+`F-ProprietaryCompression-ProvenanceGate` before any public-repo logic enters
+the proprietary implementation path.
+
 **Canonical build implication.** Do not launch more heavy 128K/70B probes until
 the non-executing planner layer exists: bounded `WeightBlockManifest` range
 hash -> `ResidencyPlan` -> `LargeModelConstructionCard` -> local

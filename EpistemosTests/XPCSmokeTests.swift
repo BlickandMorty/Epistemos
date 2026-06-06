@@ -89,7 +89,7 @@ struct XPCSmokeTests {
         // and an unsigned process could pose as our service.
         #expect(req.contains("anchor apple generic"))
         #expect(req.contains("identifier \"group.com.epistemos.shared.AgentXPC\""))
-        #expect(req.contains("certificate leaf[subject.OU] = \"AL562BVF23\""))
+        #expect(req.contains("certificate leaf[subject.OU] = \"3BNL2669SL\""))
     }
 
     @Test("XPCTrust team identifier matches DEVELOPMENT_TEAM in pbxproj")

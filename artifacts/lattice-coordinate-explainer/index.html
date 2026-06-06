@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="2dcc89634771af9de3589ee9ccbbf19bda24c7cb">
+  <meta name="epistemos-commit-sha" content="169ae769b232c4a0068495c0da5683b5c729b98e">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -475,6 +475,33 @@
   L2 remains red, and L3 release readiness is still unclaimed.
 </div>
 
+<div class="canon-hook">
+  <strong>2026-06-06 XPC trust repair checkpoint.</strong>
+  XPC service trust now pins the paid Apple team <code>3BNL2669SL</code> consistently in
+  <code>XPCTrust</code>, <code>XPCSmokeTests</code>, and <code>project.yml</code>, matching the generated
+  <code>Epistemos.xcodeproj/project.pbxproj</code> DEVELOPMENT_TEAM. Focused
+  <code>EpistemosTests/XPCSmokeTests</code> passed 8 tests. This repairs a stale signing-identity
+  blocker inside the red automated-check gate only: the cursor remains
+  <code>small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe</code>,
+  L2 remains red, and L3 release readiness is still unclaimed.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-06 TurboVec / QAT runtime-agnostic intake.</strong>
+  The saved source is <code>docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md</code>.
+  The detailed research companion is
+  <code>docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md</code>.
+  MLX is preserved as one Apple Silicon runtime lane, not the architecture; GGUF/llama.cpp,
+  LiteRT, Transformers, custom Metal, and future runtimes can win only with same-fixture
+  proof of quality, memory, latency, privacy, licensing, rollback, RunEventLog, and
+  AnswerPacket visibility. TurboVec enters first as an Eidos/AppColdStore compressed-index
+  candidate, TurboQuant as compression research, and Gemma QAT as model-route source-card
+  material. Gemma 4 12B QAT GGUF/LiteRT is the current Pro Gated research target;
+  Swift MLX Gemma 4 support remains unpromoted until loader proof exists. The proprietary
+  path starts with <code>F-ProprietaryCompression-ProvenanceGate</code>, not blind code copying.
+  This does not promote live dense 70B, live sparse 70B, or product capability.
+</div>
+
 <!-- ============ STAMP ============ -->
 <div class="stamp">
   <span>Epistemos · Architecture Synthesis</span>
@@ -839,13 +866,13 @@ The architecture stops feeling chaotic when the names are kept at four levels. T
   <thead><tr><th>Organ</th><th>Nested mechanisms</th><th>Research/candidate edge</th></tr></thead>
   <tbody>
     <tr><td>UAS / OAS</td><td>UasAddress, UasKind, floor state, source hash, byte range, lineage, AcsAnchor coordinate/provenance, SourceSignalGraph, TaskWorkingSetQuery, SourceToResidencyPatch.</td><td>AletheiaFS / sidecar cognitive filesystem, bookmark/repo/paper/X source graphs.</td></tr>
-    <tr><td>ColdStore</td><td>ResidencyPlan, WeightBlockManifest, AppColdStoreRouteCard, ResidencyConstructionGraph, CoactivationTile, ColdAssemblyPlan, ResidencyPatternBoost, AssemblyCandidatePool, UASAssemblyGenome, ConstraintRepairKernel, SparseAssemblyFingerprint, EliteAssemblyArchive, AssemblyTournamentTrace, ResidencyPatternDistiller, SemanticWorkingSetPlan, ResidencyPageTable, PrefetchWindow, WorkingSetOracleCard, ProofCarryingResidencyLease, ColdMissLedger, ColdFaultTrace, LayoutPatch, MmapResidencyFence, KVByteBudgetCard, TransportRunManifest, PageRunScheduler, SlabArena, MetalBufferLease, CodecStage, TransportTrace, ColdPanicFallback, MmapKeepVsReplace, MmapHazardFence, ReadPlanMatrix, GeometricPageRunPlanner, GeometryAlignedPageTable, CopyCausalGraph, LayoutObjective, KVPrefixUnit, KVLineageGraph, CacheAdmissionCard, ExecutionTraceCapsule, mmap range hashes, hot/warm/cold residency, leases, copy-count budget.</td><td>70B local cocktail, Denning working sets, Axplorer/PatternBoost, Lattice Deduction Transformers, SwiftLM SSD streaming motifs, Apple LLM in a Flash, PowerInfer, FlexGen, vLLM/LMCache, KTransformers, KIVI, oMLX/TurboQuant/Tutti, DeepSeek context cache, Sherry/Leech VQ, ternary/NF4 route, ColdStream transport, copy-causal geometry, geometry-aligned execution.</td></tr>
+    <tr><td>ColdStore</td><td>ResidencyPlan, WeightBlockManifest, AppColdStoreRouteCard, ResidencyConstructionGraph, CoactivationTile, ColdAssemblyPlan, ResidencyPatternBoost, AssemblyCandidatePool, UASAssemblyGenome, ConstraintRepairKernel, SparseAssemblyFingerprint, EliteAssemblyArchive, AssemblyTournamentTrace, ResidencyPatternDistiller, SemanticWorkingSetPlan, ResidencyPageTable, PrefetchWindow, WorkingSetOracleCard, ProofCarryingResidencyLease, ColdMissLedger, ColdFaultTrace, LayoutPatch, MmapResidencyFence, KVByteBudgetCard, TransportRunManifest, PageRunScheduler, SlabArena, MetalBufferLease, CodecStage, TransportTrace, ColdPanicFallback, MmapKeepVsReplace, MmapHazardFence, ReadPlanMatrix, GeometricPageRunPlanner, GeometryAlignedPageTable, CopyCausalGraph, LayoutObjective, KVPrefixUnit, KVLineageGraph, CacheAdmissionCard, ExecutionTraceCapsule, ProprietaryCompressionProvenanceGate, CompressedModelSourceCard, CompressedIndexPlan, QATModelRouteCard, mmap range hashes, hot/warm/cold residency, leases, copy-count budget.</td><td>70B local cocktail, Denning working sets, Axplorer/PatternBoost, Lattice Deduction Transformers, SwiftLM SSD streaming motifs, Apple LLM in a Flash, PowerInfer, FlexGen, vLLM/LMCache, KTransformers, KIVI, oMLX/TurboQuant/Tutti, TurboVec, Gemma QAT, Gemma 4 12B QAT GGUF/LiteRT, DeepSeek context cache, Sherry/Leech VQ, ternary/NF4 route, ColdStream transport, copy-causal geometry, geometry-aligned execution.</td></tr>
     <tr><td>ActiveAssembly</td><td>Gate3, PacketRouter1bit, InterruptScore, PageGather, active support set, tool/kernel/model support, SemanticWorkingSetPlan admission, ColdAssemblyPlan admission, LatticeAbstentionGate, ComputeResumeLease, ColdRoutePolicyPatch, PrefixReuseRouter, KVCompatibilityFence, CacheMutationPatch, dynamic compute checkpoints.</td><td>KuramotoSync / ResonanceSync, Parameter Connectome, rank-one component routing, helper SSM controller lane, Lattice Deduction Transformer controller signal, Residency PatternBoost, GEPA/autoresearch loops.</td></tr>
     <tr><td>Editor / Vault substrate</td><td>EditorDeltaMonoid, ReadableProjectionFunctor, DeltaSemilatticeSync, IncrementalParseForest, DifferentialKnowledgeView, GitVaultLineage, FrontmatterTypeLens, sidecar JSON, Markdown source files.</td><td>Tolaria, ProseMirror, Tiptap, Milkdown, CodeMirror, Lexical, Tree-sitter, Automerge/Yjs, Differential Dataflow, Datafrog.</td></tr>
-    <tr><td>Eidos / Recall</td><td>VaultRecall, hybrid lexical/path/title/paragraph search, RRF, closed citation ids, why_matched trace, EidosRoutePrior, RetentionPotentialField, SemanticEntropyGate.</td><td>ShadowBackedSemanticIndex, HNSW/usearch, Eidos-to-NeuralImportance route priors, formal-math source cards, FSRS review, structural analogy search, F-Erdos-Lift-Optimality.</td></tr>
+    <tr><td>Eidos / Recall</td><td>VaultRecall, hybrid lexical/path/title/paragraph search, RRF, closed citation ids, why_matched trace, EidosRoutePrior, RetentionPotentialField, SemanticEntropyGate, compressed-index source cards, allowlist-before-rank privacy fences.</td><td>ShadowBackedSemanticIndex, HNSW/usearch, TurboVec compressed vector index candidates, Eidos-to-NeuralImportance route priors, formal-math source cards, FSRS review, structural analogy search, F-Erdos-Lift-Optimality.</td></tr>
     <tr><td>Lattice / WBO</td><td>LatticeBudget, WBO residuals, projection loss, numeric drift, semantic drift, RateDistortionSidecarBudget, rollback account.</td><td>ShadowProjection&lt;H,L&gt;, information bottleneck, rate-distortion, Parameter Golf-style local tournaments, IR fusion.</td></tr>
     <tr><td>SCOPE-Rex / SovereignGate</td><td>ClaimKind, ClaimLedger, admission verdict, capability proof, destructive-action gate, mutation policy.</td><td>Lean schema authority, proof-carrying execution, continuous mission governance.</td></tr>
-    <tr><td>RuntimeRouter / System G</td><td>RouteProfile, ExecutorEvent, cancellation, Tokio task graph, local model route, Apple route, tool route, kernel route.</td><td>ExecutorTrait, local/cloud/provider comparison, Research Construction Engine executor lane.</td></tr>
+    <tr><td>RuntimeRouter / System G</td><td>RouteProfile, ExecutorEvent, cancellation, Tokio task graph, local model route, Apple route, tool route, kernel route, runtime-lane source cards, memory preflight, route abstention, compressed-route AnswerPacket.</td><td>ExecutorTrait, MLX, GGUF/llama.cpp, LiteRT, Transformers, custom Metal, local/cloud/provider comparison, Research Construction Engine executor lane.</td></tr>
     <tr><td>Engineering logic</td><td>DecisionRecord, InvariantLedger, StateMachineCard, BoundaryContract, BudgetVector, HotPathProofCard, FailureEnvelope, ObservabilityProbe, MigrationRail, ImportGateCard, SimplicityBudget, IntentionalCopyWaiver, CopyClass, HotPathCensus, CopyBudgetVector, UnsafeBoundaryProofCard, ShmMaterializationWaiver, StreamFrameArena, SpatialDirtyWindow, ProtocolEdgeJsonWaiver, GraphNodeStateRingPromotion, HotTraceBinarySummary, EventRingActivationCard, ProofHarnessCard.</td><td>L14 Engineering Logic Law, L19 Copy-Causal Geometry Law, and their falsifier bundles.</td></tr>
     <tr><td>Witness surface</td><td>RunEventLog, MutationEnvelope, AnswerPacket, Provenance Console, WRV status, replay and rollback.</td><td>Proof-sized outputs, ConstructionGraph, negative evidence reuse.</td></tr>
   </tbody>

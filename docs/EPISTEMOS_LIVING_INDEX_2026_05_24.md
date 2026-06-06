@@ -326,6 +326,46 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `vault_research_route_with_packetized_mitigation`, and L3 product capability
   plus release readiness remain unchanged until the full automated suite,
   log/manual/distribution review, and three uninterrupted zero-fail passes land.
+- Updated **2026-06-06** · automated-check repair checkpoint: XPC trust now
+  pins the paid Apple signing team `3BNL2669SL` consistently across
+  `XPCTrust`, `XPCSmokeTests`, and `project.yml`, matching the generated
+  `Epistemos.xcodeproj/project.pbxproj` DEVELOPMENT_TEAM and preventing the
+  red release-audit ledger from failing on stale team identity drift.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. Focused verification passed
+  `EpistemosTests/XPCSmokeTests` (8 tests; 2026-06-05 local test log). This is
+  a signing/trust repair inside the red automated-check gate only: the L1
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  with `duplicate_risk_count=0`, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  plus release readiness remain unchanged until the full automated suite,
+  log/manual/distribution review, and three uninterrupted zero-fail passes land.
+- Updated **2026-06-06** · TurboVec / QAT runtime-agnostic intake saved:
+  `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` is now the
+  canon-candidate source for TurboVec, Google TurboQuant, Gemma QAT, and
+  no-compromise large-local-model compression routing, with the full research
+  companion stored at
+  `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`. It
+  locks MLX as one runtime lane rather than the architecture; GGUF/llama.cpp,
+  LiteRT, Transformers, custom Metal, and future runtimes remain candidates
+  only when they prove quality, memory, latency, privacy, licensing, rollback,
+  RunEventLog, and AnswerPacket visibility on the same task. It also locks the
+  corrections from the research handoff: L1/L2/L3 are Epistemos truth layers,
+  not runtime-size tiers; SQLite `rowid` is not UAS truth; and a
+  1536-dimensional vector is about 768 bytes at 4-bit or about 384 bytes at
+  2-bit before overhead. The model-ladder bias is now explicit: Gemma 4 12B QAT
+  GGUF/LiteRT is the main Pro Gated Mac target, Gemma 4 E2B/E4B QAT are
+  MAS/Pro candidates only after memory/cancel/structured-output/AnswerPacket
+  witnesses, and MLX Gemma 4 repos do not prove Swift runtime support. This
+  intake does not promote live dense 70B, live sparse 70B, product capability,
+  or release readiness; it creates a source-card and falsifier path for future
+  `F-ProprietaryCompression-ProvenanceGate`,
+  `F-GemmaQAT-LocalRuntimeCandidateCard`,
+  `F-TurboVec-Eidos-CompressedIndex-Plan`, and
+  `F-QAT-ModelRouteCard-MemoryPreflight` work.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates

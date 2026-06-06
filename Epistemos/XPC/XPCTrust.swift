@@ -18,7 +18,7 @@ import os.log
 ///   2. `identifier "<expected>"` — the peer's bundle identifier
 ///      matches the XPC service we expect to talk to.
 ///   3. `certificate leaf[subject.OU] = "<TEAM>"` — the peer was signed
-///      by us (Team ID `AL562BVF23` in DEVELOPMENT_TEAM).
+///      by us (Team ID `3BNL2669SL` in DEVELOPMENT_TEAM).
 ///
 /// This form is correct for both App Store distribution and
 /// Developer ID + notarization. It does NOT pin a specific build hash,
@@ -28,7 +28,7 @@ enum XPCTrust {
     /// Public information — appears in every signed binary's certificate
     /// chain. Bake-in is intentional; a runtime-loaded value would be
     /// a TOCTOU surface (the trust requirement is what gates load).
-    static let canonicalTeamIdentifier = "AL562BVF23"
+    static let canonicalTeamIdentifier = "3BNL2669SL"
 
     /// Build the canonical requirement string for `serviceName`.
     static func requirementString(for serviceName: String, teamIdentifier: String = canonicalTeamIdentifier) -> String {
