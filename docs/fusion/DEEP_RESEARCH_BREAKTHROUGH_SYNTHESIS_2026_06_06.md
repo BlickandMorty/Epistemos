@@ -4117,3 +4117,80 @@ Next research query: "What fetch lease, byte cap, file digest policy, cleanup
 replay, no-product-graph audit, native-link block, RunEventLog, AnswerPacket,
 rollback, and benchmark caveat must gate pinned TurboVec before real
 quarantine bytes are fetched?"
+
+## Pass 50 - TurboVec Real Adapter Fetch Lease Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, the pinned
+TurboVec upstream metadata, and the current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_fetch_lease_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_fetch_lease_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_fetch_lease_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_fetch_lease_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterFetchLeaseProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterFetchLeaseProbe` is now PASS as a metadata-only T1/L1
+witness. It binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to the GitHub codeload fetch URL,
+quarantine target paths, owner-approval-pending policy, 6 proof phases, 107
+rejected red fixtures, planned download bytes `8388608`, planned unpacked bytes
+`33554432`, max file count `2000`, lease expiry `1800` seconds, cleanup/
+rollback, RunEventLog, AnswerPacket, compatibility fence, no-product-graph
+audit, native-link block, benchmark caveat, zero fetched/cloned/product/index/
+model/runtime/provider bytes, no product graph/dependency/native-link/runtime
+route authority, and no L2/L3 promotion.
+
+### 50.1 Architecture Fusion
+
+This upgrades the large-local-model research path from "a quarantine layout
+exists" to "future source bytes need an explicit lease before they can exist."
+That matters for Gemma 4 QAT, GGUF/llama.cpp, LiteRT, MLX, Qwen3-class coding
+models, and 70B-class cold assembly because retrieval/compression code is a
+critical part of local-model feasibility. Compressed retrieval can help feed a
+larger local model a smaller, higher-signal context window, but only if the
+adapter source, byte caps, cleanup, rollback, provenance, and no-product-graph
+audit are visible before any route or model context can cite it.
+
+### 50.2 Non-Promotion
+
+This pass does not fetch or clone TurboVec, write quarantine files, create a
+source manifest, copy product source, add a product dependency, import/build/run
+an adapter, probe native links, open index bytes, load Gemma/QAT/GGUF/MLX/
+LiteRT/model bytes, choose RuntimeRouter/System G routes, make L2/L3 product
+capability green, or prove live dense 70B. It advances the research-to-build
+ladder only.
+
+### 50.3 Pass-Fifty Register
+
+Best breakthrough candidate: source-byte manifest proof for a pinned TurboVec
+codeload archive, with per-file digests, byte ceilings, cleanup/tombstones,
+no-product-graph audit, native-link block, source-card provenance, and
+AnswerPacket-visible scope.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_source_byte_manifest_probe`, because the
+lease exists but no actual quarantine source-byte manifest, per-file digest
+ledger, cleanup replay, or native-link-source exclusion has been proven.
+
+Best near-term code unit: build the source-byte manifest gate that refuses
+unexpected file counts, path traversal, symlinks, executable outputs, product
+roots, Cargo dependency insertion, generated build products, native-link probes,
+runtime execution, index/model bytes, hidden authority, benchmark laundering,
+and large-model product claims.
+
+Biggest false-claim risk: treating a fetch lease as permission to fetch, build,
+benchmark, route, or claim local model improvements.
+
+Biggest missing source: a manifest-level policy for exactly which TurboVec files
+may be inspected as quarantine reference material and which must remain blocked
+until clean-room rewrite or adapter-wrap proof exists.
+
+Next research query: "What source-byte manifest, digest ledger, file allowlist,
+license/provenance split, cleanup replay, no-product-graph audit, native-link
+block, RunEventLog, AnswerPacket, rollback, and benchmark caveat must gate
+pinned TurboVec before source inspection or adapter rewrite begins?"

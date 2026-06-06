@@ -786,10 +786,27 @@ witness binds pinned revision
 absolute/traversal/duplicate path rejection, cleanup/tombstone/rollback phases,
 RunEventLog, AnswerPacket, compatibility fence, native-link block, benchmark
 caveat, planned quarantine byte lease `8388608`, and zero fetched/cloned/
-product/index/model/runtime/provider bytes. It proves the next real
-TurboVec/fork step must pass a fetch-lease proof before any quarantine bytes,
+product/index/model/runtime/provider bytes. It proved the next real
+TurboVec/fork step had to pass a fetch-lease proof before any quarantine bytes,
 source import, adapter build, route mutation, or large-model context authority
-can be attempted.
+could be attempted; that fetch-lease proof is now landed below.
+
+`F-TurboVec-RealAdapterFetchLeaseProbe` is now built as the metadata-only
+quarantine fetch-lease gate for the pinned TurboVec branch. Implemented anchors
+include `agent_core/src/uas/turbovec_real_adapter_fetch_lease_probe.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_real_adapter_fetch_lease_probe/`. The
+witness binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to the GitHub codeload fetch URL,
+quarantine target paths, owner-approval-pending policy, 6 proof phases, 107
+rejected red fixtures, planned download bytes `8388608`, planned unpacked bytes
+`33554432`, max file count `2000`, lease expiry `1800` seconds, cleanup/
+rollback, RunEventLog, AnswerPacket, compatibility fence, no-product-graph
+audit, native-link block, benchmark caveat, and zero fetched/cloned/product/
+index/model/runtime/provider bytes. It proves the next real TurboVec/fork step
+must pass a source-byte manifest before any source inspection, product import,
+adapter build, native-link probe, compressed retrieval route, or large-model
+context authority can be attempted.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -806,6 +823,7 @@ can be attempted.
 `F-TurboVec-RealAdapterSourcePinProbe`,
 `F-TurboVec-RealAdapterDependencyEnvelopeProbe`,
 `F-TurboVec-RealAdapterSandboxLayoutProbe`,
+`F-TurboVec-RealAdapterFetchLeaseProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

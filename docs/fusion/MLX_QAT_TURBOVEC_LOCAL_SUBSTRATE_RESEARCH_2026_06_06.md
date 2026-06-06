@@ -677,14 +677,19 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
     the quarantine-only sandbox layout before any real TurboVec crate/fork
     bytes, live fixture, source import, native-link probe, or model-route
     quality claim.
-16. Implement `turbovec_quarantine_real_adapter_fetch_lease_probe` before any
-    actual clone/fetch, quarantine byte write, adapter source inspection, or
-    native-link dry run.
-17. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
-18. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
-19. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
-20. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
-21. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
+16. `F-TurboVec-RealAdapterFetchLeaseProbe` is implemented; preserve it as the
+    owner-approval-pending, codeload-pinned, byte-capped, cleanup-replayable,
+    no-product-graph fetch lease before any real TurboVec crate/fork bytes,
+    source inspection, source manifest, native-link dry run, or model-route
+    quality claim.
+17. Implement `turbovec_quarantine_real_adapter_source_byte_manifest_probe`
+    before any adapter source inspection, import, build, native-link dry run, or
+    compressed retrieval route can cite fetched quarantine bytes.
+18. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
+19. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
+20. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
+21. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
+22. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
 
 ## Hard Do Not Do
 

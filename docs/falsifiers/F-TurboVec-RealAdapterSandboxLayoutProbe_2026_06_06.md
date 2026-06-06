@@ -27,8 +27,10 @@ PASS as a metadata-only T1/L1 primary witness.
 - Layout slots: 10.
 - Red fixtures rejected: 84.
 - Planned quarantine byte lease: `8388608` bytes.
-- Next research-to-build unit:
-  `turbovec_quarantine_real_adapter_fetch_lease_probe`.
+- Former next research-to-build unit:
+  `turbovec_quarantine_real_adapter_fetch_lease_probe` (now landed by
+  `F-TurboVec-RealAdapterFetchLeaseProbe`; current next side-ladder unit is
+  `turbovec_quarantine_real_adapter_source_byte_manifest_probe`).
 
 ## What This Proves
 
@@ -64,3 +66,5 @@ buildable because Epistemos can now study risky or no-license adapter repos for
 APIs, tests, benchmark shapes, failure cases, dependency behavior, and
 clean-room motifs without contaminating product code or granting hidden route
 authority. The next step must be a fetch/lease witness, not a product import.
+That fetch/lease witness is now landed; the next safe step is a source-byte
+manifest witness, still not a product import.
