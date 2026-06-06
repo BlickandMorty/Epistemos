@@ -163,7 +163,7 @@ Future architecture commits should classify affected segments like this:
 | Eidos / Recall | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | citations, closed source IDs, why_matched, UI/log proof |
 | SCOPE-Rex/SovereignGate | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | verdict surface, denial logs, mutation rollback |
 | RuntimeRouter/System G | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | route packet, cancellation, fallback, tests, user surface |
-| Local model ladder | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | harness, memory preflight, AnswerPacket, release audit |
+| Local model ladder | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | source metadata, command card, model path, owner approval, harness, memory preflight, AnswerPacket, release audit |
 | Large-model cold assembly | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | construction graph, lease, transport, runtime proof |
 | TurboVec/QAT compression | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | provenance gate, source card, memory proof, product route |
 | PatternBoost | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | held-out wins, no-hidden-authority, rollback, live gate |
@@ -171,6 +171,14 @@ Future architecture commits should classify affected segments like this:
 
 This table should not be treated as complete by itself. It is a template for
 Living Index, lattice, and future falsifier rows.
+
+2026-06-06 local-model ladder clarification:
+`F-SmallCompressedModel-ModelPathReadinessCard` is T1/L1 only. It strengthens
+the architecture in favor of larger local models by proving source/path
+discipline for the E2B harness lane before runtime. It does not make E2B live,
+does not promote Gemma 4 12B/31B, and does not promote 70B-class product
+capability. T2+ requires owner-approved runtime proof; T3+ requires WRV; T4+
+requires build-green MAS/Pro and release-audit proof.
 
 ## Required Surface Updates
 

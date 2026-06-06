@@ -352,12 +352,22 @@ If a source/canon guard is needed before the next runtime step, use this order:
    card, `/opt/homebrew/bin/llama-server` as denied by default, owner approval
    and model path as pending, zero runtime/model/provider bytes, and no L2/L3
    promotion boundary.
+   The model-path readiness card is now also built metadata-only as
+   `F-SmallCompressedModel-ModelPathReadinessCard`; preserve the selected
+   Gemma 4 E2B QAT GGUF source revision, Xet hash, required filename,
+   expected file bytes, local path missing-or-unverified status, owner/
+   download approval pending state, zero download/open/hash/model/runtime/
+   provider bytes, and no L2/L3 promotion boundary.
    The next research-to-build unit is
    `small_compressed_model_owner_approved_runtime_probe`; it must not run
    without explicit owner approval, visible model path, cancellation, memory
    ledger, rollback, RunEventLog, and AnswerPacket proof, and it must not rerun
    128K shards, dense 70B, 12B/31B, mmap/SSD stress, hidden server endpoints,
    or hidden provider fallback by default.
+   E2B is the harness proving lane, not the end goal; keep Gemma 4 12B QAT as
+   the Pro Gated target and keep 31B/70B-class routes Pro Research/Vault until
+   residency, routing, transport, memory, rollback, RunEventLog, and
+   AnswerPacket proof exists.
 11. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.

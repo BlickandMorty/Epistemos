@@ -63,6 +63,7 @@ pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_compressed_model_live_harness_preflight;
 pub mod small_compressed_model_local_runtime_command_card;
+pub mod small_compressed_model_model_path_readiness_card;
 pub mod small_compressed_model_owner_approval_runtime_gate;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
@@ -254,6 +255,13 @@ pub use small_compressed_model_local_runtime_command_card::{
     SmallCompressedModelLocalRuntimeCommandCardSet,
     SMALL_COMPRESSED_MODEL_LOCAL_RUNTIME_COMMAND_CARD_CURSOR,
     SMALL_COMPRESSED_MODEL_LOCAL_RUNTIME_COMMAND_CARD_NEXT_CURSOR,
+};
+pub use small_compressed_model_model_path_readiness_card::{
+    SmallCompressedModelModelPathReadinessCard, SmallCompressedModelModelPathReadinessCardSet,
+    SmallCompressedModelPathByteLedger, SmallCompressedModelPathMetrics,
+    SmallCompressedModelPathReadinessError, SmallCompressedModelPathRefs,
+    SmallCompressedModelPathStatus, SMALL_COMPRESSED_MODEL_MODEL_PATH_READINESS_CARD_CURSOR,
+    SMALL_COMPRESSED_MODEL_MODEL_PATH_READINESS_CARD_NEXT_CURSOR,
 };
 pub use small_compressed_model_owner_approval_runtime_gate::{
     SmallCompressedModelOwnerApprovalRuntimeGate,

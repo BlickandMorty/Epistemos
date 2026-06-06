@@ -3031,3 +3031,111 @@ Next research query: "What owner-approved E2B GGUF model path and exact
 one-token command envelope can satisfy the local command card while recording
 memory, cancellation, rollback, RunEventLog, and AnswerPacket proof without
 server sidecar or provider fallback?"
+
+## Pass 36 - Model Path Readiness Turns Research Into A Runtime Precondition
+
+`F-SmallCompressedModel-ModelPathReadinessCard` is now implemented as the next
+research-to-build bridge. It consumes
+`F-SmallCompressedModel-LocalRuntimeCommandCard` and records the exact selected
+Gemma 4 E2B QAT GGUF source metadata that a future one-token probe must bind
+before runtime can be armed:
+
+- model: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- required file: `gemma-4-E2B_q4_0-it.gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- source Xet hash:
+  `f9eedc0d3f769aa9c59341e9b230f2d6b4726cc355b1f0101b60a524a6584a30`
+- expected file bytes: `3349514112`
+- artifact:
+  `artifacts/falsifiers/small_compressed_model_model_path_readiness_card/result.json`
+
+The witness accepts 1 model-path readiness card and rejects 59 red fixtures.
+It keeps the local path `missing_or_unverified`, owner/download approval
+pending, command unarmed, inference unexecuted, and all downloaded/opened/
+hashed/resident/loaded/provider byte counters at zero. It does not promote
+GGUF loadability, first token, quality, memory fit, runtime parity, MAS
+readiness, L2 capability, L3 user-facing behavior, live dense 70B, or live
+sparse 70B.
+
+### 36.1 Larger-Local-Model Bias
+
+This pass is intentionally in favor of larger local models. The architecture
+should keep climbing toward Gemma 4 12B QAT, 31B/Vault, and 70B-class cold
+assembly rather than settling for a tiny model. The reason E2B remains the
+first runtime proving lane is stability: it is small enough to prove the
+command envelope, model-path binding, cancellation deadline, memory ledger,
+rollback, RunEventLog, and AnswerPacket semantics before the same harness is
+asked to carry larger local models.
+
+The updated ladder is:
+
+```text
+source cards
+  -> provenance gate
+  -> Gemma QAT candidates
+  -> route-card memory preflight
+  -> compressed-route AnswerPackets
+  -> small compressed-model preflight
+  -> owner-approval runtime gate
+  -> local runtime command card
+  -> model-path readiness card
+  -> owner-approved one-token E2B proof
+  -> E4B/12B route proof only after memory and quality witnesses
+  -> 31B/70B-class Pro Research/Vault residency and transport proof
+```
+
+### 36.2 External And Local Source State
+
+Primary sources:
+
+- Google Gemma 4 QAT announcement:
+  <https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/>
+- Gemma 4 E2B QAT GGUF model card:
+  <https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf>
+- llama.cpp source/runtime lane:
+  <https://github.com/ggml-org/llama.cpp>
+
+Local source state:
+
+- `Epistemos/Engine/LocalGGUFClient.swift` remains a product seam, not product
+  proof.
+- `LocalPackages/GGUFRuntimeBridge` remains an in-process GGUF/llama bridge
+  anchor, not MAS readiness.
+- The checked model path state is missing-or-unverified; this pass did not
+  download, open, hash, load, or run a model file.
+
+### 36.3 Non-Promotion
+
+This pass advances T1/L1 architecture only. L2 remains
+`vault_research_route_with_packetized_mitigation`; L3 user-facing product truth
+remains unchanged. The safe next runtime step requires explicit owner approval
+and a visible local model path.
+
+### 36.4 Pass-Twenty-Two Register
+
+Best breakthrough candidate: a path-bound, command-carded, owner-approved
+local runtime probe that starts with E2B and reuses the same proof envelope for
+larger Gemma/QAT lanes.
+
+Safest next falsifier: `small_compressed_model_owner_approved_runtime_probe`,
+because source, command, and path-readiness metadata now exist, but runtime
+execution is still blocked until explicit approval.
+
+Best near-term code unit: implement a one-token E2B GGUF runtime probe wrapper
+that refuses to run without owner approval and local model path, records memory
+before/during/after, redacts token content, enforces cancellation, emits
+RunEventLog and AnswerPacket proof, and never starts a server sidecar or
+provider fallback.
+
+Biggest false-claim risk: treating source metadata, expected file bytes, or a
+future downloaded path as loadability, quality, 12B/31B readiness, live 70B,
+or product capability.
+
+Biggest missing source: the actual owner-approved local model path and a
+bounded runtime window for the E2B one-token proof.
+
+Next research query: "Which exact local model path, owner-approval token,
+llama-cli arguments, memory sampling points, timeout, cancellation signal, and
+redacted AnswerPacket fields are sufficient for the first E2B one-token proof,
+and how should that proof generalize to Gemma 4 12B QAT without changing the
+MAS/Pro capability truth?"
