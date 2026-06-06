@@ -91,6 +91,7 @@ pub mod ssd_wear_budget;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
 pub mod turbovec_eidos_compressed_index_plan;
+pub mod turbovec_stable_external_id_registry_plan;
 pub mod weight_block;
 pub mod witness;
 
@@ -512,6 +513,18 @@ pub use turbovec_eidos_compressed_index_plan::{
     TurboVecIndexPlanStatus, TurboVecIndexPromotionTier, TurboVecIndexProofRefs,
     TurboVecRebuildPolicy, TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_CURSOR,
     TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_NEXT_CURSOR,
+};
+pub use turbovec_stable_external_id_registry_plan::{
+    stable_external_id_for_uas, TurboVecStableExternalIdByteLedger,
+    TurboVecStableExternalIdCollisionLedgerEntry,
+    TurboVecStableExternalIdCollisionResolution, TurboVecStableExternalIdEntry,
+    TurboVecStableExternalIdLifecycle, TurboVecStableExternalIdPromotionTier,
+    TurboVecStableExternalIdProofRefs, TurboVecStableExternalIdRegistryError,
+    TurboVecStableExternalIdRegistryMetrics, TurboVecStableExternalIdRegistryPlan,
+    TurboVecStableExternalIdRegistryPlanSet, TurboVecStableExternalIdRegistryPolicy,
+    TurboVecStableExternalIdRegistryStatus, TurboVecStableExternalIdSource,
+    TURBOVEC_STABLE_EXTERNAL_ID_REGISTRY_PLAN_CURSOR,
+    TURBOVEC_STABLE_EXTERNAL_ID_REGISTRY_PLAN_NEXT_CURSOR,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

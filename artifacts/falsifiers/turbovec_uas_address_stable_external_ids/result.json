@@ -1,0 +1,450 @@
+{
+  "falsifier_id": "F-TurboVec-UASAddressStableExternalIds",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_uas_address_stable_external_ids.sh",
+  "command_digest": "sha256:3cead32c22c4e9fd9a40b742105c41be94854e3d27f7c0e017278f1fdc088ac1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "49c229550f79b4394efd15539ff1b52f9c97a574",
+  "fixture_id": "turbovec_uas_address_stable_external_ids_v1",
+  "timestamp_utc": "2026-06-06T09:21:06Z",
+  "result_digest": "sha256:d5c977ae0806f9082006e3631a0e756712793c9259a2ae488c561472a7a216c3",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_registry_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_entry_count": {
+      "value": 2,
+      "unit": "entries"
+    },
+    "allowlist_ids_compile_from_uas_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_truth_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "atomic_manifest_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "collision_alias_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "collision_ledger_count": {
+      "value": 1,
+      "unit": "entries"
+    },
+    "collision_ledger_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "deleted_id_tombstone_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_external_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_uas_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "export_import_roundtrip_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "external_id_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "generation_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "insert_order_identity_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 30000,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutable_vector_slot_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_filter_before_rank_privacy_gate_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 55,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 55,
+      "unit": "fixtures"
+    },
+    "registry_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "registry_set_address": {
+      "value": "turbovec_stable_external_id_registry_plan:ae1b3fc3949acde1280012131e10616882005dcc58965f1db30a33cd2cfe93b0@1779039100000",
+      "unit": "uas_address"
+    },
+    "reinserted_entry_count": {
+      "value": 1,
+      "unit": "entries"
+    },
+    "reserved_zero_external_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "same_uas_maps_same_external_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tombstoned_entry_count": {
+      "value": 1,
+      "unit": "entries"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_turbovec_index_plan_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_registry_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_entry_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "entries"
+    },
+    "allowlist_ids_compile_from_uas_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_truth_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "atomic_manifest_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "collision_alias_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "collision_ledger_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "entries"
+    },
+    "collision_ledger_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "deleted_id_tombstone_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_external_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_uas_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "export_import_roundtrip_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "external_id_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "generation_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "insert_order_identity_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 524288,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutable_vector_slot_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_filter_before_rank_privacy_gate_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 34,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 55,
+      "unit": "fixtures"
+    },
+    "registry_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "registry_set_address": {
+      "operator": "starts_with",
+      "value": "turbovec_stable_external_id_registry_plan:",
+      "unit": "uas_address"
+    },
+    "reinserted_entry_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "entries"
+    },
+    "reserved_zero_external_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "same_uas_maps_same_external_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tombstoned_entry_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "entries"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_turbovec_index_plan_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_registry_fixture_present": true,
+    "active_entry_count": true,
+    "allowlist_ids_compile_from_uas_required": true,
+    "app_cold_store_truth_required": true,
+    "atomic_manifest_required": true,
+    "collision_alias_rejected": true,
+    "collision_ledger_count": true,
+    "collision_ledger_required": true,
+    "deleted_id_tombstone_required": true,
+    "duplicate_external_id_rejected": true,
+    "duplicate_uas_rejected": true,
+    "export_import_roundtrip_required": true,
+    "external_id_mismatch_rejected": true,
+    "generation_mismatch_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "index_bytes_loaded": true,
+    "insert_order_identity_rejected": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "metadata_bytes_read": true,
+    "model_bytes_loaded": true,
+    "mutable_vector_slot_rejected": true,
+    "next_research_to_build_unit": true,
+    "product_promotion_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "registry_bytes_loaded": true,
+    "registry_set_address": true,
+    "reinserted_entry_count": true,
+    "reserved_zero_external_id_rejected": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "rowid_identity_rejected": true,
+    "runtime_and_index_bytes_zero": true,
+    "runtime_bytes_loaded": true,
+    "same_uas_maps_same_external_id": true,
+    "tombstoned_entry_count": true,
+    "upstream_cursor_verified": true,
+    "upstream_turbovec_index_plan_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec code imported, no registry/index/model/runtime bytes loaded, no recall or route quality claimed, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-UASAddressStableExternalIds from the TurboVec Eidos compressed-index plan. Scope is T1/L1 metadata only: UAS addresses become stable u64 external IDs through deterministic hash binding, tombstone/generation handling, collision alias rejection, AppColdStore truth, atomic rebuild manifest, rollback, RunEventLog, AnswerPacket, and no product/runtime promotion."
+}

@@ -598,8 +598,39 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   files, MAS/Live/T2+ promotion, live dense 70B, and SSD-as-RAM. This is T1/L1
   metadata only. It does not import TurboVec, build an index, prove recall
   quality, choose model routes, advance L2, or make L3 user-facing model
-  capability green. The next research-to-build retrieval unit is
-  `turbovec_stable_external_id_registry_plan`; the guard-owned cursor remains
+  capability green. Stable external IDs are now covered by
+  `F-TurboVec-UASAddressStableExternalIds`; the next research-to-build
+  retrieval unit is `turbovec_filter_before_rank_privacy_gate_plan`. The
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-UASAddressStableExternalIds` is now
+  built as the TurboVec/Eidos stable external-ID registry witness:
+  `agent_core/src/uas/turbovec_stable_external_id_registry_plan.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_uas_address_stable_external_ids.rs`,
+  script `Tools/falsifiers/f_turbovec_uas_address_stable_external_ids.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-UASAddressStableExternalIds_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_uas_address_stable_external_ids/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1 stable-ID
+  registry plan, records 2 active entries, 1 tombstoned entry, 1 reinserted
+  generation fixture, 1 collision-ledger row, and rejects 55 red fixtures. It
+  proves same-UAS-to-same-`u64` external-ID determinism across rebuild order,
+  rejects SQLite `rowid`, insert order, mutable vector slots, duplicate UAS
+  addresses, duplicate active IDs, zero IDs, ID mismatches, missing tombstones,
+  unsafe generations, missing collision ledger, and alias reuse; it also
+  requires AppColdStore truth, cache-manifest semantics, allowlists compiled
+  from UAS, export/import roundtrip, atomic manifest, corrupt-manifest rebuild,
+  rollback, RunEventLog, AnswerPacket, and compatibility fence. This is T1/L1
+  metadata only. It does not import TurboVec, build/persist a registry or
+  index, prove recall quality, choose model routes, advance L2, or make L3
+  user-facing model capability green. The next research-to-build retrieval unit
+  is `turbovec_filter_before_rank_privacy_gate_plan`; the guard-owned cursor
+  remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:

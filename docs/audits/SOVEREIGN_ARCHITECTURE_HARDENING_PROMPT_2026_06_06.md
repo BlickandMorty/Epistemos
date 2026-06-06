@@ -323,27 +323,41 @@ If a source/canon guard is needed before the next runtime step, use this order:
    model/index/runtime/provider bytes, no copied product files, no hidden
    route authority, no Eidos-as-live-router, no route mutation, no MAS/L2/L3
    promotion, no live dense 70B, and no SSD-as-RAM. The next retrieval/index
-   research-to-build unit is `turbovec_stable_external_id_registry_plan`.
-7. `F-GemmaQAT-LocalRuntimeCandidateCard`:
+   research-to-build unit is now
+   `turbovec_filter_before_rank_privacy_gate_plan`.
+7. `F-TurboVec-UASAddressStableExternalIds`:
+   now built metadata-only; preserve the UAS-address-stable external `u64`
+   registry plan, tombstone/generation handling, collision alias rejection,
+   AppColdStore truth, cache-manifest semantics, allowlists compiled from UAS,
+   export/import roundtrip, atomic manifest, corrupt-manifest rebuild,
+   rollback, RunEventLog, AnswerPacket, compatibility fence, zero
+   registry/index/model/runtime/provider bytes, no copied product files, no
+   hidden route authority, no route mutation, no MAS/L2/L3 promotion, no live
+   dense 70B, and no SSD-as-RAM. It rejects SQLite row IDs, insert order,
+   mutable vector slots, duplicate UAS, duplicate active IDs, zero IDs, ID
+   mismatches, missing tombstones, unsafe generations, missing collision
+   ledger, and alias reuse. The next retrieval/index research-to-build unit is
+   `turbovec_filter_before_rank_privacy_gate_plan`.
+8. `F-GemmaQAT-LocalRuntimeCandidateCard`:
    now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
    GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B
    small-harness status, 12B Pro Gated target status, 31B vault-only status,
    zero model/runtime/provider bytes, false Swift MLX/MTP/MAS/product rejection,
    and no L2/L3 promotion boundary.
-8. `F-QAT-ModelRouteCard-MemoryPreflight`:
+9. `F-QAT-ModelRouteCard-MemoryPreflight`:
    now built metadata-only; preserve declared file bytes, predicted
    resident/KV/scratch bytes, hardware budget, headroom, abstention, timeout,
    cancellation, rollback, RunEventLog, and AnswerPacket caveats before any
    runtime bytes. E2B/E4B may proceed only to later dry-run packetization; 12B
    abstains on the declared M2 Pro 16 GB UMA profile; 31B remains vault-only.
-9. `F-CompressedRoute-AnswerPacket-DryRun`:
+10. `F-CompressedRoute-AnswerPacket-DryRun`:
    now built metadata-only; preserve visible compressed-route AnswerPackets for
    E2B/E4B only, 12B as an insufficient-headroom abstention packet, 31B as a
    vault packet, planned/opened/resident/loaded/provider byte separation,
    fallback, rollback, cancellation, compatibility fence, RunEventLog,
    AnswerPacket, no-mutation envelope, zero runtime/model/provider bytes, and
    no L2/L3 promotion boundary.
-10. `F-SmallCompressedModel-LiveHarness`:
+11. `F-SmallCompressedModel-LiveHarness`:
    preflight now built metadata-only as `F-SmallCompressedModel-LiveHarnessPreflight`;
    preserve E2B GGUF/llama.cpp as the only selected future owner-approved
    one-token probe candidate, E4B as deferred alternate, LiteRT-LM as requiring

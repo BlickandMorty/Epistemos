@@ -117,21 +117,42 @@ Recommended first units, in order:
      1536-dimensional byte math (`6144` float32 bytes, `768` q4 payload bytes,
      `384` q2 payload bytes before overhead). It imports no TurboVec code,
      builds no index, loads zero model/index/runtime bytes, makes zero provider
-     calls, and preserves the no-L2/L3-promotion boundary. The next
+     calls, and preserves the no-L2/L3-promotion boundary. Stable external
+     IDs are now covered by `F-TurboVec-UASAddressStableExternalIds`; the next
      retrieval/index research-to-build unit is
-     `turbovec_stable_external_id_registry_plan`.
+     `turbovec_filter_before_rank_privacy_gate_plan`.
 
-5. `F-QAT-ModelRouteCard-MemoryPreflight`
+5. `F-TurboVec-UASAddressStableExternalIds`
+   - Proves UAS-address-stable external `u64` IDs, tombstones, generations,
+     collision alias rejection, AppColdStore truth, cache-manifest semantics,
+     and proof surfaces before privacy masks or compressed index bytes cite
+     TurboVec IDs.
+   - Does not import TurboVec, persist registry bytes, prove recall quality,
+     or choose model/runtime routes.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_uas_address_stable_external_ids/result.json`.
+     It accepts 1 stable-ID registry plan with 2 active entries, 1 tombstoned
+     entry, 1 reinserted generation fixture, 1 collision-ledger row, and 55
+     rejected red fixtures. It rejects SQLite row IDs, insert order, mutable
+     vector slots, duplicate UAS, duplicate active IDs, zero IDs, missing
+     tombstones, unsafe generations, missing collision ledger, alias reuse,
+     hidden route/cloud authority, live dense 70B, and SSD-as-RAM. It loads
+     zero registry/index/model/runtime/provider bytes, copies zero product
+     files, and preserves the no-L2/L3-promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_filter_before_rank_privacy_gate_plan`.
+
+6. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-6. `F-CompressedRoute-AnswerPacket-DryRun`
+7. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. It accepts 4 compressed-route packets, rejects 48 red fixtures, packetizes E2B/E4B as visible dry-run AnswerPackets only, carries 12B as an insufficient-headroom abstention packet, carries 31B as VaultPreserved, records planned/opened/resident/loaded/provider bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-7. `F-SmallCompressedModel-LiveHarness`
+8. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
    - 2026-06-06 preflight status: `F-SmallCompressedModel-LiveHarnessPreflight` PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`. It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp as the only future owner-approved tiny probe candidate, keeps E4B as a deferred alternate, requires later LiteRT package proof, preserves the MLX Swift loader caveat, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
