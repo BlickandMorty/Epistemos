@@ -348,6 +348,22 @@ path-as-UAS-ID. This creates a codeable feeder falsifier,
 `F-ModelInventory-ZeroByteCandidateCards`, without changing the guard-owned
 coding cursor.
 
+**Pass-eleven fixture contract.** The synthesis now specifies the first
+accepted and red fixture pack for `F-ModelInventory-ZeroByteCandidateCards`.
+Accepted fixtures cover catalog-only Qwen3, checksum-unverified manifest
+records, present/missing hub snapshots, Gemma 4 preview loader-blocked status,
+deferred GGUF/128K evidence, Git LFS pointer metadata, capped sidecar JSON,
+Swift/Rust/JS package-lock provenance, and RuntimeRouter preference hints. Red
+fixtures reject duplicate/orphan inventory rows, blocked sources,
+snapshot-as-file-hash, LFS oid-as-local-hash, weight/blob opens or hashes,
+nonzero model/index/runtime/provider bytes, active-dir runtime proof,
+manifest-checksum promotion, package-lock loader proof, Gemma 4 caveat bypass,
+RuntimeRouter route authority, filesystem-path UAS IDs, metadata-to-green
+promotion, MAS Live leakage, live dense 70B, SSD-as-RAM, hidden cloud, hidden
+Eidos/PatternBoost authority, and missing rollback / RunEventLog / AnswerPacket
+refs. Next codeable research unit: design the exact Rust structs/enums/fields
+for `agent_core/src/uas/model_inventory_candidate.rs`.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is

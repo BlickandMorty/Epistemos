@@ -461,6 +461,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   RuntimeRouter preference rows into hidden authority. This remains T0
   research/canon only and does not promote product capability, live dense 70B,
   live sparse 70B, or L2/L3 readiness.
+- Updated **2026-06-06** · zero-byte model inventory fixture contract folded
+  into canon: pass eleven of
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines the
+  accepted and red fixtures for `F-ModelInventory-ZeroByteCandidateCards`.
+  Accepted evidence includes catalog-only Qwen, checksum-unverified manifest
+  records, present and missing hub snapshots, Gemma 4 loader-blocked preview,
+  deferred GGUF/128K candidates, LFS pointer metadata, capped sidecar JSON,
+  Swift/Rust/JS package-lock provenance, and RuntimeRouter preference hints.
+  Red fixtures reject snapshot-as-file-hash, LFS oid-as-local-hash, any
+  weight/blob open or hash, nonzero model/index/runtime/provider bytes, active
+  dir as runtime proof, package lock as loader proof, Gemma 4 caveat bypass,
+  RuntimeRouter preference as route authority, filesystem path as UAS ID,
+  metadata-to-green promotion, MAS Live leakage, live dense 70B, SSD-as-RAM,
+  hidden cloud, hidden Eidos/PatternBoost authority, and missing rollback /
+  RunEventLog / AnswerPacket refs. This is still T0 research/canon only; the
+  guard-owned coding cursor remains unchanged.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
