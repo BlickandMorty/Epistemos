@@ -4643,3 +4643,90 @@ Next research query: "How should Epistemos prove that real-adapter shadow
 replay leaves the product graph uncontaminated: no imports, dependencies,
 native links, hidden route policy, model-context injection, user-facing green
 copy, runtime bytes, or L2/L3 promotion?"
+
+---
+
+## Pass 56 - TurboVec Product-Graph No-Contamination Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, exact-baseline
+shadow replay, and the current TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_product_graph_no_contamination_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_product_graph_no_contamination_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_product_graph_no_contamination_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_product_graph_no_contamination_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterProductGraphNoContaminationProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is now PASS as a
+metadata/source-scan T1/L1 witness. It binds the pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and exact-baseline shadow-replay
+witness to 7 audited rows, 171 scanned files, 978369 scanned product bytes,
+88997 scanned manifest bytes, 1634929 scanned architecture/canon metadata
+bytes, 1916 quarantined architecture/canon TurboVec mentions, 0 forbidden
+TurboVec product mentions, 0 product imports, 0 product dependencies, 0
+native-link mentions, 0 route-policy mentions, 0 model-context mentions, 0
+user-facing green-copy mentions, 50 red-fixture rejections, rollback,
+RunEventLog, AnswerPacket, compatibility fence, no hidden route authority, no
+live dense 70B claim, and no L2/L3 promotion.
+
+### 56.1 Architecture Fusion
+
+This pass closes the gap between "shadow replay is safe" and "the shipped app
+has not absorbed that research as a hidden product feature." The architectural
+move is that TurboVec can now remain a quarantined Eidos/AppColdStore and
+Semantic Working-Set Compiler research input while product Swift source,
+user-facing copy, Swift/Rust runtime routing, and product manifests stay clean.
+
+That matters for large local models because compressed retrieval is useful only
+if it cannot quietly become a hidden router, hidden context injector, or false
+Gemma/QAT/70B capability claim. The path remains: AppColdStore truth, Eidos
+proposal evidence, UAS allowlist-before-rank, SCOPE-Rex/SovereignGate
+admission, System G route cards, RunEventLog, AnswerPacket, then later WRV.
+
+### 56.2 Non-Promotion
+
+This pass does not inspect additional TurboVec raw source, clone TurboVec,
+import source, add dependencies, build/run an adapter, probe native links, run
+benchmarks, open exact-baseline/index bytes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate product graphs, mutate
+RuntimeRouter/System G routes, make L2 product capability green, make L3
+user-facing model capability green, or prove live dense 70B. It advances the
+research-to-build ladder only.
+
+### 56.3 Pass-Fifty-Six Register
+
+Best breakthrough candidate: native-link absence preflight for real-adapter
+research, because product graph cleanliness is not enough if the next step can
+silently turn build.rs, BLAS/Accelerate, Python bindings, or adapter artifacts
+into native-link risk.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`, because
+product graph no-contamination now exists but no native-link absence preflight
+has proven build scripts, link directives, external libraries, generated
+artifacts, and crash/rollback policy remain inert before adapter build.
+
+Best near-term code unit: implement the native-link absence preflight schema
+with build.rs/link directive inventory, macOS/Accelerate/OpenBLAS/Python
+binding denials, no build execution, rollback, RunEventLog, AnswerPacket,
+compatibility fence, and zero runtime/index/model/provider bytes.
+
+Biggest false-claim risk: treating a clean product graph scan as permission to
+build or link an adapter, or as proof of compressed retrieval quality,
+model-context improvement, route-prior value, or live large-local-model
+capability.
+
+Biggest missing source: a native-link absence preflight that proves the
+TurboVec real-adapter ladder cannot trigger build scripts, dynamic/static link
+steps, generated artifacts, or platform-specific native dependencies before a
+crash-safe owner-approved harness exists.
+
+Next research query: "How should Epistemos prove TurboVec native-link absence:
+no build.rs execution, no Accelerate/OpenBLAS link, no Python/maturin binding,
+no generated artifacts, no adapter build, no runtime bytes, rollback,
+RunEventLog, AnswerPacket, and no L2/L3 promotion?"

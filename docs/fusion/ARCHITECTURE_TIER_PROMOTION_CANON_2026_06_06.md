@@ -192,6 +192,23 @@ runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
 2026-06-06 current TurboVec retrieval/index clarification:
+`F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by proving
+exact-baseline shadow replay has not contaminated the product graph before
+native-link preflight, adapter builds, runtime evidence, compressed retrieval
+routes, or model-context use: Swift product source, Swift user-facing copy,
+Swift/Rust runtime routing, product manifests, architecture falsifier graph,
+and canon surfaces are scanned; TurboVec mentions are allowed only in
+quarantined architecture/canon surfaces. It does not import source, add
+dependencies, build adapters, probe native links, run benchmarks, open
+exact-baseline/index bytes, mutate product graphs, mutate routes, make L2/L3
+product capability green, or promote live dense 70B. The next retrieval/index
+research-to-build unit is
+`turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`; older
+TurboVec paragraphs below are historical context unless a newer S0 surface says
+otherwise.
+
+2026-06-06 TurboVec exact-replay clarification:
 `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is T1/L1 only. It
 strengthens the architecture in favor of larger local models by converting the
 clean-room adapter plan into exact-baseline shadow replay for
@@ -202,8 +219,9 @@ AnswerPacket, compatibility fence, and no-product-graph proof surfaces. It
 does not import source, add dependencies, build adapters, probe native links,
 run benchmarks, open exact-baseline/index bytes, mutate product graphs, mutate
 routes, make L2/L3 product capability green, or promote live dense 70B. The
-next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`; older
+former next retrieval/index research-to-build unit,
+`turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`, has
+now landed; older
 TurboVec paragraphs below are historical context unless a newer S0 surface says
 otherwise.
 

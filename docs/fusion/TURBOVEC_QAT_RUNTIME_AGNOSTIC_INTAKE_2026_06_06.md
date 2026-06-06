@@ -486,11 +486,36 @@ Recommended first units, in order:
      AppColdStore exact-baseline refs, UAS allowlist-before-rank filtering,
      deterministic seeds, cancellation, latency/memory abstention, rollback,
      RunEventLog, AnswerPacket, compatibility fence, no product graph mutation,
-     no hidden route authority, and the no-L2/L3-promotion boundary. The next
-     retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+     no hidden route authority, and the no-L2/L3-promotion boundary. Its former
+     next retrieval/index research-to-build unit,
+     `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`,
+     is now landed by
+     `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`.
 
-22. `F-QAT-ModelRouteCard-MemoryPreflight`
+22. `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`
+   - Proves exact-baseline shadow replay has not contaminated Swift product
+     source, Swift user-facing copy, Swift/Rust runtime routing, or product
+     manifests before native-link preflight, adapter builds, runtime evidence,
+     compressed retrieval routes, or model-context use can cite it.
+   - Does not inspect additional TurboVec raw source, clone TurboVec, import
+     source, add dependencies, build/run adapters, probe native links, run
+     benchmarks, open exact-baseline or index bytes, load
+     Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate product graphs, mutate
+     routes, or promote product capability.
+   - 2026-06-06 status: PASS as a metadata/source-scan T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_product_graph_no_contamination_probe/result.json`.
+     It binds 7 audited rows, 171 scanned files, 978369 scanned product bytes,
+     88997 scanned manifest bytes, 1634929 scanned architecture/canon metadata
+     bytes, 1916 quarantined architecture/canon TurboVec mentions, 0 forbidden
+     TurboVec product mentions, 0 product imports, 0 product dependencies, 0
+     native-link mentions, 0 route-policy mentions, 0 model-context mentions, 0
+     user-facing green-copy mentions, 50 rejected red fixtures, rollback,
+     RunEventLog, AnswerPacket, compatibility fence, no hidden route authority,
+     and the no-L2/L3-promotion boundary. The next retrieval/index
+     research-to-build unit is
+     `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
+
+23. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

@@ -101,6 +101,7 @@ pub mod turbovec_real_adapter_exact_baseline_shadow_replay_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_motif_extraction_card_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
+pub mod turbovec_real_adapter_product_graph_no_contamination_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
 pub mod turbovec_real_adapter_source_byte_manifest_probe;
 pub mod turbovec_real_adapter_source_inspection_policy_probe;
@@ -653,6 +654,15 @@ pub use turbovec_real_adapter_exact_baseline_shadow_replay_probe::{
     TurboVecRealAdapterShadowReplayStatus, TurboVecRealAdapterShadowReplayTier,
     TURBOVEC_REAL_ADAPTER_EXACT_BASELINE_SHADOW_REPLAY_CURSOR,
     TURBOVEC_REAL_ADAPTER_EXACT_BASELINE_SHADOW_REPLAY_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_product_graph_no_contamination_probe::{
+    product_graph_no_contamination_digest, TurboVecProductGraphAuditRow,
+    TurboVecProductGraphByteLedger, TurboVecProductGraphError, TurboVecProductGraphMetrics,
+    TurboVecProductGraphPolicy, TurboVecProductGraphProofRefs, TurboVecProductGraphStatus,
+    TurboVecProductGraphSurface, TurboVecProductGraphTier,
+    TurboVecRealAdapterProductGraphNoContaminationProbeSet,
+    TURBOVEC_REAL_ADAPTER_PRODUCT_GRAPH_NO_CONTAMINATION_CURSOR,
+    TURBOVEC_REAL_ADAPTER_PRODUCT_GRAPH_NO_CONTAMINATION_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,
