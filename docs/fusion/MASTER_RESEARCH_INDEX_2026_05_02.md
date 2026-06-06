@@ -90,6 +90,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-ForkDeltaSourceCard`, and
 > `F-DownloadsLocalResearchDedupeProvenanceCard`; it does not import runtime
 > dependencies, run models, run benchmarks, open indexes, or promote L2/L3.
+> Deep Research Pass 60 in the same file adds the KV residency/offload/cache-
+> lineage synthesis for current `vllm-project/vllm`, `LMCache/LMCache`,
+> `kvcache-ai/ktransformers`, `FMInference/FlexLLMGen`, `Tiiny-AI/PowerInfer`,
+> and `jy-yuan/KIVI`. It translates PagedAttention-style block tables,
+> reusable KV lineage, 3-layer GPU-CPU-Disk prefix-cache motifs, offload cost
+> models, activation locality, and asymmetric 2-bit KV quantization into
+> Epistemos backlog gates:
+> `F-KVVirtualBlockTable-CompatibilityFence`,
+> `F-KVLineage-ReuseCompatibilityFence`,
+> `F-OffloadCostModel-LatencyThroughputBoundary`,
+> `F-HeterogeneousExpertPlacement-Abstention`,
+> `F-ActivationLocality-NoHiddenWake`,
+> `F-AsymmetricKV-SoftmaxStability`, and
+> `F-KVSourceCard-ForkAndDaemonBoundary`. This is T0/T1 canon/backlog only:
+> no server, daemon, remote cache, offload benchmark, model/KV byte load,
+> hidden cache authority, SSD-as-RAM claim, or L2/L3 promotion.
 
 ---
 
