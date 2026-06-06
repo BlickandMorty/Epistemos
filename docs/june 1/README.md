@@ -20,9 +20,10 @@ easy to browse in one place.
 > `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`,
 > `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`,
 > `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`, and
-> `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md` in the
-> live repo root. Those newer docs extend this snapshot without deleting the
-> June 1 nuance.
+> `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`, and
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` in the live
+> repo root. Those newer docs extend this snapshot without deleting the June 1
+> nuance.
 
 Use the broad codeword:
 

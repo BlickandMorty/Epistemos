@@ -443,6 +443,10 @@ name = "falsify_turbovec_uas_address_stable_external_ids"
 path = "src/bin/falsify_turbovec_uas_address_stable_external_ids.rs"
 
 [[bin]]
+name = "falsify_turbovec_filter_before_rank_privacy_gate"
+path = "src/bin/falsify_turbovec_filter_before_rank_privacy_gate.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

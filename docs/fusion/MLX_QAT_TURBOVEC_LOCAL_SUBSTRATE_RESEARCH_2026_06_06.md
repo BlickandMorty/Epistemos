@@ -337,8 +337,8 @@ Each falsifier must emit a machine-readable artifact under `artifacts/falsifiers
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F-ProprietaryCompression-ProvenanceGate | provenance ledger with URL, license, digest, import mode | unknown license, GPL/AGPL conflict, copied code without notice | transitive deps, generated code, forks | every source has allowed action | 0 | metadata | L1 gate | docs/fusion, Living Index source cards | copying no-license code into proprietary path |
 | F-TurboVec-EidosCompressedIndex | index card: dim, bit width, build digest, recall, latency, memory | wrong dim, NaN, Inf, huge coord, duplicate vector, zero vector | small dim, high dim, repeated vectors | recall@10 against exact baseline above threshold; no panic | live fixture only | live after metadata | L2 if pass | docs/falsifiers, artifacts | treating README benchmark as Epistemos proof |
-| F-TurboVec-UASAddressStableExternalIds | UAS->u64 registry and collision ledger | deleted IDs, rowid reuse, duplicate UAS, hash collision fixture | rebuild/swap-remove, import/export | same UAS maps to same external id across rebuild | tiny fixture | metadata/live | blocks L2 | Eidos docs | using SQLite rowid as truth |
-| F-TurboVec-FilterBeforeRankPrivacyGate | allowlist proof, forbidden-hit audit, result packet | forbidden plane, empty allowlist, unknown ID | all-denied, one allowed, duplicate allowed IDs | no forbidden ID scored/exposed; visible empty packet for no access | tiny fixture | live | L2 gate | Eidos route docs, AnswerPacket schema | vector search first, post-filter later |
+| F-TurboVec-UASAddressStableExternalIds | UAS->u64 registry and collision ledger | deleted IDs, rowid reuse, duplicate UAS, hash collision fixture | rebuild/swap-remove, import/export | same UAS maps to same external id across rebuild | tiny fixture | metadata | blocks L2 | Eidos docs | using SQLite rowid as truth |
+| F-TurboVec-FilterBeforeRankPrivacyGate | allowlist proof, forbidden-hit audit, result packet | forbidden plane, empty allowlist, unknown ID | all-denied, one allowed, duplicate allowed IDs | no forbidden ID scored/exposed; visible empty packet for no access | tiny fixture | metadata | blocks L2 | Eidos route docs, AnswerPacket schema | vector search first, post-filter later |
 | F-TurboVec-CrashSafePersistentIndex | manifest with temp, fsync, rename, digest, rebuild report | truncated file, corrupt magic, version mismatch, duplicate IDs | crash mid-write, old `.tv`/`.tvim` | rebuild recovers from AppColdStore; old manifest remains usable | fixture only | live | L2 gate | AppColdStore docs | trusting upstream persistence as durable truth |
 | F-CompressedRetrieval-NoHiddenRouteAuthority | RunEventLog/AnswerPacket route proof | retrieval score changes model route without SCOPE-Rex | high score forbidden doc, empty retrieval | route decision cites policy, not raw score | 0 or tiny | metadata/live | blocks L2/L3 | RuntimeRouter docs | Eidos silently picks model |
 | F-GemmaQAT-LocalRuntimeCandidateCard | model card JSON with ids, license, file sizes, hash, runtime path | missing license, unpinned repo, wrong format, no context cap | MLX vs GGUF confusion, mmproj mismatch | every claim source-backed; no runtime claim | 0 | metadata | L1 | docs/fusion, model catalog docs | saying repo exists means app can load |
@@ -647,7 +647,8 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
 4. Implement `F-LargeModelCompression-ClaimBoundaryGuard`.
 5. `F-TurboVec-UASAddressStableExternalIds` is implemented; preserve it as the
    identity prerequisite for compressed retrieval.
-6. Implement `F-TurboVec-FilterBeforeRankPrivacyGate`.
+6. `F-TurboVec-FilterBeforeRankPrivacyGate` is implemented; preserve it as the
+   pre-rank privacy prerequisite for compressed retrieval.
 7. Implement `F-TurboVec-CrashSafePersistentIndex`.
 8. Run tiny live TurboVec fixtures only after wrappers exist.
 9. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
@@ -1528,8 +1529,32 @@ RunEventLog, AnswerPacket, and compatibility fence.
 
 This pass does not import TurboVec code, persist registry bytes, build an
 index, prove recall quality, prove latency, choose RuntimeRouter/System G
-routes, or make L2/L3 product capability green. It moves the TurboVec branch
-to the next safer retrieval/index step:
-`turbovec_filter_before_rank_privacy_gate_plan`, which should prove that
-privacy allowlists are compiled before approximate rank/search can score
-anything.
+routes, or make L2/L3 product capability green. The next privacy step is now
+covered by `F-TurboVec-FilterBeforeRankPrivacyGate`; the next safer
+retrieval/index step is `turbovec_crash_safe_persistent_index_plan`.
+
+### 2026-06-06 TurboVec Filter-Before-Rank Privacy Gate Implementation Note
+
+`F-TurboVec-FilterBeforeRankPrivacyGate` is now implemented as the
+metadata-only privacy witness after the stable external-ID registry. The
+artifact lives at
+`artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/result.json`
+and accepts 1 privacy gate plan while rejecting 67 red fixtures. It covers 5
+scenarios: one allowed, all denied, duplicate allowed IDs, unknown ID probe,
+and forbidden-plane probe. It records 0 forbidden/private/unknown candidates
+scored and 0 forbidden/private/unknown candidates exposed.
+
+The implementation makes the dangerous privacy shortcuts explicit and
+rejected: post-rank filtering, forbidden/private/unknown scoring, unknown IDs,
+duplicate allowlist IDs, empty allowlists without AnswerPacket, missing
+forbidden-hit audit refs, missing rollback/RunEventLog/AnswerPacket,
+Eidos-as-live-router, hidden route authority, hidden cloud fallback, live dense
+70B, SSD-as-RAM, and any nonzero search/index/model/runtime/provider bytes.
+It requires UAS-derived external IDs, Scope-Rex, SovereignGate, exact source
+checks, rollback, RunEventLog, AnswerPacket, and compatibility fence before
+TurboVec compressed retrieval can become a persistent cache candidate.
+
+This pass does not import TurboVec code, build or persist an index, prove
+recall quality, prove latency, choose RuntimeRouter/System G routes, or make
+L2/L3 product capability green. It moves the TurboVec branch to the next safer
+retrieval/index step: `turbovec_crash_safe_persistent_index_plan`.

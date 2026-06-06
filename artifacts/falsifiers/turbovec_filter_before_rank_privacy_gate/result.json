@@ -1,0 +1,420 @@
+{
+  "falsifier_id": "F-TurboVec-FilterBeforeRankPrivacyGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_filter_before_rank_privacy_gate.sh",
+  "command_digest": "sha256:387df23d1814394aeeec19f2096f22219a56a2acce1ba39f4042c60adb23004a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "b41974fdb69a4409c9b4e0f2937f889da185d4e5",
+  "fixture_id": "turbovec_filter_before_rank_privacy_gate_v1",
+  "timestamp_utc": "2026-06-06T09:51:15Z",
+  "result_digest": "sha256:930de25f727b527a9ba38ed8e9823d7c1329e67dcb039f0b09c55dee74d78cca",
+  "measurements": {
+    "accepted_filter_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "allowed_candidate_count": {
+      "value": 2,
+      "unit": "candidates"
+    },
+    "allowlist_compiled_before_rank": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_allowlist_deduplicated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_allowlist_answer_packet_emitted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_source_check_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exposed_forbidden_count": {
+      "value": 0,
+      "unit": "candidates"
+    },
+    "forbidden_candidate_count": {
+      "value": 3,
+      "unit": "candidates"
+    },
+    "forbidden_hit_audit_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_id_scoring_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_scored_count": {
+      "value": 0,
+      "unit": "candidates"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 28700,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_crash_safe_persistent_index_plan",
+      "unit": "cursor"
+    },
+    "post_filter_after_rank_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_gate_address": {
+      "value": "turbovec_filter_before_rank_privacy_gate_plan:de30abe8e8e7564126ffac2452b6af6eff19db6249b0909306cb3b9d4ad74c53@1779039200000",
+      "unit": "uas_address"
+    },
+    "private_vector_scoring_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 67,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 67,
+      "unit": "fixtures"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "scenario_count": {
+      "value": 5,
+      "unit": "scenarios"
+    },
+    "scenario_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_and_sovereign_gates_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stable_external_ids_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_external_id_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_stable_external_id_registry_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_filter_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "allowed_candidate_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "candidates"
+    },
+    "allowlist_compiled_before_rank": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_allowlist_deduplicated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_allowlist_answer_packet_emitted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_source_check_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exposed_forbidden_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "candidates"
+    },
+    "forbidden_candidate_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "candidates"
+    },
+    "forbidden_hit_audit_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_id_scoring_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_scored_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "candidates"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 524288,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_crash_safe_persistent_index_plan",
+      "unit": "cursor"
+    },
+    "post_filter_after_rank_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_gate_address": {
+      "operator": "starts_with",
+      "value": "turbovec_filter_before_rank_privacy_gate_plan:",
+      "unit": "uas_address"
+    },
+    "private_vector_scoring_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 44,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 67,
+      "unit": "fixtures"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "scenario_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "scenarios"
+    },
+    "scenario_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scope_and_sovereign_gates_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stable_external_ids_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_external_id_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_stable_external_id_registry_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_filter_fixture_present": true,
+    "accepted_fixture_count": true,
+    "allowed_candidate_count": true,
+    "allowlist_compiled_before_rank": true,
+    "duplicate_allowlist_deduplicated": true,
+    "empty_allowlist_answer_packet_emitted": true,
+    "exact_source_check_required": true,
+    "exposed_forbidden_count": true,
+    "forbidden_candidate_count": true,
+    "forbidden_hit_audit_required": true,
+    "forbidden_id_scoring_rejected": true,
+    "forbidden_scored_count": true,
+    "hidden_route_authority_rejected": true,
+    "index_bytes_loaded": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "metadata_bytes_read": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "post_filter_after_rank_rejected": true,
+    "privacy_gate_address": true,
+    "private_vector_scoring_rejected": true,
+    "product_promotion_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "runtime_and_index_bytes_zero": true,
+    "runtime_bytes_loaded": true,
+    "scenario_count": true,
+    "scenario_coverage_complete": true,
+    "scope_and_sovereign_gates_required": true,
+    "search_bytes_loaded": true,
+    "stable_external_ids_required": true,
+    "unknown_external_id_rejected": true,
+    "upstream_cursor_verified": true,
+    "upstream_stable_external_id_registry_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec crate imported, no search/index/model/runtime bytes loaded, no recall or route quality claimed, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-FilterBeforeRankPrivacyGate from the stable external-ID registry. Scope is T1/L1 metadata only: Scope/Sovereign allowlists compile from UAS-derived external IDs before adapter scoring; private, forbidden, unknown, and empty-allowlist cases fail closed through forbidden-hit audit refs, rollback, RunEventLog, AnswerPacket, compatibility fence, and zero runtime/index/model/provider bytes."
+}

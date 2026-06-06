@@ -217,7 +217,22 @@ cloud fallback, live dense 70B, SSD-as-RAM, and nonzero registry/index/model/
 runtime/provider bytes. It does not import TurboVec, persist registry bytes,
 build an index, prove recall quality, choose System G routes, make L2/L3
 product capability green, or promote live dense 70B. The next retrieval/index
-research-to-build unit is `turbovec_filter_before_rank_privacy_gate_plan`.
+research-to-build unit is now `turbovec_crash_safe_persistent_index_plan`.
+
+2026-06-06 TurboVec filter-before-rank privacy clarification:
+`F-TurboVec-FilterBeforeRankPrivacyGate` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving that TurboVec/Eidos
+compressed-cache adapters must compile Scope-Rex/SovereignGate allowlists from
+UAS-derived external IDs before rank, score, or result exposure. It rejects
+post-rank filtering, forbidden/private/unknown candidate scoring, unknown IDs,
+duplicate allowlist IDs, empty allowlists without AnswerPacket, bad
+forbidden-hit audit refs, missing rollback/RunEventLog/AnswerPacket, hidden
+route authority, Eidos-as-live-router, hidden cloud fallback, live dense 70B,
+SSD-as-RAM, and nonzero search/index/model/runtime/provider bytes. It does not
+import TurboVec, build or persist an index, prove recall quality, choose System
+G routes, make L2/L3 product capability green, or promote live dense 70B. The
+next retrieval/index research-to-build unit is
+`turbovec_crash_safe_persistent_index_plan`.
 
 ## Required Surface Updates
 

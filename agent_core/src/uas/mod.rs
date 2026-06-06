@@ -91,6 +91,7 @@ pub mod ssd_wear_budget;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
 pub mod turbovec_eidos_compressed_index_plan;
+pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_stable_external_id_registry_plan;
 pub mod weight_block;
 pub mod witness;
@@ -513,6 +514,16 @@ pub use turbovec_eidos_compressed_index_plan::{
     TurboVecIndexPlanStatus, TurboVecIndexPromotionTier, TurboVecIndexProofRefs,
     TurboVecRebuildPolicy, TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_CURSOR,
     TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_NEXT_CURSOR,
+};
+pub use turbovec_filter_before_rank_privacy_gate::{
+    TurboVecAccessDecision, TurboVecAllowlistCompilation, TurboVecCandidateEvidence,
+    TurboVecFilterBeforeRankByteLedger, TurboVecFilterBeforeRankError,
+    TurboVecFilterBeforeRankMetrics, TurboVecFilterBeforeRankPlan,
+    TurboVecFilterBeforeRankPlanSet, TurboVecFilterBeforeRankPolicy,
+    TurboVecFilterBeforeRankPromotionTier, TurboVecFilterBeforeRankProofRefs,
+    TurboVecFilterBeforeRankScenario, TurboVecFilterBeforeRankStatus,
+    TurboVecFilterFixtureKind, TURBOVEC_FILTER_BEFORE_RANK_PRIVACY_GATE_CURSOR,
+    TURBOVEC_FILTER_BEFORE_RANK_PRIVACY_GATE_NEXT_CURSOR,
 };
 pub use turbovec_stable_external_id_registry_plan::{
     stable_external_id_for_uas, TurboVecStableExternalIdByteLedger,

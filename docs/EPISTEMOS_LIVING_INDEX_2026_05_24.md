@@ -599,8 +599,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   metadata only. It does not import TurboVec, build an index, prove recall
   quality, choose model routes, advance L2, or make L3 user-facing model
   capability green. Stable external IDs are now covered by
-  `F-TurboVec-UASAddressStableExternalIds`; the next research-to-build
-  retrieval unit is `turbovec_filter_before_rank_privacy_gate_plan`. The
+  `F-TurboVec-UASAddressStableExternalIds`; filter-before-rank privacy is now
+  covered by `F-TurboVec-FilterBeforeRankPrivacyGate`; the next
+  research-to-build retrieval unit is
+  `turbovec_crash_safe_persistent_index_plan`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-UASAddressStableExternalIds` is now
@@ -629,7 +631,37 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   metadata only. It does not import TurboVec, build/persist a registry or
   index, prove recall quality, choose model routes, advance L2, or make L3
   user-facing model capability green. The next research-to-build retrieval unit
-  is `turbovec_filter_before_rank_privacy_gate_plan`; the guard-owned cursor
+  is now `turbovec_crash_safe_persistent_index_plan`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-FilterBeforeRankPrivacyGate` is now
+  built as the TurboVec/Eidos filter-before-rank privacy witness:
+  `agent_core/src/uas/turbovec_filter_before_rank_privacy_gate.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_filter_before_rank_privacy_gate.rs`,
+  script `Tools/falsifiers/f_turbovec_filter_before_rank_privacy_gate.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-FilterBeforeRankPrivacyGate_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1 privacy gate
+  plan, covers 5 scenarios, rejects 67 red fixtures, records 0
+  forbidden/private/unknown candidates scored, and records 0
+  forbidden/private/unknown candidates exposed. It proves UAS-derived external
+  IDs must pass Scope-Rex/SovereignGate allowlist compilation before adapter
+  rank/search; it rejects post-rank filtering, forbidden/private/unknown
+  scoring, unknown IDs, duplicate allowlist IDs, empty allowlists without
+  AnswerPacket, bad forbidden-hit audit refs, missing rollback/RunEventLog,
+  hidden route authority, Eidos-as-live-router, hidden cloud fallback,
+  nonzero search/index/model/runtime/provider bytes, copied product files,
+  MAS/Live/T2+ promotion, live dense 70B, and SSD-as-RAM. This is T1/L1
+  metadata only. It does not import TurboVec, build/persist an index, prove
+  recall quality, choose model routes, advance L2, or make L3 user-facing
+  model capability green. The next research-to-build retrieval unit is
+  `turbovec_crash_safe_persistent_index_plan`; the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

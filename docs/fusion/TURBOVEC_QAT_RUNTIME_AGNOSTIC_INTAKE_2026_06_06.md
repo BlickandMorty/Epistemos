@@ -118,9 +118,10 @@ Recommended first units, in order:
      `384` q2 payload bytes before overhead). It imports no TurboVec code,
      builds no index, loads zero model/index/runtime bytes, makes zero provider
      calls, and preserves the no-L2/L3-promotion boundary. Stable external
-     IDs are now covered by `F-TurboVec-UASAddressStableExternalIds`; the next
-     retrieval/index research-to-build unit is
-     `turbovec_filter_before_rank_privacy_gate_plan`.
+     IDs are now covered by `F-TurboVec-UASAddressStableExternalIds`;
+     filter-before-rank privacy is now covered by
+     `F-TurboVec-FilterBeforeRankPrivacyGate`; the next retrieval/index
+     research-to-build unit is `turbovec_crash_safe_persistent_index_plan`.
 
 5. `F-TurboVec-UASAddressStableExternalIds`
    - Proves UAS-address-stable external `u64` IDs, tombstones, generations,
@@ -139,20 +140,39 @@ Recommended first units, in order:
      hidden route/cloud authority, live dense 70B, and SSD-as-RAM. It loads
      zero registry/index/model/runtime/provider bytes, copies zero product
      files, and preserves the no-L2/L3-promotion boundary. The next
-     retrieval/index research-to-build unit is
-     `turbovec_filter_before_rank_privacy_gate_plan`.
+     retrieval/index research-to-build unit is now
+     `turbovec_crash_safe_persistent_index_plan`.
 
-6. `F-QAT-ModelRouteCard-MemoryPreflight`
+6. `F-TurboVec-FilterBeforeRankPrivacyGate`
+   - Proves Scope-Rex/SovereignGate allowlists compile from UAS-derived
+     external `u64` IDs before TurboVec/Eidos adapter rank, score, or exposure.
+   - Does not import TurboVec, build/persist an index, prove recall quality,
+     or choose model/runtime routes.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/result.json`.
+     It accepts 1 privacy gate plan, covers 5 scenarios, rejects 67 red
+     fixtures, records 0 forbidden/private/unknown candidates scored, and
+     records 0 forbidden/private/unknown candidates exposed. It rejects
+     post-rank filtering, forbidden/private/unknown scoring, unknown IDs,
+     duplicate allowlist IDs, empty allowlists without AnswerPacket,
+     bad forbidden-hit audit refs, missing rollback/RunEventLog, hidden
+     route/cloud authority, Eidos-as-live-router, live dense 70B, and
+     SSD-as-RAM. It loads zero search/index/model/runtime/provider bytes,
+     copies zero product files, and preserves the no-L2/L3-promotion boundary.
+     The next retrieval/index research-to-build unit is
+     `turbovec_crash_safe_persistent_index_plan`.
+
+7. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-7. `F-CompressedRoute-AnswerPacket-DryRun`
+8. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. It accepts 4 compressed-route packets, rejects 48 red fixtures, packetizes E2B/E4B as visible dry-run AnswerPackets only, carries 12B as an insufficient-headroom abstention packet, carries 31B as VaultPreserved, records planned/opened/resident/loaded/provider bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-8. `F-SmallCompressedModel-LiveHarness`
+9. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
    - 2026-06-06 preflight status: `F-SmallCompressedModel-LiveHarnessPreflight` PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`. It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp as the only future owner-approved tiny probe candidate, keeps E4B as a deferred alternate, requires later LiteRT package proof, preserves the MLX Swift loader caveat, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

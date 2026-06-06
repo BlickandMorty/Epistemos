@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="6021c10861ab0fe727c029c95a72a356e8485c65">
+  <meta name="epistemos-commit-sha" content="b41974fdb69a4409c9b4e0f2937f889da185d4e5">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -699,9 +699,11 @@
   (<code>6144</code> float32 bytes, <code>768</code> q4 payload bytes,
   <code>384</code> q2 payload bytes), zero model/index/runtime/provider
   bytes, and no hidden route authority or L2/L3 promotion. Stable external IDs
-  are now covered by <code>F-TurboVec-UASAddressStableExternalIds</code>; the
-  next retrieval/index research-to-build unit is
-  <code>turbovec_filter_before_rank_privacy_gate_plan</code>.
+  are now covered by <code>F-TurboVec-UASAddressStableExternalIds</code> and
+  filter-before-rank privacy is now covered by
+  <code>F-TurboVec-FilterBeforeRankPrivacyGate</code>; the next
+  retrieval/index research-to-build unit is
+  <code>turbovec_crash_safe_persistent_index_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -721,8 +723,28 @@
   corrupt-manifest rebuild, rollback, RunEventLog, AnswerPacket, and
   compatibility fence. It loads zero registry/index/model/runtime/provider
   bytes and does not promote L2/L3 product capability. The next retrieval/index
+  research-to-build unit is now
+  <code>turbovec_crash_safe_persistent_index_plan</code>.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-06 TurboVec filter-before-rank privacy gate.</strong>
+  <code>F-TurboVec-FilterBeforeRankPrivacyGate</code> built as a T1/L1
+  metadata witness with Rust primitive, binary, script, witness doc,
+  schema/handbook coverage, and artifact at
+  <code>artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/result.json</code>.
+  It accepts 1 privacy gate plan, covers 5 scenarios, rejects 67 red fixtures,
+  records 0 forbidden/private/unknown candidates scored, and records 0
+  forbidden/private/unknown candidates exposed. It proves UAS-derived external
+  IDs must pass Scope-Rex/SovereignGate allowlist compilation before adapter
+  rank/search; rejects post-rank filtering, forbidden/private/unknown scoring,
+  unknown IDs, duplicate allowlist IDs, empty allowlists without AnswerPacket,
+  bad forbidden-hit audit refs, missing rollback/RunEventLog, hidden route
+  authority, Eidos-as-live-router, hidden cloud fallback, live dense 70B, and
+  SSD-as-RAM; loads zero search/index/model/runtime/provider bytes; and does
+  not promote L2/L3 product capability. The next retrieval/index
   research-to-build unit is
-  <code>turbovec_filter_before_rank_privacy_gate_plan</code>.
+  <code>turbovec_crash_safe_persistent_index_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -1297,6 +1319,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
     <tr><td>CompressedModelSourceCard</td><td>Gemma QAT, GGUF, LiteRT, MLX, TurboVec, runtime-package, and custom-Metal source cards bound to source/inventory/provenance refs, expected lanes, explicit caveats, zero-byte scope, rollback, RunEventLog, AnswerPacket, and no product promotion.</td><td>F-CompressedModelSourceCard-Intake</td></tr>
     <tr><td>TurboVecEidosCompressedIndexPlan</td><td>Eidos/AppColdStore compressed-index plan bound to upstream TurboVec source cards, UAS-truth external IDs, stable u64 registry, tombstone/generation and collision ledger policy, allowlist-before-rank privacy, rebuildable-cache semantics, corrected byte math, rollback, RunEventLog, AnswerPacket, compatibility fence, zero model/index/runtime/provider bytes, and no hidden route authority.</td><td>F-TurboVec-Eidos-CompressedIndex-Plan</td></tr>
     <tr><td>TurboVecStableExternalIdRegistryPlan</td><td>UAS-address-stable external u64 registry for TurboVec/Eidos cache adapters with tombstones, generations, collision alias rejection, AppColdStore truth, cache-manifest semantics, UAS-compiled allowlists, atomic rebuild, rollback, RunEventLog, AnswerPacket, compatibility fence, zero registry/index/runtime/provider bytes, and no L2/L3 promotion.</td><td>F-TurboVec-UASAddressStableExternalIds</td></tr>
+    <tr><td>TurboVecFilterBeforeRankPrivacyGate</td><td>Scope-Rex/SovereignGate allowlist compiler for TurboVec/Eidos cache adapters that filters UAS-derived external IDs before rank/search, rejects post-rank filtering, forbidden/private/unknown scoring, empty-allowlist silence, hidden authority, Eidos-as-live-router, byte loads, and L2/L3 promotion.</td><td>F-TurboVec-FilterBeforeRankPrivacyGate</td></tr>
     <tr><td>GemmaQatLocalRuntimeCandidateCard</td><td>Source-backed Gemma 4 QAT GGUF candidates with license, revision, declared bytes, context windows, candidate band, resident-floor planning bytes, rollback, RunEventLog, AnswerPacket, compatibility fence, runtime-deferred state, and no Swift-loader/MTP/MAS/product promotion.</td><td>F-GemmaQAT-LocalRuntimeCandidateCard</td></tr>
     <tr><td>QatModelRouteCardMemoryPreflight</td><td>Byte-accounted route preflights for Gemma QAT candidates with runtime lane, admission, file/resident/KV/scratch/available/headroom bytes, timeout, cancellation, abstention, rollback, RunEventLog, AnswerPacket, compatibility fence, and no first-token/quality/MAS/product promotion.</td><td>F-QAT-ModelRouteCard-MemoryPreflight</td></tr>
     <tr><td>CompressedRouteAnswerPacketDryRun</td><td>Visible compressed-route AnswerPacket dry-run packets with selected model, rejected candidates, planned/opened/resident/loaded/provider byte ledger, route caveat, fallback, rollback, cancellation, compatibility fence, no-mutation envelope, and no live inference or product promotion.</td><td>F-CompressedRoute-AnswerPacket-DryRun</td></tr>
