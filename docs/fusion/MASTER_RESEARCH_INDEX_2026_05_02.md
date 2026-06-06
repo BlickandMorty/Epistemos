@@ -37,7 +37,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-SmallCompressedModel-ModelPathReadinessCard` ->
 > `F-SmallCompressedModel-RuntimeProbeProofEnvelope`, plus the retrieval/index
 > branch `F-TurboVec-Eidos-CompressedIndex-Plan` ->
-> `F-TurboVec-UASAddressStableExternalIds`. Current model-ladder built truth:
+> `F-TurboVec-UASAddressStableExternalIds` ->
+> `F-TurboVec-FilterBeforeRankPrivacyGate`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -616,14 +617,28 @@ rejects 55 red fixtures: SQLite row IDs, insert order, mutable vector slots,
 duplicate UAS, duplicate active IDs, zero IDs, ID mismatches, missing
 tombstones, unsafe generations, missing collision ledger, alias reuse, hidden
 route/cloud authority, live dense 70B, SSD-as-RAM, byte loads, and L2/L3
-promotion. The next retrieval/index research-to-build unit is
-`turbovec_filter_before_rank_privacy_gate_plan`.
+promotion.
+
+`F-TurboVec-FilterBeforeRankPrivacyGate` is now built as the Scope/Sovereign
+privacy branch after stable external IDs. Implemented anchors include
+`agent_core/src/uas/turbovec_filter_before_rank_privacy_gate.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/`. The
+witness accepts 1 privacy gate plan, covers 5 scenarios, rejects 67 red
+fixtures, and records 0 forbidden/private/unknown candidates scored or exposed.
+It proves UAS-derived external IDs must compile through allowlists before rank
+or search; post-rank filtering, unknown IDs, duplicate allowlists, empty
+allowlists without AnswerPacket, hidden authority, Eidos-as-live-router, byte
+loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject. The next
+retrieval/index research-to-build unit is
+`turbovec_crash_safe_persistent_index_plan`.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
 `F-TurboVec-Eidos-CompressedIndex-Plan`,
 `F-TurboVec-UASAddressStableExternalIds`,
+`F-TurboVec-FilterBeforeRankPrivacyGate`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

@@ -30,7 +30,7 @@ Artifact:
 - Deterministic registry set address:
   `turbovec_stable_external_id_registry_plan:ae1b3fc3949acde1280012131e10616882005dcc58965f1db30a33cd2cfe93b0@1779039100000`
 - Next research-to-build unit:
-  `turbovec_filter_before_rank_privacy_gate_plan`
+  `turbovec_crash_safe_persistent_index_plan`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The next retrieval/index research-to-build unit is `turbovec_filter_before_rank_privacy_gate_plan`, because stable UAS external IDs are now specified before privacy allowlists and search masks can be proved.
+The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`. The next retrieval/index research-to-build unit is `turbovec_crash_safe_persistent_index_plan`, because stable UAS external IDs and pre-rank privacy are now specified before persistent compressed index files can be trusted.

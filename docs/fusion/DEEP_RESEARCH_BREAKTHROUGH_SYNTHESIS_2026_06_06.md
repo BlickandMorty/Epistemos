@@ -3366,14 +3366,17 @@ Best breakthrough candidate: UAS-addressed compressed retrieval where
 TurboVec-style IDs are stable, tombstoned, generation-aware, collision-ledgered,
 and then privacy-filtered before approximate rank.
 
-Safest next falsifier: `turbovec_filter_before_rank_privacy_gate_plan`, because
-stable external IDs now exist but no witness has yet proved that forbidden
-planes and private IDs are excluded before rank/search can score them.
+Safest next falsifier at pass twenty-five time:
+`turbovec_filter_before_rank_privacy_gate_plan`, because stable external IDs
+existed but no witness had yet proved that forbidden planes and private IDs
+were excluded before rank/search could score them. This is now landed as
+`F-TurboVec-FilterBeforeRankPrivacyGate`.
 
-Best near-term code unit: implement a metadata-only or tiny-fixture
-filter-before-rank privacy witness that compiles UAS predicates to allowed
-external IDs, rejects unknown IDs, emits visible empty AnswerPackets, and proves
-no forbidden ID can be scored or exposed.
+Best near-term code unit at pass twenty-five time: implement a metadata-only
+or tiny-fixture filter-before-rank privacy witness that compiles UAS predicates
+to allowed external IDs, rejects unknown IDs, emits visible empty
+AnswerPackets, and proves no forbidden ID can be scored or exposed. This code
+unit is now landed as `F-TurboVec-FilterBeforeRankPrivacyGate`.
 
 Biggest false-claim risk: treating stable IDs as recall quality, route
 authority, live TurboVec integration, or product model capability.
@@ -3386,3 +3389,72 @@ Next research query: "What allowlist compiler, ID sanitizer, empty-result
 AnswerPacket, forbidden-hit audit, and exact-source rerank proof are sufficient
 to prove TurboVec-style compressed retrieval filters before rank instead of
 ranking private vectors and filtering afterward?"
+
+## 40. Filter-Before-Rank Privacy Gate Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, upstream
+TurboVec API documentation, and the current TurboVec/QAT canon:
+
+- primitive:
+  `agent_core/src/uas/turbovec_filter_before_rank_privacy_gate.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_filter_before_rank_privacy_gate.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_filter_before_rank_privacy_gate.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_filter_before_rank_privacy_gate/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-FilterBeforeRankPrivacyGate_2026_06_06.md`
+
+`F-TurboVec-FilterBeforeRankPrivacyGate` is now PASS as a metadata-only
+T1/L1 witness. It accepts 1 privacy gate plan, covers 5 scenarios, rejects 67
+red fixtures, records 0 forbidden/private/unknown candidates scored, and
+records 0 forbidden/private/unknown candidates exposed. It proves UAS-derived
+external IDs must pass Scope-Rex/SovereignGate allowlist compilation before
+TurboVec/Eidos rank, score, or result exposure.
+
+### 40.1 Larger-Local-Model Bias
+
+This helps the large-local-model plan because retrieval compression only
+becomes useful for Gemma 4 QAT, Qwen3-Coder, 31B/Vault, and 70B-class cold
+assembly if it cannot score forbidden evidence in the hidden middle of a
+route. The privacy gate keeps Eidos/AppColdStore useful as a compressed local
+working-set cache while blocking PatternBoost, lattice policy, and Eidos scores
+from becoming hidden route authority before held-out/runtime proof exists.
+
+### 40.2 Non-Promotion
+
+This pass does not import TurboVec code, build or persist an index, prove
+recall quality, prove latency, choose RuntimeRouter/System G routes, run
+models, make L2/L3 product capability green, or prove live dense 70B. It
+advances the research-to-build ladder only.
+
+### 40.3 Pass-Twenty-Six Register
+
+Best breakthrough candidate: crash-safe compressed retrieval where a
+TurboVec-style index is rebuildable from AppColdStore truth, privacy-filtered
+before rank, atomically persisted, corruption-detecting, and reversible before
+any recall-quality or model-route claim.
+
+Safest next falsifier: `turbovec_crash_safe_persistent_index_plan`, because
+stable IDs and pre-rank privacy are now specified, but no witness has yet
+proved atomic write, manifest digest, corrupt-index rebuild, partial-write
+rollback, cache/truth separation, or no-product-promotion for persistent
+compressed index files.
+
+Best near-term code unit: implement a metadata-only crash-safe persistent-index
+plan that models `.tvim`/manifest paths, atomic temp-to-final writes,
+fsync-or-equivalent policy, manifest digest, source-card binding, corrupt
+cache rebuild, no rowid trust, no hidden route authority, no index/runtime/model
+bytes loaded, and visible rollback/RunEventLog/AnswerPacket refs.
+
+Biggest false-claim risk: treating a persistent compressed index manifest as
+durable truth, recall quality, route authority, or live large-model capability.
+
+Biggest missing source: exact TurboVec persistence failure cases and local
+Epistemos cache-rebuild fixtures for partial writes, stale manifests,
+permission denial, digest mismatch, and AppColdStore source deletion.
+
+Next research query: "What atomic persistence, manifest digest, corrupt-cache
+rebuild, and rollback envelope are sufficient to make a TurboVec-style
+compressed Eidos cache crash-safe without treating the cache as source truth?"
