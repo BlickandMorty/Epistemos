@@ -412,7 +412,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-GemmaQAT-LocalRuntimeCandidateCard` should share one source-card spine,
   using the current Rust `SourceCard` as minimal intake and
   specialized overlays for model runtime cards, compressed indexes, KV/cache
-  byte budgets, repo import/quarantine cards, and benchmarks. This is
+  byte budgets, repo import/quarantine cards, and benchmarks. Pass six turns
+  that schema into a red-fixture matrix for the provenance gate: duplicate
+  source URLs, missing license/usage, unknown import modes, direct import
+  without dependency closure, quarantine leakage into build graphs, copied
+  clean-room files, raw code import, nonzero runtime/model/index bytes, hidden
+  cloud/provider dependency, hidden route authority, model-card runtime
+  promotion, unsafe KV combos, benchmark laundering, privacy predicates applied
+  after ranking, missing rollback/RunEventLog/AnswerPacket refs, MAS/Live
+  promotion, source-class collapse, and stale overclaim copy all reject. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into

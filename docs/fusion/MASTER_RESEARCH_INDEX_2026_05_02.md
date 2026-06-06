@@ -290,6 +290,17 @@ and benchmark oracles. This keeps every source/fork/model/research motif as
 source-prior evidence until later falsifiers prove runtime bytes, route
 authority, rollback, RunEventLog, AnswerPacket, and WRV user-facing proof.
 
+**Pass-six provenance-gate red fixtures.** The memo now gives the next
+metadata-only gate its first negative-fixture matrix. The highest-priority
+rejects are duplicate source URLs, missing license/usage, unknown import mode,
+direct import without dependency closure, quarantine source in MAS/Pro build
+graphs, copied files in clean-room cards, raw code import, nonzero runtime or
+model bytes, cloud/provider dependency, hidden route authority, model-card to
+runtime promotion, unsafe KV combinations, benchmark laundering,
+allowlist-after-rank privacy errors, missing rollback/RunEventLog/AnswerPacket
+refs, MAS/Live promotion, source-class collapse, and stale overclaim copy. The
+gate remains source-prior hygiene only; it does not prove any runtime lane.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
