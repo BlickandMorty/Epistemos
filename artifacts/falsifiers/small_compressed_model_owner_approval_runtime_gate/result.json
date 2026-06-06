@@ -1,0 +1,305 @@
+{
+  "falsifier_id": "F-SmallCompressedModel-OwnerApprovalRuntimeGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_compressed_model_owner_approval_runtime_gate.sh",
+  "command_digest": "sha256:5e31f5c53f573e91271a0c886d539032541f127922a522cb5554b299531dbcc9",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "c126abe1ab17c15d33c9d5d5c9990cce9677116f",
+  "fixture_id": "small_compressed_model_owner_approval_runtime_gate_v1",
+  "timestamp_utc": "2026-06-06T06:52:01Z",
+  "result_digest": "sha256:36dea1f33db030a16e9215685b5abd7077dfe8b21f113735c38b9bd57dd002b3",
+  "measurements": {
+    "byte_ledger_zero_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_plan_consistent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "denied_routes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_count": {
+      "value": 1,
+      "unit": "gates"
+    },
+    "gate_set_address": {
+      "value": "small_compressed_model_owner_approval_runtime_gate:81054ccedddfcbac13e3d8ae0246f15e7bff247d2099d0bf379a551ad2648249@1779035500000",
+      "unit": "uas_address"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "owner_approval_pending_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_owner_approval_count": {
+      "value": 1,
+      "unit": "gates"
+    },
+    "planned_route_bytes_total": {
+      "value": 6174015488,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 64,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 64,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_not_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_e2b_candidate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_gate_id": {
+      "value": "gemma4_e2b_qat_gguf_owner_approval_runtime_gate",
+      "unit": "gate_id"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_preflight_pass_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "byte_ledger_zero_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_plan_consistent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "denied_routes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gate_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "gates"
+    },
+    "gate_set_address": {
+      "operator": "starts_with",
+      "value": "small_compressed_model_owner_approval_runtime_gate:",
+      "unit": "uas_address"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "owner_approval_pending_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_owner_approval_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "gates"
+    },
+    "planned_route_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 64,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_not_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_e2b_candidate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_gate_id": {
+      "operator": "==",
+      "value": "gemma4_e2b_qat_gguf_owner_approval_runtime_gate",
+      "unit": "gate_id"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_preflight_pass_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "byte_ledger_zero_loaded": true,
+    "byte_plan_consistent": true,
+    "denied_routes_bound": true,
+    "gate_count": true,
+    "gate_set_address": true,
+    "hidden_authority_rejected": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "owner_approval_pending_fail_closed": true,
+    "pending_owner_approval_count": true,
+    "planned_route_bytes_total": true,
+    "product_promotion_rejected": true,
+    "proof_ref_prefixes_required": true,
+    "proof_surfaces_required": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_probe_not_executed": true,
+    "selected_e2b_candidate_bound": true,
+    "selected_gate_id": true,
+    "set_address_deterministic": true,
+    "upstream_preflight_pass_bound": true,
+    "visibility_required": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-SmallCompressedModel-OwnerApprovalRuntimeGate from the compressed-model live-harness preflight. Scope is research-to-build T1/L1 metadata only: the E2B GGUF one-token probe shape is visible, owner approval is pending, command execution is not armed, 12B/31B/MLX Swift/LiteRT-without-package-proof/KV-Direct-128K/mmap-stress/provider/dense-70B routes are denied, and no model/runtime/provider bytes are opened or loaded."
+}

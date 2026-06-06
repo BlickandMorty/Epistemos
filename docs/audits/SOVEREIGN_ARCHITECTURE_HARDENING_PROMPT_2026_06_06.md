@@ -340,7 +340,13 @@ If a source/canon guard is needed before the next runtime step, use this order:
    one-token probe candidate, E4B as deferred alternate, LiteRT-LM as requiring
    later package proof, MLX Swift as loader-caveat blocked, owner approval
    required but not granted, zero runtime/model/provider bytes, and no L2/L3
-   promotion boundary. The next research-to-build unit is
+   promotion boundary. The owner-approval command gate is now also built
+   metadata-only as `F-SmallCompressedModel-OwnerApprovalRuntimeGate`; preserve
+   owner approval as pending, runtime command as unarmed and unexecuted,
+   denial refs for 12B/31B, MLX Swift loader shortcuts, LiteRT without package
+   proof, KV-Direct 128K, mmap/SSD stress, provider fallback, and dense-70B
+   runtime, zero runtime/model/provider bytes, and no L2/L3 promotion boundary.
+   The next research-to-build unit is
    `small_compressed_model_owner_approved_runtime_probe`; it must not run
    without explicit owner approval and must not rerun 128K shards, dense 70B,
    12B/31B, mmap/SSD stress, or hidden provider fallback by default.
