@@ -44,6 +44,7 @@ pub mod kind;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod metal_io_feature_gate;
+pub mod model_inventory_candidate;
 pub mod pattern_boost;
 pub mod product_route_review;
 pub mod proof_carrying_residency_lease;
@@ -138,6 +139,14 @@ pub use metal_io_feature_gate::{
     MetalFeatureStatus, MetalIoFeatureDecision, MetalIoFeatureGateError, MetalIoFeatureGateMetrics,
     MetalIoFeatureGateWitness, MetalIoFeatureSurface, MetalIoLane, METAL_IO_FEATURE_GATE_CURSOR,
     METAL_IO_FEATURE_GATE_NEXT_CURSOR,
+};
+pub use model_inventory_candidate::{
+    ModelInventoryByteScope, ModelInventoryCandidateCard, ModelInventoryCandidateSet,
+    ModelInventoryClaimLimit, ModelInventoryEvidenceKind, ModelInventoryHashClaim,
+    ModelInventoryMetadataStatus, ModelInventoryMetrics, ModelInventoryProofRefs,
+    ModelInventorySidecarPolicy, ModelInventoryValidationError,
+    MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_CURSOR,
+    MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_NEXT_CURSOR,
 };
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,

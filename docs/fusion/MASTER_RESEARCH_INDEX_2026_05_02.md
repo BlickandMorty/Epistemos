@@ -382,11 +382,30 @@ model/index/runtime/provider bytes, preserve Gemma 4 loader caveats, block
 RuntimeRouter preference-as-authority, and keep product/MAS/green promotion
 impossible from metadata.
 
-**Status discipline.** This is T0 research/canon only. It does not promote live
-dense 70B, live sparse 70B, product capability, release readiness, hidden
-runtime authority, or any runtime lane. The next research-derived falsifier is
-`F-ProprietaryCompression-ProvenanceGate`; the current guard-owned coding cursor
-remains
+**Pass-thirteen implementation.** `F-ModelInventory-ZeroByteCandidateCards`
+is now built as a T1/L1 metadata architecture witness. Implemented anchors:
+`agent_core/src/uas/model_inventory_candidate.rs`,
+`agent_core/src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs`,
+`Tools/falsifiers/f_model_inventory_zero_byte_candidate_cards.sh`,
+`docs/falsifiers/F-ModelInventory-ZeroByteCandidateCards_2026_06_06.md`,
+and
+`artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/result.json`.
+The witness accepts 12 source-card-bound inventory fixtures and rejects 32
+red fixtures covering duplicate/orphan/blocked/stale sources, snapshot/hash
+laundering, LFS/local-hash confusion, blob opens/hashing, nonzero
+model/index/runtime bytes, provider calls, active-dir/package-lock runtime
+proof, Gemma 4 caveat bypass, hidden route/cloud authority, MAS/L2/L3
+promotion, live dense 70B, SSD-as-RAM, and missing rollback / RunEventLog /
+AnswerPacket refs. This is the first buildable bridge from June 6 research
+into the architecture; the next research-to-build unit is
+`F-ProprietaryCompression-ProvenanceGate`.
+
+**Status discipline.** `F-ModelInventory-ZeroByteCandidateCards` is T1/L1
+metadata architecture only. It does not promote live dense 70B, live sparse
+70B, product capability, release readiness, hidden runtime authority, or any
+runtime lane. The next research-derived falsifier is
+`F-ProprietaryCompression-ProvenanceGate`; the current guard-owned coding
+cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 
 **Agent rule.** Any future deep-research session should cite this synthesis and

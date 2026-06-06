@@ -2257,3 +2257,101 @@ falsifier binary.
 Next research query: "What exact falsifier artifact axes, thresholds, and
 measurement names should `falsify_model_inventory_zero_byte_candidate_cards.rs`
 emit so guard/kernel integration can consume it without ambiguity?"
+
+## 27. Pass 13 - Zero-Byte Model Inventory Built
+
+Question answered: can the June 6 TurboVec/QAT and large-local-model research
+be turned into buildable architecture without touching product code or loading
+model bytes?
+
+Yes. `F-ModelInventory-ZeroByteCandidateCards` is now implemented as a
+metadata-only Rust UAS primitive plus falsifier witness:
+
+- primitive:
+  `agent_core/src/uas/model_inventory_candidate.rs`
+- export surface: `agent_core/src/uas/mod.rs`
+- falsifier binary:
+  `agent_core/src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs`
+- command:
+  `Tools/falsifiers/f_model_inventory_zero_byte_candidate_cards.sh`
+- artifact:
+  `artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/result.json`
+- witness doc:
+  `docs/falsifiers/F-ModelInventory-ZeroByteCandidateCards_2026_06_06.md`
+
+North-star preserved: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### 27.1 What It Builds
+
+The new primitive gives Epistemos an actual research-to-build organ for local
+model inventory:
+
+```text
+local model/package/cache/sidecar/runtime-preference evidence
+  -> accepted SourceCard / SourceSignalGraph
+  -> ModelInventoryCandidateCard
+  -> ModelInventoryCandidateSet
+  -> F-ProprietaryCompression-ProvenanceGate feeder
+  -> later byte/runtime/WRV witnesses
+```
+
+Accepted fixtures cover catalog descriptors, install manifests, present and
+missing hub snapshots, Gemma 4 loader-blocked sidecars, GGUF/128K deferred
+byte witnesses, LFS pointer metadata, capped sidecar JSON, package manifests,
+and runtime-preference hints.
+
+Red fixtures reject duplicate or orphan identities, blocked sources, stale
+timestamps, snapshot-as-file-hash laundering, LFS/local-hash confusion,
+weight-blob opens, weight-blob hashing, nonzero model/index/runtime bytes,
+provider calls, active-directory runtime proof, unverified manifest checksum
+promotion, package-lock loader proof, missing Gemma 4 loader caveats, hidden
+route authority, filesystem-path UAS identity, missing sidecar caps, malformed
+sidecar trust, MAS/Pro and L2/L3 false promotion, live dense 70B claims,
+SSD-as-RAM claims, hidden cloud fallback, digest mismatch, and missing
+rollback/RunEventLog/AnswerPacket references.
+
+### 27.2 What It Does Not Build
+
+This pass does not select a model, rank a route, run MLX, run GGUF, run
+LiteRT, hash large blobs, open `.safetensors`, `.gguf`, `.npz`, or `.mlx`
+files, prove Gemma 4 Swift loader readiness, prove 128K context, or promote
+any product capability. It advances T1/L1 architecture only. L2 capability and
+L3 user-facing/product truth remain unchanged.
+
+### 27.3 Why It Matters
+
+This is the first safe bridge between the deep research loop and future code:
+research sources, local model cache observations, runtime package pins, and
+candidate model IDs now have a place to land without becoming hidden route
+authority. The later proprietary compression and QAT/TurboVec gates can consume
+candidate cards rather than inventing a second source system.
+
+### 27.4 Pass-Thirteen Register
+
+Best breakthrough candidate: source-card-bound model inventory as the
+precondition for every future local-model, compression, QAT, TurboVec, GGUF,
+LiteRT, and MLX route claim.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate`, consuming
+`ModelInventoryCandidateCard` and external repo/source cards while preserving
+quarantine, clean-room rewrite, adapter-wrap, and direct-import distinctions.
+
+Best near-term code unit: implement the provenance gate as a metadata-only
+overlay over `SourceSignalGraph` and `ModelInventoryCandidateSet`, with red
+fixtures for unknown license, missing source digest, no-license direct import,
+transitive dependency risk, benchmark laundering, and hidden route authority.
+
+Biggest false-claim risk: treating a model candidate card as loadability,
+quality, or product-readiness proof. It is only source-bound metadata.
+
+Biggest missing source: current fork-level comparison for TurboVec, TurboQuant
+derivatives, Gemma 4 QAT model repos, LiteRT-LM Swift paths, and GGUF/QAT
+conversion repos after they pass quarantine source-carding.
+
+Next research query: "Which source-card fields and red fixtures should
+`F-ProprietaryCompression-ProvenanceGate` implement first so TurboVec/QAT/GGUF
+repo mining can safely feed Epistemos-owned compression logic without hidden
+route authority or license/provenance contamination?"

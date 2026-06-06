@@ -423,6 +423,10 @@ name = "falsify_source_signal_graph_intake"
 path = "src/bin/falsify_source_signal_graph_intake.rs"
 
 [[bin]]
+name = "falsify_model_inventory_zero_byte_candidate_cards"
+path = "src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs"
+
+[[bin]]
 name = "falsify_task_working_set_query_determinism"
 path = "src/bin/falsify_task_working_set_query_determinism.rs"
 
