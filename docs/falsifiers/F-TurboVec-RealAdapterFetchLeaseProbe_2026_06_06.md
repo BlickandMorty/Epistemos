@@ -32,8 +32,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Former next research-to-build unit, now landed as
   `F-TurboVec-RealAdapterSourceByteManifestProbe`:
   `turbovec_quarantine_real_adapter_source_byte_manifest_probe`.
-- Current next research-to-build unit:
+- Former next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`:
   `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 
 ## What This Proves
 

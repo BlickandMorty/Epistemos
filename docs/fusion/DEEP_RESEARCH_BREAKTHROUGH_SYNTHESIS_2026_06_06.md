@@ -4258,11 +4258,11 @@ TurboVec rows that extracts API shapes, tests, benchmarks, failure cases, and
 clean-room motifs without importing source, enabling route authority, or
 contaminating product code.
 
-Safest next falsifier:
+Safest next falsifier at the time of Pass 51, now landed in Pass 52:
 `turbovec_quarantine_real_adapter_source_inspection_policy_probe`, because the
-manifest exists but no exact read/extract policy, clean-room note schema,
+manifest existed but no exact read/extract policy, clean-room note schema,
 source-content boundary, benchmark authority caveat, or no-product-import proof
-has landed.
+had landed yet.
 
 Best near-term code unit: build the source-inspection policy gate that decides
 which manifest rows may be read as quarantine reference material, which are
@@ -4282,3 +4282,95 @@ Next research query: "What manifest-bound source-inspection policy should
 allow reading or extracting APIs/tests/failure cases from TurboVec while
 blocking product import, native-link builds, benchmark laundering, hidden route
 authority, raw model/index bytes, and large-local-model product claims?"
+
+## Pass 52 - TurboVec Real Adapter Source Inspection Policy Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, GitHub repo/
+fork/issue metadata, and the current TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_source_inspection_policy_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_inspection_policy_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_source_inspection_policy_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_source_inspection_policy_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterSourceInspectionPolicyProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterSourceInspectionPolicyProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and the source-byte manifest to 22
+policy rows, 16 future-readable rows, 6 blocked rows, a 196608-byte future
+raw-source cap, 72 rejected red fixtures, clean-room/paraphrase/source-card-only
+output modes, rollback, RunEventLog, AnswerPacket, compatibility fence, no
+product import, no native-link build, no benchmark authority, no hidden route
+authority, no live dense 70B claim, and no L2/L3 promotion. It records zero
+current raw source/archive/quarantine/product/index/model/runtime/provider
+bytes.
+
+External metadata checked for the large-local-model retrieval branch: the
+upstream repo `RyanCodrai/turbovec` was MIT licensed, on branch `main`, pushed
+2026-05-30, with 4815 stars, 460 forks, and 5 open issues. The fork sweep showed
+recent low-star forks, including `AKHtun/turbovec-wecos` pushed on 2026-06-06.
+Open/recent upstream signals included Swift/macOS binding proposal #86, public
+I/O/from_parts API request #70, centroid-cache persistence #68, Python/Rust
+release PR #84, audit-driven integration PR #83, and BLAS link work #79. No
+GitHub release objects were present at the time of the check.
+
+### 52.1 Architecture Fusion
+
+This pass turns "read source carefully someday" into a buildable, fail-closed
+policy layer. The reason it matters for larger local models is direct:
+compressed retrieval, AppColdStore cache rebuilds, Eidos candidate pruning,
+semantic working-set compilation, and 70B-class cold assemblies need small,
+high-signal context packs. TurboVec-style vector compression may help produce
+those packs, but only if source-derived API shapes, tests, benchmarks, and
+failure cases are mined without contaminating product code or creating hidden
+route authority.
+
+The correct Epistemos path is now: source-byte manifest -> source-inspection
+policy -> motif extraction card -> clean-room adapter plan -> shadow benchmark
+with exact baseline -> held-out replay -> AnswerPacket-visible route caveat.
+That path keeps Gemma 4 QAT, GGUF/llama.cpp, LiteRT-LM, MLX, Qwen3, Granite,
+GLM, and future large-local-model lanes runtime-plural while preserving a
+single policy authority: no route promotes without proof.
+
+### 52.2 Non-Promotion
+
+This pass does not clone TurboVec, fetch codeload archives, read raw source
+content, extract source motifs, write quarantine files, import product source,
+add a dependency, build/run an adapter, probe native links, open index bytes,
+load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose RuntimeRouter/System G
+routes, make L2 product capability green, make L3 user-facing model capability
+green, or prove live dense 70B. It advances the research-to-build ladder only.
+
+### 52.3 Pass-Fifty-Two Register
+
+Best breakthrough candidate: a clean-room motif extraction card that converts
+allowed TurboVec rows into source-carded API/test/benchmark/failure-case
+motifs for Eidos/AppColdStore/SemanticWorkingSetPlan without copied code,
+native links, benchmark laundering, or hidden route authority.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_motif_extraction_card_probe`, because the
+policy exists but no source-derived motif cards, fork deltas, adapter-shape
+records, held-out replay hooks, or benchmark caveat propagation have landed.
+
+Best near-term code unit: build the motif extraction card schema with
+categories for API shape, test invariant, benchmark caveat, failure mode,
+native-link risk, fork delta, clean-room rewrite target, rollback, RunEventLog,
+AnswerPacket reference, and no-verbatim-source proof.
+
+Biggest false-claim risk: treating a source-inspection policy as actual source
+inspection, compressed retrieval quality, adapter readiness, model routing
+authority, or local large-model runtime capability.
+
+Biggest missing source: actual clean-room motif cards and held-out replay proof
+showing that TurboVec-derived retrieval helps a small local model before any
+larger Gemma/Qwen/Granite lane can cite it.
+
+Next research query: "Which source-carded TurboVec API, test, benchmark, fork,
+and failure-case motifs can be extracted under clean-room rules to improve
+large-local-model working sets without copied code or hidden route authority?"

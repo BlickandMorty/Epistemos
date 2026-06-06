@@ -30,9 +30,10 @@ easy to browse in one place.
 > `F-TurboVec-RealAdapterDependencyEnvelopeProbe`, and
 > `F-TurboVec-RealAdapterSandboxLayoutProbe`, and
 > `F-TurboVec-RealAdapterFetchLeaseProbe`, and
-> `F-TurboVec-RealAdapterSourceByteManifestProbe` as metadata-only T1/L1. It
+> `F-TurboVec-RealAdapterSourceByteManifestProbe`, and
+> `F-TurboVec-RealAdapterSourceInspectionPolicyProbe` as metadata-only T1/L1. It
 > now points next at
-> `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
+> `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 > Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:
