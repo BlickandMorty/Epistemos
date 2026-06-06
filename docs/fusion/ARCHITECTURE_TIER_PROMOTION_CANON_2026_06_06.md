@@ -192,6 +192,24 @@ runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
 2026-06-06 current TurboVec retrieval/index clarification:
+`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by proving
+product-graph no-contamination has not become native-link/build-script
+execution before owner-approved dry-run, adapter build, runtime evidence,
+compressed retrieval routes, or model-context use: Rust build.rs, target BLAS,
+Accelerate/OpenBLAS, PyO3, maturin, numpy, cargo config, downstream smoke,
+benchmark, product manifest, and product route/context surfaces are all
+preflighted as blocked metadata-only rows. It does not inspect additional raw
+source, clone TurboVec, import source, add dependencies, execute build scripts,
+run Cargo builds, invoke linkers, load dynamic libraries, build Python
+extensions, run benchmarks, open indexes, load model/runtime/provider bytes,
+mutate routes, make L2/L3 product capability green, or promote live dense 70B.
+The next retrieval/index research-to-build unit is
+`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; older
+TurboVec paragraphs below are historical context unless a newer S0 surface says
+otherwise.
+
+2026-06-06 TurboVec product-graph clarification:
 `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is T1/L1 only. It
 strengthens the architecture in favor of larger local models by proving
 exact-baseline shadow replay has not contaminated the product graph before
@@ -202,11 +220,10 @@ and canon surfaces are scanned; TurboVec mentions are allowed only in
 quarantined architecture/canon surfaces. It does not import source, add
 dependencies, build adapters, probe native links, run benchmarks, open
 exact-baseline/index bytes, mutate product graphs, mutate routes, make L2/L3
-product capability green, or promote live dense 70B. The next retrieval/index
-research-to-build unit is
-`turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`; older
-TurboVec paragraphs below are historical context unless a newer S0 surface says
-otherwise.
+product capability green, or promote live dense 70B. Its former next
+retrieval/index unit,
+`turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`, has
+now landed.
 
 2026-06-06 TurboVec exact-replay clarification:
 `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is T1/L1 only. It

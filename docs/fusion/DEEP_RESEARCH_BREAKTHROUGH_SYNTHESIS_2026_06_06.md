@@ -4730,3 +4730,104 @@ Next research query: "How should Epistemos prove TurboVec native-link absence:
 no build.rs execution, no Accelerate/OpenBLAS link, no Python/maturin binding,
 no generated artifacts, no adapter build, no runtime bytes, rollback,
 RunEventLog, AnswerPacket, and no L2/L3 promotion?"
+
+## 57. Pass 57 - TurboVec Native-Link Absence Preflight Landed
+
+Observed on 2026-06-06. This pass is research-to-build, not product runtime.
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_native_link_absence_preflight_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_native_link_absence_preflight_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_native_link_absence_preflight_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_native_link_absence_preflight_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds the pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and product-graph
+no-contamination witness to 11 native-link/build risk rows, 2
+target-specific native-link surfaces, 3 Python native-boundary surfaces, 2
+product surface preflight rows, 56 rejected red fixtures, deterministic
+native-link absence preflight address, rollback, RunEventLog, AnswerPacket,
+compatibility fence, and zero build script executions, Cargo builds, linker
+invocations, dynamic-library loads, Python extension builds, environment
+mutations, product dependencies, product route mutations, benchmark runs,
+runtime/model/provider bytes, hidden route authority, live dense 70B claims,
+or L2/L3 promotion.
+
+### 57.1 Architecture Fusion
+
+This pass closes the gap between "TurboVec did not contaminate product code"
+and "TurboVec cannot silently become native code execution." Product graph
+cleanliness alone is not enough for a local large-model substrate because
+compressed retrieval adapters can fail at the build/link boundary: `build.rs`
+side effects, target-specific BLAS, Accelerate/OpenBLAS, PyO3/maturin
+extension behavior, numpy/native package assumptions, cargo config, benchmark
+shortcuts, and downstream smoke tests can all become hidden runtime or
+stability risks.
+
+The architectural move is to make native-link readiness an explicit witnessed
+state inside UAS/Eidos/AppColdStore rather than a hopeful side effect of a
+GitHub repo. Native-link risk is now addressable, preflighted, rollback-bound,
+RunEventLog-visible, AnswerPacket-visible, and non-promoting until a later
+owner-approved dry-run proves it is crash-safe.
+
+### 57.2 Why This Helps Larger Local Models
+
+Large local models will not become practical by loading a dense 70B checkpoint
+into hot memory. The likely path is smaller verified resident assemblies plus
+compressed retrieval, QAT/small GGUF candidates, Eidos/AppColdStore support
+sets, and RuntimeRouter/System G admission. TurboVec can help only if it is a
+safe compressed retrieval organ, not an accidental native dependency or hidden
+route authority.
+
+This gate improves the path to Gemma/QAT and other large-local-model work by
+separating three facts:
+
+- source-carded compression logic exists;
+- product graph remains uncontaminated;
+- native-link execution remains absent until owner-approved, crash-safe proof.
+
+That lets future adapter experiments be ambitious without letting build/link
+fragility become a product claim.
+
+### 57.3 Non-Promotion
+
+This pass does not inspect additional TurboVec raw source, clone TurboVec,
+import source, add dependencies, execute build scripts, run Cargo builds,
+invoke linkers, load dynamic libraries, build Python extensions, run
+benchmarks, open indexes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate
+RuntimeRouter/System G routes, make L2 product capability green, make L3
+user-facing model capability green, or prove live dense 70B.
+
+### 57.4 Pass-Fifty-Seven Register
+
+Best breakthrough candidate: owner-approved native dry-run harness for the
+TurboVec clean-room adapter, because native-link absence is now proven but no
+crash-safe dry-run has exercised a bounded adapter build/link envelope.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`, because
+the next proof must remain explicitly owner-approved, no-product, no-route,
+rollback-bound, RunEventLog-visible, AnswerPacket-visible, and non-promoting.
+
+Best near-term code unit: add the owner-approved native dry-run probe as a
+metadata-first command envelope with denied default state, dry-run command
+card, build/link budget, crash rollback, cleanup lease, no product dependency,
+no model/runtime bytes, and no L2/L3 promotion.
+
+Biggest false-claim risk: treating native-link absence as native-link
+readiness, adapter quality proof, compressed retrieval runtime proof, model
+context improvement, or product capability.
+
+Biggest missing source: a crash-safe dry-run witness that proves which command
+would run, which directories are quarantined, which build/link outputs are
+allowed, how rollback happens, and how the AnswerPacket reports failure.
+
+Next research query: "What is the smallest owner-approved TurboVec native
+dry-run harness that proves build/link safety without importing product code,
+loading models, opening indexes, mutating routes, or claiming L2/L3 capability?"

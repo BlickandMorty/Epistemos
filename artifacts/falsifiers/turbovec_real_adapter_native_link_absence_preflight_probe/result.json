@@ -1,0 +1,270 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_native_link_absence_preflight_probe.sh",
+  "command_digest": "sha256:d87f7e11c5a9bc64dfbcf294609f297f2bb0ce6c39ab06b83877a20ffe45f56e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0458272944c1784073712031fcdbcca492b6b6df",
+  "fixture_id": "turbovec_real_adapter_native_link_absence_preflight_probe_v1",
+  "timestamp_utc": "2026-06-06T19:31:28Z",
+  "result_digest": "sha256:12613c869f3db9c10eeb4d7fc88833a7602665515d3967117e139dd9a5bd79aa",
+  "measurements": {
+    "build_script_exec_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "dependency_envelope_and_manifest_refs": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dynamic_library_load_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "linker_invocation_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "native_link_absence_preflight_address": {
+      "value": "turbovec_real_adapter_native_link_absence_preflight_probe:7531adc9e6cdb8cbe8c89c605c58af5af47e6dff473ec6412d3f209876f58522@1779041511000",
+      "unit": "uas_address"
+    },
+    "native_link_absent_row_count": {
+      "value": 11,
+      "unit": "count"
+    },
+    "native_link_surfaces_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe",
+      "unit": "cursor"
+    },
+    "no_native_link_execution_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_dependency_or_route_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "product_surface_preflight_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "python_native_boundary_count": {
+      "value": 3,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "value": 56,
+      "unit": "count"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "row_count": {
+      "value": 11,
+      "unit": "count"
+    },
+    "target_specific_native_link_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "upstream_product_graph_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "build_script_exec_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "dependency_envelope_and_manifest_refs": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dynamic_library_load_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "linker_invocation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "native_link_absence_preflight_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_native_link_absence_preflight_probe:",
+      "unit": "uas_address"
+    },
+    "native_link_absent_row_count": {
+      "operator": "==",
+      "value": 11,
+      "unit": "count"
+    },
+    "native_link_surfaces_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe",
+      "unit": "cursor"
+    },
+    "no_native_link_execution_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_dependency_or_route_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "==",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "product_surface_preflight_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "python_native_boundary_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 44,
+      "unit": "count"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "row_count": {
+      "operator": ">=",
+      "value": 10,
+      "unit": "count"
+    },
+    "target_specific_native_link_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "upstream_product_graph_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "build_script_exec_count": true,
+    "dependency_envelope_and_manifest_refs": true,
+    "dynamic_library_load_count": true,
+    "linker_invocation_count": true,
+    "model_bytes_loaded": true,
+    "native_link_absence_preflight_address": true,
+    "native_link_absent_row_count": true,
+    "native_link_surfaces_blocked": true,
+    "next_research_to_build_unit": true,
+    "no_native_link_execution_bytes": true,
+    "no_product_dependency_or_route_mutation": true,
+    "pinned_revision": true,
+    "product_and_large_model_claims_rejected": true,
+    "product_dependency_count": true,
+    "product_surface_preflight_count": true,
+    "proof_surfaces_required": true,
+    "python_native_boundary_count": true,
+    "red_fixture_rejection_count": true,
+    "reversed_order_address_deterministic": true,
+    "row_count": true,
+    "target_specific_native_link_count": true,
+    "upstream_product_graph_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_native_link_absence_scope",
+      "detail": "Native-link absence preflight only. No TurboVec clone, raw-source read, Cargo build, build.rs execution, linker invocation, dynamic-library load, Python extension build, benchmark run, product dependency insertion, route mutation, model/runtime/provider bytes, or L2/L3 promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe as a T1/L1 metadata preflight after product-graph no-contamination. It enumerates native-link/build-script risk surfaces and keeps the next dry run owner-approved, visible, rollback-bound, and AnswerPacket-disclosed."
+}
