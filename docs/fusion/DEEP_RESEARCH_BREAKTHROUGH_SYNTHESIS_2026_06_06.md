@@ -5334,7 +5334,7 @@ metadata/docs already inspected for research.
 
 ### 61.1 Local Code Truth
 
-The future `F-KVRuntimeSourceCard` should reuse existing authority instead of
+The now-landed `F-KVRuntimeSourceCard` reuses existing authority instead of
 creating a parallel route system.
 
 Current local anchors:
@@ -5685,3 +5685,69 @@ first so the future falsifier rejects server/daemon/remote-cache laundering,
 proves zero-byte metadata-only intake, and cleanly feeds
 `F-KVLineage-ReuseCompatibilityFence` and
 `F-OffloadCostModel-LatencyThroughputBoundary`?"
+
+## 62. Pass 62 - KVRuntimeSourceCard Build Conversion
+
+Observed on 2026-06-06. This pass is research-to-build canon and converts Pass
+61 from blueprint into a T1/L1 metadata-only witness.
+
+Built artifacts:
+
+- UAS primitive: `agent_core/src/uas/kv_runtime_source_card.rs`
+- Export surface: `agent_core/src/uas/mod.rs`
+- Falsifier binary: `agent_core/src/bin/falsify_kv_runtime_source_card.rs`
+- Script: `Tools/falsifiers/f_kv_runtime_source_card.sh`
+- Witness page: `docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md`
+- Artifact: `artifacts/falsifiers/kv_runtime_source_card/result.json`
+
+`F-KVRuntimeSourceCard` accepts 9 source-carded KV/runtime motifs: vLLM
+virtual block tables, LMCache reusable KV, SGLang HiCache/radix hierarchy,
+KTransformers heterogeneous placement, FlexGen offload policy optimization,
+PowerInfer activation locality, KIVI asymmetric KV quantization, Transformers
+quantized cache, and llama.cpp prompt-cache files.
+
+The witness rejects 38 red fixtures covering duplicate/unknown/blocked sources,
+source digest drift, missing compressed model refs, missing cache identity,
+missing compatibility fields, missing byte ledgers, missing cache policies,
+missing quality/server/remote boundaries, server-as-product, daemon-as-product,
+remote-storage-as-local, prompt-cache compatibility gaps, KV quantization
+without backend/nbits/axis/group_size/residual_length, offload without
+latency/throughput boundary, activation locality without predictor/fallback,
+unsupported Apple promotion, MAS server/daemon leakage, hidden route/cache
+authority, nonzero model/KV/index/runtime/provider/source-tree/product bytes,
+live dense-70B claims, SSD-as-RAM claims, product promotion from research,
+missing L1/L2/L3 separation, metadata overflow, and bad proof refs.
+
+This pass strengthens the large-local-model path by making server/daemon,
+remote-cache, offload, activation-locality, and prompt-cache ideas citeable only
+as source-carded Pro Research inputs. It does not run vLLM, LMCache, SGLang,
+KTransformers, FlexGen, PowerInfer, KIVI, Transformers, llama.cpp, MLX, GGUF,
+LiteRT, Gemma 4, or any model runtime. It opens no model, KV, prompt-cache,
+source-tree, index, or runtime bytes and does not advance L2/L3.
+
+Best breakthrough candidate: source-carded KV/runtime boundaries, because the
+large-model strategy now has a fail-closed entry point for the exact mechanisms
+that make bigger local models plausible without pretending server frameworks
+are Mac-app product capability.
+
+Safest next falsifier: `kv_source_card_fork_and_daemon_boundary`, because it
+should split server/daemon/distributed motifs from product-eligible
+in-process/command motifs before any fork quarantine, daemon bridge, or local
+command harness cites these cards.
+
+Best near-term code unit: implement the fork/daemon boundary card that consumes
+`F-KVRuntimeSourceCard`, enforces MAS/Pro sidecar denial by default, and keeps
+llama-cli style command cards separate from server/daemon runtimes.
+
+Biggest false-claim risk: describing vLLM, LMCache, SGLang, or prompt-cache
+metadata as product memory/routing proof. Correct phrasing: L1 source-card
+coverage advanced; product capability and user-facing runtime did not.
+
+Biggest missing source: a same-fixture local route tournament that compares
+small GGUF/LiteRT/MLX lanes against identical prompts, memory budgets, latency
+budgets, rollback, RunEventLog, and AnswerPacket output.
+
+Next research query: "How should Epistemos separate in-process/command-local
+runtime cards from server/daemon/distributed cache cards so large-local-model
+research can keep progressing without sidecar, MAS, privacy, or product-route
+contamination?"
