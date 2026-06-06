@@ -2868,3 +2868,60 @@ Next research query: "What exact owner-approved runtime command or in-process
 adapter can load only the selected E2B compressed candidate, emit one redacted
 token, cancel cleanly, log memory, and produce AnswerPacket proof with no
 provider fallback?"
+
+## 34. Pass Twenty - Owner Approval Becomes A Build Gate
+
+The next buildable compression result is now landed as
+`F-SmallCompressedModel-OwnerApprovalRuntimeGate`. It consumes the small
+compressed-model preflight and turns the future E2B GGUF/llama.cpp one-token
+probe into a fail-closed command envelope. This is the research-to-build
+pattern the architecture needs: every promising model/retrieval/compression
+idea must become a typed gate with denial refs, byte ledgers, rollback,
+RunEventLog, AnswerPacket, and tier truth before runtime work starts.
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+The artifact at
+`artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/result.json`
+passes with 1 owner-approval gate and 64 red-fixture rejections. It keeps owner
+approval pending, keeps the command unarmed and unexecuted, selects only the
+E2B QAT GGUF candidate, and blocks 12B/31B, MLX Swift loader shortcuts, LiteRT
+without package proof, KV-Direct 128K, mmap/SSD stress, provider fallback, and
+dense-70B runtime. It loads zero model/runtime bytes and makes zero provider
+calls.
+
+### 34.1 Build Implication
+
+The next runtime probe can no longer be a broad "try a small model" action. It
+must reference this gate, prove explicit owner approval, use the selected E2B
+candidate, keep the probe one-token and cancellable, record memory, rollback,
+RunEventLog, and AnswerPacket proof, and still refuse L2/L3 promotion until
+WRV and release-audit gates pass.
+
+### 34.2 Pass-Twenty Register
+
+Best breakthrough candidate: explicit owner-approved one-token compressed-model
+probes as the first safe bridge from QAT/GGUF research into local runtime
+evidence.
+
+Safest next falsifier: `small_compressed_model_owner_approved_runtime_probe`,
+because the command envelope now exists but runtime is still unarmed.
+
+Best near-term code unit: implement the owner-approved runtime probe wrapper or
+dry-run/live split that refuses to run without an explicit approval token,
+redacts the retained token, logs memory, and emits AnswerPacket proof.
+
+Biggest false-claim risk: treating the owner-approval gate as actual owner
+approval, a first-token proof, a quality proof, or L2/L3 product capability.
+
+Biggest missing source: local package/runtime proof for the selected E2B
+GGUF/llama.cpp path, including exact executable path, model path, memory
+sampling, cancellation behavior, and rollback log format.
+
+Next research query: "What is the smallest explicit owner-approved local
+runtime command or in-process adapter that can run only the E2B QAT GGUF
+candidate for one redacted token with cancellation, memory ledger, rollback,
+RunEventLog, and AnswerPacket proof?"

@@ -62,6 +62,7 @@ pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_compressed_model_live_harness_preflight;
+pub mod small_compressed_model_owner_approval_runtime_gate;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
@@ -244,6 +245,15 @@ pub use small_compressed_model_live_harness_preflight::{
     SmallCompressedModelLiveHarnessPreflightSet,
     SMALL_COMPRESSED_MODEL_LIVE_HARNESS_PREFLIGHT_CURSOR,
     SMALL_COMPRESSED_MODEL_LIVE_HARNESS_PREFLIGHT_NEXT_CURSOR,
+};
+pub use small_compressed_model_owner_approval_runtime_gate::{
+    SmallCompressedModelOwnerApprovalRuntimeGate,
+    SmallCompressedModelOwnerApprovalRuntimeGateSet,
+    SmallCompressedOwnerApprovalByteLedger, SmallCompressedOwnerApprovalGateError,
+    SmallCompressedOwnerApprovalGateMetrics, SmallCompressedOwnerApprovalRefs,
+    SmallCompressedOwnerApprovalStatus,
+    SMALL_COMPRESSED_MODEL_OWNER_APPROVAL_RUNTIME_GATE_CURSOR,
+    SMALL_COMPRESSED_MODEL_OWNER_APPROVAL_RUNTIME_GATE_NEXT_CURSOR,
 };
 pub use slab_arena_copy_count::{
     SlabArenaAllocationSample, SlabArenaCopyCountError, SlabArenaCopyCountMetrics,

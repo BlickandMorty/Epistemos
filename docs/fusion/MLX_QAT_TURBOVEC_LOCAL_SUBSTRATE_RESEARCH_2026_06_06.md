@@ -1386,3 +1386,21 @@ is required but not granted by this witness. It loads zero model/runtime bytes,
 makes zero provider calls, and does not prove loadability, first token, quality,
 MAS readiness, L2 capability, or L3 user-facing product truth. The next
 research-to-build unit is `small_compressed_model_owner_approved_runtime_probe`.
+
+### 2026-06-06 Owner-Approval Runtime Gate Implementation Note
+
+`F-SmallCompressedModel-OwnerApprovalRuntimeGate` is now implemented as the
+fail-closed command envelope after the small compressed harness preflight. The
+artifact lives at
+`artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/result.json`
+and accepts 1 E2B owner-approval gate while rejecting 64 red fixtures. The gate
+keeps explicit owner approval pending, keeps the runtime command unarmed and
+unexecuted, exposes command/model/denied-route/byte-plan surfaces, and binds
+rollback, cancellation, memory ledger, RunEventLog, and AnswerPacket proof. It
+denies 12B/31B, MLX Swift loader shortcuts, LiteRT without package proof,
+KV-Direct 128K shards, mmap/SSD stress, provider fallback, and dense-70B
+runtime by default. It loads zero model/runtime bytes, makes zero provider
+calls, and does not prove loadability, first token, quality, MAS readiness, L2
+capability, or L3 user-facing product truth. The next research-to-build unit
+remains `small_compressed_model_owner_approved_runtime_probe`, but that future
+probe now requires explicit owner approval rather than inherited enthusiasm.

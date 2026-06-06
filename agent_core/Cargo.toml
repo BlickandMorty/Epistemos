@@ -451,6 +451,10 @@ name = "falsify_small_compressed_model_live_harness_preflight"
 path = "src/bin/falsify_small_compressed_model_live_harness_preflight.rs"
 
 [[bin]]
+name = "falsify_small_compressed_model_owner_approval_runtime_gate"
+path = "src/bin/falsify_small_compressed_model_owner_approval_runtime_gate.rs"
+
+[[bin]]
 name = "falsify_task_working_set_query_determinism"
 path = "src/bin/falsify_task_working_set_query_determinism.rs"
 

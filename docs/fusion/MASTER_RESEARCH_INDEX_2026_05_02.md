@@ -24,6 +24,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > verification, ColdStream transport, mmap/hot-path cure, Residency
 > PatternBoost, lattice HTML, drift sweeps, and build preservation.
 
+> **2026-06-06 TurboVec/QAT research-to-build lock.** The active compression
+> and large-local-model intake now lives at
+> `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`,
+> `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`, and
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. The built
+> rung sequence is source cards -> provenance gate -> compressed model source
+> cards -> Gemma QAT candidate cards -> QAT route-card memory preflight ->
+> compressed-route AnswerPackets -> small compressed-model preflight ->
+> `F-SmallCompressedModel-OwnerApprovalRuntimeGate`. Current built truth:
+> `artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/result.json`
+> passes T1/L1 metadata with owner approval pending, command unarmed, zero
+> model/runtime bytes, zero provider calls, and explicit denial of 12B/31B,
+> MLX Swift loader shortcuts, LiteRT without package proof, KV-Direct 128K,
+> mmap/SSD stress, provider fallback, and dense-70B runtime. L2/L3 product
+> capability remains red.
+
 ---
 
 ## 0. Honest Discoveries (read first — these correct prior canon)
