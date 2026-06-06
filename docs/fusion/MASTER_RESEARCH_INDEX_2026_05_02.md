@@ -646,9 +646,9 @@ AppColdStore truth, and AnswerPacket-visible. Duplicate/zero external IDs,
 partial writes without rollback, corrupt cache without rebuild, stale pointers,
 permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
-Exact-baseline recall quality and latency/memory abstention are now covered;
-the next retrieval/index research-to-build unit is
-`turbovec_runtime_shadow_benchmark_plan`.
+Exact-baseline recall quality, latency/memory abstention, and runtime shadow
+benchmark planning are now covered; the next retrieval/index
+research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
 
 `F-TurboVec-RecallQualityExactBaseline` is now built as the exact-baseline
 quality branch after crash-safe persistence. Implemented anchors include
@@ -664,8 +664,10 @@ duplicate sources, emit visible empty-result AnswerPackets, and abstain or
 fallback when recall misses the floor. Hidden route authority, route mutation,
 live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
 Latency/memory/timeout/uncertainty abstention is now covered by
-`F-TurboVec-LatencyMemoryAbstention`; the next retrieval/index
-research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+`F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is
+now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+retrieval/index research-to-build unit is
+`turbovec_quarantine_adapter_microbench_probe`.
 
 `F-TurboVec-LatencyMemoryAbstention` is now built as the budget-envelope branch
 after exact-baseline recall quality. Implemented anchors include
@@ -681,8 +683,27 @@ compressed retrieval may feed future large-local-model context only when
 p95/p99 latency, timeout, cancellation, memory headroom, and uncertainty are
 inside budget; timeout, memory, uncertainty, and empty cases abstain visibly.
 Hidden route authority, score-to-route mutation, route mutation, live dense
-70B, SSD-as-RAM, and L2/L3 promotion all reject. The next retrieval/index
-research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
+70B, SSD-as-RAM, and L2/L3 promotion all reject. Runtime shadow benchmark
+planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+retrieval/index research-to-build unit is
+`turbovec_quarantine_adapter_microbench_probe`.
+
+`F-TurboVec-RuntimeShadowBenchmarkPlan` is now built as the deterministic
+runtime-shadow planning branch after latency/memory abstention. Implemented
+anchors include `agent_core/src/uas/turbovec_runtime_shadow_benchmark_plan.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under `artifacts/falsifiers/turbovec_runtime_shadow_benchmark_plan/`.
+The witness accepts 1 runtime shadow benchmark plan, covers 6 tiny replay
+scenarios, rejects 59 red fixtures, records 1 shadow win, 5 visible fallback/
+abstention cases, max p99 latency `40000` micros, max planned replay bytes
+`160000`, min planned headroom `-32000`, max recall delta `200000` micros,
+and zero opened/loaded index bytes, allocated runtime bytes, model/runtime
+bytes, provider calls, or copied product files. It proves compressed retrieval
+shadow wins are proof material only: deterministic replay, sample count,
+exact-baseline recall, p95/p99 latency, timeout, cancellation, memory,
+fallback reason, rollback, RunEventLog, AnswerPacket, compatibility fence,
+route/context-authority rejection, and no product promotion are required before
+a quarantined adapter microbench can run.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -693,6 +714,7 @@ research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`.
 `F-TurboVec-CrashSafePersistentIndex`,
 `F-TurboVec-RecallQualityExactBaseline`,
 `F-TurboVec-LatencyMemoryAbstention`,
+`F-TurboVec-RuntimeShadowBenchmarkPlan`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

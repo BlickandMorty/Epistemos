@@ -84,7 +84,8 @@ filter-before-rank privacy step is now covered by
 now covered by `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall
 quality is now covered by `F-TurboVec-RecallQualityExactBaseline`;
 latency/memory abstention is now covered by
-`F-TurboVec-LatencyMemoryAbstention`; the next research-to-build unit is
-`turbovec_runtime_shadow_benchmark_plan`.
+`F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
+covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
+research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
 The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

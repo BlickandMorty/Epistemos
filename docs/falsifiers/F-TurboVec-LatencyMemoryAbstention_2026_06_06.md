@@ -34,7 +34,7 @@ Artifact:
 - Deterministic latency/memory plan address:
   `turbovec_latency_memory_abstention_plan:e85c8fa28bd263d6c2228293c69163d0393fb4b00cbc0e5f077e20e92e18fec8@1779039500000`
 - Next research-to-build unit:
-  `turbovec_runtime_shadow_benchmark_plan`
+  `turbovec_quarantine_adapter_microbench_probe`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The next retrieval/index research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`, because the metadata envelope is now specified but a tiny shadow benchmark still needs runtime-shaped evidence before compressed retrieval can help large-local-model context selection.
+Runtime shadow benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`. The next retrieval/index research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`, because the first actual adapter microbench must run in quarantine, remain non-authoritative, and keep route/model-context mutation impossible before compressed retrieval can help large-local-model context selection.
