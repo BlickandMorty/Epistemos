@@ -31,7 +31,7 @@ Artifact:
 - Deterministic privacy gate address:
   `turbovec_filter_before_rank_privacy_gate_plan:de30abe8e8e7564126ffac2452b6af6eff19db6249b0909306cb3b9d4ad74c53@1779039200000`
 - Next research-to-build unit after persistence, recall quality, latency/memory abstention, and runtime shadow planning:
-  `turbovec_quarantine_adapter_microbench_probe`
+  `turbovec_quarantine_real_adapter_owner_approval_probe`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-Crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`. The next retrieval/index research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`, because the first actual adapter microbench must remain quarantined and non-authoritative before any large-model route can cite TurboVec cache quality.
+Crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow/synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`, because the first real external adapter probe must remain quarantined and non-authoritative before any large-model route can cite TurboVec cache quality.

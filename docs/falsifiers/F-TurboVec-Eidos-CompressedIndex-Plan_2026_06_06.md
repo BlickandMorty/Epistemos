@@ -86,6 +86,6 @@ quality is now covered by `F-TurboVec-RecallQualityExactBaseline`;
 latency/memory abstention is now covered by
 `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
 covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
-research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`.
 The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

@@ -1,0 +1,370 @@
+{
+  "falsifier_id": "F-TurboVec-QuarantineAdapterMicrobenchProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_quarantine_adapter_microbench_probe.sh",
+  "command_digest": "sha256:6ce7159fce572047b92966692034a194a93bb0cbad5959a4358728079cbbe4be",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "2ee1b463c06eba9f63dc75f76327a00fa215943a",
+  "fixture_id": "turbovec_quarantine_adapter_microbench_probe_v1",
+  "timestamp_utc": "2026-06-06T12:36:07Z",
+  "result_digest": "sha256:cc4e2c048205ab6a425bc15d8e51581b1d424dd9f9b83526b10946624fb013a8",
+  "measurements": {
+    "accepted_probe_count": {
+      "value": 1,
+      "unit": "probes"
+    },
+    "case_count": {
+      "value": 6,
+      "unit": "cases"
+    },
+    "deterministic_fixture_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_and_recall_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_case_count": {
+      "value": 5,
+      "unit": "cases"
+    },
+    "fallback_reason_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_before_rank_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_cancellation_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_predicted_p99_latency_micros": {
+      "value": 24000,
+      "unit": "micros"
+    },
+    "max_recall_delta_micros": {
+      "value": 260000,
+      "unit": "micros"
+    },
+    "max_synthetic_total_bytes": {
+      "value": 73728,
+      "unit": "bytes"
+    },
+    "max_vector_count": {
+      "value": 160,
+      "unit": "vectors"
+    },
+    "max_vector_dimension": {
+      "value": 128,
+      "unit": "dimensions"
+    },
+    "min_memory_headroom_bytes": {
+      "value": 57344,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_owner_approval_probe",
+      "unit": "cursor"
+    },
+    "no_route_or_context_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_authoritative_output_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_authoritative_win_count": {
+      "value": 1,
+      "unit": "cases"
+    },
+    "panic_containment_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "panic_fallback_count": {
+      "value": 1,
+      "unit": "cases"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_model_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_clean_room_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_microbench_address": {
+      "value": "turbovec_quarantine_adapter_microbench_probe:51bd1b8841f51f4c082b3f664e80c4cf0303f7979c33b9024d1ba39d2680f11e@1779040200000",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "value": 53,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scenario_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_quarantine_probe_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_shadow_plan_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_probe_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "probes"
+    },
+    "case_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "cases"
+    },
+    "deterministic_fixture_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_and_recall_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_case_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cases"
+    },
+    "fallback_reason_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_before_rank_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_cancellation_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_predicted_p99_latency_micros": {
+      "operator": "==",
+      "value": 24000,
+      "unit": "micros"
+    },
+    "max_recall_delta_micros": {
+      "operator": "==",
+      "value": 260000,
+      "unit": "micros"
+    },
+    "max_synthetic_total_bytes": {
+      "operator": "==",
+      "value": 73728,
+      "unit": "bytes"
+    },
+    "max_vector_count": {
+      "operator": "==",
+      "value": 160,
+      "unit": "vectors"
+    },
+    "max_vector_dimension": {
+      "operator": "==",
+      "value": 128,
+      "unit": "dimensions"
+    },
+    "min_memory_headroom_bytes": {
+      "operator": "==",
+      "value": 57344,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_owner_approval_probe",
+      "unit": "cursor"
+    },
+    "no_route_or_context_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_authoritative_output_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_authoritative_win_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cases"
+    },
+    "panic_containment_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "panic_fallback_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cases"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_model_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_clean_room_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_microbench_address": {
+      "operator": "starts_with",
+      "value": "turbovec_quarantine_adapter_microbench_probe:",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 36,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scenario_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_quarantine_probe_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_shadow_plan_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_probe_count": true,
+    "case_count": true,
+    "deterministic_fixture_enforced": true,
+    "exact_baseline_and_recall_enforced": true,
+    "fallback_case_count": true,
+    "fallback_reason_required": true,
+    "filter_before_rank_visible": true,
+    "large_model_claims_rejected": true,
+    "latency_memory_cancellation_enforced": true,
+    "layer_separation_required": true,
+    "max_predicted_p99_latency_micros": true,
+    "max_recall_delta_micros": true,
+    "max_synthetic_total_bytes": true,
+    "max_vector_count": true,
+    "max_vector_dimension": true,
+    "min_memory_headroom_bytes": true,
+    "next_research_to_build_unit": true,
+    "no_route_or_context_authority": true,
+    "non_authoritative_output_required": true,
+    "non_authoritative_win_count": true,
+    "panic_containment_enforced": true,
+    "panic_fallback_count": true,
+    "product_promotion_rejected": true,
+    "product_runtime_model_bytes_zero": true,
+    "provenance_clean_room_enforced": true,
+    "quarantine_microbench_address": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "scenario_coverage_complete": true,
+    "synthetic_quarantine_probe_present": true,
+    "upstream_shadow_plan_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "synthetic_quarantine_scope",
+      "detail": "No TurboVec crate imported, no product index opened, no external adapter code copied, no model/runtime bytes loaded, no provider calls, no route mutation, no model-context injection, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-QuarantineAdapterMicrobenchProbe from the runtime shadow benchmark plan. Scope is T1/L1 synthetic quarantine evidence only: deterministic tiny fixture, exact-baseline recall comparison, filter-before-rank allowlist proof, cancellation and panic fallback, clean-room provenance ref, rollback, RunEventLog, AnswerPacket, zero product/model/provider/external-code bytes, and no live large-model claim."
+}

@@ -30,7 +30,7 @@ Artifact:
 - Deterministic persistent-index plan address:
   `turbovec_crash_safe_persistent_index_plan:04b2c79884199631f604c3436b157ac988b988c991ff266fe7d443ab52d9371b@1779039300000`
 - Next research-to-build unit after recall quality, latency/memory abstention, and runtime shadow planning:
-  `turbovec_quarantine_adapter_microbench_probe`
+  `turbovec_quarantine_real_adapter_owner_approval_probe`
 
 ## Hardening Axes
 
@@ -55,4 +55,4 @@ Correct phrasing:
 
 ## Next
 
-The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`. The next retrieval/index research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`, because compressed retrieval still needs a quarantined, non-authoritative adapter microbench before it can help large-local-model context selection.
+The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow/synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`, because compressed retrieval still needs an owner-approved, quarantined, non-authoritative real external adapter probe before it can help large-local-model context selection.
