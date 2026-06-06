@@ -237,6 +237,37 @@ cocktail must include a Construction check: ProblemCard, LiftChart,
 ProjectionPacket, Witness, Budget, Falsifier, Rollback, ProductBuild, and
 ProStatus/ResidencyStatus.
 
+## 0G. 2026-06-06 Research Synthesis - Breakthrough Loop For Large Local Models
+
+**New research synthesis:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`.
+
+**Why it exists.** The owner asked for a shorter but still nuanced recursive
+research prompt that forces future agents to mine Epistemos canon, old local
+research, relevant `/Users/jojo/Downloads` folders, GitHub originals/forks,
+papers, model cards, benchmarks, quantization repos, lattice/math systems,
+Apple Silicon docs, and frontier runtimes without collapsing into hype. The
+memo turns that loop into durable repo state.
+
+**Best synthesis.** The current breakthrough candidate is a source-carded
+compression/runtime portfolio: TurboVec-style compressed recall, QAT model
+route cards, GGUF/llama.cpp, LiteRT-LM, MLX, KTransformers/vLLM/LMCache-style
+KV/page-table motifs, and proof-search feedback all feed
+`SemanticWorkingSetPlan`, `RuntimeRouter/System G`, `RunEventLog`, and
+`AnswerPacket` through explicit provenance, byte accounting, rollback, and
+promotion tiers.
+
+**Status discipline.** This is T0 research/canon only. It does not promote live
+dense 70B, live sparse 70B, product capability, release readiness, hidden
+runtime authority, or any runtime lane. The next research-derived falsifier is
+`F-ProprietaryCompression-ProvenanceGate`; the current guard-owned coding cursor
+remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+**Agent rule.** Any future deep-research session should cite this synthesis and
+end with: best breakthrough candidate, safest falsifier, best near-term code
+unit, biggest false-claim risk, biggest missing source, and next research
+query.
+
 ---
 
 ## 0E. 2026-05-30 Namespace Patch — ColdStore Versus ACS

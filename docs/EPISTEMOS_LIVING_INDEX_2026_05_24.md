@@ -381,6 +381,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   endpoints, and Pro Research server lanes are execution organs, never hidden
   authority. This still does not promote live dense 70B, live sparse 70B,
   product capability, or release readiness.
+- Updated **2026-06-06** · deep research breakthrough synthesis pass one
+  landed at
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It folds
+  the compact breakthrough-loop prompt into repo-visible canon and maps local
+  canon, relevant `/Users/jojo/Downloads` research, TurboVec/QAT, runtime
+  pluralism, lattice/math compression, proof-search motifs, and large-local
+  model ambition into ranked T0 research candidates. The best synthesis is a
+  source-carded compression/runtime portfolio feeding `SemanticWorkingSetPlan`
+  and `RuntimeRouter` before any live model claim. Safest next research-derived
+  falsifier remains `F-ProprietaryCompression-ProvenanceGate`; the guard-owned
+  coding cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+  This is research/canon only: no product code was edited, no heavy runtime
+  probe was run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
