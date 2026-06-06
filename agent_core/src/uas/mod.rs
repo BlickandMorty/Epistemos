@@ -53,6 +53,7 @@ pub mod proof_carrying_residency_lease;
 pub mod proprietary_compression_provenance_gate;
 pub mod provider_reference;
 pub mod provider_route_copy_source_guard;
+pub mod qat_model_route_card_memory_preflight;
 pub mod reasoning_state_continuity;
 pub mod residency_construction_graph;
 pub mod residency_lease;
@@ -187,6 +188,13 @@ pub use provider_route_copy_source_guard::{
     ProviderRouteCopyClaim, ProviderRouteCopySourceError, ProviderRouteCopySourceGuard,
     ProviderRouteCopySourceMetrics, ProviderRouteCopySurface, ProviderRouteSourceKind,
     PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR, PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR,
+};
+pub use qat_model_route_card_memory_preflight::{
+    QatModelRouteCardMemoryPreflight, QatModelRouteCardMemoryPreflightSet, QatRouteAdmission,
+    QatRouteMemoryBudget, QatRoutePreflightError, QatRoutePreflightMetrics,
+    QatRoutePromotionTier, QatRouteProofRefs, QatRouteRuntimeLane,
+    QAT_MODEL_ROUTE_CARD_MEMORY_PREFLIGHT_CURSOR,
+    QAT_MODEL_ROUTE_CARD_MEMORY_PREFLIGHT_NEXT_CURSOR,
 };
 pub use proprietary_compression_provenance_gate::{
     ProprietaryCompressionAllowedAction, ProprietaryCompressionBehaviorKind,

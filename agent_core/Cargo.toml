@@ -439,6 +439,10 @@ name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 
 [[bin]]
+name = "falsify_qat_model_route_card_memory_preflight"
+path = "src/bin/falsify_qat_model_route_card_memory_preflight.rs"
+
+[[bin]]
 name = "falsify_task_working_set_query_determinism"
 path = "src/bin/falsify_task_working_set_query_determinism.rs"
 

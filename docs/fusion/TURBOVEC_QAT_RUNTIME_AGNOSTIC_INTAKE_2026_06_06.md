@@ -111,11 +111,12 @@ Recommended first units, in order:
 5. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
-   - Current next model-ladder unit after `F-GemmaQAT-LocalRuntimeCandidateCard`.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
 6. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
+   - Current next model-ladder unit after `F-QAT-ModelRouteCard-MemoryPreflight`.
 
 7. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.

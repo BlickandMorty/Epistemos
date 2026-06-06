@@ -322,13 +322,19 @@ If a source/canon guard is needed before the next runtime step, use this order:
    zero model/runtime/provider bytes, false Swift MLX/MTP/MAS/product rejection,
    and no L2/L3 promotion boundary.
 8. `F-QAT-ModelRouteCard-MemoryPreflight`:
-   next model-ladder research-to-build unit; prove declared file bytes,
-   predicted resident/KV/scratch bytes, hardware budget, abstention,
-   rollback, RunEventLog, and AnswerPacket caveats before any runtime bytes.
-9. UAS meaningful-object envelope:
+   now built metadata-only; preserve declared file bytes, predicted
+   resident/KV/scratch bytes, hardware budget, headroom, abstention, timeout,
+   cancellation, rollback, RunEventLog, and AnswerPacket caveats before any
+   runtime bytes. E2B/E4B may proceed only to later dry-run packetization; 12B
+   abstains on the declared M2 Pro 16 GB UMA profile; 31B remains vault-only.
+9. `F-CompressedRoute-AnswerPacket-DryRun`:
+   next model-ladder research-to-build unit; prove route caveats, planned/opened
+   and resident byte placeholders, fallback, rollback, cancellation, and
+   AnswerPacket visibility before any live inference.
+10. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.
-10. RuntimeRouter/System G route contract:
+11. RuntimeRouter/System G route contract:
    decisions are explicit, admitted, reversible, logged, and answer-visible;
    manual failure must not silently become fallback.
 

@@ -599,6 +599,32 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   The next model-ladder unit is `F-QAT-ModelRouteCard-MemoryPreflight`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-QAT-ModelRouteCard-MemoryPreflight` is now built
+  as the byte-accounted route-card preflight witness:
+  `agent_core/src/uas/qat_model_route_card_memory_preflight.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_qat_model_route_card_memory_preflight.rs`,
+  script `Tools/falsifiers/f_qat_model_route_card_memory_preflight.sh`,
+  witness page
+  `docs/falsifiers/F-QAT-ModelRouteCard-MemoryPreflight_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 4 Gemma QAT
+  route cards and rejects 44 red fixtures: E2B/E4B are admitted only for later
+  dry-run packetization, 12B abstains on the declared M2 Pro 16 GB UMA profile
+  for insufficient headroom, and 31B remains vault-only. It records declared
+  file bytes, predicted resident bytes, KV bytes, scratch bytes, available
+  route bytes, headroom, timeout, cancellation, rollback, RunEventLog,
+  AnswerPacket, and compatibility refs separately while loading zero model
+  bytes, zero runtime bytes, and making zero provider calls. This is T1/L1
+  metadata only. It does not prove GGUF loadability, Swift MLX support, LiteRT
+  support, first token, memory residency, quality, MAS readiness, L2
+  capability, or L3 user-facing product truth. The next model-ladder unit is
+  `F-CompressedRoute-AnswerPacket-DryRun`; the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
@@ -1405,7 +1431,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   not a false green. Capability Ceiling model gating was hardened on
   2026-05-27: power-user mode now preserves the 70B / ColdStore / UAS research
   posture but does not lower the dense 36B MLX memory gate before
-  `F-70B-Local-Cocktail` or an equivalent SSD/RAM composition artifact passes.
+  `F-70B-Local-Cocktail` or an equivalent cold-assembly/route-harness artifact
+  passes.
   See `docs/audits/CAPABILITY_CEILING_MODEL_GATE_2026_05_27.md`.
   For the current W-row/falsifier recount and next codeword
   prompts, read

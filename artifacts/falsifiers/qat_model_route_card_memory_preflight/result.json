@@ -1,0 +1,385 @@
+{
+  "falsifier_id": "F-QAT-ModelRouteCard-MemoryPreflight",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_qat_model_route_card_memory_preflight.sh",
+  "command_digest": "sha256:1839a253c23e0b6b39546a86827b79b75f1b02d0380a15c0070b05178e791280",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "df15ab3980d75774bbc84d0527b865889e8710f5",
+  "fixture_id": "qat_model_route_card_memory_preflight_v1",
+  "timestamp_utc": "2026-06-06T05:38:47Z",
+  "result_digest": "sha256:e9eb309b97d8f41617f38657c34ac90c4a79aab4318ecb8c5eb959b01d0548c9",
+  "measurements": {
+    "abstention_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "accepted_route_card_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "accepted_route_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_matches_headroom": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admitted_total_predicted_route_bytes": {
+      "value": 15971909632,
+      "unit": "bytes"
+    },
+    "byte_accounting_consistent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_and_timeout_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_file_bytes_total": {
+      "value": 54696279481,
+      "unit": "bytes"
+    },
+    "dry_run_admission_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "minimum_headroom_bytes": {
+      "value": -24696061952,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "compressed_route_answer_packet_dry_run",
+      "unit": "cursor"
+    },
+    "predicted_resident_bytes_total": {
+      "value": 62277025792,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 44,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 44,
+      "unit": "fixtures"
+    },
+    "resident_bytes_not_file_size": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_log_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_preflight_set_address": {
+      "value": "qat_model_route_card_memory_preflight:a04ad362f134669221d24c2061b70992f171b4ae8630e2bc356a57bf3a7d0818@1779034700000",
+      "unit": "uas_address"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_qat_dry_run_admissions_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "thirty_one_b_vault_only_on_16gb_profile": {
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_abstains_on_16gb_profile": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_qat_candidate_card_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_only_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "cards"
+    },
+    "accepted_route_card_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "cards"
+    },
+    "accepted_route_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_matches_headroom": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admitted_total_predicted_route_bytes": {
+      "operator": "<=",
+      "value": 25769803776,
+      "unit": "bytes"
+    },
+    "byte_accounting_consistent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_and_timeout_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_file_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "dry_run_admission_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "cards"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "minimum_headroom_bytes": {
+      "operator": "<",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "compressed_route_answer_packet_dry_run",
+      "unit": "cursor"
+    },
+    "predicted_resident_bytes_total": {
+      "operator": ">",
+      "value": 54696279481,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 44,
+      "unit": "fixtures"
+    },
+    "resident_bytes_not_file_size": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_log_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_preflight_set_address": {
+      "operator": "starts_with",
+      "value": "qat_model_route_card_memory_preflight:",
+      "unit": "uas_address"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_qat_dry_run_admissions_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "thirty_one_b_vault_only_on_16gb_profile": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_abstains_on_16gb_profile": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_qat_candidate_card_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_only_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "cards"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_count": true,
+    "accepted_route_card_count": true,
+    "accepted_route_pack_present": true,
+    "admission_matches_headroom": true,
+    "admitted_total_predicted_route_bytes": true,
+    "byte_accounting_consistent": true,
+    "cancellation_and_timeout_required": true,
+    "declared_file_bytes_total": true,
+    "dry_run_admission_count": true,
+    "hidden_authority_rejected": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "minimum_headroom_bytes": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "predicted_resident_bytes_total": true,
+    "product_promotion_rejected": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "resident_bytes_not_file_size": true,
+    "rollback_log_answer_packet_required": true,
+    "route_preflight_set_address": true,
+    "runtime_bytes_loaded": true,
+    "runtime_deferred_required": true,
+    "set_address_deterministic": true,
+    "small_qat_dry_run_admissions_present": true,
+    "thirty_one_b_vault_only_on_16gb_profile": true,
+    "twelve_b_abstains_on_16gb_profile": true,
+    "upstream_gemma_qat_candidate_card_bound": true,
+    "vault_only_count": true,
+    "zero_model_bytes_loaded": true,
+    "zero_provider_calls": true,
+    "zero_runtime_bytes_loaded": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-QAT-ModelRouteCard-MemoryPreflight from the Gemma QAT candidate-card witness. Scope is T1/L1 metadata only: E2B/E4B may proceed to later dry-run packetization on the declared 16 GB UMA profile; 12B abstains for insufficient headroom; 31B remains vault-only. This witness loads zero model/runtime bytes, makes zero provider calls, and proves no first token, quality, Swift MLX loader, MAS readiness, or product capability."
+}

@@ -460,12 +460,29 @@ proof refs, and set-level promotion failures. The next model-ladder unit is
 `F-QAT-ModelRouteCard-MemoryPreflight`; unresolved 26B-style claims stay out
 until source-carded.
 
+**Pass-seventeen implementation.** `F-QAT-ModelRouteCard-MemoryPreflight` is
+now built as the byte-accounted route-card preflight after the Gemma QAT
+candidate-card witness. Implemented anchors:
+`agent_core/src/uas/qat_model_route_card_memory_preflight.rs`,
+`agent_core/src/bin/falsify_qat_model_route_card_memory_preflight.rs`,
+`Tools/falsifiers/f_qat_model_route_card_memory_preflight.sh`,
+`docs/falsifiers/F-QAT-ModelRouteCard-MemoryPreflight_2026_06_06.md`, and
+`artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. The
+witness accepts 4 route cards and rejects 44 red fixtures. On the declared
+M2 Pro 16 GB UMA profile, E2B/E4B are admitted only for later dry-run
+packetization, 12B abstains for insufficient headroom, and 31B remains
+vault-only. Declared file bytes, predicted resident bytes, KV bytes, scratch
+bytes, available route bytes, headroom, timeout, cancellation, rollback,
+RunEventLog, AnswerPacket, and compatibility refs stay separate; model/runtime
+bytes and provider calls stay zero. The next model-ladder unit is
+`F-CompressedRoute-AnswerPacket-DryRun`.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
-`F-ProprietaryCompression-ProvenanceGate`, and
-`F-CompressedModelSourceCard-Intake`, and
-`F-GemmaQAT-LocalRuntimeCandidateCard` are T1/L1 metadata architecture only.
-They
-do not promote live dense 70B, live sparse 70B, product capability, release
+`F-ProprietaryCompression-ProvenanceGate`,
+`F-CompressedModelSourceCard-Intake`,
+`F-GemmaQAT-LocalRuntimeCandidateCard`, and
+`F-QAT-ModelRouteCard-MemoryPreflight` are T1/L1 metadata architecture only.
+They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor
 remains
