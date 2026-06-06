@@ -1,0 +1,325 @@
+{
+  "falsifier_id": "F-SmallCompressedModel-LocalRuntimeCommandCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_compressed_model_local_runtime_command_card.sh",
+  "command_digest": "sha256:4484a214394cbac35fbdc8e277dbe1d7087ca7273b42ed0865bea7db93f681b1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "21c188891d0daab017568c6cadc506471c40aaf7",
+  "fixture_id": "small_compressed_model_local_runtime_command_card_v1",
+  "timestamp_utc": "2026-06-06T07:28:08Z",
+  "result_digest": "sha256:0a1d01c00844adea754878eca6d48050557b9bed6eb803a77cbc25defbd7a554",
+  "measurements": {
+    "byte_ledger_zero_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "command_card_set_address": {
+      "value": "small_compressed_model_local_runtime_command_card:f3bfdf059d56bb6d19ba1da82c98b85188d37190a9492f45bfbb2b36ea97f29e@1779036100000",
+      "unit": "uas_address"
+    },
+    "denied_server_sidecar_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "direct_cli_card_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "hidden_authority_and_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_version_ref": {
+      "value": "local_version:llama.cpp:9370:aa50b2c2a:darwin_arm64:no_model_load:2026_06_06",
+      "unit": "ref"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_path_and_token_claims_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "owner_approval_pending_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "present_command_path_count": {
+      "value": 2,
+      "unit": "paths"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_command_path": {
+      "value": "/opt/homebrew/bin/llama-cli",
+      "unit": "path"
+    },
+    "selected_direct_cli_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_resolved_path": {
+      "value": "../Cellar/llama.cpp/9370/bin/llama-cli",
+      "unit": "path"
+    },
+    "server_sidecar_denied_by_default": {
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_owner_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "byte_ledger_zero_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "command_card_set_address": {
+      "operator": "starts_with",
+      "value": "small_compressed_model_local_runtime_command_card:",
+      "unit": "uas_address"
+    },
+    "denied_server_sidecar_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "direct_cli_card_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "hidden_authority_and_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_version_ref": {
+      "operator": "starts_with",
+      "value": "local_version:llama.cpp:9370",
+      "unit": "ref"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_path_and_token_claims_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "owner_approval_pending_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "present_command_path_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "paths"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 35,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_command_path": {
+      "operator": "==",
+      "value": "/opt/homebrew/bin/llama-cli",
+      "unit": "path"
+    },
+    "selected_direct_cli_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_resolved_path": {
+      "operator": "contains",
+      "value": "llama-cli",
+      "unit": "path"
+    },
+    "server_sidecar_denied_by_default": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_owner_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "byte_ledger_zero_loaded": true,
+    "command_card_count": true,
+    "command_card_set_address": true,
+    "denied_server_sidecar_count": true,
+    "direct_cli_card_count": true,
+    "hidden_authority_and_fallback_rejected": true,
+    "layer_separation_required": true,
+    "local_version_ref": true,
+    "metadata_budget_enforced": true,
+    "model_bytes_loaded": true,
+    "model_path_and_token_claims_blocked": true,
+    "next_research_to_build_unit": true,
+    "owner_approval_pending_fail_closed": true,
+    "present_command_path_count": true,
+    "product_promotion_rejected": true,
+    "proof_ref_prefixes_required": true,
+    "proof_surfaces_required": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded": true,
+    "selected_command_path": true,
+    "selected_direct_cli_visible": true,
+    "selected_resolved_path": true,
+    "server_sidecar_denied_by_default": true,
+    "set_address_deterministic": true,
+    "upstream_owner_gate_bound": true,
+    "visibility_required": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-SmallCompressedModel-LocalRuntimeCommandCard from the owner-approval gate. Scope is research-to-build T1/L1 metadata only: local llama-cli and llama-server command paths are inventoried, llama-cli is the only direct future command lane, llama-server is denied by default, owner approval remains pending, model path remains pending, and no command, model, runtime, provider, L2, or L3 capability is executed or promoted."
+}

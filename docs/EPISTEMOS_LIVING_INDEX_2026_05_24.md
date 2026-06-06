@@ -702,6 +702,34 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-SmallCompressedModel-LocalRuntimeCommandCard`
+  is now the local GGUF command-inventory bridge after the owner-approval gate:
+  `agent_core/src/uas/small_compressed_model_local_runtime_command_card.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_small_compressed_model_local_runtime_command_card.rs`,
+  script
+  `Tools/falsifiers/f_small_compressed_model_local_runtime_command_card.sh`,
+  witness page
+  `docs/falsifiers/F-SmallCompressedModel-LocalRuntimeCommandCard_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/small_compressed_model_local_runtime_command_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 2 command cards
+  and rejects 52 red fixtures: `/opt/homebrew/bin/llama-cli` is the only direct
+  local GGUF command card for the selected E2B Gemma 4 QAT GGUF future probe,
+  while `/opt/homebrew/bin/llama-server` is visible only as a denied-by-default
+  sidecar. Owner approval remains pending, the command is not armed or
+  executed, the model path remains pending, and provider fallback, hidden route
+  authority, server-sidecar defaults, first-token claims, L2/L3 promotion,
+  live dense 70B, and SSD-as-RAM are rejected. This is research-to-build T1/L1
+  metadata only: zero model/runtime bytes, zero provider calls, no loadability,
+  no quality, no MAS readiness, no L2 capability, and no L3 user-facing product
+  truth. The next research-to-build model-ladder unit remains
+  `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

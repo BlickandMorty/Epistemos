@@ -253,6 +253,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-CompressedRoute-AnswerPacket-DryRun` | `Tools/falsifiers/f_compressed_route_answer_packet_dry_run.sh` |
 | `F-SmallCompressedModel-LiveHarnessPreflight` | `Tools/falsifiers/f_small_compressed_model_live_harness_preflight.sh` |
 | `F-SmallCompressedModel-OwnerApprovalRuntimeGate` | `Tools/falsifiers/f_small_compressed_model_owner_approval_runtime_gate.sh` |
+| `F-SmallCompressedModel-LocalRuntimeCommandCard` | `Tools/falsifiers/f_small_compressed_model_local_runtime_command_card.sh` |
 | `F-TaskWorkingSetQuery-Determinism` | `Tools/falsifiers/f_task_working_set_query_determinism.sh` |
 | `F-SemanticWorkingSetPlan-Budget` | `Tools/falsifiers/f_semantic_working_set_plan_budget.sh` |
 | `F-ResidencyPageTable-Addressability` | `Tools/falsifiers/f_residency_page_table_addressability.sh` |
@@ -442,6 +443,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-CompressedRoute-AnswerPacket-DryRun` | `artifacts/falsifiers/compressed_route_answer_packet_dry_run/` |
 | `F-SmallCompressedModel-LiveHarnessPreflight` | `artifacts/falsifiers/small_compressed_model_live_harness_preflight/` |
 | `F-SmallCompressedModel-OwnerApprovalRuntimeGate` | `artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/` |
+| `F-SmallCompressedModel-LocalRuntimeCommandCard` | `artifacts/falsifiers/small_compressed_model_local_runtime_command_card/` |
 | `F-TaskWorkingSetQuery-Determinism` | `artifacts/falsifiers/task_working_set_query_determinism/` |
 | `F-SemanticWorkingSetPlan-Budget` | `artifacts/falsifiers/semantic_working_set_plan_budget/` |
 | `F-ResidencyPageTable-Addressability` | `artifacts/falsifiers/residency_page_table_addressability/` |
