@@ -455,6 +455,10 @@ name = "falsify_turbovec_recall_quality_exact_baseline"
 path = "src/bin/falsify_turbovec_recall_quality_exact_baseline.rs"
 
 [[bin]]
+name = "falsify_turbovec_latency_memory_abstention"
+path = "src/bin/falsify_turbovec_latency_memory_abstention.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

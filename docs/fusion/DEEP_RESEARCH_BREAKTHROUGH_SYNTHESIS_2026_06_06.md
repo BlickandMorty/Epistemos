@@ -3583,10 +3583,10 @@ where exact-baseline quality is not enough by itself; the cache must also
 declare memory, latency, cancellation, timeout, and abstention envelopes before
 feeding local large-model context.
 
-Safest next falsifier: `turbovec_latency_memory_abstention_plan`, because
-exact-baseline quality is now specified, but no witness has yet proved bounded
-latency, bounded memory, timeout/cancellation behavior, and abstention when the
-compressed cache is too expensive or too uncertain.
+Safest next falsifier at pass twenty-eight time was the latency/memory
+abstention plan, because exact-baseline quality was specified but bounded
+latency, memory, timeout/cancellation behavior, and uncertainty abstention were
+not yet witnessed. This is now landed as `F-TurboVec-LatencyMemoryAbstention`.
 
 Best near-term code unit: implement a metadata-only latency/memory abstention
 plan that binds query class, top_k, planned bytes, timeout, cancellation,
@@ -3604,3 +3604,70 @@ without route mutation.
 Next research query: "What latency, memory, cancellation, timeout, and
 abstention envelopes are sufficient before exact-baseline TurboVec-style
 compressed retrieval can safely feed local large-model context selection?"
+
+## 43. Latency/Memory Abstention Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, and the
+current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_latency_memory_abstention_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_latency_memory_abstention.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_latency_memory_abstention.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_latency_memory_abstention/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-LatencyMemoryAbstention_2026_06_06.md`
+
+`F-TurboVec-LatencyMemoryAbstention` is now PASS as a metadata-only T1/L1
+witness. It accepts 1 latency/memory plan, covers 5 tiny envelope cases,
+rejects 45 red fixtures, records 1 selected safe-use case and 4 visible
+abstention cases, records max p99 latency `40000` micros, max planned bytes
+`249856`, min planned headroom `-45712`, and records zero opened/loaded index
+bytes, zero allocated runtime bytes, zero model/runtime/provider bytes, and
+zero copied product files.
+
+### 43.1 Architecture Fusion
+
+This is an important large-local-model hardening step. Exact recall alone is
+not enough for Gemma/QAT/large-local-model context selection: a compressed
+retrieval cache can be accurate but still too slow, too memory-expensive, too
+uncertain, or empty. The new gate makes the Eidos/AppColdStore cache behave
+like a budgeted support-set compiler: use the compressed cache only when
+p95/p99 latency, timeout, cancellation, memory headroom, and uncertainty fit
+the envelope; otherwise abstain visibly and fall back without route mutation.
+
+### 43.2 Non-Promotion
+
+This pass does not import TurboVec code, build an index, run a benchmark,
+allocate runtime buffers, measure live latency, choose RuntimeRouter/System G
+routes, run models, make L2/L3 product capability green, or prove live dense
+70B. It advances the research-to-build ladder only.
+
+### 43.3 Pass-Twenty-Nine Register
+
+Best breakthrough candidate: tiny shadow benchmarking for compressed retrieval
+where the first runtime-shaped proof is still non-authoritative, AnswerPacket
+visible, cancellable, budgeted, and unable to mutate model routes.
+
+Safest next falsifier: `turbovec_runtime_shadow_benchmark_plan`, because
+latency/memory envelopes are now specified but no witness has yet replayed a
+tiny shadow benchmark with runtime-shaped timing, memory sampling, cancellation,
+fallback, and rollback evidence.
+
+Best near-term code unit: implement a metadata-only or tiny-fixture shadow
+benchmark plan that binds a local fixture, no product route mutation, timing
+samples, memory samples, cancellation/fallback, rollback, RunEventLog,
+AnswerPacket, no hidden route authority, and zero model bytes.
+
+Biggest false-claim risk: treating budget-envelope metadata as live TurboVec
+speed, live model-routing authority, or product-ready large-model context.
+
+Biggest missing source: exact tiny local fixture shape for a shadow TurboVec
+benchmark that can run without contaminating product route state.
+
+Next research query: "What tiny shadow benchmark and replay envelope proves
+compressed retrieval timing/memory behavior without promoting live route
+authority or product large-model capability?"

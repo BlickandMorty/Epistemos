@@ -93,6 +93,7 @@ pub mod transport_trace_answer_packet;
 pub mod turbovec_crash_safe_persistent_index_plan;
 pub mod turbovec_eidos_compressed_index_plan;
 pub mod turbovec_filter_before_rank_privacy_gate;
+pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_stable_external_id_registry_plan;
 pub mod weight_block;
@@ -537,6 +538,15 @@ pub use turbovec_filter_before_rank_privacy_gate::{
     TurboVecFilterBeforeRankScenario, TurboVecFilterBeforeRankStatus,
     TurboVecFilterFixtureKind, TURBOVEC_FILTER_BEFORE_RANK_PRIVACY_GATE_CURSOR,
     TURBOVEC_FILTER_BEFORE_RANK_PRIVACY_GATE_NEXT_CURSOR,
+};
+pub use turbovec_latency_memory_abstention_plan::{
+    TurboVecLatencyMemoryAbstentionPlan, TurboVecLatencyMemoryAbstentionPlanSet,
+    TurboVecLatencyMemoryAbstentionPolicy, TurboVecLatencyMemoryByteLedger,
+    TurboVecLatencyMemoryError, TurboVecLatencyMemoryMetrics,
+    TurboVecLatencyMemoryPromotionTier, TurboVecLatencyMemoryProofRefs,
+    TurboVecLatencyMemoryStatus, TurboVecRetrievalEnvelopeCase,
+    TurboVecRetrievalEnvelopeCaseKind, TurboVecRetrievalEnvelopeDecision,
+    TURBOVEC_LATENCY_MEMORY_ABSTENTION_CURSOR, TURBOVEC_LATENCY_MEMORY_ABSTENTION_NEXT_CURSOR,
 };
 pub use turbovec_recall_quality_exact_baseline_plan::{
     recall_at_k_micros, TurboVecRecallQualityByteLedger, TurboVecRecallQualityError,
