@@ -23,7 +23,7 @@ The companion artifact strengthens this intake with three additional locks:
 
 - Gemma 4 12B QAT is the main Pro Gated Mac target, with GGUF/LiteRT preferred before Swift MLX unless an Epistemos-owned Swift Gemma 4 loader witness lands.
 - TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed retrieval cache with UAS-stable external IDs; SQLite `rowid` is never the semantic UAS ID.
-- Ambitious proprietary advantage comes through an Epistemos-owned source-card, license, clean-room, and falsifier spine, not blind code copying.
+- Ambitious proprietary advantage comes through an Epistemos-owned source-card, quarantine, import-mode, clean-room, and falsifier spine, not blind code copying and not passive license-blocking.
 
 ## Source Map
 
@@ -56,14 +56,14 @@ Research-agent notes attached on 2026-06-06 are treated as input, not authority.
 
 Epistemos should choose the best stack without locking itself to MLX. MLX can be the Apple Silicon fast lane when it proves stability and quality. GGUF/llama.cpp can be the portable local lane when it proves memory and toolchain behavior. LiteRT can be considered for MAS-safe small models when sandbox, size, and model support are proven. Custom Metal kernels remain Pro Research until crash-safe harnesses, dry-run witnesses, feature gates, fallbacks, and rollback exist.
 
-Public repos and forks may be mined for motifs, tests, schemas, and performance ideas. Code must not be blindly cherry-picked into proprietary implementation unless license, attribution, compatibility, and security review allow it. When a repo's license or provenance is unclear, use clean-room reimplementation notes and preserve the source-card distinction.
+Public repos and forks may be mined aggressively for motifs, tests, schemas, API shapes, parser behavior, cache logic, memory assumptions, benchmark harnesses, and failure cases. Code must not be blindly cherry-picked into proprietary implementation unless license, attribution, compatibility, and security review allow it. When a repo's license or provenance is unclear, clone/run/inspect it in quarantine, keep it out of MAS/Pro build graphs, and convert the useful behavior through adapter wrapping or clean-room Epistemos-owned reimplementation.
 
-New gate name: `F-ProprietaryCompression-ProvenanceGate`.
+New gate name: `F-ProprietaryCompression-ProvenanceGate`. Its import modes are `direct_import`, `adapter_wrap`, `quarantine_reference`, `clean_room_rewrite`, and `research_only`.
 
 | Source license/status | Allowed action |
 |---|---|
 | MIT / Apache / BSD with compatible dependencies | May vendor or adapt with attribution, license files, source digest, and integration tests. |
-| GPL / AGPL / unclear / no license | May inform high-level public research cards only; no code copying into proprietary product logic. |
+| GPL / AGPL / unclear / no license | May be cloned, run, inspected, and benchmarked in quarantine; product code must use permission, legal review, adapter isolation, or clean-room rewrite rather than shipped copying/linking. |
 | Research paper or public math | May be clean-room implemented with notes, tests, and independent design review. |
 | Same-day conversion or low-star proof-of-concept | May become a source-card prior only. |
 | Negative reproduction | Should become a falsifier fixture or risk note. |
@@ -90,8 +90,8 @@ Forbidden until witnessed:
 Recommended first units, in order:
 
 1. `F-ProprietaryCompression-ProvenanceGate`
-   - Proves every TurboVec/QAT/KV/lattice source has URL, license, dependency status, source digest, import mode, allowed action, and clean-room note where needed.
-   - Does not authorize product import or runtime use.
+   - Proves every TurboVec/QAT/KV/lattice source has URL, license, dependency status, source digest, quarantine status, import mode, allowed action, extracted behaviors/tests/benchmarks/failure cases, and clean-room note where needed.
+   - Does not authorize product import or runtime use unless the import mode and downstream witness explicitly allow it.
 
 2. `F-CompressedModelSourceCard-Intake`
    - Proves source URL, license, model/index kind, claimed format, expected runtime lanes, and provenance digest are recorded.
