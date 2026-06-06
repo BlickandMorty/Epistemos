@@ -106,6 +106,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-KVSourceCard-ForkAndDaemonBoundary`. This is T0/T1 canon/backlog only:
 > no server, daemon, remote cache, offload benchmark, model/KV byte load,
 > hidden cache authority, SSD-as-RAM claim, or L2/L3 promotion.
+> Deep Research Pass 61 turns that cluster into an implementable
+> `F-KVRuntimeSourceCard` blueprint. It names accepted source-card fixtures for
+> vLLM/PagedAttention, LMCache, SGLang HiCache/RadixAttention, KTransformers,
+> FlexLLMGen, PowerInfer, KIVI, Transformers `QuantizedCache`, and llama.cpp
+> prompt-cache flags, plus reject cases for server/daemon laundering,
+> remote-cache-as-local, prompt-cache compatibility gaps, KV quantization
+> without backend/axis/residual/quality caveat, hidden cache authority,
+> nonzero runtime/model/KV bytes, live dense 70B, SSD-as-RAM, and L2/L3
+> promotion. This is still T0/T1 canon/backlog only; the guard-owned cursor
+> remains the small-model L3 release-audit automated-checks probe.
 
 ---
 

@@ -5321,3 +5321,367 @@ falsifier that maps vLLM/PagedAttention, LMCache, KTransformers, FlexLLMGen,
 PowerInfer, and KIVI into Epistemos KV lineage, page-table, offload, activation
 locality, and asymmetric KV quantization backlogs without server fallback, model
 byte loading, hidden cache authority, or L2/L3 overclaim?"
+
+---
+
+## 61. Pass 61 - KVRuntimeSourceCard Falsifier Blueprint
+
+Observed on 2026-06-06. This pass is research-to-build canon. It converts the
+Pass 60 research into the smallest metadata-only falsifier shape that can be
+implemented later without touching product runtime code. It opens no model,
+index, KV, runtime, server, daemon, or source-tree bytes beyond primary-source
+metadata/docs already inspected for research.
+
+### 61.1 Local Code Truth
+
+The future `F-KVRuntimeSourceCard` should reuse existing authority instead of
+creating a parallel route system.
+
+Current local anchors:
+
+- `agent_core/src/uas/semantic_working_set.rs` already defines source cards,
+  `ResidencyPageTableEntry`, `PrefetchWindow`, `ColdFaultTrace`, and working-
+  set accounting shapes.
+- `agent_core/src/uas/compressed_model_source_card_intake.rs` already proves
+  how source-card overlays should bind to `SourceSignalGraph`,
+  `ModelInventoryCandidateSet`, and `ProprietaryCompressionProvenanceGate`.
+  Its key pattern is exactly right: cards sort deterministically, bind source
+  ID/digest/provenance, carry proof refs, count zero model/index/runtime bytes,
+  reject hidden route authority, and keep L1/L2/L3 separated.
+- `docs/falsifiers/F-KVByteBudgetCard_2026_06_03.md` already requires KV bytes,
+  prompt-cache hit/miss tokens, codec, quality caveat, and compatibility
+  failures to be separate from weight bytes.
+- `docs/falsifiers/F-QueryAwareKVSelector_2026_06_04.md` already proves
+  selector metadata must be shadow-only, budgeted, privacy-fenced,
+  baseline-beating, rollback-bound, RunEventLog-bound, and AnswerPacket-bound.
+- `docs/falsifiers/F-LayerKVJointLease_2026_06_04.md` already proves dynamic
+  depth and selected KV/page choices must be leased together rather than
+  independently.
+
+Therefore, the next code unit should be a small UAS metadata primitive, not a
+runtime harness:
+
+```text
+SourceSignalGraph
+  + ProprietaryCompressionProvenanceGate
+  + CompressedModelSourceCardIntake
+  -> Vec<KVRuntimeSourceCard>
+  -> KVRuntimeSourceCardSet
+  -> F-KVRuntimeSourceCard
+```
+
+The card set feeds later, narrower gates:
+
+```text
+F-KVVirtualBlockTable-CompatibilityFence
+F-KVLineage-ReuseCompatibilityFence
+F-OffloadCostModel-LatencyThroughputBoundary
+F-HeterogeneousExpertPlacement-Abstention
+F-ActivationLocality-NoHiddenWake
+F-AsymmetricKV-SoftmaxStability
+F-KVSourceCard-ForkAndDaemonBoundary
+```
+
+### 61.2 Additional External Source Reality Check
+
+This pass adds three source signals on top of Pass 60:
+
+- `sgl-project/sglang` is Apache-2.0 and its README describes a high-
+  performance serving framework with RadixAttention for prefix caching,
+  prefill-decode disaggregation, speculative decoding, continuous batching,
+  paged attention, quantization, structured outputs, broad model support, and
+  broad hardware support. GitHub API observed 28,897 stars, 6,363 forks, 3,760
+  open issues, and last push `2026-06-06T20:26:29Z`.
+- SGLang HiCache documentation says RadixAttention reuses prefix KV caches in
+  idle GPU memory, while HiCache extends that hierarchy to host memory and
+  distributed storage. It names L1 GPU memory, L2 host memory, L3 distributed
+  storage, HiRadixTree token-span metadata, local match, prefetch, write-back,
+  page-size, timeout/write policies, storage backends, and CPU/GPU transfer
+  optimizations. Epistemos should source-card the hierarchy, page layout,
+  timeout, and write policy motifs, but must reject default server, cluster,
+  distributed, and remote-cache product claims.
+- `huggingface/transformers` is Apache-2.0 and current cache code includes a
+  `QuantizedCache` inspired by KIVI. The implementation keeps a residual
+  original-precision cache, then quantizes older cache material; it also uses
+  key/value quant axes, bit-widths, and group sizes that vary by backend. This
+  is important because a "KIVI-like" claim is not one universal KV codec: the
+  Epistemos route card must record exact backend, nbits, axes, group size,
+  residual length, quality caveat, and compatibility fence.
+- `ggml-org/llama.cpp` is MIT and current argument code exposes prompt-cache
+  flags such as `--prompt-cache`, `--prompt-cache-all`, and `--prompt-cache-ro`;
+  it also rejects `--prompt-cache-all` in interactive mode. This is a small but
+  useful warning: prompt-cache support can be mode-limited, so Epistemos must
+  record interactive/agentic compatibility before treating a cache as a live
+  route surface.
+
+Source refs for this pass:
+
+- https://github.com/sgl-project/sglang
+- https://github.com/sgl-project/sglang/blob/main/docs/advanced_features/hicache_design.md
+- https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/layers/radix_attention.py
+- https://github.com/huggingface/transformers
+- https://github.com/huggingface/transformers/blob/main/src/transformers/cache_utils.py
+- https://github.com/ggml-org/llama.cpp
+- https://github.com/ggml-org/llama.cpp/blob/master/common/arg.cpp
+
+### 61.3 Proposed Primitive Shape
+
+The future code should stay compact and reuse the established source-card
+style.
+
+```text
+KVRuntimeSourceCard {
+  card_id
+  source_id
+  source_digest
+  provenance_overlay_ref
+  compressed_model_source_card_ref
+  project_ref
+  kv_mechanism
+  runtime_shape
+  default_deployment_shape
+  storage_tiers
+  cache_identity_fields
+  compatibility_fields
+  byte_ledgers
+  cache_policy_fields
+  quality_caveat_ref
+  server_daemon_boundary
+  remote_storage_boundary
+  apple_silicon_status
+  mas_status
+  import_mode
+  allowed_action
+  product_build
+  pro_status
+  promotion_tier
+  proof_refs
+  byte_scope
+}
+```
+
+Recommended enums:
+
+```text
+KVMechanism ::=
+  VirtualBlockTable
+  PrefixTreeReuse
+  HierarchicalKVCache
+  KVQuantization
+  HeterogeneousPlacement
+  OffloadPolicyOptimizer
+  ActivationLocality
+  PromptCacheFile
+
+RuntimeShape ::=
+  InProcessLibrary
+  CliCommand
+  ServerFramework
+  DaemonCacheLayer
+  DistributedCluster
+  PythonRuntime
+  CppRuntime
+  SwiftPackage
+  MetadataOnly
+
+DefaultDeploymentShape ::=
+  ProductEligibleInProcess
+  ProGatedCommand
+  ProResearchServer
+  ProResearchDaemon
+  ProVaultDistributed
+  ResearchOnly
+
+StorageTier ::=
+  GpuMemory
+  AppleUmaMemory
+  CpuMemory
+  LocalSsd
+  RemoteObjectStore
+  DistributedKvStore
+  PromptCacheFile
+  None
+```
+
+Required proof refs:
+
+```text
+falsifier_ref
+rollback_ref
+run_event_log_ref
+answer_packet_ref
+compatibility_fence_ref
+privacy_policy_ref
+quality_caveat_ref
+mas_pro_boundary_ref
+```
+
+The source-card set address should include sorted cards, source graph address,
+provenance gate address, compressed-model intake address, declared storage
+tiers, mechanism coverage, deployment shapes, no-hidden-authority flags, and
+created timestamp.
+
+### 61.4 Accepted Fixture Pack
+
+The first metadata-only fixture should accept a deliberately broad but safe
+source pack:
+
+| Fixture | Source | Mechanism | Runtime shape | Product implication |
+|---|---|---|---|---|
+| `kv_source:vllm_paged_attention` | `vllm-project/vllm` | Virtual block table, prefix caching, continuous batching | ServerFramework / PythonRuntime | Source-card motif only; no server fallback. |
+| `kv_source:lmcache_reusable_kv` | `LMCache/LMCache` | Reusable KV lineage, tiered KV cache, observability | DaemonCacheLayer / DistributedCluster | Pro Research only; no hidden cache authority. |
+| `kv_source:sglang_hicache_radix` | `sgl-project/sglang` | Prefix tree reuse, hierarchical cache, prefetch/write-back policies | ServerFramework / DistributedCluster | Source-card motif only; remote/cache server denied by default. |
+| `kv_source:ktransformers_heterogeneous_prefix` | `kvcache-ai/ktransformers` | GPU-CPU-Disk prefix cache and expert placement | PythonRuntime / ServerFramework | Pro Research; unsupported Apple/MAS abstention required. |
+| `kv_source:flexllmgen_offload_optimizer` | `FMInference/FlexLLMGen` | Offload policy optimizer and latency/throughput boundary | PythonRuntime / BatchRuntime | Offline/batch only; not interactive proof. |
+| `kv_source:powerinfer_activation_locality` | `Tiiny-AI/PowerInfer` | Hot/cold activation locality and predictors | CppRuntime / CliCommand | Activation motif only; Mac acceleration not claimed. |
+| `kv_source:kivi_asymmetric_kv` | `jy-yuan/KIVI` | Asymmetric low-bit KV quantization | PythonRuntime / CUDAResearch | KV codec motif only; quality fence required. |
+| `kv_source:transformers_quantized_cache` | `huggingface/transformers` | Quantized cache with residual full-precision cache | PythonRuntime | Backend/axis/residual caveats required. |
+| `kv_source:llamacpp_prompt_cache` | `ggml-org/llama.cpp` | Prompt-cache file flags | CliCommand / CppRuntime | Mode compatibility required; no server fallback. |
+
+### 61.5 Red Fixture Matrix
+
+The falsifier should fail closed on these cases:
+
+- empty card set;
+- duplicate card ID;
+- duplicate source ID where uniqueness is required;
+- unknown source ID;
+- source digest mismatch;
+- provenance overlay missing or mismatched;
+- compressed-model source-card ref missing for runtime-adjacent sources;
+- hidden route authority;
+- hidden cache authority;
+- server/daemon default treated as product in-process route;
+- remote object store, S3-compatible storage, RDMA, cluster, or distributed KV
+  treated as MAS/product local;
+- prompt cache treated as compatible without model/tokenizer/context/prompt
+  digest binding;
+- KV reuse key missing model ID, tokenizer ID, adapter set, prompt digest,
+  token span, privacy class, purge policy, or source span ID;
+- block-table entry missing page/block ID, token range, storage tier,
+  compatibility fence, byte ledger, checksum, or rollback;
+- quantized cache missing nbits, axis, group size, residual full-precision
+  token budget, quality caveat, or backend name;
+- offload card missing latency-vs-throughput caveat or batch/offline admission;
+- activation-locality card missing predictor provenance and fallback;
+- platform caveat missing for CUDA/Linux/server assumptions;
+- Apple Silicon status marked supported from non-Apple evidence alone;
+- MAS status marked live for server, daemon, subprocess, or remote storage
+  source;
+- package README or GitHub activity treated as runtime proof;
+- benchmark claim without same-fixture local test plan;
+- nonzero model bytes, KV bytes, index bytes, runtime bytes, provider calls, or
+  source-tree import bytes in the metadata gate;
+- copied product files;
+- live dense 70B, live sparse 70B, 128K context, SSD-as-RAM, hidden cloud, or
+  L2/L3 promotion claim;
+- missing rollback, RunEventLog, AnswerPacket, compatibility fence, privacy
+  policy, quality caveat, or MAS/Pro boundary proof.
+
+### 61.6 Artifact Axes To Add Later
+
+When this becomes code, the artifact should report at least:
+
+```text
+kv_runtime_source_card_count
+kv_mechanism_count
+runtime_shape_count
+deployment_shape_count
+storage_tier_count
+server_framework_count
+daemon_cache_layer_count
+distributed_cluster_count
+remote_storage_source_count
+local_only_source_count
+kv_quantization_source_count
+offload_policy_source_count
+activation_locality_source_count
+prompt_cache_source_count
+compatibility_fence_ref_count
+quality_caveat_ref_count
+mas_pro_boundary_ref_count
+zero_model_bytes_loaded
+zero_kv_bytes_loaded
+zero_index_bytes_loaded
+zero_runtime_bytes_loaded
+zero_provider_calls
+zero_product_files_copied
+hidden_route_authority_rejected
+hidden_cache_authority_rejected
+server_as_product_rejected
+daemon_as_product_rejected
+remote_storage_as_local_rejected
+ssd_as_ram_claim_rejected
+live_dense_70b_claim_rejected
+product_promotion_rejected
+metadata_budget_enforced
+kv_runtime_source_card_address
+next_backlog_unit
+```
+
+### 61.7 Why This May Be A Breakthrough
+
+The large-local-model problem becomes much less mystical when each runtime idea
+is source-carded into a specific route object:
+
+```text
+vLLM/SGLang page/cache logic -> ResidencyPageTable and KVLineageGraph
+LMCache/HiCache tiers -> CacheAdmissionCard and privacy/purge policy
+FlexLLMGen offload -> latency/throughput boundary and offline batch lane
+KTransformers/PowerInfer -> hot/cold ActiveAssembly candidates
+KIVI/Transformers cache -> KVByteBudgetCard and quality-cliff tests
+llama.cpp prompt cache -> command-card compatibility fence
+```
+
+This gives Epistemos a real path to larger models: not "one huge model fits",
+but "the smallest sufficient active set is proved, cached, restored, or
+abstained with visible evidence."
+
+### 61.8 Why It Might Be Wrong
+
+The source-card falsifier could overfit to impressive server frameworks and
+still not prove the Mac app can use them. It could also produce too many
+metadata cards without any runtime path. The mitigation is to keep the next
+code unit small and make every accepted source card name its downstream live
+proof: command card, in-process bridge, byte ledger, cancellation, quality
+test, AnswerPacket, and WRV.
+
+### 61.9 Non-Promotion
+
+This pass does not add or run SGLang, vLLM, LMCache, KTransformers,
+FlexLLMGen, PowerInfer, KIVI, Transformers, llama.cpp, servers, daemons,
+remote caches, prompt-cache files, model bytes, KV bytes, runtime probes,
+benchmarks, or product routes. It does not promote live dense 70B, live sparse
+70B, live KV-Direct, 128K context, SSD-as-RAM, hidden cache authority, hidden
+cloud fallback, or L2/L3 capability.
+
+### 61.10 Pass-Sixty-One Register
+
+Best breakthrough candidate: `F-KVRuntimeSourceCard`, because it gives
+Epistemos a single source-carded, fail-closed intake for page tables, KV
+lineage, offload policies, activation locality, prompt caches, and KV
+quantization before any one of them can influence RuntimeRouter/System G.
+
+Safest next falsifier: `F-KVSourceCard-ForkAndDaemonBoundary`, because it is
+the smallest guard against the highest-risk mistake: treating server, daemon,
+distributed, or remote-cache frameworks as local app capability.
+
+Best near-term code unit: implement `KVRuntimeSourceCard` and
+`KVRuntimeSourceCardSet` in `agent_core/src/uas/`, plus
+`falsify_kv_runtime_source_card.rs`, a shell runner, schema axes, handbook row,
+Living Index row, and lattice hook. Keep it metadata-only and require zero
+model/index/KV/runtime/provider bytes.
+
+Biggest false-claim risk: calling prefix-cache, prompt-cache, HiCache,
+LMCache, or PagedAttention evidence "local memory" without compatibility,
+privacy, byte, latency, storage-tier, and AnswerPacket proof.
+
+Biggest missing source: a local Epistemos fixture that compares these cache
+mechanisms by the same schema rather than by repo popularity or benchmark
+marketing.
+
+Next research query: "Which `KVRuntimeSourceCard` fields should be implemented
+first so the future falsifier rejects server/daemon/remote-cache laundering,
+proves zero-byte metadata-only intake, and cleanly feeds
+`F-KVLineage-ReuseCompatibilityFence` and
+`F-OffloadCostModel-LatencyThroughputBoundary`?"

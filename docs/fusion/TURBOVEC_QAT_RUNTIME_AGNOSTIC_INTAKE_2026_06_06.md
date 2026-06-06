@@ -654,3 +654,16 @@ server, daemon, model, cache replay, offload benchmark, or runtime probe; loads
 no model/index/KV/runtime bytes; and does not promote live dense 70B, live
 sparse 70B, live KV-Direct, 128K context, SSD-as-RAM, hidden cache authority,
 or L2/L3.
+
+Deep Research Pass 61 in the same synthesis file narrows this companion
+addendum into a future `F-KVRuntimeSourceCard` implementation blueprint. The
+first accepted fixture pack should include vLLM/PagedAttention, LMCache,
+SGLang HiCache/RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI,
+Transformers `QuantizedCache`, and llama.cpp prompt-cache flags. The first red
+matrix should reject server-as-product, daemon-as-product,
+remote-cache-as-local, missing cache identity, missing compatibility fence,
+missing privacy/purge policy, KV quantization without backend/nbits/axis/group
+size/residual/quality caveat, offload without latency-throughput boundary,
+unsupported Apple/MAS promotion, hidden route/cache authority, nonzero model/
+KV/index/runtime/provider bytes, copied product files, live dense 70B,
+SSD-as-RAM, and L2/L3 promotion. This remains T0/T1 canon/backlog only.
