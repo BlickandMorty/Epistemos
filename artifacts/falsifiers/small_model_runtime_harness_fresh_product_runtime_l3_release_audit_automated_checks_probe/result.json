@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "694d32cb211650359515d68270450a7b4fa9ac21",
+  "commit_sha": "e8287a2bf8be2ce868a4c3c6cf333ba04d3cf1e7",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_v1",
-  "timestamp_utc": "2026-06-06T22:18:40Z",
-  "result_digest": "sha256:ae4e058e6ff061fdf937e51b9ec7f6b14251e68ea4e3cecc423a491dc44c6f6e",
+  "timestamp_utc": "2026-06-06T22:49:54Z",
+  "result_digest": "sha256:677a9434e28de2ce6ddf8f7d596b9fbe2928546d9efdbbc801cf6f8d46442b7a",
   "measurements": {
     "all_check_logs_bound": {
       "value": true,
@@ -151,6 +151,50 @@
     "failed_check_rejected": {
       "value": true,
       "unit": "bool"
+    },
+    "focused_repair_commands": {
+      "value": [
+        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/FilterEngineComprehensiveTests test",
+        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ResourceExhaustionTests test",
+        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests test"
+      ],
+      "unit": "commands"
+    },
+    "focused_repair_family": {
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "focused_repair_notes": {
+      "value": [
+        "Run focused tests before the full release-audit marathon.",
+        "Preserve the FFI 14-case GraphNodeType contract while checking visible/app-level cases.",
+        "Do not mark L2/L3 green from focused family tests; rerun the automated-check gate first."
+      ],
+      "unit": "notes"
+    },
+    "focused_repair_plan_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_plan_matches_top_family": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_source_refs": {
+      "value": [
+        "Epistemos/Graph/FilterEngine.swift",
+        "Epistemos/Models/GraphTypes.swift",
+        "Epistemos/Graph/GraphState.swift"
+      ],
+      "unit": "paths"
+    },
+    "focused_repair_test_refs": {
+      "value": [
+        "EpistemosTests/FilterEngineComprehensiveTests.swift",
+        "EpistemosTests/ResourceExhaustionTests.swift",
+        "EpistemosTests/ConcurrencyEdgeCaseTests.swift"
+      ],
+      "unit": "paths"
     },
     "graph_engine_cargo_test_passed": {
       "value": true,
@@ -579,6 +623,41 @@
       "value": true,
       "unit": "bool"
     },
+    "focused_repair_commands": {
+      "operator": "record",
+      "value": "family-scoped commands only",
+      "unit": "commands"
+    },
+    "focused_repair_family": {
+      "operator": "record",
+      "value": "top retained failure family",
+      "unit": "family"
+    },
+    "focused_repair_notes": {
+      "operator": "record",
+      "value": "no product green claim",
+      "unit": "notes"
+    },
+    "focused_repair_plan_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_plan_matches_top_family": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_source_refs": {
+      "operator": "record",
+      "value": "source anchors",
+      "unit": "paths"
+    },
+    "focused_repair_test_refs": {
+      "operator": "record",
+      "value": "focused test anchors",
+      "unit": "paths"
+    },
     "graph_engine_cargo_test_passed": {
       "operator": "==",
       "value": true,
@@ -921,6 +1000,13 @@
     "duplicate_check_rejected": true,
     "failed_check_count": false,
     "failed_check_rejected": true,
+    "focused_repair_commands": true,
+    "focused_repair_family": true,
+    "focused_repair_notes": true,
+    "focused_repair_plan_bound": true,
+    "focused_repair_plan_matches_top_family": true,
+    "focused_repair_source_refs": true,
+    "focused_repair_test_refs": true,
     "graph_engine_cargo_test_passed": true,
     "guard_cursor_l3_release_audit_automated_checks_or_advanced": true,
     "heavy_routes_deferred": true,

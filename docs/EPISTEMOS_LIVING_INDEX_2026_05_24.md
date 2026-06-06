@@ -288,6 +288,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
   L2 remains `overall_pass=false` / `vault_research_route_with_packetized_mitigation`, and
   L3 release readiness plus large-local-model product capability remain unpromoted.
+- Updated **2026-06-06** · focused repair-plan hardening now binds the top red
+  family to exact next commands and source anchors. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The artifact now records `focused_repair_family=graph_filter_visibility`,
+  `focused_repair_plan_bound=true`, and `focused_repair_plan_matches_top_family=true`.
+  Next focused commands are `-only-testing:EpistemosTests/FilterEngineComprehensiveTests`,
+  `-only-testing:EpistemosTests/ResourceExhaustionTests`, and
+  `-only-testing:EpistemosTests/ConcurrencyEdgeCaseTests`; source anchors are
+  `Epistemos/Graph/FilterEngine.swift`, `Epistemos/Models/GraphTypes.swift`,
+  and `Epistemos/Graph/GraphState.swift`. This is still red repair guidance:
+  no product code was changed, no focused Swift tests were run in this pass,
+  L1 cursor remains parked, L2 remains red, and L3 release readiness plus
+  large-local-model product capability remain unpromoted.
 - Updated **2026-06-05** · automated-check repair checkpoint: the first scoped
   Swift-suite blocker cluster under the red release-audit ledger was hardened in
   `UserFacingModelOutput`. North-star sentence: Epistemos is a local cognitive

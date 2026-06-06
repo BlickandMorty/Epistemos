@@ -5818,3 +5818,70 @@ running the full release-audit marathon.
 Next research query: "Can the release-audit automated-check gate grow a
 family-scoped repair runner so small-model runtime/product proof moves toward
 L3 without repeatedly running the full Swift suite?"
+
+## 64. Pass 64 - Focused Repair Plan Binding
+
+Observed on 2026-06-06. This pass answers the Pass 63 query by adding a
+family-scoped repair plan to the red automated-check artifact. It does not edit
+product code, run Swift tests, or promote L1/L2/L3.
+
+Built changes:
+
+- Extended
+  `agent_core/src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs`
+  with a typed `FailureFamilyRepairPlan`.
+- Extended
+  `agent_core/src/falsifier_artifacts/axes.rs::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_AXES`
+  with focused repair-plan axes.
+- Regenerated
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`.
+
+Current focused plan:
+
+- `focused_repair_family=graph_filter_visibility`
+- `focused_repair_plan_bound=true`
+- `focused_repair_plan_matches_top_family=true`
+- source anchors: `Epistemos/Graph/FilterEngine.swift`,
+  `Epistemos/Models/GraphTypes.swift`, and `Epistemos/Graph/GraphState.swift`
+- focused tests: `EpistemosTests/FilterEngineComprehensiveTests.swift`,
+  `EpistemosTests/ResourceExhaustionTests.swift`, and
+  `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
+
+Focused commands before the full release-audit marathon:
+
+```bash
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/FilterEngineComprehensiveTests test
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ResourceExhaustionTests test
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests test
+```
+
+Why this matters for large local models: Gemma/QAT/TurboVec/KV work cannot
+become user-facing until the small-model local route has a repeatable L3
+release-audit repair loop. This pass makes the current red gate more
+mechanically repairable while preserving the truth that no product capability
+has promoted.
+
+Best breakthrough candidate: family-scoped release repair as a substrate organ,
+because it turns a broad failing test suite into small repairable gates that can
+eventually protect larger-model runtime experiments.
+
+Safest next falsifier: keep the same automated-check cursor red and repair
+`graph_filter_visibility` with focused Swift tests before rerunning the full
+automated-check script.
+
+Best near-term code unit: inspect `FilterEngine`, `GraphTypes`, and `GraphState`
+against `FilterEngineComprehensiveTests`, `ResourceExhaustionTests`, and
+`ConcurrencyEdgeCaseTests`, then patch only the graph/filter visibility
+behavior if owner approves product-code edits in that segment.
+
+Biggest false-claim risk: treating focused repair-plan binding as a focused
+test pass. Correct phrasing: the artifact now tells future agents which focused
+tests to run; it has not run or passed them.
+
+Biggest missing source: fresh focused Swift logs for the three graph/filter
+commands above.
+
+Next research query: "What is the minimal graph/filter visibility invariant
+that preserves the 14-case FFI `GraphNodeType.allCases` contract while keeping
+the user-visible/app-level filter set stable under rapid toggles and resource
+exhaustion?"

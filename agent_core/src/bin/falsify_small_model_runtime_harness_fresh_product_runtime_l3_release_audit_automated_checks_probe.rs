@@ -574,6 +574,100 @@ fn build_artifact() -> Result<
         &evidence.xcodebuild_test_failures.top_family,
         "family",
     );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "focused_repair_plan_bound",
+        evidence.focused_repair_plan.is_bound(),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "focused_repair_plan_matches_top_family",
+        evidence.focused_repair_plan.family == evidence.xcodebuild_test_failures.top_family,
+    );
+    measurements.insert(
+        "focused_repair_family".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.focused_repair_plan.family),
+            unit: "family".to_string(),
+        },
+    );
+    pass_per_axis.insert("focused_repair_family".to_string(), true);
+    thresholds.insert(
+        "focused_repair_family".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("top retained failure family"),
+            unit: "family".to_string(),
+        },
+    );
+    measurements.insert(
+        "focused_repair_commands".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.focused_repair_plan.command_templates),
+            unit: "commands".to_string(),
+        },
+    );
+    pass_per_axis.insert("focused_repair_commands".to_string(), true);
+    thresholds.insert(
+        "focused_repair_commands".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("family-scoped commands only"),
+            unit: "commands".to_string(),
+        },
+    );
+    measurements.insert(
+        "focused_repair_source_refs".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.focused_repair_plan.source_refs),
+            unit: "paths".to_string(),
+        },
+    );
+    pass_per_axis.insert("focused_repair_source_refs".to_string(), true);
+    thresholds.insert(
+        "focused_repair_source_refs".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("source anchors"),
+            unit: "paths".to_string(),
+        },
+    );
+    measurements.insert(
+        "focused_repair_test_refs".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.focused_repair_plan.test_refs),
+            unit: "paths".to_string(),
+        },
+    );
+    pass_per_axis.insert("focused_repair_test_refs".to_string(), true);
+    thresholds.insert(
+        "focused_repair_test_refs".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("focused test anchors"),
+            unit: "paths".to_string(),
+        },
+    );
+    measurements.insert(
+        "focused_repair_notes".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.focused_repair_plan.repair_notes),
+            unit: "notes".to_string(),
+        },
+    );
+    pass_per_axis.insert("focused_repair_notes".to_string(), true);
+    thresholds.insert(
+        "focused_repair_notes".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("no product green claim"),
+            unit: "notes".to_string(),
+        },
+    );
     pass_per_axis.insert("automated_check_ids".to_string(), true);
     thresholds.insert(
         "automated_check_ids".to_string(),
@@ -707,6 +801,7 @@ struct EvidenceSnapshot {
     release_skill_mentions_checks: bool,
     checks: Vec<SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckRecord>,
     xcodebuild_test_failures: XcodebuildTestFailureSummary,
+    focused_repair_plan: FailureFamilyRepairPlan,
     metadata_bytes: u64,
 }
 
@@ -720,6 +815,7 @@ impl EvidenceSnapshot {
         let release_audit_skill_text = std::fs::read_to_string(skill_path).unwrap_or_default();
         let checks = read_check_ledger(Path::new(CHECK_LEDGER))?;
         let xcodebuild_test_failures = summarize_xcodebuild_test_failures(&checks);
+        let focused_repair_plan = repair_plan_for_family(&xcodebuild_test_failures.top_family);
         let zero_fail_metadata_bytes = std::fs::metadata(ZERO_FAIL_PATH)
             .map(|metadata| metadata.len())
             .unwrap_or(0);
@@ -749,8 +845,98 @@ impl EvidenceSnapshot {
                 && release_audit_skill_text.contains("omega-ax && cargo test"),
             checks,
             xcodebuild_test_failures,
+            focused_repair_plan,
             metadata_bytes: zero_fail_metadata_bytes.saturating_add(ledger_metadata_bytes),
         })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+// UAS: uas:small-model-runtime-harness-fresh-product-runtime-l3-release-audit-automated-checks-probe:family-repair-plan
+// Plane: Verification + Controller
+// Residency: focused repair commands/source anchors derived from the red ledger.
+struct FailureFamilyRepairPlan {
+    family: String,
+    command_templates: Vec<String>,
+    source_refs: Vec<String>,
+    test_refs: Vec<String>,
+    repair_notes: Vec<String>,
+}
+
+impl FailureFamilyRepairPlan {
+    fn is_bound(&self) -> bool {
+        !self.family.is_empty()
+            && !self.command_templates.is_empty()
+            && !self.source_refs.is_empty()
+            && !self.test_refs.is_empty()
+            && !self.repair_notes.is_empty()
+    }
+}
+
+fn repair_plan_for_family(family: &str) -> FailureFamilyRepairPlan {
+    match family {
+        "graph_filter_visibility" => FailureFamilyRepairPlan {
+            family: family.to_string(),
+            command_templates: vec![
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/FilterEngineComprehensiveTests test".to_string(),
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ResourceExhaustionTests test".to_string(),
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests test".to_string(),
+            ],
+            source_refs: vec![
+                "Epistemos/Graph/FilterEngine.swift".to_string(),
+                "Epistemos/Models/GraphTypes.swift".to_string(),
+                "Epistemos/Graph/GraphState.swift".to_string(),
+            ],
+            test_refs: vec![
+                "EpistemosTests/FilterEngineComprehensiveTests.swift".to_string(),
+                "EpistemosTests/ResourceExhaustionTests.swift".to_string(),
+                "EpistemosTests/ConcurrencyEdgeCaseTests.swift".to_string(),
+            ],
+            repair_notes: vec![
+                "Run focused tests before the full release-audit marathon.".to_string(),
+                "Preserve the FFI 14-case GraphNodeType contract while checking visible/app-level cases.".to_string(),
+                "Do not mark L2/L3 green from focused family tests; rerun the automated-check gate first.".to_string(),
+            ],
+        },
+        "agent_route_policy" => FailureFamilyRepairPlan {
+            family: family.to_string(),
+            command_templates: vec![
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests test".to_string(),
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/PipelineServiceTests test".to_string(),
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AgentCommandCenterStateTests test".to_string(),
+            ],
+            source_refs: vec![
+                "Epistemos/Engine/TriageService.swift".to_string(),
+                "Epistemos/Engine/PipelineService.swift".to_string(),
+                "Epistemos/State/AgentCommandCenterState.swift".to_string(),
+            ],
+            test_refs: vec![
+                "EpistemosTests/TriageServiceTests.swift".to_string(),
+                "EpistemosTests/PipelineServiceTests.swift".to_string(),
+                "EpistemosTests/AgentCommandCenterStateTests.swift".to_string(),
+            ],
+            repair_notes: vec![
+                "Confirm local-only fast paths do not inherit tool authority.".to_string(),
+                "Keep MAS/Pro permission boundaries explicit.".to_string(),
+                "Do not convert managed-agent routing evidence into a product green claim.".to_string(),
+            ],
+        },
+        _ => FailureFamilyRepairPlan {
+            family: if family.is_empty() {
+                "none".to_string()
+            } else {
+                family.to_string()
+            },
+            command_templates: vec![
+                "Use the retained xcodebuild_test_failure_exemplars to choose the smallest -only-testing target before the full release-audit marathon.".to_string(),
+            ],
+            source_refs: vec!["artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_test.log".to_string()],
+            test_refs: vec!["artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/checks.tsv".to_string()],
+            repair_notes: vec![
+                "Fallback repair plan only; add a typed family mapping before claiming family-scoped repair coverage.".to_string(),
+                "No L2/L3 promotion is authorized from this plan.".to_string(),
+            ],
+        },
     }
 }
 
@@ -1406,6 +1592,8 @@ mod tests {
             "autogenous_kernel_still_research",
             "model_runtime_bytes_zero",
             "release_audit_failure_ledger_bound",
+            "focused_repair_plan_bound",
+            "focused_repair_plan_matches_top_family",
             "next_l3_release_audit_log_evidence_bound",
             "required_phases_bound",
             "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic",
@@ -1455,6 +1643,11 @@ mod tests {
             "xcodebuild_test_failure_families",
             "xcodebuild_test_failure_exemplars",
             "top_xcodebuild_test_failure_family",
+            "focused_repair_family",
+            "focused_repair_commands",
+            "focused_repair_source_refs",
+            "focused_repair_test_refs",
+            "focused_repair_notes",
         ];
         for axis in emitted {
             assert!(
@@ -1500,5 +1693,24 @@ mod tests {
             Some(1)
         );
         assert_eq!(summary.exemplars.len(), 4);
+    }
+
+    #[test]
+    fn top_graph_filter_family_gets_focused_repair_plan() {
+        let plan = repair_plan_for_family("graph_filter_visibility");
+        assert!(plan.is_bound());
+        assert_eq!(plan.family, "graph_filter_visibility");
+        assert!(plan
+            .command_templates
+            .iter()
+            .any(|command| command.contains("FilterEngineComprehensiveTests")));
+        assert!(plan
+            .source_refs
+            .iter()
+            .any(|source| source == "Epistemos/Graph/FilterEngine.swift"));
+        assert!(plan
+            .repair_notes
+            .iter()
+            .any(|note| note.contains("Do not mark L2/L3 green")));
     }
 }
