@@ -429,7 +429,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   zero runtime/model/index bytes, rollback/log/packet refs, and no product
   capability claim. MLX Gemma 4 12B QAT 4bit, 26B/31B, TurboQuant/KV/lattice
   repos, server runtimes, and unknown-license forks stay deferred or
-  quarantine-reference until stricter witnesses land. This is
+  quarantine-reference until stricter witnesses land. Pass eight classifies the
+  first implementation lanes: primary source-priors are TurboVec compressed
+  retrieval, small Gemma QAT GGUF, small Gemma LiteRT, 12B Gemma Pro Gated
+  target cards, Qwen3-Coder MLX, and Granite MLX; fallback source-priors are
+  llama.cpp/GGUF, `mlx-lm`, LocalLLMClient, and runtime-plurality comparison;
+  deliberately deferred lanes are MLX Gemma 4 QAT without license/loader proof,
+  26B/31B, KV/TurboQuant, server runtimes, lattice codecs, and unknown-license
+  forks. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into

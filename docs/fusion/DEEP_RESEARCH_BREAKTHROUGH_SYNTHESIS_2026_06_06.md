@@ -1227,3 +1227,128 @@ primary, fallback, and deliberately-deferred lanes in the first
 - `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
 - `https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit`
 - `https://huggingface.co/mlx-community/granite-4.0-h-micro-4bit`
+
+## 22. Pass 8 - Primary, Fallback, And Deferred Lane Classification
+
+Observed on 2026-06-06 through local canon, current local RuntimeRouter source,
+GitHub repository metadata, and Hugging Face model metadata APIs. This pass did
+not clone repos, import code, download model files, open model/index bytes,
+run MLX/GGUF/LiteRT, or call a provider.
+
+### 22.1 Classification Rule
+
+For the first `F-ProprietaryCompression-ProvenanceGate` implementation, lane
+labels mean metadata fixture priority only:
+
+- `primary_source_prior`: include in the first accepted fixture set and require
+  complete provenance fields.
+- `fallback_source_prior`: include as an alternate lane or comparator, but do
+  not make it the main route-card target.
+- `deferred_source_prior`: keep visible in the ledger, but fail it as
+  `research_only`, `quarantine_reference`, or `blocked` until a later witness
+  supplies missing provenance, byte proof, loader proof, or boundary proof.
+
+None of these labels means runtime authority, product capability, MAS
+eligibility, live dense 70B, live sparse 70B, or release readiness.
+
+### 22.2 Primary Source-Prior Lanes
+
+| Lane | Fixtures | Why primary for the first gate | Required rejection if overclaimed |
+|---|---|---|---|
+| `compressed_retrieval_primary` | `source:repo:turbovec` | TurboVec is the cleanest first compression-side fixture: MIT source, compressed vector search, external-ID and allowlist-before-rank motifs, Eidos/AppColdStore fit. | reject if it claims durable truth, metadata storage, hidden Eidos route authority, or model-weight compression |
+| `small_gemma_qat_gguf_primary` | `source:model:gemma4-e2b-qat-gguf`, `source:model:gemma4-e4b-qat-gguf` | Small QAT GGUF cards let the gate prove model-card provenance, file metadata, and llama.cpp/GGUF lane shape before 12B. | reject if file card implies loader support, MAS readiness, or local runtime proof |
+| `small_gemma_litert_primary` | `source:model:gemma4-e2b-litert`, `source:model:gemma4-e4b-litert`, `source:repo:litert-lm` | Small LiteRT cards test a second runtime lane and mobile/edge packaging evidence without treating downloads as proof. | reject if LiteRT popularity or file availability becomes app integration proof |
+| `pro_gemma_12b_target_primary` | `source:model:gemma4-12b-qat-gguf`, `source:model:gemma4-12b-litert` | 12B QAT remains the flagship Pro Gated local target; including it keeps ambition centered while zero-byte. | reject if it claims owner-approved runtime, 70B completion, or product route |
+| `mlx_coding_comparator_primary` | `source:model:qwen3-coder-30b-a3b-mlx`, `source:repo:mlx-swift-lm` | Qwen3-Coder already appears in local RuntimeRouter preferences for code/tool roles; MLX Swift is the local lane source card. | reject if model preference becomes live capability, memory lease, or tool parser proof |
+| `mlx_small_baseline_primary` | `source:model:granite-4-h-micro-mlx` | Granite gives a smaller MLX baseline candidate for future harness comparisons. | reject if small baseline becomes release-ready or default route without L3 logs |
+
+### 22.3 Fallback Source-Prior Lanes
+
+| Lane | Fixtures | Why fallback, not primary | Promotion condition |
+|---|---|---|---|
+| `gguf_runtime_fallback` | `source:repo:llama-cpp`, LocalLLMClient GGUF notes | llama.cpp is mature and MIT, but Epistemos must avoid hidden server/subprocess assumptions in MAS. | same-fixture memory preflight, owned adapter boundary, no hidden subprocess/provider fallback |
+| `mlx_python_compatibility_fallback` | `source:repo:mlx-lm` | Python MLX is useful compatibility evidence, not Swift product proof. | Swift parity witness or explicit research-only compatibility oracle |
+| `local_adapter_fallback` | `source:repo:local-llm-client` | LocalLLMClient supplies GGUF/MLX/FoundationModels/tool-calling adapter motifs, but its README says API surface may change. | API-stability review, MAS boundary, cancellation/log/AnswerPacket witness |
+| `runtime_plurality_fallback` | LiteRT-LM, llama.cpp, MLX Swift, MLX Python together | The gate should compare lanes but not choose one as "best" from source cards. | later same-task runtime harness with byte, latency, cancellation, quality, rollback, and visible packet proof |
+
+### 22.4 Deliberately Deferred Lanes
+
+| Lane | Sources | Deferred reason | Re-entry gate |
+|---|---|---|---|
+| `mlx_gemma4_qat_deferred` | `mlx-community/gemma-4-12B-it-qat-4bit` and related MLX Gemma 4 cards | Current API metadata showed `NOASSERTION` license for the 12B QAT MLX card, and MLX conversion availability is not Swift Gemma 4 loader proof. | base/conversion provenance, license card, Swift loader witness, byte preflight |
+| `large_gemma_vault_deferred` | Gemma 4 26B/31B QAT, larger MoE/QAT routes | Too easy to overclaim on 16 GB hardware; belongs to cold assembly/Vault. | cold assembly plan, memory lease, owner-approved probe, rollback, no dense-live claim |
+| `kv_quant_research_deferred` | TurboQuant KV, KIVI, asymmetric KV, MTP KV | High-value but kernel-panic-class if compatibility and quality collapse are not fenced. | KV byte-budget card, NIAH/factual recall fixtures, compatibility failure ledger |
+| `server_runtime_research_deferred` | vLLM, SGLang, KTransformers, LMCache, FlexGen, PowerInfer | Strong motifs but risk hidden server authority, cloud posture, or non-app runtime assumptions. | adapter/quarantine source card, local-app boundary proof, no hidden route authority |
+| `lattice_codec_research_deferred` | E8/Sherry/Leech/lattice compression repos and papers | Promising math, but not first product-adjacent provenance fixture. | codec source-card quarantine, clean-room tests, distortion and privacy proof |
+| `unknown_license_quarantine_deferred` | no-license forks and same-day low-star conversions | Useful for ideas and failure cases only; not accepted import fixture. | permission, clear license, clean-room rewrite, or adapter isolation |
+
+### 22.5 First Implementation Fixture Shape
+
+The first gate implementation should keep the fixture count small enough to
+audit but broad enough to prove lane plurality:
+
+```text
+primary accepted fixtures:
+  repos: turbovec, litert-lm, mlx-swift-lm
+  models: gemma4-e2b-qat-gguf, gemma4-e4b-qat-gguf,
+          gemma4-e2b-litert, gemma4-e4b-litert,
+          gemma4-12b-qat-gguf, gemma4-12b-litert,
+          qwen3-coder-30b-a3b-mlx, granite-4-h-micro-mlx
+
+fallback accepted fixtures:
+  repos: llama-cpp, mlx-lm, local-llm-client
+
+deferred ledger:
+  mlx gemma4 qat, 26b/31b, kv/turboquant, server runtimes,
+  lattice codecs, unknown-license forks
+```
+
+Suggested new axes:
+
+- `primary_source_prior_count >= 9`
+- `fallback_source_prior_count >= 3`
+- `deferred_source_prior_count >= 6`
+- `primary_overclaim_rejected=true`
+- `fallback_not_primary_route_authority=true`
+- `deferred_sources_visible_but_blocked=true`
+- `runtime_plurality_no_winner_from_metadata=true`
+- `zero_runtime_model_index_bytes=true`
+
+### 22.6 Architecture Fusion
+
+This classification gives the provenance gate a practical build order:
+
+1. Prove compressed retrieval source hygiene first (`TurboVec`).
+2. Prove small Gemma QAT GGUF/LiteRT model-card hygiene next.
+3. Preserve the 12B Pro Gated target as source-prior ambition, not runtime.
+4. Include Qwen3-Coder and Granite as MLX comparators.
+5. Keep llama.cpp, MLX Python, and LocalLLMClient as fallback lane evidence.
+6. Keep risky large/KV/server/lattice/fork work visible but blocked.
+
+That path supports the large-local-model dream without letting metadata
+short-circuit SCOPE-Rex/SovereignGate, RuntimeRouter, RunEventLog, or
+AnswerPacket proof.
+
+### 22.7 Pass-Eight Register
+
+Best breakthrough candidate: a provenance-gated lane taxonomy that lets
+Epistemos compare compression, GGUF, LiteRT, MLX, and adapter lanes while
+keeping all runtime choices source-prior until later proof.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate` with red
+fixtures, accepted primary/fallback fixtures, and deferred-visible fixtures in
+one artifact.
+
+Best near-term code unit: implement enums for `primary_source_prior`,
+`fallback_source_prior`, and `deferred_source_prior`, plus rejection rules that
+block any metadata fixture from claiming route authority or product readiness.
+
+Biggest false-claim risk: describing primary source-prior lanes as default
+runtime routes. They are only first fixtures for a metadata gate.
+
+Biggest missing source: exact local file-hash inventory for any locally present
+model snapshots; this pass uses external metadata only.
+
+Next research query: "What is the smallest metadata-only Rust fixture model
+that can encode the Pass 6 red fixtures, Pass 7 accepted fixtures, and Pass 8
+lane classes without creating a second source authority beside `SourceCard`?"
