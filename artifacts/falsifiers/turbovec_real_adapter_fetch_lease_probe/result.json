@@ -1,0 +1,290 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterFetchLeaseProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_fetch_lease_probe.sh",
+  "command_digest": "sha256:04adeb9da8cf635cab2e1b55ba2e9f194f933406d45a9ad3f8ced51bb40cd9ad",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0783d33b4924c92834917b706599ce1ec6a77ed1",
+  "fixture_id": "turbovec_real_adapter_fetch_lease_probe_v1",
+  "timestamp_utc": "2026-06-06T15:22:19Z",
+  "result_digest": "sha256:dbc6788b8f9ed3bc2568b75fd98fc48262ce1451e8084e7b7b08d10a408e74fd",
+  "measurements": {
+    "bytes_remain_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fetch_lease_address": {
+      "value": "turbovec_real_adapter_fetch_lease_probe:50f480573a411e7160b379655938b9185d6c192d062ee485ee01acbc85cb4b68@1779040901000",
+      "unit": "uas_address"
+    },
+    "fetch_phases_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fetch_url_pinned_and_transport_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_local_model_research_bias_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_expires_after_seconds": {
+      "value": 1800,
+      "unit": "seconds"
+    },
+    "lease_policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_file_count": {
+      "value": 2000,
+      "unit": "files"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_source_byte_manifest_probe",
+      "unit": "cursor"
+    },
+    "no_native_link_runtime_or_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_graph_or_dependency": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "value": 6,
+      "unit": "phases"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_download_bytes": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "planned_unpacked_bytes": {
+      "value": 33554432,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_target_paths_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 107,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_identity_and_revision_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sandbox_layout_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "bytes_remain_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fetch_lease_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_fetch_lease_probe:",
+      "unit": "uas_address"
+    },
+    "fetch_phases_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fetch_url_pinned_and_transport_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_local_model_research_bias_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lease_expires_after_seconds": {
+      "operator": "==",
+      "value": 1800,
+      "unit": "seconds"
+    },
+    "lease_policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_file_count": {
+      "operator": "==",
+      "value": 2000,
+      "unit": "files"
+    },
+    "next_research_to_build_unit": {
+      "operator": "starts_with",
+      "value": "turbovec_quarantine_real_adapter_source_byte_manifest_probe",
+      "unit": "cursor"
+    },
+    "no_native_link_runtime_or_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_graph_or_dependency": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "phase_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "phases"
+    },
+    "pinned_revision": {
+      "operator": "starts_with",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_download_bytes": {
+      "operator": "==",
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "planned_unpacked_bytes": {
+      "operator": "==",
+      "value": 33554432,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_target_paths_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 86,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_identity_and_revision_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_sandbox_layout_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "bytes_remain_zero": true,
+    "fetch_lease_address": true,
+    "fetch_phases_complete": true,
+    "fetch_url_pinned_and_transport_bound": true,
+    "large_local_model_research_bias_preserved": true,
+    "lease_expires_after_seconds": true,
+    "lease_policy_fail_closed": true,
+    "max_file_count": true,
+    "next_research_to_build_unit": true,
+    "no_native_link_runtime_or_model_bytes": true,
+    "no_product_graph_or_dependency": true,
+    "no_route_context_or_hidden_authority": true,
+    "phase_count": true,
+    "pinned_revision": true,
+    "planned_download_bytes": true,
+    "planned_unpacked_bytes": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "quarantine_target_paths_bound": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "source_identity_and_revision_bound": true,
+    "upstream_sandbox_layout_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_fetch_lease_scope",
+      "detail": "Pinned TurboVec source fetch lease only. No network fetch, clone, source import, product dependency, adapter build, native-link probe, index/model/runtime/provider bytes, route/context authority, or live large-local-model claim."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterFetchLeaseProbe as a T1/L1 metadata-only lease for future bounded TurboVec source intake. It makes the large-local-model compression path more buildable by pinning the upstream identity, codeload URL, quarantine target, byte caps, cleanup/rollback proof, RunEventLog, AnswerPacket, no-product-graph audit, native-link block, and benchmark caveat before any real source bytes may be fetched by a later witness. L2 capability and L3 user-facing model surfaces remain unchanged."
+}

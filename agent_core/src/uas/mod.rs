@@ -96,6 +96,7 @@ pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
 pub mod turbovec_real_adapter_dependency_envelope_probe;
+pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
 pub mod turbovec_real_adapter_source_pin_probe;
@@ -582,6 +583,14 @@ pub use turbovec_real_adapter_dependency_envelope_probe::{
     TurboVecManifestKind, TurboVecRealAdapterDependencyEnvelopeProbeSet,
     TURBOVEC_REAL_ADAPTER_DEPENDENCY_ENVELOPE_CURSOR,
     TURBOVEC_REAL_ADAPTER_DEPENDENCY_ENVELOPE_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_fetch_lease_probe::{
+    fetch_lease_digest, TurboVecFetchLeaseAction, TurboVecFetchLeaseByteLedger,
+    TurboVecFetchLeaseError, TurboVecFetchLeaseMetrics, TurboVecFetchLeasePhase,
+    TurboVecFetchLeasePolicy, TurboVecFetchLeaseProofRefs, TurboVecFetchLeaseSource,
+    TurboVecFetchLeaseStatus, TurboVecFetchLeaseTarget, TurboVecFetchLeaseTier,
+    TurboVecFetchTransport, TurboVecRealAdapterFetchLeaseProbeSet,
+    TURBOVEC_REAL_ADAPTER_FETCH_LEASE_CURSOR, TURBOVEC_REAL_ADAPTER_FETCH_LEASE_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_sandbox_layout_probe::{
     sandbox_layout_digest, TurboVecRealAdapterSandboxLayoutProbeSet,

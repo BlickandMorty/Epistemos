@@ -483,6 +483,10 @@ name = "falsify_turbovec_real_adapter_sandbox_layout_probe"
 path = "src/bin/falsify_turbovec_real_adapter_sandbox_layout_probe.rs"
 
 [[bin]]
+name = "falsify_turbovec_real_adapter_fetch_lease_probe"
+path = "src/bin/falsify_turbovec_real_adapter_fetch_lease_probe.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

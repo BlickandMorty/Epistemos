@@ -358,10 +358,32 @@ Recommended first units, in order:
      compatibility fence, native-link block, benchmark caveat, planned
      quarantine byte lease `8388608`, zero fetched/cloned/product/index/model/
      runtime/provider bytes, and the no-L2/L3-promotion boundary. The next
-     retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_fetch_lease_probe`.
+     retrieval/index research-to-build unit at that time was
+     `turbovec_quarantine_real_adapter_fetch_lease_probe`; it is now landed in
+     item 16.
 
-16. `F-QAT-ModelRouteCard-MemoryPreflight`
+16. `F-TurboVec-RealAdapterFetchLeaseProbe`
+   - Proves the pinned upstream TurboVec sandbox has a fail-closed source
+     fetch lease before real quarantine bytes, source inspection, adapter
+     builds, native-link probes, route mutation, or model-context use can cite
+     it.
+   - Does not fetch or clone TurboVec, create quarantine directories, write a
+     source manifest, add a product dependency, import/build/run adapters, probe
+     native links, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+     or promote product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_fetch_lease_probe/result.json`.
+     It binds the pinned revision to the GitHub codeload URL, quarantine target
+     paths, owner-approval-pending policy, 6 proof phases, 107 rejected red
+     fixtures, planned download bytes `8388608`, planned unpacked bytes
+     `33554432`, max file count `2000`, lease expiry `1800` seconds,
+     cleanup/rollback, RunEventLog, AnswerPacket, compatibility fence,
+     no-product-graph audit, native-link block, benchmark caveat, zero
+     fetched/cloned/product/index/model/runtime/provider bytes, and the
+     no-L2/L3-promotion boundary. The next retrieval/index research-to-build
+     unit is `turbovec_quarantine_real_adapter_source_byte_manifest_probe`.
+
+17. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
