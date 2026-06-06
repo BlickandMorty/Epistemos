@@ -648,7 +648,7 @@ permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
 Exact-baseline recall quality, latency/memory abstention, and runtime shadow
 benchmark planning are now covered; the next retrieval/index
-research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`.
 
 `F-TurboVec-RecallQualityExactBaseline` is now built as the exact-baseline
 quality branch after crash-safe persistence. Implemented anchors include
@@ -667,7 +667,7 @@ Latency/memory/timeout/uncertainty abstention is now covered by
 `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is
 now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_adapter_microbench_probe`.
+`turbovec_quarantine_real_adapter_owner_approval_probe`.
 
 `F-TurboVec-LatencyMemoryAbstention` is now built as the budget-envelope branch
 after exact-baseline recall quality. Implemented anchors include
@@ -686,7 +686,7 @@ Hidden route authority, score-to-route mutation, route mutation, live dense
 70B, SSD-as-RAM, and L2/L3 promotion all reject. Runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_adapter_microbench_probe`.
+`turbovec_quarantine_real_adapter_owner_approval_probe`.
 
 `F-TurboVec-RuntimeShadowBenchmarkPlan` is now built as the deterministic
 runtime-shadow planning branch after latency/memory abstention. Implemented
@@ -703,7 +703,25 @@ shadow wins are proof material only: deterministic replay, sample count,
 exact-baseline recall, p95/p99 latency, timeout, cancellation, memory,
 fallback reason, rollback, RunEventLog, AnswerPacket, compatibility fence,
 route/context-authority rejection, and no product promotion are required before
-a quarantined adapter microbench can run.
+later real-adapter quarantine can be owner-approved.
+
+`F-TurboVec-QuarantineAdapterMicrobenchProbe` is now built as the
+synthetic-only first adapter-shaped retrieval microbench after runtime shadow
+planning. Implemented anchors include
+`agent_core/src/uas/turbovec_quarantine_adapter_microbench_probe.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under
+`artifacts/falsifiers/turbovec_quarantine_adapter_microbench_probe/`. The
+witness accepts 1 quarantine microbench probe, covers 6 tiny scenarios,
+rejects 53 red fixtures, records 1 non-authoritative win, 5 visible fallbacks,
+1 adapter panic/error fallback, max p99 latency `24000` micros, max synthetic
+bytes `73728`, min synthetic headroom `57344`, and zero product
+index/model/runtime/provider/external-code bytes or copied product files. It
+proves adapter-shaped compressed retrieval evidence stays synthetic,
+quarantined, exact-baseline checked, allowlist-before-rank filtered,
+panic-contained, rollback/log/AnswerPacket witnessed, clean-room provenance
+bound, and non-authoritative before any real TurboVec crate, fork, or adapter
+is owner-approved in quarantine.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -715,6 +733,7 @@ a quarantined adapter microbench can run.
 `F-TurboVec-RecallQualityExactBaseline`,
 `F-TurboVec-LatencyMemoryAbstention`,
 `F-TurboVec-RuntimeShadowBenchmarkPlan`,
+`F-TurboVec-QuarantineAdapterMicrobenchProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

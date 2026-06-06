@@ -463,6 +463,10 @@ name = "falsify_turbovec_runtime_shadow_benchmark_plan"
 path = "src/bin/falsify_turbovec_runtime_shadow_benchmark_plan.rs"
 
 [[bin]]
+name = "falsify_turbovec_quarantine_adapter_microbench_probe"
+path = "src/bin/falsify_turbovec_quarantine_adapter_microbench_probe.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

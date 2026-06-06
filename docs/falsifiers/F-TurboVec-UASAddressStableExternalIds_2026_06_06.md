@@ -30,7 +30,7 @@ Artifact:
 - Deterministic registry set address:
   `turbovec_stable_external_id_registry_plan:ae1b3fc3949acde1280012131e10616882005dcc58965f1db30a33cd2cfe93b0@1779039100000`
 - Next research-to-build unit after privacy, persistence, recall quality, latency/memory abstention, and runtime shadow planning:
-  `turbovec_quarantine_adapter_microbench_probe`
+  `turbovec_quarantine_real_adapter_owner_approval_probe`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`. The next retrieval/index research-to-build unit is `turbovec_quarantine_adapter_microbench_probe`, because the first actual adapter microbench must remain quarantined and non-authoritative before it can help large-local-model context selection.
+The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow/synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`, because the first real external adapter probe must remain quarantined and non-authoritative before it can help large-local-model context selection.

@@ -3722,7 +3722,7 @@ Best breakthrough candidate: quarantined compressed-retrieval microbenching
 that can eventually provide real timing/memory evidence while staying
 non-authoritative, rollbackable, and AnswerPacket-visible.
 
-Safest next falsifier: `turbovec_quarantine_adapter_microbench_probe`, because
+Safest next falsifier: `turbovec_quarantine_real_adapter_owner_approval_probe`, because
 the shadow replay contract is specified but no witness has yet run an actual
 adapter microbench under quarantine with byte, cancellation, fallback, and
 route-context isolation proof.
@@ -3742,3 +3742,72 @@ mutation.
 Next research query: "What tiny quarantined TurboVec adapter microbench proves
 timing, memory, recall delta, cancellation, rollback, and AnswerPacket
 visibility without promoting live large-model routing?"
+
+## 45. Quarantine Adapter Microbench Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, and the
+current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_quarantine_adapter_microbench_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_quarantine_adapter_microbench_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_quarantine_adapter_microbench_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_quarantine_adapter_microbench_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-QuarantineAdapterMicrobenchProbe_2026_06_06.md`
+
+`F-TurboVec-QuarantineAdapterMicrobenchProbe` is now PASS as a synthetic-only
+T1/L1 witness. It accepts 1 quarantine microbench probe, covers 6 tiny
+scenarios, rejects 53 red fixtures, records 1 non-authoritative win and 5
+visible fallbacks, includes 1 adapter panic/error fallback, records max p99
+latency `24000` micros, max synthetic bytes `73728`, min synthetic headroom
+`57344`, and records zero product index/model/runtime/provider/external-code
+bytes or copied product files.
+
+### 45.1 Architecture Fusion
+
+This moves compressed retrieval from pure planning into a harness-shaped proof
+without contaminating product code. The useful breakthrough is not "TurboVec
+is live"; it is that Epistemos now has a falsifier-backed boundary for how
+compressed retrieval evidence can become useful to Gemma/QAT and larger local
+model context selection: exact-baseline first, allowlist-before-rank first,
+panic containment first, rollback/log/AnswerPacket first, and no hidden route
+authority.
+
+### 45.2 Non-Promotion
+
+This pass does not import TurboVec code, clone or copy fork code, build or open
+a real index, run a real adapter, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+choose RuntimeRouter/System G routes, make L2/L3 product capability green, or
+prove live dense 70B. It advances the research-to-build ladder only.
+
+### 45.3 Pass-Thirty-One Register
+
+Best breakthrough candidate: owner-approved real-adapter quarantine for
+TurboVec/forks that extracts actual recall/latency/memory/panic behavior while
+staying outside product code and outside live routing.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_owner_approval_probe`, because synthetic
+microbench evidence is now proven but no real external adapter bytes may be
+introduced without explicit owner approval, provenance, quarantine, rollback,
+and AnswerPacket boundaries.
+
+Best near-term code unit: build the owner-approval gate that refuses direct
+imports, product integration, hidden downloads, unpinned repo revisions,
+license/provenance ambiguity, route/context mutation, model bytes, and
+unbounded memory/latency before any real TurboVec adapter probe.
+
+Biggest false-claim risk: treating synthetic microbench proof as real TurboVec
+performance, live context-routing authority, or large-model product readiness.
+
+Biggest missing source: the exact quarantined external adapter source-card and
+fork selection policy for the first real TurboVec/fork probe.
+
+Next research query: "Which TurboVec upstream/fork/revision should be
+quarantined first, and what owner-approved source-card, dependency, license,
+fixture, byte, rollback, and AnswerPacket evidence must gate it before any
+real adapter microbench runs?"
