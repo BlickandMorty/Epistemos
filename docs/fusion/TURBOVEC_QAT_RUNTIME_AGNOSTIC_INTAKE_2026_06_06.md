@@ -127,7 +127,7 @@ Recommended first units, in order:
      `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning
      is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
      retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 5. `F-TurboVec-UASAddressStableExternalIds`
    - Proves UAS-address-stable external `u64` IDs, tombstones, generations,
@@ -150,7 +150,7 @@ Recommended first units, in order:
      quality, latency/memory abstention, runtime shadow benchmark planning, and
      synthetic microbenching are now covered; the next retrieval/index
      research-to-build unit is now
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 6. `F-TurboVec-FilterBeforeRankPrivacyGate`
    - Proves Scope-Rex/SovereignGate allowlists compile from UAS-derived
@@ -176,7 +176,7 @@ Recommended first units, in order:
      covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and
      `F-TurboVec-QuarantineAdapterMicrobenchProbe`; the next retrieval/index
      research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 7. `F-TurboVec-CrashSafePersistentIndex`
    - Proves `.tvim` / manifest cache persistence is atomic, digest-bound,
@@ -200,7 +200,7 @@ Recommended first units, in order:
      covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and
      `F-TurboVec-QuarantineAdapterMicrobenchProbe`; the next retrieval/index
      research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 8. `F-TurboVec-RecallQualityExactBaseline`
    - Proves compressed Eidos/TurboVec results are compared with exact
@@ -218,7 +218,7 @@ Recommended first units, in order:
      preserves the no-L2/L3-promotion boundary. Latency/memory abstention is
      now covered by `F-TurboVec-LatencyMemoryAbstention`; the next
      retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 9. `F-TurboVec-LatencyMemoryAbstention`
    - Proves exact-baseline compressed retrieval carries latency, memory,
@@ -236,7 +236,7 @@ Recommended first units, in order:
      preserves the no-L2/L3-promotion boundary. Runtime shadow benchmark
      planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
      next retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 10. `F-TurboVec-RuntimeShadowBenchmarkPlan`
    - Proves compressed retrieval must pass deterministic, non-authoritative
@@ -254,7 +254,7 @@ Recommended first units, in order:
      `200000` micros, zero opened/loaded index bytes, zero allocated runtime
      bytes, zero model/runtime/provider bytes, and preserves the no-L2/L3
      promotion boundary. The next retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 11. `F-TurboVec-QuarantineAdapterMicrobenchProbe`
    - Proves the first adapter-shaped TurboVec/Eidos microbench remains
@@ -273,19 +273,40 @@ Recommended first units, in order:
      zero product index/model/runtime/provider/external-code bytes, and
      preserves the no-L2/L3 promotion boundary. The next retrieval/index
      research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approval_probe`.
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
 
-12. `F-QAT-ModelRouteCard-MemoryPreflight`
+12. `F-TurboVec-RealAdapterOwnerApprovalProbe`
+   - Proves the first real upstream TurboVec source card stays owner-gated,
+     source-pin-gated, fork-sweep-gated, quarantine-reference-only, and unable
+     to mutate large-local-model context routes.
+   - Does not clone TurboVec, inspect forks, import/build/run adapters, open
+     index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, or promote
+     product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_owner_approval_probe/result.json`.
+     It accepts 1 upstream source card for
+     `https://github.com/RyanCodrai/turbovec`, rejects 45 red fixtures,
+     keeps owner approval pending, source pin pending, fork sweep required,
+     and action limited to quarantine reference only. It binds MIT/license/
+     source URL, Rust/Python/API refs, clean-room provenance, dependency
+     manifest, upstream benchmark caveat, rollback, RunEventLog, AnswerPacket,
+     and compatibility fence, records max planned quarantine bytes `8388608`,
+     zero fetched/cloned/product/index/model/runtime/provider/external-code
+     bytes, and preserves the no-L2/L3 promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_quarantine_real_adapter_source_pin_probe`.
+
+13. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-13. `F-CompressedRoute-AnswerPacket-DryRun`
+14. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. It accepts 4 compressed-route packets, rejects 48 red fixtures, packetizes E2B/E4B as visible dry-run AnswerPackets only, carries 12B as an insufficient-headroom abstention packet, carries 31B as VaultPreserved, records planned/opened/resident/loaded/provider bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
-14. `F-SmallCompressedModel-LiveHarness`
+15. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
    - 2026-06-06 preflight status: `F-SmallCompressedModel-LiveHarnessPreflight` PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`. It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp as the only future owner-approved tiny probe candidate, keeps E4B as a deferred alternate, requires later LiteRT package proof, preserves the MLX Swift loader caveat, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

@@ -648,7 +648,7 @@ permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
 Exact-baseline recall quality, latency/memory abstention, and runtime shadow
 benchmark planning are now covered; the next retrieval/index
-research-to-build unit is `turbovec_quarantine_real_adapter_owner_approval_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_source_pin_probe`.
 
 `F-TurboVec-RecallQualityExactBaseline` is now built as the exact-baseline
 quality branch after crash-safe persistence. Implemented anchors include
@@ -667,7 +667,7 @@ Latency/memory/timeout/uncertainty abstention is now covered by
 `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is
 now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_owner_approval_probe`.
+`turbovec_quarantine_real_adapter_source_pin_probe`.
 
 `F-TurboVec-LatencyMemoryAbstention` is now built as the budget-envelope branch
 after exact-baseline recall quality. Implemented anchors include
@@ -686,7 +686,7 @@ Hidden route authority, score-to-route mutation, route mutation, live dense
 70B, SSD-as-RAM, and L2/L3 promotion all reject. Runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_owner_approval_probe`.
+`turbovec_quarantine_real_adapter_source_pin_probe`.
 
 `F-TurboVec-RuntimeShadowBenchmarkPlan` is now built as the deterministic
 runtime-shadow planning branch after latency/memory abstention. Implemented
@@ -723,6 +723,21 @@ panic-contained, rollback/log/AnswerPacket witnessed, clean-room provenance
 bound, and non-authoritative before any real TurboVec crate, fork, or adapter
 is owner-approved in quarantine.
 
+`F-TurboVec-RealAdapterOwnerApprovalProbe` is now built as the metadata-only
+owner/provenance gate after the synthetic quarantine microbench. Implemented
+anchors include `agent_core/src/uas/turbovec_real_adapter_owner_approval_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_real_adapter_owner_approval_probe/`. The
+witness accepts 1 upstream source card for
+`https://github.com/RyanCodrai/turbovec`, rejects 45 red fixtures, records owner
+approval pending, source pin pending, fork sweep required,
+quarantine-reference-only action, MIT/license/source URL binding, Rust/Python/
+API refs, max planned quarantine bytes `8388608`, and zero fetched/cloned/
+product/index/model/runtime/provider/external-code bytes. It proves the first
+real external TurboVec/fork step must remain source-gated, quarantine-only,
+rollback/log/AnswerPacket witnessed, clean-room provenance bound, and
+non-authoritative before later source pinning or adapter bytes are permitted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -734,6 +749,7 @@ is owner-approved in quarantine.
 `F-TurboVec-LatencyMemoryAbstention`,
 `F-TurboVec-RuntimeShadowBenchmarkPlan`,
 `F-TurboVec-QuarantineAdapterMicrobenchProbe`,
+`F-TurboVec-RealAdapterOwnerApprovalProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

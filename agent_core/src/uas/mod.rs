@@ -95,6 +95,7 @@ pub mod turbovec_eidos_compressed_index_plan;
 pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
+pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
 pub mod turbovec_stable_external_id_registry_plan;
@@ -559,6 +560,15 @@ pub use turbovec_quarantine_adapter_microbench_probe::{
     TurboVecQuarantineMicrobenchProofRefs, TurboVecQuarantineMicrobenchScenario,
     TurboVecQuarantineMicrobenchStatus, TURBOVEC_QUARANTINE_ADAPTER_MICROBENCH_CURSOR,
     TURBOVEC_QUARANTINE_ADAPTER_MICROBENCH_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_owner_approval_probe::{
+    TurboVecRealAdapterAllowedAction, TurboVecRealAdapterOwnerApprovalError,
+    TurboVecRealAdapterOwnerApprovalMetrics, TurboVecRealAdapterOwnerApprovalPolicy,
+    TurboVecRealAdapterOwnerApprovalProbeSet, TurboVecRealAdapterOwnerApprovalStatus,
+    TurboVecRealAdapterOwnerApprovalTier, TurboVecRealAdapterOwnerByteLedger,
+    TurboVecRealAdapterSourceCard, TurboVecRealAdapterSourceKind,
+    TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_CURSOR,
+    TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_NEXT_CURSOR,
 };
 pub use turbovec_runtime_shadow_benchmark_plan::{
     TurboVecRuntimeShadowBenchmarkPlan, TurboVecRuntimeShadowBenchmarkPlanSet,

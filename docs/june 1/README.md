@@ -24,10 +24,10 @@ easy to browse in one place.
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` in the live
 > repo root. As of 2026-06-06, the TurboVec branch includes
 > `F-TurboVec-RuntimeShadowBenchmarkPlan` and
-> `F-TurboVec-QuarantineAdapterMicrobenchProbe` as metadata/synthetic-only
-> T1/L1 and points next at
-> `turbovec_quarantine_real_adapter_owner_approval_probe`. Those newer docs
-> extend this snapshot without deleting the June 1 nuance.
+> `F-TurboVec-QuarantineAdapterMicrobenchProbe` and
+> `F-TurboVec-RealAdapterOwnerApprovalProbe` as metadata/synthetic-only T1/L1
+> and points next at `turbovec_quarantine_real_adapter_source_pin_probe`.
+> Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:
 

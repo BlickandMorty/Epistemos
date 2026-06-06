@@ -3718,30 +3718,30 @@ It advances the research-to-build ladder only.
 
 ### 44.3 Pass-Thirty Register
 
-Best breakthrough candidate: quarantined compressed-retrieval microbenching
-that can eventually provide real timing/memory evidence while staying
-non-authoritative, rollbackable, and AnswerPacket-visible.
+Best breakthrough candidate: owner-approved, source-pinned TurboVec/fork
+quarantine that can eventually provide real recall/latency/memory evidence
+while staying non-authoritative, rollbackable, and AnswerPacket-visible.
 
-Safest next falsifier: `turbovec_quarantine_real_adapter_owner_approval_probe`, because
-the shadow replay contract is specified but no witness has yet run an actual
-adapter microbench under quarantine with byte, cancellation, fallback, and
-route-context isolation proof.
+Safest next falsifier: `turbovec_quarantine_real_adapter_source_pin_probe`,
+because owner approval is now fail-closed but no revision or fork sweep has
+been pinned before any real adapter bytes are allowed.
 
-Best near-term code unit: implement a quarantine adapter microbench probe that
-uses tiny local fixtures, explicit owner/runtime gating, no product route
-mutation, no model-context injection, byte accounting, timeout/cancellation,
-rollback, RunEventLog, AnswerPacket, and exact-baseline comparison.
+Best near-term code unit: implement the source-pin and fork-sweep gate that
+chooses exactly which TurboVec upstream/fork/revision may be studied in
+quarantine, records source facts, rejects direct import/product integration,
+and preserves byte-zero proof.
 
-Biggest false-claim risk: treating a shadow replay plan as live TurboVec speed,
-live model-routing authority, or product-ready large-model context.
+Biggest false-claim risk: treating source approval or an upstream benchmark as
+live TurboVec speed, live model-routing authority, or product-ready
+large-model context.
 
-Biggest missing source: exact quarantine fixture shape for a tiny TurboVec
-adapter run that avoids product state, model bytes, hidden downloads, and route
-mutation.
+Biggest missing source: fork/revision comparison data for TurboVec and nearby
+compressed-vector forks, including issues, tests, APIs, licenses, and failure
+reports.
 
-Next research query: "What tiny quarantined TurboVec adapter microbench proves
-timing, memory, recall delta, cancellation, rollback, and AnswerPacket
-visibility without promoting live large-model routing?"
+Next research query: "Which TurboVec upstream/fork/revision should be source
+pinned first, and what fork-sweep, dependency, license, fixture, rollback, and
+AnswerPacket evidence must gate it before any real adapter bytes run?"
 
 ## 45. Quarantine Adapter Microbench Probe Landed
 
@@ -3791,10 +3791,10 @@ TurboVec/forks that extracts actual recall/latency/memory/panic behavior while
 staying outside product code and outside live routing.
 
 Safest next falsifier:
-`turbovec_quarantine_real_adapter_owner_approval_probe`, because synthetic
-microbench evidence is now proven but no real external adapter bytes may be
-introduced without explicit owner approval, provenance, quarantine, rollback,
-and AnswerPacket boundaries.
+`turbovec_quarantine_real_adapter_source_pin_probe`, because synthetic
+microbench evidence and owner approval gating are now proven but no real
+external adapter bytes may be introduced without source pinning, fork sweep,
+provenance, quarantine, rollback, and AnswerPacket boundaries.
 
 Best near-term code unit: build the owner-approval gate that refuses direct
 imports, product integration, hidden downloads, unpinned repo revisions,
@@ -3811,3 +3811,71 @@ Next research query: "Which TurboVec upstream/fork/revision should be
 quarantined first, and what owner-approved source-card, dependency, license,
 fixture, byte, rollback, and AnswerPacket evidence must gate it before any
 real adapter microbench runs?"
+
+## 46. Real Adapter Owner Approval Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, and the
+current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_owner_approval_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_owner_approval_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_owner_approval_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_owner_approval_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterOwnerApprovalProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterOwnerApprovalProbe` is now PASS as a metadata-only
+T1/L1 witness. It accepts 1 upstream source card for
+`https://github.com/RyanCodrai/turbovec`, rejects 45 red fixtures, records
+owner approval pending, source pin pending, fork sweep required, quarantine
+reference only, max planned quarantine bytes `8388608`, and zero fetched/
+cloned/product/index/model/runtime/provider/external-code bytes.
+
+### 46.1 Architecture Fusion
+
+This moves compressed retrieval from synthetic-only adapter proof into the
+first real external-source gate without contaminating product code. The
+breakthrough path is now clearer for larger local models: TurboVec-style
+compressed retrieval may become a practical context-selection aid for
+Gemma/QAT/GGUF/MLX/LiteRT lanes only after source pinning, fork sweep,
+quarantine, exact-baseline recall, latency/memory/cancellation bounds,
+rollback, RunEventLog, and AnswerPacket prove it. Eidos/AppColdStore remains
+truth; TurboVec remains rebuildable cache material; System G receives no
+hidden route authority.
+
+### 46.2 Non-Promotion
+
+This pass does not clone TurboVec, inspect fork code, import/build/run an
+adapter, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
+RuntimeRouter/System G routes, make L2/L3 product capability green, or prove
+live dense 70B. It advances the research-to-build ladder only.
+
+### 46.3 Pass-Thirty-Two Register
+
+Best breakthrough candidate: source-pinned TurboVec/fork quarantine that can
+extract actual compressed-retrieval behavior without polluting product code or
+large-model routing.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_source_pin_probe`, because owner approval is
+now fail-closed but the exact upstream/fork/revision and fork-sweep evidence
+are not pinned.
+
+Best near-term code unit: build the source-pin gate that refuses unpinned
+revisions, unfenced forks, direct imports, adapter wrapping, hidden downloads,
+product files, route/context mutation, model bytes, and benchmark laundering.
+
+Biggest false-claim risk: treating a real source card as live TurboVec runtime
+proof, large-model product readiness, or permission to import code.
+
+Biggest missing source: fork/revision comparison for TurboVec and nearby
+compressed-vector implementations.
+
+Next research query: "Which exact TurboVec upstream/fork/revision should be
+source-pinned first, and what fork-sweep, dependency, fixture, rollback,
+RunEventLog, and AnswerPacket evidence must be captured before quarantine
+bytes are allowed?"

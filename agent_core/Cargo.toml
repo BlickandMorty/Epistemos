@@ -467,6 +467,10 @@ name = "falsify_turbovec_quarantine_adapter_microbench_probe"
 path = "src/bin/falsify_turbovec_quarantine_adapter_microbench_probe.rs"
 
 [[bin]]
+name = "falsify_turbovec_real_adapter_owner_approval_probe"
+path = "src/bin/falsify_turbovec_real_adapter_owner_approval_probe.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

@@ -23,7 +23,7 @@ PASS as a T1/L1 synthetic-only witness.
 - Upstream:
   `F-TurboVec-RuntimeShadowBenchmarkPlan`
 - Next research-to-build unit:
-  `turbovec_quarantine_real_adapter_owner_approval_probe`
+  `turbovec_quarantine_real_adapter_source_pin_probe`
 
 ## What Passed
 
@@ -65,7 +65,7 @@ rollback, and visible AnswerPacket evidence survive quarantine.
 
 ## Next
 
-The next unit is `turbovec_quarantine_real_adapter_owner_approval_probe`.
+The next unit is `turbovec_quarantine_real_adapter_source_pin_probe`.
 That unit must remain Pro Research, owner-approved, quarantine-only, and
 non-authoritative before any real TurboVec crate, fork, adapter, or benchmark
 bytes are introduced.

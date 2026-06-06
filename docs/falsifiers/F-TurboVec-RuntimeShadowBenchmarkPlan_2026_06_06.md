@@ -27,7 +27,7 @@ Artifact:
 - Deterministic shadow-plan address:
   `turbovec_runtime_shadow_benchmark_plan:3b10b4f388e95d4009649ee03a53fdb2dbba633539a03eeb50fc2469f3b98478@1779039600000`
 - Next research-to-build unit:
-  `turbovec_quarantine_real_adapter_owner_approval_probe`
+  `turbovec_quarantine_real_adapter_source_pin_probe`
 
 Measurements:
 
@@ -79,7 +79,7 @@ Correct phrasing:
 ## Next
 
 The next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_owner_approval_probe`, because the first real
+`turbovec_quarantine_real_adapter_source_pin_probe`, because the first real
 external adapter probe must be owner-approved, quarantined, provenance-bound,
 and non-authoritative before compressed retrieval can influence
 large-local-model context selection.
