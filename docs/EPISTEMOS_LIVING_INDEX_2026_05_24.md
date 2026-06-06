@@ -1283,6 +1283,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   model dependencies; does not run models/indexes/benchmarks; does not promote
   live dense 70B; and does not change L2/L3. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · Deep Research Pass 60 folds the KV residency,
+  offload, cache-lineage, and activation-locality runtime cluster into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The pass source-cards current primary GitHub
+  evidence for `vllm-project/vllm`, `LMCache/LMCache`,
+  `kvcache-ai/ktransformers`, `FMInference/FlexLLMGen`,
+  `Tiiny-AI/PowerInfer`, and `jy-yuan/KIVI`, then translates them into
+  Epistemos organs instead of product claims: `KVLineageGraph`,
+  `ResidencyPageTable`, `KVCompatibilityFence`, `ColdStream`,
+  `SparseWakeCertificate`, ActiveAssembly, RuntimeRouter/System G, RunEventLog,
+  and AnswerPacket. The new buildable backlog is
+  `F-KVVirtualBlockTable-CompatibilityFence`,
+  `F-KVLineage-ReuseCompatibilityFence`,
+  `F-OffloadCostModel-LatencyThroughputBoundary`,
+  `F-HeterogeneousExpertPlacement-Abstention`,
+  `F-ActivationLocality-NoHiddenWake`,
+  `F-AsymmetricKV-SoftmaxStability`, and
+  `F-KVSourceCard-ForkAndDaemonBoundary`. This is T0/T1 canon/backlog only. It
+  does not add vLLM, LMCache, KTransformers, FlexLLMGen, PowerInfer, KIVI, or
+  daemon/server/cloud/offload dependencies; does not run models, KV restores,
+  benchmarks, or runtime probes; does not claim SSD-as-RAM, live dense 70B,
+  live sparse 70B, live KV-Direct, 128K context, or hidden cache authority; and
+  does not change L2/L3. The guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface

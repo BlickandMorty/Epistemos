@@ -615,3 +615,42 @@ Epistemos MLX/GGUF/RuntimeRouter anchors. The practical build backlog is:
 This addendum is T0/T1 canon/backlog only. It adds no product dependency, runs
 no runtime, loads no model/index bytes, runs no benchmark, and does not promote
 L2/L3.
+
+## KV Residency / Offload Companion Addendum
+
+Deep Research Pass 60 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` extends the
+runtime-plural intake with KV residency, offload, cache-lineage, activation
+locality, and asymmetric KV quantization source cards. Current primary-source
+targets are `vllm-project/vllm`, `LMCache/LMCache`,
+`kvcache-ai/ktransformers`, `FMInference/FlexLLMGen`, `Tiiny-AI/PowerInfer`,
+and `jy-yuan/KIVI`.
+
+The practical build backlog is:
+
+- `F-KVVirtualBlockTable-CompatibilityFence`: PagedAttention-style block-table
+  compatibility, prefix boundaries, rollback, RunEventLog, AnswerPacket, and
+  no server fallback.
+- `F-KVLineage-ReuseCompatibilityFence`: reusable KV lineage with hit/miss
+  tokens, source span IDs, privacy class, cache tier, quality caveat, and
+  visible abstention.
+- `F-OffloadCostModel-LatencyThroughputBoundary`: offload/cost planning with
+  explicit batch/offline admission, throughput-vs-latency caveat, SSD/DRAM
+  budgets, cancellation, and no interactive-product claim.
+- `F-HeterogeneousExpertPlacement-Abstention`: hot/cold expert placement that
+  abstains when platform, MAS, memory, or provenance gates are not met.
+- `F-ActivationLocality-NoHiddenWake`: activation-locality source card with
+  predictor provenance, hot/cold wake evidence, fallback, and no hidden route
+  authority.
+- `F-AsymmetricKV-SoftmaxStability`: KIVI-style key/value quantization policy,
+  residual full-precision tokens, quality cliffs, context budget, and runtime
+  compatibility.
+- `F-KVSourceCard-ForkAndDaemonBoundary`: hard boundary for daemon/server/
+  remote-cache projects before any product import or route influence.
+
+This addendum is T0/T1 canon/backlog only. It adds no vLLM, LMCache,
+KTransformers, FlexLLMGen, PowerInfer, or KIVI product dependency; runs no
+server, daemon, model, cache replay, offload benchmark, or runtime probe; loads
+no model/index/KV/runtime bytes; and does not promote live dense 70B, live
+sparse 70B, live KV-Direct, 128K context, SSD-as-RAM, hidden cache authority,
+or L2/L3.

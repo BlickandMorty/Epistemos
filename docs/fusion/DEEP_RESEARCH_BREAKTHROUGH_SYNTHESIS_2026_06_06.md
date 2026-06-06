@@ -5094,3 +5094,230 @@ Next research query: "What is the smallest source-carded runtime-plural QAT
 lane tournament that compares MLX, GGUF/llama.cpp, and LiteRT-LM for Gemma 4
 E2B/E4B/12B without hidden server fallback, MAS leakage, model-byte loading by
 default, or L2/L3 overclaim?"
+
+---
+
+## 60. Pass 60 - KV Residency / Offload / Cache-Lineage Runtime Synthesis
+
+Observed on 2026-06-06. This pass is research-to-build canon. It edits no
+product code, runs no model, opens no model/index/runtime bytes, and does not
+promote L2/L3.
+
+### 60.1 External Source Reality Check
+
+The current KV/offload/runtime cluster shows that large-local-model practicality
+is not one memory number. It is a governed split between weight bytes, KV bytes,
+activation locality, cache compatibility, transport stalls, source provenance,
+and visible route proof.
+
+- `vllm-project/vllm` is Apache-2.0, highly active, and its README names
+  PagedAttention, continuous batching, chunked prefill, prefix caching,
+  GGUF/INT4/INT8/FP8/compressed-tensors quantization support, structured
+  outputs, tool calling, OpenAI-compatible serving, and broad hardware plugin
+  support. GitHub API observed 82,069 stars, 17,721 forks, 5,239 open issues,
+  and last push `2026-06-06T20:33:20Z`. Epistemos should source-card its page
+  table and prefix-cache motifs, not import the serving stack or treat an
+  OpenAI-compatible server as product-local proof.
+- `LMCache/LMCache` is Apache-2.0 and frames KV cache as a reusable,
+  observable, vendor-neutral layer. Its README names an engine-independent
+  daemon, persistent tiered KV offload/reuse across GPU memory, CPU memory,
+  local storage, and remote backends, request/token-level cache observability,
+  non-prefix KV reuse through CacheBlend, KV transfer over NVLink/RDMA/TCP/NIXL,
+  and pluggable KV transformation. GitHub API observed 8,430 stars, 1,253
+  forks, 303 open issues, and last push `2026-06-06T10:13:13Z`. For Epistemos
+  this is a KV lineage and observability source-card, not permission for hidden
+  cache reuse, daemon fate-splitting, remote storage, or S3-backed product
+  routes.
+- `kvcache-ai/ktransformers` is Apache-2.0 and currently active. Its README
+  describes CPU/GPU heterogeneous inference, 3-layer GPU-CPU-Disk prefix-cache
+  reuse, AMX/AVX INT4/INT8 CPU kernels, MoE optimization, NUMA-aware memory,
+  CPU/GPU expert scheduling, and heterogeneous expert placement with hot
+  experts on GPU and cold experts on CPU. GitHub API observed 17,252 stars,
+  1,311 forks, 449 open issues, and last push `2026-06-05T11:24:22Z`.
+  Epistemos should translate this into ActiveAssembly and ResidencyPageTable
+  source cards, while keeping its Linux/server/MoE assumptions out of MAS.
+- `FMInference/FlexLLMGen` is Apache-2.0 and remains a valuable offload cost
+  model. Its README is explicit that the system is throughput-oriented, less
+  latency-sensitive, and can be slower for small-batch cases. It aggregates
+  GPU, CPU, and disk through offloading, compression, and a policy optimizer
+  over weights, activations, and attention KV cache. GitHub API observed 9,365
+  stars, 590 forks, 58 open issues, and last push `2024-10-28T03:05:41Z`.
+  This is a strong source-card for offline/idle PatternBoost and batch
+  extraction, not a live chat or instant-agent proof.
+- `Tiiny-AI/PowerInfer` is MIT and focuses on activation locality: hot neurons
+  stay fast, cold neurons move to CPU, and sparse predictors reduce transfers.
+  Its README says Apple M chips are CPU-only and that Mac performance
+  improvement is not significant now, while Metal sparse inference is listed
+  as future work. GitHub API observed 9,536 stars, 578 forks, 130 open issues,
+  and last push `2026-05-11T06:48:06Z`. For Epistemos the source-card value is
+  activation-locality planning and hot/cold wake certificates, not current Mac
+  product acceleration.
+- `jy-yuan/KIVI` is MIT and implements tuning-free asymmetric 2-bit KV cache
+  quantization. Its README says keys are quantized per-channel, values per-
+  token, recent full-precision residual tokens are retained, and the method
+  targets KV cache memory reduction with quality caveats. GitHub API observed
+  404 stars, 55 forks, 7 open issues, and last push `2025-11-20T20:34:33Z`.
+  This strengthens Epistemos `KVByteBudgetCard` and `KVCompatibilityFence`
+  backlogs, but it is CUDA/Python-oriented and not Apple Swift/Metal proof.
+
+Source refs for this pass:
+
+- https://github.com/vllm-project/vllm
+- https://github.com/LMCache/LMCache
+- https://github.com/kvcache-ai/ktransformers
+- https://github.com/FMInference/FlexLLMGen
+- https://github.com/Tiiny-AI/PowerInfer
+- https://github.com/jy-yuan/KIVI
+- https://arxiv.org/abs/2309.06180
+- https://arxiv.org/abs/2303.06865
+- https://arxiv.org/abs/2312.12456
+- https://arxiv.org/abs/2402.02750
+
+### 60.2 Local Canon And Artifact Anchors
+
+Local canon already anticipated much of this cluster:
+
+- `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` says the
+  breakthrough is not "SSD is RAM", but compiling a mission into a budgeted
+  semantic working set with `KVLineageGraph`, `ResidencyPageTable`,
+  `ColdFaultTrace`, and route patches.
+- `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` maps
+  vLLM/PagedAttention/LMCache to KV page choices, compatibility fences, reuse
+  keys, and offline assembly genomes.
+- `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` requires planned,
+  cancelable transport jobs with copy counts, cache policy, rollback, and
+  AnswerPacket-visible caveats instead of surprise VM/page-fault magic.
+- `docs/falsifiers/F-KVByteBudgetCard_2026_06_03.md` already proves KV bytes,
+  prompt-cache hit/miss tokens, codec, quality caveat, and compatibility
+  failures are tracked separately from weight bytes.
+- `docs/falsifiers/F-QueryAwareKVSelector_2026_06_04.md` already keeps
+  query-aware KV selection metadata-only, shadow-only, privacy-fenced, and
+  baseline-beating before live restoration.
+- `docs/falsifiers/F-LayerKVJointLease_2026_06_04.md` already couples dynamic
+  depth and KV/page choices under one lease, with fallback and AnswerPacket
+  proof.
+- Downloads-local research worth source-carding includes
+  `/Users/jojo/Downloads/kimis deep research/research/landslide_dim02_kv_prefix_caching.md`,
+  `/Users/jojo/Downloads/kimis deep research/research/memory_dim01_state_restoration.md`,
+  `/Users/jojo/Downloads/kimis deep research/research/memory_dim03_context_selection.md`,
+  `/Users/jojo/Downloads/old research/Epistemos Instant Recall Mamba + Quantized Vector Memory on SwiftRust.md`,
+  `/Users/jojo/Downloads/old research/epistemos-custom-mamba-model-blueprint.md`,
+  and `/Users/jojo/Downloads/master research in quant.md`.
+
+### 60.3 Architecture Fusion
+
+| Mechanism | Epistemos organ | Tier now | Build status | Required next proof |
+|---|---|---|---|---|
+| PagedAttention-style virtual KV blocks | SemanticWorkingSetCompiler, ResidencyPageTable, RuntimeRouter/System G | T0/T1 | Pro ResearchCandidate | `F-KVVirtualBlockTable-CompatibilityFence` proving block IDs, tokenizer/model identity, prefix boundaries, compatibility failures, rollback, RunEventLog, AnswerPacket, and no hidden server route. |
+| LMCache-style reusable KV lineage | KVLineageGraph, Eidos route priors, RunEventLog | T0 | Pro ResearchCandidate | `F-KVLineage-ReuseCompatibilityFence` proving cache reuse keys, source span IDs, hit/miss tokens, quality caveat, storage tier, privacy class, and visible cache-abstention reason. |
+| KTransformers heterogeneous expert placement | ActiveAssembly, ResidencyPageTable, ColdStore/AppColdStore | T0 | Pro ResearchCandidate | `F-HeterogeneousExpertPlacement-Abstention` proving hot/cold expert cards, CPU/GPU/Disk assumptions, unsupported-platform abstention, and no MAS leakage. |
+| FlexLLMGen offload policy optimizer | ColdStream, PatternBoost offline batch lane, byte-budget planner | T0 | Pro Vault/Research | `F-OffloadCostModel-LatencyThroughputBoundary` proving latency-vs-throughput caveat, batch-only admission, SSD/DRAM budgets, cancellation, rollback, and no interactive-product claim. |
+| PowerInfer activation locality | SparseWakeCertificate, ActiveAssembly, NeuralImportanceAtlas | T0 | Pro ResearchCandidate | `F-ActivationLocality-NoHiddenWake` proving hot/cold unit cards, predictor provenance, fallback if locality fails, and no unobserved wake authority. |
+| KIVI asymmetric KV quantization | KVByteBudgetCard, KVCompatibilityFence, RuntimeRouter route caveats | T0/T1 | Pro ResearchCandidate | `F-AsymmetricKV-SoftmaxStability` proving key/value quant policy, residual fp tokens, quality cliff tests, context budget, and runtime-lane compatibility before any live KV compression claim. |
+
+### 60.4 Large-Local-Model Implication
+
+Large local models become more plausible when Epistemos stops treating
+compression as one scalar and starts separating these ledgers:
+
+```text
+weights_bytes
+kv_bytes
+activation_bytes
+scratch_bytes
+transport_bytes
+copy_count
+cache_hit_tokens
+cache_miss_tokens
+stall_ms
+thermal_budget
+compatibility_failures
+rollback_handle
+answer_packet_ref
+```
+
+That means the 70B-class track should preserve two truths at once:
+
+1. Ambition stays alive: cold assembly, compressed route cards, activation
+   locality, KV quantization, prefix reuse, offload scheduling, and smaller
+   verified hot assemblies can all lower the active set for a task.
+2. Product truth stays gated: a server README, remote cache daemon, CUDA
+   kernel, disk-offload benchmark, model-card quant label, or one-context
+   smoke run is not MAS/Pro live capability.
+
+Near-term build pressure should prefer metadata and small-fixture falsifiers
+that expose exact failure modes before live runtime:
+
+- first, source-card KV/page/offload motifs and local Downloads research;
+- second, prove byte ledgers and compatibility fences with zero model/runtime
+  bytes;
+- third, run a small owner-approved model harness only after command cards,
+  cancellation, rollback, and AnswerPacket are in place;
+- fourth, compare MLX/GGUF/LiteRT and optional local endpoints on the same
+  fixture;
+- fifth, only then discuss larger QAT, MoE, sparse, or 70B-class experiments.
+
+### 60.5 Candidate Falsifier Backlog
+
+- `F-KVVirtualBlockTable-CompatibilityFence`: PagedAttention/vLLM-inspired
+  block-table source-card with tokenizer/model/prefix compatibility, storage
+  tier, rollback, RunEventLog, AnswerPacket, and no server fallback.
+- `F-KVLineage-ReuseCompatibilityFence`: LMCache-inspired KV reuse card with
+  hit/miss token accounting, source span IDs, privacy class, cache tier,
+  quality caveat, visible abstention, and no hidden cache authority.
+- `F-OffloadCostModel-LatencyThroughputBoundary`: FlexLLMGen-inspired offload
+  planner proving batch/offline admission, throughput-vs-latency caveat, SSD/
+  DRAM budgets, cancellation, rollback, and no interactive-product claim.
+- `F-HeterogeneousExpertPlacement-Abstention`: KTransformers-inspired hot/cold
+  expert placement card that abstains on unsupported Apple/MAS conditions.
+- `F-ActivationLocality-NoHiddenWake`: PowerInfer-inspired activation-locality
+  card with predictor provenance, hot/cold unit proof, fallback, and no hidden
+  wake authority.
+- `F-AsymmetricKV-SoftmaxStability`: KIVI-inspired KV quantization card with
+  key/value asymmetric policy, residual full-precision token budget, quality
+  cliffs, and route caveats.
+- `F-KVSourceCard-ForkAndDaemonBoundary`: source-card boundary for projects
+  whose default shape is daemon/server/cloud/tiered remote storage, making
+  product import mode explicit before any code influence.
+
+### 60.6 Non-Promotion
+
+This pass does not add vLLM, LMCache, KTransformers, FlexLLMGen, PowerInfer, or
+KIVI to product code. It does not run a server, daemon, CUDA/Metal kernel,
+offload benchmark, KV restore, prompt-cache replay, model load, GGUF/MLX/LiteRT
+probe, TurboVec adapter, or local endpoint. It does not promote live dense 70B,
+live sparse 70B, live KV-Direct, 128K context, SSD-as-RAM, hidden cloud
+fallback, hidden cache reuse, hidden route authority, or L2/L3 user-facing
+capability.
+
+### 60.7 Pass-Sixty Register
+
+Best breakthrough candidate: `KVLineageReuseCompatibilityFence`, because it
+turns reusable KV/prefix/cache ideas into Epistemos-visible address, source,
+budget, privacy, quality, and rollback evidence before any runtime uses them.
+
+Safest next falsifier: `F-OffloadCostModel-LatencyThroughputBoundary`, because
+it can preserve the useful FlexLLMGen/LMCache/KTransformers offload lessons
+while rejecting the biggest false claim: that disk/daemon/offload means
+interactive local product capability.
+
+Best near-term code unit: a metadata-only `KVRuntimeSourceCard` fixture that
+accepts vLLM, LMCache, KTransformers, FlexLLMGen, PowerInfer, and KIVI as
+source-carded motifs, then rejects server-default import, remote cache default,
+unsupported platform promotion, nonzero runtime bytes, hidden route authority,
+missing compatibility fence, missing rollback, and missing AnswerPacket refs.
+
+Biggest false-claim risk: laundering server/cloud/daemon or CUDA/Linux
+benchmark evidence into Apple Silicon MAS/Pro product claims, especially by
+calling SSD/offload/cache reuse equivalent to local interactive memory.
+
+Biggest missing source: an Epistemos-owned same-fixture KV/cache/offload source
+card that compares compatibility, byte ledgers, cache hit/miss tokens,
+latency-throughput caveats, and visible AnswerPacket evidence across all
+candidate runtime lanes.
+
+Next research query: "What is the smallest metadata-only KV runtime source-card
+falsifier that maps vLLM/PagedAttention, LMCache, KTransformers, FlexLLMGen,
+PowerInfer, and KIVI into Epistemos KV lineage, page-table, offload, activation
+locality, and asymmetric KV quantization backlogs without server fallback, model
+byte loading, hidden cache authority, or L2/L3 overclaim?"
