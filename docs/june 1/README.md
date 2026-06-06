@@ -26,10 +26,10 @@ easy to browse in one place.
 > `F-TurboVec-RuntimeShadowBenchmarkPlan` and
 > `F-TurboVec-QuarantineAdapterMicrobenchProbe` and
 > `F-TurboVec-RealAdapterOwnerApprovalProbe` as metadata/synthetic-only T1/L1
-> and `F-TurboVec-RealAdapterSourcePinProbe` and
-> `F-TurboVec-RealAdapterDependencyEnvelopeProbe` as metadata-only T1/L1. It
-> now points next at
-> `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
+> and `F-TurboVec-RealAdapterSourcePinProbe`,
+> `F-TurboVec-RealAdapterDependencyEnvelopeProbe`, and
+> `F-TurboVec-RealAdapterSandboxLayoutProbe` as metadata-only T1/L1. It now
+> points next at `turbovec_quarantine_real_adapter_fetch_lease_probe`.
 > Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:

@@ -4034,3 +4034,86 @@ Next research query: "What sandbox directory layout, byte ledger, clone/fetch
 lease, cleanup rule, native-link block, source-card copy boundary, RunEventLog,
 AnswerPacket, rollback, and benchmark caveat must gate pinned TurboVec before
 any real adapter bytes are fetched or compiled?"
+
+## 49. Real Adapter Sandbox Layout Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, primary
+TurboVec source/dependency metadata already pinned in earlier witnesses, and
+the current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_sandbox_layout_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_sandbox_layout_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_sandbox_layout_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_sandbox_layout_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterSandboxLayoutProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterSandboxLayoutProbe` is now PASS as a metadata-only
+T1/L1 witness. It binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to quarantine root
+`.epistemos-quarantine/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2`,
+10 read-only sandbox slots, 84 rejected red fixtures, product/build-root
+rejection, absolute/traversal/duplicate path rejection, cleanup/tombstone/
+rollback phases, RunEventLog, AnswerPacket, compatibility fence, native-link
+block, benchmark caveat, planned quarantine byte lease `8388608`, zero
+fetched/cloned/product/index/model/runtime/provider bytes, no product
+dependency/source import/adapter build/native-link probe/route authority, and
+no L2/L3 promotion.
+
+### 49.1 Architecture Fusion
+
+This upgrades the large-local-model research path from "the dependency envelope
+is known" to "future real adapter bytes have a fail-closed quarantine layout
+before they can exist." The breakthrough value is practical: Epistemos can
+study TurboVec and nearby compressed-vector forks for API shapes, test cases,
+benchmarks, native-link risks, dependency behavior, failure reports, and
+clean-room motifs while keeping Eidos/AppColdStore, Gemma QAT, GGUF, MLX,
+LiteRT, and 70B-class cold-assembly routes insulated from product
+contamination and hidden route authority.
+
+This helps larger local models because the context side of the architecture
+must be as proven as the model side. Gemma 4 12B QAT, 31B/Vault, Qwen3-Coder
+30B, and 70B-class cold assemblies all need reliable compressed retrieval,
+exact-baseline recall, privacy filtering, latency/memory abstention, rollback,
+RunEventLog, and AnswerPacket proof before compressed context can be trusted.
+
+### 49.2 Non-Promotion
+
+This pass does not fetch or clone TurboVec, create quarantine directories,
+copy source, add a product dependency, import/build/run an adapter, probe
+native links, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+choose RuntimeRouter/System G routes, make L2/L3 product capability green, or
+prove live dense 70B. It advances the research-to-build ladder only.
+
+### 49.3 Pass-Thirty-Five Register
+
+Best breakthrough candidate: a fetch-lease gate that permits a bounded,
+rollbackable, logged, non-build-graph TurboVec clone/fetch only inside the
+approved quarantine root, with byte ceilings and cleanup/tombstone proof.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_fetch_lease_probe`, because the sandbox
+layout exists but no source-byte fetch lease, byte-write proof, cleanup replay,
+or no-product-graph audit has been proven.
+
+Best near-term code unit: build the fetch-lease gate that refuses product-root
+writes, symlinks, executable build outputs, Cargo dependency insertion,
+native-link probes, runtime execution, index/model bytes, hidden authority,
+benchmark laundering, and large-model product claims.
+
+Biggest false-claim risk: treating a quarantine directory layout as permission
+to clone/build TurboVec, run benchmarks, choose large-model context, or claim
+better local model capability.
+
+Biggest missing source: exact clone/fetch lease semantics, byte ceiling,
+cleanup replay, and no-product-graph audit details for a pinned TurboVec
+sandbox on Apple Silicon.
+
+Next research query: "What fetch lease, byte cap, file digest policy, cleanup
+replay, no-product-graph audit, native-link block, RunEventLog, AnswerPacket,
+rollback, and benchmark caveat must gate pinned TurboVec before real
+quarantine bytes are fetched?"
