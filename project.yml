@@ -93,7 +93,7 @@ targets:
           CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: AL562BVF23
+          DEVELOPMENT_TEAM: 3BNL2669SL
           CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
           ENABLE_HARDENED_RUNTIME: true
@@ -193,7 +193,7 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: AL562BVF23
+          DEVELOPMENT_TEAM: 3BNL2669SL
           ENABLE_HARDENED_RUNTIME: true
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
     preBuildScripts:
@@ -281,7 +281,7 @@ targets:
           DEVELOPMENT_TEAM: ""
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: AL562BVF23
+          DEVELOPMENT_TEAM: 3BNL2669SL
           ENABLE_HARDENED_RUNTIME: true
     dependencies:
       - sdk: WidgetKit.framework
@@ -320,7 +320,7 @@ targets:
           DEVELOPMENT_TEAM: ""
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: AL562BVF23
+          DEVELOPMENT_TEAM: 3BNL2669SL
           ENABLE_HARDENED_RUNTIME: true
 
   EpistemosTests:
