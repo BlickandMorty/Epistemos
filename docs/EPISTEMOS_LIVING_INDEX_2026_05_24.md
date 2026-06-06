@@ -603,8 +603,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   covered by `F-TurboVec-FilterBeforeRankPrivacyGate`; crash-safe persistence
   is now covered by `F-TurboVec-CrashSafePersistentIndex`; exact-baseline
   recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`;
+  latency/memory abstention is now covered by
+  `F-TurboVec-LatencyMemoryAbstention`;
   the next research-to-build retrieval unit is
-  `turbovec_latency_memory_abstention_plan`. The
+  `turbovec_runtime_shadow_benchmark_plan`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-UASAddressStableExternalIds` is now
@@ -633,9 +635,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   metadata only. It does not import TurboVec, build/persist a registry or
   index, prove recall quality, choose model routes, advance L2, or make L3
   user-facing model capability green. Filter-before-rank privacy,
-  crash-safe persistence, and exact-baseline recall quality are now covered;
+  crash-safe persistence, exact-baseline recall quality, and latency/memory
+  abstention are now covered;
   the next research-to-build retrieval unit is
-  `turbovec_latency_memory_abstention_plan`; the guard-owned cursor remains
+  `turbovec_runtime_shadow_benchmark_plan`; the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-FilterBeforeRankPrivacyGate` is now
   built as the TurboVec/Eidos filter-before-rank privacy witness:
@@ -665,8 +668,9 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   recall quality, choose model routes, advance L2, or make L3 user-facing
   model capability green. Crash-safe persistence is now covered by
   `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall quality is now
-  covered by `F-TurboVec-RecallQualityExactBaseline`; the next
-  research-to-build retrieval unit is `turbovec_latency_memory_abstention_plan`;
+  covered by `F-TurboVec-RecallQualityExactBaseline`; latency/memory
+  abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`; the next
+  research-to-build retrieval unit is `turbovec_runtime_shadow_benchmark_plan`;
   the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
@@ -698,8 +702,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   TurboVec, write `.tv`/`.tvim` files, prove recall quality, choose model
   routes, advance L2, or make L3 user-facing model capability green.
   Exact-baseline recall-quality is now covered by
-  `F-TurboVec-RecallQualityExactBaseline`; the next research-to-build retrieval
-  unit is `turbovec_latency_memory_abstention_plan`; the guard-owned cursor
+  `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
+  covered by `F-TurboVec-LatencyMemoryAbstention`; the next
+  research-to-build retrieval unit is `turbovec_runtime_shadow_benchmark_plan`;
+  the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RecallQualityExactBaseline` is now
@@ -726,8 +732,40 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   fallback when recall misses the floor. This is T1/L1 metadata only. It does
   not import TurboVec, build an index, open exact baseline files, measure live
   recall or latency, choose model routes, advance L2, or make L3 user-facing
-  model capability green. The next research-to-build retrieval unit is
-  `turbovec_latency_memory_abstention_plan`; the guard-owned cursor remains
+  model capability green. Latency, memory, timeout, and abstention envelopes
+  are now covered by `F-TurboVec-LatencyMemoryAbstention`; the next
+  research-to-build retrieval unit is `turbovec_runtime_shadow_benchmark_plan`;
+  the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-LatencyMemoryAbstention` is now built
+  as the TurboVec/Eidos latency, memory, timeout, cancellation, fallback, and
+  abstention envelope witness:
+  `agent_core/src/uas/turbovec_latency_memory_abstention_plan.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_latency_memory_abstention.rs`, script
+  `Tools/falsifiers/f_turbovec_latency_memory_abstention.sh`, witness page
+  `docs/falsifiers/F-TurboVec-LatencyMemoryAbstention_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_latency_memory_abstention/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1
+  latency/memory plan, covers 5 tiny envelope cases, rejects 45 red fixtures,
+  records 1 selected safe-use case and 4 visible abstention cases, records max
+  p99 latency `40000` micros, max planned bytes `249856`, minimum planned
+  headroom `-45712`, and records zero opened/loaded index bytes, zero allocated
+  runtime bytes, zero model/runtime/provider bytes, and zero copied product
+  files. It proves exact recall is not enough: compressed Eidos/TurboVec
+  retrieval may feed future context only when p95/p99 latency, timeout,
+  cancellation, memory headroom, and uncertainty are inside budget; timeout,
+  memory, uncertainty, and empty cases must abstain visibly with fallback,
+  rollback, RunEventLog, AnswerPacket, and compatibility-fence refs. This is
+  T1/L1 metadata only. It does not import TurboVec, build an index, run a
+  benchmark, allocate runtime buffers, measure live latency, choose model
+  routes, advance L2, or make L3 user-facing model capability green. The next
+  research-to-build retrieval unit is `turbovec_runtime_shadow_benchmark_plan`;
+  the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:

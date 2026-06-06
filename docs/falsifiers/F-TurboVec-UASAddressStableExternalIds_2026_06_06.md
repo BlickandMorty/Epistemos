@@ -29,8 +29,8 @@ Artifact:
 - 55 red fixtures rejected.
 - Deterministic registry set address:
   `turbovec_stable_external_id_registry_plan:ae1b3fc3949acde1280012131e10616882005dcc58965f1db30a33cd2cfe93b0@1779039100000`
-- Next research-to-build unit after privacy, persistence, and recall quality:
-  `turbovec_latency_memory_abstention_plan`
+- Next research-to-build unit after privacy, persistence, recall quality, and latency/memory abstention:
+  `turbovec_runtime_shadow_benchmark_plan`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, and exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`. The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because compressed recall now needs latency, memory, timeout, and abstention envelopes before it can help large-local-model context selection.
+The filter-before-rank privacy unit is now covered by `F-TurboVec-FilterBeforeRankPrivacyGate`, crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`, exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, and latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`. The next retrieval/index research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`, because the budget envelope now needs runtime-shaped shadow evidence before it can help large-local-model context selection.

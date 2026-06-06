@@ -1,0 +1,350 @@
+{
+  "falsifier_id": "F-TurboVec-LatencyMemoryAbstention",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_latency_memory_abstention.sh",
+  "command_digest": "sha256:28caf434ab2e5244ae7b8803f0c9cc212834c55b37938506c850f36ee2db0e99",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6d97b51fb0ede3477a1c1abdc5546a31f123955b",
+  "fixture_id": "turbovec_latency_memory_abstention_v1",
+  "timestamp_utc": "2026-06-06T11:37:13Z",
+  "result_digest": "sha256:fd7f6a55a5a130825da91bbf23b73496c4fcd811a696dc4398a12d6c22edbe99",
+  "measurements": {
+    "abstention_case_count": {
+      "value": 4,
+      "unit": "cases"
+    },
+    "abstention_reason_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_latency_memory_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "value": 5,
+      "unit": "cases"
+    },
+    "case_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_route_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_selected_case_count": {
+      "value": 0,
+      "unit": "cases"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_envelope_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_plan_address": {
+      "value": "turbovec_latency_memory_abstention_plan:e85c8fa28bd263d6c2228293c69163d0393fb4b00cbc0e5f077e20e92e18fec8@1779039500000",
+      "unit": "uas_address"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_total_bytes": {
+      "value": 249856,
+      "unit": "bytes"
+    },
+    "max_predicted_p99_latency_micros": {
+      "value": 40000,
+      "unit": "micros"
+    },
+    "memory_envelope_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "min_memory_headroom_bytes": {
+      "value": -45712,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_runtime_shadow_benchmark_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_case_count": {
+      "value": 1,
+      "unit": "cases"
+    },
+    "timeout_and_cancellation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_abstention_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_recall_quality_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_case_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cases"
+    },
+    "abstention_reason_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_latency_memory_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cases"
+    },
+    "case_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fallback_route_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_selected_case_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "cases"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_envelope_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_plan_address": {
+      "operator": "starts_with",
+      "value": "turbovec_latency_memory_abstention_plan:",
+      "unit": "uas_address"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_planned_total_bytes": {
+      "operator": "==",
+      "value": 249856,
+      "unit": "bytes"
+    },
+    "max_predicted_p99_latency_micros": {
+      "operator": "==",
+      "value": 40000,
+      "unit": "micros"
+    },
+    "memory_envelope_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "min_memory_headroom_bytes": {
+      "operator": "==",
+      "value": -45712,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_runtime_shadow_benchmark_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 38,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_case_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cases"
+    },
+    "timeout_and_cancellation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uncertainty_abstention_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_recall_quality_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_case_count": true,
+    "abstention_reason_required": true,
+    "accepted_fixture_count": true,
+    "accepted_latency_memory_fixture_present": true,
+    "case_count": true,
+    "case_coverage_complete": true,
+    "fallback_route_required": true,
+    "hidden_route_authority_rejected": true,
+    "invalid_selected_case_count": true,
+    "large_model_and_ssd_claims_rejected": true,
+    "latency_envelope_enforced": true,
+    "latency_memory_plan_address": true,
+    "layer_separation_required": true,
+    "max_planned_total_bytes": true,
+    "max_predicted_p99_latency_micros": true,
+    "memory_envelope_enforced": true,
+    "metadata_budget_enforced": true,
+    "min_memory_headroom_bytes": true,
+    "next_research_to_build_unit": true,
+    "product_promotion_rejected": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "runtime_and_index_bytes_zero": true,
+    "selected_case_count": true,
+    "timeout_and_cancellation_required": true,
+    "uncertainty_abstention_required": true,
+    "upstream_cursor_verified": true,
+    "upstream_recall_quality_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec crate imported, no index files opened, no runtime buffers allocated, no model/runtime bytes loaded, no live latency claim, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-LatencyMemoryAbstention from the exact-baseline recall-quality gate. Scope is T1/L1 metadata/tiny-fixture only: planned latency, p99 timeout, cancellation, memory headroom, uncertainty abstention, fallback, rollback, RunEventLog, AnswerPacket, compatibility fence, and no product/runtime promotion."
+}

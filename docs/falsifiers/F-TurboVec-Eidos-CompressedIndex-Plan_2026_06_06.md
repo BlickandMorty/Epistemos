@@ -82,7 +82,9 @@ step is now covered by `F-TurboVec-UASAddressStableExternalIds`; the
 filter-before-rank privacy step is now covered by
 `F-TurboVec-FilterBeforeRankPrivacyGate`; the crash-safe persistence step is
 now covered by `F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall
-quality is now covered by `F-TurboVec-RecallQualityExactBaseline`; the next
-research-to-build unit is `turbovec_latency_memory_abstention_plan`.
+quality is now covered by `F-TurboVec-RecallQualityExactBaseline`;
+latency/memory abstention is now covered by
+`F-TurboVec-LatencyMemoryAbstention`; the next research-to-build unit is
+`turbovec_runtime_shadow_benchmark_plan`.
 The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

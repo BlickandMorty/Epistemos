@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="3ba3f308c5d78fec8a473e4f2f263bf4f47e6287">
+  <meta name="epistemos-commit-sha" content="6d97b51fb0ede3477a1c1abdc5546a31f123955b">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -704,9 +704,11 @@
   <code>F-TurboVec-FilterBeforeRankPrivacyGate</code>, and crash-safe
   persistence is now covered by
   <code>F-TurboVec-CrashSafePersistentIndex</code>; exact-baseline recall
-  quality is now covered by <code>F-TurboVec-RecallQualityExactBaseline</code>;
-  the next retrieval/index research-to-build unit is
-  <code>turbovec_latency_memory_abstention_plan</code>.
+  quality is now covered by <code>F-TurboVec-RecallQualityExactBaseline</code>,
+  and latency/memory abstention is now covered by
+  <code>F-TurboVec-LatencyMemoryAbstention</code>; the next retrieval/index
+  research-to-build unit is
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -726,9 +728,10 @@
   corrupt-manifest rebuild, rollback, RunEventLog, AnswerPacket, and
   compatibility fence. It loads zero registry/index/model/runtime/provider
   bytes and does not promote L2/L3 product capability. Filter-before-rank
-  privacy, crash-safe persistence, and exact-baseline recall quality are now
-  covered; the next retrieval/index research-to-build unit is now
-  <code>turbovec_latency_memory_abstention_plan</code>.
+  privacy, crash-safe persistence, exact-baseline recall quality, and
+  latency/memory abstention are now covered; the next retrieval/index
+  research-to-build unit is now
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -749,9 +752,11 @@
   not promote L2/L3 product capability. Crash-safe persistence is now covered
   by <code>F-TurboVec-CrashSafePersistentIndex</code>, and exact-baseline
   recall quality is now covered by
-  <code>F-TurboVec-RecallQualityExactBaseline</code>; the next retrieval/index
+  <code>F-TurboVec-RecallQualityExactBaseline</code>, and latency/memory
+  abstention is now covered by
+  <code>F-TurboVec-LatencyMemoryAbstention</code>; the next retrieval/index
   research-to-build unit is
-  <code>turbovec_latency_memory_abstention_plan</code>.
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -771,9 +776,11 @@
   without rebuild, stale manifest pointers, permission-denied promotion,
   hidden route authority, Eidos-as-live-router, hidden cloud fallback, live
   dense 70B, SSD-as-RAM, and L2/L3 promotion. Exact-baseline recall quality is
-  now covered by <code>F-TurboVec-RecallQualityExactBaseline</code>; the next
-  retrieval/index research-to-build unit is
-  <code>turbovec_latency_memory_abstention_plan</code>.
+  now covered by <code>F-TurboVec-RecallQualityExactBaseline</code>, and
+  latency/memory abstention is now covered by
+  <code>F-TurboVec-LatencyMemoryAbstention</code>; the next retrieval/index
+  research-to-build unit is
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -789,9 +796,31 @@
   AnswerPackets, and forces fallback/abstention when recall misses the floor.
   It records zero exact-baseline/index/model/runtime/provider bytes, rejects
   hidden route authority, Eidos-as-live-router, route mutation, hidden cloud
-  fallback, live dense 70B, SSD-as-RAM, and L2/L3 promotion. The next
+  fallback, live dense 70B, SSD-as-RAM, and L2/L3 promotion. Latency/memory
+  abstention is now covered by
+  <code>F-TurboVec-LatencyMemoryAbstention</code>; the next retrieval/index
+  research-to-build unit is
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-06 TurboVec latency/memory abstention.</strong>
+  <code>F-TurboVec-LatencyMemoryAbstention</code> built as a T1/L1 metadata
+  witness with Rust primitive, binary, script, witness doc, schema/handbook
+  coverage, and artifact at
+  <code>artifacts/falsifiers/turbovec_latency_memory_abstention/result.json</code>.
+  It accepts 1 latency/memory plan, covers 5 tiny envelope cases, rejects 45
+  red fixtures, records 1 selected safe-use case and 4 visible abstention
+  cases, max p99 latency <code>40000</code> micros, max planned bytes
+  <code>249856</code>, and min planned headroom <code>-45712</code>. It proves
+  exact recall is not enough: compressed retrieval may feed future context only
+  when p95/p99 latency, timeout, cancellation, memory headroom, and uncertainty
+  fit the budget. Timeout, memory, uncertainty, and empty cases abstain
+  visibly with fallback, rollback, RunEventLog, AnswerPacket, and compatibility
+  fence refs. It records zero opened/loaded index bytes, zero allocated runtime
+  bytes, zero model/runtime/provider bytes, and no L2/L3 promotion. The next
   retrieval/index research-to-build unit is
-  <code>turbovec_latency_memory_abstention_plan</code>.
+  <code>turbovec_runtime_shadow_benchmark_plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -1369,6 +1398,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
     <tr><td>TurboVecFilterBeforeRankPrivacyGate</td><td>Scope-Rex/SovereignGate allowlist compiler for TurboVec/Eidos cache adapters that filters UAS-derived external IDs before rank/search, rejects post-rank filtering, forbidden/private/unknown scoring, empty-allowlist silence, hidden authority, Eidos-as-live-router, byte loads, and L2/L3 promotion.</td><td>F-TurboVec-FilterBeforeRankPrivacyGate</td></tr>
     <tr><td>TurboVecCrashSafePersistentIndexPlan</td><td>Crash-safe TurboVec/Eidos cache persistence plan with content-addressed .tvim and manifest material, temp writes, fsync/atomic rename, previous-manifest retention, digest and magic/version checks, AppColdStore-truth rebuild, rollback, RunEventLog, AnswerPacket, compatibility fence, zero opened/written/loaded index/model/runtime/provider bytes, and no L2/L3 promotion.</td><td>F-TurboVec-CrashSafePersistentIndex</td></tr>
     <tr><td>TurboVecRecallQualityExactBaselinePlan</td><td>Exact AppColdStore baseline comparison plan for TurboVec/Eidos compressed retrieval with held-out query packs, recall-at-k micros, allowlist-subset enforcement, deleted/private/unknown ID exclusion, duplicate ID rejection, visible empty-result AnswerPackets, miss-floor fallback/abstention, latency/memory placeholders, rollback, RunEventLog, compatibility fence, zero exact-baseline/index/model/runtime/provider bytes, and no L2/L3 promotion.</td><td>F-TurboVec-RecallQualityExactBaseline</td></tr>
+    <tr><td>TurboVecLatencyMemoryAbstentionPlan</td><td>Latency, memory, timeout, cancellation, uncertainty, fallback, and visible abstention envelope for exact-baseline TurboVec/Eidos compressed retrieval, with one safe-use case, timeout/memory/uncertainty/empty abstentions, zero opened/loaded index bytes, zero allocated runtime/model/provider bytes, no hidden route authority, and no L2/L3 promotion.</td><td>F-TurboVec-LatencyMemoryAbstention</td></tr>
     <tr><td>GemmaQatLocalRuntimeCandidateCard</td><td>Source-backed Gemma 4 QAT GGUF candidates with license, revision, declared bytes, context windows, candidate band, resident-floor planning bytes, rollback, RunEventLog, AnswerPacket, compatibility fence, runtime-deferred state, and no Swift-loader/MTP/MAS/product promotion.</td><td>F-GemmaQAT-LocalRuntimeCandidateCard</td></tr>
     <tr><td>QatModelRouteCardMemoryPreflight</td><td>Byte-accounted route preflights for Gemma QAT candidates with runtime lane, admission, file/resident/KV/scratch/available/headroom bytes, timeout, cancellation, abstention, rollback, RunEventLog, AnswerPacket, compatibility fence, and no first-token/quality/MAS/product promotion.</td><td>F-QAT-ModelRouteCard-MemoryPreflight</td></tr>
     <tr><td>CompressedRouteAnswerPacketDryRun</td><td>Visible compressed-route AnswerPacket dry-run packets with selected model, rejected candidates, planned/opened/resident/loaded/provider byte ledger, route caveat, fallback, rollback, cancellation, compatibility fence, no-mutation envelope, and no live inference or product promotion.</td><td>F-CompressedRoute-AnswerPacket-DryRun</td></tr>

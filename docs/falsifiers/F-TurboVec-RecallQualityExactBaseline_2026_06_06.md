@@ -31,8 +31,8 @@ Artifact:
 - Zero exact-baseline/index/model/runtime/provider bytes opened or loaded.
 - Deterministic recall-quality plan address:
   `turbovec_recall_quality_exact_baseline_plan:3a1c57cf29d30f2dc36724267b80e15640a25e8876ac9ff5b1c46fa04f6c014f@1779039400000`
-- Next research-to-build unit:
-  `turbovec_latency_memory_abstention_plan`
+- Next research-to-build unit after latency/memory abstention:
+  `turbovec_runtime_shadow_benchmark_plan`
 
 ## Hardening Axes
 
@@ -59,4 +59,4 @@ Correct phrasing:
 
 ## Next
 
-The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because exact-baseline quality is now specified but latency, memory, timeout, and abstention envelopes still need proof before compressed retrieval can help large-local-model context selection.
+Latency, memory, timeout, and abstention envelopes are now covered by `F-TurboVec-LatencyMemoryAbstention`. The next retrieval/index research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`, because the metadata envelope is now specified but a tiny shadow benchmark still needs runtime-shaped evidence before compressed retrieval can help large-local-model context selection.

@@ -29,8 +29,8 @@ Artifact:
 - 89 red fixtures rejected.
 - Deterministic persistent-index plan address:
   `turbovec_crash_safe_persistent_index_plan:04b2c79884199631f604c3436b157ac988b988c991ff266fe7d443ab52d9371b@1779039300000`
-- Next research-to-build unit after recall:
-  `turbovec_latency_memory_abstention_plan`
+- Next research-to-build unit after recall quality and latency/memory abstention:
+  `turbovec_runtime_shadow_benchmark_plan`
 
 ## Hardening Axes
 
@@ -47,7 +47,7 @@ The witness proves:
 
 ## Scope Boundary
 
-This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, write `.tv` / `.tvim` files, open model/index bytes, prove recall quality, prove latency, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green. Exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`.
+This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, write `.tv` / `.tvim` files, open model/index bytes, prove recall quality, prove latency, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green. Exact-baseline recall quality is now covered by `F-TurboVec-RecallQualityExactBaseline`, and latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`.
 
 Correct phrasing:
 
@@ -55,4 +55,4 @@ Correct phrasing:
 
 ## Next
 
-The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`. The next retrieval/index research-to-build unit is `turbovec_latency_memory_abstention_plan`, because compressed retrieval still needs latency, memory, timeout, and abstention proof before it can help large-local-model context selection.
+The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`, and latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`. The next retrieval/index research-to-build unit is `turbovec_runtime_shadow_benchmark_plan`, because compressed retrieval still needs runtime-shaped shadow evidence before it can help large-local-model context selection.

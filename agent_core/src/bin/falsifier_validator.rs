@@ -130,6 +130,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-TurboVec-FilterBeforeRankPrivacyGate",
     "F-TurboVec-CrashSafePersistentIndex",
     "F-TurboVec-RecallQualityExactBaseline",
+    "F-TurboVec-LatencyMemoryAbstention",
     "F-GemmaQAT-LocalRuntimeCandidateCard",
     "F-QAT-ModelRouteCard-MemoryPreflight",
     "F-CompressedRoute-AnswerPacket-DryRun",
