@@ -629,9 +629,25 @@ fixtures, and records 0 forbidden/private/unknown candidates scored or exposed.
 It proves UAS-derived external IDs must compile through allowlists before rank
 or search; post-rank filtering, unknown IDs, duplicate allowlists, empty
 allowlists without AnswerPacket, hidden authority, Eidos-as-live-router, byte
+loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
+
+`F-TurboVec-CrashSafePersistentIndex` is now built as the crash-safe
+persistent-cache branch after filter-before-rank privacy. Implemented anchors
+include `agent_core/src/uas/turbovec_crash_safe_persistent_index_plan.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_crash_safe_persistent_index/`. The
+witness accepts 1 persistent-index plan, covers 4 file kinds, covers 9
+crash/corruption/compatibility scenarios, rejects 89 red fixtures, and records
+zero opened/written/loaded index/model/runtime/provider bytes. It proves
+TurboVec `.tvim` / manifest material is cache only: content-addressed,
+temp-written, fsync/atomic-rename protected, digest-bound, magic/version
+checked, previous-manifest retained, rollback-capable, rebuildable from
+AppColdStore truth, and AnswerPacket-visible. Duplicate/zero external IDs,
+partial writes without rollback, corrupt cache without rebuild, stale pointers,
+permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject. The next
 retrieval/index research-to-build unit is
-`turbovec_crash_safe_persistent_index_plan`.
+`turbovec_recall_quality_exact_baseline_plan`.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -639,6 +655,7 @@ retrieval/index research-to-build unit is
 `F-TurboVec-Eidos-CompressedIndex-Plan`,
 `F-TurboVec-UASAddressStableExternalIds`,
 `F-TurboVec-FilterBeforeRankPrivacyGate`,
+`F-TurboVec-CrashSafePersistentIndex`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

@@ -216,8 +216,9 @@ tombstones, unsafe generations, hidden route authority, route mutation, hidden
 cloud fallback, live dense 70B, SSD-as-RAM, and nonzero registry/index/model/
 runtime/provider bytes. It does not import TurboVec, persist registry bytes,
 build an index, prove recall quality, choose System G routes, make L2/L3
-product capability green, or promote live dense 70B. The next retrieval/index
-research-to-build unit is now `turbovec_crash_safe_persistent_index_plan`.
+product capability green, or promote live dense 70B. Filter-before-rank
+privacy and crash-safe persistence are now covered; the next retrieval/index
+research-to-build unit is now `turbovec_recall_quality_exact_baseline_plan`.
 
 2026-06-06 TurboVec filter-before-rank privacy clarification:
 `F-TurboVec-FilterBeforeRankPrivacyGate` is T1/L1 only. It strengthens the
@@ -230,9 +231,25 @@ forbidden-hit audit refs, missing rollback/RunEventLog/AnswerPacket, hidden
 route authority, Eidos-as-live-router, hidden cloud fallback, live dense 70B,
 SSD-as-RAM, and nonzero search/index/model/runtime/provider bytes. It does not
 import TurboVec, build or persist an index, prove recall quality, choose System
-G routes, make L2/L3 product capability green, or promote live dense 70B. The
-next retrieval/index research-to-build unit is
-`turbovec_crash_safe_persistent_index_plan`.
+G routes, make L2/L3 product capability green, or promote live dense 70B.
+Crash-safe persistence is now covered by
+`F-TurboVec-CrashSafePersistentIndex`; the next retrieval/index
+research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`.
+
+2026-06-06 TurboVec crash-safe persistent-index clarification:
+`F-TurboVec-CrashSafePersistentIndex` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving that TurboVec/Eidos
+`.tvim` / manifest cache material must be content-addressed, temp-written,
+fsync/atomic-rename protected, digest-bound, magic/version checked, previous
+manifest retained, rollback-capable, rebuildable from AppColdStore truth, and
+AnswerPacket-visible. It rejects duplicate/zero external IDs, partial writes
+without rollback, corrupt cache without rebuild, stale manifest pointers,
+permission-denied promotion, hidden route authority, Eidos-as-live-router,
+hidden cloud fallback, live dense 70B, SSD-as-RAM, and nonzero opened/written/
+loaded index/model/runtime/provider bytes. It does not import TurboVec, write
+`.tv`/`.tvim` files, prove recall quality, choose System G routes, make L2/L3
+product capability green, or promote live dense 70B. The next retrieval/index
+research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`.
 
 ## Required Surface Updates
 

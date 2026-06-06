@@ -447,6 +447,10 @@ name = "falsify_turbovec_filter_before_rank_privacy_gate"
 path = "src/bin/falsify_turbovec_filter_before_rank_privacy_gate.rs"
 
 [[bin]]
+name = "falsify_turbovec_crash_safe_persistent_index"
+path = "src/bin/falsify_turbovec_crash_safe_persistent_index.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

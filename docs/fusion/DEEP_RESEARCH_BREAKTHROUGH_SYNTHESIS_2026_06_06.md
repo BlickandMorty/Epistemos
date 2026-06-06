@@ -3436,11 +3436,12 @@ TurboVec-style index is rebuildable from AppColdStore truth, privacy-filtered
 before rank, atomically persisted, corruption-detecting, and reversible before
 any recall-quality or model-route claim.
 
-Safest next falsifier: `turbovec_crash_safe_persistent_index_plan`, because
-stable IDs and pre-rank privacy are now specified, but no witness has yet
-proved atomic write, manifest digest, corrupt-index rebuild, partial-write
-rollback, cache/truth separation, or no-product-promotion for persistent
-compressed index files.
+Safest next falsifier at pass twenty-six time:
+`turbovec_crash_safe_persistent_index_plan`, because stable IDs and pre-rank
+privacy were specified, but no witness had yet proved atomic write, manifest
+digest, corrupt-index rebuild, partial-write rollback, cache/truth separation,
+or no-product-promotion for persistent compressed index files. This is now
+landed as `F-TurboVec-CrashSafePersistentIndex`.
 
 Best near-term code unit: implement a metadata-only crash-safe persistent-index
 plan that models `.tvim`/manifest paths, atomic temp-to-final writes,
@@ -3458,3 +3459,75 @@ permission denial, digest mismatch, and AppColdStore source deletion.
 Next research query: "What atomic persistence, manifest digest, corrupt-cache
 rebuild, and rollback envelope are sufficient to make a TurboVec-style
 compressed Eidos cache crash-safe without treating the cache as source truth?"
+
+## 41. Crash-Safe Persistent Index Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, upstream
+TurboVec API documentation, docs.rs persistence docs, and the current
+TurboVec/QAT canon:
+
+- primitive:
+  `agent_core/src/uas/turbovec_crash_safe_persistent_index_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_crash_safe_persistent_index.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_crash_safe_persistent_index.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_crash_safe_persistent_index/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-CrashSafePersistentIndex_2026_06_06.md`
+
+`F-TurboVec-CrashSafePersistentIndex` is now PASS as a metadata-only T1/L1
+witness. It accepts 1 persistent-index plan, covers 4 file kinds, covers 9
+crash/corruption/compatibility scenarios, rejects 89 red fixtures, and records
+zero opened, written, or loaded index/model/runtime/provider bytes. It proves a
+TurboVec-style `.tvim` / manifest cache must be content-addressed,
+temp-written, fsync/atomic-rename protected, digest-bound, magic/version
+checked, previous-manifest retained, rollback-capable, rebuildable from
+AppColdStore truth, and AnswerPacket-visible before later recall-quality work
+can cite it.
+
+### 41.1 Larger-Local-Model Bias
+
+This helps the large-local-model plan because Gemma 4 QAT, Qwen3-Coder,
+31B/Vault, and 70B-class cold assembly need compressed local evidence caches
+that can survive crashes without poisoning route priors. A big local model is
+only useful if its active working set is fed by private, truthful, recoverable
+evidence; a torn or stale index would be worse than no index because it could
+quietly route the model through deleted, forbidden, or mismatched context.
+
+### 41.2 Non-Promotion
+
+This pass does not import TurboVec code, write `.tv`/`.tvim` files, prove
+recall quality, prove latency, choose RuntimeRouter/System G routes, run
+models, make L2/L3 product capability green, or prove live dense 70B. It
+advances the research-to-build ladder only.
+
+### 41.3 Pass-Twenty-Seven Register
+
+Best breakthrough candidate: exact-baseline compressed recall where a
+TurboVec-style Eidos cache must beat exact AppColdStore retrieval on retained
+source IDs, privacy-filtered candidates, latency, memory, and visible failure
+packets before it can influence large local model context selection.
+
+Safest next falsifier: `turbovec_recall_quality_exact_baseline_plan`, because
+stable IDs, filter-before-rank privacy, and crash-safe persistence are now
+specified, but no witness has yet proved approximate compressed retrieval is
+accurate enough against exact AppColdStore baselines.
+
+Best near-term code unit: implement a metadata-only or tiny-fixture recall
+quality plan that binds exact source IDs, held-out queries, deleted/private
+fixtures, recall@k, MRR or nDCG, latency/memory ledgers, fallback when recall
+misses, no hidden route authority, rollback, RunEventLog, AnswerPacket, and
+zero model/runtime bytes.
+
+Biggest false-claim risk: treating a crash-safe persistent index as recall
+quality, route quality, model capability, or live large-model readiness.
+
+Biggest missing source: the exact Epistemos Eidos/AppColdStore fixture shape
+for held-out recall-quality comparisons across allowed, private, deleted,
+duplicate, and empty-result cases.
+
+Next research query: "What exact-baseline recall, privacy, latency, memory,
+and rollback thresholds are sufficient before a TurboVec-style compressed
+Eidos cache can safely feed Gemma/QAT/large-local-model context selection?"

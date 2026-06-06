@@ -322,9 +322,10 @@ If a source/canon guard is needed before the next runtime step, use this order:
    payload bytes, `384` q2 payload bytes before overhead), zero
    model/index/runtime/provider bytes, no copied product files, no hidden
    route authority, no Eidos-as-live-router, no route mutation, no MAS/L2/L3
-   promotion, no live dense 70B, and no SSD-as-RAM. Stable external IDs and
-   filter-before-rank privacy are now covered; the next retrieval/index
-   research-to-build unit is now `turbovec_crash_safe_persistent_index_plan`.
+   promotion, no live dense 70B, and no SSD-as-RAM. Stable external IDs,
+   filter-before-rank privacy, and crash-safe persistence are now covered; the
+   next retrieval/index research-to-build unit is now
+   `turbovec_recall_quality_exact_baseline_plan`.
 7. `F-TurboVec-UASAddressStableExternalIds`:
    now built metadata-only; preserve the UAS-address-stable external `u64`
    registry plan, tombstone/generation handling, collision alias rejection,
@@ -336,8 +337,9 @@ If a source/canon guard is needed before the next runtime step, use this order:
    dense 70B, and no SSD-as-RAM. It rejects SQLite row IDs, insert order,
    mutable vector slots, duplicate UAS, duplicate active IDs, zero IDs, ID
    mismatches, missing tombstones, unsafe generations, missing collision
-   ledger, and alias reuse. The next retrieval/index research-to-build unit is
-   now `turbovec_crash_safe_persistent_index_plan`.
+   ledger, and alias reuse. Filter-before-rank privacy and crash-safe
+   persistence are now covered; the next retrieval/index research-to-build unit
+   is now `turbovec_recall_quality_exact_baseline_plan`.
 8. `F-TurboVec-FilterBeforeRankPrivacyGate`:
    now built metadata-only; preserve Scope-Rex/SovereignGate allowlist
    compilation from UAS-derived external IDs before rank/search, one-allowed,
@@ -347,10 +349,23 @@ If a source/canon guard is needed before the next runtime step, use this order:
    rollback, RunEventLog, AnswerPacket, compatibility fence, zero
    search/index/model/runtime/provider bytes, no copied product files, no
    hidden route authority, no Eidos-as-live-router, no route mutation, no
-   MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM. The next
+   MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM. Crash-safe
+   persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`; the
+   next retrieval/index research-to-build unit is
+   `turbovec_recall_quality_exact_baseline_plan`.
+9. `F-TurboVec-CrashSafePersistentIndex`:
+   now built metadata-only; preserve the `.tvim` / manifest crash-safe
+   persistent-cache plan, AppColdStore truth, source-card refs,
+   content-addressed paths, temp writes, fsync/atomic rename, previous-manifest
+   retention, manifest digest, magic/version checks, corrupt-cache rebuild,
+   partial-write rollback, stale-pointer rejection, permission-denied promotion
+   refusal, rollback, RunEventLog, AnswerPacket, compatibility fence, zero
+   opened/written/loaded index/model/runtime/provider bytes, no copied product
+   files, no hidden route authority, no Eidos-as-live-router, no route mutation,
+   no MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM. The next
    retrieval/index research-to-build unit is
-   `turbovec_crash_safe_persistent_index_plan`.
-9. `F-GemmaQAT-LocalRuntimeCandidateCard`:
+   `turbovec_recall_quality_exact_baseline_plan`.
+10. `F-GemmaQAT-LocalRuntimeCandidateCard`:
    now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
    GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B
    small-harness status, 12B Pro Gated target status, 31B vault-only status,
