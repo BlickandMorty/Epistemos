@@ -32,8 +32,10 @@ PASS as a metadata-only T1/L1 primary witness.
 - Red fixtures rejected: 54.
 - Former next research-to-build unit landed:
   `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`.
+- Former next research-to-build unit, now landed:
+  `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`.
 - Current next research-to-build unit:
-  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+  `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
 - Intermediate next research-to-build unit, now landed as
   `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`:
   `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.

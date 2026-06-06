@@ -301,6 +301,18 @@ If a source/canon guard is needed before the next runtime step, use this order:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
 3a. Current retrieval/index truth:
+   `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is now built
+   metadata/source-scan only; preserve its 7 audited rows, 171 scanned files,
+   978369 scanned product bytes, 88997 scanned manifest bytes, 1621885 scanned
+   architecture/canon metadata bytes, 1852 quarantined architecture/canon
+   TurboVec mentions, 0 forbidden TurboVec product mentions, 0 product imports,
+   0 product dependencies, 0 native-link mentions, 0 route-policy mentions, 0
+   model-context mentions, 0 user-facing green-copy mentions, 50 rejected red
+   fixtures, rollback, RunEventLog, AnswerPacket, compatibility fence, no
+   hidden route authority, no live dense 70B, and no L2/L3 promotion. The next
+   retrieval/index research-to-build unit is
+   `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
+3b. Historical retrieval/index truth:
    `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is now built
    metadata-only; preserve its 7 replay cases, 1 shadow win, 5 fallback/
    abstention cases, max recall delta `800000` micros, planned replay bytes
@@ -309,8 +321,8 @@ If a source/canon guard is needed before the next runtime step, use this order:
    filtering, deterministic seeds, cancellation, latency/memory abstention,
    rollback, RunEventLog, AnswerPacket, compatibility fence, no product graph
    mutation, no route/context/hidden authority, no live dense 70B, and no L2/L3
-   promotion. The next retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+   promotion. Its former next unit has now landed in
+   `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`.
    Older TurboVec rows in this prompt remain historical context and must not
    move the cursor backwards.
 4. `F-ProprietaryCompression-ProvenanceGate`:

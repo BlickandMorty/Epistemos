@@ -33,8 +33,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Former next research-to-build unit, now landed as
   `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`:
   `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
-- Current next research-to-build unit:
+- Former next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`:
   `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
 
 ## What This Proves
 

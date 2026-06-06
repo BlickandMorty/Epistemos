@@ -24,8 +24,11 @@ PASS as a metadata-only T1/L1 primary witness.
   `turbovec_real_adapter_exact_baseline_shadow_replay_probe:d1893440b69409bb082fed1b9920a2e693a0e17db2559ccd188d07df90f57356@1779040906000`
 - Pinned upstream revision:
   `efe29a184986cbf562a9847c2ac52a2990bfaca2`
+- Former next research-to-build unit:
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`,
+  now landed by `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`.
 - Current next research-to-build unit:
-  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+  `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
 
 ## What This Proves
 
@@ -53,6 +56,7 @@ capability green.
 ## Architecture Consequence
 
 TurboVec-derived compressed retrieval is still proposal-only evidence for
-Eidos/AppColdStore and the Semantic Working-Set Compiler. The next safe unit is
-a product-graph no-contamination witness before any adapter build, native-link,
-runtime, or context-selection route can promote.
+Eidos/AppColdStore and the Semantic Working-Set Compiler. Product-graph
+no-contamination has now landed; the next safe unit is native-link absence
+preflight before any adapter build, runtime, or context-selection route can
+promote.

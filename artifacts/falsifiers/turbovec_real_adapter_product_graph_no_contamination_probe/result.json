@@ -1,0 +1,320 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterProductGraphNoContaminationProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_product_graph_no_contamination_probe.sh",
+  "command_digest": "sha256:3208d003a075077f89f9d9c7ef83cc349cdb7f87f83972d37da13c0076f6c2ae",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "96dea67a38a54d0ea059fb179e080422cafe73d3",
+  "fixture_id": "turbovec_real_adapter_product_graph_no_contamination_probe_v1",
+  "timestamp_utc": "2026-06-06T19:00:56Z",
+  "result_digest": "sha256:6a8fe5e7f10a778f6f10fffc8943294e783d7f1bf62188ee1dfebd9bbc02a17e",
+  "measurements": {
+    "allowed_architecture_mentions": {
+      "value": 1916,
+      "unit": "count"
+    },
+    "architecture_mentions_quarantined": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_scope_no_runtime_or_product_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_turbovec_mentions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "model_context_mentions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_native_link_absence_preflight_probe",
+      "unit": "cursor"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_mentions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "product_graph_no_contamination_address": {
+      "value": "turbovec_real_adapter_product_graph_no_contamination_probe:e5ddd7e7308c1b32b35c862f59ed84c4a520d3d8c64ee2b1636f9f57f8a47fa0@1779040907000",
+      "unit": "uas_address"
+    },
+    "product_import_dependency_absence": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_import_mentions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "product_surface_scan_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 50,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_context_copy_absence": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mentions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "row_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "scanned_architecture_metadata_bytes": {
+      "value": 1634929,
+      "unit": "bytes"
+    },
+    "scanned_file_count": {
+      "value": 171,
+      "unit": "count"
+    },
+    "scanned_manifest_bytes": {
+      "value": 88997,
+      "unit": "bytes"
+    },
+    "scanned_product_bytes": {
+      "value": 978369,
+      "unit": "bytes"
+    },
+    "upstream_shadow_replay_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_green_copy_mentions": {
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "acceptance_thresholds": {
+    "allowed_architecture_mentions": {
+      "operator": ">=",
+      "value": 8,
+      "unit": "count"
+    },
+    "architecture_mentions_quarantined": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_scope_no_runtime_or_product_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_turbovec_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "model_context_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "next_research_to_build_unit": {
+      "operator": "starts_with_or_equals",
+      "value": "turbovec_quarantine_real_adapter_native_link_absence_preflight_probe",
+      "unit": "cursor"
+    },
+    "pinned_revision": {
+      "operator": "starts_with_or_equals",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "product_graph_no_contamination_address": {
+      "operator": "starts_with_or_equals",
+      "value": "turbovec_real_adapter_product_graph_no_contamination_probe:",
+      "unit": "uas_address"
+    },
+    "product_import_dependency_absence": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_import_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "product_surface_scan_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 42,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_context_copy_absence": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_policy_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "row_count": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "count"
+    },
+    "scanned_architecture_metadata_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "scanned_file_count": {
+      "operator": ">=",
+      "value": 12,
+      "unit": "count"
+    },
+    "scanned_manifest_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "scanned_product_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "upstream_shadow_replay_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_green_copy_mentions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "pass_per_axis": {
+    "allowed_architecture_mentions": true,
+    "architecture_mentions_quarantined": true,
+    "byte_scope_no_runtime_or_product_mutation": true,
+    "forbidden_turbovec_mentions": true,
+    "model_context_mentions": true,
+    "next_research_to_build_unit": true,
+    "pinned_revision": true,
+    "policy_fail_closed": true,
+    "product_and_large_model_claims_rejected": true,
+    "product_dependency_mentions": true,
+    "product_graph_no_contamination_address": true,
+    "product_import_dependency_absence": true,
+    "product_import_mentions": true,
+    "product_surface_scan_coverage": true,
+    "proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "route_context_copy_absence": true,
+    "route_policy_mentions": true,
+    "row_count": true,
+    "scanned_architecture_metadata_bytes": true,
+    "scanned_file_count": true,
+    "scanned_manifest_bytes": true,
+    "scanned_product_bytes": true,
+    "upstream_shadow_replay_bound": true,
+    "user_facing_green_copy_mentions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_source_scan_no_contamination_scope",
+      "detail": "Product graph no-contamination source scan only. No TurboVec source import, dependency insertion, native-link probe, adapter build, benchmark run, exact-baseline/index/model/runtime/provider bytes, route mutation, context injection, hidden authority, or live large-local-model product claim."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterProductGraphNoContaminationProbe as a T1/L1 metadata/source-scan witness after exact-baseline shadow replay. It proves selected product/runtime/copy surfaces have no TurboVec contamination while architecture and canon mentions remain quarantined and AnswerPacket-visible."
+}

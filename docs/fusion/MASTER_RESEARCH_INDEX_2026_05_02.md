@@ -52,7 +52,9 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-RealAdapterSourceByteManifestProbe` ->
 > `F-TurboVec-RealAdapterSourceInspectionPolicyProbe` ->
 > `F-TurboVec-RealAdapterMotifExtractionCardProbe` ->
-> `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`. Current model-ladder built truth:
+> `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` ->
+> `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` ->
+> `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -63,19 +65,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Research/Vault until residency, routing, transport, memory, rollback,
 > RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
 > truth extends through
-> `artifacts/falsifiers/turbovec_real_adapter_clean_room_adapter_plan_probe/result.json`,
-> which passes T1/L1 metadata with the pinned TurboVec revision
-> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 10 clean-room adapter-plan
-> steps, 10 components, 11 motif links, upstream motif source bytes cited
-> `184472`, additional raw-source bytes inspected `0`, 52 red-fixture
-> rejections, UAS external-ID map, filter-before-rank pipeline, buffer-backed
-> I/O boundary, versioned rebuild fence, exact-baseline shadow replay,
-> privacy/latency abstention, cancellation/rollback lease, AnswerPacket caveat,
-> no-native-link default, large-local-model working-set compiler, no product
-> import, no native-link build, no benchmark authority, zero product/index/
-> model/runtime/provider bytes, no route authority, and no L2/L3 product
-> capability. The next retrieval/index research-to-build unit is
-> `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+> `artifacts/falsifiers/turbovec_real_adapter_product_graph_no_contamination_probe/result.json`,
+> which passes T1/L1 metadata/source-scan with the pinned TurboVec revision
+> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 7 audited rows, 171 scanned
+> files, 978369 scanned product bytes, 88997 scanned manifest bytes, 1634929
+> scanned architecture/canon metadata bytes, 1916 quarantined architecture/
+> canon TurboVec mentions, 0 forbidden TurboVec product mentions, 0 product
+> imports, 0 product dependencies, 0 native-link mentions, 0 route-policy
+> mentions, 0 model-context mentions, 0 user-facing green-copy mentions, 50
+> red-fixture rejections, no product graph mutation, no hidden route authority,
+> no live dense 70B claim, and no L2/L3 product capability. The next
+> retrieval/index research-to-build unit is
+> `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`.
 
 ---
 
@@ -918,9 +919,27 @@ deterministic seeds, cancellation, latency/memory abstention, rollback,
 RunEventLog, AnswerPacket, compatibility fence, and no-product-graph proof
 surface. It does not inspect additional raw source, import source, build
 adapters, open exact-baseline/index bytes, run benchmarks, load model/runtime
-bytes, mutate product graphs, mutate routes, or promote L2/L3. It proves the
-next real TurboVec/fork step must pass product-graph no-contamination before
-any adapter build, native-link, runtime, or model-context route can promote.
+bytes, mutate product graphs, mutate routes, or promote L2/L3. Its former next
+real TurboVec/fork step, product-graph no-contamination, has now landed.
+
+`F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is now built as the
+metadata/source-scan product-graph no-contamination witness after exact-baseline
+shadow replay. Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_product_graph_no_contamination_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_product_graph_no_contamination_probe/`.
+The witness binds 7 audited rows, 171 scanned files, 978369 scanned product
+bytes, 88997 scanned manifest bytes, 1634929 scanned architecture/canon
+metadata bytes, 1916 quarantined architecture/canon TurboVec mentions, 0
+forbidden TurboVec product mentions, 0 product imports, 0 product dependencies,
+0 native-link mentions, 0 route-policy mentions, 0 model-context mentions, 0
+user-facing green-copy mentions, 50 rejected red fixtures, deterministic
+product-graph no-contamination address, rollback, RunEventLog, AnswerPacket,
+compatibility fence, no hidden route authority, no live dense 70B, and no L2/L3
+promotion. It proves the next real TurboVec/fork step must pass native-link
+absence preflight before any adapter build, runtime, or model-context route can
+promote.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -943,6 +962,7 @@ any adapter build, native-link, runtime, or model-context route can promote.
 `F-TurboVec-RealAdapterMotifExtractionCardProbe`,
 `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`,
 `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`,
+`F-TurboVec-RealAdapterProductGraphNoContaminationProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
