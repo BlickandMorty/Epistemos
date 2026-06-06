@@ -747,3 +747,176 @@ harness without duplicating trust logic?"
 - `https://github.com/ml-explore/mlx-lm`
 - `https://github.com/ggml-org/llama.cpp`
 - `https://github.com/tattn/LocalLLMClient`
+
+## 19. Pass 5 - Unified Source-Card Schema And Falsifier Fusion
+
+Observed on 2026-06-06 through local artifact schema, current UAS
+`SourceCard`, `F-SwiftLM-SourceIntake`,
+`F-AxiomAxiomatic-SourceDistinction`, source-to-residency no-poison fixtures,
+and the June 6 TurboVec/QAT intake. No product code, runtime bytes, model
+bytes, index bytes, or benchmark bytes were loaded.
+
+### 19.1 Answer To The Pass-Four Schema Question
+
+Yes: `F-ProprietaryCompression-ProvenanceGate` and
+`F-GemmaQAT-LocalRuntimeCandidateCard` should share one source-card schema.
+The base card should prove source identity, provenance, license or usage
+state, privacy, no-poison status, route affinity, import mode, authority
+boundary, rollback/log/packet visibility, compatibility fence, and zero
+runtime/model bytes. Specialized route cards should add overlays instead of
+duplicating trust logic.
+
+The existing Rust `SourceCard` in
+`agent_core/src/uas/semantic_working_set.rs` should stay the minimal intake
+spine for now. It already carries `source_id`, `source_type`, `locator`,
+`digest`, `credibility_rank`, `license_or_usage_note`, `privacy_class`,
+`no_poison_status`, and `route_affinities`, and `SourceSignalGraph::intake`
+rejects empty cards, duplicate IDs, blocked sources, missing route affinity,
+and invalid BLAKE3 digests. The next source-card falsifier should layer
+overlay structs beside this spine rather than bloating the primitive before
+implementation pressure proves the exact field set.
+
+### 19.2 Base Source-Card Contract
+
+The shared contract for compression/runtime research cards should include:
+
+- `source_id`: stable local identity, unique within the fixture.
+- `source_type` / `source_kind`: repo, fork, model card, paper/blog, local
+  package, benchmark, quarantine note, or license note.
+- `locator` / `source_url`: local path or external URL.
+- `digest`: content, commit, or source-card digest; local UAS cards currently
+  use BLAKE3, while external source-card overlays may record SHA-256/HF commit
+  hashes as additional provenance fields.
+- `credibility_rank`: nonzero, deterministic, and not a promotion score.
+- `license_or_usage_note`: SPDX/license state, redistribution constraints,
+  setup caveat, benchmark caveat, and copied-file count.
+- `privacy_class`: public, local-private, vault-private, or stronger local
+  class already accepted by the source-card primitive.
+- `no_poison_status`: clear or blocked; blocked sources may remain visible as
+  rejected evidence but cannot feed route priors.
+- `route_affinities`: Eidos, AppColdStore, RuntimeRouter, ColdStream, KV,
+  verifier, model-lane, or UI-surface candidates.
+- `import_mode`: `direct_import`, `adapter_wrap`, `quarantine_reference`,
+  `clean_room_rewrite`, or `research_only`.
+- `authority_level`: `source_prior_only` unless a later falsifier proves a
+  stronger role.
+- `product_build`: MAS or Pro; most compression/runtime research begins Pro.
+- `pro_status`: ResearchCandidate, Gated, VaultPreserved, Blocked, or Live only
+  after L2/L3 proof.
+- `runtime_bytes_loaded`, `model_bytes_loaded`, `index_bytes_loaded`, and
+  `provider_calls`: all zero for metadata-only source-card witnesses.
+- `rollback_ref`, `run_event_log_ref`, `answer_packet_ref`, and
+  `compatibility_fence`: present as references even when the witness is still
+  source-card metadata.
+
+### 19.3 Overlay Cards
+
+Use specialized overlays to keep the base card small and fail-closed.
+
+| Overlay | Applies to | Required fields |
+|---|---|---|
+| `ModelRuntimeOverlay` | Gemma QAT, GGUF, LiteRT-LM, MLX, Qwen, Granite | model ID, runtime lane, format, revision/hash, license, quant kind, context cap, tokenizer/tool-call evidence, loader support, cancellation support, expected file bytes, expected resident bytes, expected KV/workspace bytes, source-only proof stage |
+| `CompressedIndexOverlay` | TurboVec, usearch/HNSW, vector compression | dimensions, bit width, codebook/hash, external ID map, allowlist-before-rank policy, rebuild plan, exact source truth refs, no-hidden-route-authority flag |
+| `KVCacheOverlay` | TurboQuant KV, KIVI, MLX KV variants, asymmetric KV | cache type, K/V precision, group size, page size, rotating/quantized compatibility, NIAH/factual-recall fixture refs, eviction ledger, rollback |
+| `RepoImportOverlay` | GitHub originals/forks and no-license sources | repo URL, commit, license SPDX/state, dependency closure, import mode, quarantine path, copied-file count, clean-room note, build-graph exclusion |
+| `BenchmarkOverlay` | upstream evals, issue repros, local fixture oracles | benchmark name, fixture hash, hardware context, sample count, metric definition, why it is not product proof, failure modes captured |
+
+### 19.4 Rejection Matrix
+
+The shared gate should reject:
+
+- duplicate `source_id` or duplicate source URL inside a fixture;
+- missing locator, digest, license/usage note, route affinity, import mode,
+  rollback, RunEventLog, AnswerPacket, or compatibility fence;
+- invalid digest, unknown source class, unknown motif class, or source/motif
+  class collapse;
+- raw code import, MAS/Live promotion, hidden route mutation, hidden source
+  authority, hidden chain exposure, cloud/provider dependency, or nonzero
+  runtime/model/index bytes in a metadata witness;
+- unknown-license direct import, dependency-closure omission, quarantine source
+  inside a MAS/Pro build graph, or copied-file count above zero for
+  clean-room/research-only modes;
+- benchmark-only claims that lack fixtures, sample counts, hardware context,
+  and a statement that the benchmark is not product proof;
+- unsafe KV combinations, including rotating plus quantized KV where the local
+  Swift evidence says the combination is not implemented safely;
+- Gemma/QAT/MLX/GGUF/LiteRT model-card claims without loader support,
+  cancellation, byte preflight, rollback, RunEventLog, AnswerPacket, and L2/L3
+  user-visible evidence;
+- stale overclaim phrases such as live dense 70B, SSD-as-RAM, hidden fallback,
+  no-search magic, hidden PatternBoost authority, or route-green from research.
+
+### 19.5 Falsifier Fusion
+
+`F-ProprietaryCompression-ProvenanceGate` should become the shared source-card
+admission gate for compression, runtime, model-card, fork, and quarantine
+motifs. It remains metadata-only unless explicitly upgraded by a later runtime
+probe. It should consume the base source-card contract plus the overlays above.
+
+Candidate downstream gates:
+
+- `F-GemmaQAT-LocalRuntimeCandidateCard`: fixture pack using
+  `ModelRuntimeOverlay` for Gemma 4 E2B/E4B/12B QAT GGUF, LiteRT-LM, and MLX
+  cards. It proves provenance and route-card completeness, not runtime
+  usability.
+- `F-TurboVec-Eidos-CompressedIndex-Plan`: uses
+  `CompressedIndexOverlay` to prove compressed retrieval is rebuildable cache
+  material, never durable truth or hidden route authority.
+- `F-KVByteBudgetCard-AsymmetricQuant`: uses `KVCacheOverlay` to prove KV
+  compression candidates include byte budgets, incompatibility rejection,
+  eviction ledger, and rollback before any owner-approved runtime.
+- `F-GGUF-RouteCard-MemoryPreflight`: uses `ModelRuntimeOverlay` plus
+  `RepoImportOverlay` for llama.cpp/GGUF route candidates under Pro Gated
+  evidence.
+- `F-QuarantineReference-CleanRoomFixtureOracle`: uses `RepoImportOverlay` and
+  `BenchmarkOverlay` to turn no-license/GPL/unclear sources into specs, tests,
+  and behavior oracles without product-code contamination.
+
+### 19.6 Architecture Fusion
+
+The unified source-card schema gives Epistemos one provenance language for the
+large-local-model path:
+
+```text
+external/local source -> SourceCard -> overlay card -> SourceSignalGraph
+  -> SemanticWorkingSetPlan / Eidos prior / RuntimeRouter candidate
+  -> SCOPE-Rex or SovereignGate abstention
+  -> RunEventLog + AnswerPacket evidence
+```
+
+This preserves the ambition without turning research into runtime claims.
+TurboVec enters as compressed Eidos/AppColdStore cache evidence. Gemma QAT,
+GGUF, LiteRT-LM, MLX, Qwen, and Granite enter as model/runtime source-card
+candidates. TurboQuant/KIVI/asymmetric KV enter as byte-budget and KV-overlay
+research. Forks and risky repos enter as quarantine references or clean-room
+fixture oracles. None become route authority until later falsifiers prove L2
+capability and L3 WRV surfaces.
+
+### 19.7 Pass-Five Register
+
+Best breakthrough candidate: a unified provenance/source-card gate that lets
+Epistemos aggressively mine every useful compression/runtime/model/fork source
+while keeping product code, route authority, and MAS/Pro claims fail-closed.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate`, implemented
+as a metadata-only source-card plus overlay validator with negative fixtures
+for duplicate URLs, missing license, unknown import mode, raw code import,
+unsafe KV combinations, nonzero runtime bytes, hidden authority, and MAS/Live
+promotion.
+
+Best near-term code unit: after the guard-owned L3 release-audit automated
+checks cursor, add Rust source-card overlay structs or fixture-only gate logic
+that reuses `SourceCard` rather than inventing a parallel authority.
+
+Biggest false-claim risk: saying a model card, GitHub repo, fork, QAT label,
+or benchmark means Epistemos can run the route live. This pass is T0 research
+canon only.
+
+Biggest missing source: same-fixture Epistemos route-card artifacts for Gemma
+4 E2B/E4B/12B under GGUF, LiteRT-LM, and MLX Swift/adapter lanes with measured
+file/resident/KV/workspace bytes, cancellation, structured-output behavior,
+rollback, RunEventLog, and AnswerPacket evidence.
+
+Next research query: "Which concrete negative fixtures should
+`F-ProprietaryCompression-ProvenanceGate` include first so it catches the most
+dangerous source-card mistakes before any model/runtime probe is allowed?"

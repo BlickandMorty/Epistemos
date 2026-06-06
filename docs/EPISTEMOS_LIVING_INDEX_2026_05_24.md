@@ -407,7 +407,12 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   and Granite, plus local Swift wired-memory/KV/tool-call evidence. The
   updated ladder keeps Granite/Qwen small lanes first, Gemma 4 E2B/E4B next,
   Gemma 4 12B QAT as the main Pro Gated target, Qwen3-Coder 30B as a Pro
-  coding comparator, and 26B/31B/TurboQuant KV as Vault/Pro Research. This is
+  coding comparator, and 26B/31B/TurboQuant KV as Vault/Pro Research. Pass five
+  answers the source-card schema question: the provenance gate and
+  `F-GemmaQAT-LocalRuntimeCandidateCard` should share one source-card spine,
+  using the current Rust `SourceCard` as minimal intake and
+  specialized overlays for model runtime cards, compressed indexes, KV/cache
+  byte budgets, repo import/quarantine cards, and benchmarks. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
