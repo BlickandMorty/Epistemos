@@ -229,11 +229,11 @@ future work:
 - The 70B-class route remains cold assembly, routing, residency, transport,
   verifier, and harness work, not full dense checkpoint-in-RAM.
 
-`F-ProprietaryCompression-ProvenanceGate` is mandatory before public-repo logic
-enters product code. Do not passively discard useful no-license or risky repos.
-Clone/run/inspect/benchmark in quarantine, extract API shapes, parser behavior,
-cache logic, memory assumptions, tests, benchmark harnesses, and failure cases,
-then choose:
+`F-ProprietaryCompression-ProvenanceGate` now passes as a metadata-only T1/L1
+witness, and remains mandatory before public-repo logic enters product code.
+Do not passively discard useful no-license or risky repos. Clone/run/inspect/
+benchmark in quarantine, extract API shapes, parser behavior, cache logic,
+memory assumptions, tests, benchmark harnesses, and failure cases, then choose:
 
 ```text
 direct_import
@@ -301,17 +301,23 @@ If a source/canon guard is needed before the next runtime step, use this order:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
 4. `F-ProprietaryCompression-ProvenanceGate`:
-   metadata-only first; source URL, digest, license/provenance, quarantine
-   status, extracted behavior/tests/failure cases, import mode, allowed action,
-   clean-room notes, no product import.
-5. `F-TurboVec-Eidos-CompressedIndex-Plan`:
+   now built metadata-only; preserve its source URL, digest,
+   license/provenance, quarantine status, extracted behavior/tests/failure
+   cases, import mode, allowed action, clean-room notes, no product import, and
+   no L2/L3 promotion boundary.
+5. `F-CompressedModelSourceCard-Intake`:
+   next research-to-build unit; prove model/index/codec/runtime source-card
+   completeness, expected lanes, license/provenance digest, import mode,
+   byte-zero scope, rollback, RunEventLog, AnswerPacket, and explicit
+   non-loadability/non-quality caveats.
+6. `F-TurboVec-Eidos-CompressedIndex-Plan`:
    prove placement in Eidos/AppColdStore compressed retrieval, not durable truth
    and not live route authority.
-6. `F-GemmaQAT-LocalRuntimeCandidateCard` or
+7. `F-GemmaQAT-LocalRuntimeCandidateCard` or
    `F-QAT-ModelRouteCard-MemoryPreflight`:
    metadata-only first; record model IDs, formats, licenses, sizes, context,
    runtime candidates, MAS/Pro status, no model bytes loaded.
-7. UAS meaningful-object envelope:
+8. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.
 8. RuntimeRouter/System G route contract:

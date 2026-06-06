@@ -92,6 +92,7 @@ Recommended first units, in order:
 1. `F-ProprietaryCompression-ProvenanceGate`
    - Proves every TurboVec/QAT/KV/lattice source has URL, license, dependency status, source digest, quarantine status, import mode, allowed action, extracted behaviors/tests/benchmarks/failure cases, and clean-room note where needed.
    - Does not authorize product import or runtime use unless the import mode and downstream witness explicitly allow it.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/proprietary_compression_provenance_gate/result.json`. It accepts 10 source overlays and rejects 39 red fixtures while loading zero model/index/runtime bytes, making zero provider calls, copying zero product files, and preserving the no-L2/L3-promotion boundary.
 
 2. `F-CompressedModelSourceCard-Intake`
    - Proves source URL, license, model/index kind, claimed format, expected runtime lanes, and provenance digest are recorded.

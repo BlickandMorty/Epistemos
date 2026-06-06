@@ -48,6 +48,7 @@ pub mod model_inventory_candidate;
 pub mod pattern_boost;
 pub mod product_route_review;
 pub mod proof_carrying_residency_lease;
+pub mod proprietary_compression_provenance_gate;
 pub mod provider_reference;
 pub mod provider_route_copy_source_guard;
 pub mod reasoning_state_continuity;
@@ -169,6 +170,16 @@ pub use provider_route_copy_source_guard::{
     ProviderRouteCopyClaim, ProviderRouteCopySourceError, ProviderRouteCopySourceGuard,
     ProviderRouteCopySourceMetrics, ProviderRouteCopySurface, ProviderRouteSourceKind,
     PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR, PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR,
+};
+pub use proprietary_compression_provenance_gate::{
+    ProprietaryCompressionAllowedAction, ProprietaryCompressionBehaviorKind,
+    ProprietaryCompressionByteScope, ProprietaryCompressionExtractedBehavior,
+    ProprietaryCompressionImportMode, ProprietaryCompressionLicenseClass,
+    ProprietaryCompressionProofRefs, ProprietaryCompressionProvenanceError,
+    ProprietaryCompressionProvenanceGate, ProprietaryCompressionProvenanceMetrics,
+    ProprietaryCompressionSourceKind, ProprietaryCompressionSourceOverlay,
+    PROPRIETARY_COMPRESSION_PROVENANCE_GATE_CURSOR,
+    PROPRIETARY_COMPRESSION_PROVENANCE_GATE_NEXT_CURSOR,
 };
 pub use reasoning_state_continuity::{
     PreservedStateKind, ReasoningStateBaseline, ReasoningStateContinuityCard,

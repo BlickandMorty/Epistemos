@@ -283,6 +283,10 @@ name = "falsify_provider_route_copy_source_guard"
 path = "src/bin/falsify_provider_route_copy_source_guard.rs"
 
 [[bin]]
+name = "falsify_proprietary_compression_provenance_gate"
+path = "src/bin/falsify_proprietary_compression_provenance_gate.rs"
+
+[[bin]]
 name = "falsify_transport_trace_answer_packet"
 path = "src/bin/falsify_transport_trace_answer_packet.rs"
 

@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="7faa139ce04cf0ab7cc37ca3a4be9b844b5fd221">
+  <meta name="epistemos-commit-sha" content="c7e9bf76b1b58ca4b3c1a302133114b440304682">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -502,7 +502,9 @@
   and not passive license-blocking: risky repos can be cloned, run, inspected, benchmarked,
   and mined in quarantine for API shapes, parser behavior, cache logic, memory assumptions,
   tests, and failure cases before compatible import, adapter wrapping, or clean-room
-  Epistemos-owned rewrite.
+  Epistemos-owned rewrite. That gate now passes as a metadata-only T1/L1 witness with
+  10 accepted source overlays, 39 rejected red fixtures, zero model/index/runtime bytes,
+  zero provider calls, zero copied product files, and no MAS/L2/L3 promotion.
   This does not promote live dense 70B, live sparse 70B, or product capability.
 </div>
 
@@ -517,8 +519,9 @@
   useful motifs into Epistemos organs with tiers and falsifiers. Its current
   best candidate is a source-carded compression/runtime portfolio feeding
   <code>SemanticWorkingSetPlan</code> and <code>RuntimeRouter/System G</code>;
-  safest next source-card gate is
-  <code>F-ProprietaryCompression-ProvenanceGate</code>. Pass two adds current
+  the first source-card gate now built is
+  <code>F-ProprietaryCompression-ProvenanceGate</code>, and the next research-to-build
+  source-card unit is <code>F-CompressedModelSourceCard-Intake</code>. Pass two adds current
   GitHub/Hugging Face/local Swift source-card snapshots and import-mode
   classifications for the first compression/runtime portfolio. Pass three
   adds implementation motifs and fork triage: TurboVec external IDs plus
@@ -562,10 +565,7 @@
   counters, build-boundary status, and overclaim rejection. The gate must
   reject orphan overlays, duplicate overlays, duplicate locators, hidden route
   authority, nonzero bytes, build graph contamination, fallback-as-default, and
-  primary source-priors treated as runtime choices. This is
-  T0
-  research only and does not promote product capability, live dense 70B, live
-  sparse 70B, or release readiness. Pass ten adds the zero-byte model
+  primary source-priors treated as runtime choices. Pass ten adds the zero-byte model
   inventory feeder: local catalog descriptors, install records, app manifest
   metadata, Hugging Face-style snapshot revision paths, capped sidecar JSON,
   package locks, and existing falsifier refs may feed candidate cards, while
@@ -593,7 +593,16 @@
   It accepts 12 source-bound fixtures and rejects 32 red fixtures while keeping
   model/index/runtime bytes and provider calls at zero. This is T1/L1 metadata
   architecture only: L2 capability, L3 user-facing runtime, live large-model
-  capability, and release readiness remain unchanged.
+  capability, and release readiness remain unchanged. Pass fourteen implements
+  <code>F-ProprietaryCompression-ProvenanceGate</code> with Rust primitive,
+  binary, script, witness doc, schema/handbook coverage, and artifact at
+  <code>artifacts/falsifiers/proprietary_compression_provenance_gate/result.json</code>.
+  It accepts repo/fork/paper/blog/model-card/runtime-package/local-canon/benchmark overlays,
+  covers all import modes and allowed actions, binds model-inventory candidates, and rejects
+  unsafe import, quarantine, clean-room, benchmark, dependency, byte-load, hidden-authority,
+  hidden-cloud, live-70B, SSD-as-RAM, MAS/green, proof-ref, and budget failures. This is
+  T1/L1 provenance architecture only; the next research-to-build unit is
+  <code>F-CompressedModelSourceCard-Intake</code>.
 </div>
 
 <div class="canon-hook">
@@ -1164,6 +1173,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
   <tbody>
     <tr><td>SourceSignalGraph</td><td>Bookmark, repo, paper, X, local-doc, and trace sources with digest, credibility, license note, and route affinities.</td><td>F-SourceSignalGraph-Intake</td></tr>
     <tr><td>ModelInventoryCandidateCard</td><td>Local model, package, cache, sidecar, and runtime-preference evidence bound to accepted SourceCard digests, zero-byte scopes, rollback, RunEventLog, AnswerPacket, MAS/Pro, and no-promotion fences.</td><td>F-ModelInventory-ZeroByteCandidateCards</td></tr>
+    <tr><td>ProprietaryCompressionProvenanceGate</td><td>TurboVec/QAT/runtime/fork/local-canon sources classified into direct-import, adapter-wrap, quarantine-reference, clean-room, or research-only overlays before copied code, route authority, runtime bytes, or product claims are allowed.</td><td>F-ProprietaryCompression-ProvenanceGate</td></tr>
     <tr><td>TaskWorkingSetQuery</td><td>Mission-shaped privacy, quality, evidence, verifier, max-hot, max-KV, and max-cold-I/O budgets.</td><td>F-TaskWorkingSetQuery-Determinism</td></tr>
     <tr><td>SemanticWorkingSetPlan</td><td>Selected evidence, KV, adapters, weight pages, kernels, verifiers, rejected units, byte budgets, fallback, and rollback.</td><td>F-SemanticWorkingSetPlan-Budget</td></tr>
     <tr><td>ResidencyPageTable</td><td>Semantic unit to UAS address, storage tier, byte range, codec, checksum, compatibility fence, lease, and prefetch priority.</td><td>F-ResidencyPageTable-Addressability</td></tr>

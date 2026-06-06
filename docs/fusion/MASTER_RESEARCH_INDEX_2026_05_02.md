@@ -400,12 +400,30 @@ AnswerPacket refs. This is the first buildable bridge from June 6 research
 into the architecture; the next research-to-build unit is
 `F-ProprietaryCompression-ProvenanceGate`.
 
-**Status discipline.** `F-ModelInventory-ZeroByteCandidateCards` is T1/L1
-metadata architecture only. It does not promote live dense 70B, live sparse
-70B, product capability, release readiness, hidden runtime authority, or any
-runtime lane. The next research-derived falsifier is
-`F-ProprietaryCompression-ProvenanceGate`; the current guard-owned coding
-cursor remains
+**Pass-fourteen implementation.** `F-ProprietaryCompression-ProvenanceGate`
+is now built as a T1/L1 metadata architecture witness. Implemented anchors:
+`agent_core/src/uas/proprietary_compression_provenance_gate.rs`,
+`agent_core/src/bin/falsify_proprietary_compression_provenance_gate.rs`,
+`Tools/falsifiers/f_proprietary_compression_provenance_gate.sh`,
+`docs/falsifiers/F-ProprietaryCompression-ProvenanceGate_2026_06_06.md`, and
+`artifacts/falsifiers/proprietary_compression_provenance_gate/result.json`.
+The witness accepts 10 source overlays spanning TurboVec/QAT/runtime/fork/
+model-card/benchmark/local-canon research and rejects 39 red fixtures for
+no-license, unclear-license, or copyleft direct import; unsafe adapter wrap;
+missing quarantine, clean-room, attribution, local-test, proof-ref, source
+digest, or model-inventory evidence; benchmark laundering; unknown transitive
+dependencies; copied product files; nonzero model/index/runtime/provider bytes;
+hidden route authority; hidden cloud fallback; MAS/Live and product-green
+promotion; live dense 70B; SSD-as-RAM; metadata/quarantine budget overflow; and
+missing L1/L2/L3 separation. The next research-to-build unit is
+`F-CompressedModelSourceCard-Intake`.
+
+**Status discipline.** `F-ModelInventory-ZeroByteCandidateCards` and
+`F-ProprietaryCompression-ProvenanceGate` are T1/L1 metadata architecture only.
+They do not promote live dense 70B, live sparse 70B, product capability,
+release readiness, hidden runtime authority, source-code import, compressed
+index integration, or any runtime lane. The current guard-owned coding cursor
+remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 
 **Agent rule.** Any future deep-research session should cite this synthesis and
