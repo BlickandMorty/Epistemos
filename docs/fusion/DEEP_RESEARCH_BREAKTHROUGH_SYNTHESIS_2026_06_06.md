@@ -621,3 +621,129 @@ Next research query: "Which exact source-card schema fields should become Rust
 fixtures first so the provenance gate can reject noisy forks, hidden route
 authority, missing dependency closure, and unmeasured memory claims before any
 compression/runtime code enters Epistemos?"
+
+## 18. Pass 4 - Runtime Ladder Source-Card And Harness Boundary Sweep
+
+Observed on 2026-06-06 through Hugging Face model APIs, GitHub repository
+metadata, official Google/GitHub source pages, and local Swift package docs.
+No model files, indexes, runtime binaries, or benchmark payloads were
+downloaded or opened. This pass answers: which runtime/model lane should become
+the next source-card target, and what must remain unclaimed until the small
+runtime harness and release-audit gates pass?
+
+### 18.1 Current Source-Card Snapshot
+
+| Source card | Current source signal | Epistemos interpretation |
+|---|---|---|
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | HF API: Apache-2.0 tags, GGUF, sha `f6e7774e...`, modified 2026-06-05, 0 downloads / 30 likes at observation | Main Pro Gated GGUF source card. Brand-new availability, not runtime proof. |
+| `litert-community/gemma-4-12B-it-litert-lm` | HF API: Apache-2.0 tags, `litert-lm`, sha `44cf85a3...`, modified 2026-06-03, 10312 downloads / 15 likes | Serious LiteRT-LM source card; needs app bridge, cancellation, memory, and AnswerPacket proof. |
+| `litert-community/gemma-4-E2B-it-litert-lm` | HF API: Apache-2.0 tags, multiple `.litertlm` variants, modified 2026-06-05, 1234971 downloads / 240 likes | Strong small-model safe-floor candidate, but MAS/product truth still needs package, memory, and surface proof. |
+| `litert-community/gemma-4-E4B-it-litert-lm` | HF API: Apache-2.0 tags, modified 2026-06-01, 608336 downloads / 126 likes | Strong small/medium Pro candidate; useful before 12B runtime. |
+| `mlx-community/gemma-4-12B-it-qat-4bit` | HF API: MLX/safetensors tags, `gemma4_unified`, sha `e70c6b3...`, modified 2026-06-05, 0 downloads / 1 like | MLX ecosystem source only. Epistemos Swift loader proof remains required. |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | HF API: Apache-2.0 tags, MLX Qwen3 MoE, 7025 downloads / 24 likes | Pro coding/tool comparator after harness; not a default route. |
+| `mlx-community/granite-4.0-h-micro-4bit` | HF API: Apache-2.0 tags, Granite MoE hybrid, 610 downloads / 1 like | Low-risk baseline/fallback source card. |
+| `google-ai-edge/LiteRT-LM` | GitHub API: Apache-2.0, C++, active 2026-06-06, 5426 stars / 557 forks | Edge-runtime candidate lane; not yet an Epistemos Swift app route. |
+| `ml-explore/mlx-swift-lm` | GitHub API: MIT, Swift, active 2026-06-04, 542 stars / 250 forks | Existing Apple-lane source card; use local package docs as truth for support. |
+| `ml-explore/mlx-lm` | GitHub API: MIT, Python, active 2026-06-05, 5537 stars / 737 forks | MLX ecosystem evidence, not Swift product proof. |
+| `ggml-org/llama.cpp` | GitHub API: MIT, C++, active 2026-06-05, 114861 stars / 19224 forks | GGUF runtime lane and conversion/tooling source card under RuntimeRouter. |
+| `vllm-project/vllm` / `sgl-project/sglang` | GitHub API: Apache-2.0, very active, server-oriented | Pro Research motifs for serving/page/cache behavior; not a local app runtime lane. |
+
+### 18.2 Local Swift Runtime Reality, Rechecked
+
+Local package evidence strengthens the harness plan:
+
+- `LocalPackages/LocalLLMClient/README.md` is a Swift local-model client that
+  supports GGUF/llama.cpp, MLX models, FoundationModels, streaming,
+  multimodal, and tool calling, but it calls itself experimental and warns API
+  shape may change. Treat it as an adapter/source-card candidate, not a stable
+  product dependency.
+- `LocalPackages/mlx-swift-lm/skills/mlx-swift-lm/references/wired-memory.md`
+  already models weights, KV cache, and transient workspace as separate
+  budgets with active/reservation tickets. This maps directly to
+  `QATModelRouteCard` and `CompressedModelRouteCard`.
+- `LocalPackages/mlx-swift-lm/skills/mlx-swift-lm/references/kv-cache.md`
+  lists simple, rotating, quantized, chunked, and Mamba caches; it also records
+  that rotating-cache quantization is not implemented and would `fatalError`.
+  Any route card combining sliding windows and KV quantization must reject that
+  combination until a safe implementation exists.
+- `LocalPackages/mlx-swift-lm/skills/mlx-swift-lm/references/tool-calling.md`
+  lists model-specific tool-call formats, including JSON, XML function,
+  Gemma, GLM4, Kimi K2, and MiniMax. "Agentic" model selection must therefore
+  test parser fit and tool-call schema behavior, not only first-token speed.
+- `LocalPackages/mlx-swift-lm/Libraries/MLXLLM/LLMModelFactory.swift` includes
+  `gemma4` and `gemma4_text` mappings to `Gemma3nTextConfiguration`, while
+  `Epistemos/Engine/TriageService.swift` still excludes Gemma 4 from automatic
+  routing until an Epistemos-owned loader witness proves support. Keep that
+  exclusion until the witness changes the evidence.
+
+### 18.3 Recommended Model/Runtime Ladder After Pass Four
+
+| Step | Candidate | Why first | Required proof before promotion |
+|---|---|---|---|
+| 1 | Granite/Qwen small MLX or existing Qwen3-4B lane | Lowest disruption; current harness already has small-model evidence | Guard-owned release-audit automated checks, logs, cancellation, AnswerPacket, L2/L3 red-list closure |
+| 2 | Gemma 4 E2B/E4B LiteRT-LM or GGUF source card | Smaller Gemma 4 local lane; strong LiteRT community card signal | `F-GemmaQAT-LocalRuntimeCandidateCard`, memory preflight, package-size policy, structured-output/tool-call proof |
+| 3 | Gemma 4 12B QAT GGUF or LiteRT-LM | Main Pro Gated Mac target; balanced ambition vs crash risk | route card, file/resident/KV/workspace budgets, owner-approved runtime lease, one-token proof, AnswerPacket, release-audit evidence |
+| 4 | Qwen3-Coder-30B-A3B MLX | Best coding/tool comparator for Pro research work | tool-call parser fit, code/research eval, memory lease, no MAS overclaim |
+| 5 | Gemma 4 26B/31B, Qwen/GLM large MoE, TurboQuant KV | Vault/Pro Research large-local path | cold assembly, transport, sparse/KV page plans, owner-approved probes, rollback, no dense-live claim |
+
+### 18.4 Source-Card Fields Added By Pass Four
+
+The provenance/source-card gate should now require:
+
+- `source_kind`: `model_card`, `runtime_repo`, `adapter_repo`,
+  `paper_or_blog`, `local_package`, `fork`, or `quarantine_note`.
+- `runtime_lane`: `mlx_swift`, `mlx_python`, `gguf_llama_cpp`, `litert_lm`,
+  `foundation_models`, `openai_compatible_local`, `server_research`, or
+  `custom_metal_research`.
+- `proof_stage`: `source_card_only`, `memory_preflight`, `dry_run_packet`,
+  `owner_approved_one_token`, `wrv_source`, `l2_capability`, `release_audit`.
+- `tool_call_format_evidence`: explicit parser/format or `not_supported`.
+- `kv_cache_policy`: simple, rotating, quantized, chunked, Mamba/SSM, or
+  `unknown`; route cards must reject known unsafe combinations such as rotating
+  plus quantized KV in the current MLX Swift docs.
+- `download_popularity_is_not_proof`: true for every HF/GitHub-derived card.
+
+### 18.5 Pass-Four Register
+
+Best breakthrough candidate: a runtime-ladder source-card gate that treats
+LiteRT-LM, GGUF/llama.cpp, MLX Swift, MLX Python, and Swift adapter repos as
+competing lanes under one Epistemos route contract.
+
+Safest next falsifier: still `F-ProprietaryCompression-ProvenanceGate`, but it
+should now include model/runtime lane fields and the local Swift unsafe-KV
+combination rejection.
+
+Best near-term code unit: after the guard-owned release-audit automated-check
+cursor, implement metadata-only `F-GemmaQAT-LocalRuntimeCandidateCard` or fold
+its source-card fixtures into the provenance gate.
+
+Biggest false-claim risk: treating LiteRT-LM download counts, MLX model cards,
+LocalLLMClient examples, or llama.cpp maturity as proof that Epistemos can
+ship that route in MAS/Pro today.
+
+Biggest missing source: same-fixture local route logs for Gemma 4 E2B/E4B/12B
+under GGUF, LiteRT-LM, and MLX Swift/adapter lanes with measured resident
+bytes, KV/workspace bytes, cancellation, structured output, rollback, and
+visible AnswerPacket evidence.
+
+Next research query: "Can `F-ProprietaryCompression-ProvenanceGate` and
+`F-GemmaQAT-LocalRuntimeCandidateCard` share one source-card schema so every
+model/runtime/fork candidate is classified once, then consumed by the runtime
+harness without duplicating trust logic?"
+
+### 18.6 Pass-Four Source URLs
+
+- `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`
+- `https://github.com/google-ai-edge/LiteRT-LM`
+- `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+- `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
+- `https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm`
+- `https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm`
+- `https://huggingface.co/mlx-community/gemma-4-12B-it-qat-4bit`
+- `https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit`
+- `https://huggingface.co/mlx-community/granite-4.0-h-micro-4bit`
+- `https://github.com/ml-explore/mlx-swift-lm`
+- `https://github.com/ml-explore/mlx-lm`
+- `https://github.com/ggml-org/llama.cpp`
+- `https://github.com/tattn/LocalLLMClient`
