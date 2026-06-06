@@ -401,7 +401,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   TurboQuant-plus quality/regression-suite requirements, `pyturboquant` and
   Rust `turbo-quant` fixture oracles, KTransformers/LMCache/llama.cpp/KIVI/
   LayerSkip/MLX Swift runtime motifs, fork triage, and fail-closed field
-  requirements for `F-ProprietaryCompression-ProvenanceGate`. This is
+  requirements for `F-ProprietaryCompression-ProvenanceGate`. Pass four adds
+  a runtime-ladder source-card sweep for Gemma 4 QAT GGUF/LiteRT/MLX cards,
+  LiteRT-LM, `mlx-swift-lm`, `mlx-lm`, llama.cpp, LocalLLMClient, Qwen3-Coder,
+  and Granite, plus local Swift wired-memory/KV/tool-call evidence. The
+  updated ladder keeps Granite/Qwen small lanes first, Gemma 4 E2B/E4B next,
+  Gemma 4 12B QAT as the main Pro Gated target, Qwen3-Coder 30B as a Pro
+  coding comparator, and 26B/31B/TurboQuant KV as Vault/Pro Research. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into

@@ -271,6 +271,15 @@ and MLX Swift examples remain source-card motifs until same-fixture Epistemos
 proof exists. Fork search is discovery-only and must fail closed on noisy,
 unknown-license, benchmark-only, or hidden-authority claims.
 
+**Pass-four runtime-ladder sweep.** The memo now maps current Gemma 4 QAT
+GGUF/LiteRT/MLX cards, LiteRT-LM, `mlx-swift-lm`, `mlx-lm`, llama.cpp,
+LocalLLMClient, Qwen3-Coder, and Granite into source-card route candidates.
+The local Swift evidence adds wired-memory tickets, KV-cache policy constraints,
+tool-call parser requirements, and the current Gemma 4 auto-route exclusion.
+This strengthens the ladder: small Granite/Qwen evidence first, Gemma 4
+E2B/E4B next, Gemma 4 12B as Pro Gated, Qwen3-Coder 30B as Pro coding
+comparator, and 26B/31B/TurboQuant KV as Vault/Pro Research.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
