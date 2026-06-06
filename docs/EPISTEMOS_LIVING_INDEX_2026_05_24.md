@@ -1046,7 +1046,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, has now
   landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`. The
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterMotifExtractionCardProbe`
@@ -1079,7 +1079,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, has now
   landed in `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`. The
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`
@@ -1109,8 +1109,45 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   does not inspect additional raw source, clone TurboVec, import source, add
   dependencies, build adapters, probe native links, run benchmarks, open index
   bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2,
-  or make L3 user-facing model capability green. The next retrieval unit is
-  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`; the
+  or make L3 user-facing model capability green. Its former next retrieval
+  unit, `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`,
+  has now landed in
+  `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`; the current
+  retrieval unit is
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`; the
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** ·
+  `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is now built as the
+  metadata-only exact-baseline shadow-replay gate after the clean-room
+  TurboVec adapter plan:
+  `agent_core/src/uas/turbovec_real_adapter_exact_baseline_shadow_replay_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_exact_baseline_shadow_replay_probe.rs`,
+  script
+  `Tools/falsifiers/f_turbovec_real_adapter_exact_baseline_shadow_replay_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterExactBaselineShadowReplayProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_exact_baseline_shadow_replay_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to 7 replay cases, 1 shadow win,
+  5 fallback/abstention cases, max recall delta `800000` micros, planned replay
+  bytes `96000`, upstream motif source bytes cited `184472`, additional
+  raw-source bytes inspected `0`, 54 rejected red fixtures, deterministic
+  exact-baseline shadow-replay address, AppColdStore exact-baseline refs, UAS
+  allowlist-before-rank filtering, deterministic seeds, cancellation,
+  latency/memory abstention, rollback, RunEventLog, AnswerPacket, compatibility
+  fence, and no-product-graph proof surface. This is T1/L1 metadata only. It
+  does not inspect additional raw source, clone TurboVec, import source, add
+  dependencies, build adapters, probe native links, run benchmarks, open exact
+  baseline/index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
+  routes, mutate product graphs, advance L2, or make L3 user-facing model
+  capability green. The next retrieval unit is
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

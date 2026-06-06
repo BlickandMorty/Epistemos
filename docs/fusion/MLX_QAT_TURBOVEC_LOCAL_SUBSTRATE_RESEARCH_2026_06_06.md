@@ -715,14 +715,25 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
     large-local-model working-set compiler, with zero product dependency,
     adapter build, benchmark authority, route mutation, index/model/runtime
     bytes, or L2/L3 promotion.
-21. Implement `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`
-    before claiming compressed retrieval quality, context-selection benefit,
-    model-route prior quality, or any larger-model working-set improvement.
-22. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
-23. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
-24. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
-25. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
-26. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
+21. `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is implemented;
+    preserve it as the metadata-only exact-baseline shadow-replay gate for 7
+    replay cases, 1 shadow win, 5 fallback/abstention cases, max recall delta
+    `800000` micros, planned replay bytes `96000`, upstream motif source bytes
+    cited `184472`, additional raw-source bytes inspected `0`, AppColdStore
+    exact-baseline refs, UAS allowlist-before-rank filtering, deterministic
+    seeds, cancellation, latency/memory abstention, rollback, RunEventLog,
+    AnswerPacket, compatibility fence, no product graph mutation, no route
+    mutation, no context injection, zero exact-baseline/index/model/runtime
+    bytes, and no L2/L3 promotion.
+22. Implement `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`
+    before adapter builds, native-link probes, runtime evidence, compressed
+    context-selection claims, or model-route priors can cite real-adapter
+    shadow replay.
+23. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
+24. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
+25. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
+26. Run Qwen3-Coder A3B, GLM-4.7-Flash, DeepSeek 14B, and Granite micro in a local route tournament.
+27. Keep 26B/31B/asymmetric KV/E8 lattice in Pro Research until L2 artifacts exist.
 
 ## Hard Do Not Do
 

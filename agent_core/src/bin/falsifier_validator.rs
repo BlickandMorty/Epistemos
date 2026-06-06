@@ -142,6 +142,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-TurboVec-RealAdapterSourceInspectionPolicyProbe",
     "F-TurboVec-RealAdapterMotifExtractionCardProbe",
     "F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe",
+    "F-TurboVec-RealAdapterExactBaselineShadowReplayProbe",
     "F-GemmaQAT-LocalRuntimeCandidateCard",
     "F-QAT-ModelRouteCard-MemoryPreflight",
     "F-CompressedRoute-AnswerPacket-DryRun",

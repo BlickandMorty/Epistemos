@@ -192,18 +192,18 @@ runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
 2026-06-06 current TurboVec retrieval/index clarification:
-`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is T1/L1 only. It strengthens
-the architecture in favor of larger local models by converting bounded
-TurboVec motif cards into a clean-room adapter plan for Eidos/AppColdStore and
-the Semantic Working-Set Compiler: UAS external-ID mapping,
-filter-before-rank privacy, buffer-backed I/O, versioned rebuild fences,
-exact-baseline shadow replay, privacy/latency abstention,
-cancellation/rollback leases, AnswerPacket caveats, no-native-link default,
-and large-local-model working-set compiler intake. It does not import source,
-add dependencies, build adapters, probe native links, run benchmarks, mutate
+`F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by converting the
+clean-room adapter plan into exact-baseline shadow replay for
+Eidos/AppColdStore and the Semantic Working-Set Compiler: AppColdStore exact
+baselines, UAS allowlist-before-rank filtering, deterministic held-out replay,
+cancellation fallback, latency/memory abstention, rollback, RunEventLog,
+AnswerPacket, compatibility fence, and no-product-graph proof surfaces. It
+does not import source, add dependencies, build adapters, probe native links,
+run benchmarks, open exact-baseline/index bytes, mutate product graphs, mutate
 routes, make L2/L3 product capability green, or promote live dense 70B. The
 next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`; older
+`turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`; older
 TurboVec paragraphs below are historical context unless a newer S0 surface says
 otherwise.
 

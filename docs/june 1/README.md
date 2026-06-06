@@ -33,9 +33,10 @@ easy to browse in one place.
 > `F-TurboVec-RealAdapterSourceByteManifestProbe`, and
 > `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`,
 > `F-TurboVec-RealAdapterMotifExtractionCardProbe`, and
-> `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` as metadata-only T1/L1. It
+> `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`, and
+> `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` as metadata-only T1/L1. It
 > now points next at
-> `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+> `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
 > Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:

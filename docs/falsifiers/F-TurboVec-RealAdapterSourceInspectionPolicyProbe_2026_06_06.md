@@ -32,10 +32,13 @@ PASS as a metadata-only T1/L1 primary witness.
 - Former next research-to-build unit landed:
   `F-TurboVec-RealAdapterMotifExtractionCardProbe`.
 - Current next research-to-build unit:
-  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+  `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
 - Intermediate next research-to-build unit, now landed as
   `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`:
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
+- Intermediate next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`:
+  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
 - Historical next cursor recorded in this artifact:
   `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 

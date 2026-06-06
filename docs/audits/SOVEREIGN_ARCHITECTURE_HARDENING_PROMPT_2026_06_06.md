@@ -301,19 +301,18 @@ If a source/canon guard is needed before the next runtime step, use this order:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
 3a. Current retrieval/index truth:
-   `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is now built
-   metadata-only; preserve its 10 plan steps, 10 components, 11 motif links,
-   upstream motif byte ledger `184472`, zero additional raw-source bytes, UAS
-   external-ID map, filter-before-rank retrieval, buffer-backed I/O, versioned
-   rebuild fence, exact-baseline shadow replay, privacy/latency abstention,
-   cancellation/rollback lease, AnswerPacket caveat, no-native-link default,
-   large-local-model working-set compiler intake, no product import, no native
-   link build, no adapter build, no benchmark authority, no hidden route
-   authority, no live dense 70B, and no L2/L3 promotion. The next
-   retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`. Older
-   TurboVec rows in this prompt remain historical context and must not move the
-   cursor backwards.
+   `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is now built
+   metadata-only; preserve its 7 replay cases, 1 shadow win, 5 fallback/
+   abstention cases, max recall delta `800000` micros, planned replay bytes
+   `96000`, upstream motif byte ledger `184472`, zero additional raw-source
+   bytes, AppColdStore exact-baseline refs, UAS allowlist-before-rank
+   filtering, deterministic seeds, cancellation, latency/memory abstention,
+   rollback, RunEventLog, AnswerPacket, compatibility fence, no product graph
+   mutation, no route/context/hidden authority, no live dense 70B, and no L2/L3
+   promotion. The next retrieval/index research-to-build unit is
+   `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+   Older TurboVec rows in this prompt remain historical context and must not
+   move the cursor backwards.
 4. `F-ProprietaryCompression-ProvenanceGate`:
    now built metadata-only; preserve its source URL, digest,
    license/provenance, quarantine status, extracted behavior/tests/failure

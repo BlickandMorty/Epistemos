@@ -52,7 +52,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-RealAdapterSourceByteManifestProbe` ->
 > `F-TurboVec-RealAdapterSourceInspectionPolicyProbe` ->
 > `F-TurboVec-RealAdapterMotifExtractionCardProbe` ->
-> `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`. Current model-ladder built truth:
+> `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -75,7 +75,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > import, no native-link build, no benchmark authority, zero product/index/
 > model/runtime/provider bytes, no route authority, and no L2/L3 product
 > capability. The next retrieval/index research-to-build unit is
-> `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+> `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
 
 ---
 
@@ -902,6 +902,26 @@ the next real TurboVec/fork step must pass exact-baseline shadow replay before
 any recall/quality claim, benchmark citation, route mutation, model-context
 selection, or L2/L3 product capability can be attempted.
 
+`F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is now built as the
+metadata-only exact-baseline shadow-replay witness after the clean-room adapter
+plan. Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_exact_baseline_shadow_replay_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_exact_baseline_shadow_replay_probe/`.
+The witness binds 7 replay cases, 1 shadow win, 5 fallback/abstention cases,
+max recall delta `800000` micros, planned replay bytes `96000`, upstream motif
+source bytes cited `184472`, zero additional raw-source bytes inspected, 54
+rejected red fixtures, deterministic exact-baseline shadow-replay address,
+AppColdStore exact-baseline refs, UAS allowlist-before-rank filtering,
+deterministic seeds, cancellation, latency/memory abstention, rollback,
+RunEventLog, AnswerPacket, compatibility fence, and no-product-graph proof
+surface. It does not inspect additional raw source, import source, build
+adapters, open exact-baseline/index bytes, run benchmarks, load model/runtime
+bytes, mutate product graphs, mutate routes, or promote L2/L3. It proves the
+next real TurboVec/fork step must pass product-graph no-contamination before
+any adapter build, native-link, runtime, or model-context route can promote.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -922,6 +942,7 @@ selection, or L2/L3 product capability can be attempted.
 `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`,
 `F-TurboVec-RealAdapterMotifExtractionCardProbe`,
 `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`,
+`F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

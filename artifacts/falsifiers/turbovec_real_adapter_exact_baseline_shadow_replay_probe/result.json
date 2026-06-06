@@ -1,0 +1,270 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterExactBaselineShadowReplayProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_exact_baseline_shadow_replay_probe.sh",
+  "command_digest": "sha256:2bd08c3401de1a425c64a05de2866e4da61fb8db82a66d23c4d1b8ab6c0d6f14",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "cf3d55894e493cc67c9b352373712dcd67140441",
+  "fixture_id": "turbovec_real_adapter_exact_baseline_shadow_replay_probe_v1",
+  "timestamp_utc": "2026-06-06T18:17:16Z",
+  "result_digest": "sha256:9ce286492acb2a773698c802a1e61861f23f7748eb8ab14cddd736e7cdf15abc",
+  "measurements": {
+    "additional_raw_source_bytes_inspected": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "byte_scope_no_runtime_or_index": {
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "deterministic_seed_latency_memory_cancellation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_recall_and_allowlist_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_shadow_replay_address": {
+      "value": "turbovec_real_adapter_exact_baseline_shadow_replay_probe:d1893440b69409bb082fed1b9920a2e693a0e17db2559ccd188d07df90f57356@1779040906000",
+      "unit": "uas_address"
+    },
+    "fallback_case_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "fallback_rollback_answer_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_recall_delta_micros": {
+      "value": 800000,
+      "unit": "micros"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_product_graph_no_contamination_probe",
+      "unit": "cursor"
+    },
+    "no_product_graph_route_context_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_replay_bytes": {
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 54,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_replay_scenario_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_win_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "upstream_clean_room_adapter_plan_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_source_bytes_cited": {
+      "value": 184472,
+      "unit": "bytes"
+    }
+  },
+  "acceptance_thresholds": {
+    "additional_raw_source_bytes_inspected": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "byte_scope_no_runtime_or_index": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "case_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "count"
+    },
+    "deterministic_seed_latency_memory_cancellation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_recall_and_allowlist_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_baseline_shadow_replay_address": {
+      "operator": "starts_with_or_equals",
+      "value": "turbovec_real_adapter_exact_baseline_shadow_replay_probe:",
+      "unit": "uas_address"
+    },
+    "fallback_case_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "count"
+    },
+    "fallback_rollback_answer_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_recall_delta_micros": {
+      "operator": "<=",
+      "value": 800000,
+      "unit": "micros"
+    },
+    "next_research_to_build_unit": {
+      "operator": "starts_with_or_equals",
+      "value": "turbovec_quarantine_real_adapter_product_graph_no_contamination_probe",
+      "unit": "cursor"
+    },
+    "no_product_graph_route_context_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "starts_with_or_equals",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_replay_bytes": {
+      "operator": "==",
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 45,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_replay_scenario_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shadow_win_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "count"
+    },
+    "upstream_clean_room_adapter_plan_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_source_bytes_cited": {
+      "operator": "==",
+      "value": 184472,
+      "unit": "bytes"
+    }
+  },
+  "pass_per_axis": {
+    "additional_raw_source_bytes_inspected": true,
+    "byte_scope_no_runtime_or_index": true,
+    "case_count": true,
+    "deterministic_seed_latency_memory_cancellation_bound": true,
+    "exact_baseline_recall_and_allowlist_bound": true,
+    "exact_baseline_shadow_replay_address": true,
+    "fallback_case_count": true,
+    "fallback_rollback_answer_packet_bound": true,
+    "max_recall_delta_micros": true,
+    "next_research_to_build_unit": true,
+    "no_product_graph_route_context_authority": true,
+    "pinned_revision": true,
+    "planned_replay_bytes": true,
+    "policy_fail_closed": true,
+    "product_and_large_model_claims_rejected": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "shadow_replay_scenario_coverage": true,
+    "shadow_win_count": true,
+    "upstream_clean_room_adapter_plan_bound": true,
+    "upstream_motif_source_bytes_cited": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_shadow_replay_scope",
+      "detail": "Exact-baseline shadow replay contract only. No TurboVec source import, adapter build, benchmark run, exact-baseline/index/model/runtime/provider bytes, product graph mutation, route mutation, context injection, hidden authority, or live large-local-model product claim."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterExactBaselineShadowReplayProbe as a T1/L1 metadata-only witness after the clean-room adapter plan. It proves the future real adapter must replay against exact AppColdStore baselines with UAS allowlist-before-rank privacy, deterministic held-out cases, fallback, cancellation, memory abstention, rollback, RunEventLog, AnswerPacket, and no L2/L3 promotion."
+}
