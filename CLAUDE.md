@@ -2,14 +2,18 @@
 
 ## Architecture
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
-- GRDB for persistence, MLX-Swift for local inference
+- GRDB for persistence, MLX-Swift for the current live local inference lane;
+  2026-06-06 canon adds runtime-plural Pro research candidates
+  (GGUF/llama.cpp, LiteRT-LM, Transformers, custom Metal, optional
+  user-selected local endpoints) under System G / RuntimeRouter /
+  SovereignGate / AnswerPacket.
 - Omega agent system replaced by in-process Rust living loop + MCP peer bridge (no subprocess; legacy agent subprocess removed 2026-05-05)
 - ~252K lines Swift, ~71K lines Rust, 634 Swift files, 150 Rust files, 346 Swift test files (verified 2026-05-04)
 - Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction, skills + procedural memory + self-evolution + tool-call parsing (lives in `agent_core::agent_runtime`)
 - Swift owns: UI rendering, MLX inference, macOS APIs (AXUIElement via AXorcist, ScreenCaptureKit, CGEvent), permission gate UI, MCP server hosting
 
 ## NON-NEGOTIABLE CONSTRAINTS
-- NO SIDECAR. All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. The legacy agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). LocalAgentPromptBuilder.swift and LocalAgentGatewayPolicy.swift in Epistemos/LocalAgent/ are the canonical local-agent path. Hermes namespace fully purged from code 2026-05-05 (LocalAgent prefix replaces it on the Swift side, Runtime prefix on the Rust side).
+- NO HIDDEN SIDECAR. Current app inference and orchestration stay in-process via Rust FFI or MLX-Swift. The legacy agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). LocalAgentPromptBuilder.swift and LocalAgentGatewayPolicy.swift in Epistemos/LocalAgent/ are the canonical local-agent path. Hermes namespace fully purged from code 2026-05-05 (LocalAgent prefix replaces it on the Swift side, Runtime prefix on the Rust side). Runtime-plural candidates from the 2026-06-06 TurboVec/QAT canon (GGUF/llama.cpp, LiteRT-LM, local OpenAI-compatible endpoints, custom Metal) are Pro Gated/Research until explicit owner approval, MAS/Pro boundary review, no-hidden-fallback proof, RunEventLog, AnswerPacket, rollback, and harness witnesses land.
 - REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features.
 - HONEST CAPABILITY GATING. Local models get fast/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
 - RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
@@ -31,6 +35,18 @@
 - STREAM EVERYTHING. Forward every token to the delegate immediately. No buffering.
 - AGENT DECIDES TERMINATION. max_turns is a safety rail, not a schedule. Trust stop_reason == "end_turn".
 - API keys in macOS Keychain (SecItemAdd/SecItemCopyMatching), NEVER UserDefaults.
+- TURBOVEC/QAT RUNTIME CANON. Before touching local model routing,
+  compressed retrieval, Gemma 4, TurboVec, TurboQuant, GGUF, LiteRT-LM,
+  Rapid-MLX/OpenCode/Hermes motif mining, or large-model compression, read
+  `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` and
+  `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
+  MLX is first-lane on Apple Silicon, not the whole architecture. TurboVec is
+  Eidos/AppColdStore compressed retrieval, not durable truth or hidden route
+  authority. Gemma 4 12B QAT GGUF/LiteRT is Pro Gated research target;
+  MLX Gemma 4 repos are not Swift runtime proof. `F-ProprietaryCompression-
+  ProvenanceGate` must quarantine, inspect, benchmark, and choose
+  direct_import / adapter_wrap / quarantine_reference / clean_room_rewrite /
+  research_only before third-party logic enters product code.
 
 ## Code Standards
 - Use @Observable, not ObservableObject
@@ -71,7 +87,12 @@
 - Edit .xcodeproj directly — use xcodegen
 - Commit model files (.gguf, .safetensors, .mlx)
 - Import SDKs that don't exist (Anthropic has NO Swift SDK, OpenAI has NO Swift SDK)
-- Use Ollama, llama-server, or any subprocess for INFERENCE OR ORCHESTRATION (the legacy agent subprocess was removed 2026-05-05; everything runs in-process now)
+- Use hidden/default Ollama, llama-server, or subprocess inference or
+  orchestration on the current product/MAS path. The legacy agent subprocess
+  was removed 2026-05-05; everything live remains in-process. Pro
+  runtime-plural experiments from the 2026-06-06 TurboVec/QAT canon require
+  explicit owner approval, MAS/Pro boundary review, no-hidden-fallback proof,
+  RunEventLog, AnswerPacket, rollback, and harness witnesses before use.
 - Mark items done in PROGRESS.md until verification greps pass
 - Buffer streaming responses — forward every token immediately
 - Strip thinking blocks from message history

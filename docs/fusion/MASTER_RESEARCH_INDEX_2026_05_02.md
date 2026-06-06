@@ -125,6 +125,8 @@ Golf for the reproducible compression/search discipline.
 
 **Detailed research companion:** `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
 
+**Current architecture-hardening handoff:** `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`.
+
 **Why it exists.** TurboVec, Google TurboQuant, and Gemma 4 QAT sharpen the
 large-local-model route without replacing the substrate. Epistemos keeps MLX as
 one runtime lane, not the architecture; GGUF/llama.cpp, LiteRT, Transformers,
@@ -152,7 +154,10 @@ RunEventLog, AnswerPacket, and explicit L1/L2/L3 claim boundary. Use
 `F-ProprietaryCompression-ProvenanceGate` before any public-repo logic enters
 the proprietary implementation path. Its import modes are `direct_import`,
 `adapter_wrap`, `quarantine_reference`, `clean_room_rewrite`, and
-`research_only`.
+`research_only`. Future main-agent sessions should use the current
+architecture-hardening handoff above so the older owner prompt, June 1 canon,
+L1/L2/L3 discipline, commit/push checkpointing, and June 6 runtime-plural
+research stay fused instead of competing as separate prompts.
 
 **Canonical build implication.** Do not launch more heavy 128K/70B probes until
 the non-executing planner layer exists: bounded `WeightBlockManifest` range

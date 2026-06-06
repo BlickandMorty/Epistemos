@@ -45,6 +45,8 @@ Required current reads for that domain:
 - `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
 - `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`
 - `docs/fusion/MMAP_REPLACEMENT_AND_HOTPATH_CURE_ATLAS_2026_06_01.md`
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
 
 The current lock is ambitious but falsifier-gated:
 - Model size is cold material, not a live-RAM promise. UAS makes model, KV,
@@ -68,6 +70,59 @@ The current lock is ambitious but falsifier-gated:
   through the June 2026 canon. Translate old "ACS admission" wording to
   AcsAnchor for address/residency continuity and SCOPE-Rex/SovereignGate for
   admission/governance.
+
+## Compression / Runtime-Plural Addendum — 2026-06-06
+
+Future agents must preserve the TurboVec/QAT intake before touching local model
+routing, MLX/GGUF/LiteRT lanes, compressed retrieval, low-bit KV experiments,
+Gemma 4, TurboQuant, TurboVec, llama.cpp, Rapid-MLX/OpenCode/Hermes motif
+mining, or large-model compression work.
+
+Required reads for that domain:
+- `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+- `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` §0E
+- `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6 June 6 entries
+
+Runtime policy:
+- MLX is Apple Silicon first-lane where it proves quality, stability, and
+  Swift-loader support, but Epistemos is not MLX-only. GGUF/llama.cpp,
+  LiteRT-LM, Transformers, custom Metal, and optional user-selected local
+  endpoints remain candidate execution organs under System G / RuntimeRouter /
+  SovereignGate / AnswerPacket.
+- Current app inference paths still obey MAS/Pro boundaries and no hidden
+  sidecar/cloud fallback. Pro runtime-plural experiments must be explicit,
+  owner-gated, witnessed, rollbackable, and never silently selected.
+- Gemma 4 12B QAT GGUF/LiteRT is the current Pro Gated research target.
+  Gemma 4 E2B/E4B QAT are MAS/Pro candidates only after memory,
+  cancellation, structured-output, loader, package-size, RunEventLog, and
+  AnswerPacket witnesses. MLX Gemma 4 repos are not Swift runtime proof.
+- TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed
+  retrieval cache with UAS-stable external IDs, allowlist-before-rank privacy,
+  crash-safe persistence wrapping, exact source validation, and no hidden route
+  authority.
+- `F-ProprietaryCompression-ProvenanceGate` is mandatory before public-repo
+  logic enters the proprietary implementation path. Messy provenance is not a
+  reason to lose useful research: clone/run/inspect in quarantine, extract API
+  shapes, parser behavior, cache logic, memory assumptions, tests, benchmarks,
+  and failure cases, then use compatible direct import, adapter wrapping,
+  permission/legal review, or clean-room Epistemos-owned rewrite.
+- L1/L2/L3 remain Epistemos truth layers, not runtime tiers. Use hot resident
+  lane, balanced local lane, cold assembly, vault research lane, or Pro Gated
+  lane for runtime placement.
+- A 1536-dimensional vector has about 768 bytes of 4-bit coordinate payload or
+  about 384 bytes of 2-bit coordinate payload before norms, IDs, calibration,
+  side tables, and index overhead. Do not repeat the older 384/192 byte claim
+  for 1536 dimensions.
+
+Future-session prompt lock:
+- `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is the
+  current paste-ready successor for broad architecture-hardening sessions. It
+  preserves the owner's original recursive hardening prompt and the shorter
+  external proposal, but adds explicit local research gates, L1/L2/L3 truth
+  separation, safe build order, commit/push checkpoints, and the June 6
+  TurboVec/QAT runtime-plural intake.
 
 ## Release Audit Rule
 

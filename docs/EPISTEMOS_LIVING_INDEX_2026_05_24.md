@@ -381,6 +381,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   endpoints, and Pro Research server lanes are execution organs, never hidden
   authority. This still does not promote live dense 70B, live sparse 70B,
   product capability, or release readiness.
+- Updated **2026-06-06** · current architecture-hardening prompt folded into
+  future-session canon:
+  `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
+  the paste-ready successor for broad main-agent architecture sessions. It
+  preserves the owner's original recursive hardening prompt and the shorter
+  external proposed prompt while adding the repo's required local research
+  gate, worktree discipline, L1/L2/L3 truth separation, safe build order,
+  source/capability guards, Living Index plus lattice update rules, commit/push
+  checkpoints, and the June 6 TurboVec/QAT runtime-plural intake. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. This is a canon/prompt fold only: it changes
+  future-session instructions and truth-surface discoverability, not product
+  capability, live dense 70B, live sparse 70B, release readiness, or the
+  current L2 red route.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates

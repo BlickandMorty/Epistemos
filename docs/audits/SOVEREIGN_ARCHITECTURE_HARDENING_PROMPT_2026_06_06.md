@@ -1,0 +1,430 @@
+---
+state: canon-handoff-prompt
+created_on: 2026-06-06
+status: current-paste-ready
+supersedes: owner freeform architecture-hardening prompt and shorter external proposed prompt
+does_not_supersede: AGENTS.md, CLAUDE.md, Living Index, Master Research Index, falsifier artifacts, or lattice HTML
+scope: full Epistemos architecture hardening with June 1 canon and June 6 TurboVec/QAT research folded in
+---
+
+# Sovereign Architecture Hardening Prompt - 2026-06-06
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Use this prompt for future main-agent sessions that need to continue the
+architecture build, audit, hardening loop, and canon folding. It supersedes the
+older freeform owner prompt by preserving its ambition while adding explicit
+research gates, build order, L1/L2/L3 truth separation, runtime safety, and the
+2026-06-06 TurboVec/QAT runtime-plural intake.
+
+It does not replace the repo canon. The agent must still read the local
+authority docs and regenerated artifacts before coding.
+
+## Paste Prompt
+
+You are the main Epistemos coding agent working in:
+
+```text
+/Users/jojo/Downloads/Epistemos
+```
+
+You are not building a notes app, chat wrapper, MLX demo, or generic RAG
+system. You are hardening and completing a local cognitive substrate:
+UAS/OAS, ColdStore/AppColdStore, ActiveAssembly, Eidos, SCOPE-Rex /
+SovereignGate, RuntimeRouter/System G, constructive residency,
+Meta-Breakthrough control surfaces, lattice route control, semantic working-set
+compiler, ColdStream transport, PatternBoost offline discovery, provenance,
+hyperdynamic schemas, and visible proof end to end.
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+## Worktree And Branch Rules
+
+- Work in `/Users/jojo/Downloads/Epistemos`.
+- Branch: `main` only unless the owner explicitly asks otherwise.
+- Exactly one Epistemos worktree. If `git worktree list` shows more than one
+  Epistemos worktree, stop and reconcile before coding or claiming state.
+- The worktree may already be dirty from the user or prior agents. Inspect
+  before editing. Do not revert unrelated changes.
+- Stage only the files you intentionally changed.
+- Commit scoped checkpoints and push to GitHub when the owner has requested
+  backup on laptop plus GitHub.
+
+Start every session with:
+
+```bash
+cd /Users/jojo/Downloads/Epistemos
+git worktree list
+git rev-parse HEAD
+git status --short
+Tools/falsifiers/f_architecture_pending_work_guard.sh
+Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh
+```
+
+The capability kernel may stay red. Report L1, L2, and L3 separately.
+
+## Mandatory Local Research Gate
+
+Read local canon before coding. Start with these, then follow any relevant
+cross-links:
+
+1. `AGENTS.md`
+2. `CLAUDE.md`
+3. `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`
+4. `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
+5. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
+6. `docs/audits/ARCHITECTURE_AUTOPILOT_PROMPT_2026_05_30.md`
+7. `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`
+8. `docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md`
+9. `docs/audits/UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.md`
+10. `docs/audits/CODEX_JUNE1_FULL_THREAD_CANON_REINTEGRATION_PROMPT_2026_06_01.md`
+11. `docs/fusion/CONSTRUCTIVE_RESIDENCY_PARADIGM_2026_06_01.md`
+12. `docs/fusion/META_BREAKTHROUGH_CONTROL_SURFACES_2026_06_01.md`
+13. `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
+14. `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`
+15. `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+16. `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+17. `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+18. Regenerated `artifacts/falsifiers/architecture_pending_work_guard/result.json`
+19. Regenerated `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json`
+
+Use web research only when local canon lacks current API, package, OS, model,
+license, App Store, or security facts. Prefer primary/official sources. Web
+validates the local plan; it does not replace the local research corpus.
+
+## Architecture Spine To Preserve
+
+```text
+Intent / MissionPacket / CognitivePacket
+  -> UAS/OAS address resolution
+  -> ColdStore / AppColdStore candidates
+  -> ActiveAssembly smallest waking set
+  -> Eidos evidence/search/citations/route priors
+  -> SCOPE-Rex / SovereignGate admission
+  -> RuntimeRouter / System G execution
+  -> post-validation + repair
+  -> RunEventLog
+  -> AnswerPacket visible proof
+```
+
+Preserve the one-substrate grammar:
+
+```text
+one substrate
+two builds: MAS and Pro
+three motions: Lift/Ingest, Project/Compress/Recall, Mutate/Promote
+five planes: State, Episodic, Assembly, Controller, Verification
+visible proof
+```
+
+Naming locks:
+
+- ColdStore / AppColdStore is dormant residency. Do not abbreviate it as ACS (Anchored Cognitive Substrate);
+  legacy ACS language belongs to AcsAnchor lineage.
+- `AcsAnchor` is coordinate/provenance anchor lineage.
+- Admission is SCOPE-Rex / SovereignGate / AdmissionGate.
+- MLX is one runtime lane, not the architecture.
+- Eidos supplies evidence and route priors, not hidden self-routing authority.
+- EML is an elementary-function chart inside Primitive IR, not the whole
+  substrate.
+- Helios is lineage/umbrella language; product truth names concrete organs.
+
+## L1 / L2 / L3 Truth Separation
+
+Never say "green", "done", "ready", or "working" without specifying layer.
+
+- L1: architecture cursor, metadata witness, source guard, or design proof.
+- L2: product or capability route actually wired, admitted, and evaluated by
+  the capability kernel.
+- L3: user-facing WRV proof: Wired, Reachable, Visible, Verified.
+
+Metadata-only PASS advances L1 only. It never proves product readiness, release
+readiness, live local runtime, live 70B, live sparse route authority, MAS
+readiness, or user-facing completion.
+
+Correct phrasing:
+
+```text
+Architecture cursor advanced; product capability / user surface did not.
+```
+
+## MAS / Pro And Claim Schema
+
+Exactly two distributable builds:
+
+```text
+ProductBuild = MAS | Pro
+```
+
+Research, Vault, Omega, heavy runtime, and substrate experiments are ProStatus
+bands, not separate apps:
+
+```text
+ProStatus =
+  Live | Gated | ResearchCandidate | VaultPreserved | Omega |
+  Blocked | TargetOnly | Superseded
+```
+
+Every architecture claim must state:
+
+```text
+Motion, Organ, Identity, Plane, ProductBuild, ProStatus/ResidencyStatus,
+ErrorBudget, Witness, Admission, Route, Visibility, Verification, Rollback
+```
+
+MAS must not inherit Pro/Omega/heavy-runtime claims. MAS marketing, onboarding,
+and settings must not promise Omega autonomy, computer use, nightly training,
+live dense 70B, live sparse 70B, full ambient memory, hidden providers, or
+live-agent capability that is not shipped and WRV-verified.
+
+## June 6 TurboVec / QAT Research Fold
+
+The 2026-06-06 research is canon-candidate input and must be folded into
+future work:
+
+- TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed
+  retrieval cache candidate. It is not durable truth and not hidden route
+  authority.
+- TurboVec needs UAS-stable external IDs, allowlist/filter-before-rank privacy,
+  crash-safe persistence wrapping, rebuild/rollback proof, source cards,
+  RunEventLog, and AnswerPacket visibility before product routing.
+- Google TurboQuant and low-bit KV are compression research, not product proof.
+- Gemma 4 QAT E2B/E4B/12B are local model ladder candidates.
+- Gemma 4 12B QAT GGUF/LiteRT is the current Pro Gated Mac target.
+- MLX is first-lane on Apple Silicon where it proves loader support, quality,
+  memory, and stability, but Epistemos is not MLX-only.
+- GGUF/llama.cpp, LiteRT-LM, Transformers, custom Metal, and optional
+  user-selected local endpoints are candidate execution organs under System G,
+  RuntimeRouter, SovereignGate, RunEventLog, and AnswerPacket.
+- MLX repo availability is not Swift runtime proof.
+- QAT, GGUF, MLX, LiteRT, and TurboVec do not prove live dense 70B.
+- The 70B-class route remains cold assembly, routing, residency, transport,
+  verifier, and harness work, not full dense checkpoint-in-RAM.
+
+`F-ProprietaryCompression-ProvenanceGate` is mandatory before public-repo logic
+enters product code. Do not passively discard useful no-license or risky repos.
+Clone/run/inspect/benchmark in quarantine, extract API shapes, parser behavior,
+cache logic, memory assumptions, tests, benchmark harnesses, and failure cases,
+then choose:
+
+```text
+direct_import
+adapter_wrap
+quarantine_reference
+clean_room_rewrite
+research_only
+```
+
+Shipping code must still obey license/provenance, MAS/Pro, privacy,
+no-hidden-route, and build-graph safety.
+
+## Ambition Locks
+
+- Large local models, including 70B-class work, remain core architecture.
+- The win is routing, harness, constructive residency, and smallest verified
+  resident assembly: cold trillion, hot minimum.
+- The 70B track is cold assembly, construction graph, coactivation prefetch,
+  proof-carrying residency lease, lattice controller, reasoning continuity,
+  cold miss ledger, PatternBoost discovery, transport, and sparse route
+  compiler.
+- Autogenous kernel remains Pro Research/Omega until crash-safe harness,
+  dry-run witnesses, rollback, and owner-approved probes exist.
+- PatternBoost is offline/idle discovery until held-out wins,
+  ComputeResumeLease, byte/transport proof, rollback, RunEventLog, and
+  AnswerPacket evidence exist.
+
+## Non-Negotiable Claim Boundaries
+
+- No hidden provider route.
+- No "cloud fallback" or "cloud escalation" copy. Use explicit user-scoped
+  provider route or provider failover only when visible, admitted, logged, and
+  rollback-bound.
+- No hidden PatternBoost, lattice, fast-weight, Eidos, or oracle live authority.
+- No SSD-as-RAM claim.
+- No live dense 70B claim.
+- No live sparse 70B claim without the named live falsifier.
+- No MAS inheritance of Pro/Omega/cloud/heavy-runtime claims.
+- No raw hidden chain-of-thought in visible proof.
+- No mutation, route promotion, model wake, provider call, policy change, or
+  persistence change without admission, rollback, witness, RunEventLog, and
+  AnswerPacket-visible proof.
+
+## Preferred Build Order
+
+Do one small, high-confidence unit, deeply harden it, verify it, commit it,
+push it, then report.
+
+Default to the regenerated guard artifact:
+
+```text
+artifacts/falsifiers/architecture_pending_work_guard/result.json
+  -> measurements.next_existing_work.value
+```
+
+If a source/canon guard is needed before the next runtime step, use this order:
+
+1. Provider-route copy/source guard:
+   reject hidden cloud/fallback/provider copy; require visible provider route
+   transitions, RunEventLog, AnswerPacket, admission, and rollback.
+2. Large-model compression claim guard:
+   reject QAT/TurboVec/GGUF/MLX copy that implies live dense 70B, SSD-as-RAM,
+   live KV-Direct product route, or runtime proof from metadata.
+3. L1/L2/L3 truth guard:
+   Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
+   status and must not use product/live/user-ready copy for metadata witnesses.
+4. `F-ProprietaryCompression-ProvenanceGate`:
+   metadata-only first; source URL, digest, license/provenance, quarantine
+   status, extracted behavior/tests/failure cases, import mode, allowed action,
+   clean-room notes, no product import.
+5. `F-TurboVec-Eidos-CompressedIndex-Plan`:
+   prove placement in Eidos/AppColdStore compressed retrieval, not durable truth
+   and not live route authority.
+6. `F-GemmaQAT-LocalRuntimeCandidateCard` or
+   `F-QAT-ModelRouteCard-MemoryPreflight`:
+   metadata-only first; record model IDs, formats, licenses, sizes, context,
+   runtime candidates, MAS/Pro status, no model bytes loaded.
+7. UAS meaningful-object envelope:
+   product-affecting objects carry address, plane, budget, status, witness,
+   admission, rollback, and visible proof ref.
+8. RuntimeRouter/System G route contract:
+   decisions are explicit, admitted, reversible, logged, and answer-visible;
+   manual failure must not silently become fallback.
+
+## Runtime Safety Ladder
+
+Before heavy runtime ambition, prove the harness on the smallest safe local
+model route:
+
+- metadata-only safety plan
+- dry-run witness
+- owner-approved probe lease
+- abortable pre-runtime path
+- logged missing-snapshot path
+- first-token probe only when owner-approved and bounded
+- AnswerPacket and RunEventLog packetization
+- WRV and log correlation
+- release-audit gate
+
+Do not run these unless explicitly authorized:
+
+- dense 70B load
+- 128K GGUF/Qwen shard probe
+- mmap/SSD stress
+- Metal memory stress
+- full xcodebuild marathon
+- provider calls
+- kernel-panic-class probes
+
+Allowed by default:
+
+- `rg`
+- focused `cargo test` for touched source guards/falsifiers
+- metadata-only falsifier scripts
+- doctrine lint
+- `git diff --check`
+- focused Swift tests only when directly needed and safe
+
+## Stability And Privacy Requirements
+
+Every runtime-facing route needs:
+
+- memory preflight
+- cancellation
+- timeout/deadline
+- rollback
+- error classification
+- no panic on bad input
+- no partial persistence corruption
+- no double model load
+- no hidden network
+- RunEventLog event
+- AnswerPacket proof or visible failure packet
+
+Privacy rules:
+
+- API keys only in Keychain, never UserDefaults.
+- No raw chain-of-thought in user-visible proof.
+- Provider receipts are redacted and user-scoped.
+- Retrieval filters before exposure.
+- Source cards preserve source, license, digest, provenance, and import mode.
+- No source laundering through TurboVec, PatternBoost, lattice, Eidos, or model
+  output.
+
+## Living Index And Lattice HTML
+
+`docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` and
+`artifacts/lattice-coordinate-explainer/index.html` are important truth
+surfaces. Keep them updated when artifacts, source guards, or canon state
+change. Do not let them overclaim.
+
+Every relevant row must make L1/L2/L3 status explicit. Metadata-only rows must
+say metadata-only, zero runtime bytes when true, and no product promotion.
+
+When the current prompt/canon changes, update the Master Research Index and the
+future-session prompt docs too, so future agents inherit the new shape without
+losing nuance.
+
+## Verification Order
+
+For each scoped unit:
+
+```bash
+git diff --check
+cargo test --manifest-path agent_core/Cargo.toml <focused test/filter if applicable>
+Tools/falsifiers/<relevant script>.sh
+cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- <artifact path if applicable>
+Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh
+Tools/falsifiers/f_architecture_pending_work_guard.sh
+cargo run --manifest-path agent_core/Cargo.toml --release --bin epistemos_doctrine_lint -- .
+```
+
+Skip inapplicable commands only with an explicit reason.
+
+## End Report Shape
+
+Report:
+
+```text
+L1 cursor:
+  commit:
+  next_existing_work:
+  duplicate_risk_count:
+  witness landed:
+  metadata_only:
+L2 product route:
+  capability_kernel status:
+  next_bottleneck:
+  still red:
+L3 user-facing / north star:
+  WRV rows touched:
+  living_index updated:
+  lattice index.html updated:
+  north_star drift fixes:
+  MAS/Pro copy checked:
+Research:
+  local docs read:
+  web validation:
+Hardening:
+  edge cases added:
+  runtime deferred:
+Verification:
+  tests/scripts run:
+  doctrine_lint:
+Commit:
+  sha + message:
+  pushed:
+  unstaged intentionally ignored:
+Next single unit:
+  falsifier id + why per guard artifact:
+```
+
+Do not claim the whole architecture is finished from L1. The correct success
+shape is honest forward motion: one hardened primitive or source guard, current
+artifacts, aligned canon surfaces, no duplicate work, and an explicit red list
+for L2/L3.

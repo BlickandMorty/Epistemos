@@ -13,6 +13,18 @@ status: paste-ready
 This is the one prompt to paste into Codex when the user invokes
 `JUNE1-CANON-FUSION-LOCK`.
 
+> **2026-06-06 newer addendum:** When this prompt is used for any local-model,
+> compressed-retrieval, runtime-routing, Gemma 4, TurboVec, TurboQuant,
+> GGUF/llama.cpp, LiteRT-LM, MLX, or large-model compression work, also read
+> `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`,
+> `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` and
+> `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
+> MLX is first-lane on Apple Silicon, not the whole architecture; runtime
+> choice remains under System G / RuntimeRouter / SovereignGate /
+> AnswerPacket; TurboVec is Eidos/AppColdStore retrieval, not hidden authority;
+> and public repo motifs must pass `F-ProprietaryCompression-ProvenanceGate`
+> before product use.
+
 `JUNE1-PATTERNBOOST-LOCK` is still valid, but it is the narrower residency
 subset. The full-thread umbrella is `JUNE1-CANON-FUSION-LOCK`.
 
@@ -44,8 +56,8 @@ Codewords:
   verifier-calibrated sparse routing, ColdStream transport, mmap/hot-path cure,
   Residency PatternBoost, drift sweep, lattice HTML, and build verification.
 - JUNE1-PATTERNBOOST-LOCK = residency subset: offline/idle PatternBoost
-  discovery and the 345 bridge notes that prevent legacy UAS/ACS/mmap/70B
-  claims from steering future agents alone.
+  discovery and the 345 bridge notes that prevent legacy UAS/ACS (Anchored Cognitive Substrate),
+  mmap, and 70B claims from steering future agents alone.
 
 Important folder structure:
 - The canonical originals remain in their normal repo locations:
