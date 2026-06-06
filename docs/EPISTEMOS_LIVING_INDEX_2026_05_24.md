@@ -1009,9 +1009,38 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   not clone TurboVec, open codeload archives, read raw source, write quarantine
   files, add a product dependency, import/build/run an adapter, probe native
   links, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose
-  routes, advance L2, or make L3 user-facing model capability green. The next
-  retrieval unit is
-  `turbovec_quarantine_real_adapter_source_inspection_policy_probe`; the
+  routes, advance L2, or make L3 user-facing model capability green. The former
+  next retrieval unit,
+  `turbovec_quarantine_real_adapter_source_inspection_policy_probe`, has now
+  landed in the next row; the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`
+  is now built as the metadata-only source-inspection policy gate for the
+  pinned real TurboVec branch:
+  `agent_core/src/uas/turbovec_real_adapter_source_inspection_policy_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_inspection_policy_probe.rs`,
+  script
+  `Tools/falsifiers/f_turbovec_real_adapter_source_inspection_policy_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterSourceInspectionPolicyProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_source_inspection_policy_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to 22 manifest-bound policy rows,
+  16 future-readable rows, 6 blocked rows, 72 rejected red fixtures, clean-room
+  paraphrase/output-mode rules, future raw-source cap `196608`, native-link,
+  symlink, binary, integration, and benchmark-authority blocks, rollback,
+  RunEventLog, AnswerPacket, compatibility fence, and no-product-graph proof.
+  This is T1/L1 metadata only. It does not read source, clone TurboVec, open
+  codeload archives, write quarantine files, add a product dependency,
+  import/build/run an adapter, probe native links, open index bytes, load
+  Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
+  user-facing model capability green. The next retrieval unit is
+  `turbovec_quarantine_real_adapter_motif_extraction_card_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

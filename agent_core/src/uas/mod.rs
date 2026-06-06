@@ -100,6 +100,7 @@ pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
 pub mod turbovec_real_adapter_source_byte_manifest_probe;
+pub mod turbovec_real_adapter_source_inspection_policy_probe;
 pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
@@ -610,6 +611,15 @@ pub use turbovec_real_adapter_source_byte_manifest_probe::{
     TurboVecSourceManifestRootBucket, TurboVecSourceManifestSource, TurboVecSourceManifestStatus,
     TurboVecSourceManifestTier, TURBOVEC_REAL_ADAPTER_SOURCE_BYTE_MANIFEST_CURSOR,
     TURBOVEC_REAL_ADAPTER_SOURCE_BYTE_MANIFEST_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_source_inspection_policy_probe::{
+    source_inspection_policy_digest, TurboVecInspectionAction, TurboVecInspectionOutputMode,
+    TurboVecRealAdapterSourceInspectionPolicyProbeSet, TurboVecSourceInspectionByteLedger,
+    TurboVecSourceInspectionError, TurboVecSourceInspectionMetrics, TurboVecSourceInspectionPolicy,
+    TurboVecSourceInspectionPolicyRow, TurboVecSourceInspectionProofRefs,
+    TurboVecSourceInspectionStatus, TurboVecSourceInspectionTier,
+    TURBOVEC_REAL_ADAPTER_SOURCE_INSPECTION_POLICY_CURSOR,
+    TURBOVEC_REAL_ADAPTER_SOURCE_INSPECTION_POLICY_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

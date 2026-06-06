@@ -30,8 +30,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Upstream Git blobs: 180.
 - Declared upstream blob bytes: `1615603`.
 - Red fixtures rejected: 100.
-- Next research-to-build unit:
+- Former next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`:
   `turbovec_quarantine_real_adapter_source_inspection_policy_probe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 
 ## What This Proves
 
