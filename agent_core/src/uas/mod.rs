@@ -95,6 +95,7 @@ pub mod turbovec_eidos_compressed_index_plan;
 pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
+pub mod turbovec_real_adapter_clean_room_adapter_plan_probe;
 pub mod turbovec_real_adapter_dependency_envelope_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_motif_extraction_card_probe;
@@ -631,6 +632,15 @@ pub use turbovec_real_adapter_motif_extraction_card_probe::{
     TurboVecRealAdapterMotifExtractionCardProbeSet,
     TURBOVEC_REAL_ADAPTER_MOTIF_EXTRACTION_CARD_CURSOR,
     TURBOVEC_REAL_ADAPTER_MOTIF_EXTRACTION_CARD_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_clean_room_adapter_plan_probe::{
+    clean_room_adapter_plan_digest, TurboVecAdapterPlanByteLedger,
+    TurboVecAdapterPlanComponent, TurboVecAdapterPlanError, TurboVecAdapterPlanMetrics,
+    TurboVecAdapterPlanPolicy, TurboVecAdapterPlanProofRefs, TurboVecAdapterPlanStatus,
+    TurboVecAdapterPlanStep, TurboVecAdapterPlanTier,
+    TurboVecRealAdapterCleanRoomAdapterPlanProbeSet,
+    TURBOVEC_REAL_ADAPTER_CLEAN_ROOM_ADAPTER_PLAN_CURSOR,
+    TURBOVEC_REAL_ADAPTER_CLEAN_ROOM_ADAPTER_PLAN_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

@@ -301,15 +301,17 @@ If a source/canon guard is needed before the next runtime step, use this order:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
 3a. Current retrieval/index truth:
-   `F-TurboVec-RealAdapterMotifExtractionCardProbe` is now built
-   metadata-only; preserve its 11 clean-room motif cards, 10 motif classes, 11
-   source paths, selected raw-source byte ledger `184472` under cap `196608`,
-   API/stable-ID/filter-before-rank/input-validation/I/O/benchmark-caveat/
-   Swift-binding/fork-drift/large-local-model working-set motifs, no product
-   import, no native-link build, no benchmark authority, no hidden route
+   `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is now built
+   metadata-only; preserve its 10 plan steps, 10 components, 11 motif links,
+   upstream motif byte ledger `184472`, zero additional raw-source bytes, UAS
+   external-ID map, filter-before-rank retrieval, buffer-backed I/O, versioned
+   rebuild fence, exact-baseline shadow replay, privacy/latency abstention,
+   cancellation/rollback lease, AnswerPacket caveat, no-native-link default,
+   large-local-model working-set compiler intake, no product import, no native
+   link build, no adapter build, no benchmark authority, no hidden route
    authority, no live dense 70B, and no L2/L3 promotion. The next
    retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`. Older
+   `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`. Older
    TurboVec rows in this prompt remain historical context and must not move the
    cursor backwards.
 4. `F-ProprietaryCompression-ProvenanceGate`:

@@ -30,7 +30,11 @@ PASS as a metadata-only T1/L1 primary witness.
 - Selected raw-source bytes inspected for source cards: `184472`.
 - Raw-source byte cap: `196608`.
 - Red fixtures rejected: 54.
-- Next research-to-build unit:
+- Former next research-to-build unit landed:
+  `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`.
+- Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+- Historical next cursor recorded in this artifact:
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
 
 ## What This Proves
@@ -68,3 +72,10 @@ lessons for stable UAS IDs, privacy filtering before ranking, crash-safe I/O,
 finite input guards, and benchmark skepticism. The current authority remains
 L1-only: these motifs are research-to-build material, not hidden route policy,
 not durable truth, and not product capability.
+
+## 2026-06-06 Follow-On
+
+`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is now landed. The motif cards
+remain the source-carded design input, and the next safe research-to-build step
+is exact-baseline shadow replay, not product import, native-link probing,
+benchmark authority, route mutation, or model/runtime execution.

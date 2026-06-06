@@ -443,11 +443,32 @@ Recommended first units, in order:
      rejected red fixtures, deterministic motif-card address, API/stable-ID/
      filter-before-rank/input-validation/I/O/benchmark-caveat/Swift-binding/
      fork-drift/large-local-model working-set motifs, no hidden route authority,
-     and the no-L2/L3-promotion boundary. The next retrieval/index
-     research-to-build unit is
-     `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
+     and the no-L2/L3-promotion boundary. Its former next unit,
+     `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`, is now
+     landed by `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`.
 
-20. `F-QAT-ModelRouteCard-MemoryPreflight`
+20. `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`
+   - Proves the motif cards become an Epistemos-owned clean-room adapter
+     contract before native-link probes, adapter builds, benchmark claims,
+     compressed retrieval routes, or model-context selection cite them.
+   - Does not inspect additional raw source, clone TurboVec, import source, add
+     dependencies, build/run adapters, probe native links, run benchmarks, open
+     index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate routes, or
+     promote product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_clean_room_adapter_plan_probe/result.json`.
+     It binds 10 adapter-plan steps, 10 components, 11 motif links, upstream
+     motif source bytes cited `184472`, additional raw-source bytes inspected
+     `0`, 52 rejected red fixtures, deterministic adapter-plan address, UAS
+     external-ID map, filter-before-rank pipeline, buffer-backed I/O boundary,
+     versioned rebuild fence, exact-baseline shadow replay, privacy/latency
+     abstention, cancellation/rollback lease, AnswerPacket caveat,
+     no-native-link default, large-local-model working-set compiler, no hidden
+     route authority, and the no-L2/L3-promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+
+21. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
