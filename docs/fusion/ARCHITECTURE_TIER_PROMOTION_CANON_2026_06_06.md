@@ -219,7 +219,7 @@ build an index, prove recall quality, choose System G routes, make L2/L3
 product capability green, or promote live dense 70B. Filter-before-rank
 privacy, crash-safe persistence, exact-baseline recall quality, and
 latency/memory abstention are now covered; the next retrieval/index
-research-to-build unit is now `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+research-to-build unit is now `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 2026-06-06 TurboVec filter-before-rank privacy clarification:
 `F-TurboVec-FilterBeforeRankPrivacyGate` is T1/L1 only. It strengthens the
@@ -239,7 +239,7 @@ covered by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention
 is now covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow
 benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`;
 the next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 2026-06-06 TurboVec crash-safe persistent-index clarification:
 `F-TurboVec-CrashSafePersistentIndex` is T1/L1 only. It strengthens the
@@ -258,7 +258,7 @@ by `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
 covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 2026-06-06 TurboVec exact-baseline recall-quality clarification:
 `F-TurboVec-RecallQualityExactBaseline` is T1/L1 only. It strengthens the
@@ -277,7 +277,7 @@ live latency, choose System G routes, make L2/L3 product capability green, or
 promote live dense 70B. Latency/memory abstention is now covered by
 `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is now
 covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next retrieval/index
-research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 2026-06-06 TurboVec latency/memory abstention clarification:
 `F-TurboVec-LatencyMemoryAbstention` is T1/L1 only. It strengthens the
@@ -296,7 +296,7 @@ benchmark, allocate runtime buffers, measure live latency, choose System G
 routes, make L2/L3 product capability green, or promote live dense 70B. The
 runtime shadow benchmark plan is now covered by
 `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next retrieval/index
-research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-RuntimeShadowBenchmarkPlan` is T1/L1 only. It strengthens the
 architecture in favor of larger local models by proving the first
@@ -313,7 +313,7 @@ provider, or copied product bytes. It does not import TurboVec, build or open
 an index, run a benchmark, allocate runtime buffers, choose System G routes,
 make L2/L3 product capability green, or promote live dense 70B. The next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-QuarantineAdapterMicrobenchProbe` is T1/L1 only. It strengthens
 the architecture in favor of larger local models by proving the first
@@ -332,7 +332,7 @@ product bytes. It does not import TurboVec, clone or copy fork code, build or
 open a real index, run a real adapter, choose System G routes, make L2/L3
 product capability green, or promote live dense 70B. The next retrieval/index
 research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-RealAdapterOwnerApprovalProbe` is T1/L1 only. It strengthens the
 architecture in favor of larger local models by proving the first real
@@ -349,7 +349,7 @@ provider, or external-code bytes. It does not clone TurboVec, inspect forks,
 import/build/run adapters, choose System G routes, make L2/L3 product
 capability green, or promote live dense 70B. The next retrieval/index
 research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-RealAdapterSourcePinProbe` is T1/L1 only. It strengthens the
 architecture in favor of larger local models by proving the first real
@@ -364,8 +364,26 @@ hidden cloud fallback, live dense 70B, SSD-as-RAM, MAS/L2/L3 promotion, and
 nonzero product index, model/runtime, provider, or external-code bytes. It
 does not clone TurboVec, inspect fork source, import/build/run adapters, choose
 System G routes, make L2/L3 product capability green, or promote live dense
-70B. The next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+70B. The dependency-envelope gate is now covered by
+`F-TurboVec-RealAdapterDependencyEnvelopeProbe`; the next retrieval/index
+research-to-build unit is
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
+
+`F-TurboVec-RealAdapterDependencyEnvelopeProbe` is T1/L1 only. It strengthens
+the architecture in favor of larger local models by proving the pinned real
+TurboVec source card has an exact metadata dependency/build envelope before
+sandbox layout, quarantine bytes, source import, adapter builds, route
+mutation, or model-context use can cite it. It binds 8 SHA-bound manifests, 22
+dependency/native-link/codegen records, native macOS/Linux link boundaries,
+Python/maturin/numpy binding shape, optional Python integrations denied by
+default, Cargo.lock, downstream smoke visibility, rollback, RunEventLog,
+AnswerPacket, compatibility fence, benchmark caveat, zero fetched/cloned/
+product/index/model/runtime/provider bytes, and no MAS/L2/L3/live-70B
+promotion. It does not clone TurboVec, add a product dependency, probe native
+links, import/build/run adapters, choose System G routes, make L2/L3 product
+capability green, or promote live dense 70B. The next retrieval/index
+research-to-build unit is
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 ## Required Surface Updates
 

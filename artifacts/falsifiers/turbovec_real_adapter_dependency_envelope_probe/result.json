@@ -1,0 +1,320 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterDependencyEnvelopeProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_dependency_envelope_probe.sh",
+  "command_digest": "sha256:936f29c777925bfe6b5c9648ea3c768ec995619fb017cee82cc8ac402aae56dc",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ee3e7396cce14367cc2f1c986c4d8a10197978ab",
+  "fixture_id": "turbovec_real_adapter_dependency_envelope_probe_v1",
+  "timestamp_utc": "2026-06-06T14:17:40Z",
+  "result_digest": "sha256:ff345b53210cf1a1390050e1f68394ab11fa4356c6b2c1e76dcacd2859b090f4",
+  "measurements": {
+    "cargo_lock_and_codegen_config_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dependency_envelope_address": {
+      "value": "turbovec_real_adapter_dependency_envelope_probe:f59dcce8a5c6691d3cf9c132f99e80c44a42b85c784d9b49745d1d435d26d2f5@1779040900000",
+      "unit": "uas_address"
+    },
+    "dependency_record_count": {
+      "value": 22,
+      "unit": "dependencies"
+    },
+    "downstream_smoke_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_count": {
+      "value": 8,
+      "unit": "manifests"
+    },
+    "manifest_sha_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_manifest_bytes_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "native_link_count": {
+      "value": 2,
+      "unit": "links"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_sandbox_layout_probe",
+      "unit": "cursor"
+    },
+    "no_product_dependency_or_source_import": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "optional_integrations_denied_by_default": {
+      "value": true,
+      "unit": "bool"
+    },
+    "optional_python_integration_count": {
+      "value": 4,
+      "unit": "integrations"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "python_binding_envelope": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_manifest_bytes_read": {
+      "value": 33000,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 76,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_core_dependency_count": {
+      "value": 8,
+      "unit": "dependencies"
+    },
+    "rust_core_dependency_envelope": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_specific_native_link_envelope": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_source_pin_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "workspace_envelope_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "cargo_lock_and_codegen_config_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dependency_envelope_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_dependency_envelope_probe:",
+      "unit": "uas_address"
+    },
+    "dependency_record_count": {
+      "operator": "==",
+      "value": 22,
+      "unit": "dependencies"
+    },
+    "downstream_smoke_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "manifests"
+    },
+    "manifest_sha_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_manifest_bytes_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "native_link_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "links"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_sandbox_layout_probe",
+      "unit": "cursor"
+    },
+    "no_product_dependency_or_source_import": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "optional_integrations_denied_by_default": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "optional_python_integration_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "integrations"
+    },
+    "pinned_revision": {
+      "operator": "==",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "operator": "==",
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "python_binding_envelope": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_manifest_bytes_read": {
+      "operator": "==",
+      "value": 33000,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 60,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_core_dependency_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "dependencies"
+    },
+    "rust_core_dependency_envelope": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_specific_native_link_envelope": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_source_pin_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "workspace_envelope_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "cargo_lock_and_codegen_config_bound": true,
+    "dependency_envelope_address": true,
+    "dependency_record_count": true,
+    "downstream_smoke_visible": true,
+    "manifest_count": true,
+    "manifest_sha_coverage": true,
+    "metadata_manifest_bytes_only": true,
+    "native_link_count": true,
+    "next_research_to_build_unit": true,
+    "no_product_dependency_or_source_import": true,
+    "no_route_context_or_hidden_authority": true,
+    "optional_integrations_denied_by_default": true,
+    "optional_python_integration_count": true,
+    "pinned_revision": true,
+    "planned_quarantine_bytes": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "python_binding_envelope": true,
+    "raw_manifest_bytes_read": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "rust_core_dependency_count": true,
+    "rust_core_dependency_envelope": true,
+    "target_specific_native_link_envelope": true,
+    "upstream_source_pin_bound": true,
+    "workspace_envelope_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_dependency_envelope_scope",
+      "detail": "Pinned TurboVec manifest and dependency metadata only. No repository bytes fetched or cloned, no product dependency added, no source imported, no adapter built, no native link probe run, no index/model/runtime/provider bytes loaded, and no route/context authority granted."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterDependencyEnvelopeProbe as a T1/L1 metadata-only dependency envelope for the large-local-model compression track. It binds the pinned TurboVec revision to exact workspace, Rust core, native-link, Python binding, optional integration, Cargo.lock, codegen, and downstream-smoke manifests while keeping TurboVec in quarantine-reference form for Eidos/AppColdStore. This is research-to-build architecture proof only; it does not promote L2 product capability, L3 user surface, live dense 70B, SSD-as-RAM, hidden cloud, hidden PatternBoost, or hidden route authority."
+}
