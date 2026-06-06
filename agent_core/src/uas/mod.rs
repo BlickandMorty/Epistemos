@@ -95,6 +95,7 @@ pub mod turbovec_eidos_compressed_index_plan;
 pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
+pub mod turbovec_real_adapter_dependency_envelope_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
 pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
@@ -570,6 +571,16 @@ pub use turbovec_real_adapter_owner_approval_probe::{
     TurboVecRealAdapterSourceCard, TurboVecRealAdapterSourceKind,
     TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_CURSOR,
     TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_dependency_envelope_probe::{
+    TurboVecDependencyClass, TurboVecDependencyEnvelopeAction,
+    TurboVecDependencyEnvelopeByteLedger, TurboVecDependencyEnvelopeError,
+    TurboVecDependencyEnvelopeMetrics, TurboVecDependencyEnvelopePolicy,
+    TurboVecDependencyEnvelopeProofRefs, TurboVecDependencyEnvelopeStatus,
+    TurboVecDependencyEnvelopeTier, TurboVecDependencyManifest, TurboVecDependencyRecord,
+    TurboVecManifestKind, TurboVecRealAdapterDependencyEnvelopeProbeSet,
+    TURBOVEC_REAL_ADAPTER_DEPENDENCY_ENVELOPE_CURSOR,
+    TURBOVEC_REAL_ADAPTER_DEPENDENCY_ENVELOPE_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

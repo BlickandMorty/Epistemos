@@ -3959,3 +3959,78 @@ Next research query: "What exact dependency envelope, quarantine path, source
 card, clean-room boundary, rollback, RunEventLog, AnswerPacket, and benchmark
 caveat must gate pinned TurboVec before any real adapter bytes are fetched or
 compiled?"
+
+## 48. Real Adapter Dependency Envelope Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, primary
+TurboVec source metadata already pinned in the source-pin witness, and the
+current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_dependency_envelope_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_dependency_envelope_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_dependency_envelope_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_dependency_envelope_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterDependencyEnvelopeProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterDependencyEnvelopeProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to 8 SHA-bound manifests, 22
+dependency/native-link/codegen records, Rust core dependencies, target-specific
+BLAS and native macOS/Linux link boundaries, Python/maturin/numpy binding
+shape, optional Python integrations denied by default, downstream smoke
+visibility, Cargo.lock, x86_64-v3 codegen caveat, rollback, RunEventLog,
+AnswerPacket, compatibility fence, benchmark caveat, zero fetched/cloned/
+product/index/model/runtime/provider bytes, and 76 rejected red fixtures.
+
+### 48.1 Architecture Fusion
+
+This upgrades the large-local-model research path from "a source revision is
+pinned" to "the exact dependency/build envelope is known before real sandbox
+bytes exist." The breakthrough value is not that TurboVec can route today; it
+is that Eidos/AppColdStore can now plan compressed retrieval around
+Gemma/QAT/GGUF/MLX/LiteRT lanes with dependency drift, native-link risk,
+optional integration authority, and benchmark laundering fenced before any
+adapter source reaches product code.
+
+### 48.2 Non-Promotion
+
+This pass does not fetch or clone TurboVec, add a product dependency,
+import/build/run an adapter, probe Accelerate/OpenBLAS, open index bytes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose RuntimeRouter/System G routes,
+make L2/L3 product capability green, or prove live dense 70B. It advances the
+research-to-build ladder only.
+
+### 48.3 Pass-Thirty-Four Register
+
+Best breakthrough candidate: a sandbox-layout gate that allows real TurboVec
+bytes into quarantine only after path, byte, dependency, clean-room, rollback,
+RunEventLog, AnswerPacket, native-link, and benchmark-caveat boundaries are
+declared.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`, because source and
+dependency metadata are pinned but no quarantine filesystem layout, byte
+budget, clone/fetch boundary, cleanup rule, or sandbox replay surface has been
+proven.
+
+Best near-term code unit: build the sandbox-layout gate that refuses product
+paths, source import, Cargo dependency insertion, native-link execution,
+model/index bytes, route/context mutation, hidden authority, benchmark
+laundering, and live large-model claims.
+
+Biggest false-claim risk: treating a dependency envelope as permission to add
+TurboVec to product Cargo manifests, run native-link builds, benchmark
+retrieval, or claim better large-model local capability.
+
+Biggest missing source: quarantine path specification and exact source-byte
+fetch policy for a pinned TurboVec sandbox on Apple Silicon.
+
+Next research query: "What sandbox directory layout, byte ledger, clone/fetch
+lease, cleanup rule, native-link block, source-card copy boundary, RunEventLog,
+AnswerPacket, rollback, and benchmark caveat must gate pinned TurboVec before
+any real adapter bytes are fetched or compiled?"

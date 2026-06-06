@@ -648,7 +648,7 @@ permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject.
 Exact-baseline recall quality, latency/memory abstention, and runtime shadow
 benchmark planning are now covered; the next retrieval/index
-research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+research-to-build unit is `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-RecallQualityExactBaseline` is now built as the exact-baseline
 quality branch after crash-safe persistence. Implemented anchors include
@@ -667,7 +667,7 @@ Latency/memory/timeout/uncertainty abstention is now covered by
 `F-TurboVec-LatencyMemoryAbstention`, and runtime shadow benchmark planning is
 now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-LatencyMemoryAbstention` is now built as the budget-envelope branch
 after exact-baseline recall quality. Implemented anchors include
@@ -686,7 +686,7 @@ Hidden route authority, score-to-route mutation, route mutation, live dense
 70B, SSD-as-RAM, and L2/L3 promotion all reject. Runtime shadow benchmark
 planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
 retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+`turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
 `F-TurboVec-RuntimeShadowBenchmarkPlan` is now built as the deterministic
 runtime-shadow planning branch after latency/memory abstention. Implemented
@@ -755,6 +755,24 @@ real TurboVec/fork step must pass a dependency-envelope gate before any
 quarantine bytes, adapter wrapper, source import, route mutation, or
 large-model context authority can be attempted.
 
+`F-TurboVec-RealAdapterDependencyEnvelopeProbe` is now built as the
+metadata-only dependency/build envelope for the pinned TurboVec branch.
+Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_dependency_envelope_probe.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_real_adapter_dependency_envelope_probe/`.
+The witness binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to 8 SHA-bound manifests, 22
+dependency/native-link/codegen records, Rust core dependencies, target-specific
+BLAS and macOS/Linux native-link boundaries, Python/maturin/numpy binding
+shape, optional Python integrations denied by default, downstream smoke
+visibility, Cargo.lock, x86_64-v3 codegen caveat, clean-room provenance,
+rollback, RunEventLog, AnswerPacket, compatibility fence, benchmark caveat,
+and zero fetched/cloned/product/index/model/runtime/provider bytes. It proves
+the next real TurboVec/fork step must pass sandbox-layout proof before any
+quarantine bytes, source import, adapter build, route mutation, or large-model
+context authority can be attempted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -768,6 +786,7 @@ large-model context authority can be attempted.
 `F-TurboVec-QuarantineAdapterMicrobenchProbe`,
 `F-TurboVec-RealAdapterOwnerApprovalProbe`,
 `F-TurboVec-RealAdapterSourcePinProbe`,
+`F-TurboVec-RealAdapterDependencyEnvelopeProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
