@@ -22,8 +22,10 @@ easy to browse in one place.
 > `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`, and
 > `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`, and
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` in the live
-> repo root. Those newer docs extend this snapshot without deleting the June 1
-> nuance.
+> repo root. As of 2026-06-06, the TurboVec branch includes
+> `F-TurboVec-CrashSafePersistentIndex` as metadata-only T1/L1 and points next
+> at `turbovec_recall_quality_exact_baseline_plan`. Those newer docs extend
+> this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:
 

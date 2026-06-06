@@ -1,0 +1,430 @@
+{
+  "falsifier_id": "F-TurboVec-CrashSafePersistentIndex",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_crash_safe_persistent_index.sh",
+  "command_digest": "sha256:566cd1ac5871336d112c3427477eefdbcd8f75e3acacbab79440d4b88334fb20",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "4e220c1d8935a28081c371cdd970cca91baab7d6",
+  "fixture_id": "turbovec_crash_safe_persistent_index_v1",
+  "timestamp_utc": "2026-06-06T10:23:21Z",
+  "result_digest": "sha256:bd4c6f40e4ba1e668a9e4efc5865dea1c248939b4d3872f926e904b6d3abacb7",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_persistent_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_truth_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "atomic_temp_write_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "corrupt_cache_rebuild_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_external_ids_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_scenario_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_count": {
+      "value": 4,
+      "unit": "files"
+    },
+    "file_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fsync_and_atomic_rename_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "index_bytes_opened": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "index_bytes_written": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "magic_version_check_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_digest_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_recall_quality_exact_baseline_plan",
+      "unit": "cursor"
+    },
+    "partial_write_rollback_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "path_content_addressed_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "permission_denial_refuses_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_index_cache_not_truth": {
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_index_plan_address": {
+      "value": "turbovec_crash_safe_persistent_index_plan:04b2c79884199631f604c3436b157ac988b988c991ff266fe7d443ab52d9371b@1779039300000",
+      "unit": "uas_address"
+    },
+    "planned_file_bytes": {
+      "value": 27136,
+      "unit": "bytes"
+    },
+    "previous_manifest_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 89,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 89,
+      "unit": "fixtures"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "scenario_count": {
+      "value": 9,
+      "unit": "scenarios"
+    },
+    "stale_pointer_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_filter_before_rank_privacy_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_persistent_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_cold_store_truth_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "atomic_temp_write_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "corrupt_cache_rebuild_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_external_ids_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_scenario_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "files"
+    },
+    "file_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fsync_and_atomic_rename_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "index_bytes_opened": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "index_bytes_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "magic_version_check_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_digest_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_recall_quality_exact_baseline_plan",
+      "unit": "cursor"
+    },
+    "partial_write_rollback_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "path_content_addressed_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "permission_denial_refuses_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_index_cache_not_truth": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "persistent_index_plan_address": {
+      "operator": "starts_with",
+      "value": "turbovec_crash_safe_persistent_index_plan:",
+      "unit": "uas_address"
+    },
+    "planned_file_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "previous_manifest_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 60,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 89,
+      "unit": "fixtures"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "scenario_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "scenarios"
+    },
+    "stale_pointer_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_filter_before_rank_privacy_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_persistent_fixture_present": true,
+    "app_cold_store_truth_required": true,
+    "atomic_temp_write_required": true,
+    "corrupt_cache_rebuild_required": true,
+    "duplicate_external_ids_rejected": true,
+    "failure_scenario_coverage_complete": true,
+    "file_count": true,
+    "file_coverage_complete": true,
+    "fsync_and_atomic_rename_required": true,
+    "hidden_route_authority_rejected": true,
+    "index_bytes_loaded": true,
+    "index_bytes_opened": true,
+    "index_bytes_written": true,
+    "layer_separation_required": true,
+    "magic_version_check_required": true,
+    "manifest_digest_required": true,
+    "metadata_budget_enforced": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "partial_write_rollback_required": true,
+    "path_content_addressed_required": true,
+    "permission_denial_refuses_promotion": true,
+    "persistent_index_cache_not_truth": true,
+    "persistent_index_plan_address": true,
+    "planned_file_bytes": true,
+    "previous_manifest_retained": true,
+    "product_promotion_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "runtime_and_index_bytes_zero": true,
+    "runtime_bytes_loaded": true,
+    "scenario_count": true,
+    "stale_pointer_rejected": true,
+    "upstream_cursor_verified": true,
+    "upstream_filter_before_rank_privacy_gate_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec crate imported, no persistent index files opened/written/loaded, no model/runtime bytes loaded, no recall-quality claim, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-CrashSafePersistentIndex from the filter-before-rank privacy gate. Scope is T1/L1 metadata only: models .tvim/manifest persistence as AppColdStore-rebuildable cache material with atomic temp writes, fsync policy, digest binding, rollback, corrupt-cache rebuild, RunEventLog, AnswerPacket, compatibility fence, and no product/runtime promotion."
+}

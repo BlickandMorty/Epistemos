@@ -90,6 +90,7 @@ pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
+pub mod turbovec_crash_safe_persistent_index_plan;
 pub mod turbovec_eidos_compressed_index_plan;
 pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_stable_external_id_registry_plan;
@@ -514,6 +515,17 @@ pub use turbovec_eidos_compressed_index_plan::{
     TurboVecIndexPlanStatus, TurboVecIndexPromotionTier, TurboVecIndexProofRefs,
     TurboVecRebuildPolicy, TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_CURSOR,
     TURBOVEC_EIDOS_COMPRESSED_INDEX_PLAN_NEXT_CURSOR,
+};
+pub use turbovec_crash_safe_persistent_index_plan::{
+    persistent_file_digest, TurboVecCrashSafePersistentIndexError,
+    TurboVecCrashSafePersistentIndexMetrics, TurboVecCrashSafePersistentIndexPlan,
+    TurboVecCrashSafePersistentIndexPlanSet, TurboVecCrashSafePersistentIndexPolicy,
+    TurboVecPersistenceFailureKind, TurboVecPersistenceFailureScenario,
+    TurboVecPersistenceRecoveryDecision, TurboVecPersistentFileKind,
+    TurboVecPersistentIndexByteLedger, TurboVecPersistentIndexFilePlan,
+    TurboVecPersistentIndexPromotionTier, TurboVecPersistentIndexProofRefs,
+    TurboVecPersistentIndexStatus, TURBOVEC_CRASH_SAFE_PERSISTENT_INDEX_CURSOR,
+    TURBOVEC_CRASH_SAFE_PERSISTENT_INDEX_NEXT_CURSOR,
 };
 pub use turbovec_filter_before_rank_privacy_gate::{
     TurboVecAccessDecision, TurboVecAllowlistCompilation, TurboVecCandidateEvidence,

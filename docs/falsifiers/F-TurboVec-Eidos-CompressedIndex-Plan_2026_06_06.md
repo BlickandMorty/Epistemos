@@ -80,7 +80,8 @@ compressed retrieval contract for later stable external-ID registry, privacy,
 byte, index-build, recall-quality, and WRV witnesses. The stable-ID registry
 step is now covered by `F-TurboVec-UASAddressStableExternalIds`; the
 filter-before-rank privacy step is now covered by
-`F-TurboVec-FilterBeforeRankPrivacyGate`; the next research-to-build unit is
-`turbovec_crash_safe_persistent_index_plan`.
+`F-TurboVec-FilterBeforeRankPrivacyGate`; the crash-safe persistence step is
+now covered by `F-TurboVec-CrashSafePersistentIndex`; the next
+research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`.
 The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

@@ -600,9 +600,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   quality, choose model routes, advance L2, or make L3 user-facing model
   capability green. Stable external IDs are now covered by
   `F-TurboVec-UASAddressStableExternalIds`; filter-before-rank privacy is now
-  covered by `F-TurboVec-FilterBeforeRankPrivacyGate`; the next
+  covered by `F-TurboVec-FilterBeforeRankPrivacyGate`; crash-safe persistence
+  is now covered by `F-TurboVec-CrashSafePersistentIndex`; the next
   research-to-build retrieval unit is
-  `turbovec_crash_safe_persistent_index_plan`. The
+  `turbovec_recall_quality_exact_baseline_plan`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-UASAddressStableExternalIds` is now
@@ -630,9 +631,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   rollback, RunEventLog, AnswerPacket, and compatibility fence. This is T1/L1
   metadata only. It does not import TurboVec, build/persist a registry or
   index, prove recall quality, choose model routes, advance L2, or make L3
-  user-facing model capability green. The next research-to-build retrieval unit
-  is now `turbovec_crash_safe_persistent_index_plan`; the guard-owned cursor
-  remains
+  user-facing model capability green. Filter-before-rank privacy and
+  crash-safe persistence are now covered; the next research-to-build retrieval
+  unit is `turbovec_recall_quality_exact_baseline_plan`; the guard-owned
+  cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-FilterBeforeRankPrivacyGate` is now
   built as the TurboVec/Eidos filter-before-rank privacy witness:
@@ -660,8 +662,40 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   MAS/Live/T2+ promotion, live dense 70B, and SSD-as-RAM. This is T1/L1
   metadata only. It does not import TurboVec, build/persist an index, prove
   recall quality, choose model routes, advance L2, or make L3 user-facing
-  model capability green. The next research-to-build retrieval unit is
-  `turbovec_crash_safe_persistent_index_plan`; the guard-owned cursor
+  model capability green. Crash-safe persistence is now covered by
+  `F-TurboVec-CrashSafePersistentIndex`; the next research-to-build retrieval
+  unit is `turbovec_recall_quality_exact_baseline_plan`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-CrashSafePersistentIndex` is now
+  built as the TurboVec/Eidos crash-safe persistent-index witness:
+  `agent_core/src/uas/turbovec_crash_safe_persistent_index_plan.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_crash_safe_persistent_index.rs`,
+  script `Tools/falsifiers/f_turbovec_crash_safe_persistent_index.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-CrashSafePersistentIndex_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_crash_safe_persistent_index/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 1 persistent
+  index plan, covers 4 file kinds, covers 9 crash/corruption/compatibility
+  scenarios, rejects 89 red fixtures, and records zero opened, written, or
+  loaded index/model/runtime/provider bytes. It proves TurboVec `.tvim` /
+  manifest material is cache only: content-addressed, temp-written,
+  fsync/atomic-rename protected, digest-bound, magic/version checked, previous
+  manifest retained, rollback-capable, rebuildable from AppColdStore truth,
+  and AnswerPacket-visible. It rejects duplicate/zero external IDs, partial
+  writes without rollback, corrupt cache without rebuild, stale manifest
+  pointers, permission-denied promotion, hidden route authority,
+  Eidos-as-live-router, hidden cloud fallback, MAS/Live/T2+ promotion, live
+  dense 70B, and SSD-as-RAM. This is T1/L1 metadata only. It does not import
+  TurboVec, write `.tv`/`.tvim` files, prove recall quality, choose model
+  routes, advance L2, or make L3 user-facing model capability green. The next
+  research-to-build retrieval unit is
+  `turbovec_recall_quality_exact_baseline_plan`; the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

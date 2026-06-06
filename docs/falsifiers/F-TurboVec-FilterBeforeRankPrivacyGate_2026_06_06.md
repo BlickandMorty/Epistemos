@@ -30,8 +30,8 @@ Artifact:
 - 0 forbidden/private/unknown candidates exposed in results.
 - Deterministic privacy gate address:
   `turbovec_filter_before_rank_privacy_gate_plan:de30abe8e8e7564126ffac2452b6af6eff19db6249b0909306cb3b9d4ad74c53@1779039200000`
-- Next research-to-build unit:
-  `turbovec_crash_safe_persistent_index_plan`
+- Next research-to-build unit after persistence:
+  `turbovec_recall_quality_exact_baseline_plan`
 
 ## Hardening Axes
 
@@ -50,7 +50,7 @@ The witness proves:
 
 ## Scope Boundary
 
-This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, build or persist an index, prove recall quality, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green.
+This advances L1 architecture cursor truth only for the TurboVec compressed-retrieval research branch. It does not import TurboVec code, build or persist an index, prove recall quality, load Gemma/QAT/GGUF/MLX/LiteRT, choose RuntimeRouter/System G routes, advance L2 capability, or make L3 user-facing model capability green. Crash-safe persistence is now covered by `F-TurboVec-CrashSafePersistentIndex`.
 
 Correct phrasing:
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-The next retrieval/index research-to-build unit is `turbovec_crash_safe_persistent_index_plan`, because filter-before-rank privacy is now specified before any persistent compressed index can be trusted.
+The persistence unit is now covered by `F-TurboVec-CrashSafePersistentIndex`. The next retrieval/index research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`, because compressed recall must beat exact AppColdStore baselines before any large-model route can cite TurboVec cache quality.
