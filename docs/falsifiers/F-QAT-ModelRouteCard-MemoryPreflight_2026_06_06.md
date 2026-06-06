@@ -71,7 +71,7 @@ runtime remain unchanged.
 ## Queue Effect
 
 `F-QAT-ModelRouteCard-MemoryPreflight` gives the model ladder a byte-accounted
-route-card preflight for later `F-CompressedRoute-AnswerPacket-DryRun` and
-owner-approved small compressed model runtime harness work. The guard-owned
-product cursor remains
+route-card preflight for `F-CompressedRoute-AnswerPacket-DryRun`, which has now
+landed as metadata-only visible packetization, and owner-approved small
+compressed model runtime harness work. The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

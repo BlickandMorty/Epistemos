@@ -38,6 +38,7 @@ pub mod cold_panic_fallback;
 pub mod coldstream;
 pub mod coldstream_vs_mmap;
 pub mod compressed_model_source_card_intake;
+pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
@@ -125,6 +126,13 @@ pub use coldstream_vs_mmap::{
     ColdStreamBaselineKind, ColdStreamBaselineRow, ColdStreamVsMmapError, ColdStreamVsMmapFixture,
     ColdStreamVsMmapMetrics, ColdStreamVsMmapSurface, ColdStreamVsMmapWitness,
     COLDSTREAM_VS_MMAP_CURSOR, COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+};
+pub use compressed_route_answer_packet_dry_run::{
+    CompressedRouteAnswerPacketDryRun, CompressedRouteAnswerPacketDryRunSet,
+    CompressedRouteAnswerPacketError, CompressedRouteAnswerPacketMetrics,
+    CompressedRouteAnswerPacketRefs, CompressedRouteByteLedger, CompressedRoutePacketStatus,
+    CompressedRoutePromotionTier, COMPRESSED_ROUTE_ANSWER_PACKET_DRY_RUN_CURSOR,
+    COMPRESSED_ROUTE_ANSWER_PACKET_DRY_RUN_NEXT_CURSOR,
 };
 pub use compressed_model_source_card_intake::{
     CompressedModelFormat, CompressedModelOrgan, CompressedModelPromotionTier,

@@ -622,8 +622,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   bytes, zero runtime bytes, and making zero provider calls. This is T1/L1
   metadata only. It does not prove GGUF loadability, Swift MLX support, LiteRT
   support, first token, memory residency, quality, MAS readiness, L2
-  capability, or L3 user-facing product truth. The next model-ladder unit is
-  `F-CompressedRoute-AnswerPacket-DryRun`; the guard-owned cursor remains
+  capability, or L3 user-facing product truth. The next model-ladder unit was
+  `F-CompressedRoute-AnswerPacket-DryRun`, now built in the following entry;
+  the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-CompressedRoute-AnswerPacket-DryRun` is now built
+  as the visible packet witness after QAT route-card memory preflight:
+  `agent_core/src/uas/compressed_route_answer_packet_dry_run.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_compressed_route_answer_packet_dry_run.rs`,
+  script `Tools/falsifiers/f_compressed_route_answer_packet_dry_run.sh`,
+  witness page
+  `docs/falsifiers/F-CompressedRoute-AnswerPacket-DryRun_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 4
+  compressed-route packets and rejects 48 red fixtures: E2B/E4B are visible
+  dry-run AnswerPackets only, 12B is carried as an insufficient-headroom
+  abstention packet, and 31B is carried as VaultPreserved. It records planned
+  model/KV/scratch/fallback bytes separately from opened, resident, loaded, and
+  provider bytes, all of which remain zero. This is T1/L1 metadata only. It
+  does not prove GGUF loadability, Swift MLX support, LiteRT support, first
+  token, memory residency, quality, MAS readiness, L2 capability, or L3
+  user-facing product truth. The next research-to-build model-ladder unit is
+  `F-SmallCompressedModel-LiveHarness`; the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
