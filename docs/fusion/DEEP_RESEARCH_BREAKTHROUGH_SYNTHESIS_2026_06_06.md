@@ -2925,3 +2925,109 @@ Next research query: "What is the smallest explicit owner-approved local
 runtime command or in-process adapter that can run only the E2B QAT GGUF
 candidate for one redacted token with cancellation, memory ledger, rollback,
 RunEventLog, and AnswerPacket proof?"
+
+## 35. Pass Twenty-One - Local GGUF Command Card Built
+
+Pass twenty-one implements
+`F-SmallCompressedModel-LocalRuntimeCommandCard` as the next research-to-build
+bridge after the owner-approval runtime gate. The point is to turn external
+GGUF/llama.cpp research and local command inventory into a typed witness before
+any runtime probe can arm a command.
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+The artifact at
+`artifacts/falsifiers/small_compressed_model_local_runtime_command_card/result.json`
+passes with 2 command cards and 52 red-fixture rejections. It records
+`/opt/homebrew/bin/llama-cli` as the only direct local GGUF command card for
+the selected `google/gemma-4-E2B-it-qat-q4_0-gguf` future probe, and records
+`/opt/homebrew/bin/llama-server` only as a denied-by-default sidecar card. The
+local version ref is
+`local_version:llama.cpp:9370:aa50b2c2a:darwin_arm64:no_model_load:2026_06_06`.
+This is command inventory, not inference.
+
+### 35.1 Why This Is Research-To-Build
+
+The new gate answers the user's constraint that breakthrough research must
+produce buildable work. Google/Hugging Face/GGUF facts and local Downloads
+inventory now feed a concrete Rust primitive, falsifier binary, shell witness,
+schema row, handbook row, witness doc, Living Index entry, and lattice surface.
+The next runtime step is no longer vague:
+
+```text
+owner approval token
+  -> selected E2B QAT GGUF model path
+  -> visible llama-cli command card
+  -> one retained redacted token
+  -> cancellation deadline
+  -> memory ledger
+  -> rollback
+  -> RunEventLog
+  -> AnswerPacket
+```
+
+The command card also blocks the dangerous shortcuts: hidden server endpoints,
+provider fallback, 12B/31B default probes, dense 70B, 128K shard reruns,
+mmap/SSD stress, command execution without owner approval, first-token claims,
+and L2/L3 promotion.
+
+### 35.2 External And Local Source State
+
+Primary sources:
+
+- llama.cpp source repo: <https://github.com/ggml-org/llama.cpp>
+- Gemma 4 E2B QAT GGUF model card/API:
+  <https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf>
+- Google Gemma 4 QAT announcement:
+  <https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/>
+
+Local source state:
+
+- `Epistemos/Engine/LocalGGUFClient.swift` is a product code seam, but current
+  research-to-build work does not promote it as live product proof.
+- `LocalPackages/GGUFRuntimeBridge` is an in-process GGUF/llama bridge anchor,
+  but MAS and product use remain separately gated.
+- `/opt/homebrew/bin/llama-cli` and `/opt/homebrew/bin/llama-server` exist as
+  local command inventory. `llama-cli --version` was observed separately as
+  `9370 (aa50b2c2a)` built for Darwin arm64 without model load; the falsifier
+  itself does not execute inference or open model files.
+
+### 35.3 Non-Promotion
+
+This pass does not prove GGUF loadability, Swift MLX Gemma support, LiteRT
+support, first token, retained-token quality, memory fit, runtime parity, tool
+use, MAS readiness, L2 capability, L3 user-facing behavior, live dense 70B, or
+live sparse 70B. It advances research-to-build T1/L1 metadata architecture
+only. L2 remains `vault_research_route_with_packetized_mitigation`; L3 product
+truth remains unchanged.
+
+### 35.4 Pass-Twenty-One Register
+
+Best breakthrough candidate: command-carded local runtime probes where every
+external model/runtime idea must become a visible, fail-closed command or
+in-process adapter before any first-token attempt.
+
+Safest next falsifier: `small_compressed_model_owner_approved_runtime_probe`,
+because the owner gate and local command card now exist, but runtime execution
+is still unarmed.
+
+Best near-term code unit: implement the owner-approved E2B one-token runtime
+probe wrapper that consumes the command card, refuses to run without an
+explicit approval token and model path, samples memory, redacts token content,
+logs rollback, and emits RunEventLog plus AnswerPacket proof.
+
+Biggest false-claim risk: treating command inventory or `llama-cli --version`
+as model loadability, first-token proof, quality proof, product capability, or
+large-local-model completion.
+
+Biggest missing source: the actual local E2B GGUF model path and an approved
+one-token runtime window; until that exists, the command card remains a
+pre-runtime T1/L1 witness.
+
+Next research query: "What owner-approved E2B GGUF model path and exact
+one-token command envelope can satisfy the local command card while recording
+memory, cancellation, rollback, RunEventLog, and AnswerPacket proof without
+server sidecar or provider fallback?"

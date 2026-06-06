@@ -346,10 +346,18 @@ If a source/canon guard is needed before the next runtime step, use this order:
    denial refs for 12B/31B, MLX Swift loader shortcuts, LiteRT without package
    proof, KV-Direct 128K, mmap/SSD stress, provider fallback, and dense-70B
    runtime, zero runtime/model/provider bytes, and no L2/L3 promotion boundary.
+   The local GGUF command card is now also built metadata-only as
+   `F-SmallCompressedModel-LocalRuntimeCommandCard`; preserve
+   `/opt/homebrew/bin/llama-cli` as the only visible direct future E2B command
+   card, `/opt/homebrew/bin/llama-server` as denied by default, owner approval
+   and model path as pending, zero runtime/model/provider bytes, and no L2/L3
+   promotion boundary.
    The next research-to-build unit is
    `small_compressed_model_owner_approved_runtime_probe`; it must not run
-   without explicit owner approval and must not rerun 128K shards, dense 70B,
-   12B/31B, mmap/SSD stress, or hidden provider fallback by default.
+   without explicit owner approval, visible model path, cancellation, memory
+   ledger, rollback, RunEventLog, and AnswerPacket proof, and it must not rerun
+   128K shards, dense 70B, 12B/31B, mmap/SSD stress, hidden server endpoints,
+   or hidden provider fallback by default.
 11. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.

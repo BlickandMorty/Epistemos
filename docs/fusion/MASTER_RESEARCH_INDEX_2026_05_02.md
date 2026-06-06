@@ -32,13 +32,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > rung sequence is source cards -> provenance gate -> compressed model source
 > cards -> Gemma QAT candidate cards -> QAT route-card memory preflight ->
 > compressed-route AnswerPackets -> small compressed-model preflight ->
-> `F-SmallCompressedModel-OwnerApprovalRuntimeGate`. Current built truth:
-> `artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/result.json`
-> passes T1/L1 metadata with owner approval pending, command unarmed, zero
-> model/runtime bytes, zero provider calls, and explicit denial of 12B/31B,
-> MLX Swift loader shortcuts, LiteRT without package proof, KV-Direct 128K,
-> mmap/SSD stress, provider fallback, and dense-70B runtime. L2/L3 product
-> capability remains red.
+> `F-SmallCompressedModel-OwnerApprovalRuntimeGate` ->
+> `F-SmallCompressedModel-LocalRuntimeCommandCard`. Current built truth:
+> `artifacts/falsifiers/small_compressed_model_local_runtime_command_card/result.json`
+> passes T1/L1 metadata with `/opt/homebrew/bin/llama-cli` visible as the only
+> direct future E2B command card, `/opt/homebrew/bin/llama-server` visible only
+> as a denied-by-default sidecar, owner approval pending, command unarmed, zero
+> model/runtime bytes, zero provider calls, and no L2/L3 product capability.
 
 ---
 
@@ -525,13 +525,32 @@ keeps its loader caveat. No model/runtime/provider bytes are opened or loaded.
 The next model-ladder research-to-build unit is
 `small_compressed_model_owner_approved_runtime_probe`.
 
+**Pass-twenty/twenty-one implementation.**
+`F-SmallCompressedModel-OwnerApprovalRuntimeGate` and
+`F-SmallCompressedModel-LocalRuntimeCommandCard` are now built as the
+fail-closed bridge from compressed-model research into a possible future
+one-token E2B runtime probe. Implemented anchors include
+`agent_core/src/uas/small_compressed_model_owner_approval_runtime_gate.rs`,
+`agent_core/src/uas/small_compressed_model_local_runtime_command_card.rs`,
+their falsifier binaries and scripts, witness docs, schema/handbook rows, and
+artifacts under
+`artifacts/falsifiers/small_compressed_model_owner_approval_runtime_gate/` and
+`artifacts/falsifiers/small_compressed_model_local_runtime_command_card/`.
+The command-card witness accepts 2 local GGUF command cards and rejects 52 red
+fixtures: `/opt/homebrew/bin/llama-cli` is the only direct future E2B command
+card, `/opt/homebrew/bin/llama-server` is denied by default, owner approval
+and model path remain pending, and command execution, provider fallback, first
+token, L2/L3 promotion, live dense 70B, and SSD-as-RAM are rejected.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
-`F-SmallCompressedModel-LiveHarnessPreflight` are T1/L1 metadata architecture only.
+`F-SmallCompressedModel-LiveHarnessPreflight`,
+`F-SmallCompressedModel-OwnerApprovalRuntimeGate`, and
+`F-SmallCompressedModel-LocalRuntimeCommandCard` are T1/L1 metadata architecture only.
 They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor

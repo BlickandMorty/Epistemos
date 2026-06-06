@@ -1404,3 +1404,24 @@ calls, and does not prove loadability, first token, quality, MAS readiness, L2
 capability, or L3 user-facing product truth. The next research-to-build unit
 remains `small_compressed_model_owner_approved_runtime_probe`, but that future
 probe now requires explicit owner approval rather than inherited enthusiasm.
+
+### 2026-06-06 Local Runtime Command Card Implementation Note
+
+`F-SmallCompressedModel-LocalRuntimeCommandCard` is now implemented as the
+local GGUF command-inventory witness after the owner-approval gate. The
+artifact lives at
+`artifacts/falsifiers/small_compressed_model_local_runtime_command_card/result.json`
+and accepts 2 command cards while rejecting 52 red fixtures. It records
+`/opt/homebrew/bin/llama-cli` as the only direct future command card for the
+selected E2B Gemma 4 QAT GGUF path, and records
+`/opt/homebrew/bin/llama-server` only as a denied-by-default sidecar. The
+observed local version ref is
+`local_version:llama.cpp:9370:aa50b2c2a:darwin_arm64:no_model_load:2026_06_06`,
+which is command inventory only, not model loadability or first-token proof.
+Owner approval remains pending, model path remains pending, the command is not
+armed or executed, and provider fallback, hidden route authority, server
+sidecar defaults, first-token claims, L2/L3 promotion, live dense 70B, and
+SSD-as-RAM are rejected. The next research-to-build unit remains
+`small_compressed_model_owner_approved_runtime_probe`, but it must now consume
+the visible command card and still produce cancellation, memory-ledger,
+rollback, RunEventLog, and AnswerPacket proof before any capability claim.

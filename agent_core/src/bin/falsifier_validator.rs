@@ -130,6 +130,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-CompressedRoute-AnswerPacket-DryRun",
     "F-SmallCompressedModel-LiveHarnessPreflight",
     "F-SmallCompressedModel-OwnerApprovalRuntimeGate",
+    "F-SmallCompressedModel-LocalRuntimeCommandCard",
     "F-TaskWorkingSetQuery-Determinism",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ResidencyPageTable-Addressability",
