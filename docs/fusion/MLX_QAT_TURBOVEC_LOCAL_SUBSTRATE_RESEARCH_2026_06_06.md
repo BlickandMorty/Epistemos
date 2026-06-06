@@ -1371,3 +1371,18 @@ readiness, L2 capability, or L3 user-facing product truth. The next
 research-to-build unit is `F-SmallCompressedModel-LiveHarness`, which must use
 the smallest owner-approved compressed runtime path and must not default to
 128K shards, dense 70B, 12B/31B, mmap/SSD stress, or hidden provider fallback.
+
+### 2026-06-06 Small Compressed Harness Preflight Implementation Note
+
+`F-SmallCompressedModel-LiveHarnessPreflight` is now implemented as the
+owner-approval lease before any small compressed model runtime probe. The
+artifact lives at
+`artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`
+and accepts 2 preflight candidates while rejecting 56 red fixtures. E2B Gemma
+4 QAT GGUF on the GGUF/llama.cpp lane is the only selected future one-token
+probe candidate. E4B is a visible deferred alternate. LiteRT-LM requires later
+local package proof. MLX Swift remains blocked by loader caveat. Owner approval
+is required but not granted by this witness. It loads zero model/runtime bytes,
+makes zero provider calls, and does not prove loadability, first token, quality,
+MAS readiness, L2 capability, or L3 user-facing product truth. The next
+research-to-build unit is `small_compressed_model_owner_approved_runtime_probe`.

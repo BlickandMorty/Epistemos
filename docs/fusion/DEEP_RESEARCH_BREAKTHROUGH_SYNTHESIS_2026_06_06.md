@@ -2761,14 +2761,16 @@ Best breakthrough candidate: a research-to-build ladder where every compressed
 model idea must become a visible AnswerPacket, rollback, cancellation, and byte
 ledger before any runtime probe can start.
 
-Safest next falsifier: `F-SmallCompressedModel-LiveHarness`, because E2B/E4B
+Previously safest falsifier: `F-SmallCompressedModel-LiveHarness`, because E2B/E4B
 now have visible dry-run packets and need the smallest owner-approved live
-harness proof before any L2/L3 claim.
+harness proof before any L2/L3 claim. This was narrowed by pass nineteen into
+`F-SmallCompressedModel-LiveHarnessPreflight`.
 
-Best near-term code unit: define the small compressed model harness contract
+Previously best near-term code unit: define the small compressed model harness contract
 over the packetized E2B/E4B routes with one retained redacted token,
 cancellation, memory logging, RunEventLog, rollback, AnswerPacket, and no hidden
-provider fallback.
+provider fallback. This was satisfied as a pre-runtime owner-approval lease in
+pass nineteen.
 
 Biggest false-claim risk: treating a visible dry-run AnswerPacket as live
 inference, quality, MAS readiness, 12B/31B memory fit, or local large-model
@@ -2782,3 +2784,87 @@ Next research query: "What is the smallest owner-approved compressed model
 runtime harness that can prove first-token, cancellation, memory logging,
 rollback, and AnswerPacket visibility without hidden provider fallback or
 large-model overclaim?"
+
+## 33. Pass Nineteen: Small Compressed Model Live-Harness Preflight Built
+
+Pass nineteen implements `F-SmallCompressedModel-LiveHarnessPreflight` as the
+owner-approval lease before any compressed-model runtime probe. It converts
+the visible compressed-route AnswerPackets into a tiny-probe contract without
+opening model bytes, runtime bytes, provider routes, or product-facing
+capability.
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+| Candidate | Lane | Status | Meaning |
+|---|---|---|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | GGUF / llama.cpp | selected for pending owner approval | Smallest future one-token probe candidate |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | GGUF / llama.cpp | deferred alternate | Visible fallback after E2B proof |
+| LiteRT-LM | package path | gated | Requires later local package-size/runtime proof |
+| MLX Swift | loader path | blocked | Loader caveat remains until Swift MLX Gemma 4 support is witnessed |
+
+The artifact at
+`artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`
+passes with 2 accepted candidates and 56 red-fixture rejections. It records
+owner-approval requirement, runtime lane, selected candidate, blocked lane
+refs, planned model bytes, planned KV bytes, planned scratch bytes, one-token
+budget, timeout, cancellation deadline, opened bytes, resident bytes, loaded
+bytes, provider calls, memory ledger, rollback, RunEventLog, AnswerPacket,
+compatibility fence, and route caveat. All opened/resident/loaded
+runtime/model bytes and provider calls remain zero.
+
+External validation for the lane stance: Google's Gemma 4 QAT announcement
+([source](https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/))
+says the GGUF format is ready for llama.cpp, LiteRT-LM is the lightweight edge
+runtime, and MLX is an Apple Silicon ecosystem path, while
+`ml-explore/mlx-swift` issue 389
+([source](https://github.com/ml-explore/mlx-swift/issues/389)) remains the
+local Swift-loader caveat for Gemma 4 architecture support. These are source
+signals only, not runtime proof.
+
+### 33.1 Research-To-Build Meaning
+
+This pass is where "research likely to build" becomes operational. The next
+probe is not an abstract small model; it is the smallest packetized candidate
+with an explicit owner-approval gate, one-token budget, cancellation window,
+rollback, memory ledger, and AnswerPacket requirement. The live proof is still
+future work, but the future work now has a narrow execution envelope instead
+of a broad model-loading wish.
+
+### 33.2 Non-Promotion
+
+This pass does not prove GGUF loadability, Swift MLX Gemma support, LiteRT
+support, first token, memory residency, quality, tool use, MAS readiness, L2
+capability, or L3 user-facing product truth. It advances T1/L1 metadata
+architecture only. L2 capability remains
+`vault_research_route_with_packetized_mitigation`; L3 product truth remains
+unchanged.
+
+### 33.3 Pass-Nineteen Register
+
+Best breakthrough candidate: owner-approved one-token compressed-model runtime
+probes that can graduate model research by proving memory, cancellation,
+rollback, RunEventLog, and AnswerPacket visibility before quality claims.
+
+Safest next falsifier: `small_compressed_model_owner_approved_runtime_probe`,
+because the preflight now selects only E2B GGUF/llama.cpp and blocks runtime
+unless the owner explicitly approves the probe.
+
+Best near-term code unit: implement the owner-approved runtime probe wrapper
+or dry-run command ledger that can prove the command, model path, memory
+ledger, cancellation, redacted token digest, rollback, RunEventLog, and
+AnswerPacket without hidden provider fallback.
+
+Biggest false-claim risk: treating the preflight lease as owner approval,
+first-token proof, quality proof, MAS readiness, or L2/L3 product capability.
+
+Biggest missing source: local package and runtime availability evidence for
+the selected E2B GGUF/llama.cpp path, plus a later LiteRT package proof if
+LiteRT-LM becomes the native Mac path.
+
+Next research query: "What exact owner-approved runtime command or in-process
+adapter can load only the selected E2B compressed candidate, emit one redacted
+token, cancel cleanly, log memory, and produce AnswerPacket proof with no
+provider fallback?"

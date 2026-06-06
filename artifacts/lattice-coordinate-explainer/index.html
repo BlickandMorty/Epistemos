@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="bfcb47e48a9db799fa76ca3fa343a70472167ff2">
+  <meta name="epistemos-commit-sha" content="769f990ad82dae17ae65d6579f89b32598c0f93e">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -632,9 +632,17 @@
   E2B/E4B only as visible dry-run AnswerPackets, carries 12B as an
   insufficient-headroom abstention packet, carries 31B as VaultPreserved,
   separates planned/opened/resident/loaded/provider bytes, and remains T1/L1
-  metadata architecture only. The next research-to-build model-ladder unit is
-  <code>F-SmallCompressedModel-LiveHarness</code>; the retrieval/index unit
-  remains <code>F-TurboVec-Eidos-CompressedIndex-Plan</code>.
+  metadata architecture only. Pass nineteen implements
+  <code>F-SmallCompressedModel-LiveHarnessPreflight</code> with Rust primitive,
+  binary, script, witness doc, schema/handbook coverage, and artifact at
+  <code>artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json</code>.
+  It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp
+  only as a pending owner-approved one-token probe candidate, keeps E4B as a
+  deferred alternate, requires later LiteRT package proof, preserves the MLX
+  Swift loader caveat, and remains T1/L1 metadata architecture only. The next
+  research-to-build model-ladder unit is
+  <code>small_compressed_model_owner_approved_runtime_probe</code>; the
+  retrieval/index unit remains <code>F-TurboVec-Eidos-CompressedIndex-Plan</code>.
 </div>
 
 <div class="canon-hook">
@@ -1210,6 +1218,7 @@ The newest plausibility bridge treats UAS/AppColdStore as a compiler and page-ta
     <tr><td>GemmaQatLocalRuntimeCandidateCard</td><td>Source-backed Gemma 4 QAT GGUF candidates with license, revision, declared bytes, context windows, candidate band, resident-floor planning bytes, rollback, RunEventLog, AnswerPacket, compatibility fence, runtime-deferred state, and no Swift-loader/MTP/MAS/product promotion.</td><td>F-GemmaQAT-LocalRuntimeCandidateCard</td></tr>
     <tr><td>QatModelRouteCardMemoryPreflight</td><td>Byte-accounted route preflights for Gemma QAT candidates with runtime lane, admission, file/resident/KV/scratch/available/headroom bytes, timeout, cancellation, abstention, rollback, RunEventLog, AnswerPacket, compatibility fence, and no first-token/quality/MAS/product promotion.</td><td>F-QAT-ModelRouteCard-MemoryPreflight</td></tr>
     <tr><td>CompressedRouteAnswerPacketDryRun</td><td>Visible compressed-route AnswerPacket dry-run packets with selected model, rejected candidates, planned/opened/resident/loaded/provider byte ledger, route caveat, fallback, rollback, cancellation, compatibility fence, no-mutation envelope, and no live inference or product promotion.</td><td>F-CompressedRoute-AnswerPacket-DryRun</td></tr>
+    <tr><td>SmallCompressedModelLiveHarnessPreflight</td><td>Owner-approval lease for the first tiny compressed-model probe with E2B GGUF/llama.cpp selected, E4B deferred, LiteRT package proof required, MLX Swift loader caveat preserved, one-token budget, byte plan, rollback, cancellation, RunEventLog, AnswerPacket, and no live execution.</td><td>F-SmallCompressedModel-LiveHarnessPreflight</td></tr>
     <tr><td>TaskWorkingSetQuery</td><td>Mission-shaped privacy, quality, evidence, verifier, max-hot, max-KV, and max-cold-I/O budgets.</td><td>F-TaskWorkingSetQuery-Determinism</td></tr>
     <tr><td>SemanticWorkingSetPlan</td><td>Selected evidence, KV, adapters, weight pages, kernels, verifiers, rejected units, byte budgets, fallback, and rollback.</td><td>F-SemanticWorkingSetPlan-Budget</td></tr>
     <tr><td>ResidencyPageTable</td><td>Semantic unit to UAS address, storage tier, byte range, codec, checksum, compatibility fence, lease, and prefetch priority.</td><td>F-ResidencyPageTable-Addressability</td></tr>

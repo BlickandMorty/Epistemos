@@ -121,7 +121,8 @@ Recommended first units, in order:
 7. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
-   - Current next research-to-build model-ladder unit after `F-CompressedRoute-AnswerPacket-DryRun`. It must be owner-approved and must start with the smallest eligible compressed model; it must not rerun 128K shards, dense 70B, 12B/31B, mmap/SSD stress, or any hidden provider fallback by default.
+   - 2026-06-06 preflight status: `F-SmallCompressedModel-LiveHarnessPreflight` PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/small_compressed_model_live_harness_preflight/result.json`. It accepts 2 candidates, rejects 56 red fixtures, selects E2B GGUF/llama.cpp as the only future owner-approved tiny probe candidate, keeps E4B as a deferred alternate, requires later LiteRT package proof, preserves the MLX Swift loader caveat, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
+   - Current next research-to-build model-ladder unit after preflight: `small_compressed_model_owner_approved_runtime_probe`. It must be owner-approved and must start with the smallest eligible compressed model; it must not rerun 128K shards, dense 70B, 12B/31B, mmap/SSD stress, or any hidden provider fallback by default.
 
 ## Model-Ladder Bias
 

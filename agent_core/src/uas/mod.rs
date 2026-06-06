@@ -61,6 +61,7 @@ pub mod residency_lease;
 pub mod residency_tier;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
+pub mod small_compressed_model_live_harness_preflight;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
@@ -234,6 +235,15 @@ pub use semantic_working_set::{
     SourceToResidencyPatchKind, SourceToResidencyPromotionStatus, TaskWorkingSetQuery,
     VerifierNeed, WorkingSetOracleBaselineScore, WorkingSetOracleCard, WorkingSetOracleScore,
     WorkingSetOracleStatus, WorkingSetStorageTier, WorkingSetTotals, WorkingSetUnitKind,
+};
+pub use small_compressed_model_live_harness_preflight::{
+    SmallCompressedHarnessAdmission, SmallCompressedHarnessBytePlan,
+    SmallCompressedHarnessPreflightError, SmallCompressedHarnessPreflightMetrics,
+    SmallCompressedHarnessPromotionTier, SmallCompressedHarnessProofRefs,
+    SmallCompressedModelLiveHarnessPreflightCandidate,
+    SmallCompressedModelLiveHarnessPreflightSet,
+    SMALL_COMPRESSED_MODEL_LIVE_HARNESS_PREFLIGHT_CURSOR,
+    SMALL_COMPRESSED_MODEL_LIVE_HARNESS_PREFLIGHT_NEXT_CURSOR,
 };
 pub use slab_arena_copy_count::{
     SlabArenaAllocationSample, SlabArenaCopyCountError, SlabArenaCopyCountMetrics,
