@@ -499,6 +499,10 @@ name = "falsify_turbovec_real_adapter_motif_extraction_card_probe"
 path = "src/bin/falsify_turbovec_real_adapter_motif_extraction_card_probe.rs"
 
 [[bin]]
+name = "falsify_turbovec_real_adapter_clean_room_adapter_plan_probe"
+path = "src/bin/falsify_turbovec_real_adapter_clean_room_adapter_plan_probe.rs"
+
+[[bin]]
 name = "falsify_gemma_qat_local_runtime_candidate_card"
 path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
 

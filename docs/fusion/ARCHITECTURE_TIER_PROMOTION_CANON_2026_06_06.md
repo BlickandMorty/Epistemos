@@ -192,17 +192,18 @@ runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
 2026-06-06 current TurboVec retrieval/index clarification:
-`F-TurboVec-RealAdapterMotifExtractionCardProbe` is T1/L1 only. It strengthens
+`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is T1/L1 only. It strengthens
 the architecture in favor of larger local models by converting bounded
-TurboVec source/docs/tests/benchmark/issue/fork observations into clean-room
-motif cards for Eidos/AppColdStore and the Semantic Working-Set Compiler:
-stable UAS external IDs, filter-before-rank privacy, input validation,
-versioned rebuildable I/O, benchmark caveats, Swift/macOS binding risk, fork
-drift, and large-local-model working-set retrieval. It does not import source,
+TurboVec motif cards into a clean-room adapter plan for Eidos/AppColdStore and
+the Semantic Working-Set Compiler: UAS external-ID mapping,
+filter-before-rank privacy, buffer-backed I/O, versioned rebuild fences,
+exact-baseline shadow replay, privacy/latency abstention,
+cancellation/rollback leases, AnswerPacket caveats, no-native-link default,
+and large-local-model working-set compiler intake. It does not import source,
 add dependencies, build adapters, probe native links, run benchmarks, mutate
 routes, make L2/L3 product capability green, or promote live dense 70B. The
 next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`; older
+`turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`; older
 TurboVec paragraphs below are historical context unless a newer S0 surface says
 otherwise.
 

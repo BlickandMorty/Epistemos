@@ -51,7 +51,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-RealAdapterFetchLeaseProbe` ->
 > `F-TurboVec-RealAdapterSourceByteManifestProbe` ->
 > `F-TurboVec-RealAdapterSourceInspectionPolicyProbe` ->
-> `F-TurboVec-RealAdapterMotifExtractionCardProbe`. Current model-ladder built truth:
+> `F-TurboVec-RealAdapterMotifExtractionCardProbe` ->
+> `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -62,17 +63,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Research/Vault until residency, routing, transport, memory, rollback,
 > RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
 > truth extends through
-> `artifacts/falsifiers/turbovec_real_adapter_motif_extraction_card_probe/result.json`,
+> `artifacts/falsifiers/turbovec_real_adapter_clean_room_adapter_plan_probe/result.json`,
 > which passes T1/L1 metadata with the pinned TurboVec revision
-> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 11 clean-room motif cards, 10
-> motif classes, 11 required source paths, selected raw-source byte ledger
-> `184472` under cap `196608`, 54 red-fixture rejections, API/stable-ID/
-> filter-before-rank/input-validation/I/O/benchmark/Swift-binding/fork-drift/
-> large-local-model working-set motifs, no product import, no native-link build,
-> no benchmark authority, zero product/index/model/runtime/provider bytes, no
-> route authority, and no L2/L3 product capability. The next retrieval/index
-> research-to-build unit is
-> `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
+> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 10 clean-room adapter-plan
+> steps, 10 components, 11 motif links, upstream motif source bytes cited
+> `184472`, additional raw-source bytes inspected `0`, 52 red-fixture
+> rejections, UAS external-ID map, filter-before-rank pipeline, buffer-backed
+> I/O boundary, versioned rebuild fence, exact-baseline shadow replay,
+> privacy/latency abstention, cancellation/rollback lease, AnswerPacket caveat,
+> no-native-link default, large-local-model working-set compiler, no product
+> import, no native-link build, no benchmark authority, zero product/index/
+> model/runtime/provider bytes, no route authority, and no L2/L3 product
+> capability. The next retrieval/index research-to-build unit is
+> `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
 
 ---
 
@@ -881,6 +884,24 @@ clean-room adapter plan before any adapter source import, dependency insertion,
 native-link probe, benchmark claim, compressed retrieval route, or model-context
 authority can be attempted.
 
+`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is now built as the
+metadata-only clean-room adapter-plan witness after the motif cards.
+Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_clean_room_adapter_plan_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_clean_room_adapter_plan_probe/`.
+The witness binds the pinned revision to 10 adapter-plan steps, 10 components,
+11 motif links, upstream motif source bytes cited `184472`, zero additional
+raw-source bytes inspected, 52 rejected red fixtures, deterministic adapter-plan
+address, UAS external-ID map, filter-before-rank pipeline, buffer-backed I/O
+boundary, versioned rebuild fence, exact-baseline shadow replay, privacy/
+latency abstention, cancellation/rollback lease, AnswerPacket caveat,
+no-native-link default, and large-local-model working-set compiler. It proves
+the next real TurboVec/fork step must pass exact-baseline shadow replay before
+any recall/quality claim, benchmark citation, route mutation, model-context
+selection, or L2/L3 product capability can be attempted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -900,6 +921,7 @@ authority can be attempted.
 `F-TurboVec-RealAdapterSourceByteManifestProbe`,
 `F-TurboVec-RealAdapterSourceInspectionPolicyProbe`,
 `F-TurboVec-RealAdapterMotifExtractionCardProbe`,
+`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

@@ -1,0 +1,240 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_clean_room_adapter_plan_probe.sh",
+  "command_digest": "sha256:4ecd2db7c6cfe05224cc97ea704bf20dc1ff6f6bae8258c973972624d6502eb3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ff57f90070dc3f1eb96c62912038d08a449c93e4",
+  "fixture_id": "turbovec_real_adapter_clean_room_adapter_plan_probe_v1",
+  "timestamp_utc": "2026-06-06T17:40:34Z",
+  "result_digest": "sha256:9a4ed3cc514c61372148b12785efd342174f6e718efac994e0e8df1b38169d5b",
+  "measurements": {
+    "adapter_plan_component_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "additional_raw_source_bytes_inspected": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "byte_scope_no_build_or_runtime": {
+      "value": true,
+      "unit": "bool"
+    },
+    "clean_room_adapter_plan_address": {
+      "value": "turbovec_real_adapter_clean_room_adapter_plan_probe:98f3ae42ac65228fd9a1c1c25cf2bd1a7c0159cd2bc1f51bf2c4e3c14a5f4c15@1779040905000",
+      "unit": "uas_address"
+    },
+    "component_count": {
+      "value": 10,
+      "unit": "count"
+    },
+    "motif_link_count": {
+      "value": 11,
+      "unit": "count"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "plan_step_count": {
+      "value": 10,
+      "unit": "count"
+    },
+    "policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 52,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_filter_io_baseline_contract_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_cards_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_source_bytes_cited": {
+      "value": 184472,
+      "unit": "bytes"
+    }
+  },
+  "acceptance_thresholds": {
+    "adapter_plan_component_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "additional_raw_source_bytes_inspected": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "byte_scope_no_build_or_runtime": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "clean_room_adapter_plan_address": {
+      "operator": "prefix",
+      "value": "turbovec_real_adapter_clean_room_adapter_plan_probe:",
+      "unit": "uas_address"
+    },
+    "component_count": {
+      "operator": ">=",
+      "value": 8,
+      "unit": "count"
+    },
+    "motif_link_count": {
+      "operator": ">=",
+      "value": 10,
+      "unit": "count"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "==",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "plan_step_count": {
+      "operator": ">=",
+      "value": 9,
+      "unit": "count"
+    },
+    "policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 46,
+      "unit": "count"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_filter_io_baseline_contract_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_cards_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_motif_source_bytes_cited": {
+      "operator": "==",
+      "value": 184472,
+      "unit": "bytes"
+    }
+  },
+  "pass_per_axis": {
+    "adapter_plan_component_coverage": true,
+    "additional_raw_source_bytes_inspected": true,
+    "byte_scope_no_build_or_runtime": true,
+    "clean_room_adapter_plan_address": true,
+    "component_count": true,
+    "motif_link_count": true,
+    "next_research_to_build_unit": true,
+    "no_route_context_or_hidden_authority": true,
+    "pinned_revision": true,
+    "plan_step_count": true,
+    "policy_fail_closed": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "uas_filter_io_baseline_contract_bound": true,
+    "upstream_motif_cards_bound": true,
+    "upstream_motif_source_bytes_cited": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "clean_room_adapter_plan_only_scope",
+      "detail": "Adapter contract only. No upstream source import, dependency insertion, native-link probe, adapter build, benchmark run, index/model/runtime/provider bytes, route mutation, context injection, hidden authority, or live large-local-model product claim."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe as a T1/L1 clean-room adapter-plan witness after the TurboVec motif cards. It specifies the Epistemos-owned adapter contract for UAS stable IDs, filter-before-rank privacy, buffer-backed I/O, versioned rebuild fences, exact-baseline shadow replay, cancellation, rollback, AnswerPacket caveats, and large-local-model working-set compilation without importing upstream code or promoting L2/L3 capability."
+}

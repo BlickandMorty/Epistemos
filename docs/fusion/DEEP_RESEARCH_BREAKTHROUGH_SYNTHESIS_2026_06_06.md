@@ -4467,3 +4467,90 @@ Next research query: "How should Epistemos design a clean-room TurboVec adapter
 plan around UAS stable IDs, filter-before-rank privacy, buffer-backed I/O,
 versioned rebuilds, exact baselines, and AnswerPacket-visible caveats without
 importing upstream source or creating hidden route authority?"
+
+## Pass 54 - TurboVec Real Adapter Clean-Room Adapter Plan Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, the TurboVec
+motif-card witness, and the current TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_clean_room_adapter_plan_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_clean_room_adapter_plan_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_clean_room_adapter_plan_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_clean_room_adapter_plan_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds the pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and motif-card witness to 10
+clean-room adapter-plan steps, 10 components, 11 motif links, upstream motif
+source bytes cited `184472`, additional raw-source bytes inspected `0`, 52
+red-fixture rejections, deterministic adapter-plan address, rollback,
+RunEventLog, AnswerPacket, compatibility fence, no hidden route authority, no
+live dense 70B claim, and no L2/L3 promotion.
+
+The accepted adapter plan covers UAS external-ID mapping, filter-before-rank
+privacy, buffer-backed I/O boundaries, versioned rebuild fences,
+exact-baseline shadow replay, privacy/latency abstention, cancellation and
+rollback leases, AnswerPacket caveats, no-native-link default, and
+large-local-model working-set compilation.
+
+### 54.1 Architecture Fusion
+
+This pass turns TurboVec motifs into an Epistemos-owned adapter contract. The
+important architectural move is not "use TurboVec" as a hidden router; it is to
+force any compressed retrieval adapter to preserve UAS identity, stay
+rebuildable from AppColdStore truth, filter private/deleted/unknown candidates
+before rank, expose bytes and caveats through AnswerPacket, and wait for exact
+baseline shadow replay before quality or context-selection claims.
+
+That helps the large-local-model path because Gemma/QAT/Qwen/Granite/70B-class
+routes need smaller, safer working sets before they need bigger raw inference.
+The adapter plan makes compressed retrieval a candidate working-set compiler
+input, not durable truth, not model-weight compression, and not live route
+authority.
+
+### 54.2 Non-Promotion
+
+This pass does not inspect additional raw source, clone TurboVec, import source,
+add dependencies, build/run an adapter, probe native links, run benchmarks, open
+index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate
+RuntimeRouter/System G routes, make L2 product capability green, make L3
+user-facing model capability green, or prove live dense 70B. It advances the
+research-to-build ladder only.
+
+### 54.3 Pass-Fifty-Four Register
+
+Best breakthrough candidate: exact-baseline shadow replay for the clean-room
+adapter plan, because it is the first proof that can test whether compressed
+retrieval helps a small local model working set without treating upstream
+benchmarks or motifs as route authority.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`, because
+the adapter plan exists but no exact baseline, held-out replay, recall floor,
+privacy filter transcript, latency envelope, or AnswerPacket-visible quality
+caveat has landed.
+
+Best near-term code unit: implement the exact-baseline shadow-replay schema
+with held-out query packs, allowlist-before-rank transcript, exact
+AppColdStore baseline refs, approximate-result packet, recall/latency/memory
+placeholders, abstention rules, rollback, RunEventLog, AnswerPacket, and no
+runtime/index/model/provider bytes.
+
+Biggest false-claim risk: treating an adapter plan as adapter implementation,
+retrieval quality proof, model-context improvement, route prior quality, or
+large local model capability.
+
+Biggest missing source: a local held-out replay pack that compares exact
+AppColdStore retrieval with compressed adapter proposals under the same
+privacy allowlist and AnswerPacket caveats.
+
+Next research query: "How should Epistemos prove clean-room compressed
+retrieval against exact AppColdStore baselines on held-out working-set queries,
+with privacy filters before rank, visible abstention, rollback, and no live
+model/runtime/index bytes?"

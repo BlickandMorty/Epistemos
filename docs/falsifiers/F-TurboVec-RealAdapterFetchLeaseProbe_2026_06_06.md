@@ -39,6 +39,9 @@ PASS as a metadata-only T1/L1 primary witness.
   `F-TurboVec-RealAdapterMotifExtractionCardProbe`:
   `turbovec_quarantine_real_adapter_motif_extraction_card_probe`.
 - Current next research-to-build unit:
+  `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+- Intermediate next research-to-build unit, now landed as
+  `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`:
   `turbovec_quarantine_real_adapter_clean_room_adapter_plan_probe`.
 
 ## What This Proves
