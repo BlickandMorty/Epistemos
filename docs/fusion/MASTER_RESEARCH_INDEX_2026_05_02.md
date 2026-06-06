@@ -262,6 +262,15 @@ KTransformers, vLLM, LMCache, FlexLLMGen, PowerInfer, KIVI, LayerSkip, MLX
 Swift, and llama.cpp, plus local Swift runtime evidence that Gemma 4 remains
 excluded from automatic Epistemos routing until loader proof exists.
 
+**Pass-three implementation-motif sweep.** The memo now separates source
+metadata from actionable motifs: TurboVec external IDs and allowlist-before-rank
+filtering map to Eidos/AppColdStore; TurboQuant-plus quality/regression suites
+map to QAT/KV route cards; `pyturboquant` and Rust `turbo-quant` tests become
+quarantine fixture oracles; KTransformers, LMCache, llama.cpp, KIVI, LayerSkip,
+and MLX Swift examples remain source-card motifs until same-fixture Epistemos
+proof exists. Fork search is discovery-only and must fail closed on noisy,
+unknown-license, benchmark-only, or hidden-authority claims.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is

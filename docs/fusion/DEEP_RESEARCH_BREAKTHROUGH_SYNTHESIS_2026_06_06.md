@@ -508,3 +508,116 @@ GGUF, LiteRT-LM, and MLX candidates under the same prompt harness.
 Next research query: "Which source-card fields can be generated from GitHub and
 Hugging Face metadata without cloning or loading bytes, and which fields require
 quarantine inspection before `F-ProprietaryCompression-ProvenanceGate` can pass?"
+
+## 17. Pass 3 - Source Implementation Motif Sweep
+
+Observed on 2026-06-06 through GitHub repository metadata, raw upstream
+README/docs, fork search, and local canon. This pass still loaded no model,
+index, runtime, or benchmark bytes. Star counts, forks, README claims, and
+fresh pushed forks are discovery signals only. They do not promote L2 product
+capability, L3 user-facing status, MAS readiness, live dense 70B, or live
+sparse 70B.
+
+### 17.1 Implementation Motifs Worth Converting Into Epistemos Fixtures
+
+| Source | Evidence inspected | Mechanism | Epistemos organ | Import stance | Required falsifier |
+|---|---|---|---|---|---|
+| `RyanCodrai/turbovec` | README, `docs/api.md`, tests for filtering/id maps/indexes/integrations, Rust examples, benchmark folders | External IDs, allowlist-before-rank search, serialization, Rust/Python split, SIMD-aware compressed vector search | Eidos, AppColdStore, UAS/OAS, AnswerPacket | `adapter_wrap` first; possible `direct_import` only after license/dependency/source digest review | `F-TurboVec-Eidos-CompressedIndex-Plan` plus `F-ProprietaryCompression-ProvenanceGate` |
+| `TheTom/turboquant_plus` | README, `docs/test-suite-definition.md`, KV/asymmetric docs, raw benchmark logs, tests for KV/cache/polar/turboquant paths | A quality-first compression validation suite: PPL, needle, long-context, decode/prefill, build, corruption/regression checks | QATModelRouteCard, KVByteBudgetCard, RuntimeRouter/System G | `quarantine_reference` / `clean_room_rewrite`; do not import experimental runtime claims | `F-QAT-ModelRouteCard-MemoryPreflight` and future same-fixture quality suite |
+| `jorgebmann/pyturboquant` | Codebook/packing/product-quantizer tests and search/memory benchmarks | Small Python oracle for codebook, packing, distortion, and nearest-neighbor behavior | CompressionSourceCard, clean-room fixture oracle | `quarantine_reference` / `clean_room_rewrite` | `F-ProprietaryCompression-ProvenanceGate` |
+| `RecursiveIntell/turbo-quant` | Rust tests for determinism, bitpacking, encoded size, invalid inputs, malformed artifacts, KV policy | Rust-shaped failure fixtures that resemble Epistemos falsifier style | UAS compression primitives, KV compatibility fences | `quarantine_reference`; high value for negative fixtures | `F-ProprietaryCompression-ProvenanceGate` |
+| `kvcache-ai/ktransformers` | README, kernel/test/bench tree, KVC archive paths | Heterogeneous CPU/GPU placement and explicit model/expert/KV planning | ColdStore, ResidencyPageTable, RuntimeRouter/System G | `quarantine_reference` / `clean_room_rewrite`; not a macOS product runtime | `F-ResidencyPageTable-SourceCard` or folded into provenance gate |
+| `LMCache/LMCache` | README, design docs for vLLM integration and hybrid KV groups, benchmarks/examples | KV cache as tiered, persistent, reusable state with observability and storage boundaries | KVLineageGraph, KVCompatibilityFence, ColdStream, AnswerPacket | `quarantine_reference`; vendor-neutral concept source only | `F-KVLineageGraph-SourceCard` |
+| `ggml-org/llama.cpp` | README, test/benchmark/example tree, GGUF/Metal/conversion paths | GGUF lane, Apple Silicon/Metal support, broad quantization formats, local server/runtime patterns | RuntimeRouter/System G, QATModelRouteCard, LocalLLMClient | Existing lane/source-card; direct use only through owned client boundaries | `F-GGUF-RouteCard-MemoryPreflight` |
+| `jy-yuan/KIVI` | README, quant package, long-context examples and memory/speed tests | Tuning-free asymmetric low-bit KV idea: different key/value quantization axes | KVByteBudgetCard, LayerKVJointLease | `clean_room_rewrite`; CUDA code is not Epistemos route | `F-KVByteBudgetCard-AsymmetricQuant` |
+| `facebookresearch/LayerSkip` | README and self-speculation tests | Early exit and self-speculative decoding require compatible trained checkpoints | DepthLeaseCheckpoint, VerifierBudgetAuction | `quarantine_reference`; no generic speedup claim | `F-DepthLease-Checkpoint` follow-up |
+| `ml-explore/mlx-swift-examples` | `LLMBasic` README and application tree | Minimal Swift model load/chat example and UI pattern | Small-model harness and MLX lane source-card | `quarantine_reference`; example availability is not Epistemos loader proof | current guard-owned small-model runtime cursor |
+
+### 17.2 Fork Triage
+
+Fork search added one important correction: fresh forks are useful for discovery
+but often weak as authority. The provenance gate should record fork evidence
+without elevating it above upstream tests, docs, and reproducible local proof.
+
+| Query family | Current signal | Canon interpretation |
+|---|---|---|
+| TurboVec forks | Recent forks such as `kostadis/turbovecdb`, `DorianGallo/TurboVec`, several zero-star mirrors, and a small `go-turbovec` variant | Use forks to detect API variants and persistence ideas; upstream TurboVec tests remain primary. |
+| TurboQuant forks | Active `TheTom/llama-cpp-turboquant`, many same-day low/no-star CUDA/MLX/llama.cpp variants, several no-license descriptions | Quarantine all. Mine benchmark harnesses, failure claims, and integration patches; do not copy product code or believe memory claims without Epistemos byte proof. |
+| KTransformers forks | Mostly zero-star mirrors updated near upstream | Upstream is the source card; forks add little unless a specific PR/test fixes a Mac or memory issue. |
+| LMCache forks | Mostly mirrors; upstream remains active and source-rich | Treat upstream docs/design as primary; use forks only for failure reports or alternative connectors. |
+| KIVI search | Noisy results with unrelated projects mixed into name search | Require exact repo/source-card matching before citing; do not let search hits become false provenance. |
+
+### 17.3 Fields For `F-ProprietaryCompression-ProvenanceGate`
+
+Fields that can be generated without cloning or loading model/index bytes:
+
+- source URL, owner/repo, default branch, pushed-at timestamp, license SPDX,
+  stars/forks/issues, topics, language, dependency-file presence, docs/tests/
+  benchmark/example path summaries, fork-search snapshot, model-card metadata,
+  and import-mode candidate.
+- claim-boundary fields: `product_capability_claim=false`,
+  `live_dense_70b_claim=false`, `hidden_route_authority=false`,
+  `model_bytes_loaded=0`, `runtime_bytes_loaded=0`, and `provider_calls=0`.
+
+Fields that require quarantine inspection before any promotion:
+
+- dependency license closure, benchmark reproducibility, exact API behavior,
+  serialization compatibility, malformed artifact handling, panic/crash cases,
+  memory allocator behavior, Metal/CUDA/CPU fallback truth, test fixture
+  portability, and whether code can be directly imported, adapter-wrapped, or
+  must be clean-room rewritten.
+
+Fail-closed rule: if any required source card has unknown provenance, unclear
+license, missing rollback, missing digest, dependency uncertainty, benchmark
+without fixture, or hidden-route implication, the gate returns `research_only`
+or `quarantine_reference`.
+
+### 17.4 Architecture Fusion From The Motif Sweep
+
+The strongest new architecture move is to split source-card work into two
+parallel tracks:
+
+1. `CompressedIndexPlan` for TurboVec-like Eidos recall.
+   - source truth stays exact and UAS-addressed;
+   - compressed vectors are rebuildable cache material;
+   - privacy filters compile into allowed IDs before ranking;
+   - search output must cite exact source cards through AnswerPacket.
+
+2. `CompressedModelRouteCard` for QAT/GGUF/LiteRT/MLX candidates.
+   - model cards and repos become source evidence, not runtime proof;
+   - memory preflight separates file bytes, resident weight bytes, KV bytes,
+     workspace bytes, tokenizer/tool-call support, cancellation, fallback, and
+     rollback;
+   - lanes compete by same-fixture proof under RuntimeRouter/System G.
+
+This keeps the no-compromise ambition alive while preventing the common false
+claim: "a smaller checkpoint or fast README means the product route works."
+
+### 17.5 Pass-Three Register
+
+Best breakthrough candidate: a two-track `CompressionRuntimeSourceCard` spine:
+`CompressedIndexPlan` for Eidos/TurboVec-style recall and
+`CompressedModelRouteCard` for QAT/GGUF/LiteRT/MLX runtime candidates.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate`, with fixtures
+covering TurboVec external IDs/filtering, TurboQuant-plus quality-suite
+requirements, no-license/noisy-fork quarantine, dependency closure, and
+fail-closed import modes.
+
+Best near-term code unit: schema and tests for the provenance gate after the
+guard-owned
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+is repaired or in an explicitly scoped research-falsifier session.
+
+Biggest false-claim risk: copying a TurboQuant/MLX/GGUF fork claim into the
+architecture as if it proves local product runtime, memory safety, or 70B-class
+capability.
+
+Biggest missing source: same-fixture local measurements for small approved
+GGUF/LiteRT/MLX candidates under Epistemos-owned logging, memory preflight,
+cancellation, rollback, RunEventLog, and AnswerPacket conditions.
+
+Next research query: "Which exact source-card schema fields should become Rust
+fixtures first so the provenance gate can reject noisy forks, hidden route
+authority, missing dependency closure, and unmeasured memory claims before any
+compression/runtime code enters Epistemos?"
