@@ -30,7 +30,7 @@ Artifact:
 - Deterministic persistent-index plan address:
   `turbovec_crash_safe_persistent_index_plan:04b2c79884199631f604c3436b157ac988b988c991ff266fe7d443ab52d9371b@1779039300000`
 - Next research-to-build unit after recall quality, latency/memory abstention, and runtime shadow planning:
-  `turbovec_quarantine_real_adapter_source_pin_probe`
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`
 
 ## Hardening Axes
 
@@ -55,4 +55,4 @@ Correct phrasing:
 
 ## Next
 
-The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, runtime shadow/synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`, and the real-adapter owner gate is now covered by `F-TurboVec-RealAdapterOwnerApprovalProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_source_pin_probe`, because compressed retrieval still needs a pinned source revision and fork sweep before any real external adapter bytes can help large-local-model context selection.
+The recall-quality unit is now covered by `F-TurboVec-RecallQualityExactBaseline`, latency/memory abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`, runtime shadow/synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`, and the real-adapter owner gate is now covered by `F-TurboVec-RealAdapterOwnerApprovalProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`, because compressed retrieval still needs a pinned source revision and fork sweep before any real external adapter bytes can help large-local-model context selection.

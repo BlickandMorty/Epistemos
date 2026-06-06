@@ -34,7 +34,7 @@ Artifact:
 - Deterministic latency/memory plan address:
   `turbovec_latency_memory_abstention_plan:e85c8fa28bd263d6c2228293c69163d0393fb4b00cbc0e5f077e20e92e18fec8@1779039500000`
 - Next research-to-build unit:
-  `turbovec_quarantine_real_adapter_source_pin_probe`
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`
 
 ## Hardening Axes
 
@@ -58,4 +58,4 @@ Correct phrasing:
 
 ## Next
 
-Runtime shadow benchmark planning and synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`, and the real-adapter owner gate is now covered by `F-TurboVec-RealAdapterOwnerApprovalProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_source_pin_probe`, because the first real external adapter source must be pinned and fork-swept before compressed retrieval can help large-local-model context selection.
+Runtime shadow benchmark planning and synthetic microbenching are now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan` and `F-TurboVec-QuarantineAdapterMicrobenchProbe`, and the real-adapter owner gate is now covered by `F-TurboVec-RealAdapterOwnerApprovalProbe`. The next retrieval/index research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`, because the first real external adapter source must be pinned and fork-swept before compressed retrieval can help large-local-model context selection.

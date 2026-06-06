@@ -607,7 +607,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is
   now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
   research-to-build retrieval unit is
-  `turbovec_quarantine_real_adapter_source_pin_probe`. The
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-UASAddressStableExternalIds` is now
@@ -639,7 +639,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   crash-safe persistence, exact-baseline recall quality, latency/memory
   abstention, and runtime shadow benchmark planning are now covered; the next
   research-to-build retrieval unit is
-  `turbovec_quarantine_real_adapter_source_pin_probe`; the guard-owned cursor remains
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`; the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-FilterBeforeRankPrivacyGate` is now
   built as the TurboVec/Eidos filter-before-rank privacy witness:
@@ -673,7 +673,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   abstention is now covered by `F-TurboVec-LatencyMemoryAbstention`; runtime
   shadow benchmark planning is now covered by
   `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next research-to-build
-  retrieval unit is `turbovec_quarantine_real_adapter_source_pin_probe`;
+  retrieval unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`;
   the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
@@ -708,7 +708,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-TurboVec-RecallQualityExactBaseline`; latency/memory abstention is now
   covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
   planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
-  research-to-build retrieval unit is `turbovec_quarantine_real_adapter_source_pin_probe`;
+  research-to-build retrieval unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`;
   the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
@@ -740,7 +740,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   are now covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow
   benchmark planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`;
   the next research-to-build retrieval unit is
-  `turbovec_quarantine_real_adapter_source_pin_probe`;
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`;
   the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-LatencyMemoryAbstention` is now built
@@ -772,7 +772,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   routes, advance L2, or make L3 user-facing model capability green. Runtime
   shadow benchmark planning is now covered by
   `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next research-to-build
-  retrieval unit is `turbovec_quarantine_real_adapter_source_pin_probe`;
+  retrieval unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`;
   the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RuntimeShadowBenchmarkPlan` is now
@@ -803,7 +803,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   does not import TurboVec, run a benchmark, build or open an index, allocate
   runtime buffers, load model bytes, choose model routes, advance L2, or make
   L3 user-facing model capability green. The next research-to-build retrieval
-  unit is `turbovec_quarantine_real_adapter_source_pin_probe`;
+  unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`;
   the guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** ·
@@ -835,7 +835,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   TurboVec, clone or copy fork code, build/open an index, load Gemma/QAT/GGUF/
   MLX/LiteRT/model bytes, choose model routes, advance L2, or make L3
   user-facing model capability green. The next retrieval unit is
-  `turbovec_quarantine_real_adapter_source_pin_probe`; the guard-owned
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`; the guard-owned
   cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterOwnerApprovalProbe` is now
@@ -866,8 +866,39 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   This is T1/L1 metadata only. It does not clone TurboVec, inspect fork code,
   import/build/run an adapter, open index bytes, load Gemma/QAT/GGUF/MLX/
   LiteRT/model bytes, choose routes, advance L2, or make L3 user-facing model
-  capability green. The next retrieval unit is
-  `turbovec_quarantine_real_adapter_source_pin_probe`; the guard-owned
+  capability green. The source-pin gate is now covered by
+  `F-TurboVec-RealAdapterSourcePinProbe`; the next retrieval unit is
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`; the guard-owned
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-RealAdapterSourcePinProbe` is now
+  built as the metadata-only source-pin/fork-sweep gate for the first real
+  upstream TurboVec adapter source:
+  `agent_core/src/uas/turbovec_real_adapter_source_pin_probe.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_pin_probe.rs`,
+  script `Tools/falsifiers/f_turbovec_real_adapter_source_pin_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterSourcePinProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_source_pin_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness pins
+  `https://github.com/RyanCodrai/turbovec` to revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2`, records 10 public fork records
+  with 3 matching pinned upstream, 3 lagging known upstream commits, and 4
+  diverged sampled-history forks, rejects 80 red fixtures, binds
+  README/LICENSE/Cargo content SHAs, Swift/macOS binding issue visibility,
+  benchmark issue visibility, no-GitHub-release caveat, clean-room provenance,
+  dependency manifest, rollback, RunEventLog, AnswerPacket, compatibility
+  fence, and records zero fetched/cloned/product/index/model/runtime/provider
+  bytes. This is T1/L1 metadata only. It does not clone TurboVec, import or
+  build an adapter, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model
+  bytes, choose routes, advance L2, or make L3 user-facing model capability
+  green. The next retrieval unit is
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`; the guard-owned
   cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built

@@ -3722,7 +3722,7 @@ Best breakthrough candidate: owner-approved, source-pinned TurboVec/fork
 quarantine that can eventually provide real recall/latency/memory evidence
 while staying non-authoritative, rollbackable, and AnswerPacket-visible.
 
-Safest next falsifier: `turbovec_quarantine_real_adapter_source_pin_probe`,
+Safest next falsifier: `turbovec_quarantine_real_adapter_dependency_envelope_probe`,
 because owner approval is now fail-closed but no revision or fork sweep has
 been pinned before any real adapter bytes are allowed.
 
@@ -3791,7 +3791,7 @@ TurboVec/forks that extracts actual recall/latency/memory/panic behavior while
 staying outside product code and outside live routing.
 
 Safest next falsifier:
-`turbovec_quarantine_real_adapter_source_pin_probe`, because synthetic
+`turbovec_quarantine_real_adapter_dependency_envelope_probe`, because synthetic
 microbench evidence and owner approval gating are now proven but no real
 external adapter bytes may be introduced without source pinning, fork sweep,
 provenance, quarantine, rollback, and AnswerPacket boundaries.
@@ -3861,21 +3861,101 @@ extract actual compressed-retrieval behavior without polluting product code or
 large-model routing.
 
 Safest next falsifier:
-`turbovec_quarantine_real_adapter_source_pin_probe`, because owner approval is
-now fail-closed but the exact upstream/fork/revision and fork-sweep evidence
-are not pinned.
+`turbovec_quarantine_real_adapter_dependency_envelope_probe`, because owner
+approval and source pinning are now fail-closed but dependency manifests,
+quarantine layout, build isolation, clean-room import boundaries, rollback,
+RunEventLog, and AnswerPacket evidence are not yet proven.
 
-Best near-term code unit: build the source-pin gate that refuses unpinned
-revisions, unfenced forks, direct imports, adapter wrapping, hidden downloads,
-product files, route/context mutation, model bytes, and benchmark laundering.
+Best near-term code unit: build the dependency-envelope gate that refuses
+unbounded fetch/clone, product dependency insertion, direct imports, unsafe
+licenses, hidden downloads, product files, route/context mutation, model
+bytes, and benchmark laundering.
 
 Biggest false-claim risk: treating a real source card as live TurboVec runtime
 proof, large-model product readiness, or permission to import code.
 
-Biggest missing source: fork/revision comparison for TurboVec and nearby
-compressed-vector implementations.
+Biggest missing source: dependency graph, build-isolation facts, and
+quarantine boundary details for pinned TurboVec and nearby compressed-vector
+implementations.
 
-Next research query: "Which exact TurboVec upstream/fork/revision should be
-source-pinned first, and what fork-sweep, dependency, fixture, rollback,
-RunEventLog, and AnswerPacket evidence must be captured before quarantine
-bytes are allowed?"
+Next research query: "What exact dependency envelope, quarantine path,
+source-card, clean-room boundary, rollback, RunEventLog, and AnswerPacket
+evidence must gate pinned TurboVec before any real adapter bytes are fetched
+or compiled?"
+
+## 47. Real Adapter Source Pin Probe Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, primary
+GitHub API metadata, and the current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_source_pin_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_source_pin_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_source_pin_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_source_pin_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterSourcePinProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterSourcePinProbe` is now PASS as a metadata-only T1/L1
+witness. It pins `https://github.com/RyanCodrai/turbovec` to revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2`, records 10 public fork records
+with 3 matching pinned upstream, 3 lagging known upstream commits, and 4
+diverged sampled-history forks, rejects 80 red fixtures, binds README/LICENSE/
+Cargo content SHAs, Swift/macOS binding issue visibility, benchmark issue
+visibility, no-GitHub-release caveat, clean-room provenance, dependency
+manifest, rollback, RunEventLog, AnswerPacket, compatibility fence, and zero
+fetched/cloned/product/index/model/runtime/provider bytes.
+
+### 47.1 Architecture Fusion
+
+This upgrades the large-local-model research path from "TurboVec might help"
+to "a concrete upstream revision and fork landscape are pinned before any
+dependency envelope or quarantine bytes exist." The point is not to make
+TurboVec a live router. The point is to let Eidos/AppColdStore eventually test
+compressed retrieval as rebuildable cache material for Gemma/QAT/GGUF/MLX/
+LiteRT lanes while preserving UAS addressability, Scope-Rex/SovereignGate
+admission, exact-baseline recall, latency/memory/cancellation bounds, rollback,
+RunEventLog, AnswerPacket visibility, and no hidden route authority.
+
+### 47.2 Non-Promotion
+
+This pass does not fetch or clone TurboVec, inspect fork source code, add a
+dependency, import source, build/run an adapter, open index bytes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose RuntimeRouter/System G routes,
+make L2/L3 product capability green, or prove live dense 70B. It advances the
+research-to-build ladder only.
+
+### 47.3 Pass-Thirty-Three Register
+
+Best breakthrough candidate: a pinned dependency envelope for TurboVec that
+can safely quarantine real source bytes, derive clean-room motifs, and produce
+recall/latency/memory evidence for large-model context selection without
+contaminating product code or routing.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_dependency_envelope_probe`, because the
+source revision and fork sweep are pinned but dependency manifests, quarantine
+layout, build isolation, clean-room import boundaries, and rollback evidence
+are not yet proven.
+
+Best near-term code unit: build the dependency-envelope gate that refuses
+unbounded clone/fetch, product dependency insertion, direct imports, unsafe
+licenses, missing source cards, missing rollback/log/AnswerPacket proof, hidden
+route authority, benchmark laundering, model bytes, and live large-model
+claims.
+
+Biggest false-claim risk: treating a pinned source revision or fork sweep as
+permission to import TurboVec, run benchmarks, choose model context, or claim
+large-model local runtime improvement.
+
+Biggest missing source: dependency graph and build-isolation facts for the
+pinned upstream, plus any fork-specific API/test/benchmark deltas worth
+studying in quarantine.
+
+Next research query: "What exact dependency envelope, quarantine path, source
+card, clean-room boundary, rollback, RunEventLog, AnswerPacket, and benchmark
+caveat must gate pinned TurboVec before any real adapter bytes are fetched or
+compiled?"

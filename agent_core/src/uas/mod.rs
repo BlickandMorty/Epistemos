@@ -96,6 +96,7 @@ pub mod turbovec_filter_before_rank_privacy_gate;
 pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
+pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
 pub mod turbovec_stable_external_id_registry_plan;
@@ -569,6 +570,14 @@ pub use turbovec_real_adapter_owner_approval_probe::{
     TurboVecRealAdapterSourceCard, TurboVecRealAdapterSourceKind,
     TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_CURSOR,
     TURBOVEC_REAL_ADAPTER_OWNER_APPROVAL_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_source_pin_probe::{
+    TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,
+    TurboVecRealAdapterSourcePinError, TurboVecRealAdapterSourcePinMetrics,
+    TurboVecRealAdapterSourcePinProbeSet, TurboVecRealAdapterSourcePinStatus,
+    TurboVecRealAdapterSourcePinTier, TurboVecSourcePinAllowedAction,
+    TurboVecSourcePinByteLedger, TurboVecSourcePinPolicy,
+    TURBOVEC_REAL_ADAPTER_SOURCE_PIN_CURSOR, TURBOVEC_REAL_ADAPTER_SOURCE_PIN_NEXT_CURSOR,
 };
 pub use turbovec_runtime_shadow_benchmark_plan::{
     TurboVecRuntimeShadowBenchmarkPlan, TurboVecRuntimeShadowBenchmarkPlanSet,
