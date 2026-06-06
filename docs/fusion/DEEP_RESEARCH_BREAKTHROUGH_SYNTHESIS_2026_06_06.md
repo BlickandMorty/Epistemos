@@ -1551,3 +1551,165 @@ metadata gate.
 Next research query: "Which exact local file-hash and package-manifest sources
 should feed future model/runtime candidate cards while preserving zero-byte
 metadata-only provenance gates?"
+
+## 24. Pass 10 - Zero-Byte Model Inventory And Package-Manifests
+
+Question answered: which local file-hash and package-manifest sources can feed
+future model/runtime candidate cards without opening model bytes, loading a
+runtime, or promoting product capability?
+
+The safe answer is a `ModelInventoryCandidateCard` layer that cites existing
+catalog, manifest, snapshot, sidecar, package-lock, and falsifier references as
+evidence. It must not compute new hashes over `.safetensors`, `.gguf`, `.mlx`,
+or `.npz` files during this gate. In this context "zero-byte" means zero model,
+index, runtime, provider, and heavy blob bytes loaded; small JSON sidecars,
+package lockfiles, and app install manifests may be read under explicit size
+caps because they are metadata sources, not model material.
+
+### 24.1 Local Sources Observed
+
+Local code already contains most of the inventory spine:
+
+| Source | File | Candidate-card contribution | Hard boundary |
+|---|---|---|---|
+| Catalog identity | `Epistemos/State/InferenceState.swift::LocalTextModelID` | model ID, family, display name, runtime kind, Gemma 4 loader caveat, memory policy | catalog presence is not installation, loadability, or route proof |
+| Descriptor catalog | `Epistemos/Engine/LocalModelInfrastructure.swift::LocalModelDescriptor` | revision, matching globs, approximate download bytes, minimum memory, capability role | pinned revision is snapshot evidence only |
+| Install manifest | `LocalModelInstallRecord` and `/Users/jojo/Library/Application Support/Epistemos/Models/manifests/install-state.json` | active directory, revision, sizeBytes, installedAt, checksum verification state | legacy manifest records without `checksumVerification` decode as unverified and must not promote |
+| Hub detection | `LocalModelPaths::usableHubSnapshotDirectory` | catalog-driven repo slug plus `snapshots/<revision>` path and blob-presence detection | detected blobs prove only that files exist on disk, not that they can load |
+| Runtime preferences | `Epistemos/LocalAgent/RuntimeRouter.swift` | role-to-model preference evidence for later route-card candidates | preference table is not a candidate-card source authority |
+| Existing falsifier refs | `falsify_small_model_runtime_harness_*` | `model_catalog:*`, `model_snapshot:local:*`, AnswerPacket, RunEventLog, and missing-snapshot refs | L1 refs do not advance L2/L3 |
+
+Local filesystem metadata observed without opening weight blobs:
+
+- The app install manifest currently records DeepSeek R1 7B and Gemma 4 E4B
+  active directories, revisions, and sizes, but no explicit checksum field;
+  therefore both records are provenance evidence with unverified checksum
+  status.
+- The local HF-style hub under `/Users/jojo/Library/Application Support/Epistemos/Models/text/hub`
+  has multiple `snapshots/<commit>` directories for Qwen, Gemma, Llama,
+  Falcon, Bonsai, DeepSeek, and GGUF candidates. These snapshot directory names
+  are revision evidence, not file-hash proof.
+- Safe sidecar names include `config.json`, `tokenizer_config.json`,
+  `generation_config.json`, `processor_config.json`,
+  `special_tokens_map.json`, and `model.safetensors.index.json`.
+- Weight and runtime material names such as `.safetensors`, `.gguf`, `.npz`,
+  and `.mlx` are explicitly out of scope for this metadata gate.
+
+### 24.2 Official / External Format Checks
+
+The web validation pass used primary or official references for the metadata
+formats rather than treating local observations as doctrine:
+
+| Format | Official source | What it proves for this gate |
+|---|---|---|
+| Hugging Face cache | `https://huggingface.co/docs/huggingface_hub/guides/manage-cache` | cache layout separates repo cache, `refs`, `blobs`, and `snapshots`; snapshot paths are revision/cache structure evidence |
+| Git LFS pointer | `https://github.com/git-lfs/git-lfs/blob/main/docs/spec.md` | pointer metadata can carry `oid sha256` and size, but reading or hashing actual large files is a later byte witness |
+| Cargo lockfile | `https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html` | lockfiles pin dependency resolution for reproducible builds; they do not prove a model/runtime loaded |
+| npm package lock | `https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json` | `package-lock.json` records exact dependency tree and integrity/resolved metadata; it is dependency provenance only |
+| Swift package pins | local `LocalPackages/mlx-swift-lm/Package.resolved` | pins `mlx-swift`, `swift-huggingface`, and `swift-transformers` revisions; these prove package provenance, not Gemma 4 loader success |
+
+### 24.3 Source Priority For Candidate Cards
+
+Future candidate cards should gather evidence in this order:
+
+1. `LocalModelDescriptor` plus `LocalTextModelID` for canonical model ID,
+   runtime kind, memory budget, revision, matching globs, and capability role.
+2. `LocalModelInstallRecord` for active directory, recorded size, installedAt,
+   revision, and checksum verification state.
+3. Hugging Face hub cache path metadata: repo slug, `refs` when present,
+   `snapshots/<commit>`, and symlink/readlink targets into `blobs` only when
+   gathered as metadata without opening the blob.
+4. Small sidecar JSON files with strict file-size caps.
+5. Package manifests and lockfiles: `Package.resolved`, `Cargo.lock`,
+   `package-lock.json`, `requirements.txt`, and `pyproject.toml` as runtime
+   dependency provenance.
+6. Existing falsifier model refs and AnswerPacket/RunEventLog links.
+7. Current external model cards, GitHub releases, and fork metadata only after
+   they are source-carded with locator, timestamp, and import/provenance class.
+
+### 24.4 Red Lines
+
+Reject the candidate card if any of these appear:
+
+- It opens or hashes `.safetensors`, `.gguf`, `.mlx`, `.npz`, or other weight
+  blobs during the metadata-only gate.
+- It treats an active directory, snapshot directory, or package lock as runtime
+  proof.
+- It treats a Hugging Face snapshot commit as a file hash.
+- It promotes a manifest record with missing checksum metadata as verified.
+- It treats `Package.resolved`, `Cargo.lock`, or `package-lock.json` as loader
+  proof.
+- It uses an app-support path as the durable UAS ID instead of evidence feeding
+  a deterministic address.
+- It allows Gemma 4 catalog presence to bypass the existing Swift MLX loader
+  caveat.
+- It converts RuntimeRouter preference rows into hidden route authority.
+
+### 24.5 Candidate Axes
+
+The first zero-byte model inventory witness should prove:
+
+- `local_catalog_descriptor_source_present`
+- `install_manifest_source_present`
+- `hub_snapshot_revision_source_present`
+- `sidecar_json_source_present`
+- `package_manifest_source_present`
+- `falsifier_snapshot_ref_source_present`
+- `large_blob_hashing_deferred`
+- `no_weight_blob_opened`
+- `no_runtime_model_index_bytes`
+- `snapshot_dir_not_file_hash`
+- `manifest_checksum_unverified_not_promoted`
+- `package_manifest_not_loader_proof`
+- `active_dir_not_runtime_proof`
+- `gemma4_loader_caveat_preserved`
+- `runtime_router_preference_not_route_authority`
+- `sidecar_size_cap_present`
+- `answer_packet_or_run_event_log_ref_required`
+- `uas_address_not_filesystem_path`
+
+### 24.6 Architecture Fusion
+
+This pass adds a sharper feeder for `F-ProprietaryCompression-ProvenanceGate`:
+
+```text
+Local catalog / install manifest / hub cache / sidecar JSON / package locks
+  -> ModelInventoryCandidateCard
+  -> SourceCard + ProvenanceGateOverlay
+  -> F-ProprietaryCompression-ProvenanceGate
+  -> later byte witness / route witness / WRV witness
+```
+
+That gives Epistemos a way to inventory ambitious local-model candidates
+without lying. The system can know that a model is cataloged, pinned, cached,
+sidecar-described, package-supported, or manifest-recorded before it knows that
+the model is safe to load, useful in the router, or visible to a user.
+
+### 24.7 Pass-Ten Register
+
+Best breakthrough candidate: a zero-byte model inventory resolver that binds
+local model candidates to catalog, manifest, snapshot, sidecar, package, and
+falsifier evidence before any runtime or large-blob probe.
+
+Safest next falsifier: `F-ModelInventory-ZeroByteCandidateCards` as a feeder
+to `F-ProprietaryCompression-ProvenanceGate`, because it can lock the
+metadata/runtime boundary before source-prior overlays are coded.
+
+Best near-term code unit: a fixture-only Rust primitive that builds
+`ModelInventoryCandidateCard` rows from mock catalog descriptors, mock install
+records, mock hub snapshots, capped sidecar JSON, and package lock references,
+with red fixtures for blob hashing, snapshot-as-hash, unverified checksum
+promotion, loader-proof laundering, hidden route authority, and filesystem-path
+UAS IDs.
+
+Biggest false-claim risk: treating "present in local hub" or "recorded in the
+install manifest" as "ready for product inference." It is not. Presence is
+metadata evidence only.
+
+Biggest missing source: a formal safe sidecar-size limit and a fixture format
+for representing Git LFS pointer OIDs without opening the referenced model
+blob.
+
+Next research query: "What exact red fixtures and accepted fixtures should
+`F-ModelInventory-ZeroByteCandidateCards` implement so the later provenance
+gate cannot confuse metadata, bytes, route authority, and user-facing proof?"

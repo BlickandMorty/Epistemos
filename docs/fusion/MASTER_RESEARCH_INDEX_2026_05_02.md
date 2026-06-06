@@ -335,6 +335,19 @@ duplicate source locators, hidden route authority, fallback-as-default,
 deferred-lane hiding, build-graph contamination, nonzero bytes, provider calls,
 and any primary-source-prior runtime claim.
 
+**Pass-ten zero-byte model inventory.** The synthesis now defines
+`ModelInventoryCandidateCard` as the safe feeder between local model evidence
+and `F-ProprietaryCompression-ProvenanceGate`. Candidate cards may cite
+`LocalTextModelID`, `LocalModelDescriptor`, `LocalModelInstallRecord`, the app
+install manifest, Hugging Face-style `snapshots/<revision>` folders, capped
+sidecar JSON, package manifests/lockfiles, and existing falsifier model refs.
+They must reject weight/blob reads, snapshot-as-file-hash claims, active-dir or
+package-lock runtime proof, checksum-unverified manifest promotion, Gemma 4
+loader-caveat bypass, RuntimeRouter preference-as-authority, and filesystem
+path-as-UAS-ID. This creates a codeable feeder falsifier,
+`F-ModelInventory-ZeroByteCandidateCards`, without changing the guard-owned
+coding cursor.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
