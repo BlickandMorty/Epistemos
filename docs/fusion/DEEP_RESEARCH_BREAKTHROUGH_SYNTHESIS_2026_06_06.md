@@ -1713,3 +1713,188 @@ blob.
 Next research query: "What exact red fixtures and accepted fixtures should
 `F-ModelInventory-ZeroByteCandidateCards` implement so the later provenance
 gate cannot confuse metadata, bytes, route authority, and user-facing proof?"
+
+## 25. Pass 11 - Fixture Contract For Zero-Byte Model Inventory
+
+Question answered: what exact accepted and red fixtures should
+`F-ModelInventory-ZeroByteCandidateCards` implement before the later
+provenance gate?
+
+The fixture contract should be deliberately more boring than the ambition: it
+does not decide the best model, does not rank routes, and does not prove any
+runtime. It proves that model/runtime candidates can be represented as
+source-bound metadata rows without contaminating UAS identity, route authority,
+or product truth. The primitive should call the existing `SourceCard` /
+`SourceSignalGraph::intake` path first, then bind inventory overlays to
+accepted `source_id` values. That keeps `ModelInventoryCandidateCard` as a
+feeder, not a parallel source authority.
+
+### 25.1 Accepted Fixture Pack
+
+The first witness should include at least these accepted fixtures:
+
+| Fixture ID | What it represents | Accepted only if |
+|---|---|---|
+| `catalog_only_qwen3_4b_mlx` | `LocalTextModelID` + `LocalModelDescriptor` for Qwen3 4B | status is `catalog_only`, revision is present, no install/runtime claim |
+| `manifest_active_deepseek_unverified` | app manifest record for DeepSeek R1 7B | active path, revision, size, and installedAt are evidence; checksum remains unverified |
+| `hub_snapshot_present_qwen3_coder` | Hugging Face-style `snapshots/<revision>` folder | snapshot revision is bound; snapshot is not called a file hash |
+| `hub_snapshot_missing_qwen3_thinking` | catalog candidate with missing snapshot | failure status is visible and can feed rollback/log refs |
+| `gemma4_preview_loader_blocked` | Gemma 4 catalog/snapshot candidate | Swift MLX loader caveat stays attached; product route remains blocked |
+| `gguf_128k_deferred` | GGUF / 128K long-context candidate | marked deferred and owner-approved byte probe required |
+| `lfs_pointer_metadata_only` | Git LFS pointer-like oid/size metadata | pointer oid is external metadata, not verified local blob hash |
+| `sidecar_index_metadata_capped` | capped `model.safetensors.index.json` / config sidecar | JSON is parsed under size cap; referenced weights stay unopened |
+| `package_resolved_mlx_swift_lm` | Swift package pin evidence | package revisions are dependency provenance only |
+| `cargo_lock_agent_core` | Rust dependency lock evidence | checksums/sources prove dependency pinning only |
+| `package_lock_js_editor` | JS/editor lockfile evidence | integrity/resolved metadata stays dependency provenance |
+| `runtime_router_preference_hint` | RuntimeRouter preference row | recorded as route-hint evidence, never as route authority |
+
+Each accepted fixture needs `source_id`, `source_digest`, `candidate_id`,
+`model_id_or_package`, `evidence_kind`, `pro_status`, `product_build`,
+`metadata_status`, `byte_scope`, `proof_refs`, `rollback_ref`,
+`run_event_log_ref`, `answer_packet_ref`, and `claim_limit`.
+
+### 25.2 Red Fixture Matrix
+
+The witness should fail each of these mutations:
+
+| Red fixture | Rejection reason |
+|---|---|
+| `empty_candidate_id` | candidate has no stable ID |
+| `duplicate_candidate_id` | two inventory cards collapse identity |
+| `orphan_source_id` | overlay has no accepted `SourceCard` |
+| `blocked_source_id` | overlay binds to a no-poison blocked source |
+| `duplicate_inventory_for_source` | one source gets two authoritative inventory rows |
+| `snapshot_revision_as_file_hash` | snapshot commit is mislabeled as local file hash |
+| `lfs_oid_as_verified_local_hash` | external pointer oid is treated as verified local blob hash |
+| `weight_blob_open_attempted` | `.safetensors`, `.gguf`, `.mlx`, or `.npz` opened |
+| `weight_blob_hash_attempted` | metadata gate computes a new large-blob hash |
+| `nonzero_model_bytes_loaded` | model byte counter exceeds zero |
+| `nonzero_index_bytes_loaded` | vector/model index byte counter exceeds zero |
+| `nonzero_runtime_bytes_loaded` | runtime bytes are loaded in a metadata witness |
+| `provider_call_made` | any cloud/provider call appears |
+| `active_dir_runtime_proof` | app active path is promoted to loadability |
+| `manifest_unverified_promoted` | missing checksum is treated as verified |
+| `package_lock_loader_proof` | package lock is used as loader/runtime proof |
+| `gemma4_loader_caveat_removed` | Gemma 4 preview bypasses known Swift loader caveat |
+| `runtime_preference_route_authority` | RuntimeRouter preference becomes admission/route authority |
+| `app_support_path_as_uas_id` | filesystem path is used as durable UAS address |
+| `sidecar_size_cap_missing` | sidecar JSON read has no explicit cap |
+| `malformed_sidecar_trusted` | malformed JSON is treated as valid evidence |
+| `product_green_from_metadata` | T0/T1 metadata is called T4 green |
+| `mas_live_from_pro_research` | Pro Research candidate leaks into MAS Live |
+| `dense_70b_live_claim` | local dense 70B is claimed live from metadata |
+| `ssd_as_ram_claim` | storage/cache presence is described as RAM residency |
+| `hidden_cloud_fallback` | provider fallback is hidden in the card |
+| `hidden_eidos_or_patternboost_authority` | metadata source becomes hidden route/search authority |
+| `missing_rollback_ref` | rollback is absent |
+| `missing_run_event_log_ref` | RunEventLog is absent |
+| `missing_answer_packet_ref` | AnswerPacket is absent |
+| `source_digest_mismatch` | overlay digest diverges from `SourceCard` |
+| `stale_external_metadata_promoted` | stale model-card/release data is accepted without source timestamp |
+
+### 25.3 Validation Order
+
+1. Build `SourceCard` fixtures with BLAKE3 digests, nonempty locators,
+   license/usage notes, privacy class, no-poison status, and route affinities.
+2. Run `SourceSignalGraph::intake` and keep its duplicate, blocked-source,
+   invalid-digest, missing-route, and unknown-edge behavior authoritative.
+3. Build inventory candidate overlays only for accepted `source_id` values.
+4. Enforce one candidate card per `candidate_id` and one authoritative overlay
+   per `source_id`.
+5. Validate evidence kind: catalog, manifest, hub snapshot, sidecar, package
+   lock, LFS pointer, falsifier ref, or runtime preference hint.
+6. Validate byte scope before claim scope; byte counters must all be zero.
+7. Validate claim limits: catalog evidence, installation evidence, dependency
+   provenance, route hint, and runtime proof are different states.
+8. Validate proof refs: rollback, RunEventLog, AnswerPacket, and compatibility
+   fence must be present even for missing/deferred candidates.
+9. Validate product truth last: no T0/T1 metadata card can mark MAS/Pro Live or
+   T4 green.
+
+### 25.4 Required Axes
+
+The falsifier should report at least:
+
+- `source_signal_graph_intake_called_first`
+- `accepted_fixture_count`
+- `red_fixture_count`
+- `catalog_only_fixture_present`
+- `manifest_unverified_fixture_present`
+- `hub_snapshot_present_fixture_present`
+- `hub_snapshot_missing_fixture_present`
+- `gemma4_loader_blocked_fixture_present`
+- `gguf_deferred_fixture_present`
+- `lfs_pointer_metadata_fixture_present`
+- `sidecar_index_capped_fixture_present`
+- `package_manifest_fixture_present`
+- `runtime_preference_hint_fixture_present`
+- `inventory_cards_bound_to_source_ids`
+- `candidate_ids_unique`
+- `source_ids_unique_for_authoritative_inventory`
+- `snapshot_revision_not_file_hash`
+- `lfs_oid_not_local_hash`
+- `no_weight_blob_opened`
+- `no_weight_blob_hashing`
+- `zero_model_bytes_loaded`
+- `zero_index_bytes_loaded`
+- `zero_runtime_bytes_loaded`
+- `zero_provider_calls`
+- `manifest_checksum_unverified_not_promoted`
+- `package_manifest_not_loader_proof`
+- `active_dir_not_runtime_proof`
+- `gemma4_loader_caveat_preserved`
+- `runtime_preference_not_route_authority`
+- `filesystem_path_not_uas_address`
+- `sidecar_size_cap_enforced`
+- `product_green_from_metadata_rejected`
+- `mas_live_from_research_rejected`
+- `dense_70b_live_claim_rejected`
+- `ssd_as_ram_claim_rejected`
+- `hidden_route_authority_rejected`
+- `rollback_run_event_answer_packet_refs_present`
+
+### 25.5 Architecture Fusion
+
+The fixture contract strengthens the large-local-model path by allowing
+Epistemos to admit local model facts in stages:
+
+```text
+source evidence -> SourceCard graph
+model/package/cache evidence -> ModelInventoryCandidateCard
+metadata witness -> F-ModelInventory-ZeroByteCandidateCards
+source-prior witness -> F-ProprietaryCompression-ProvenanceGate
+byte witness -> later owner-approved runtime/hash probe
+route witness -> later RuntimeRouter/System G proof
+WRV witness -> later product surface proof
+```
+
+That is how the system can stay ambitious without becoming sloppy. A 12B QAT,
+35B MoE, 70B-class cold assembly, TurboVec index, or GGUF/LiteRT/MLX runtime
+can be carefully inventoried before it is ever claimed as usable.
+
+### 25.6 Pass-Eleven Register
+
+Best breakthrough candidate: a red-fixture-heavy model inventory falsifier that
+turns local cache/catalog/package evidence into honest candidate cards without
+letting any card become runtime, route, MAS, or green product proof.
+
+Safest next falsifier: `F-ModelInventory-ZeroByteCandidateCards`, implemented
+as a metadata-only feeder that reuses `SourceCard` / `SourceSignalGraph::intake`
+and emits zero model/index/runtime/provider bytes.
+
+Best near-term code unit: add `agent_core/src/uas/model_inventory_candidate.rs`
+plus `src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs`, with
+fixture builders for the accepted pack and mutator tests for every red fixture
+above.
+
+Biggest false-claim risk: treating the accepted fixture pack as a model ladder.
+It is not. It is an evidence ladder that keeps catalog, manifest, cache,
+package, pointer, route hint, runtime proof, and WRV proof separate.
+
+Biggest missing source: exact sidecar byte cap and whether the first primitive
+should parse mock JSON only or also parse tiny real sidecars under test
+fixtures.
+
+Next research query: "What exact Rust structs, enums, and field names should
+`model_inventory_candidate.rs` use so it can compile cleanly beside
+`SourceCard`, avoid duplicate authority, and feed the provenance gate?"

@@ -6,7 +6,7 @@
   <meta name="epistemos-canon-codeword" content="JUNE1-PATTERNBOOST-LOCK">
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-commit-sha" content="be39c5d1fa6f9b0e4e2a0a8ebbef367709ecf3cb">
+  <meta name="epistemos-commit-sha" content="ff900e5cf630da1279d50325cffb7b9718bd3973">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -571,7 +571,16 @@
   package locks, and existing falsifier refs may feed candidate cards, while
   weight/blob reads, snapshot-as-file-hash, active-dir runtime proof,
   checksum-unverified promotion, Gemma 4 loader-caveat bypass, and
-  RuntimeRouter preference-as-authority all reject.
+  RuntimeRouter preference-as-authority all reject. Pass eleven turns that into
+  a fixture contract for <code>F-ModelInventory-ZeroByteCandidateCards</code>:
+  accepted rows cover catalog-only, manifest-unverified, present/missing
+  snapshot, Gemma 4 loader-blocked, deferred GGUF/128K, LFS pointer metadata,
+  capped sidecar JSON, package-lock provenance, and route-hint-only evidence;
+  red rows reject blob opens or hashes, nonzero model/index/runtime/provider
+  bytes, snapshot or LFS oid laundering, active-dir runtime proof, package-lock
+  loader proof, filesystem path as UAS ID, metadata-to-green promotion, MAS Live
+  leakage, live dense 70B, SSD-as-RAM, hidden cloud, hidden route authority, and
+  missing rollback / RunEventLog / AnswerPacket refs.
 </div>
 
 <div class="canon-hook">
