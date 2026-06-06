@@ -58,6 +58,30 @@ Failure-family ledger from the retained Swift test log:
 - tool execution surface: `2`
 - body-read checksum, search index, and XPC trust: `1` each
 
+## Focused Repair Plan
+
+2026-06-06 follow-up hardening binds the top family to a focused repair plan:
+
+- `focused_repair_family=graph_filter_visibility`
+- `focused_repair_plan_bound=true`
+- `focused_repair_plan_matches_top_family=true`
+
+Focused commands to run before the full release-audit marathon:
+
+```bash
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/FilterEngineComprehensiveTests test
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ResourceExhaustionTests test
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests test
+```
+
+Source anchors:
+
+- `Epistemos/Graph/FilterEngine.swift`
+- `Epistemos/Models/GraphTypes.swift`
+- `Epistemos/Graph/GraphState.swift`
+
+This plan is not a pass claim. It only tells the next repair session where to start.
+
 ## Three-Layer Truth
 
 L1: The automated-checks gate exists, writes a schema-valid artifact, preserves failed-command evidence, emits the red failure-family ledger, and keeps `duplicate_risk_count=0`, but the L1 architecture cursor does not advance because `xcodebuild_test` failed.
