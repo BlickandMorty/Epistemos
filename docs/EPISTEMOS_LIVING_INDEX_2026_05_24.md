@@ -269,6 +269,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing/product capability plus release readiness remain unchanged until
   the Swift test suite is repaired and the log/manual/distribution/three-pass
   release-audit gates land.
+- Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
+  `xcodebuild_test` log into durable failure families without rerunning the heavy release
+  command set. North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The regenerated schema-valid artifact remains RED at
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`:
+  `overall_pass=false`, `failed_check_count=1`, `xcodebuild_test_issue_count=161`,
+  `xcodebuild_test_unique_failure_count=84`, and
+  `top_xcodebuild_test_failure_family=graph_filter_visibility`. Family counts are now
+  visible in the artifact: graph/filter visibility `34`, agent route policy `21`,
+  theme/presentation `19`, distribution/project integrity `18`, research tool catalog `16`,
+  editor/epdoc surface `14`, UI shell source guard `14`, model vault/catalog `9`, visible
+  output sanitization `5`, runtime performance policy `3`, source-guard drift `3`, tool
+  execution surface `2`, body-read checksum `1`, search index `1`, and XPC trust `1`. This
+  advances repair clarity only: L1 cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `overall_pass=false` / `vault_research_route_with_packetized_mitigation`, and
+  L3 release readiness plus large-local-model product capability remain unpromoted.
 - Updated **2026-06-05** · automated-check repair checkpoint: the first scoped
   Swift-suite blocker cluster under the red release-audit ledger was hardened in
   `UserFacingModelOutput`. North-star sentence: Epistemos is a local cognitive

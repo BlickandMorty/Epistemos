@@ -2599,6 +2599,7 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUT
     "live_70b_still_red",
     "autogenous_kernel_still_research",
     "model_runtime_bytes_zero",
+    "release_audit_failure_ledger_bound",
     "next_l3_release_audit_log_evidence_bound",
     "required_phases_bound",
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic",
@@ -2637,12 +2638,17 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUT
     "check_log_bytes",
     "model_runtime_bytes_loaded",
     "metadata_bytes",
+    "xcodebuild_test_issue_count",
+    "xcodebuild_test_unique_failure_count",
     "capability_route_status",
     "next_cursor",
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address",
     "release_audit_skill_ref",
     "automated_check_ids",
     "blocker_ids",
+    "xcodebuild_test_failure_families",
+    "xcodebuild_test_failure_exemplars",
+    "top_xcodebuild_test_failure_family",
 ];
 
 pub const SMALL_MODEL_RUNTIME_HARNESS_PRODUCT_ANSWER_PACKET_LIVE_PROBE_AXES: &[&str] = &[

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "f0dc20d94e7c40b441b9bceed24d45ed6073f2b5",
+  "commit_sha": "694d32cb211650359515d68270450a7b4fa9ac21",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_v1",
-  "timestamp_utc": "2026-06-05T22:39:32Z",
-  "result_digest": "sha256:f27f837e2cfa71d0e21861deee9e75a79f9f63057ebdb483e7c9a861cb66f6e2",
+  "timestamp_utc": "2026-06-06T22:18:40Z",
+  "result_digest": "sha256:ae4e058e6ff061fdf937e51b9ec7f6b14251e68ea4e3cecc423a491dc44c6f6e",
   "measurements": {
     "all_check_logs_bound": {
       "value": true,
@@ -304,6 +304,10 @@
       "value": true,
       "unit": "bool"
     },
+    "release_audit_failure_ledger_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "release_audit_skill_mentions_automated_checks": {
       "value": true,
       "unit": "bool"
@@ -356,6 +360,10 @@
       "value": true,
       "unit": "bool"
     },
+    "top_xcodebuild_test_failure_family": {
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
     "upstream_l3_release_audit_zero_fail_probe_pass": {
       "value": true,
       "unit": "bool"
@@ -364,9 +372,54 @@
       "value": true,
       "unit": "bool"
     },
+    "xcodebuild_test_failure_exemplars": {
+      "value": [
+        "✘ Test \"Tool dispatch consults stored authority before executor resolution\" recorded an issue at AgentAuthorityPersistenceTests.swift:220:26: Expectation failed: (source → \"private func runCommandCenterLocalAgentPath(",
+        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:312:9: Expectation failed: (state.availableTools.map(\\.name) → [\"vault.search\", \"web.search\"]) == [\"vault....",
+        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:314:9: Expectation failed: (state.toolToggles[\"send_message\"] → nil) == true",
+        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:315:9: Expectation failed: (state.toolToggles[\"web.search\"] → true) == nil",
+        "✘ Test applyingCodeSpecialistPrefersNextBestLocalBrainAndFocusedToolBundle() recorded an issue at AgentCommandCenterStateTests.swift:409:9: Expectation failed: (state.enabledToolNames → [\"file.read\", \"vault.search\"]) == (Set([",
+        "✘ Test \"App Store agent command modes do not advertise Pro subprocess tools\" recorded an issue at AppStoreHardeningTests.swift:484:13: Expectation failed: (proBranch → \"",
+        "✘ Test \"App Store agent command modes do not advertise Pro subprocess tools\" recorded an issue at AppStoreHardeningTests.swift:484:13: Expectation failed: (proBranch → \"",
+        "✘ Test \"Settings mounts shared arena diagnostics without v2 authority copy\" recorded an issue at ArenaTests.swift:158:9: Expectation failed: (settings → \"import AppKit",
+        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:207:9: Expectation failed: (appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:208:9: Expectation failed: (appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:209:9: Expectation failed: !((appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:211:9: Expectation failed: !((direct → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+      ],
+      "unit": "log-lines"
+    },
+    "xcodebuild_test_failure_families": {
+      "value": {
+        "agent_route_policy": 21,
+        "body_read_checksum": 1,
+        "distribution_project_integrity": 18,
+        "editor_epdoc_surface": 14,
+        "graph_filter_visibility": 34,
+        "model_vault_catalog": 9,
+        "research_tool_catalog": 16,
+        "runtime_performance_policy": 3,
+        "search_index": 1,
+        "source_guard_drift": 3,
+        "theme_presentation": 19,
+        "tool_execution_surface": 2,
+        "ui_shell_source_guard": 14,
+        "visible_output_sanitization": 5,
+        "xpc_trust_configuration": 1
+      },
+      "unit": "families"
+    },
+    "xcodebuild_test_issue_count": {
+      "value": 161,
+      "unit": "issues"
+    },
     "xcodebuild_test_passed": {
       "value": false,
       "unit": "bool"
+    },
+    "xcodebuild_test_unique_failure_count": {
+      "value": 84,
+      "unit": "tests"
     },
     "zero_fail_pass_count": {
       "value": 0,
@@ -716,6 +769,11 @@
       "value": true,
       "unit": "bool"
     },
+    "release_audit_failure_ledger_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "release_audit_skill_mentions_automated_checks": {
       "operator": "==",
       "value": true,
@@ -781,6 +839,11 @@
       "value": true,
       "unit": "bool"
     },
+    "top_xcodebuild_test_failure_family": {
+      "operator": "==",
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
     "upstream_l3_release_audit_zero_fail_probe_pass": {
       "operator": "==",
       "value": true,
@@ -791,10 +854,30 @@
       "value": true,
       "unit": "bool"
     },
+    "xcodebuild_test_failure_exemplars": {
+      "operator": "record",
+      "value": "bounded red-log exemplars",
+      "unit": "log-lines"
+    },
+    "xcodebuild_test_failure_families": {
+      "operator": "record",
+      "value": "visible failure-family ledger",
+      "unit": "families"
+    },
+    "xcodebuild_test_issue_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "issues"
+    },
     "xcodebuild_test_passed": {
       "operator": "==",
       "value": true,
       "unit": "bool"
+    },
+    "xcodebuild_test_unique_failure_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "tests"
     },
     "zero_fail_pass_count": {
       "operator": "==",
@@ -876,6 +959,7 @@
     "product_capability_not_promoted": true,
     "product_capability_promotion_rejected": true,
     "product_status_gated": true,
+    "release_audit_failure_ledger_bound": true,
     "release_audit_skill_mentions_automated_checks": true,
     "release_audit_skill_present": true,
     "release_audit_skill_ref": true,
@@ -889,9 +973,14 @@
     "ship_call_not_authorized": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic": true,
+    "top_xcodebuild_test_failure_family": true,
     "upstream_l3_release_audit_zero_fail_probe_pass": true,
     "xcodebuild_build_passed": true,
+    "xcodebuild_test_failure_exemplars": true,
+    "xcodebuild_test_failure_families": true,
+    "xcodebuild_test_issue_count": true,
     "xcodebuild_test_passed": false,
+    "xcodebuild_test_unique_failure_count": true,
     "zero_fail_pass_count": true,
     "zero_fail_pass_count_overclaim_rejected": true,
     "zero_fail_pass_count_zero": true

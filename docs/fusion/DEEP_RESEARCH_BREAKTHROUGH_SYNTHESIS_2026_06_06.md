@@ -5751,3 +5751,70 @@ Next research query: "How should Epistemos separate in-process/command-local
 runtime cards from server/daemon/distributed cache cards so large-local-model
 research can keep progressing without sidecar, MAS, privacy, or product-route
 contamination?"
+
+## 63. Pass 63 - Release-Audit Red Ledger Hardening
+
+Observed on 2026-06-06. This pass is research-to-build support for the
+large-local-model ladder: before larger local models can become user-facing,
+the small-model harness must have a release-audit ledger that explains red
+automated checks instead of hiding them behind one failed `xcodebuild_test`
+axis.
+
+Built changes:
+
+- Hardened
+  `agent_core/src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs`
+  with a retained-log parser for the existing `xcodebuild_test` log.
+- Extended
+  `agent_core/src/falsifier_artifacts/axes.rs::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_AXES`
+  with red-ledger family/count/exemplar axes.
+- Regenerated
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
+  without rerunning the heavy automated-check command set.
+
+Current red truth:
+
+- `overall_pass=false`
+- `failed_check_count=1`
+- `xcodebuild_test_issue_count=161`
+- `xcodebuild_test_unique_failure_count=84`
+- `top_xcodebuild_test_failure_family=graph_filter_visibility`
+
+Failure families now recorded in the artifact: graph/filter visibility `34`,
+agent route policy `21`, theme/presentation `19`, distribution/project
+integrity `18`, research tool catalog `16`, editor/epdoc surface `14`, UI shell
+source guard `14`, model vault/catalog `9`, visible output sanitization `5`,
+runtime performance policy `3`, source-guard drift `3`, tool execution surface
+`2`, body-read checksum `1`, search index `1`, and XPC trust `1`.
+
+This does not advance L1, L2, or L3. It makes the red gate more actionable so
+future repair sessions can prioritize graph/filter visibility, agent routing,
+theme/presentation, distribution/project integrity, research tool catalog, and
+model-vault catalog failures before claiming release readiness or large-model
+product capability.
+
+Best breakthrough candidate: convert every release-audit red gate into a
+bounded failure-family ledger, because large-local-model work depends on the
+small-model route becoming mechanically repairable rather than manually
+interpreted from huge logs.
+
+Safest next falsifier: keep the guard cursor on
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+until `xcodebuild_test` is repaired and the automated-check artifact passes.
+
+Best near-term code unit: repair the largest family first:
+graph/filter visibility (`FilterEngine`, `GraphNodeType`, and related resource
+exhaustion/toggle tests), then rerun focused Swift tests before the full
+release-audit command set.
+
+Biggest false-claim risk: treating a schema-valid red artifact as an L1
+advance. Correct phrasing: the red ledger became more diagnostic; the
+architecture cursor and product capability did not advance.
+
+Biggest missing source: a focused Swift failure-family runner that can execute
+only one ledger family at a time and update the same artifact taxonomy without
+running the full release-audit marathon.
+
+Next research query: "Can the release-audit automated-check gate grow a
+family-scoped repair runner so small-model runtime/product proof moves toward
+L3 without repeatedly running the full Swift suite?"
