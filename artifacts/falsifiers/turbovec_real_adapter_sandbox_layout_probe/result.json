@@ -1,0 +1,300 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterSandboxLayoutProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_sandbox_layout_probe.sh",
+  "command_digest": "sha256:2be0015a352e6fc1d1f24509ed9d75129fadff4e7f0d9a232fd4c87124a819db",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "61179fba97f3842af9b630c19f5eec6743863030",
+  "fixture_id": "turbovec_real_adapter_sandbox_layout_probe_v1",
+  "timestamp_utc": "2026-06-06T14:50:02Z",
+  "result_digest": "sha256:7e8b999de748f55926f70842c479e9ed3346db78ad8d33d2c0971d2536143421",
+  "measurements": {
+    "bytes_remain_metadata_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cleanup_and_rollback_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cleanup_phase_count": {
+      "value": 5,
+      "unit": "phases"
+    },
+    "forbidden_root_count": {
+      "value": 10,
+      "unit": "roots"
+    },
+    "large_local_model_research_bias_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layout_metadata_bytes_read": {
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "layout_slot_count": {
+      "value": 10,
+      "unit": "slots"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_fetch_lease_probe",
+      "unit": "cursor"
+    },
+    "no_fetch_clone_import_build_or_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_index_model_runtime_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "product_and_build_roots_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_root_path_policy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 84,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sandbox_layout_address": {
+      "value": "turbovec_real_adapter_sandbox_layout_probe:ade4603f6f4bd86da82abff1e5332957033d0e1b1d00142924736a12b68fd69f@1779040900000",
+      "unit": "uas_address"
+    },
+    "sandbox_layout_slots_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_mutation_actions_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_slot_path_count": {
+      "value": 10,
+      "unit": "paths"
+    },
+    "upstream_dependency_envelope_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "bytes_remain_metadata_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cleanup_and_rollback_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cleanup_phase_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "phases"
+    },
+    "forbidden_root_count": {
+      "operator": ">=",
+      "value": 10,
+      "unit": "roots"
+    },
+    "large_local_model_research_bias_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layout_metadata_bytes_read": {
+      "operator": "==",
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "layout_slot_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "slots"
+    },
+    "next_research_to_build_unit": {
+      "operator": "starts_with",
+      "value": "turbovec_quarantine_real_adapter_fetch_lease_probe",
+      "unit": "cursor"
+    },
+    "no_fetch_clone_import_build_or_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_index_model_runtime_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "starts_with",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "operator": "==",
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "product_and_build_roots_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_root_path_policy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 70,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sandbox_layout_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_sandbox_layout_probe:",
+      "unit": "uas_address"
+    },
+    "sandbox_layout_slots_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_mutation_actions_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_slot_path_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "paths"
+    },
+    "upstream_dependency_envelope_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "bytes_remain_metadata_only": true,
+    "cleanup_and_rollback_required": true,
+    "cleanup_phase_count": true,
+    "forbidden_root_count": true,
+    "large_local_model_research_bias_preserved": true,
+    "layout_metadata_bytes_read": true,
+    "layout_slot_count": true,
+    "next_research_to_build_unit": true,
+    "no_fetch_clone_import_build_or_route": true,
+    "no_index_model_runtime_provider_bytes": true,
+    "no_route_context_or_hidden_authority": true,
+    "pinned_revision": true,
+    "planned_quarantine_bytes": true,
+    "product_and_build_roots_rejected": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "quarantine_root_path_policy": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "sandbox_layout_address": true,
+    "sandbox_layout_slots_complete": true,
+    "slot_mutation_actions_rejected": true,
+    "unique_slot_path_count": true,
+    "upstream_dependency_envelope_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_sandbox_layout_scope",
+      "detail": "Pinned TurboVec adapter sandbox layout only. No repository bytes fetched or cloned, no product source copied, no dependency inserted, no adapter built, no native link probe, no index/model/runtime/provider bytes loaded, and no route/context authority granted."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterSandboxLayoutProbe as a T1/L1 metadata-only quarantine layout for the large-local-model compression track. It proves the allowed TurboVec research slots, product-root exclusions, cleanup/tombstone phases, rollback, RunEventLog, AnswerPacket, compatibility fence, native-link block, and benchmark caveat before any real adapter bytes can enter quarantine. This keeps no-license/risky repo mining useful for APIs, tests, benchmarks, failure cases, and clean-room motifs while preventing product contamination, hidden route authority, L2/L3 capability promotion, live dense 70B claims, SSD-as-RAM claims, or hidden cloud fallback."
+}

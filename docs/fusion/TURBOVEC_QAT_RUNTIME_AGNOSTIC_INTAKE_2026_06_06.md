@@ -339,7 +339,29 @@ Recommended first units, in order:
      research-to-build unit is
      `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
-15. `F-QAT-ModelRouteCard-MemoryPreflight`
+15. `F-TurboVec-RealAdapterSandboxLayoutProbe`
+   - Proves the pinned upstream TurboVec dependency envelope has a
+     quarantine-only sandbox layout before real adapter bytes, source import,
+     adapter builds, native-link probes, route mutation, or model-context use
+     can cite it.
+   - Does not fetch or clone TurboVec, create quarantine directories, add a
+     product dependency, import/build/run adapters, probe native links, open
+     index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, or promote
+     product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_sandbox_layout_probe/result.json`.
+     It binds the pinned revision to quarantine root
+     `.epistemos-quarantine/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2`,
+     10 read-only sandbox slots, 84 rejected red fixtures,
+     product/build-root rejection, absolute/traversal/duplicate path
+     rejection, cleanup/tombstone/rollback phases, RunEventLog, AnswerPacket,
+     compatibility fence, native-link block, benchmark caveat, planned
+     quarantine byte lease `8388608`, zero fetched/cloned/product/index/model/
+     runtime/provider bytes, and the no-L2/L3-promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_quarantine_real_adapter_fetch_lease_probe`.
+
+16. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

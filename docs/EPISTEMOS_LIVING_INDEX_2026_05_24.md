@@ -930,6 +930,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `turbovec_quarantine_real_adapter_sandbox_layout_probe`; the guard-owned
   cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-TurboVec-RealAdapterSandboxLayoutProbe` is now
+  built as the metadata-only quarantine sandbox-layout gate for the pinned real
+  TurboVec source branch:
+  `agent_core/src/uas/turbovec_real_adapter_sandbox_layout_probe.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_sandbox_layout_probe.rs`,
+  script `Tools/falsifiers/f_turbovec_real_adapter_sandbox_layout_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterSandboxLayoutProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_sandbox_layout_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds the pinned
+  revision `efe29a184986cbf562a9847c2ac52a2990bfaca2` to a quarantine root,
+  10 read-only sandbox slots, 84 rejected red fixtures, cleanup/tombstone/
+  rollback phases, RunEventLog, AnswerPacket, compatibility fence, native-link
+  block, benchmark caveat, and planned quarantine byte lease `8388608`. This is
+  T1/L1 metadata only. It does not fetch or clone TurboVec, create quarantine
+  directories, add a product dependency, import/build/run an adapter, probe
+  native links, open index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+  choose routes, advance L2, or make L3 user-facing model capability green.
+  The next retrieval unit is
+  `turbovec_quarantine_real_adapter_fetch_lease_probe`; the guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface

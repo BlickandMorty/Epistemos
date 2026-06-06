@@ -773,6 +773,24 @@ the next real TurboVec/fork step must pass sandbox-layout proof before any
 quarantine bytes, source import, adapter build, route mutation, or large-model
 context authority can be attempted.
 
+`F-TurboVec-RealAdapterSandboxLayoutProbe` is now built as the metadata-only
+quarantine sandbox-layout gate for the pinned TurboVec branch. Implemented
+anchors include
+`agent_core/src/uas/turbovec_real_adapter_sandbox_layout_probe.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_real_adapter_sandbox_layout_probe/`. The
+witness binds pinned revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` to quarantine root
+`.epistemos-quarantine/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2`,
+10 read-only slots, 84 rejected red fixtures, product/build-root rejection,
+absolute/traversal/duplicate path rejection, cleanup/tombstone/rollback phases,
+RunEventLog, AnswerPacket, compatibility fence, native-link block, benchmark
+caveat, planned quarantine byte lease `8388608`, and zero fetched/cloned/
+product/index/model/runtime/provider bytes. It proves the next real
+TurboVec/fork step must pass a fetch-lease proof before any quarantine bytes,
+source import, adapter build, route mutation, or large-model context authority
+can be attempted.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -787,6 +805,7 @@ context authority can be attempted.
 `F-TurboVec-RealAdapterOwnerApprovalProbe`,
 `F-TurboVec-RealAdapterSourcePinProbe`,
 `F-TurboVec-RealAdapterDependencyEnvelopeProbe`,
+`F-TurboVec-RealAdapterSandboxLayoutProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and
