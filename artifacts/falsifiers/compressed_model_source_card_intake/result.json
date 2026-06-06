@@ -1,0 +1,900 @@
+{
+  "falsifier_id": "F-CompressedModelSourceCard-Intake",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_compressed_model_source_card_intake.sh",
+  "command_digest": "sha256:99c7ddf7ee0f2c96a66f8e0d3effda0c19fc844462f43e394b4d3802312dc357",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "250a09a7b1e93df951ed7ef8c3c224799f7966b9",
+  "fixture_id": "compressed_model_source_card_intake_v1",
+  "timestamp_utc": "2026-06-06T04:28:30Z",
+  "result_digest": "sha256:e5449c344905a7aead95b8f16af81f35813ddebbf81d30473c0416785f785a6d",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 11,
+      "unit": "count"
+    },
+    "accepted_fixture_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_kind_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "compressed_index_card_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_artifact_bytes_total": {
+      "value": 41484001024,
+      "unit": "count"
+    },
+    "declared_runtime_memory_floor_bytes_total": {
+      "value": 44464001024,
+      "unit": "count"
+    },
+    "dense_70b_live_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_70b_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_inventory_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "format_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "format_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma4_mlx_loader_caveat_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_lane_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_lane_restricted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "intake_address": {
+      "value": "compressed_model_source_card_intake:87d9bef83eae24aa90be64e6fc049d8a87ffae7da666b6f444782db63f507d4c@1779034000000",
+      "unit": "uas_address"
+    },
+    "intake_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "inventory_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "inventory_source_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_restricted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_from_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 88000,
+      "unit": "count"
+    },
+    "missing_declared_artifact_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_gemma4_loader_caveat": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_caveat": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_gemma4_loader_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_inventory_candidate_set_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_file_copy": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_weight_blob_open_or_hash": {
+      "value": true,
+      "unit": "bool"
+    },
+    "organ_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "organ_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "package_manifest_loader_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "package_manifest_not_loader_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_green_from_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proprietary_compression_provenance_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_import_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_overlays_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_source_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quantized_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 40,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "value": 40,
+      "unit": "count"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "runtime_lane_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_package_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_mismatch": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_signal_graph_intake_called_first": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tier_promotion_from_research": {
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_eidos_cache_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_not_eidos_cache": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_inventory_candidate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_provenance_overlay": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_blob_hash_attempted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_blob_opened": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_index_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": ">=",
+      "value": 10,
+      "unit": "count"
+    },
+    "accepted_fixture_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "blocked_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_kind_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "compressed_index_card_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_artifact_bytes_total": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "declared_runtime_memory_floor_bytes_total": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "dense_70b_live_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_70b_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_inventory_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "format_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "format_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma4_mlx_loader_caveat_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_lane_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_lane_restricted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "intake_address": {
+      "operator": "starts_with",
+      "value": "compressed_model_source_card_intake:",
+      "unit": "uas_address"
+    },
+    "intake_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "inventory_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "inventory_source_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_restricted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_from_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 655360,
+      "unit": "count"
+    },
+    "missing_declared_artifact_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_gemma4_loader_caveat": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_layer_separation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_license_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_route_caveat": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_gemma4_loader_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_inventory_candidate_set_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_file_copy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_weight_blob_open_or_hash": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "organ_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "organ_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "package_manifest_loader_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "package_manifest_not_loader_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_green_from_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proprietary_compression_provenance_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_import_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_overlays_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_source_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quantized_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 34,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 40,
+      "unit": "count"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rowid_identity_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "runtime_lane_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_package_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_digest_mismatch": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_signal_graph_intake_called_first": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tier_promotion_from_research": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_eidos_cache_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_not_eidos_cache": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_inventory_candidate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_provenance_overlay": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_blob_hash_attempted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_blob_opened": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_index_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_fixture_pack_present": true,
+    "bad_proof_ref_prefix": true,
+    "blocked_source_id": true,
+    "card_kind_count": true,
+    "compressed_index_card_present": true,
+    "declared_artifact_bytes_total": true,
+    "declared_runtime_memory_floor_bytes_total": true,
+    "dense_70b_live_claim": true,
+    "dense_70b_live_claim_rejected": true,
+    "duplicate_card_id": true,
+    "duplicate_inventory_ref": true,
+    "duplicate_source_id": true,
+    "empty_card_id": true,
+    "format_count": true,
+    "format_coverage": true,
+    "gemma4_mlx_loader_caveat_preserved": true,
+    "gguf_lane_mismatch": true,
+    "gguf_lane_restricted": true,
+    "hidden_cloud_fallback": true,
+    "hidden_cloud_rejected": true,
+    "hidden_route_authority": true,
+    "index_bytes_loaded": true,
+    "intake_address": true,
+    "intake_address_deterministic": true,
+    "inventory_refs_bound": true,
+    "inventory_source_mismatch": true,
+    "layer_separation_required": true,
+    "litert_lane_mismatch": true,
+    "litert_lane_restricted": true,
+    "mas_live_from_research": true,
+    "mas_live_rejected": true,
+    "metadata_budget_enforced": true,
+    "metadata_budget_exceeded": true,
+    "metadata_bytes_read": true,
+    "missing_declared_artifact_bytes": true,
+    "missing_gemma4_loader_caveat": true,
+    "missing_layer_separation": true,
+    "missing_license_ref": true,
+    "missing_route_caveat": true,
+    "mlx_gemma4_loader_claim": true,
+    "model_bytes_loaded": true,
+    "model_inventory_candidate_set_bound": true,
+    "no_product_file_copy": true,
+    "no_weight_blob_open_or_hash": true,
+    "organ_count": true,
+    "organ_coverage": true,
+    "package_manifest_loader_proof": true,
+    "package_manifest_not_loader_proof": true,
+    "product_file_copied": true,
+    "product_green_from_research": true,
+    "product_promotion_rejected": true,
+    "proprietary_compression_provenance_gate_bound": true,
+    "provenance_import_mismatch": true,
+    "provenance_overlays_bound": true,
+    "provenance_source_mismatch": true,
+    "provider_call_made": true,
+    "quantized_cards_present": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "route_authority_rejected": true,
+    "rowid_identity": true,
+    "rowid_identity_rejected": true,
+    "runtime_bytes_loaded": true,
+    "runtime_lane_count": true,
+    "runtime_lane_coverage": true,
+    "runtime_package_cards_present": true,
+    "runtime_route_authority": true,
+    "source_digest_mismatch": true,
+    "source_signal_graph_intake_called_first": true,
+    "ssd_as_ram_claim": true,
+    "ssd_as_ram_claim_rejected": true,
+    "tier_promotion_from_research": true,
+    "turbovec_eidos_cache_only": true,
+    "turbovec_not_eidos_cache": true,
+    "unknown_inventory_candidate": true,
+    "unknown_provenance_overlay": true,
+    "unknown_source_id": true,
+    "weight_blob_hash_attempted": true,
+    "weight_blob_opened": true,
+    "zero_index_bytes_loaded": true,
+    "zero_model_bytes_loaded": true,
+    "zero_provider_calls": true,
+    "zero_runtime_bytes_loaded": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only compressed model source-card intake; no runtime, route choice, product copy, hidden authority, MAS promotion, or live dense 70B claim"
+    }
+  ],
+  "notes": "Builds F-CompressedModelSourceCard-Intake from SourceSignalGraph, ModelInventoryCandidateSet, and F-ProprietaryCompression-ProvenanceGate. Scope is T1/L1 metadata only; it feeds later Gemma QAT, TurboVec/Eidos, route-card, byte, runtime, and WRV witnesses without promoting L2/L3."
+}

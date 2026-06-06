@@ -37,6 +37,7 @@ pub mod cold_miss_ledger;
 pub mod cold_panic_fallback;
 pub mod coldstream;
 pub mod coldstream_vs_mmap;
+pub mod compressed_model_source_card_intake;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
@@ -122,6 +123,14 @@ pub use coldstream_vs_mmap::{
     ColdStreamBaselineKind, ColdStreamBaselineRow, ColdStreamVsMmapError, ColdStreamVsMmapFixture,
     ColdStreamVsMmapMetrics, ColdStreamVsMmapSurface, ColdStreamVsMmapWitness,
     COLDSTREAM_VS_MMAP_CURSOR, COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+};
+pub use compressed_model_source_card_intake::{
+    CompressedModelFormat, CompressedModelOrgan, CompressedModelPromotionTier,
+    CompressedModelRuntimeLane, CompressedModelSourceByteScope, CompressedModelSourceCard,
+    CompressedModelSourceCardError, CompressedModelSourceCardIntake,
+    CompressedModelSourceCardKind, CompressedModelSourceCardMetrics,
+    CompressedModelSourceProofRefs, COMPRESSED_MODEL_SOURCE_CARD_INTAKE_CURSOR,
+    COMPRESSED_MODEL_SOURCE_CARD_INTAKE_NEXT_CURSOR,
 };
 pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,

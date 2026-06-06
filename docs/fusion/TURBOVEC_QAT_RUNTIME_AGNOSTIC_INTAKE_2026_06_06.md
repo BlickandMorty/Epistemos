@@ -97,6 +97,7 @@ Recommended first units, in order:
 2. `F-CompressedModelSourceCard-Intake`
    - Proves source URL, license, model/index kind, claimed format, expected runtime lanes, and provenance digest are recorded.
    - Does not prove loadability or quality.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_model_source_card_intake/result.json`. It accepts 11 compressed model/index/codec/runtime source cards, covers 6 formats, 5 runtime lanes, and 4 organs, rejects 40 red fixtures, preserves the Gemma 4 MLX loader caveat, keeps TurboVec in Eidos/AppColdStore cache semantics, loads zero model/index/runtime bytes, makes zero provider calls, copies zero product files, and preserves the no-L2/L3-promotion boundary.
 
 3. `F-GemmaQAT-LocalRuntimeCandidateCard`
    - Proves Gemma 4 QAT E2B/E4B/12B/26B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, ResidencyStatus, and claim boundaries.

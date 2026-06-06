@@ -306,13 +306,15 @@ If a source/canon guard is needed before the next runtime step, use this order:
    cases, import mode, allowed action, clean-room notes, no product import, and
    no L2/L3 promotion boundary.
 5. `F-CompressedModelSourceCard-Intake`:
-   next research-to-build unit; prove model/index/codec/runtime source-card
-   completeness, expected lanes, license/provenance digest, import mode,
-   byte-zero scope, rollback, RunEventLog, AnswerPacket, and explicit
+   now built metadata-only; preserve its typed model/index/codec/runtime
+   source-card shape, expected lanes, license/provenance digest, import mode,
+   byte-zero scope, rollback, RunEventLog, AnswerPacket, Gemma 4 loader caveat,
+   TurboVec Eidos-cache-only placement, rowid rejection, and explicit
    non-loadability/non-quality caveats.
 6. `F-TurboVec-Eidos-CompressedIndex-Plan`:
-   prove placement in Eidos/AppColdStore compressed retrieval, not durable truth
-   and not live route authority.
+   next retrieval/index research-to-build unit; prove placement in
+   Eidos/AppColdStore compressed retrieval, not durable truth and not live route
+   authority.
 7. `F-GemmaQAT-LocalRuntimeCandidateCard` or
    `F-QAT-ModelRouteCard-MemoryPreflight`:
    metadata-only first; record model IDs, formats, licenses, sizes, context,

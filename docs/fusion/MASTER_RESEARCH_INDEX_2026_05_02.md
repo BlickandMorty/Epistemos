@@ -397,8 +397,8 @@ model/index/runtime bytes, provider calls, active-dir/package-lock runtime
 proof, Gemma 4 caveat bypass, hidden route/cloud authority, MAS/L2/L3
 promotion, live dense 70B, SSD-as-RAM, and missing rollback / RunEventLog /
 AnswerPacket refs. This is the first buildable bridge from June 6 research
-into the architecture; the next research-to-build unit is
-`F-ProprietaryCompression-ProvenanceGate`.
+into the architecture; the then-next research-to-build unit,
+`F-ProprietaryCompression-ProvenanceGate`, is now implemented in pass fourteen.
 
 **Pass-fourteen implementation.** `F-ProprietaryCompression-ProvenanceGate`
 is now built as a T1/L1 metadata architecture witness. Implemented anchors:
@@ -415,13 +415,35 @@ digest, or model-inventory evidence; benchmark laundering; unknown transitive
 dependencies; copied product files; nonzero model/index/runtime/provider bytes;
 hidden route authority; hidden cloud fallback; MAS/Live and product-green
 promotion; live dense 70B; SSD-as-RAM; metadata/quarantine budget overflow; and
-missing L1/L2/L3 separation. The next research-to-build unit is
-`F-CompressedModelSourceCard-Intake`.
+missing L1/L2/L3 separation. The then-next research-to-build unit,
+`F-CompressedModelSourceCard-Intake`, is now implemented in pass fifteen.
 
-**Status discipline.** `F-ModelInventory-ZeroByteCandidateCards` and
-`F-ProprietaryCompression-ProvenanceGate` are T1/L1 metadata architecture only.
-They do not promote live dense 70B, live sparse 70B, product capability,
-release readiness, hidden runtime authority, source-code import, compressed
+**Pass-fifteen implementation.** `F-CompressedModelSourceCard-Intake` is now
+built as the typed compressed model/index/codec/runtime source-card witness.
+Implemented anchors:
+`agent_core/src/uas/compressed_model_source_card_intake.rs`,
+`agent_core/src/bin/falsify_compressed_model_source_card_intake.rs`,
+`Tools/falsifiers/f_compressed_model_source_card_intake.sh`,
+`docs/falsifiers/F-CompressedModelSourceCard-Intake_2026_06_06.md`, and
+`artifacts/falsifiers/compressed_model_source_card_intake/result.json`.
+The witness accepts 11 cards spanning Gemma 4 QAT GGUF, Gemma 4 mobile LiteRT,
+MLX Gemma 4 preview with loader caveat, TurboVec Eidos cache, llama.cpp,
+LiteRT-LM, MLX Swift LM, Qwen3-Coder MLX, Granite Micro MLX, and custom-Metal
+local canon. It rejects 40 red fixtures for bad source/provenance/inventory
+bindings, missing declared bytes/caveats, Gemma 4 loader-caveat bypass,
+TurboVec-as-router, package-manifest-as-loader-proof, rowid identity, hidden
+route/cloud authority, nonzero model/index/runtime/provider bytes, copied
+product files, MAS/Live/product-green promotion, live dense 70B, SSD-as-RAM,
+bad proof refs, and missing layer separation. The next research-to-build units
+are `F-GemmaQAT-LocalRuntimeCandidateCard`,
+`F-TurboVec-Eidos-CompressedIndex-Plan`, and
+`F-QAT-ModelRouteCard-MemoryPreflight`.
+
+**Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
+`F-ProprietaryCompression-ProvenanceGate`, and
+`F-CompressedModelSourceCard-Intake` are T1/L1 metadata architecture only. They
+do not promote live dense 70B, live sparse 70B, product capability, release
+readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor
 remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
