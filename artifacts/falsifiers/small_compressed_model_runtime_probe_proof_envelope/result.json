@@ -1,0 +1,335 @@
+{
+  "falsifier_id": "F-SmallCompressedModel-RuntimeProbeProofEnvelope",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_compressed_model_runtime_probe_proof_envelope.sh",
+  "command_digest": "sha256:81e02bd5f75d53f5f2e9bb61c08b5f057908f84c00dac7ed904930efb445416e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "35e937275fb39d206ec9419736924e60b4a9d97d",
+  "fixture_id": "small_compressed_model_runtime_probe_proof_envelope_v1",
+  "timestamp_utc": "2026-06-06T08:28:15Z",
+  "result_digest": "sha256:58aec76db9790eca18663c4b2ba5b94878df81216e0b2d4a0246ba5cbca8d670",
+  "measurements": {
+    "approval_and_execution_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_ledger_zero_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_path": {
+      "value": "/opt/homebrew/bin/llama-cli",
+      "unit": "path"
+    },
+    "command_template_summary": {
+      "value": "--offline --model <OWNER_APPROVED_MODEL_PATH> --prompt <SYNTHETIC_NON_USER_PROMPT> --predict 1 --ctx-size 512 --batch-size 32 --ubatch-size 32 --temp 0 --seed 0 --no-conversation --single-turn --simple-io --no-display-prompt --no-mmap --log-disable",
+      "unit": "template"
+    },
+    "downloaded_model_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hashed_model_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "larger_model_escalation_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "network_download_flags_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "offline_one_token_command_template_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "opened_model_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_promotion_and_hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 70,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 70,
+      "unit": "fixtures"
+    },
+    "required_flag_count": {
+      "value": 23,
+      "unit": "flags"
+    },
+    "required_phase_count": {
+      "value": 16,
+      "unit": "phases"
+    },
+    "required_proof_phases_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_envelope_count": {
+      "value": 1,
+      "unit": "envelopes"
+    },
+    "runtime_probe_envelope_set_address": {
+      "value": "small_compressed_model_runtime_probe_proof_envelope:a4813006e441c2d7f76796266021d18e9a14f77111d9da94079503f33c7f9b58@1779037300000",
+      "unit": "uas_address"
+    },
+    "selected_model_id": {
+      "value": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "unit": "model_id"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_path_readiness_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "approval_and_execution_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_ledger_zero_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_path": {
+      "operator": "==",
+      "value": "/opt/homebrew/bin/llama-cli",
+      "unit": "path"
+    },
+    "command_template_summary": {
+      "operator": "contains",
+      "value": "--offline",
+      "unit": "template"
+    },
+    "downloaded_model_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hashed_model_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "larger_model_escalation_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "network_download_flags_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "small_compressed_model_owner_approved_runtime_probe",
+      "unit": "cursor"
+    },
+    "offline_one_token_command_template_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "opened_model_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_promotion_and_hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_ref_prefixes_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 70,
+      "unit": "fixtures"
+    },
+    "required_flag_count": {
+      "operator": "==",
+      "value": 23,
+      "unit": "flags"
+    },
+    "required_phase_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "phases"
+    },
+    "required_proof_phases_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_probe_envelope_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "envelopes"
+    },
+    "runtime_probe_envelope_set_address": {
+      "operator": "starts_with",
+      "value": "small_compressed_model_runtime_probe_proof_envelope:",
+      "unit": "uas_address"
+    },
+    "selected_model_id": {
+      "operator": "==",
+      "value": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "unit": "model_id"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_path_readiness_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "approval_and_execution_blocked": true,
+    "byte_ledger_zero_loaded": true,
+    "command_path": true,
+    "command_template_summary": true,
+    "downloaded_model_bytes": true,
+    "hashed_model_bytes": true,
+    "larger_model_escalation_blocked": true,
+    "layer_separation_required": true,
+    "model_bytes_loaded": true,
+    "network_download_flags_rejected": true,
+    "next_research_to_build_unit": true,
+    "offline_one_token_command_template_bound": true,
+    "opened_model_bytes": true,
+    "product_promotion_and_hidden_authority_rejected": true,
+    "proof_ref_prefixes_required": true,
+    "proof_surfaces_required": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "required_flag_count": true,
+    "required_phase_count": true,
+    "required_proof_phases_bound": true,
+    "runtime_bytes_loaded": true,
+    "runtime_probe_envelope_count": true,
+    "runtime_probe_envelope_set_address": true,
+    "selected_model_id": true,
+    "set_address_deterministic": true,
+    "upstream_model_path_readiness_bound": true,
+    "visibility_required": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-SmallCompressedModel-RuntimeProbeProofEnvelope from the E2B model-path readiness card. Scope is research-to-build T1/L1 metadata only: it defines the offline local llama-cli one-token command template, proof phases, memory sampling, cancellation, rollback, RunEventLog, AnswerPacket, and larger-model escalation blockers required before a future owner-approved runtime witness. It runs no inference, opens no model path, and promotes no L2/L3 capability."
+}

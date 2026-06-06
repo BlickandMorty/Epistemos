@@ -132,6 +132,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SmallCompressedModel-OwnerApprovalRuntimeGate",
     "F-SmallCompressedModel-LocalRuntimeCommandCard",
     "F-SmallCompressedModel-ModelPathReadinessCard",
+    "F-SmallCompressedModel-RuntimeProbeProofEnvelope",
     "F-TaskWorkingSetQuery-Determinism",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ResidencyPageTable-Addressability",

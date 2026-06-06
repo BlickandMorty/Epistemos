@@ -65,6 +65,7 @@ pub mod small_compressed_model_live_harness_preflight;
 pub mod small_compressed_model_local_runtime_command_card;
 pub mod small_compressed_model_model_path_readiness_card;
 pub mod small_compressed_model_owner_approval_runtime_gate;
+pub mod small_compressed_model_runtime_probe_proof_envelope;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
@@ -271,6 +272,15 @@ pub use small_compressed_model_owner_approval_runtime_gate::{
     SmallCompressedOwnerApprovalStatus,
     SMALL_COMPRESSED_MODEL_OWNER_APPROVAL_RUNTIME_GATE_CURSOR,
     SMALL_COMPRESSED_MODEL_OWNER_APPROVAL_RUNTIME_GATE_NEXT_CURSOR,
+};
+pub use small_compressed_model_runtime_probe_proof_envelope::{
+    required_phases as required_small_compressed_runtime_probe_phases,
+    SmallCompressedRuntimeProbeByteLedger, SmallCompressedRuntimeProbeEnvelopeError,
+    SmallCompressedRuntimeProbeEnvelopeMetrics, SmallCompressedRuntimeProbeEnvelopeStatus,
+    SmallCompressedRuntimeProbePhase, SmallCompressedRuntimeProbeProofEnvelope,
+    SmallCompressedRuntimeProbeProofEnvelopeSet, SmallCompressedRuntimeProbeRefs,
+    SMALL_COMPRESSED_MODEL_RUNTIME_PROBE_PROOF_ENVELOPE_CURSOR,
+    SMALL_COMPRESSED_MODEL_RUNTIME_PROBE_PROOF_ENVELOPE_NEXT_CURSOR,
 };
 pub use slab_arena_copy_count::{
     SlabArenaAllocationSample, SlabArenaCopyCountError, SlabArenaCopyCountMetrics,

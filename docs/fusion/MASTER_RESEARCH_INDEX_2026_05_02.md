@@ -34,15 +34,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > compressed-route AnswerPackets -> small compressed-model preflight ->
 > `F-SmallCompressedModel-OwnerApprovalRuntimeGate` ->
 > `F-SmallCompressedModel-LocalRuntimeCommandCard` ->
-> `F-SmallCompressedModel-ModelPathReadinessCard`. Current built truth:
-> `artifacts/falsifiers/small_compressed_model_model_path_readiness_card/result.json`
-> passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF source
-> revision, Xet hash, required filename, expected file bytes, local path
-> missing-or-unverified, owner/download approval pending, zero download/open/
-> hash/model/runtime/provider bytes, and no L2/L3 product capability. E2B is
-> the harness proving lane; Gemma 4 12B QAT remains the Pro Gated target; and
-> 31B/70B-class routes remain Pro Research/Vault until residency, routing,
-> transport, memory, rollback, RunEventLog, and AnswerPacket proof exists.
+> `F-SmallCompressedModel-ModelPathReadinessCard` ->
+> `F-SmallCompressedModel-RuntimeProbeProofEnvelope`. Current built truth:
+> `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
+> passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
+> `/opt/homebrew/bin/llama-cli` command path, offline one-token command
+> envelope, 16 proof phases, 70 red-fixture rejections, owner approval pending,
+> command unarmed, zero download/open/hash/model/runtime/provider bytes, and no
+> L2/L3 product capability. E2B is the harness proving lane; Gemma 4 12B QAT
+> remains the Pro Gated target; and 31B/70B-class routes remain Pro
+> Research/Vault until residency, routing, transport, memory, rollback,
+> RunEventLog, and AnswerPacket proof exists.
 
 ---
 
@@ -561,6 +563,22 @@ unverified; owner/download approval remains pending; no download, file open,
 hash, model/runtime byte load, provider call, first-token, L2/L3 promotion,
 live dense 70B, or SSD-as-RAM claim is allowed.
 
+**Pass-twenty-three implementation.**
+`F-SmallCompressedModel-RuntimeProbeProofEnvelope` is now built as the
+offline one-token proof envelope after the model-path readiness card.
+Implemented anchors include
+`agent_core/src/uas/small_compressed_model_runtime_probe_proof_envelope.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/`.
+The witness accepts 1 E2B runtime-probe proof envelope and rejects 70 red
+fixtures: `/opt/homebrew/bin/llama-cli`, `--offline`, model and prompt
+placeholders, `--predict 1`, 512 context tokens, 32 batch/ubatch caps,
+deterministic temp/seed, no conversation mode, no mmap, forbidden HF/URL/
+Docker/token/server flags, 16 proof phases, memory sampling, cancellation,
+rollback, RunEventLog, AnswerPacket, larger-model escalation blockers, zero
+download/open/hash/model/runtime/provider bytes, and no L2/L3 promotion.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -569,8 +587,9 @@ live dense 70B, or SSD-as-RAM claim is allowed.
 `F-CompressedRoute-AnswerPacket-DryRun`, and
 `F-SmallCompressedModel-LiveHarnessPreflight`,
 `F-SmallCompressedModel-OwnerApprovalRuntimeGate`,
-`F-SmallCompressedModel-LocalRuntimeCommandCard`, and
-`F-SmallCompressedModel-ModelPathReadinessCard` are T1/L1 metadata architecture only.
+`F-SmallCompressedModel-LocalRuntimeCommandCard`,
+`F-SmallCompressedModel-ModelPathReadinessCard`, and
+`F-SmallCompressedModel-RuntimeProbeProofEnvelope` are T1/L1 metadata architecture only.
 They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor
