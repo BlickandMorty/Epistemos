@@ -2566,3 +2566,78 @@ Next research query: "Which TurboVec/Eidos compressed-index plan fields prove
 rebuildability, privacy allowlists, UAS external IDs, recall-quality baselines,
 and AnswerPacket visibility before any compressed index can affect live
 retrieval?"
+
+## 30. Pass Sixteen: Gemma QAT Candidate Cards Built
+
+Pass sixteen implements `F-GemmaQAT-LocalRuntimeCandidateCard` as the
+model-ladder bridge after `F-CompressedModelSourceCard-Intake`. It uses current
+Hugging Face model metadata for the source-backed GGUF candidates:
+
+| Candidate | Source revision | Declared bytes | Context tokens | Epistemos band |
+|---|---:|---:|---:|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | `1894d1fc0a19d86697abd40483f5983c867df03f` | `4628569635` | `131072` | Small harness candidate |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | `99ef3d9bbf819591699ffa9084c4be12db1fbe6c` | `7463013674` | `131072` | Small harness candidate |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | `f6e7774e6148da3b7f201e42ba37cf084c1db35f` | `11907350576` | `262144` | Pro Gated flagship target |
+| `google/gemma-4-31B-it-qat-q4_0-gguf` | `4a311c5261daa0702f80836f8866114943651ab0` | `30697345596` | `262144` | Vault research only |
+
+The artifact at
+`artifacts/falsifiers/gemma_qat_local_runtime_candidate_card/result.json`
+passes with 4 accepted candidates and 33 red-fixture rejections. It records
+`54696279481` total declared source-card bytes and `62277025792` estimated
+resident-floor bytes, but loads zero model bytes, zero runtime bytes, and makes
+zero provider calls. These resident floors are planning lower bounds for later
+memory preflight, not proof that any candidate fits the app.
+
+Red fixtures reject duplicate IDs, bad upstream source-card refs, missing
+license/revision metadata, non-HTTPS locators, zero file/context bytes,
+file-size-as-memory claims, zero KV/scratch floors, model/runtime/provider
+byte use, MAS/Live/T2 promotion, missing MLX caveats, false Swift MLX loader
+proof, MTP speed claims, product capability claims, hidden cloud fallback,
+hidden route authority, live dense 70B claims, SSD-as-RAM claims, 31B
+non-vault promotion, 12B small-harness promotion, bad proof refs, missing
+L1/L2/L3 separation, undeferred runtime, and metadata overflow.
+
+### 30.1 Research-To-Build Meaning
+
+This pass makes the June 6 Gemma QAT research codeable. Future runtime work can
+now cite a typed candidate pack instead of loose model-card prose. It also
+keeps the ambitious path honest: E2B/E4B are the first small compressed-model
+targets, 12B is the Pro Gated target to prove after memory preflight, and 31B
+stays vault/research until a later route can prove it without hardware or
+marketing overclaim. The previously discussed 26B-style path remains out of
+this pack until a source-card resolves cleanly.
+
+### 30.2 Non-Promotion
+
+This pass does not prove GGUF loadability, Swift MLX Gemma support, LiteRT
+support, MTP speedup, first token, memory fit, model quality, tool use, MAS
+readiness, user-facing capability, live dense 70B, or live sparse 70B. It
+advances T1/L1 metadata architecture only. L2 capability remains
+`vault_research_route_with_packetized_mitigation`; L3 product truth remains
+unchanged.
+
+### 30.3 Pass-Sixteen Register
+
+Best breakthrough candidate: Gemma QAT route cards joined to the same
+source-carded compression/runtime portfolio as TurboVec and GGUF/LiteRT/MLX
+lanes.
+
+Safest next falsifier: `F-QAT-ModelRouteCard-MemoryPreflight`, because the
+candidate cards now need resident-byte, KV-byte, scratch-byte, hardware-budget,
+abstention, rollback, RunEventLog, and AnswerPacket preflight before any
+runtime probe.
+
+Best near-term code unit: build `F-QAT-ModelRouteCard-MemoryPreflight` as a
+metadata-only route-card preflight over the 4 Gemma candidates, keeping all
+runtime bytes at zero.
+
+Biggest false-claim risk: treating Gemma QAT GGUF source-card bytes as memory
+fit, Swift loader proof, MTP speed, MAS readiness, or product capability.
+
+Biggest missing source: source-carded LiteRT model-package metadata and any
+future resolved 26B-style Gemma QAT card.
+
+Next research query: "Which route-card memory-preflight fields keep Gemma QAT
+file bytes, resident bytes, KV bytes, scratch bytes, Metal/UMA pressure,
+timeout, cancellation, rollback, and AnswerPacket caveats distinct before a
+small compressed model runtime probe?"

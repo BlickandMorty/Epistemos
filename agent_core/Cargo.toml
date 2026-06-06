@@ -435,6 +435,10 @@ name = "falsify_compressed_model_source_card_intake"
 path = "src/bin/falsify_compressed_model_source_card_intake.rs"
 
 [[bin]]
+name = "falsify_gemma_qat_local_runtime_candidate_card"
+path = "src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs"
+
+[[bin]]
 name = "falsify_task_working_set_query_determinism"
 path = "src/bin/falsify_task_working_set_query_determinism.rs"
 

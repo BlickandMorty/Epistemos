@@ -125,6 +125,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ModelInventory-ZeroByteCandidateCards",
     "F-ProprietaryCompression-ProvenanceGate",
     "F-CompressedModelSourceCard-Intake",
+    "F-GemmaQAT-LocalRuntimeCandidateCard",
     "F-TaskWorkingSetQuery-Determinism",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ResidencyPageTable-Addressability",

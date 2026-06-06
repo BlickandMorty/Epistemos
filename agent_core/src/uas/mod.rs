@@ -41,6 +41,7 @@ pub mod compressed_model_source_card_intake;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
+pub mod gemma_qat_local_runtime_candidate_card;
 pub mod kind;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
@@ -136,6 +137,13 @@ pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,
 };
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
+pub use gemma_qat_local_runtime_candidate_card::{
+    GemmaQatCandidateBand, GemmaQatCandidateError, GemmaQatCandidateMetrics, GemmaQatFormat,
+    GemmaQatLocalRuntimeCandidateCard, GemmaQatLocalRuntimeCandidateSet,
+    GemmaQatMemoryEnvelope, GemmaQatModelSize, GemmaQatPromotionTier, GemmaQatProofRefs,
+    GemmaQatRuntimeLane, GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_CURSOR,
+    GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_NEXT_CURSOR,
+};
 pub use kind::UasKind;
 pub use large_model_deferral::{
     LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,

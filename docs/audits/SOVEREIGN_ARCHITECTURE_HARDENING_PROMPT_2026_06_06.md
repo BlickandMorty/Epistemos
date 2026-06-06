@@ -315,14 +315,20 @@ If a source/canon guard is needed before the next runtime step, use this order:
    next retrieval/index research-to-build unit; prove placement in
    Eidos/AppColdStore compressed retrieval, not durable truth and not live route
    authority.
-7. `F-GemmaQAT-LocalRuntimeCandidateCard` or
-   `F-QAT-ModelRouteCard-MemoryPreflight`:
-   metadata-only first; record model IDs, formats, licenses, sizes, context,
-   runtime candidates, MAS/Pro status, no model bytes loaded.
-8. UAS meaningful-object envelope:
+7. `F-GemmaQAT-LocalRuntimeCandidateCard`:
+   now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
+   GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B
+   small-harness status, 12B Pro Gated target status, 31B vault-only status,
+   zero model/runtime/provider bytes, false Swift MLX/MTP/MAS/product rejection,
+   and no L2/L3 promotion boundary.
+8. `F-QAT-ModelRouteCard-MemoryPreflight`:
+   next model-ladder research-to-build unit; prove declared file bytes,
+   predicted resident/KV/scratch bytes, hardware budget, abstention,
+   rollback, RunEventLog, and AnswerPacket caveats before any runtime bytes.
+9. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.
-8. RuntimeRouter/System G route contract:
+10. RuntimeRouter/System G route contract:
    decisions are explicit, admitted, reversible, logged, and answer-visible;
    manual failure must not silently become fallback.
 

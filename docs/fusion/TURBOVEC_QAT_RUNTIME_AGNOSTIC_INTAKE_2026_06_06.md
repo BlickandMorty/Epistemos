@@ -100,8 +100,9 @@ Recommended first units, in order:
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_model_source_card_intake/result.json`. It accepts 11 compressed model/index/codec/runtime source cards, covers 6 formats, 5 runtime lanes, and 4 organs, rejects 40 red fixtures, preserves the Gemma 4 MLX loader caveat, keeps TurboVec in Eidos/AppColdStore cache semantics, loads zero model/index/runtime bytes, makes zero provider calls, copies zero product files, and preserves the no-L2/L3-promotion boundary.
 
 3. `F-GemmaQAT-LocalRuntimeCandidateCard`
-   - Proves Gemma 4 QAT E2B/E4B/12B/26B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, ResidencyStatus, and claim boundaries.
+   - Proves source-backed Gemma 4 QAT E2B/E4B/12B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, candidate bands, and claim boundaries.
    - Does not prove runtime load, Swift MLX support, MTP speedup, MAS readiness, or product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/gemma_qat_local_runtime_candidate_card/result.json`. It accepts 4 Gemma 4 QAT GGUF candidates from current Hugging Face metadata, rejects 33 red fixtures, keeps E2B/E4B as small harness candidates, 12B as the Pro Gated target, 31B as vault-only, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary. Unresolved 26B-style claims stay out until source-carded.
 
 4. `F-TurboVec-Eidos-CompressedIndex-Plan`
    - Proves UAS ID stability, corrected byte accounting, allowlist-before-rank privacy policy, cache-rebuild plan, and no hidden route authority.
@@ -110,6 +111,7 @@ Recommended first units, in order:
 5. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
+   - Current next model-ladder unit after `F-GemmaQAT-LocalRuntimeCandidateCard`.
 
 6. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.

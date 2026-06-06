@@ -570,6 +570,35 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   choose MLX/GGUF/LiteRT, load Gemma QAT, prove recall quality, advance L2, or
   make L3 user-facing model capability green. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
+  as the model-ladder research-to-build witness:
+  `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs`,
+  script `Tools/falsifiers/f_gemma_qat_local_runtime_candidate_card.sh`,
+  witness page
+  `docs/falsifiers/F-GemmaQAT-LocalRuntimeCandidateCard_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/gemma_qat_local_runtime_candidate_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness accepts 4 current
+  Hugging Face source-backed Gemma 4 QAT GGUF candidates: E2B and E4B as small
+  harness candidates, 12B as the Pro Gated flagship target, and 31B as vault
+  research only. It records Apache-2.0 license refs, source revisions, declared
+  file bytes, context windows, resident-floor planning bytes, rollback,
+  RunEventLog, AnswerPacket, and compatibility refs; it rejects 33 red fixtures
+  for bad source refs, missing license/revision, invalid memory envelopes,
+  byte/provider use, MAS/Live/T2 promotion, false Swift MLX loader proof, MTP
+  speed claims, product capability claims, hidden cloud/route authority, live
+  dense 70B, SSD-as-RAM, 31B non-vault, 12B small-harness, bad proof refs, and
+  set-level promotion failures. This is T1/L1 metadata only. It does not prove
+  GGUF loadability, Swift MLX support, LiteRT support, MTP speedup, memory fit,
+  model quality, MAS readiness, L2 capability, or L3 user-facing product truth.
+  The next model-ladder unit is `F-QAT-ModelRouteCard-MemoryPreflight`; the
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

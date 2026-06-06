@@ -439,9 +439,32 @@ are `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-TurboVec-Eidos-CompressedIndex-Plan`, and
 `F-QAT-ModelRouteCard-MemoryPreflight`.
 
+**Pass-sixteen implementation.** `F-GemmaQAT-LocalRuntimeCandidateCard` is now
+built as the source-backed Gemma 4 QAT local runtime candidate-card witness.
+Implemented anchors:
+`agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`,
+`agent_core/src/bin/falsify_gemma_qat_local_runtime_candidate_card.rs`,
+`Tools/falsifiers/f_gemma_qat_local_runtime_candidate_card.sh`,
+`docs/falsifiers/F-GemmaQAT-LocalRuntimeCandidateCard_2026_06_06.md`, and
+`artifacts/falsifiers/gemma_qat_local_runtime_candidate_card/result.json`.
+The witness accepts 4 Gemma 4 QAT GGUF candidates from current Hugging Face
+metadata: E2B and E4B as small harness candidates, 12B as the Pro Gated
+flagship target, and 31B as vault research only. It records Apache-2.0 license
+refs, source revisions, declared bytes, context windows, resident-floor
+planning bytes, rollback/RunEventLog/AnswerPacket refs, and rejects 33 red
+fixtures covering duplicate/bad source refs, missing license/revision, invalid
+memory envelopes, byte/provider use, MAS/Live/T2 promotion, false Swift MLX
+loader proof, MTP speed claims, product capability, hidden cloud/route
+authority, live dense 70B, SSD-as-RAM, 31B non-vault, 12B small-harness, bad
+proof refs, and set-level promotion failures. The next model-ladder unit is
+`F-QAT-ModelRouteCard-MemoryPreflight`; unresolved 26B-style claims stay out
+until source-carded.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`, and
-`F-CompressedModelSourceCard-Intake` are T1/L1 metadata architecture only. They
+`F-CompressedModelSourceCard-Intake`, and
+`F-GemmaQAT-LocalRuntimeCandidateCard` are T1/L1 metadata architecture only.
+They
 do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor
