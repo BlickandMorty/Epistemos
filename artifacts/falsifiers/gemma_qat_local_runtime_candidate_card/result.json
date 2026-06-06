@@ -1,0 +1,375 @@
+{
+  "falsifier_id": "F-GemmaQAT-LocalRuntimeCandidateCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_local_runtime_candidate_card.sh",
+  "command_digest": "sha256:2d9eaf56c93739c505cfb30fc6ad7989311da679c5400201732d8d024f280e4c",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "b81d7a42d2a6c08ea26edd1d1dc335af5fd6b876",
+  "fixture_id": "gemma_qat_local_runtime_candidate_card_v1",
+  "timestamp_utc": "2026-06-06T05:04:26Z",
+  "result_digest": "sha256:d4a64df6f8c814ffc475400e9cc6b16fb845d08588d12b7ea7294faa3a94b9c3",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "accepted_fixture_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_set_address": {
+      "value": "gemma_qat_local_runtime_candidate_card:f4b01bab04f34acdae64e041685ec99b51628a45ef025123d221b9bcb1edf4d8@1779034600000",
+      "unit": "uas_address"
+    },
+    "declared_file_bytes_total": {
+      "value": 54696279481,
+      "unit": "bytes"
+    },
+    "estimated_resident_floor_bytes_total": {
+      "value": 62277025792,
+      "unit": "bytes"
+    },
+    "flagship_pro_gated_target_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "format_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_candidate_vault_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_size_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mtp_speed_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "qat_model_route_card_memory_preflight",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "resident_bytes_not_equal_file_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_harness_candidates_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_backed_hf_metadata_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_mlx_loader_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_source_card_intake_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_research_candidate_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "cards"
+    },
+    "accepted_fixture_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_set_address": {
+      "operator": "starts_with",
+      "value": "gemma_qat_local_runtime_candidate_card:",
+      "unit": "uas_address"
+    },
+    "declared_file_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "estimated_resident_floor_bytes_total": {
+      "operator": ">",
+      "value": 54696279481,
+      "unit": "bytes"
+    },
+    "flagship_pro_gated_target_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "format_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_candidate_vault_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_size_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mtp_speed_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "qat_model_route_card_memory_preflight",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 28,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "resident_bytes_not_equal_file_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_deferred_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_harness_candidates_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_backed_hf_metadata_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_mlx_loader_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_compressed_source_card_intake_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_research_candidate_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_fixture_pack_present": true,
+    "candidate_set_address": true,
+    "declared_file_bytes_total": true,
+    "estimated_resident_floor_bytes_total": true,
+    "flagship_pro_gated_target_present": true,
+    "format_coverage": true,
+    "hidden_authority_rejected": true,
+    "large_candidate_vault_only": true,
+    "large_model_overclaim_rejected": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "model_bytes_loaded": true,
+    "model_size_coverage": true,
+    "mtp_speed_claim_rejected": true,
+    "next_research_to_build_unit": true,
+    "product_promotion_rejected": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "resident_bytes_not_equal_file_bytes": true,
+    "runtime_bytes_loaded": true,
+    "runtime_deferred_required": true,
+    "runtime_lane_coverage": true,
+    "set_address_deterministic": true,
+    "small_harness_candidates_present": true,
+    "source_backed_hf_metadata_present": true,
+    "swift_mlx_loader_claim_rejected": true,
+    "upstream_compressed_source_card_intake_bound": true,
+    "vault_research_candidate_present": true,
+    "zero_model_bytes_loaded": true,
+    "zero_provider_calls": true,
+    "zero_runtime_bytes_loaded": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-GemmaQAT-LocalRuntimeCandidateCard from the compressed source-card intake. Scope is T1/L1 metadata only: Gemma QAT model cards may feed later memory preflight, runtime parity, and small-model harness work, but this witness proves no loadability, quality, MTP speedup, Swift MLX loader support, MAS readiness, or product capability."
+}

@@ -1322,3 +1322,16 @@ Rules:
 ### Runtime-Plural Canon Paragraph
 
 Epistemos Assistant is MLX-first on Apple Silicon, but runtime-plural by design. MLX, GGUF/llama.cpp, LiteRT-LM, and optional local OpenAI-compatible endpoints are interchangeable execution organs under one System G admission contract. Gemma 4 QAT E2B/E4B/12B form the main local assistant ladder; Qwen Coder, Granite, GLM, DeepSeek, and other models enter only as named specialist lanes with source cards, license/hash witnesses, memory preflight, tool-output tests, rollback, RunEventLog, and AnswerPacket visibility. Runtime choice is never hidden authority, cloud fallback is never silent, and compression/QAT/MTP/MoE does not prove dense 70B live residency.
+
+### 2026-06-06 Implementation Note
+
+`F-GemmaQAT-LocalRuntimeCandidateCard` is now implemented as the first
+model-ladder candidate-card witness after the source-card/provenance gates.
+The artifact lives at
+`artifacts/falsifiers/gemma_qat_local_runtime_candidate_card/result.json` and
+accepts source-backed Gemma 4 QAT GGUF E2B, E4B, 12B, and 31B cards while
+rejecting false Swift MLX loader proof, MTP speed claims, file-size-as-memory
+claims, MAS/product promotion, hidden cloud/route authority, live dense 70B,
+SSD-as-RAM, 31B non-vault promotion, and undeferred runtime. It is T1/L1
+metadata only: no model bytes, runtime bytes, provider calls, loadability,
+quality, or user-facing capability are proven.
