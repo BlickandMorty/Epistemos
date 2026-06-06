@@ -328,13 +328,22 @@ If a source/canon guard is needed before the next runtime step, use this order:
    runtime bytes. E2B/E4B may proceed only to later dry-run packetization; 12B
    abstains on the declared M2 Pro 16 GB UMA profile; 31B remains vault-only.
 9. `F-CompressedRoute-AnswerPacket-DryRun`:
-   next model-ladder research-to-build unit; prove route caveats, planned/opened
-   and resident byte placeholders, fallback, rollback, cancellation, and
-   AnswerPacket visibility before any live inference.
-10. UAS meaningful-object envelope:
+   now built metadata-only; preserve visible compressed-route AnswerPackets for
+   E2B/E4B only, 12B as an insufficient-headroom abstention packet, 31B as a
+   vault packet, planned/opened/resident/loaded/provider byte separation,
+   fallback, rollback, cancellation, compatibility fence, RunEventLog,
+   AnswerPacket, no-mutation envelope, zero runtime/model/provider bytes, and
+   no L2/L3 promotion boundary.
+10. `F-SmallCompressedModel-LiveHarness`:
+   next model-ladder research-to-build unit; prove the smallest
+   owner-approved compressed model can load, emit one redacted retained token,
+   cancel cleanly, log memory/runtime proof, and return an AnswerPacket without
+   hidden provider fallback. Do not use this to rerun 128K shards, dense 70B,
+   12B/31B, mmap/SSD stress, or product-live claims by default.
+11. UAS meaningful-object envelope:
    product-affecting objects carry address, plane, budget, status, witness,
    admission, rollback, and visible proof ref.
-11. RuntimeRouter/System G route contract:
+12. RuntimeRouter/System G route contract:
    decisions are explicit, admitted, reversible, logged, and answer-visible;
    manual failure must not silently become fallback.
 

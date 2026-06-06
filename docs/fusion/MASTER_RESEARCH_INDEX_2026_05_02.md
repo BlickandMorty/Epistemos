@@ -474,14 +474,31 @@ packetization, 12B abstains for insufficient headroom, and 31B remains
 vault-only. Declared file bytes, predicted resident bytes, KV bytes, scratch
 bytes, available route bytes, headroom, timeout, cancellation, rollback,
 RunEventLog, AnswerPacket, and compatibility refs stay separate; model/runtime
-bytes and provider calls stay zero. The next model-ladder unit is
-`F-CompressedRoute-AnswerPacket-DryRun`.
+bytes and provider calls stay zero. The next model-ladder unit was
+`F-CompressedRoute-AnswerPacket-DryRun`, now built in pass eighteen.
+
+**Pass-eighteen implementation.** `F-CompressedRoute-AnswerPacket-DryRun` is
+now built as the visible packet bridge after the QAT route-card memory
+preflight. Implemented anchors:
+`agent_core/src/uas/compressed_route_answer_packet_dry_run.rs`,
+`agent_core/src/bin/falsify_compressed_route_answer_packet_dry_run.rs`,
+`Tools/falsifiers/f_compressed_route_answer_packet_dry_run.sh`,
+`docs/falsifiers/F-CompressedRoute-AnswerPacket-DryRun_2026_06_06.md`, and
+`artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. The
+witness accepts 4 compressed-route packets and rejects 48 red fixtures. E2B/E4B
+are packetized only as visible, reversible, cancellable dry-run AnswerPackets;
+12B is carried as an insufficient-headroom abstention packet; 31B is carried as
+VaultPreserved. Planned model/KV/scratch/fallback bytes stay separate from
+opened, resident, loaded, and provider bytes, all of which remain zero. The
+next model-ladder research-to-build unit is `F-SmallCompressedModel-LiveHarness`
+under owner-approved runtime rules.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`, and
-`F-QAT-ModelRouteCard-MemoryPreflight` are T1/L1 metadata architecture only.
+`F-QAT-ModelRouteCard-MemoryPreflight`, and
+`F-CompressedRoute-AnswerPacket-DryRun` are T1/L1 metadata architecture only.
 They do not promote live dense 70B, live sparse 70B, product capability, release
 readiness, hidden runtime authority, source-code import, compressed
 index integration, or any runtime lane. The current guard-owned coding cursor

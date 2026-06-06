@@ -1352,3 +1352,22 @@ model/runtime bytes, makes zero provider calls, and does not prove loadability,
 first token, quality, MAS readiness, L2 capability, or L3 user-facing product
 truth. The next model-ladder research-to-build unit is
 `F-CompressedRoute-AnswerPacket-DryRun`.
+
+### 2026-06-06 Compressed Route AnswerPacket Implementation Note
+
+`F-CompressedRoute-AnswerPacket-DryRun` is now implemented as the visible
+packet witness after the QAT route-card memory preflight. The artifact lives at
+`artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json` and
+accepts 4 compressed-route packets while rejecting 48 red fixtures. E2B/E4B
+Gemma 4 QAT GGUF candidates are packetized only as visible dry-run
+AnswerPackets. The 12B candidate is carried as an insufficient-headroom
+abstention packet. The 31B candidate is carried as VaultPreserved. Planned
+model bytes, KV bytes, scratch bytes, fallback bytes, opened bytes, resident
+bytes, loaded bytes, provider calls, route caveats, fallback, rollback,
+cancellation, RunEventLog, AnswerPacket, compatibility fence, and no-mutation
+envelope are all explicit. It loads zero model/runtime bytes, makes zero
+provider calls, and does not prove loadability, first token, quality, MAS
+readiness, L2 capability, or L3 user-facing product truth. The next
+research-to-build unit is `F-SmallCompressedModel-LiveHarness`, which must use
+the smallest owner-approved compressed runtime path and must not default to
+128K shards, dense 70B, 12B/31B, mmap/SSD stress, or hidden provider fallback.

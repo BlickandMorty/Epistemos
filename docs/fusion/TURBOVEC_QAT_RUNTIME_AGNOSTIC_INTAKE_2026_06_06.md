@@ -116,11 +116,12 @@ Recommended first units, in order:
 6. `F-CompressedRoute-AnswerPacket-DryRun`
    - Proves route caveats, bytes planned/opened/resident placeholders, fallback, rollback, and visibility.
    - Does not prove live inference.
-   - Current next model-ladder unit after `F-QAT-ModelRouteCard-MemoryPreflight`.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`. It accepts 4 compressed-route packets, rejects 48 red fixtures, packetizes E2B/E4B as visible dry-run AnswerPackets only, carries 12B as an insufficient-headroom abstention packet, carries 31B as VaultPreserved, records planned/opened/resident/loaded/provider bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.
 
 7. `F-SmallCompressedModel-LiveHarness`
    - Proves a small approved model can load, emit one redacted retained token, cancel cleanly, and log memory/runtime proof.
    - Advances L2/L3 only if WRV and release-audit conditions are satisfied.
+   - Current next research-to-build model-ladder unit after `F-CompressedRoute-AnswerPacket-DryRun`. It must be owner-approved and must start with the smallest eligible compressed model; it must not rerun 128K shards, dense 70B, 12B/31B, mmap/SSD stress, or any hidden provider fallback by default.
 
 ## Model-Ladder Bias
 

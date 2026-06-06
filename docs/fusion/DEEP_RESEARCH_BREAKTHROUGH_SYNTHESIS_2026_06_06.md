@@ -2688,14 +2688,14 @@ Best breakthrough candidate: compressed local model routing that admits only
 the smallest byte-accounted support set and turns larger QAT models into
 explicit abstention or vault cards until hardware/runtime proof exists.
 
-Safest next falsifier: `F-CompressedRoute-AnswerPacket-DryRun`, because the
+Previously safest falsifier: `F-CompressedRoute-AnswerPacket-DryRun`, because the
 admitted E2B/E4B routes now need route-caveat visibility, planned/opened/
 resident byte placeholders, fallback, rollback, and AnswerPacket packetization
-before any live runtime.
+before any live runtime. This was satisfied by pass eighteen.
 
-Best near-term code unit: build `F-CompressedRoute-AnswerPacket-DryRun` as a
+Previously best near-term code unit: build `F-CompressedRoute-AnswerPacket-DryRun` as a
 metadata-only packet witness over the admitted E2B/E4B preflight routes,
-keeping all runtime bytes at zero.
+keeping all runtime bytes at zero. This was satisfied by pass eighteen.
 
 Biggest false-claim risk: treating dry-run preflight admission as first token,
 quality, product capability, memory residency, or a 12B/31B local runtime
@@ -2707,3 +2707,78 @@ runtime-package constraints for the E2B/E4B dry-run candidates.
 Next research query: "Which AnswerPacket route-card fields prove that a
 compressed-model dry-run is visible, cancellable, reversible, byte-accounted,
 and unable to mutate product truth before first-token runtime proof?"
+
+## 32. Pass Eighteen: Compressed Route AnswerPacket Dry-Run Built
+
+Pass eighteen implements `F-CompressedRoute-AnswerPacket-DryRun` as the
+research-to-build bridge after `F-QAT-ModelRouteCard-MemoryPreflight`. It turns
+the QAT route-card preflight into visible dry-run AnswerPackets without opening
+model bytes, runtime bytes, provider routes, or product-facing capability.
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+| Packet | Status | Meaning |
+|---|---|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | packetized dry-run | Visible, reversible, cancellable packet for later owner-approved small harness proof |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | packetized dry-run | Visible, reversible, cancellable packet for later owner-approved small harness proof |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | carried abstention | Pro Gated target preserved, but insufficient current 16 GB UMA headroom |
+| `google/gemma-4-31B-it-qat-q4_0-gguf` | carried vault-only | VaultPreserved large candidate; no runtime probe |
+
+The artifact at
+`artifacts/falsifiers/compressed_route_answer_packet_dry_run/result.json`
+passes with 4 accepted packets and 48 red-fixture rejections. It records
+planned model bytes, planned KV bytes, planned scratch bytes, fallback bytes,
+opened bytes, resident bytes, loaded bytes, provider calls, selected model
+visibility, rejected-candidate visibility, route caveat, fallback, rollback,
+cancellation, compatibility fence, RunEventLog, AnswerPacket, and no-mutation
+refs. All opened/resident/loaded runtime/model bytes and provider calls remain
+zero.
+
+### 32.1 Research-To-Build Meaning
+
+This pass upgrades the compression/QAT research from "promising route cards"
+into packetized proof surfaces. The buildable implication is not "large model
+works now"; it is "a small compressed model harness now has an explicit,
+visible packet contract to satisfy." Research candidates must now include their
+falsifier path, packet refs, byte ledgers, rollback, and user-visible proof
+before they can become runtime work.
+
+### 32.2 Non-Promotion
+
+This pass does not prove GGUF loadability, Swift MLX Gemma support, LiteRT
+support, first token, memory residency, quality, tool use, MAS readiness, L2
+capability, or L3 user-facing product truth. It advances T1/L1 metadata
+architecture only. L2 capability remains
+`vault_research_route_with_packetized_mitigation`; L3 product truth remains
+unchanged.
+
+### 32.3 Pass-Eighteen Register
+
+Best breakthrough candidate: a research-to-build ladder where every compressed
+model idea must become a visible AnswerPacket, rollback, cancellation, and byte
+ledger before any runtime probe can start.
+
+Safest next falsifier: `F-SmallCompressedModel-LiveHarness`, because E2B/E4B
+now have visible dry-run packets and need the smallest owner-approved live
+harness proof before any L2/L3 claim.
+
+Best near-term code unit: define the small compressed model harness contract
+over the packetized E2B/E4B routes with one retained redacted token,
+cancellation, memory logging, RunEventLog, rollback, AnswerPacket, and no hidden
+provider fallback.
+
+Biggest false-claim risk: treating a visible dry-run AnswerPacket as live
+inference, quality, MAS readiness, 12B/31B memory fit, or local large-model
+product capability.
+
+Biggest missing source: current package/runtime constraints for the smallest
+approved compressed Gemma QAT runner on this Mac, especially LiteRT-LM versus
+GGUF/llama.cpp versus MLX Swift loader caveats.
+
+Next research query: "What is the smallest owner-approved compressed model
+runtime harness that can prove first-token, cancellation, memory logging,
+rollback, and AnswerPacket visibility without hidden provider fallback or
+large-model overclaim?"

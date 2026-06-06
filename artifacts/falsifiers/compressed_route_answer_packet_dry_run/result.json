@@ -1,0 +1,385 @@
+{
+  "falsifier_id": "F-CompressedRoute-AnswerPacket-DryRun",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_compressed_route_answer_packet_dry_run.sh",
+  "command_digest": "sha256:8be7e2fc683e759f283e0d459b74c97001dea171db27d193524174199591f621",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "bfcb47e48a9db799fa76ca3fa343a70472167ff2",
+  "fixture_id": "compressed_route_answer_packet_dry_run_v1",
+  "timestamp_utc": "2026-06-06T06:10:48Z",
+  "result_digest": "sha256:c8ba110b31f18a4554369db653842efc1bb3f0a68ca8967d8eed19bdc4b37831",
+  "measurements": {
+    "abstention_packet_count": {
+      "value": 1,
+      "unit": "packets"
+    },
+    "accepted_packet_count": {
+      "value": 4,
+      "unit": "packets"
+    },
+    "accepted_packet_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_visibility_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_placeholders_consistent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 164000,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "small_compressed_model_live_harness",
+      "unit": "cursor"
+    },
+    "packet_set_address": {
+      "value": "compressed_route_answer_packet_dry_run:596113ad25d5ea65e9af33e9d2a57b18a23be4c79d814559c24caa182f8004b5@1779034800000",
+      "unit": "uas_address"
+    },
+    "packetized_dry_run_count": {
+      "value": 2,
+      "unit": "packets"
+    },
+    "planned_route_bytes_total": {
+      "value": 69122129920,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "refs_and_prefixes_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_caveat_fallback_rollback_cancellation_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_qat_answer_packets_packetized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "thirty_one_b_vault_packet_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_abstention_packet_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_qat_route_preflight_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_packet_count": {
+      "value": 1,
+      "unit": "packets"
+    },
+    "zero_model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_packet_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "packets"
+    },
+    "accepted_packet_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "packets"
+    },
+    "accepted_packet_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "byte_placeholders_consistent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 524288,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "small_compressed_model_live_harness",
+      "unit": "cursor"
+    },
+    "packet_set_address": {
+      "operator": "starts_with",
+      "value": "compressed_route_answer_packet_dry_run:",
+      "unit": "uas_address"
+    },
+    "packetized_dry_run_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "packets"
+    },
+    "planned_route_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 40,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "refs_and_prefixes_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_caveat_fallback_rollback_cancellation_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_qat_answer_packets_packetized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "thirty_one_b_vault_packet_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "twelve_b_abstention_packet_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_qat_route_preflight_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_packet_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "packets"
+    },
+    "zero_model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_opened_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_resident_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_packet_count": true,
+    "accepted_packet_count": true,
+    "accepted_packet_pack_present": true,
+    "answer_packet_visibility_required": true,
+    "byte_placeholders_consistent": true,
+    "hidden_authority_rejected": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "metadata_bytes_read": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "packet_set_address": true,
+    "packetized_dry_run_count": true,
+    "planned_route_bytes_total": true,
+    "product_promotion_rejected": true,
+    "provider_calls_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "refs_and_prefixes_required": true,
+    "route_caveat_fallback_rollback_cancellation_visible": true,
+    "runtime_bytes_loaded": true,
+    "set_address_deterministic": true,
+    "small_qat_answer_packets_packetized": true,
+    "thirty_one_b_vault_packet_visible": true,
+    "twelve_b_abstention_packet_visible": true,
+    "upstream_qat_route_preflight_bound": true,
+    "vault_packet_count": true,
+    "zero_model_bytes_loaded": true,
+    "zero_opened_model_bytes": true,
+    "zero_opened_runtime_bytes": true,
+    "zero_provider_calls": true,
+    "zero_resident_model_bytes": true,
+    "zero_resident_runtime_bytes": true,
+    "zero_runtime_bytes_loaded": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-CompressedRoute-AnswerPacket-DryRun from the QAT route-card memory preflight witness. Scope is T1/L1 metadata only: E2B/E4B become visible dry-run AnswerPackets; 12B is carried as an abstention packet; 31B is carried as vault-only. This witness loads zero model/runtime bytes, makes zero provider calls, proves route caveat/fallback/rollback/cancellation visibility, and blocks first-token, quality, MAS, L2/L3, hidden authority, live dense 70B, and SSD-as-RAM claims."
+}
