@@ -447,6 +447,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   source-priors as runtime choices. This is
   research/canon only: no product code was edited, no heavy runtime probe was
   run, and L2/L3 stay unpromoted.
+- Updated **2026-06-06** · zero-byte model inventory research folded into the
+  same provenance canon: pass ten of
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines a
+  `ModelInventoryCandidateCard` feeder for `F-ProprietaryCompression-ProvenanceGate`.
+  Safe sources are the Swift model catalog, `LocalModelDescriptor`,
+  `LocalModelInstallRecord`, app install manifest, Hugging Face-style
+  `snapshots/<revision>` paths, capped sidecar JSON, package lockfiles, and
+  existing falsifier model refs. Red lines are explicit: do not open or hash
+  `.safetensors`, `.gguf`, `.mlx`, or `.npz` blobs in this metadata gate; do
+  not treat active directories, snapshot dirs, package locks, or legacy
+  checksum-unverified manifest records as runtime proof; do not convert
+  RuntimeRouter preference rows into hidden authority. This remains T0
+  research/canon only and does not promote product capability, live dense 70B,
+  live sparse 70B, or L2/L3 readiness.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
