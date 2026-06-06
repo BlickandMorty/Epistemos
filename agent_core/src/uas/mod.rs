@@ -97,6 +97,7 @@ pub mod turbovec_latency_memory_abstention_plan;
 pub mod turbovec_quarantine_adapter_microbench_probe;
 pub mod turbovec_real_adapter_clean_room_adapter_plan_probe;
 pub mod turbovec_real_adapter_dependency_envelope_probe;
+pub mod turbovec_real_adapter_exact_baseline_shadow_replay_probe;
 pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_motif_extraction_card_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
@@ -641,6 +642,17 @@ pub use turbovec_real_adapter_clean_room_adapter_plan_probe::{
     TurboVecRealAdapterCleanRoomAdapterPlanProbeSet,
     TURBOVEC_REAL_ADAPTER_CLEAN_ROOM_ADAPTER_PLAN_CURSOR,
     TURBOVEC_REAL_ADAPTER_CLEAN_ROOM_ADAPTER_PLAN_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_exact_baseline_shadow_replay_probe::{
+    exact_baseline_shadow_replay_digest, recall_at_k_micros as real_adapter_recall_at_k_micros,
+    TurboVecRealAdapterExactBaselineShadowReplayProbeSet,
+    TurboVecRealAdapterShadowReplayByteLedger, TurboVecRealAdapterShadowReplayCase,
+    TurboVecRealAdapterShadowReplayDecision, TurboVecRealAdapterShadowReplayError,
+    TurboVecRealAdapterShadowReplayMetrics, TurboVecRealAdapterShadowReplayPolicy,
+    TurboVecRealAdapterShadowReplayProofRefs, TurboVecRealAdapterShadowReplayScenario,
+    TurboVecRealAdapterShadowReplayStatus, TurboVecRealAdapterShadowReplayTier,
+    TURBOVEC_REAL_ADAPTER_EXACT_BASELINE_SHADOW_REPLAY_CURSOR,
+    TURBOVEC_REAL_ADAPTER_EXACT_BASELINE_SHADOW_REPLAY_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

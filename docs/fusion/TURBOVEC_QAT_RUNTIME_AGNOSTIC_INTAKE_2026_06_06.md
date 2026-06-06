@@ -464,11 +464,33 @@ Recommended first units, in order:
      versioned rebuild fence, exact-baseline shadow replay, privacy/latency
      abstention, cancellation/rollback lease, AnswerPacket caveat,
      no-native-link default, large-local-model working-set compiler, no hidden
-     route authority, and the no-L2/L3-promotion boundary. The next
-     retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`.
+     route authority, and the no-L2/L3-promotion boundary. Its former next
+     retrieval/index research-to-build unit,
+     `turbovec_quarantine_real_adapter_exact_baseline_shadow_replay_probe`, is
+     now landed by `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`.
 
-21. `F-QAT-ModelRouteCard-MemoryPreflight`
+21. `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`
+   - Proves the clean-room TurboVec adapter plan has exact-baseline shadow
+     replay before retrieval quality, context-selection benefit, route-prior
+     value, or large-local-model working-set improvement can be cited.
+   - Does not inspect additional raw source, clone TurboVec, import source, add
+     dependencies, build/run adapters, probe native links, run benchmarks, open
+     exact-baseline or index bytes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
+     mutate product graphs, mutate routes, or promote product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_exact_baseline_shadow_replay_probe/result.json`.
+     It binds 7 replay cases, 1 shadow win, 5 fallback/abstention cases, max
+     recall delta `800000` micros, planned replay bytes `96000`, upstream motif
+     source bytes cited `184472`, additional raw-source bytes inspected `0`, 54
+     rejected red fixtures, deterministic exact-baseline shadow-replay address,
+     AppColdStore exact-baseline refs, UAS allowlist-before-rank filtering,
+     deterministic seeds, cancellation, latency/memory abstention, rollback,
+     RunEventLog, AnswerPacket, compatibility fence, no product graph mutation,
+     no hidden route authority, and the no-L2/L3-promotion boundary. The next
+     retrieval/index research-to-build unit is
+     `turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`.
+
+22. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

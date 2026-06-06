@@ -4554,3 +4554,92 @@ Next research query: "How should Epistemos prove clean-room compressed
 retrieval against exact AppColdStore baselines on held-out working-set queries,
 with privacy filters before rank, visible abstention, rollback, and no live
 model/runtime/index bytes?"
+
+## Pass 55 - TurboVec Real Adapter Exact-Baseline Shadow Replay Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, the clean-room
+adapter-plan witness, and the current TurboVec/QAT large-local-model intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_exact_baseline_shadow_replay_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_exact_baseline_shadow_replay_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_exact_baseline_shadow_replay_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_exact_baseline_shadow_replay_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterExactBaselineShadowReplayProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds the pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and clean-room adapter-plan witness
+to 7 replay cases, 1 shadow win, 5 fallback/abstention cases, max recall delta
+`800000` micros, planned replay bytes `96000`, upstream motif source bytes
+cited `184472`, additional raw-source bytes inspected `0`, 54 red-fixture
+rejections, deterministic exact-baseline shadow-replay address, rollback,
+RunEventLog, AnswerPacket, compatibility fence, no hidden route authority, no
+live dense 70B claim, and no L2/L3 promotion.
+
+The accepted replay contract covers AppColdStore exact-baseline refs, UAS
+allowlist-before-rank filtering, deterministic held-out replay seeds,
+cancellation fallback, memory-pressure abstention, empty-allowlist visibility,
+privacy-denied fallback, recall-regression fallback, and AnswerPacket-visible
+caveats.
+
+### 55.1 Architecture Fusion
+
+This pass closes the gap between "adapter plan" and "quality proof contract."
+The architectural move is that compressed retrieval can no longer cite motif
+cards, adapter plans, or upstream benchmarks as quality evidence. It must be
+shadow-replayed against exact AppColdStore baselines under the same UAS
+allowlist and the same AnswerPacket caveats before it can become route-prior
+evidence for Eidos or the Semantic Working-Set Compiler.
+
+That matters for large local models because the path to stronger local
+reasoning is not dense 70B in RAM. It is smaller, verifiable working sets:
+source truth stays in AppColdStore, compressed indexes stay rebuildable cache,
+Eidos produces visible proposal evidence, SCOPE-Rex/SovereignGate filters
+before rank, and RuntimeRouter/System G only receive proof-carrying route
+cards after L2/L3 witnesses exist.
+
+### 55.2 Non-Promotion
+
+This pass does not inspect additional raw source, clone TurboVec, import
+source, add dependencies, build/run an adapter, probe native links, run
+benchmarks, open exact-baseline/index bytes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate product graphs, mutate
+RuntimeRouter/System G routes, make L2 product capability green, make L3
+user-facing model capability green, or prove live dense 70B. It advances the
+research-to-build ladder only.
+
+### 55.3 Pass-Fifty-Five Register
+
+Best breakthrough candidate: product-graph no-contamination for real-adapter
+shadow replay, because exact-baseline proof still must not leak into product
+dependencies, hidden route policy, model context, or user-facing claims before
+the product graph is proven clean.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_product_graph_no_contamination_probe`,
+because shadow replay exists but no product graph audit has proven that the
+real-adapter ladder leaves app/runtime/product dependencies, route policy,
+model context, and user-facing copy untouched.
+
+Best near-term code unit: implement the product-graph no-contamination schema
+with source/import/dependency/build/native-link/product-copy/route-context/UI
+copy checks, rollback, RunEventLog, AnswerPacket, exact scope disclaimer, and
+zero runtime/index/model/provider bytes.
+
+Biggest false-claim risk: treating shadow replay as a real adapter benchmark,
+runtime result, route improvement, model-context improvement, or large local
+model capability.
+
+Biggest missing source: a product graph audit that proves the TurboVec
+real-adapter research ladder has not inserted product dependencies, native-link
+code, hidden route policy, model-context injection, or user-facing green copy.
+
+Next research query: "How should Epistemos prove that real-adapter shadow
+replay leaves the product graph uncontaminated: no imports, dependencies,
+native links, hidden route policy, model-context injection, user-facing green
+copy, runtime bytes, or L2/L3 promotion?"
