@@ -6,6 +6,7 @@
 //! claim.
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
@@ -264,6 +265,14 @@ fn build_artifact() -> Result<
             witness.model_runtime_bytes_loaded == 0,
         ),
         (
+            "release_audit_failure_ledger_bound",
+            if passed_check(&witness, "xcodebuild_test") {
+                evidence.xcodebuild_test_failures.issue_count == 0
+            } else {
+                evidence.xcodebuild_test_failures.issue_count > 0
+            },
+        ),
+        (
             "next_l3_release_audit_log_evidence_bound",
             witness.next_cursor
                 == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR,
@@ -448,6 +457,34 @@ fn build_artifact() -> Result<
         fresh_product_runtime_l3_release_audit_automated_checks_metadata_budget_bytes(),
         "bytes",
     );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "xcodebuild_test_issue_count",
+        evidence.xcodebuild_test_failures.issue_count,
+        ">=",
+        if passed_check(&witness, "xcodebuild_test") {
+            0
+        } else {
+            1
+        },
+        "issues",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "xcodebuild_test_unique_failure_count",
+        evidence.xcodebuild_test_failures.unique_test_count,
+        ">=",
+        if passed_check(&witness, "xcodebuild_test") {
+            0
+        } else {
+            1
+        },
+        "tests",
+    );
     insert_string_measurement(
         &mut measurements,
         &mut thresholds,
@@ -495,6 +532,47 @@ fn build_artifact() -> Result<
                 .collect::<Vec<_>>()),
             unit: "ids".to_string(),
         },
+    );
+    measurements.insert(
+        "xcodebuild_test_failure_families".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.xcodebuild_test_failures.family_counts),
+            unit: "families".to_string(),
+        },
+    );
+    pass_per_axis.insert("xcodebuild_test_failure_families".to_string(), true);
+    thresholds.insert(
+        "xcodebuild_test_failure_families".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("visible failure-family ledger"),
+            unit: "families".to_string(),
+        },
+    );
+    measurements.insert(
+        "xcodebuild_test_failure_exemplars".to_string(),
+        Measurement {
+            value: serde_json::json!(evidence.xcodebuild_test_failures.exemplars),
+            unit: "log-lines".to_string(),
+        },
+    );
+    pass_per_axis.insert("xcodebuild_test_failure_exemplars".to_string(), true);
+    thresholds.insert(
+        "xcodebuild_test_failure_exemplars".to_string(),
+        AcceptanceThreshold {
+            operator: "record".to_string(),
+            value: serde_json::json!("bounded red-log exemplars"),
+            unit: "log-lines".to_string(),
+        },
+    );
+    insert_string_measurement(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "top_xcodebuild_test_failure_family",
+        &evidence.xcodebuild_test_failures.top_family,
+        &evidence.xcodebuild_test_failures.top_family,
+        "family",
     );
     pass_per_axis.insert("automated_check_ids".to_string(), true);
     thresholds.insert(
@@ -628,6 +706,7 @@ struct EvidenceSnapshot {
     release_audit_skill_exists: bool,
     release_skill_mentions_checks: bool,
     checks: Vec<SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckRecord>,
+    xcodebuild_test_failures: XcodebuildTestFailureSummary,
     metadata_bytes: u64,
 }
 
@@ -640,6 +719,7 @@ impl EvidenceSnapshot {
             Path::new(fresh_product_runtime_l3_release_audit_automated_checks_skill_path());
         let release_audit_skill_text = std::fs::read_to_string(skill_path).unwrap_or_default();
         let checks = read_check_ledger(Path::new(CHECK_LEDGER))?;
+        let xcodebuild_test_failures = summarize_xcodebuild_test_failures(&checks);
         let zero_fail_metadata_bytes = std::fs::metadata(ZERO_FAIL_PATH)
             .map(|metadata| metadata.len())
             .unwrap_or(0);
@@ -668,10 +748,179 @@ impl EvidenceSnapshot {
                 && release_audit_skill_text.contains("omega-mcp && cargo test")
                 && release_audit_skill_text.contains("omega-ax && cargo test"),
             checks,
-            metadata_bytes: zero_fail_metadata_bytes
-                .saturating_add(ledger_metadata_bytes),
+            xcodebuild_test_failures,
+            metadata_bytes: zero_fail_metadata_bytes.saturating_add(ledger_metadata_bytes),
         })
     }
+}
+
+#[derive(Clone, Debug, Default)]
+// UAS: uas:small-model-runtime-harness-fresh-product-runtime-l3-release-audit-automated-checks-probe:xcode-failure-summary
+// Plane: Verification
+// Residency: bounded red-ledger taxonomy derived from retained xcodebuild logs.
+struct XcodebuildTestFailureSummary {
+    issue_count: u64,
+    unique_test_count: u64,
+    family_counts: BTreeMap<String, u64>,
+    top_family: String,
+    exemplars: Vec<String>,
+}
+
+fn summarize_xcodebuild_test_failures(
+    checks: &[SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckRecord],
+) -> XcodebuildTestFailureSummary {
+    let Some(check) = checks.iter().find(|check| check.check_id == "xcodebuild_test") else {
+        return XcodebuildTestFailureSummary::default();
+    };
+    if check.status == SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckStatus::Pass {
+        return XcodebuildTestFailureSummary::default();
+    }
+    let Some(path) = check.log_ref.strip_prefix("log:") else {
+        return XcodebuildTestFailureSummary::default();
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return XcodebuildTestFailureSummary::default();
+    };
+    summarize_xcodebuild_test_failure_text(&text)
+}
+
+fn summarize_xcodebuild_test_failure_text(text: &str) -> XcodebuildTestFailureSummary {
+    let mut issue_count = 0;
+    let mut tests = BTreeSet::new();
+    let mut family_counts = BTreeMap::new();
+    let mut exemplars = Vec::new();
+
+    for line in text.lines() {
+        if !line.contains("\u{2718} Test ") || !line.contains(" recorded an issue") {
+            continue;
+        }
+        issue_count += 1;
+        if let Some(name) = quoted_test_name(line) {
+            tests.insert(name);
+        }
+        let family = classify_xcodebuild_failure_family(line).to_string();
+        *family_counts.entry(family).or_insert(0) += 1;
+        if exemplars.len() < 12 {
+            exemplars.push(compact_log_line(line, 240));
+        }
+    }
+
+    let top_family = family_counts
+        .iter()
+        .max_by(|(left_family, left_count), (right_family, right_count)| {
+            left_count
+                .cmp(right_count)
+                .then_with(|| right_family.cmp(left_family))
+        })
+        .map(|(family, _)| family.clone())
+        .unwrap_or_else(|| "none".to_string());
+
+    XcodebuildTestFailureSummary {
+        issue_count,
+        unique_test_count: tests.len() as u64,
+        family_counts,
+        top_family,
+        exemplars,
+    }
+}
+
+fn quoted_test_name(line: &str) -> Option<String> {
+    let start = line.find('"')?;
+    let rest = &line[start + 1..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+fn classify_xcodebuild_failure_family(line: &str) -> &'static str {
+    if line.contains("FilterEngine")
+        || line.contains("GraphNodeType")
+        || line.contains("ResourceExhaustionTests")
+        || line.contains("ConcurrencyEdgeCase")
+    {
+        "graph_filter_visibility"
+    } else if line.contains("TriageService")
+        || line.contains("AgentCommandCenter")
+        || line.contains("AgentAuthority")
+        || line.contains("managed main chat agent")
+        || line.contains("PipelineService")
+    {
+        "agent_route_policy"
+    } else if line.contains("ModelVault")
+        || line.contains("LocalModelInfrastructure")
+        || line.contains("model vault")
+    {
+        "model_vault_catalog"
+    } else if line.contains("UserFacingModelOutput")
+        || line.contains("function call envelopes")
+        || line.contains("action envelopes")
+        || line.contains("AssistantInlineTranscript")
+    {
+        "visible_output_sanitization"
+    } else if line.contains("XPCTrust") || line.contains("Hermes XPC") {
+        "xpc_trust_configuration"
+    } else if line.contains("ResearchMode")
+        || line.contains("OmegaToolRegistry")
+        || line.contains("OmegaToolSchema")
+        || line.contains("HermesTodoCommand")
+        || line.contains("MCP Bridge")
+        || line.contains("registered MCP tools")
+    {
+        "research_tool_catalog"
+    } else if line.contains("ResolvedTheme")
+        || line.contains("TextKit")
+        || line.contains("ChatPresentation")
+    {
+        "theme_presentation"
+    } else if line.contains("Epdoc") || line.contains("CodeEditor") {
+        "editor_epdoc_surface"
+    } else if line.contains("SearchIndex") || line.contains("ShadowSearch") {
+        "search_index"
+    } else if line.contains("App Store")
+        || line.contains("MAS")
+        || line.contains("ProductionHardening")
+        || line.contains("ProjectInclusion")
+        || line.contains("DEVELOPMENT_TEAM")
+        || line.contains("generated project")
+    {
+        "distribution_project_integrity"
+    } else if line.contains("ArenaTests")
+        || line.contains("BackgroundGraphLoading")
+        || line.contains("GraphWorkspaceRoute")
+        || line.contains("LandingOptimization")
+        || line.contains("NonAgentPruning")
+        || line.contains("NoteWindowManager")
+        || line.contains("SidebarShell")
+        || line.contains("RuntimeValidation")
+    {
+        "ui_shell_source_guard"
+    } else if line.contains("FallbackChain")
+        || line.contains("AuditFixRegression")
+        || line.contains("cloud tool approval")
+        || line.contains("native computer-use")
+    {
+        "tool_execution_surface"
+    } else if line.contains("PhaseR3BodyReadParity") || line.contains("checksum") {
+        "body_read_checksum"
+    } else if line.contains("RuntimeCapabilityAndPerformancePolicy") {
+        "runtime_performance_policy"
+    } else if line.contains("source guard")
+        || line.contains("source \u{2192}")
+        || line.contains("SourceGuard")
+    {
+        "source_guard_drift"
+    } else {
+        "uncategorized_xcodebuild_failure"
+    }
+}
+
+fn compact_log_line(line: &str, max_chars: usize) -> String {
+    let compact = line.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        return compact;
+    }
+    let mut output = compact.chars().take(max_chars.saturating_sub(3)).collect::<String>();
+    output.push_str("...");
+    output
 }
 
 fn read_check_ledger(
@@ -1156,6 +1405,7 @@ mod tests {
             "live_70b_still_red",
             "autogenous_kernel_still_research",
             "model_runtime_bytes_zero",
+            "release_audit_failure_ledger_bound",
             "next_l3_release_audit_log_evidence_bound",
             "required_phases_bound",
             "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic",
@@ -1194,12 +1444,17 @@ mod tests {
             "check_log_bytes",
             "model_runtime_bytes_loaded",
             "metadata_bytes",
+            "xcodebuild_test_issue_count",
+            "xcodebuild_test_unique_failure_count",
             "capability_route_status",
             "next_cursor",
             "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address",
             "release_audit_skill_ref",
             "automated_check_ids",
             "blocker_ids",
+            "xcodebuild_test_failure_families",
+            "xcodebuild_test_failure_exemplars",
+            "top_xcodebuild_test_failure_family",
         ];
         for axis in emitted {
             assert!(
@@ -1208,5 +1463,42 @@ mod tests {
                 "missing axis {axis}"
             );
         }
+    }
+
+    #[test]
+    fn xcodebuild_failure_summary_groups_retained_red_ledger_lines() {
+        let summary = summarize_xcodebuild_test_failure_text(
+            "\
+\u{2718} Test \"simple main chat stays local only with no tool budget\" recorded an issue at TriageServiceTests.swift:1665:9: Expectation failed
+\u{2718} Test \"Filter with all types active\" recorded an issue at ResourceExhaustionTests.swift:731:9: Expectation failed
+\u{2718} Test \"function call envelopes stay out of plain chat output\" recorded an issue at UserFacingModelOutputTests.swift:176:9: Expectation failed
+\u{2718} Test \"XPCTrust team identifier matches DEVELOPMENT_TEAM in pbxproj\" recorded an issue at XPCSmokeTests.swift:101:9: Expectation failed
+",
+        );
+        assert_eq!(summary.issue_count, 4);
+        assert_eq!(summary.unique_test_count, 4);
+        assert_eq!(
+            summary.family_counts.get("agent_route_policy").copied(),
+            Some(1)
+        );
+        assert_eq!(
+            summary
+                .family_counts
+                .get("graph_filter_visibility")
+                .copied(),
+            Some(1)
+        );
+        assert_eq!(
+            summary
+                .family_counts
+                .get("visible_output_sanitization")
+                .copied(),
+            Some(1)
+        );
+        assert_eq!(
+            summary.family_counts.get("xpc_trust_configuration").copied(),
+            Some(1)
+        );
+        assert_eq!(summary.exemplars.len(), 4);
     }
 }
