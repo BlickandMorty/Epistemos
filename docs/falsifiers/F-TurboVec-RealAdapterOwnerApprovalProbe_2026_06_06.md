@@ -23,7 +23,7 @@ PASS as a metadata-only T1/L1 source/provenance owner gate.
 - Upstream:
   `F-TurboVec-QuarantineAdapterMicrobenchProbe`
 - Next research-to-build unit:
-  `turbovec_quarantine_real_adapter_source_pin_probe`
+  `turbovec_quarantine_real_adapter_dependency_envelope_probe`
 
 ## What Passed
 
@@ -67,7 +67,7 @@ actual bytes are allowed near Eidos/AppColdStore or System G.
 
 ## Next
 
-The next unit is `turbovec_quarantine_real_adapter_source_pin_probe`.
+The next unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 That unit must pin a source revision and fork-sweep policy without importing,
 building, or running external adapter bytes unless the owner explicitly
 approves the quarantine step.

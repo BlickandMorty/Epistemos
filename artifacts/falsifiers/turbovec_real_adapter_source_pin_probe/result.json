@@ -1,0 +1,330 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterSourcePinProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_source_pin_probe.sh",
+  "command_digest": "sha256:6854ae34c3772a16ff6bf443c756f1d95e46b967a2749a187f488b041ad25e14",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6fc9dc88ac7fd97c0eb1c333f3b2dcf6a78cb889",
+  "fixture_id": "turbovec_real_adapter_source_pin_probe_v1",
+  "timestamp_utc": "2026-06-06T13:30:42Z",
+  "result_digest": "sha256:22a68b2e8f0d84bb4e0f6e6474731b2d3a66e97433c149aa3f82c4f84d02079e",
+  "measurements": {
+    "branch_protected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "content_sha_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "diverged_fork_count": {
+      "value": 4,
+      "unit": "forks"
+    },
+    "external_and_product_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_disposition_diversity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_record_count": {
+      "value": 10,
+      "unit": "forks"
+    },
+    "fork_sweep_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "github_api_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "issue_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lagging_fork_count": {
+      "value": 3,
+      "unit": "forks"
+    },
+    "matching_upstream_fork_count": {
+      "value": 3,
+      "unit": "forks"
+    },
+    "metadata_bytes_read": {
+      "value": 96000,
+      "unit": "bytes"
+    },
+    "metadata_only_source_pin": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_dependency_envelope_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "pinned_revision_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_quarantine_bytes": {
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "primary_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_dependency_and_proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 80,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_absence_caveat_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_address": {
+      "value": "turbovec_real_adapter_source_pin_probe:f092b3702f95b0cd98b2c1c5711c7b96ebca7bcd0bd456f7a2bd6dd3971753b3@1779040800000",
+      "unit": "uas_address"
+    },
+    "unique_fork_sha_count": {
+      "value": 7,
+      "unit": "sha"
+    },
+    "upstream_owner_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "branch_protected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "content_sha_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "diverged_fork_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "forks"
+    },
+    "external_and_product_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_disposition_diversity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fork_record_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "forks"
+    },
+    "fork_sweep_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "github_api_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "issue_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lagging_fork_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "forks"
+    },
+    "matching_upstream_fork_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "forks"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 786432,
+      "unit": "bytes"
+    },
+    "metadata_only_source_pin": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_dependency_envelope_probe",
+      "unit": "cursor"
+    },
+    "no_route_context_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pinned_revision": {
+      "operator": "==",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "pinned_revision_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_quarantine_bytes": {
+      "operator": "==",
+      "value": 8388608,
+      "unit": "bytes"
+    },
+    "primary_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provenance_dependency_and_proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_absence_caveat_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_source_pin_probe:",
+      "unit": "uas_address"
+    },
+    "unique_fork_sha_count": {
+      "operator": ">=",
+      "value": 7,
+      "unit": "sha"
+    },
+    "upstream_owner_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "branch_protected": true,
+    "content_sha_refs_bound": true,
+    "diverged_fork_count": true,
+    "external_and_product_bytes_zero": true,
+    "fork_disposition_diversity": true,
+    "fork_record_count": true,
+    "fork_sweep_complete": true,
+    "github_api_refs_bound": true,
+    "issue_refs_bound": true,
+    "lagging_fork_count": true,
+    "matching_upstream_fork_count": true,
+    "metadata_bytes_read": true,
+    "metadata_only_source_pin": true,
+    "next_research_to_build_unit": true,
+    "no_route_context_or_hidden_authority": true,
+    "pinned_revision": true,
+    "pinned_revision_bound": true,
+    "planned_quarantine_bytes": true,
+    "primary_source_bound": true,
+    "product_and_large_model_claims_rejected": true,
+    "provenance_dependency_and_proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "release_absence_caveat_bound": true,
+    "reversed_order_address_deterministic": true,
+    "source_pin_address": true,
+    "unique_fork_sha_count": true,
+    "upstream_owner_gate_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_source_pin_scope",
+      "detail": "Pinned GitHub metadata and fork records only. No repository bytes fetched or cloned, no dependency added, no product source copied, no adapter built or run, no index/model/runtime/provider bytes loaded, and no route/context authority granted."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterSourcePinProbe as a T1/L1 metadata-only source pin for large-local-model compressed retrieval research. It binds RyanCodrai/turbovec main to pinned revision efe29a184986cbf562a9847c2ac52a2990bfaca2, MIT/content SHA refs, open Swift/macOS and benchmark issues, release-absence caveat, top public fork sweep, clean-room provenance, rollback, RunEventLog, AnswerPacket, compatibility fence, zero external/product/model/provider bytes, and no live large-model or product capability promotion."
+}

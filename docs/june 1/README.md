@@ -26,7 +26,8 @@ easy to browse in one place.
 > `F-TurboVec-RuntimeShadowBenchmarkPlan` and
 > `F-TurboVec-QuarantineAdapterMicrobenchProbe` and
 > `F-TurboVec-RealAdapterOwnerApprovalProbe` as metadata/synthetic-only T1/L1
-> and points next at `turbovec_quarantine_real_adapter_source_pin_probe`.
+> and `F-TurboVec-RealAdapterSourcePinProbe` as metadata-only T1/L1. It now
+> points next at `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 > Those newer docs extend this snapshot without deleting the June 1 nuance.
 
 Use the broad codeword:

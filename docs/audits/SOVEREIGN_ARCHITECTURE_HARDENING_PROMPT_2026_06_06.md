@@ -326,7 +326,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    filter-before-rank privacy, crash-safe persistence, exact-baseline recall
    quality, latency/memory abstention, and runtime shadow benchmark planning
    are now covered; the next retrieval/index research-to-build unit is now
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 7. `F-TurboVec-UASAddressStableExternalIds`:
    now built metadata-only; preserve the UAS-address-stable external `u64`
    registry plan, tombstone/generation handling, collision alias rejection,
@@ -342,7 +342,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    persistence, exact-baseline recall quality, latency/memory abstention, and
    runtime shadow benchmark planning are now covered; the next retrieval/index
    research-to-build unit is now
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 8. `F-TurboVec-FilterBeforeRankPrivacyGate`:
    now built metadata-only; preserve Scope-Rex/SovereignGate allowlist
    compilation from UAS-derived external IDs before rank/search, one-allowed,
@@ -359,7 +359,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
    planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
    next retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 9. `F-TurboVec-CrashSafePersistentIndex`:
    now built metadata-only; preserve the `.tvim` / manifest crash-safe
    persistent-cache plan, AppColdStore truth, source-card refs,
@@ -375,7 +375,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    covered by `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark
    planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
    next retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 10. `F-TurboVec-RecallQualityExactBaseline`:
    now built metadata-only; preserve exact AppColdStore baseline comparison,
    held-out query packs, recall-at-k micros, allowlist-subset enforcement,
@@ -389,7 +389,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    `F-TurboVec-LatencyMemoryAbstention`; runtime shadow benchmark planning is
    now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the next
    retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 11. `F-TurboVec-LatencyMemoryAbstention`:
    now built metadata-only; preserve p95/p99 latency, timeout, cancellation,
    memory headroom, uncertainty, fallback, rollback, RunEventLog, AnswerPacket,
@@ -400,7 +400,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    promotion, no live dense 70B, and no SSD-as-RAM. Runtime shadow benchmark
    planning is now covered by `F-TurboVec-RuntimeShadowBenchmarkPlan`; the
    next retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 12. `F-TurboVec-RuntimeShadowBenchmarkPlan`:
    now built metadata-only; preserve deterministic seeds, replay sample
    counts, warm-hit/cold-miss/cancellation/memory-pressure/empty-allowlist/
@@ -411,7 +411,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    allocated runtime/model/provider bytes, no copied product files, no hidden
    route authority, no route mutation, no model context injection, no MAS/L2/L3
    promotion, no live dense 70B, and no SSD-as-RAM. The next retrieval/index
-   research-to-build unit is `turbovec_quarantine_real_adapter_source_pin_probe`.
+   research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 13. `F-TurboVec-QuarantineAdapterMicrobenchProbe`:
    now built synthetic-only; preserve deterministic seed/dimension/vector/top-k
    bounds, warm approximate win/cold exact fallback/recall-loss fallback/
@@ -423,7 +423,7 @@ If a source/canon guard is needed before the next runtime step, use this order:
    runtime/provider/external-code bytes, no copied product files, no direct
    import, no product integration, no route/context authority, no MAS/L2/L3
    promotion, no live dense 70B, and no SSD-as-RAM. The next retrieval/index
-   research-to-build unit is `turbovec_quarantine_real_adapter_source_pin_probe`.
+   research-to-build unit is `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
 14. `F-TurboVec-RealAdapterOwnerApprovalProbe`:
    now built metadata-only; preserve the upstream TurboVec source card,
    owner approval pending state, source pin pending state, fork-sweep
@@ -434,28 +434,40 @@ If a source/canon guard is needed before the next runtime step, use this order:
    product/index/model/runtime/provider/external-code bytes, no copied product
    files, no direct import, no adapter wrap, no route/context authority, no
    MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM. The next
-   retrieval/index research-to-build unit is
-   `turbovec_quarantine_real_adapter_source_pin_probe`.
-15. `F-GemmaQAT-LocalRuntimeCandidateCard`:
+   retrieval/index research-to-build unit is now
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+15. `F-TurboVec-RealAdapterSourcePinProbe`:
+   now built metadata-only; preserve the pinned upstream TurboVec revision
+   `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 10-fork public sweep, 3
+   matching pinned upstream forks, 3 lagging known upstream forks, 4 diverged
+   sampled-history forks, README/LICENSE/Cargo content SHAs, Swift/macOS
+   binding issue visibility, benchmark issue visibility, no-GitHub-release
+   caveat, clean-room provenance, dependency manifest, rollback, RunEventLog,
+   AnswerPacket, compatibility fence, zero fetched/cloned/product/index/model/
+   runtime/provider bytes, no dependency/source/import/build/route/context
+   authority, no MAS/L2/L3 promotion, no live dense 70B, and no SSD-as-RAM.
+   The next retrieval/index research-to-build unit is
+   `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+16. `F-GemmaQAT-LocalRuntimeCandidateCard`:
    now built metadata-only; preserve source-backed E2B/E4B/12B/31B Gemma 4 QAT
    GGUF candidate cards, Apache-2.0/revision/file-size/context metadata, E2B/E4B
    small-harness status, 12B Pro Gated target status, 31B vault-only status,
    zero model/runtime/provider bytes, false Swift MLX/MTP/MAS/product rejection,
    and no L2/L3 promotion boundary.
-16. `F-QAT-ModelRouteCard-MemoryPreflight`:
+17. `F-QAT-ModelRouteCard-MemoryPreflight`:
    now built metadata-only; preserve declared file bytes, predicted
    resident/KV/scratch bytes, hardware budget, headroom, abstention, timeout,
    cancellation, rollback, RunEventLog, and AnswerPacket caveats before any
    runtime bytes. E2B/E4B may proceed only to later dry-run packetization; 12B
    abstains on the declared M2 Pro 16 GB UMA profile; 31B remains vault-only.
-17. `F-CompressedRoute-AnswerPacket-DryRun`:
+18. `F-CompressedRoute-AnswerPacket-DryRun`:
    now built metadata-only; preserve visible compressed-route AnswerPackets for
    E2B/E4B only, 12B as an insufficient-headroom abstention packet, 31B as a
    vault packet, planned/opened/resident/loaded/provider byte separation,
    fallback, rollback, cancellation, compatibility fence, RunEventLog,
    AnswerPacket, no-mutation envelope, zero runtime/model/provider bytes, and
    no L2/L3 promotion boundary.
-18. `F-SmallCompressedModel-LiveHarness`:
+19. `F-SmallCompressedModel-LiveHarness`:
    preflight now built metadata-only as `F-SmallCompressedModel-LiveHarnessPreflight`;
    preserve E2B GGUF/llama.cpp as the only selected future owner-approved
    one-token probe candidate, E4B as deferred alternate, LiteRT-LM as requiring
