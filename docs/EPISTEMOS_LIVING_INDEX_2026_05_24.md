@@ -1310,6 +1310,30 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   live sparse 70B, live KV-Direct, 128K context, or hidden cache authority; and
   does not change L2/L3. The guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · Deep Research Pass 61 converts the KV residency
+  research into a concrete future falsifier blueprint:
+  `F-KVRuntimeSourceCard`. North-star sentence: Epistemos is a local cognitive
+  substrate where every meaningful object has an address, plane, budget,
+  status, and witness; MAS ships the safe floor, Pro contains the gated/
+  research/vault/omega ladder, and no claim promotes without visible proof. The
+  pass binds local code truth from
+  `agent_core/src/uas/semantic_working_set.rs`,
+  `agent_core/src/uas/compressed_model_source_card_intake.rs`,
+  `docs/falsifiers/F-KVByteBudgetCard_2026_06_03.md`,
+  `docs/falsifiers/F-QueryAwareKVSelector_2026_06_04.md`, and
+  `docs/falsifiers/F-LayerKVJointLease_2026_06_04.md` to current external
+  source-card evidence for `sgl-project/sglang`,
+  `huggingface/transformers`, and `ggml-org/llama.cpp`. The proposed accepted
+  fixture pack covers vLLM/PagedAttention, LMCache, SGLang HiCache/
+  RadixAttention, KTransformers, FlexLLMGen, PowerInfer, KIVI, Transformers
+  `QuantizedCache`, and llama.cpp prompt-cache flags. The proposed red matrix
+  rejects server-as-product, daemon-as-product, remote-cache-as-local, prompt
+  cache without compatibility identity, KV quantization without backend/axis/
+  residual/quality caveat, offload without latency-throughput boundary, hidden
+  route/cache authority, nonzero model/KV/index/runtime/provider bytes, live
+  dense 70B, SSD-as-RAM, and L2/L3 promotion. This is T0/T1 canon/backlog
+  only; it does not add or run any runtime dependency and does not change the
+  guard-owned cursor.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
   as the model-ladder research-to-build witness:
   `agent_core/src/uas/gemma_qat_local_runtime_candidate_card.rs`, export surface
