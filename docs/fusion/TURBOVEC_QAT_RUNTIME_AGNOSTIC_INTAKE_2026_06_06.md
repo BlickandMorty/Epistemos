@@ -621,6 +621,33 @@ This addendum is T0/T1 canon/backlog only. It adds no product dependency, runs
 no runtime, loads no model/index bytes, runs no benchmark, and does not promote
 L2/L3.
 
+## Google Gemma / LiteRT / MTP Reconciliation Addendum
+
+Deep Research Pass 65 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` tightens the
+Google-model side of this intake. Current evidence makes LiteRT-LM a serious
+Pro ResearchCandidate lane because the official repo is active, Apache-2.0,
+and exposes a Swift/macOS package and v0.13.1 binary assets. That same evidence
+also adds new gates: the package uses prebuilt binary targets and an unsafe
+linker flag, so it cannot become MAS-safe or product-live from package
+availability alone.
+
+The reconciled backlog is:
+
+- `F-LiteRTLM-NativeSwiftAdmission` first: source-card the Swift package,
+  binary URLs, checksums, package size, unsafe linker flags, MAS/Pro verdict,
+  tool-schema bounds, cancellation, rollback, RunEventLog, and AnswerPacket.
+- `F-Gemma4-MTP-DrafterCompatibilityCard` second: source-card MTP drafter and
+  target model IDs, runtime lane, extra memory, acceptance/quality metric,
+  latency budget, rollback, and abstention before any speed claim.
+- `F-RuntimePlural-QATLaneTournamentPlan` after those axes exist: compare GGUF,
+  LiteRT-LM, MLX, and explicit local endpoints on the same redacted fixture.
+
+This addendum keeps Gemma 4 12B QAT GGUF/LiteRT as the flagship Pro Gated
+candidate, E2B/E4B as harness lanes, and 31B/70B-class routes as Pro
+Research/Vault. It imports no LiteRT-LM, runs no server, loads no model/runtime
+bytes, and makes no L2/L3 product claim.
+
 ## KV Residency / Offload Companion Addendum
 
 Deep Research Pass 60 in
