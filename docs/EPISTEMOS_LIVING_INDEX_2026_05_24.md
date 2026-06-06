@@ -477,6 +477,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   hidden cloud, hidden Eidos/PatternBoost authority, and missing rollback /
   RunEventLog / AnswerPacket refs. This is still T0 research/canon only; the
   guard-owned coding cursor remains unchanged.
+- Updated **2026-06-06** · zero-byte model inventory Rust shape specified:
+  pass twelve of
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` names the
+  proposed primitive module, exports, enums, structs, validation rules, binary,
+  script, and artifact root for `F-ModelInventory-ZeroByteCandidateCards`.
+  The shape keeps `SourceCard` / `SourceSignalGraph::intake` authoritative and
+  adds `ModelInventoryCandidateCard`, `ModelInventoryCandidateSet`,
+  `ModelInventoryEvidenceKind`, `ModelInventoryMetadataStatus`,
+  `ModelInventoryClaimLimit`, `ModelInventoryHashClaim`,
+  `ModelInventoryByteScope`, `ModelInventoryProofRefs`,
+  `ModelInventorySidecarPolicy`, and `ModelInventoryValidationError` as
+  metadata-only UAS concepts. The design explicitly rejects verified local
+  weight-blob hash claims, nonzero model/index/runtime/provider bytes,
+  RuntimeRouter route authority, MAS/Live promotion, filesystem path as UAS ID,
+  and Gemma 4 loader-caveat removal. This is still T0 research/canon only and
+  did not edit product code.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

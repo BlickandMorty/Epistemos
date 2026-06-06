@@ -1898,3 +1898,362 @@ fixtures.
 Next research query: "What exact Rust structs, enums, and field names should
 `model_inventory_candidate.rs` use so it can compile cleanly beside
 `SourceCard`, avoid duplicate authority, and feed the provenance gate?"
+
+## 26. Pass 12 - Rust Shape For Model Inventory Candidate Cards
+
+Question answered: what exact Rust structs, enums, and field names should
+`agent_core/src/uas/model_inventory_candidate.rs` use so it compiles beside
+`SourceCard`, avoids duplicate authority, and feeds the provenance gate?
+
+The module should be a metadata-only UAS primitive. It should not read local
+model blobs, not compute new large-file hashes, not start MLX/GGUF/LiteRT, and
+not decide a route. Its job is to bind model/package/cache evidence to the
+already validated `SourceSignalGraph` and emit a deterministic inventory
+address that later falsifiers can cite.
+
+North-star preserved: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### 26.1 Module Boundary
+
+Recommended file:
+
+```text
+agent_core/src/uas/model_inventory_candidate.rs
+```
+
+Recommended public exports from `agent_core/src/uas/mod.rs`:
+
+```rust
+pub use model_inventory_candidate::{
+    ModelInventoryByteScope,
+    ModelInventoryCandidateCard,
+    ModelInventoryCandidateSet,
+    ModelInventoryClaimLimit,
+    ModelInventoryEvidenceKind,
+    ModelInventoryHashClaim,
+    ModelInventoryMetadataStatus,
+    ModelInventoryProofRefs,
+    ModelInventorySidecarPolicy,
+    ModelInventoryValidationError,
+    MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_CURSOR,
+    MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_NEXT_CURSOR,
+};
+```
+
+Suggested cursor constants:
+
+```rust
+pub const MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_CURSOR: &str =
+    "model_inventory_zero_byte_candidate_cards";
+pub const MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_NEXT_CURSOR: &str =
+    "proprietary_compression_provenance_gate";
+```
+
+### 26.2 Enums
+
+Use explicit enums with `serde(rename_all = "snake_case")`, matching the local
+UAS style.
+
+```rust
+pub enum ModelInventoryEvidenceKind {
+    CatalogDescriptor,
+    InstallManifest,
+    HubSnapshot,
+    MissingHubSnapshot,
+    SidecarJson,
+    PackageManifest,
+    LfsPointer,
+    FalsifierRef,
+    RuntimePreferenceHint,
+}
+
+pub enum ModelInventoryMetadataStatus {
+    CatalogOnly,
+    InstalledChecksumUnverified,
+    SnapshotPresent,
+    SnapshotMissing,
+    LoaderBlocked,
+    DeferredOwnerProbeRequired,
+    DependencyProvenanceOnly,
+    RouteHintOnly,
+}
+
+pub enum ModelInventoryClaimLimit {
+    CatalogEvidenceOnly,
+    InstallationEvidenceOnly,
+    CacheRevisionEvidenceOnly,
+    SidecarMetadataOnly,
+    DependencyProvenanceOnly,
+    PointerMetadataOnly,
+    RouteHintOnly,
+    RequiresByteWitness,
+    RequiresRuntimeWitness,
+    RequiresWrvWitness,
+}
+
+pub enum ModelInventoryHashClaim {
+    None,
+    SourceCardBlake3,
+    ExternalLfsOidSha256,
+    ManifestChecksumSha256,
+    SidecarJsonSha256,
+    DeferredLargeBlobHash,
+    VerifiedLocalWeightBlobHash,
+}
+```
+
+`VerifiedLocalWeightBlobHash` is intentionally representable so a red fixture
+can mutate into it and `validate()` can reject it in this metadata gate.
+
+### 26.3 Core Structs
+
+Recommended card:
+
+```rust
+pub struct ModelInventoryCandidateCard {
+    pub candidate_id: String,
+    pub source_id: String,
+    pub source_digest: String,
+    pub model_or_package_id: String,
+    pub evidence_kind: ModelInventoryEvidenceKind,
+    pub metadata_status: ModelInventoryMetadataStatus,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub claim_limit: ModelInventoryClaimLimit,
+    pub evidence_locator: String,
+    pub revision_ref: Option<String>,
+    pub hash_claim: ModelInventoryHashClaim,
+    pub loader_caveat_ref: Option<String>,
+    pub route_hint_ref: Option<String>,
+    pub sidecar_policy: Option<ModelInventorySidecarPolicy>,
+    pub byte_scope: ModelInventoryByteScope,
+    pub proof_refs: ModelInventoryProofRefs,
+    pub source_observed_at_utc: Option<String>,
+}
+```
+
+Recommended sidecar policy:
+
+```rust
+pub struct ModelInventorySidecarPolicy {
+    pub allowed_sidecar_names: Vec<String>,
+    pub max_sidecar_bytes: u64,
+    pub malformed_json_rejected: bool,
+}
+```
+
+Recommended byte scope:
+
+```rust
+pub struct ModelInventoryByteScope {
+    pub metadata_bytes_read: u64,
+    pub sidecar_bytes_read: u64,
+    pub model_bytes_loaded: u64,
+    pub index_bytes_loaded: u64,
+    pub runtime_bytes_loaded: u64,
+    pub provider_calls_made: u64,
+    pub weight_blob_open_attempted: bool,
+    pub weight_blob_hash_attempted: bool,
+}
+```
+
+Recommended proof refs:
+
+```rust
+pub struct ModelInventoryProofRefs {
+    pub falsifier_ref: String,
+    pub rollback_ref: String,
+    pub run_event_log_ref: String,
+    pub answer_packet_ref: String,
+    pub compatibility_fence_ref: String,
+}
+```
+
+Recommended set/witness primitive:
+
+```rust
+pub struct ModelInventoryCandidateSet {
+    pub inventory_address: UasAddress,
+    pub source_graph_address: UasAddress,
+    pub cards: Vec<ModelInventoryCandidateCard>,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub metadata_bytes: u64,
+    pub l1_l2_l3_separated: bool,
+    pub route_authority_blocked: bool,
+    pub product_promotion_blocked: bool,
+}
+```
+
+Constructor shape:
+
+```rust
+impl ModelInventoryCandidateSet {
+    pub fn from_source_graph(
+        graph: &SourceSignalGraph,
+        cards: Vec<ModelInventoryCandidateCard>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        metadata_bytes: u64,
+        l1_l2_l3_separated: bool,
+        route_authority_blocked: bool,
+        product_promotion_blocked: bool,
+        created_at_ms: u64,
+    ) -> Result<Self, ModelInventoryValidationError>;
+
+    pub fn metrics(&self) -> ModelInventoryMetrics;
+    pub fn address(&self) -> String;
+}
+```
+
+The constructor should call validation before computing the address. The
+address preimage should sort cards by `candidate_id`, include the source graph
+address, product build/status wire labels, claim limits, byte-scope counters,
+and proof refs, then create `UasAddress::new(UasKind::Other("model_inventory_candidate_set".to_string()), ...)`.
+
+### 26.4 Error Taxonomy
+
+Recommended error enum:
+
+```rust
+pub enum ModelInventoryValidationError {
+    MissingField(&'static str),
+    FieldHasSurroundingWhitespace(&'static str),
+    FieldContainsControlCharacter(&'static str),
+    EmptyCandidateSet,
+    DuplicateCandidateId(String),
+    DuplicateAuthoritativeSource(String),
+    UnknownSourceId(String),
+    BlockedSourceId(String),
+    SourceDigestMismatch(String),
+    MissingProofRef { candidate_id: String, field: &'static str },
+    BadProofRefPrefix { candidate_id: String, field: &'static str },
+    SnapshotRevisionAsFileHash(String),
+    LfsOidAsVerifiedLocalHash(String),
+    WeightBlobOpened(String),
+    WeightBlobHashAttempted(String),
+    NonzeroModelBytes(String),
+    NonzeroIndexBytes(String),
+    NonzeroRuntimeBytes(String),
+    ProviderCallMade(String),
+    ActiveDirRuntimeProof(String),
+    ManifestChecksumPromoted(String),
+    PackageManifestLoaderProof(String),
+    Gemma4LoaderCaveatMissing(String),
+    RuntimePreferenceRouteAuthority(String),
+    FilesystemPathAsUasAddress(String),
+    SidecarSizeCapMissing(String),
+    SidecarCapExceeded(String),
+    MalformedSidecarTrusted(String),
+    ProductGreenFromMetadata(String),
+    MasLiveFromResearch(String),
+    Dense70BLiveClaim(String),
+    SsdAsRamClaim(String),
+    HiddenCloudFallback(String),
+    HiddenRouteAuthority(String),
+    MissingLayerSeparation,
+    MetadataBudgetExceeded,
+}
+```
+
+This mirrors local UAS modules: missing fields, duplicate IDs, bad prefixes,
+product/status mismatch, forbidden runtime bytes, hidden authority, and metadata
+budget failures are first-class errors.
+
+### 26.5 Validation Rules
+
+Validation should enforce:
+
+- `SourceSignalGraph::intake` happens upstream; only accepted source cards can
+  bind inventory rows.
+- `source_id` must exist in `graph.source_cards`; rejected source IDs fail.
+- `source_digest` must match the accepted `SourceCard.digest`.
+- `candidate_id`, `model_or_package_id`, `evidence_locator`, and proof refs
+  are nonempty, trimmed, and control-character free.
+- `candidate_id` is globally unique.
+- one accepted `source_id` has at most one authoritative candidate card.
+- `product_build` is `ProductBuild::Pro` and `pro_status` is
+  `ProStatus::ResearchCandidate` for the first witness; MAS/Live is a red
+  fixture, not an accepted state.
+- all `model_bytes_loaded`, `index_bytes_loaded`, `runtime_bytes_loaded`, and
+  `provider_calls_made` are zero.
+- `weight_blob_open_attempted` and `weight_blob_hash_attempted` are false.
+- `hash_claim == VerifiedLocalWeightBlobHash` rejects in this gate.
+- `HubSnapshot` evidence cannot use `ClaimLimit::InstallationEvidenceOnly` or
+  any hash claim that implies local file hashing.
+- `LfsPointer` evidence must use `ExternalLfsOidSha256` plus
+  `PointerMetadataOnly`; it cannot become a verified local hash.
+- `InstallManifest` with `InstalledChecksumUnverified` cannot use
+  `ManifestChecksumSha256` as verified proof.
+- `PackageManifest` must use `DependencyProvenanceOnly`, never
+  `RequiresRuntimeWitness` satisfied.
+- Gemma 4 cards with `LoaderBlocked` require `loader_caveat_ref`.
+- `RuntimePreferenceHint` requires `route_hint_ref` and `RouteHintOnly`.
+- app-support paths may appear in `evidence_locator`, but never as
+  `candidate_id`, `source_id`, or `inventory_address`.
+- sidecar evidence requires `sidecar_policy.max_sidecar_bytes > 0`,
+  allowed sidecar names, and `malformed_json_rejected = true`.
+- rollback, RunEventLog, AnswerPacket, compatibility fence, and falsifier refs
+  have the expected prefixes.
+- `l1_l2_l3_separated`, `route_authority_blocked`, and
+  `product_promotion_blocked` must all be true.
+
+### 26.6 Falsifier Binary Shape
+
+Recommended binary:
+
+```text
+agent_core/src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs
+```
+
+Recommended script:
+
+```text
+Tools/falsifiers/f_model_inventory_zero_byte_candidate_cards.sh
+```
+
+Recommended artifact root:
+
+```text
+artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/result.json
+```
+
+The binary should:
+
+1. Build `SourceCard` fixtures with the accepted source IDs from Pass 11.
+2. Call `SourceSignalGraph::intake`.
+3. Build accepted `ModelInventoryCandidateCard` rows.
+4. Build a `ModelInventoryCandidateSet`.
+5. Record axes from Pass 11 plus metrics from the candidate set.
+6. Run red-fixture mutators against the accepted set.
+7. Emit `no_model_bytes_loaded`, `no_index_bytes_loaded`,
+   `no_runtime_bytes_loaded`, and `no_provider_calls_made` as explicit axes.
+
+### 26.7 Pass-Twelve Register
+
+Best breakthrough candidate: a compile-ready Rust shape that turns the
+zero-byte inventory idea into one ordinary UAS primitive with no second source
+authority.
+
+Safest next falsifier: still `F-ModelInventory-ZeroByteCandidateCards`, now
+with module, exports, enums, structs, constructor, validation rules, binary,
+script, and artifact-root names specified.
+
+Best near-term code unit: implement `model_inventory_candidate.rs` exactly as
+above, then add the falsifier binary and script without touching runtime/model
+code.
+
+Biggest false-claim risk: allowing the `ModelInventoryHashClaim` enum to make
+`VerifiedLocalWeightBlobHash` look valid. It must exist only so the red fixture
+can prove the metadata gate rejects it.
+
+Biggest missing source: whether the first implementation should include a
+small `ModelInventoryMetrics` struct or compute axes entirely inside the
+falsifier binary.
+
+Next research query: "What exact falsifier artifact axes, thresholds, and
+measurement names should `falsify_model_inventory_zero_byte_candidate_cards.rs`
+emit so guard/kernel integration can consume it without ambiguity?"

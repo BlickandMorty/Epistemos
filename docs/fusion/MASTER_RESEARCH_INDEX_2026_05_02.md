@@ -364,6 +364,24 @@ Eidos/PatternBoost authority, and missing rollback / RunEventLog / AnswerPacket
 refs. Next codeable research unit: design the exact Rust structs/enums/fields
 for `agent_core/src/uas/model_inventory_candidate.rs`.
 
+**Pass-twelve Rust shape.** The synthesis now names the proposed UAS primitive
+for `F-ModelInventory-ZeroByteCandidateCards`: module
+`agent_core/src/uas/model_inventory_candidate.rs`, binary
+`agent_core/src/bin/falsify_model_inventory_zero_byte_candidate_cards.rs`,
+script `Tools/falsifiers/f_model_inventory_zero_byte_candidate_cards.sh`, and
+artifact root `artifacts/falsifiers/model_inventory_zero_byte_candidate_cards/`.
+The proposed public types are `ModelInventoryCandidateCard`,
+`ModelInventoryCandidateSet`, `ModelInventoryEvidenceKind`,
+`ModelInventoryMetadataStatus`, `ModelInventoryClaimLimit`,
+`ModelInventoryHashClaim`, `ModelInventoryByteScope`,
+`ModelInventoryProofRefs`, `ModelInventorySidecarPolicy`, and
+`ModelInventoryValidationError`. The first constructor should take a
+`SourceSignalGraph`, bind cards only to accepted `source_id` values, match
+`source_digest`, reject `VerifiedLocalWeightBlobHash`, enforce zero
+model/index/runtime/provider bytes, preserve Gemma 4 loader caveats, block
+RuntimeRouter preference-as-authority, and keep product/MAS/green promotion
+impossible from metadata.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is
