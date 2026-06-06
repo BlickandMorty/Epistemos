@@ -47,6 +47,12 @@
   ProvenanceGate` must quarantine, inspect, benchmark, and choose
   direct_import / adapter_wrap / quarantine_reference / clean_room_rewrite /
   research_only before third-party logic enters product code.
+- ARCHITECTURE PROMOTION CANON. Before calling any substrate, model, route,
+  retrieval, UI, or release surface green/usable/complete, read
+  `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`. Green means
+  T4 or higher: compiled in the correct MAS/Pro scope, reachable, visible,
+  verified, logged, rollback-bound, AnswerPacket-visible, and release-audit
+  honest. L1 metadata/source-guard passes are blue architecture proof only.
 
 ## Code Standards
 - Use @Observable, not ObservableObject

@@ -124,6 +124,28 @@ Future-session prompt lock:
   separation, safe build order, commit/push checkpoints, and the June 6
   TurboVec/QAT runtime-plural intake.
 
+## Architecture Tier Promotion Canon — 2026-06-06
+
+Read `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` before
+claiming any architecture segment is green, usable, user-facing, compiled, or
+complete. It defines the current end goal and promotion ladder:
+
+- T0 canon/research/vault: ambition or source intake only.
+- T1 L1 architecture proof: primitive/source guard/metadata witness only.
+- T2 L2 capability route: admitted route through RuntimeRouter/System G,
+  rollback, RunEventLog, AnswerPacket, capability kernel, and focused tests.
+- T3 L3 WRV surface: wired, reachable, visible, and verified in product
+  surfaces with log-correlated proof.
+- T4 build-green capability: correct MAS/Pro build scope compiles and passes
+  tests/release-audit evidence for the claim.
+- T5 full substrate segment: identity, state, assembly, controller,
+  verification, user surface, rollback, and witness operate together.
+
+"Green" is reserved for T4 or higher. Metadata-only PASS is blue L1 evidence,
+not product green. The full architecture is complete only when every named
+segment is T4/T5 or is explicitly red/amber with the missing falsifier, runtime
+proof, release audit, or user-facing WRV evidence named.
+
 ## Release Audit Rule
 
 For release-readiness, final regression, or "is this truly ready?" work, use the repo skill `.agents/skills/epistemos_release_audit/SKILL.md`.

@@ -397,6 +397,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   future-session instructions and truth-surface discoverability, not product
   capability, live dense 70B, live sparse 70B, release readiness, or the
   current L2 red route.
+- Updated **2026-06-06** · architecture tier-promotion canon added:
+  `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` now defines
+  the full end-goal and green criteria for Epistemos architecture claims.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The promotion ladder is T0
+  canon/research/vault, T1 L1 architecture proof, T2 L2 capability route, T3
+  L3 WRV product surface, T4 build-green MAS/Pro capability, and T5 full
+  substrate segment. "Green" is now reserved for T4 or higher: compiled in the
+  declared build scope, reachable, visible, verified, logged, rollback-bound,
+  AnswerPacket-visible, and release-audit honest. Metadata-only PASS is blue
+  L1 proof only. This canon update supersedes vague done/green language across
+  prompts, the Master Research Index, the June 1 bridge, and the lattice HTML;
+  it does not itself promote L2 product capability or L3 release readiness.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates

@@ -26,6 +26,7 @@ Start by reading and obeying:
 16. `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`
 17. `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
 18. `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+19. `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`
 
 Current naming/build lock:
 
@@ -49,6 +50,12 @@ Current naming/build lock:
   `F-ProprietaryCompression-ProvenanceGate`: quarantine, inspect, benchmark,
   extract behavior/tests/failure cases, then direct import, adapter-wrap, or
   clean-room rewrite safely.
+- The 2026-06-06 tier-promotion lock is now part of the current canon. Green
+  means T4 or higher: compiled in the declared MAS/Pro scope, reachable,
+  visible, verified, logged, rollback-bound, AnswerPacket-visible, and
+  release-audit honest. L1 metadata/source-guard passes are blue architecture
+  proof only. A full segment is complete only at T5 or with an explicit red or
+  amber missing-evidence row.
 - Ambition lock: do not assume the local frontier direction is impossible just
   because ordinary dense-resident models do not fit. Preserve the hypothesis
   that UAS-addressed SSD/AppColdStore bytes can become a much larger

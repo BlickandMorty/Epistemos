@@ -23,6 +23,14 @@ Gated, Pro Research, Pro Vault-Preserved, and Pro Omega. Research, Vault,
 Omega, heavy runtime, and future substrate work are Pro statuses, not separate
 app builds.
 
+Promotion companion: read
+`docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`. The best-combo
+architecture becomes user-facing green only at T4 or T5. T0/T1/T2/T3 rows can
+preserve ambition, prove metadata/source guards, wire capability routes, or
+show WRV evidence, but they must not be described as fully green until the
+declared MAS/Pro build scope compiles, tests/logs/witnesses pass, rollback and
+AnswerPacket evidence exist, and release-audit copy is honest.
+
 Final naming audit companion:
 `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`.
 
@@ -35,7 +43,7 @@ static hand-authored route or a PatternBoost-derived candidate assembly, and
 must keep the latter Pro Research until repair, sparse fingerprint, held-out
 replay, lattice abstention, rollback, and witness gates pass.
 
-Namespace companion: read
+ACS (Anchored Cognitive Substrate) namespace companion: read
 `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. From this point
 forward, Active Cold Storage is named ColdStore or Cold Residency Layer, not
 ACS. Existing `AcsAnchor` source remains the anchored coordinate/provenance

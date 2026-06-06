@@ -165,6 +165,40 @@ hash -> `ResidencyPlan` -> `LargeModelConstructionCard` -> local
 budget/falsifier gate. This keeps the no-compromise 70B/UAS/ColdStore ambition alive
 without crashing the laptop.
 
+## 0F. 2026-06-06 Canon - Architecture Tier Promotion / Green Criteria
+
+**New canon source:** `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`.
+
+**Why it exists.** The architecture needed one clear end-state that future
+agents cannot water down: all research, substrate, runtime, route, UI, and
+release claims move through a typed promotion ladder. "Green" is no longer a
+loose synonym for "a witness exists." Green means the claim is compiled into
+the correct MAS/Pro scope, reachable, visible, verified, logged,
+rollback-bound, AnswerPacket-visible, and release-audit honest.
+
+**Status discipline.** The ladder is:
+
+```text
+T0 canon/research/vault
+T1 L1 architecture proof
+T2 L2 capability route
+T3 L3 WRV product surface
+T4 build-green MAS/Pro capability
+T5 full substrate segment
+```
+
+T1 metadata-only PASS is blue architecture proof, not product green. T2 can
+prove a capability route without proving the user surface. T3 can prove WRV
+without proving release readiness. T4 is the first green tier. T5 is the
+architecture segment end-state.
+
+**Agent rule.** Any PR, prompt, witness doc, Living Index row, lattice row, or
+release note that says green, usable, user-facing, compiled, complete, shipped,
+ready, or end-to-end must cite this source or use its tier language. If the
+claim is not T4/T5, it must state the remaining red/amber evidence: falsifier,
+capability kernel, runtime proof, WRV, release audit, rollback, AnswerPacket,
+or MAS/Pro copy.
+
 **First planner witness.** `F-ResidencyPlan-DryRun` now emits
 `artifacts/falsifiers/residency_plan_dry_run/result.json`: a dry-run
 model-shaped plan with `72 GiB` cold addressed bytes, `872,415,232` active

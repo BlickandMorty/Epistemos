@@ -3,6 +3,14 @@
 > **Index status**: CANONICAL-OPERATIONAL — V1 release audit verdict: READY FOR V1 WITH SHORT FINAL POLISH PASS; honest V1 definition (local-first note-thinking app NOT full autonomy).
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
 
+> **2026-06-06 architecture-promotion note:** This V1 verdict is a product-floor
+> release audit, not a full-substrate green claim. Full architecture promotion
+> now follows `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`:
+> T0 research/vault, T1 L1 proof, T2 capability route, T3 WRV surface, T4
+> build-green capability, T5 full substrate segment. V1 may be green for its
+> honest MAS/product-floor scope while Pro research, large-model cold assembly,
+> PatternBoost, TurboVec/QAT, and autogenous/Omega work remain red or amber.
+
 
 
 ## Executive Summary
