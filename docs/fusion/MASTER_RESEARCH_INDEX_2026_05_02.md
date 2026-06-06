@@ -136,9 +136,12 @@ the same task.
 TurboVec is first an Eidos/AppColdStore compressed vector index candidate;
 TurboQuant is compression research; Gemma QAT is a source-card/model-route
 candidate. None of these proves live dense 70B, live sparse 70B, or release
-readiness. Public repos and forks may be mined for motifs, tests, schemas, and
-performance ideas, but code import requires license/provenance review or a
-clean-room reimplementation note.
+readiness. Public repos and forks may be mined aggressively for motifs, tests,
+schemas, parser behavior, cache logic, memory assumptions, benchmark harnesses,
+and failure cases. Messy provenance is not a reason to lose useful research:
+clone/run/inspect in quarantine, keep references out of MAS/Pro build graphs,
+then use compatible direct import, adapter wrapping, or clean-room
+Epistemos-owned rewrite.
 
 **Agent rule.** Any PR touching TurboVec, TurboQuant, Gemma QAT, low-bit KV,
 compressed vector indexes, MLX-vs-GGUF-vs-LiteRT routing, or large-model
@@ -147,7 +150,9 @@ addressed unit, source card, license/provenance, import mode, bit width, byte
 accounting, runtime lane, memory preflight, admission verdict, rollback,
 RunEventLog, AnswerPacket, and explicit L1/L2/L3 claim boundary. Use
 `F-ProprietaryCompression-ProvenanceGate` before any public-repo logic enters
-the proprietary implementation path.
+the proprietary implementation path. Its import modes are `direct_import`,
+`adapter_wrap`, `quarantine_reference`, `clean_room_rewrite`, and
+`research_only`.
 
 **Canonical build implication.** Do not launch more heavy 128K/70B probes until
 the non-executing planner layer exists: bounded `WeightBlockManifest` range

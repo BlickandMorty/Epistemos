@@ -16,7 +16,7 @@ Gemma 4 QAT belongs in the local model ladder. The strongest immediate target is
 
 MLX support is real as a Python/Hugging Face/MLX ecosystem path, but it is not automatically Epistemos Swift runtime support. The repo already contains a Gemma 4 automatic-route exclusion in `Epistemos/Engine/TriageService.swift` because the shipped Swift MLX path does not yet support the Gemma 4 config decoder. That exclusion should remain until an Epistemos-owned runtime witness removes it.
 
-The owner asked for no compromise and ambitious proprietary logic. The right version of that is not blind cherry-picking. It is an Epistemos-owned compression/runtime spine with a source-card ledger, license gates, clean-room notes, and falsifiers. Permissive code may be used with attribution and license compliance. Unknown-license, GPL-incompatible, or highly experimental code can inform research cards, but should not be copied into proprietary product logic.
+The owner asked for no compromise and ambitious proprietary logic. The right version of that is not blind cherry-picking and it is not passive license-blocking either. It is an Epistemos-owned compression/runtime spine with a source-card ledger, quarantine runners, source digests, import-mode decisions, clean-room notes, and falsifiers. Permissive code may be used with attribution and license compliance. Unknown-license, GPL-incompatible, or highly experimental code should still be cloned into quarantine, run, inspected, benchmarked, and mined for API shapes, parser behavior, cache logic, memory assumptions, failure cases, and tests; product code then either direct-imports compatible pieces, adapter-wraps them, or rewrites the useful behavior as Epistemos-owned proprietary logic without contaminating the shipping core.
 
 None of this proves live dense 70B. Compression helps retrieval, smaller resident lanes, KV/context experiments, cold assembly, and routing. 70B-class architecture remains cold assembly, routing, residency, transport, verifier, and harness work, not a dense checkpoint permanently resident in RAM.
 
@@ -223,12 +223,12 @@ Ambition should be encoded as a gate:
 | Source license/status | Allowed action |
 | --- | --- |
 | MIT/Apache/BSD with compatible dependencies | May vendor or adapt with attribution, license files, source digest, and integration tests |
-| GPL/AGPL/unclear/no license | May read for high-level public ideas only; no code copying into proprietary product |
+| GPL/AGPL/unclear/no license | May clone/run/inspect in quarantine, extract behavior/API/test/benchmark/failure-case knowledge, and clean-room rewrite into Epistemos-owned code; no shipped copy/link without permission or legal review |
 | Research paper/math | May implement clean-room with notes, tests, and independent design review |
 | Same-day model conversion or low-star proof-of-concept | May become source-card prior only |
 | Negative reproduction | Should become a falsifier fixture or risk note |
 
-New gate name: `F-ProprietaryCompression-ProvenanceGate`.
+New gate name: `F-ProprietaryCompression-ProvenanceGate`. Its import modes are `direct_import`, `adapter_wrap`, `quarantine_reference`, `clean_room_rewrite`, and `research_only`.
 
 ## Gemma 4 QAT Technical Truth
 
@@ -664,7 +664,7 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
 - Do not store raw chain-of-thought in AnswerPacket.
 - Do not use SQLite `rowid` as UAS truth.
 - Do not run 12B/26B/31B experiments in MAS.
-- Do not copy no-license or incompatible-license code into proprietary product logic.
+- Do not ship or link no-license or incompatible-license code into proprietary product logic; quarantine it, study it, benchmark it, and rewrite the useful behavior as Epistemos-owned code when needed.
 - Do not trust same-day QAT/MLX conversions as product-ready without local proof.
 - Do not advertise MTP speedups without target/drafter acceptance and rollback proof.
 - Do not treat perplexity as factual recall for long-context agent work.

@@ -366,6 +366,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-GemmaQAT-LocalRuntimeCandidateCard`,
   `F-TurboVec-Eidos-CompressedIndex-Plan`, and
   `F-QAT-ModelRouteCard-MemoryPreflight` work.
+- Updated **2026-06-06** · final TurboVec / QAT research fold preserved the
+  no-compromise proprietary path without letting it become unsafe copying:
+  `F-ProprietaryCompression-ProvenanceGate` now records source URL, license,
+  dependency status, digest, quarantine status, extracted API/parser/cache/test
+  behavior, import mode, allowed action, and clean-room note. Unknown-license,
+  GPL/AGPL, low-star, or experimental repos should still be cloned, run,
+  inspected, and benchmarked in quarantine so Epistemos can extract the best
+  interface shapes, failure cases, and tests; shipping code must then use
+  compatible direct import, adapter wrapping, permission/legal review, or
+  Epistemos-owned clean-room rewrite. Runtime policy remains MLX-first on Apple
+  Silicon but runtime-plural under one System G/SovereignGate/AnswerPacket
+  contract: MLX, GGUF/llama.cpp, LiteRT-LM, optional user-selected local
+  endpoints, and Pro Research server lanes are execution organs, never hidden
+  authority. This still does not promote live dense 70B, live sparse 70B,
+  product capability, or release readiness.
 - Updated **2026-06-05** · `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease` landed:
   `Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_safety_lease.sh`
   emits and validates
