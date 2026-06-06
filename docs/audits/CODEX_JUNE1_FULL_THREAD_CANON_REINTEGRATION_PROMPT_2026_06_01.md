@@ -17,6 +17,7 @@ This is the one prompt to paste into Codex when the user invokes
 > compressed-retrieval, runtime-routing, Gemma 4, TurboVec, TurboQuant,
 > GGUF/llama.cpp, LiteRT-LM, MLX, or large-model compression work, also read
 > `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`,
+> `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`,
 > `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` and
 > `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
 > MLX is first-lane on Apple Silicon, not the whole architecture; runtime
@@ -24,6 +25,9 @@ This is the one prompt to paste into Codex when the user invokes
 > AnswerPacket; TurboVec is Eidos/AppColdStore retrieval, not hidden authority;
 > and public repo motifs must pass `F-ProprietaryCompression-ProvenanceGate`
 > before product use.
+> Green/usable/user-facing claims now follow the June 6 tier ladder: T0
+> research/vault, T1 L1 architecture proof, T2 L2 capability route, T3 L3 WRV
+> surface, T4 build-green capability, and T5 full substrate segment.
 
 `JUNE1-PATTERNBOOST-LOCK` is still valid, but it is the narrower residency
 subset. The full-thread umbrella is `JUNE1-CANON-FUSION-LOCK`.

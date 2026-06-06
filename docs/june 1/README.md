@@ -18,6 +18,7 @@ easy to browse in one place.
 > retrieval, TurboVec, QAT, Gemma 4, GGUF/llama.cpp, LiteRT-LM, MLX, or
 > large-model compression work, read
 > `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`,
+> `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`,
 > `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`, and
 > `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md` in the
 > live repo root. Those newer docs extend this snapshot without deleting the

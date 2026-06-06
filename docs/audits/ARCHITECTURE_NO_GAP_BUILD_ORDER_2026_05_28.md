@@ -7,6 +7,12 @@ posture: executable queue beats prose; no hidden promotion paths
 
 > **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
+> **2026-06-06 tier-promotion bridge:** The executable queue remains the
+> architecture cursor authority, but green/user-facing/completed claims now use
+> `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`. Queue rows can
+> be T1/blue metadata proof while L2/L3 stay red. T4 is the first green tier;
+> T5 is the end-to-end segment goal.
+
 # Architecture No-Gap Build Order - 2026-05-28
 
 This is the human-readable mirror of the executable queue in

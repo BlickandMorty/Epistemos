@@ -10,6 +10,8 @@ Use this prompt when continuing full-architecture work in
 > nuance: it adds explicit research gates, L1/L2/L3 reporting, source-guard
 > build order, commit/push checkpoints, and the TurboVec/QAT runtime-plural
 > intake.
+> Also read `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`
+> before calling any segment green, usable, compiled, user-facing, or complete.
 
 You are working on Epistemos, a local cognitive substrate. Do not reduce it to
 a chatbot, notes app, model wrapper, MLX demo, or EML-only system. The spine is:
@@ -71,6 +73,24 @@ Every architecture PR or doc claim must state:
 Motion, Organ, Identity, Plane, ProductBuild, ProStatus/ResidencyStatus,
 ErrorBudget, Witness, Admission, Route, Visibility, Verification, Rollback.
 ```
+
+## Architecture Tier Promotion Lock
+
+Read `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` before any
+green/done/user-facing claim. The promotion ladder is:
+
+```text
+T0 canon/research/vault
+T1 L1 architecture proof
+T2 L2 capability route
+T3 L3 WRV product surface
+T4 build-green MAS/Pro capability
+T5 full substrate segment
+```
+
+Green means T4 or higher: compiled in the declared build scope, reachable,
+visible, verified, logged, rollback-bound, AnswerPacket-visible, and release
+audit honest. Metadata-only PASS is T1/blue architecture proof only.
 
 Engineering logic overlay:
 

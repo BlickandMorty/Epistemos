@@ -22,6 +22,7 @@ and audit files before changing anything:
 10. docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md
 11. docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md
 12. docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md
+13. docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md
 
 Current safe checkpoint:
 
@@ -46,6 +47,10 @@ Safety rules:
   --is-ancestor, and file-level diffs.
 - Do not treat file existence, docs rows, branch-local code, or fixtures as a
   product ship claim. Preserve WRV: Wired, Reachable, Visible, Verified.
+- Do not call donor work green unless it reaches the June 6 promotion ladder's
+  T4/T5 bar. T1 source proof and metadata witnesses are blue architecture
+  evidence only; T2 capability route and T3 WRV still need declared build,
+  release-audit, rollback, RunEventLog, and AnswerPacket proof before green.
 - If a donor would remove stricter current truth-floor fields, skip it and
   record why.
 - The two-minute Paperclip heartbeat is a liveness/scheduler hook only. It is

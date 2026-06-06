@@ -5,6 +5,7 @@ status: current-paste-ready
 supersedes: owner freeform architecture-hardening prompt and shorter external proposed prompt
 does_not_supersede: AGENTS.md, CLAUDE.md, Living Index, Master Research Index, falsifier artifacts, or lattice HTML
 scope: full Epistemos architecture hardening with June 1 canon and June 6 TurboVec/QAT research folded in
+promotion_canon: docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md
 ---
 
 # Sovereign Architecture Hardening Prompt - 2026-06-06
@@ -91,8 +92,9 @@ cross-links:
 15. `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
 16. `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
 17. `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
-18. Regenerated `artifacts/falsifiers/architecture_pending_work_guard/result.json`
-19. Regenerated `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json`
+18. `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`
+19. Regenerated `artifacts/falsifiers/architecture_pending_work_guard/result.json`
+20. Regenerated `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json`
 
 Use web research only when local canon lacks current API, package, OS, model,
 license, App Store, or security facts. Prefer primary/official sources. Web
@@ -153,6 +155,26 @@ Correct phrasing:
 ```text
 Architecture cursor advanced; product capability / user surface did not.
 ```
+
+## Architecture Tier Promotion Canon
+
+Use `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` as the
+current end-state and green-claim authority. The short form:
+
+- T0: canon/research/vault; no product claim.
+- T1: L1 architecture proof; source guard or metadata witness only.
+- T2: L2 capability route; admitted, reversible, logged, packetized, tested.
+- T3: L3 WRV surface; Wired, Reachable, Visible, Verified.
+- T4: build-green capability; compiled in the declared MAS/Pro scope with
+  release-audit-honest copy, tests/logs/witnesses, rollback, RunEventLog, and
+  AnswerPacket.
+- T5: full substrate segment; identity, state, assembly, controller,
+  verification, user surface, rollback, and witness operate together.
+
+"Green" is reserved for T4 or higher. Metadata-only PASS is blue L1 evidence,
+not product green. The full architecture is complete only when each named
+segment is T4/T5 or explicitly red/amber with the missing falsifier, runtime
+proof, release audit, or WRV evidence named.
 
 ## MAS / Pro And Claim Schema
 

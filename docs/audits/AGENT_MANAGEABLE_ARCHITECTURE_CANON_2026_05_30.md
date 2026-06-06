@@ -10,7 +10,9 @@ authority_order:
   - this register for naming and ownership discipline
 ---
 
-> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS (Anchored Cognitive Substrate)/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+> **2026-06-06 promotion bridge:** `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` now defines the green/usable/user-facing end-state. This file's WRV language remains valid, but "green" requires T4 or higher: compiled in the declared MAS/Pro scope, reachable, visible, verified, logged, rollback-bound, AnswerPacket-visible, and release-audit honest. L1 metadata/source-guard passes are blue architecture proof only.
 
 # Agent-Manageable Architecture Canon - 2026-05-30
 
@@ -62,6 +64,23 @@ and speculative theorems are internal Pro statuses, not additional app builds.
 | Pro Research | Promising/runnable/document-backed research candidate; requires falsifier evidence before promotion. |
 | Pro Vault-Preserved | Old ambition, failed branch, speculative theorem, or future mechanism preserved without runtime authority. |
 | Pro Omega | Deepest experimental/private substrate work; never silently enabled, never MAS-bound, always witnessed and reversible. |
+
+## Promotion Tier Lock
+
+Architecture segment status now uses the June 6 promotion ladder:
+
+| Tier | Meaning | Claim boundary |
+|---|---|---|
+| T0 | Canon/research/vault candidate. | No product or runtime claim. |
+| T1 | L1 architecture/source/metadata proof. | Blue proof only; no product green. |
+| T2 | L2 admitted capability route. | Capability route only; not broad user-facing readiness. |
+| T3 | L3 WRV product surface. | User-facing proof, but not release green until build/release checks pass. |
+| T4 | Build-green MAS/Pro capability. | Green for the declared build/scope. |
+| T5 | Full substrate segment. | End-to-end organ stack with identity, planes, admission, route, verification, rollback, and witness. |
+
+Every row in this register should eventually be classified as T4/T5 green,
+amber gated, red blocked, or VaultPreserved with the missing falsifier, runtime
+proof, WRV row, release audit, or rollback evidence named.
 
 ## Original Hope / Genesis Architecture
 
