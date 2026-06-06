@@ -1,0 +1,250 @@
+{
+  "falsifier_id": "F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_real_adapter_owner_approved_native_dry_run_probe.sh",
+  "command_digest": "sha256:de752c6a08ac5e0378916225b312af2c784de661914f2ba1de497ecfec019bf2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "5ac78ca8d1ec07a0b581abf6ec1234701f3c9ab6",
+  "fixture_id": "turbovec_real_adapter_owner_approved_native_dry_run_probe_v1",
+  "timestamp_utc": "2026-06-06T20:21:24Z",
+  "result_digest": "sha256:91b351800f208708a99e4e2f1d02369ebab51ccbd441575985f868887724dce1",
+  "measurements": {
+    "command_armed_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "command_card_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "command_card_envelope_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "command_visible_count": {
+      "value": 8,
+      "unit": "count"
+    },
+    "linker_invocation_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_quarantine_real_adapter_native_dry_run_execution_probe",
+      "unit": "cursor"
+    },
+    "no_native_build_link_or_python_execution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_route_or_benchmark_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "owner_approval_pending_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approved_native_dry_run_address": {
+      "value": "turbovec_real_adapter_owner_approved_native_dry_run_probe:ca677af7de91ba830de9c12b6715aff1add949ee5bbb3946504e703f5c30b1a4@1779042311000",
+      "unit": "uas_address"
+    },
+    "pinned_revision": {
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 60,
+      "unit": "count"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_native_link_preflight_bound": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "command_card_count": {
+      "operator": ">=",
+      "value": 8,
+      "unit": "count"
+    },
+    "command_card_envelope_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "command_visible_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "count"
+    },
+    "linker_invocation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_quarantine_real_adapter_native_dry_run_execution_probe",
+      "unit": "cursor"
+    },
+    "no_native_build_link_or_python_execution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_route_or_benchmark_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "owner_approval_pending_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approved_native_dry_run_address": {
+      "operator": "starts_with",
+      "value": "turbovec_real_adapter_owner_approved_native_dry_run_probe:",
+      "unit": "uas_address"
+    },
+    "pinned_revision": {
+      "operator": "==",
+      "value": "efe29a184986cbf562a9847c2ac52a2990bfaca2",
+      "unit": "sha"
+    },
+    "planned_quarantine_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "product_and_large_model_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 48,
+      "unit": "count"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_native_link_preflight_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "command_armed_count": true,
+    "command_card_count": true,
+    "command_card_envelope_visible": true,
+    "command_executed_count": true,
+    "command_visible_count": true,
+    "linker_invocation_count": true,
+    "model_bytes_loaded": true,
+    "next_research_to_build_unit": true,
+    "no_native_build_link_or_python_execution": true,
+    "no_product_route_or_benchmark_authority": true,
+    "owner_approval_granted_count": true,
+    "owner_approval_pending_unarmed": true,
+    "owner_approved_native_dry_run_address": true,
+    "pinned_revision": true,
+    "planned_quarantine_bytes": true,
+    "product_and_large_model_claims_rejected": true,
+    "proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "reversed_order_address_deterministic": true,
+    "upstream_native_link_preflight_bound": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_owner_approval_pending_scope",
+      "detail": "Owner-approved native dry-run command envelope only. Owner approval is pending; no command is armed or executed; no build.rs, Cargo build, linker, dynamic-library load, Python extension build, benchmark, product dependency, route mutation, model/runtime/provider byte, or L2/L3 promotion occurs."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe as a T1/L1 metadata command-envelope witness after native-link absence preflight. It prepares the future owner-approved dry run while proving approval is pending and every build/link/runtime/product route remains unarmed."
+}

@@ -530,11 +530,31 @@ Recommended first units, in order:
      surfaces, 3 Python native-boundary surfaces, 2 product surface preflight
      rows, 56 rejected red fixtures, rollback, RunEventLog, AnswerPacket,
      compatibility fence, zero build/link/dylib/Python-build/product route
-     mutation/model bytes, and the no-L2/L3-promotion boundary. The next
-     retrieval/index research-to-build unit is
-     `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
+     mutation/model bytes, and the no-L2/L3-promotion boundary. Its former next
+     retrieval/index research-to-build unit,
+     `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`, is
+     now landed by `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`.
 
-24. `F-QAT-ModelRouteCard-MemoryPreflight`
+24. `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`
+   - Proves the native dry-run step stays a visible, owner-approval-pending,
+     unarmed command envelope before any real adapter execution, build/link
+     artifact, compressed retrieval route, or model-context use can cite it.
+   - Does not clone TurboVec, import source, add dependencies, execute
+     build scripts, run Cargo builds, invoke linkers, load dynamic libraries,
+     build Python extensions, run benchmarks, create quarantine directories,
+     open indexes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate routes, or
+     promote product capability.
+   - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at
+     `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`.
+     It binds 8 visible command cards, pending owner approval, zero armed
+     commands, zero executed commands, zero linker invocations, zero model
+     bytes, planned quarantine bytes `262144`, 60 rejected red fixtures,
+     rollback, RunEventLog, AnswerPacket, compatibility fence, no hidden route
+     authority, and the no-L2/L3-promotion boundary. The next retrieval/index
+     research-to-build unit is
+     `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`.
+
+25. `F-QAT-ModelRouteCard-MemoryPreflight`
    - Proves model card, file size, predicted resident bytes, runtime candidates, hardware budget, abstention rule, and rollback.
    - Does not prove first token or product capability.
    - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/qat_model_route_card_memory_preflight/result.json`. It accepts 4 route-preflight cards, rejects 44 red fixtures, admits E2B/E4B only for later dry-run packetization, forces 12B to abstain on the declared M2 Pro 16 GB UMA profile for insufficient headroom, keeps 31B vault-only, records declared file/resident/KV/scratch/available/headroom/timeout/cancellation bytes separately, loads zero model/runtime bytes, makes zero provider calls, and preserves the no-L2/L3-promotion boundary.

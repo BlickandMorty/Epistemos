@@ -64,4 +64,5 @@ The former retrieval/index research-to-build unit
 `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe` has now
 landed in `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`. The current
 TurboVec side-ladder unit is
-`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
+`turbovec_quarantine_real_adapter_native_dry_run_execution_probe` after
+`F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`.

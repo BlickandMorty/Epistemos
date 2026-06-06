@@ -59,8 +59,11 @@ load dynamic libraries, build Python/PyO3/maturin artifacts, run benchmarks,
 open indexes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate product
 routes, or promote L2/L3 capability.
 
-The next TurboVec research-to-build side-ladder unit is
-`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`. That
-future unit must remain owner-approved, crash-safe, rollback-bound,
+The former next TurboVec research-to-build side-ladder unit,
+`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`, has now
+landed in `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`. The current
+next side-ladder unit is
+`turbovec_quarantine_real_adapter_native_dry_run_execution_probe`, which must
+remain quarantined, owner-approved, crash-safe, rollback-bound,
 RunEventLog-visible, AnswerPacket-visible, and non-promoting unless later
 runtime and WRV proof land.

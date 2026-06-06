@@ -4831,3 +4831,82 @@ allowed, how rollback happens, and how the AnswerPacket reports failure.
 Next research query: "What is the smallest owner-approved TurboVec native
 dry-run harness that proves build/link safety without importing product code,
 loading models, opening indexes, mutating routes, or claiming L2/L3 capability?"
+
+---
+
+## 58. Pass 58 - TurboVec Owner-Approved Native Dry-Run Envelope Landed
+
+Observed on 2026-06-06. This pass is research-to-build, not product runtime.
+
+- primitive:
+  `agent_core/src/uas/turbovec_real_adapter_owner_approved_native_dry_run_probe.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_real_adapter_owner_approved_native_dry_run_probe.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_real_adapter_owner_approved_native_dry_run_probe.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe_2026_06_06.md`
+
+`F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is now PASS as a
+metadata-only T1/L1 witness. It binds the pinned TurboVec revision
+`efe29a184986cbf562a9847c2ac52a2990bfaca2` and native-link absence preflight to
+8 visible command cards, pending owner approval, zero armed commands, zero
+executed commands, zero linker invocations, zero model bytes, planned
+quarantine bytes `262144`, rollback, RunEventLog, AnswerPacket, compatibility
+fence, and 60 red-fixture rejections.
+
+### 58.1 Architecture Fusion
+
+This pass closes the gap between "native-link absence is proven" and "the next
+native dry-run attempt has a visible, bounded, owner-gated command envelope."
+The architecture move is not to run TurboVec. It is to make the would-run
+surface addressable before execution: command card, quarantine path, owner
+approval, cleanup, rollback, RunEventLog, AnswerPacket, compatibility fence,
+and explicit no-product/no-route/no-runtime budgets.
+
+That helps the large-local-model path because compressed retrieval can only
+support Gemma/QAT, GGUF, MLX/LiteRT, or 70B-class cold assembly if it never
+becomes an accidental native dependency, hidden router, or context injector.
+TurboVec remains a candidate Eidos/AppColdStore cache organ and Semantic
+Working-Set Compiler input, not live route authority.
+
+### 58.2 Non-Promotion
+
+This pass does not clone TurboVec, import source, add dependencies, execute
+build scripts, run Cargo builds, invoke linkers, load dynamic libraries, build
+Python extensions, run benchmarks, create quarantine directories, open indexes,
+load Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate RuntimeRouter/System G
+routes, make L2 product capability green, make L3 user-facing model capability
+green, prove live dense 70B, or claim SSD-as-RAM.
+
+### 58.3 Pass-Fifty-Eight Register
+
+Best breakthrough candidate: quarantined native dry-run execution for the
+TurboVec clean-room adapter, because the command envelope is now explicit but no
+bounded execution packet has proven build/link behavior, cleanup, rollback, and
+AnswerPacket failure reporting.
+
+Safest next falsifier:
+`turbovec_quarantine_real_adapter_native_dry_run_execution_probe`, because the
+owner-approved command envelope exists but execution must still be proven in
+quarantine with no product dependency, no route mutation, no index/model bytes,
+and visible rollback.
+
+Best near-term code unit: add the native dry-run execution probe as a
+quarantined, owner-approved, bounded command-run witness with separate stdout,
+stderr, exit status, created-file ledger, cleanup proof, rollback proof,
+RunEventLog, AnswerPacket, and no product route authority.
+
+Biggest false-claim risk: treating this command envelope as actual TurboVec
+adapter execution, compressed retrieval quality, model-context improvement,
+local large-model capability, or product readiness.
+
+Biggest missing source: a real dry-run artifact that records the native
+build/link surface under quarantine without importing it into product code or
+opening index/model bytes.
+
+Next research query: "How should Epistemos run the smallest quarantined
+TurboVec native dry-run execution with owner approval, no product dependency,
+bounded files, rollback, RunEventLog, AnswerPacket, and no L2/L3 promotion?"

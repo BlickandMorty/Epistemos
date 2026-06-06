@@ -192,22 +192,29 @@ runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
 and release-audit proof.
 
 2026-06-06 current TurboVec retrieval/index clarification:
-`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is T1/L1 only. It
+`F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is T1/L1 only. It
 strengthens the architecture in favor of larger local models by proving
-product-graph no-contamination has not become native-link/build-script
-execution before owner-approved dry-run, adapter build, runtime evidence,
-compressed retrieval routes, or model-context use: Rust build.rs, target BLAS,
-Accelerate/OpenBLAS, PyO3, maturin, numpy, cargo config, downstream smoke,
-benchmark, product manifest, and product route/context surfaces are all
-preflighted as blocked metadata-only rows. It does not inspect additional raw
-source, clone TurboVec, import source, add dependencies, execute build scripts,
-run Cargo builds, invoke linkers, load dynamic libraries, build Python
-extensions, run benchmarks, open indexes, load model/runtime/provider bytes,
-mutate routes, make L2/L3 product capability green, or promote live dense 70B.
+native-link absence preflight cannot become hidden owner approval, hidden
+command execution, product dependency, route mutation, benchmark authority, or
+model-context use. The witness binds 8 visible command cards, pending owner
+approval, zero armed commands, zero executed commands, zero linker invocations,
+zero model bytes, planned quarantine bytes `262144`, rollback, RunEventLog,
+AnswerPacket, compatibility fence, and 60 red-fixture rejections. It does not
+clone TurboVec, import source, add dependencies, execute build scripts, run
+Cargo builds, invoke linkers, load dynamic libraries, build Python extensions,
+run benchmarks, create quarantine directories, open indexes, load
+model/runtime/provider bytes, mutate routes, make L2/L3 product capability
+green, or promote live dense 70B.
 The next retrieval/index research-to-build unit is
-`turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; older
+`turbovec_quarantine_real_adapter_native_dry_run_execution_probe`; older
 TurboVec paragraphs below are historical context unless a newer S0 surface says
 otherwise.
+
+2026-06-06 TurboVec native-link clarification:
+`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is T1/L1 only. It
+proved product-graph no-contamination had not become native-link/build-script
+execution before the owner-approved dry-run command envelope. It remains
+historical context for the current owner-approved native dry-run proof above.
 
 2026-06-06 TurboVec product-graph clarification:
 `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is T1/L1 only. It

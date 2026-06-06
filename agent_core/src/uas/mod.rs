@@ -102,6 +102,7 @@ pub mod turbovec_real_adapter_fetch_lease_probe;
 pub mod turbovec_real_adapter_motif_extraction_card_probe;
 pub mod turbovec_real_adapter_native_link_absence_preflight_probe;
 pub mod turbovec_real_adapter_owner_approval_probe;
+pub mod turbovec_real_adapter_owner_approved_native_dry_run_probe;
 pub mod turbovec_real_adapter_product_graph_no_contamination_probe;
 pub mod turbovec_real_adapter_sandbox_layout_probe;
 pub mod turbovec_real_adapter_source_byte_manifest_probe;
@@ -674,6 +675,15 @@ pub use turbovec_real_adapter_native_link_absence_preflight_probe::{
     TurboVecNativeLinkSurface, TurboVecRealAdapterNativeLinkAbsencePreflightProbeSet,
     TURBOVEC_REAL_ADAPTER_NATIVE_LINK_ABSENCE_PREFLIGHT_CURSOR,
     TURBOVEC_REAL_ADAPTER_NATIVE_LINK_ABSENCE_PREFLIGHT_NEXT_CURSOR,
+};
+pub use turbovec_real_adapter_owner_approved_native_dry_run_probe::{
+    owner_approved_native_dry_run_digest, TurboVecNativeDryRunApprovalStatus,
+    TurboVecNativeDryRunByteLedger, TurboVecNativeDryRunCommandCard,
+    TurboVecNativeDryRunCommandKind, TurboVecNativeDryRunError, TurboVecNativeDryRunMetrics,
+    TurboVecNativeDryRunPolicy, TurboVecNativeDryRunProofRefs, TurboVecNativeDryRunTier,
+    TurboVecRealAdapterOwnerApprovedNativeDryRunProbeSet,
+    TURBOVEC_REAL_ADAPTER_OWNER_APPROVED_NATIVE_DRY_RUN_CURSOR,
+    TURBOVEC_REAL_ADAPTER_OWNER_APPROVED_NATIVE_DRY_RUN_NEXT_CURSOR,
 };
 pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecForkDisposition, TurboVecForkSweepRecord, TurboVecPinnedSourceCard,

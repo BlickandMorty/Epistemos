@@ -744,9 +744,13 @@ No hidden cloud fallback. No hidden provider route. No automatic Gemma 4 Swift M
     dynamic-library loads, Python extension builds, environment mutations,
     product dependencies, product route mutations, benchmark runs,
     runtime/model/provider bytes, and no L2/L3 promotion.
-24. Implement `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`
-    before adapter builds, runtime evidence, compressed context-selection
-    claims, or model-route priors can cite native-link readiness.
+24. `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is implemented;
+    preserve it as the metadata-only command-envelope gate with 8 visible
+    command cards, pending owner approval, zero armed/executed commands, zero
+    model/runtime bytes, planned quarantine bytes `262144`, rollback,
+    RunEventLog, AnswerPacket, compatibility fence, and no L2/L3 promotion.
+    The next side-ladder unit is
+    `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`.
 25. Add Gemma 4 12B Pro candidate card, but do not load it until memory preflight and owner-approved Pro gate exist.
 26. Test Gemma 4 E2B/E4B mobile/GGUF as MAS Research, not MAS default.
 26. Test Gemma 4 12B through GGUF or LiteRT-LM first unless Swift MLX Gemma 4 loader is implemented.
@@ -1855,3 +1859,39 @@ add dependencies, build or run an adapter, open index bytes, load
 Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose routes, advance L2, or make L3
 user-facing model capability green. The next branch unit is
 `turbovec_quarantine_real_adapter_dependency_envelope_probe`.
+
+### 2026-06-06 TurboVec Real Adapter Chain Through Native Dry-Run Envelope
+
+The TurboVec real-adapter branch has now moved from source pinning through the
+metadata-only dependency, sandbox, fetch, source-byte, source-inspection, motif,
+clean-room, exact-baseline, product-graph, native-link, and owner-approved
+native dry-run command-envelope witnesses. The current latest side-ladder
+witness is `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`, with
+artifact
+`artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`.
+
+This matters for larger local models because it converts TurboVec from "a repo
+that might be useful" into a gated Eidos/AppColdStore and Semantic Working-Set
+Compiler candidate with visible failure surfaces. The chain now proves:
+
+- upstream is pinned to revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2`;
+- dependency, native, Python, and build risks are metadata-addressed before
+  execution;
+- product graph contamination is scanned and rejected before runtime use;
+- native build/link execution remains absent until a later owner-approved dry
+  run;
+- the dry-run command envelope has 8 visible command cards, pending owner
+  approval, zero armed commands, zero executed commands, zero model/runtime
+  bytes, planned quarantine bytes `262144`, rollback, RunEventLog,
+  AnswerPacket, compatibility fence, and 60 red-fixture rejections.
+
+The chain still does not clone TurboVec, import source, add dependencies,
+execute build scripts, run Cargo builds, invoke linkers, build Python
+extensions, create quarantine directories, run benchmarks, open indexes, load
+Gemma/QAT/GGUF/MLX/LiteRT/model bytes, choose RuntimeRouter/System G routes,
+advance L2 capability, make L3 user-facing model capability green, prove live
+dense 70B, or claim SSD-as-RAM. The next side-ladder unit is
+`turbovec_quarantine_real_adapter_native_dry_run_execution_probe`, while the
+guard-owned architecture cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
