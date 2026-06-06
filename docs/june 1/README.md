@@ -13,6 +13,16 @@ This folder is a navigation snapshot. The canonical originals remain in their
 normal repo locations, but this duplicate bundle makes the whole June 1 thread
 easy to browse in one place.
 
+> **Newer 2026-06-06 addendum:** This folder remains a June 1 snapshot. For
+> current main-agent architecture hardening or any local-model, compressed
+> retrieval, TurboVec, QAT, Gemma 4, GGUF/llama.cpp, LiteRT-LM, MLX, or
+> large-model compression work, read
+> `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`,
+> `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`, and
+> `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md` in the
+> live repo root. Those newer docs extend this snapshot without deleting the
+> June 1 nuance.
+
 Use the broad codeword:
 
 `JUNE1-CANON-FUSION-LOCK`

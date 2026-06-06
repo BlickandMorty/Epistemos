@@ -3,6 +3,14 @@
 Use this prompt when continuing full-architecture work in
 `/Users/jojo/Downloads/Epistemos`.
 
+> **Current paste-ready successor:** For new main-agent sessions, start from
+> `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`, then
+> read this file for the full architecture body. The 2026-06-06 prompt
+> supersedes the older freeform owner prompt without dropping this file's
+> nuance: it adds explicit research gates, L1/L2/L3 reporting, source-guard
+> build order, commit/push checkpoints, and the TurboVec/QAT runtime-plural
+> intake.
+
 You are working on Epistemos, a local cognitive substrate. Do not reduce it to
 a chatbot, notes app, model wrapper, MLX demo, or EML-only system. The spine is:
 
@@ -23,7 +31,8 @@ Intent
 
 - UAS is the primitive identity fabric.
 - OAS is semantic meaning/state over UAS addresses.
-- ColdStore is dormant residency. Do not abbreviate it as ACS.
+- ColdStore is dormant residency. Do not abbreviate it as ACS (Anchored Cognitive Substrate);
+  legacy ACS language belongs to AcsAnchor lineage.
 - `AcsAnchor` remains the coordinate/provenance anchor name.
 - SCOPE-Rex and SovereignGate own admission, verdicts, and action governance.
 - ActiveAssembly wakes the smallest useful set for the task.
@@ -31,6 +40,11 @@ Intent
 - EML is one Primitive-IR chart for elementary functions; it is not the whole
   substrate.
 - MLX is one execution runtime lane; it is not the architecture.
+- TurboVec/QAT/Gemma 4 research from 2026-06-06 is canon-candidate input:
+  MLX is first-lane on Apple Silicon, not the whole architecture;
+  GGUF/llama.cpp, LiteRT-LM, Transformers, custom Metal, and optional
+  user-selected local endpoints remain candidate execution organs under System
+  G / RuntimeRouter / SovereignGate / AnswerPacket.
 - Helios is lineage/umbrella language; product truth names the concrete organ.
 - MAS and Pro are the only distributable builds.
 - Research, Vault, Omega, heavy runtime, and future model-substrate work are
@@ -136,6 +150,32 @@ The app-owned SSD/AppColdStore atlas can hold much more addressable cognition
 than RAM. The runtime wins by choosing the right cold pieces before they become
 hot: notes, graph neighborhoods, KV pages, prompt caches, adapters, weight
 pages, verifier tools, primitive-IR kernels, and future parameter components.
+
+## TurboVec / QAT Runtime-Plural Lock
+
+Read these before any local model, compression, runtime-routing, Eidos vector,
+Gemma 4, TurboQuant, TurboVec, GGUF, LiteRT-LM, or repository-mining work:
+
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+
+Preserve the ambition: Epistemos should be MLX-first on Apple Silicon while
+remaining runtime-plural. GGUF/llama.cpp is the official QAT fallback/baseline,
+LiteRT-LM is the native Swift/macOS/iOS edge candidate, and optional local
+OpenAI-compatible endpoints are user-selected bridges only. The proprietary
+value is System G, RuntimeRouter, SovereignGate, UAS/OAS, Eidos, ColdStore,
+RunEventLog, AnswerPacket, falsifiers, rollback, and MAS/Pro gates above all
+runtimes.
+
+Preserve the rigor: Gemma 4 12B QAT GGUF/LiteRT is a Pro Gated target, not live
+product truth. E2B/E4B QAT are MAS/Pro candidates only after package-size,
+memory, cancellation, structured-output, loader, RunEventLog, and AnswerPacket
+witnesses. MLX Gemma 4 repos are not Swift runtime proof. TurboVec is an
+Eidos/AppColdStore compressed retrieval candidate, not durable truth and not
+hidden route authority. `F-ProprietaryCompression-ProvenanceGate` must record
+source URL, license, dependency status, digest, quarantine status, extracted
+API/parser/cache/test behavior, import mode, allowed action, and clean-room
+notes before public-repo logic enters product code.
 
 ## Semantic Working-Set Compiler
 

@@ -23,6 +23,9 @@ Start by reading and obeying:
 13. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
 14. `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
 15. `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`
+16. `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md`
+17. `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+18. `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
 
 Current naming/build lock:
 
@@ -35,6 +38,17 @@ Current naming/build lock:
 - The 16 GB local-reasoning target is: cold trillion, hot five billion,
   active minimum. This is a candidate architecture direction, not a shipped
   local-frontier claim.
+- The 2026-06-06 compression/runtime-plural lock is now part of the current
+  canon. MLX is first-lane on Apple Silicon, not the whole architecture.
+  GGUF/llama.cpp, LiteRT-LM, Transformers, custom Metal, and optional
+  user-selected local endpoints are candidate execution organs only under
+  System G / RuntimeRouter / SovereignGate / AnswerPacket. Gemma 4 12B QAT
+  GGUF/LiteRT is Pro Gated research target; MLX Gemma 4 repos are not Swift
+  loader proof. TurboVec is Eidos/AppColdStore compressed retrieval, not
+  durable truth or hidden route authority. Public repo logic must pass
+  `F-ProprietaryCompression-ProvenanceGate`: quarantine, inspect, benchmark,
+  extract behavior/tests/failure cases, then direct import, adapter-wrap, or
+  clean-room rewrite safely.
 - Ambition lock: do not assume the local frontier direction is impossible just
   because ordinary dense-resident models do not fit. Preserve the hypothesis
   that UAS-addressed SSD/AppColdStore bytes can become a much larger
