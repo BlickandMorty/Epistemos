@@ -1,0 +1,370 @@
+{
+  "falsifier_id": "F-TurboVec-RecallQualityExactBaseline",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_turbovec_recall_quality_exact_baseline.sh",
+  "command_digest": "sha256:3bd3644978643e28d07a5c6eb1aa8d22eaeecff32fbb29bd9b557a0dd3113f34",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "3ba3f308c5d78fec8a473e4f2f263bf4f47e6287",
+  "fixture_id": "turbovec_recall_quality_exact_baseline_v1",
+  "timestamp_utc": "2026-06-06T11:05:58Z",
+  "result_digest": "sha256:0dbb166c78d31713b96e7847d6e4d9450bb28b023c9db0679f702ab1fb7213a4",
+  "measurements": {
+    "accepted_fixture_count": {
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_recall_fixture_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "allowlist_subset_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "below_floor_without_fallback_count": {
+      "value": 0,
+      "unit": "queries"
+    },
+    "deleted_private_unknown_excluded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_ids_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_allowed_visible_query_count": {
+      "value": 1,
+      "unit": "queries"
+    },
+    "empty_result_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_app_cold_store_baseline_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_hit_query_count": {
+      "value": 1,
+      "unit": "queries"
+    },
+    "forbidden_result_count": {
+      "value": 0,
+      "unit": "ids"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_ledger_declared": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "turbovec_latency_memory_abstention_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_count": {
+      "value": 5,
+      "unit": "queries"
+    },
+    "query_coverage_complete": {
+      "value": true,
+      "unit": "bool"
+    },
+    "recall_floor_micros": {
+      "value": 900000,
+      "unit": "micros"
+    },
+    "recall_floor_or_abstention_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "recall_miss_abstained_query_count": {
+      "value": 1,
+      "unit": "queries"
+    },
+    "recall_quality_plan_address": {
+      "value": "turbovec_recall_quality_exact_baseline_plan:3a1c57cf29d30f2dc36724267b80e15640a25e8876ac9ff5b1c46fa04f6c014f@1779039400000",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "value": 53,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_crash_safe_persistent_index_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "worst_non_empty_recall_micros": {
+      "value": 500000,
+      "unit": "micros"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "plans"
+    },
+    "accepted_recall_fixture_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "allowlist_subset_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "below_floor_without_fallback_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "queries"
+    },
+    "deleted_private_unknown_excluded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_ids_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_allowed_visible_query_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "queries"
+    },
+    "empty_result_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_app_cold_store_baseline_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "exact_hit_query_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "queries"
+    },
+    "forbidden_result_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "ids"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_and_ssd_claims_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_memory_ledger_declared": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_enforced": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "==",
+      "value": "turbovec_latency_memory_abstention_plan",
+      "unit": "cursor"
+    },
+    "product_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "queries"
+    },
+    "query_coverage_complete": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "recall_floor_micros": {
+      "operator": "==",
+      "value": 900000,
+      "unit": "micros"
+    },
+    "recall_floor_or_abstention_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "recall_miss_abstained_query_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "queries"
+    },
+    "recall_quality_plan_address": {
+      "operator": "starts_with",
+      "value": "turbovec_recall_quality_exact_baseline_plan:",
+      "unit": "uas_address"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_floor": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reversed_order_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_and_index_bytes_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_crash_safe_persistent_index_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_cursor_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "worst_non_empty_recall_micros": {
+      "operator": "==",
+      "value": 500000,
+      "unit": "micros"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_fixture_count": true,
+    "accepted_recall_fixture_present": true,
+    "allowlist_subset_required": true,
+    "below_floor_without_fallback_count": true,
+    "deleted_private_unknown_excluded": true,
+    "duplicate_ids_rejected": true,
+    "empty_allowed_visible_query_count": true,
+    "empty_result_answer_packet_required": true,
+    "exact_app_cold_store_baseline_required": true,
+    "exact_hit_query_count": true,
+    "forbidden_result_count": true,
+    "hidden_route_authority_rejected": true,
+    "large_model_and_ssd_claims_rejected": true,
+    "latency_memory_ledger_declared": true,
+    "layer_separation_required": true,
+    "metadata_budget_enforced": true,
+    "next_research_to_build_unit": true,
+    "product_promotion_rejected": true,
+    "query_count": true,
+    "query_coverage_complete": true,
+    "recall_floor_micros": true,
+    "recall_floor_or_abstention_required": true,
+    "recall_miss_abstained_query_count": true,
+    "recall_quality_plan_address": true,
+    "red_fixture_rejection_count": true,
+    "red_fixture_rejection_floor": true,
+    "reversed_order_address_deterministic": true,
+    "rollback_run_event_answer_packet_required": true,
+    "runtime_and_index_bytes_zero": true,
+    "upstream_crash_safe_persistent_index_bound": true,
+    "upstream_cursor_verified": true,
+    "worst_non_empty_recall_micros": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "metadata_only_scope",
+      "detail": "No TurboVec crate imported, no exact baseline files opened, no index files opened, no model/runtime bytes loaded, no live recall-quality claim, and no L2/L3/product promotion."
+    }
+  ],
+  "notes": "Builds F-TurboVec-RecallQualityExactBaseline from the crash-safe persistent-index gate. Scope is T1/L1 metadata/tiny-fixture only: exact AppColdStore baseline refs, held-out query classes, recall floor or abstention, allowlist subset, deleted/private/unknown exclusion, rollback, RunEventLog, AnswerPacket, compatibility fence, and no product/runtime promotion."
+}

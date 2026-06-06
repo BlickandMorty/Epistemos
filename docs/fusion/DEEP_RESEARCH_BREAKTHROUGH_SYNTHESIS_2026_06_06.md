@@ -3510,10 +3510,12 @@ TurboVec-style Eidos cache must beat exact AppColdStore retrieval on retained
 source IDs, privacy-filtered candidates, latency, memory, and visible failure
 packets before it can influence large local model context selection.
 
-Safest next falsifier: `turbovec_recall_quality_exact_baseline_plan`, because
-stable IDs, filter-before-rank privacy, and crash-safe persistence are now
-specified, but no witness has yet proved approximate compressed retrieval is
-accurate enough against exact AppColdStore baselines.
+Safest next falsifier at pass twenty-seven time:
+`turbovec_recall_quality_exact_baseline_plan`, because stable IDs,
+filter-before-rank privacy, and crash-safe persistence were specified, but no
+witness had yet proved approximate compressed retrieval was accurate enough
+against exact AppColdStore baselines. This is now landed as
+`F-TurboVec-RecallQualityExactBaseline`.
 
 Best near-term code unit: implement a metadata-only or tiny-fixture recall
 quality plan that binds exact source IDs, held-out queries, deleted/private
@@ -3531,3 +3533,74 @@ duplicate, and empty-result cases.
 Next research query: "What exact-baseline recall, privacy, latency, memory,
 and rollback thresholds are sufficient before a TurboVec-style compressed
 Eidos cache can safely feed Gemma/QAT/large-local-model context selection?"
+
+## 42. Exact-Baseline Recall Quality Landed
+
+Observed on 2026-06-06 through local Rust code, local artifacts, upstream
+TurboVec API documentation, exact-baseline retrieval doctrine in this canon,
+and the current TurboVec/QAT intake:
+
+- primitive:
+  `agent_core/src/uas/turbovec_recall_quality_exact_baseline_plan.rs`
+- falsifier:
+  `agent_core/src/bin/falsify_turbovec_recall_quality_exact_baseline.rs`
+- command:
+  `Tools/falsifiers/f_turbovec_recall_quality_exact_baseline.sh`
+- artifact:
+  `artifacts/falsifiers/turbovec_recall_quality_exact_baseline/result.json`
+- witness:
+  `docs/falsifiers/F-TurboVec-RecallQualityExactBaseline_2026_06_06.md`
+
+`F-TurboVec-RecallQualityExactBaseline` is now PASS as a metadata-only T1/L1
+witness. It accepts 1 recall-quality plan, covers 5 held-out synthetic query
+fixtures, rejects 53 red fixtures, records worst non-empty recall `500000`
+only in the explicit abstention fixture, and records zero exact-baseline,
+index, model, runtime, or provider bytes opened or loaded. It proves
+approximate compressed results must be checked against exact AppColdStore
+baselines, stay inside Scope/Sovereign allowlists, exclude deleted/private/
+unknown IDs, dedupe duplicate sources, emit visible empty-result AnswerPackets,
+and abstain or fallback when recall misses the floor.
+
+### 42.1 Larger-Local-Model Bias
+
+This helps the large-local-model plan because Gemma 4 QAT, Qwen3-Coder,
+31B/Vault, and 70B-class cold assembly need compact context selection that is
+not merely fast, but faithful. The breakthrough path is not "use a compressed
+index because it exists"; it is "prove compressed retrieval preserves the exact
+source set or visibly abstains before a large local model receives context."
+
+### 42.2 Non-Promotion
+
+This pass does not import TurboVec code, build an index, open exact baseline
+files, prove live recall, prove latency, choose RuntimeRouter/System G routes,
+run models, make L2/L3 product capability green, or prove live dense 70B. It
+advances the research-to-build ladder only.
+
+### 42.3 Pass-Twenty-Eight Register
+
+Best breakthrough candidate: latency/memory/timeout-aware compressed retrieval
+where exact-baseline quality is not enough by itself; the cache must also
+declare memory, latency, cancellation, timeout, and abstention envelopes before
+feeding local large-model context.
+
+Safest next falsifier: `turbovec_latency_memory_abstention_plan`, because
+exact-baseline quality is now specified, but no witness has yet proved bounded
+latency, bounded memory, timeout/cancellation behavior, and abstention when the
+compressed cache is too expensive or too uncertain.
+
+Best near-term code unit: implement a metadata-only latency/memory abstention
+plan that binds query class, top_k, planned bytes, timeout, cancellation,
+fallback route, no hidden route authority, rollback, RunEventLog,
+AnswerPacket, and zero model/runtime bytes.
+
+Biggest false-claim risk: treating exact-baseline recall metadata as live
+recall, speed, product capability, or permission to route Gemma/QAT/large local
+models through compressed retrieval.
+
+Biggest missing source: exact Epistemos latency and memory envelope fixtures
+for tiny compressed retrieval, including timeout, cancellation, and abstention
+without route mutation.
+
+Next research query: "What latency, memory, cancellation, timeout, and
+abstention envelopes are sufficient before exact-baseline TurboVec-style
+compressed retrieval can safely feed local large-model context selection?"

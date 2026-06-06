@@ -647,7 +647,23 @@ partial writes without rollback, corrupt cache without rebuild, stale pointers,
 permission-denied promotion, hidden authority, Eidos-as-live-router, byte
 loads, live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject. The next
 retrieval/index research-to-build unit is
-`turbovec_recall_quality_exact_baseline_plan`.
+`turbovec_latency_memory_abstention_plan`.
+
+`F-TurboVec-RecallQualityExactBaseline` is now built as the exact-baseline
+quality branch after crash-safe persistence. Implemented anchors include
+`agent_core/src/uas/turbovec_recall_quality_exact_baseline_plan.rs`, its
+falsifier binary and script, witness doc, schema/handbook rows, and artifact
+under `artifacts/falsifiers/turbovec_recall_quality_exact_baseline/`. The
+witness accepts 1 recall-quality plan, covers 5 held-out synthetic query
+fixtures, rejects 53 red fixtures, and records zero exact-baseline/index/model/
+runtime/provider bytes opened or loaded. It proves approximate compressed
+results must be compared against exact AppColdStore baselines, remain a subset
+of Scope/Sovereign allowlists, exclude deleted/private/unknown IDs, dedupe
+duplicate sources, emit visible empty-result AnswerPackets, and abstain or
+fallback when recall misses the floor. Hidden route authority, route mutation,
+live dense 70B, SSD-as-RAM, and L2/L3 promotion all reject. The next
+retrieval/index research-to-build unit is
+`turbovec_latency_memory_abstention_plan`.
 
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
@@ -656,6 +672,7 @@ retrieval/index research-to-build unit is
 `F-TurboVec-UASAddressStableExternalIds`,
 `F-TurboVec-FilterBeforeRankPrivacyGate`,
 `F-TurboVec-CrashSafePersistentIndex`,
+`F-TurboVec-RecallQualityExactBaseline`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

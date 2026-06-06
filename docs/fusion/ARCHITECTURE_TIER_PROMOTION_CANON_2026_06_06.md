@@ -217,8 +217,9 @@ cloud fallback, live dense 70B, SSD-as-RAM, and nonzero registry/index/model/
 runtime/provider bytes. It does not import TurboVec, persist registry bytes,
 build an index, prove recall quality, choose System G routes, make L2/L3
 product capability green, or promote live dense 70B. Filter-before-rank
-privacy and crash-safe persistence are now covered; the next retrieval/index
-research-to-build unit is now `turbovec_recall_quality_exact_baseline_plan`.
+privacy, crash-safe persistence, and exact-baseline recall quality are now
+covered; the next retrieval/index research-to-build unit is now
+`turbovec_latency_memory_abstention_plan`.
 
 2026-06-06 TurboVec filter-before-rank privacy clarification:
 `F-TurboVec-FilterBeforeRankPrivacyGate` is T1/L1 only. It strengthens the
@@ -233,8 +234,9 @@ SSD-as-RAM, and nonzero search/index/model/runtime/provider bytes. It does not
 import TurboVec, build or persist an index, prove recall quality, choose System
 G routes, make L2/L3 product capability green, or promote live dense 70B.
 Crash-safe persistence is now covered by
-`F-TurboVec-CrashSafePersistentIndex`; the next retrieval/index
-research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`.
+`F-TurboVec-CrashSafePersistentIndex`; exact-baseline recall quality is now
+covered by `F-TurboVec-RecallQualityExactBaseline`; the next retrieval/index
+research-to-build unit is `turbovec_latency_memory_abstention_plan`.
 
 2026-06-06 TurboVec crash-safe persistent-index clarification:
 `F-TurboVec-CrashSafePersistentIndex` is T1/L1 only. It strengthens the
@@ -247,9 +249,27 @@ without rollback, corrupt cache without rebuild, stale manifest pointers,
 permission-denied promotion, hidden route authority, Eidos-as-live-router,
 hidden cloud fallback, live dense 70B, SSD-as-RAM, and nonzero opened/written/
 loaded index/model/runtime/provider bytes. It does not import TurboVec, write
-`.tv`/`.tvim` files, prove recall quality, choose System G routes, make L2/L3
-product capability green, or promote live dense 70B. The next retrieval/index
-research-to-build unit is `turbovec_recall_quality_exact_baseline_plan`.
+`.tv`/`.tvim` files, choose System G routes, make L2/L3 product capability
+green, or promote live dense 70B. Exact-baseline recall quality is now covered
+by `F-TurboVec-RecallQualityExactBaseline`; the next retrieval/index
+research-to-build unit is `turbovec_latency_memory_abstention_plan`.
+
+2026-06-06 TurboVec exact-baseline recall-quality clarification:
+`F-TurboVec-RecallQualityExactBaseline` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by proving that compressed
+TurboVec/Eidos retrieval must be scored against exact AppColdStore baselines
+before it can influence context selection. It requires held-out query packs,
+declared recall-at-k micros, result-subset allowlists, deleted/private/unknown
+ID exclusion, duplicate ID rejection, visible empty-result AnswerPackets,
+miss-floor fallback/abstention, rollback, RunEventLog, AnswerPacket,
+compatibility fence, and latency/memory ledger placeholders for the next rung.
+It rejects laundered recall, hidden route authority, Eidos-as-live-router,
+query-time route mutation, hidden cloud fallback, live dense 70B, SSD-as-RAM,
+MAS/L2/L3 promotion, and nonzero exact-baseline/index/model/runtime/provider
+bytes. It does not import TurboVec, build an index, run model bytes, prove
+latency or memory envelopes, choose System G routes, make L2/L3 product
+capability green, or promote live dense 70B. The next retrieval/index
+research-to-build unit is `turbovec_latency_memory_abstention_plan`.
 
 ## Required Surface Updates
 
