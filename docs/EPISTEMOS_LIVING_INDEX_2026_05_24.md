@@ -1048,7 +1048,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   native-link absence preflight has also landed in
   `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`. The
+  `turbovec_quarantine_real_adapter_native_dry_run_execution_probe` after
+  `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterMotifExtractionCardProbe`
@@ -1083,7 +1084,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   native-link absence preflight has also landed in
   `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`; the current
   retrieval unit is
-  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`. The
+  `turbovec_quarantine_real_adapter_native_dry_run_execution_probe` after
+  `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`. The
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`
@@ -1192,7 +1194,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   now-landed
   `turbovec_quarantine_real_adapter_native_link_absence_preflight_probe`; the
   current TurboVec retrieval side-ladder unit is
-  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; the
+  `turbovec_quarantine_real_adapter_native_dry_run_execution_probe` after
+  `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** ·
@@ -1224,8 +1227,41 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   additional TurboVec raw source, clone TurboVec, import source, build adapters,
   probe runtime, open indexes, load Gemma/QAT/GGUF/MLX/LiteRT/model bytes,
   mutate RuntimeRouter/System G routes, advance L2, or make L3 user-facing
-  model capability green. The next TurboVec retrieval side-ladder unit is
-  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`; the
+  model capability green. The former next TurboVec retrieval side-ladder unit
+  `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe` has
+  landed in `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`; the current
+  side-ladder unit is
+  `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`; the
+  guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** ·
+  `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is now built as the
+  metadata-only command-envelope witness after native-link absence preflight:
+  `agent_core/src/uas/turbovec_real_adapter_owner_approved_native_dry_run_probe.rs`,
+  export surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_turbovec_real_adapter_owner_approved_native_dry_run_probe.rs`,
+  script
+  `Tools/falsifiers/f_turbovec_real_adapter_owner_approved_native_dry_run_probe.sh`,
+  witness page
+  `docs/falsifiers/F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe_2026_06_06.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness binds pinned revision
+  `efe29a184986cbf562a9847c2ac52a2990bfaca2` to 8 visible command cards, pending
+  owner approval, zero armed commands, zero executed commands, zero linker
+  invocations, zero model bytes, planned quarantine bytes `262144`, 60 rejected
+  red fixtures, rollback, RunEventLog, AnswerPacket, compatibility fence, and no
+  hidden route authority. This is T1/L1 metadata-only. It does not clone
+  TurboVec, import source, add dependencies, execute build scripts, run Cargo
+  builds, invoke linkers, load dynamic libraries, build Python extensions, run
+  benchmarks, create quarantine directories, open indexes, load
+  Gemma/QAT/GGUF/MLX/LiteRT/model bytes, mutate RuntimeRouter/System G routes,
+  advance L2, or make L3 user-facing model capability green. The next TurboVec
+  retrieval side-ladder unit is
+  `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`; the
   guard-owned cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-GemmaQAT-LocalRuntimeCandidateCard` is now built
@@ -2438,7 +2474,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 | Superseded | Old name/mechanism replaced by a cleaner current organ. |
 | Deprecated | Old path should not receive new work except compatibility removal/migration. |
 
-## 6 · CURRENT STATE (2026-05-27 — Wave 4 checkpoint + closeouts)
+## 6 · CURRENT STATE (2026-06-06 — architecture hardening checkpoint)
 
 ### Wired and on main
 - 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
@@ -2487,7 +2523,7 @@ for the exact current commit.
 - `Tools/falsifiers/kv_direct_prompt_suite.sh` now emits `artifacts/falsifiers/kv_direct_gate/prompt_suite.json`: the canonical 100-prompt / 128K / 256-decode input manifest for the live Qwen3-8B KV run.
 - `Tools/falsifiers/run_kv_direct_mlx_live.sh` now loads the local Qwen3-8B MLX snapshot and emits MLX runner outputs under `artifacts/falsifiers/kv_direct_gate/live_mlx/`. The 2026-05-28 smoke runs produced paired full-vocabulary logit rows and a `prompt_cache_reload` file-backed cache witness; the prompt-cache smoke wrote a 75 MB cache file and had low D_KL, but it used only 1 prompt / 512 context / 1 decode token with `spill_labeling=false`. The runner also accepts `--prompt-offset`, and `Tools/falsifiers/merge_kv_direct_mlx_shards.sh` merges restartable shards into the canonical falsifier input bundle. This is plumbing evidence only, not a green KV-Direct witness.
 - `Tools/falsifiers/plan_kv_direct_mlx_shards.sh --shard-size 1 --prefill-step-size 512 --write-shell` now writes `artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json` plus `run_all_shards.sh`: a 100-shard, one-prompt-per-shard 128K / 256-decode execution map. The Capability Ceiling kernel reads this as `kv_direct_full_suite_run_plan_available=true`, while preserving `falsifier_green_capable=false` for the current `prompt_cache_reload` development route. The planner now records model identity and supports explicit `--model-path`; the separate candidate plan at `artifacts/falsifiers/kv_direct_gate/live_mlx_candidate_qwen3_coder_next_plan/full_suite_run_plan.json` targets `mlx-community/Qwen3-Coder-Next-4bit` and is marked `model_identity_matches_canonical=false`, so it is runtime research evidence only.
-- `Tools/falsifiers/f_architecture_pending_work_guard.sh` now emits `artifacts/falsifiers/architecture_pending_work_guard/result.json`: the de-dup cursor for recursive loops. Current default cursor is `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe` after retained L1 runtime `F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe`, packetized `F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe`, source/test `F-SmallModelRuntimeHarnessProductWrvProbe`, retained-live `F-SmallModelRuntimeHarnessProductAnswerPacketLiveProbe`, red-state `F-SmallModelRuntimeHarnessProductRouteCapabilityRecheck`, metadata-only `F-SmallModelRuntimeHarnessFreshProductRuntimeSafetyLease`, L1-only fresh sidecar `F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe`, L1-only fresh AnswerPacket packetization `F-SmallModelRuntimeHarnessFreshProductRuntimeAnswerPacketProbe`, L1/L3-source `F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe`, blocker-ledger `F-SmallModelRuntimeHarnessFreshProductRuntimeCapabilityRecheck`, L1/L3-source log correlation `F-SmallModelRuntimeHarnessFreshProductRuntimeL3LogCorrelationProbe`, visible manual-review evidence `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe`, red closeout `F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe`, and release-audit preflight `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe`. The chain proves one retained redacted Qwen3-4B first token, real retained AnswerPacket/RunEventLog sidecars, product source/test WRV, product-surface handoff to retained proof, explicit L2/L3 blocker cards, a fresh product runtime safety lease, one fresh redacted Qwen3-4B product-path token under byte/timing budgets, fresh product-runtime AnswerPacket/RunEventLog proof with zero new packetization bytes, fresh product-runtime source/test WRV with zero new model/runtime bytes, a fresh capability blocker recheck with zero new recheck bytes, log-correlated token/stop/privacy/WRV evidence with zero new correlation bytes, manual-review visibility over Living Index, lattice HTML, AnswerPacket, RunEventLog, and the red capability ledger with zero new manual byte loads, closeout evidence with 8 residual blocker cards and zero closeout runtime/model byte loads, and release-audit preflight evidence with 9 blocker cards, log-first/zero-fail skill binding, and zero preflight runtime/model byte loads; it does not promote L2 product capability or claim ship readiness. The 128K Qwen/GGUF/KV shard lane and 70B provider-reference lane are preserved as red research evidence but deferred unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set. The preserved MLX `shard_000_000` failure still proves the first 128K prompt emitted zero rows (`2048` prefill: Metal interactivity abort; `512` prefill: stopped after about 14 minutes), but agents must not repair or rerun that shard or create provider-reference manifests in the default architecture loop.
+- `Tools/falsifiers/f_architecture_pending_work_guard.sh` now emits `artifacts/falsifiers/architecture_pending_work_guard/result.json`: the de-dup cursor for recursive loops. Current default cursor is `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe` after the zero-fail boundary proved release audit is still required rather than complete. The automated-checks ledger is currently red, so L1 queue integrity is honest but not advanced, L2 remains `vault_research_route_with_packetized_mitigation`, and L3 user-facing/product capability plus release readiness remain unchanged. The TurboVec/QAT research-to-build side-ladder now includes `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` as metadata-only command-envelope proof with pending owner approval, unarmed commands, zero model/runtime bytes, and next side-ladder unit `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`; this does not change the guard-owned cursor. The 128K Qwen/GGUF/KV shard lane and 70B provider-reference lane are preserved as red research evidence but deferred unless `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` is set. The preserved MLX `shard_000_000` failure still proves the first 128K prompt emitted zero rows (`2048` prefill: Metal interactivity abort; `512` prefill: stopped after about 14 minutes), but agents must not repair or rerun that shard or create provider-reference manifests in the default architecture loop.
 - `Tools/falsifiers/f_residency_construction_graph.sh` now emits and validates `artifacts/falsifiers/residency_construction_graph/result.json` as the first Research Construction Engine primary witness. It proves a metadata-only `ResidencyConstructionGraph` binds task signature, source-card-backed candidate units, coactivation edges, incompatibility edges, verifier edges, and cold-miss history into a deterministic assembly score; invalid, over-budget, and rollback-missing assemblies reject before runtime; runtime/model bytes loaded remain zero.
 - `Tools/falsifiers/f_coactivation_tile_prefetch.sh` now emits and validates `artifacts/falsifiers/coactivation_tile_prefetch/result.json` as the second Research Construction Engine primary witness. It proves metadata-only `CoactivationTile` manifests bind UAS addresses, byte ranges, codecs, verifier history, prefetch cost, reuse horizon, and rollback, then compile a bounded prefetch order with `0` compiled misses versus `2` file-order misses and `2` deterministic-random misses. Runtime/model bytes loaded remain zero.
 - `Tools/falsifiers/f_proof_carrying_residency_lease.sh` now emits and validates `artifacts/falsifiers/proof_carrying_residency_lease/result.json` as the third Research Construction Engine primary witness. It proves metadata-only `ProofCarryingResidencyLease` envelopes bind UAS address, reason, active byte cost, expected utility, proof/falsifier reference, expiry, fallback, and rollback; `2` valid cold-byte wakes authorize while `8` missing/expired/wrong/over-budget cases reject; runtime/model bytes loaded remain zero.

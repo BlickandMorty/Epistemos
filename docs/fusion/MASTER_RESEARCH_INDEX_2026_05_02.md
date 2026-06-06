@@ -54,7 +54,9 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-TurboVec-RealAdapterMotifExtractionCardProbe` ->
 > `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe` ->
 > `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe` ->
-> `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`. Current model-ladder built truth:
+> `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` ->
+> `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` ->
+> `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`. Current model-ladder built truth:
 > `artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
 > passes T1/L1 metadata with the selected Gemma 4 E2B QAT GGUF model, direct
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
@@ -65,19 +67,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Research/Vault until residency, routing, transport, memory, rollback,
 > RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
 > truth extends through
-> `artifacts/falsifiers/turbovec_real_adapter_product_graph_no_contamination_probe/result.json`,
-> which passes T1/L1 metadata/source-scan with the pinned TurboVec revision
-> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 7 audited rows, 171 scanned
-> files, 978369 scanned product bytes, 88997 scanned manifest bytes, 1634929
-> scanned architecture/canon metadata bytes, 1916 quarantined architecture/
-> canon TurboVec mentions, 0 forbidden TurboVec product mentions, 0 product
-> imports, 0 product dependencies, 0 native-link mentions, 0 route-policy
-> mentions, 0 model-context mentions, 0 user-facing green-copy mentions, 50
-> red-fixture rejections, no product graph mutation, no hidden route authority,
-> no live dense 70B claim, and no L2/L3 product capability. Downstream
-> native-link absence preflight is now landed; the next retrieval/index
+> `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,
+> which passes T1/L1 metadata with the pinned TurboVec revision
+> `efe29a184986cbf562a9847c2ac52a2990bfaca2`, 8 visible command cards, pending
+> owner approval, zero armed commands, zero executed commands, zero linker
+> invocations, zero model bytes, planned quarantine bytes `262144`, 60
+> red-fixture rejections, rollback, RunEventLog, AnswerPacket, compatibility
+> fence, no product route mutation, no hidden route authority, no live dense 70B
+> claim, and no L2/L3 product capability. The next retrieval/index
 > research-to-build unit is
-> `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
+> `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`.
 
 ---
 
@@ -961,6 +960,22 @@ TurboVec/fork step must be owner-approved native dry-run proof before any
 adapter build, runtime, compressed retrieval route, or model-context route can
 promote.
 
+`F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is now built as the
+metadata-only owner-approved native dry-run command envelope after native-link
+absence preflight. Implemented anchors include
+`agent_core/src/uas/turbovec_real_adapter_owner_approved_native_dry_run_probe.rs`,
+its falsifier binary and script, witness doc, schema/handbook rows, and
+artifact under
+`artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/`.
+The witness binds 8 visible command cards, pending owner approval, zero armed
+commands, zero executed commands, zero linker invocations, zero model bytes,
+planned quarantine bytes `262144`, 60 rejected red fixtures, rollback,
+RunEventLog, AnswerPacket, compatibility fence, and no build/link/Python/product
+route/benchmark/model/runtime/provider execution. It proves the next real
+TurboVec/fork step must be quarantined native dry-run execution proof before any
+adapter build, runtime, compressed retrieval route, or model-context route can
+promote.
+
 **Status discipline.** `F-ModelInventory-ZeroByteCandidateCards`,
 `F-ProprietaryCompression-ProvenanceGate`,
 `F-CompressedModelSourceCard-Intake`,
@@ -983,6 +998,8 @@ promote.
 `F-TurboVec-RealAdapterCleanRoomAdapterPlanProbe`,
 `F-TurboVec-RealAdapterExactBaselineShadowReplayProbe`,
 `F-TurboVec-RealAdapterProductGraphNoContaminationProbe`,
+`F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe`,
+`F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe`,
 `F-GemmaQAT-LocalRuntimeCandidateCard`,
 `F-QAT-ModelRouteCard-MemoryPreflight`,
 `F-CompressedRoute-AnswerPacket-DryRun`, and

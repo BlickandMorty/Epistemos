@@ -301,17 +301,23 @@ If a source/canon guard is needed before the next runtime step, use this order:
    Living Index and lattice HTML must identify metadata-only/L1 versus L2/L3
    status and must not use product/live/user-ready copy for metadata witnesses.
 3a. Current retrieval/index truth:
+   `F-TurboVec-RealAdapterOwnerApprovedNativeDryRunProbe` is now built
+   metadata-only; preserve its 8 visible command cards, pending owner approval,
+   zero armed commands, zero executed commands, zero linker invocations, zero
+   model bytes, planned quarantine bytes `262144`, 60 rejected red fixtures,
+   rollback, RunEventLog, AnswerPacket, compatibility fence, zero build script
+   executions, Cargo builds, dynamic-library loads, Python extension builds,
+   product dependencies, product route mutations, benchmark authority,
+   runtime/provider/index bytes, hidden route authority, live dense 70B, and no
+   L2/L3 promotion. The next retrieval/index research-to-build unit is
+   `turbovec_quarantine_real_adapter_native_dry_run_execution_probe`.
+3a-1. Historical retrieval/index truth:
    `F-TurboVec-RealAdapterNativeLinkAbsencePreflightProbe` is now built
    metadata-only; preserve its 11 native-link/build risk rows, 2
    target-specific native-link surfaces, 3 Python native-boundary surfaces, 2
    product surface preflight rows, 56 rejected red fixtures, rollback,
-   RunEventLog, AnswerPacket, compatibility fence, zero build script
-   executions, Cargo builds, linker invocations, dynamic-library loads, Python
-   extension builds, environment mutations, product dependencies, product route
-   mutations, benchmark runs, runtime/model/provider bytes, hidden route
-   authority, live dense 70B, and no L2/L3 promotion. The next retrieval/index
-   research-to-build unit is
-   `turbovec_quarantine_real_adapter_owner_approved_native_dry_run_probe`.
+   RunEventLog, AnswerPacket, compatibility fence, and no L2/L3 promotion as
+   upstream proof for the current owner-approved native dry-run envelope.
 3b. Historical retrieval/index truth:
    `F-TurboVec-RealAdapterProductGraphNoContaminationProbe` is now built
    metadata/source-scan only; preserve its 7 audited rows, 171 scanned files,
