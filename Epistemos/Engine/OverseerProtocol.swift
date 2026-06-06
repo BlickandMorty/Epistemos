@@ -584,6 +584,24 @@ final class OverseerComplexityRouter {
             attachmentCount: attachmentCount,
             contentLength: contentLength
         )
+
+        if isManagedAgentQuery(
+            query: query,
+            analysis: analysis,
+            contentLength: contentLength,
+            attachmentCount: attachmentCount
+        ) {
+            return .managedAgentSession
+        }
+
+        if operatingMode == .fast,
+           !hasExplicitContext,
+           attachmentCount == 0,
+           contentLength < 2_000,
+           !shouldPlanToolsInChat {
+            return .localOnly
+        }
+
         switch effectiveSelection {
         case .cloud(let model):
             if model.provider.supportsAgentTier,
@@ -608,21 +626,8 @@ final class OverseerComplexityRouter {
             }
         }
 
-        if isManagedAgentQuery(
-            query: query,
-            analysis: analysis,
-            contentLength: contentLength,
-            attachmentCount: attachmentCount
-        ) {
-            return .managedAgentSession
-        }
-
         if operatingMode == .agent {
             return .overseerLocalExecution
-        }
-
-        if operatingMode == .fast && !hasExplicitContext && attachmentCount == 0 && contentLength < 2_000 {
-            return .localOnly
         }
 
         if shouldPlanToolsInChat {
@@ -668,6 +673,7 @@ final class OverseerComplexityRouter {
         hasExplicitContext: Bool
     ) -> InferenceTaskIntent {
         let normalized = query.lowercased()
+        let tokens = Set(normalized.split { !$0.isLetter && !$0.isNumber }.map(String.init))
         if normalized.contains("```")
             || normalized.contains("stack trace")
             || normalized.contains("compiler")
@@ -699,10 +705,14 @@ final class OverseerComplexityRouter {
             || (hasExplicitContext && analysis.complexity >= 0.45) {
             return .synthesis
         }
-        if normalized.contains("graph")
-            || normalized.contains("node")
-            || normalized.contains("edge")
-            || normalized.contains("backlink") {
+        if tokens.contains("graph")
+            || tokens.contains("graphs")
+            || tokens.contains("node")
+            || tokens.contains("nodes")
+            || tokens.contains("edge")
+            || tokens.contains("edges")
+            || tokens.contains("backlink")
+            || tokens.contains("backlinks") {
             return .graphAnalysis
         }
         if normalized.contains("analyze")
@@ -750,6 +760,13 @@ final class OverseerComplexityRouter {
             return true
         }
 
+        if normalized.contains("research"),
+           normalized.contains(" from ") || normalized.contains("sources")
+            || normalized.contains("papers") || normalized.contains("then write")
+            || normalized.contains("manifesto") {
+            return true
+        }
+
         if attachmentCount >= 4 && analysis.complexity >= 0.6 {
             return true
         }
@@ -773,9 +790,9 @@ final class OverseerComplexityRouter {
         }
 
         switch intent {
-        case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
+        case .coding, .debugging, .graphAnalysis:
             return true
-        case .simpleAsk, .rewrite, .summarize, .brainstorm:
+        case .simpleAsk, .rewrite, .summarize, .brainstorm, .comparison, .synthesis, .noteAnalysis:
             return false
         }
     }
@@ -914,6 +931,7 @@ final class OverseerComplexityRouter {
             OverseerToolPermission(toolName: "note.create", mode: .deny),
         ].filter {
             ToolSurfacePolicy.isSurfacedToolName($0.toolName, distribution: distribution)
+                && (distribution != .coreAppStore || $0.toolName != "web.fetch")
         }
     }
 
@@ -948,8 +966,7 @@ final class OverseerComplexityRouter {
     private func permissionMode(for tool: OmegaToolDefinition) -> OverseerToolPermissionMode? {
         let name = tool.name.lowercased()
 
-        if tool.destructive
-            || name.contains("delete")
+        if name.contains("delete")
             || name.contains("trash") {
             return .deny
         }
@@ -961,6 +978,10 @@ final class OverseerComplexityRouter {
             || name.contains("move")
             || name.contains("patch") {
             return .ask
+        }
+
+        if tool.destructive {
+            return .deny
         }
 
         if name.contains("web")
