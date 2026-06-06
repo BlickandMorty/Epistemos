@@ -393,8 +393,11 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   falsifier remains `F-ProprietaryCompression-ProvenanceGate`; the guard-owned
   coding cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
-  This is research/canon only: no product code was edited, no heavy runtime
-  probe was run, and L2/L3 stay unpromoted.
+  Pass two adds GitHub/Hugging Face/local Swift source-card snapshots for
+  TurboVec, TurboQuant forks, Gemma 4 QAT cards, KTransformers, vLLM, LMCache,
+  FlexLLMGen, PowerInfer, KIVI, LayerSkip, MLX Swift, and llama.cpp, plus
+  import-mode classifications. This is research/canon only: no product code
+  was edited, no heavy runtime probe was run, and L2/L3 stay unpromoted.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now

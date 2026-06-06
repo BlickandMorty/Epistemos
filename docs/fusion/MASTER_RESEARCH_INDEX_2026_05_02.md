@@ -256,6 +256,12 @@ KV/page-table motifs, and proof-search feedback all feed
 `AnswerPacket` through explicit provenance, byte accounting, rollback, and
 promotion tiers.
 
+**Pass-two source-card sweep.** The memo now includes current GitHub and Hugging
+Face metadata for TurboVec, TurboQuant forks, Gemma 4 QAT model cards,
+KTransformers, vLLM, LMCache, FlexLLMGen, PowerInfer, KIVI, LayerSkip, MLX
+Swift, and llama.cpp, plus local Swift runtime evidence that Gemma 4 remains
+excluded from automatic Epistemos routing until loader proof exists.
+
 **Status discipline.** This is T0 research/canon only. It does not promote live
 dense 70B, live sparse 70B, product capability, release readiness, hidden
 runtime authority, or any runtime lane. The next research-derived falsifier is

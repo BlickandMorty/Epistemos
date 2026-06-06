@@ -398,3 +398,113 @@ Gemma 4 QAT lanes under Epistemos-owned harness conditions.
 Next research query: "Which Gemma 4 QAT GGUF/LiteRT/MLX candidates can be
 source-carded and memory-preflighted without loading model bytes, and which
 runtime lane has the cleanest path to an owner-approved small live proof?"
+
+## 16. Pass 2 - GitHub, Model-Card, And Local Swift Source-Card Sweep
+
+Observed on 2026-06-06. Star/fork counts are discovery signals, not product
+evidence. A repo, model card, README, or fork proves source availability only;
+it does not prove Epistemos runtime support, MAS readiness, L2 capability, or
+L3 user-facing proof.
+
+### 16.1 GitHub Source Cards
+
+| Source | Stars / forks | Last push | License | Import mode | Epistemos use |
+|---|---:|---|---|---|---|
+| `RyanCodrai/turbovec` | 4521 / 436 | 2026-05-30 | MIT | `adapter_wrap` first, then possible `direct_import` | Primary TurboVec evaluation target for Eidos/AppColdStore compressed recall. |
+| `sharpner/turboquant-mlx` | 66 / 10 | 2026-05-06 | no assertion | `quarantine_reference` | Apple Silicon TurboQuant/KV experiment motifs only; no product import. |
+| `jagmarques/nexusquant` | 16 / 0 | 2026-05-28 | no assertion | `quarantine_reference` | E8 lattice VQ / asymmetric KV motifs; source-card only. |
+| `TheTom/turboquant_plus` | 6909 / 917 | 2026-06-01 | Apache-2.0 | `adapter_wrap` / `clean_room_rewrite` | High-signal compression research; mine tests and APIs before any code path. |
+| `jorgebmann/pyturboquant` | 404 / 42 | 2026-06-05 | MIT | `quarantine_reference` / `clean_room_rewrite` | Python oracle for TurboQuant fixture behavior. |
+| `mutable-state-inc/gemma4metal` | 6 / 0 | 2026-04-13 | MIT | `research_only` | Negative/low-scale Metal Gemma 4 signal; useful for failure cards. |
+| `mutable-state-inc/turboquant-llama3.170B` | 9 / 0 | 2026-04-14 | MIT | `research_only` | 70B/TurboQuant claim source-card only; no runtime promotion. |
+| `RecursiveIntell/turbo-quant` | 28 / 7 | 2026-05-31 | MIT | `quarantine_reference` | Rust TurboQuant/PolarQuant/QJL motifs; compare with older local research. |
+| `ericcurtin/inferrs` | 457 / 42 | 2026-04-24 | Apache-2.0 | `adapter_wrap` | TurboQuant inference-server motifs; Pro Research only. |
+| `jonpojonpo/turbo-vec` | 0 / 0 | 2026-03-25 | MIT | `research_only` | Too small to depend on; may provide independent failure/contrast notes. |
+| `kvcache-ai/ktransformers` | 17250 / 1311 | 2026-06-05 | Apache-2.0 | `quarantine_reference` / `clean_room_rewrite` | Heterogeneous local inference and placement motifs for ResidencyPageTable. |
+| `vllm-project/vllm` | 82022 / 17702 | 2026-06-06 | Apache-2.0 | `quarantine_reference` | PagedAttention/block-table motifs; server runtime is not product lane. |
+| `LMCache/LMCache` | 8428 / 1251 | 2026-06-05 | Apache-2.0 | `quarantine_reference` | KV reuse/offload motifs for KVLineageGraph and compatibility fences. |
+| `FMInference/FlexLLMGen` | 9365 / 590 | 2024-10-28 | Apache-2.0 | `quarantine_reference` | Scheduled offload motif; older but still useful for ColdStream planning. |
+| `Tiiny-AI/PowerInfer` | 9531 / 578 | 2026-05-11 | MIT | `quarantine_reference` | Activation locality / hot-cold neuron split motif for sparse wake plans. |
+| `jy-yuan/KIVI` | 403 / 54 | 2025-11-20 | MIT | `clean_room_rewrite` | KV quantization source-card; no direct runtime mutation without fence. |
+| `facebookresearch/LayerSkip` | 372 / 42 | 2026-04-13 | no assertion | `quarantine_reference` | Early-exit/self-speculation motif; DepthLease only. |
+| `ml-explore/mlx-swift` | 1876 / 233 | 2026-06-01 | MIT | existing dependency / source-card | Apple MLX Swift runtime lane; not all models supported. |
+| `ml-explore/mlx-swift-examples` | 2573 / 398 | 2026-04-17 | MIT | `quarantine_reference` | Example/runtime motifs; does not prove Epistemos product route. |
+| `ggml-org/llama.cpp` | 114860 / 19223 | 2026-06-05 | MIT | existing local-client lane / source-card | GGUF runtime lane candidate under RuntimeRouter/System G. |
+
+Pass-two conclusion: the highest-confidence near-term implementation is still
+not a live large-model run. It is the source-card gate that can turn these
+repos into explicit, testable import decisions. `direct_import` should be rare.
+Most frontier repos belong in `quarantine_reference` or `clean_room_rewrite`
+until Epistemos has license, digest, API, dependency, benchmark, and failure
+case cards.
+
+### 16.2 Hugging Face Model-Card Snapshot
+
+| Model/source card | Last modified | Downloads / likes | Tags observed | Epistemos status |
+|---|---|---:|---|---|
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | 2026-06-05 | 0 / 30 | `transformers`, `gguf` | Pro Gated GGUF source-card; no runtime proof. |
+| `google/gemma-4-12B-it-qat-q4_0-unquantized` | 2026-06-05 | 68 / 10 | `transformers`, `safetensors` | Reference/source card, not local default. |
+| `mlx-community/gemma-4-12B-it-qat-4bit` | 2026-06-05 | 0 / 1 | `mlx`, `safetensors` | MLX ecosystem signal; not Swift product proof. |
+| `litert-community/gemma-4-12B-it-litert-lm` | 2026-06-03 | 10312 / 15 | `litert-lm` | Strong LiteRT-LM source-card candidate. |
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | 2026-06-05 | 91 / 11 | `transformers`, `gguf` | Small QAT source-card candidate. |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | 2026-06-05 | 70 / 10 | `transformers`, `gguf` | Small QAT source-card candidate. |
+| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | 2026-06-05 | 47 / 20 | `transformers`, `gguf` | Pro Research/Vault until harness. |
+| `google/gemma-4-31B-it-qat-q4_0-gguf` | 2026-06-05 | 47 / 24 | `transformers`, `gguf` | Pro Research/Vault until harness. |
+| `Qwen/Qwen3-Coder-30B-A3B-Instruct` | 2025-12-03 | 2065445 / 1094 | `transformers`, `safetensors`, `text-generation` | Strong coding/research source card. |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | 2025-08-06 | 7025 / 24 | `mlx`, `safetensors`, `text-generation` | Pro Gated MLX candidate after harness. |
+| `ibm-granite/granite-4.0-h-micro` | 2025-11-03 | 16331 / 146 | `transformers`, `safetensors`, `text-generation` | Low-risk baseline source card. |
+| `mlx-community/granite-4.0-h-micro-4bit` | 2025-10-04 | 610 / 1 | `mlx`, `safetensors`, `text-generation` | Local fallback/baseline candidate. |
+
+Pass-two conclusion: Gemma 4 QAT source-card availability is real, but the
+downloads/likes snapshot shows several cards are brand-new. The correct route
+is source-card -> memory preflight -> dry-run AnswerPacket -> owner-approved
+small live proof, not automatic adoption.
+
+### 16.3 Local Swift Runtime Reality Check
+
+Local evidence:
+
+- `LocalPackages/mlx-swift-lm/skills/mlx-swift-lm/references/supported-models.md`
+  lists Gemma 2, Gemma 3, Gemma 3n, Qwen, Qwen3 MoE, Granite, and many other
+  model families. It says model support changes and source registries remain
+  authoritative.
+- `LocalPackages/mlx-swift-lm/Libraries/MLXLLM/LLMModelFactory.swift` has
+  Gemma 2/3 registry entries and current `gemma4` / `gemma4_text` mappings to
+  `Gemma3nTextConfiguration` with comments about future dedicated Gemma 4
+  classes.
+- `Epistemos/Engine/TriageService.swift` explicitly excludes the Gemma 4
+  family from automatic order until the Swift MLX Gemma 4 loader is proven.
+- `LocalPackages/mlx-swift-lm/skills/mlx-swift-lm/references/wired-memory.md`
+  says weights, KV cache, and transient workspace should be budgeted as
+  separate components and measured, then admitted with wired-memory tickets.
+
+Pass-two conclusion: the best honest next model ladder is:
+
+1. keep Gemma 4 QAT as a Pro Gated source-card target;
+2. prefer GGUF/LiteRT route-card preflight before Swift MLX product claims;
+3. use MLX Swift for supported Qwen/Granite/small lanes while the loader proof
+   remains red for Gemma 4;
+4. require `QATModelRouteCard` to record file bytes, resident bytes, KV bytes,
+   workspace bytes, tokenizer/tool-call support, cancellation, and fallback.
+
+### 16.4 Pass-Two Register
+
+Best breakthrough candidate: `CompressionRuntimeSourceCard` as a real
+provenance and routing substrate, not a paperwork layer.
+
+Safest next falsifier: `F-ProprietaryCompression-ProvenanceGate`, with GitHub
+and Hugging Face fixtures drawn from the tables above.
+
+Best near-term code unit: source-card schema plus fail-closed import-mode
+fixtures, after the guard-owned release-audit automated-check cursor is handled
+or in a clearly scoped research-falsifier session.
+
+Biggest false-claim risk: mistaking a fresh HF model card, MLX conversion, or
+large GitHub star count for Epistemos runtime proof.
+
+Biggest missing source: local measured RSS/KV/workspace numbers for Gemma 4 QAT
+GGUF, LiteRT-LM, and MLX candidates under the same prompt harness.
+
+Next research query: "Which source-card fields can be generated from GitHub and
+Hugging Face metadata without cloning or loading bytes, and which fields require
+quarantine inspection before `F-ProprietaryCompression-ProvenanceGate` can pass?"
