@@ -1450,3 +1450,28 @@ AnswerPacket proof exists. The next buildable step is still
 `small_compressed_model_owner_approved_runtime_probe`, but it must consume a
 visible model path rather than inheriting a research source card as runtime
 permission.
+
+### 2026-06-06 Runtime Probe Proof Envelope Implementation Note
+
+`F-SmallCompressedModel-RuntimeProbeProofEnvelope` is now implemented as the
+offline one-token command/proof envelope after the model-path readiness card.
+The artifact lives at
+`artifacts/falsifiers/small_compressed_model_runtime_probe_proof_envelope/result.json`
+and accepts 1 E2B runtime-probe envelope while rejecting 70 red fixtures. It
+binds the selected `google/gemma-4-E2B-it-qat-q4_0-gguf` model to
+`/opt/homebrew/bin/llama-cli`, `--offline`, a visible owner-approved model path
+placeholder, a synthetic non-user prompt placeholder, `--predict 1`,
+`--ctx-size 512`, `--batch-size 32`, `--ubatch-size 32`, deterministic
+temperature and seed, no conversation mode, no mmap, and no hidden HF/URL/
+Docker/token/server flags. The required phases cover owner approval, model
+path, command card, offline mode, prompt hash, one-token budget, context and
+batch caps, memory-before and runtime-start samples, first-token redaction,
+cancellation, rollback, RunEventLog, AnswerPacket, non-promotion, and
+larger-model escalation blockers.
+
+This pass does not run llama.cpp, download or open a GGUF, record a token, or
+promote E2B/12B/31B/70B. It makes the future runtime step safer and more
+ambitious at once: once the owner explicitly approves a real E2B model path,
+the same proof envelope becomes the harness pattern that Gemma 4 12B QAT,
+31B/Vault, and 70B-class cold-assembly work must generalize rather than
+bypass.

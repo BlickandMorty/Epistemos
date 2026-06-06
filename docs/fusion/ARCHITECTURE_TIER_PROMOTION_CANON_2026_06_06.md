@@ -180,6 +180,17 @@ does not promote Gemma 4 12B/31B, and does not promote 70B-class product
 capability. T2+ requires owner-approved runtime proof; T3+ requires WRV; T4+
 requires build-green MAS/Pro and release-audit proof.
 
+2026-06-06 runtime-probe proof-envelope clarification:
+`F-SmallCompressedModel-RuntimeProbeProofEnvelope` is also T1/L1 only. It
+strengthens the architecture in favor of larger local models by proving the
+offline one-token llama-cli envelope, required proof phases, forbidden download
+and sidecar flags, memory/cancellation/rollback/RunEventLog/AnswerPacket
+surfaces, and larger-model escalation blockers before runtime. It does not
+make E2B live, does not prove Gemma 4 12B/31B readiness, and does not promote
+70B-class product capability. T2+ still requires a real owner-approved local
+runtime witness; T3+ still requires WRV; T4+ still requires build-green MAS/Pro
+and release-audit proof.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

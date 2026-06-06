@@ -358,11 +358,21 @@ If a source/canon guard is needed before the next runtime step, use this order:
    expected file bytes, local path missing-or-unverified status, owner/
    download approval pending state, zero download/open/hash/model/runtime/
    provider bytes, and no L2/L3 promotion boundary.
+   The runtime-probe proof envelope is now also built metadata-only as
+   `F-SmallCompressedModel-RuntimeProbeProofEnvelope`; preserve
+   `/opt/homebrew/bin/llama-cli`, `--offline`, owner-approved model path and
+   synthetic prompt placeholders, `--predict 1`, 512 context tokens, 32
+   batch/ubatch caps, deterministic temp/seed, no conversation mode, no mmap,
+   no hidden HF/URL/Docker/token/server flags, 16 proof phases, owner approval
+   pending, command unarmed/unexecuted, zero download/open/hash/model/runtime/
+   provider bytes, larger-model escalation blockers, and no L2/L3 promotion
+   boundary.
    The next research-to-build unit is
    `small_compressed_model_owner_approved_runtime_probe`; it must not run
    without explicit owner approval, visible model path, cancellation, memory
-   ledger, rollback, RunEventLog, and AnswerPacket proof, and it must not rerun
-   128K shards, dense 70B, 12B/31B, mmap/SSD stress, hidden server endpoints,
+   ledger, rollback, RunEventLog, AnswerPacket proof, and the proof envelope,
+   and it must not rerun 128K shards, dense 70B, 12B/31B, mmap/SSD stress,
+   hidden server endpoints,
    or hidden provider fallback by default.
    E2B is the harness proving lane, not the end goal; keep Gemma 4 12B QAT as
    the Pro Gated target and keep 31B/70B-class routes Pro Research/Vault until
