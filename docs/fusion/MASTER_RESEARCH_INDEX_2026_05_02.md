@@ -119,6 +119,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > live dense 70B, SSD-as-RAM, and L2/L3 promotion. This advances L1
 > source-card coverage only; the guard-owned cursor remains the small-model L3
 > release-audit automated-checks probe and L2/L3 do not promote.
+> Deep Research Pass 65 reconciles the Google Gemma/LiteRT/MTP lane with the
+> runtime-plural backlog. It source-cards current `google-ai-edge/LiteRT-LM`
+> as Apache-2.0 with active v0.13.1 Swift/macOS package evidence, prebuilt
+> binary targets, checksums, and an unsafe linker flag; records official
+> LiteRT-LM Swift API and Gemma 4 12B agentic-workflow docs; keeps
+> `google/gemma-4-12B-it-qat-q4_0-gguf` as the Pro Gated 12B source-card target;
+> and splits MTP into a separate drafter-compatibility proof axis. The new
+> safest build unit is `F-LiteRTLM-NativeSwiftAdmission`, followed by
+> `F-Gemma4-MTP-DrafterCompatibilityCard` and the existing
+> `F-RuntimePlural-QATLaneTournamentPlan`. This is T0/T1 canon/backlog only:
+> no LiteRT import, no server sidecar, no model/runtime bytes, no MTP benchmark,
+> no MAS safety claim, and no L2/L3 promotion.
 
 ---
 

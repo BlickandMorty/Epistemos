@@ -5885,3 +5885,129 @@ Next research query: "What is the minimal graph/filter visibility invariant
 that preserves the 14-case FFI `GraphNodeType.allCases` contract while keeping
 the user-visible/app-level filter set stable under rapid toggles and resource
 exhaustion?"
+
+## 65. Pass 65 - Google Gemma / LiteRT / MTP Runtime-Ladder Reconciliation
+
+Observed on 2026-06-06 through local canon, local Downloads research, official
+Google/LiteRT sources, GitHub API metadata, and Hugging Face model metadata.
+This pass keeps the research deliberately in favor of larger local models while
+making the next build path more falsifier-shaped. It does not edit product
+code, import LiteRT-LM, run llama.cpp, run MLX, open model files, start a
+server, benchmark MTP, or promote L2/L3.
+
+Source signals:
+
+- `google-ai-edge/LiteRT-LM` is Apache-2.0, active on 2026-06-06, and its
+  README names v0.13 support for Gemma 4 12B, an OpenAI-compatible CLI server,
+  and a Swift package for macOS/iOS.
+- The official LiteRT-LM Swift API docs describe native iOS/macOS integration
+  with model initialization, GPU backend selection, multimodality, tool use,
+  and Metal acceleration.
+- `Package.swift` is a real Swift Package Manager signal, but it uses prebuilt
+  binary targets for iOS and macOS, release v0.13.1 checksums, and an unsafe
+  linker flag (`-all_load`). That makes it promising for Pro, not automatically
+  MAS-safe.
+- The latest LiteRT-LM release card currently exposes
+  `CLiteRTLM.xcframework.zip` and `CLiteRTLM_mac.xcframework.zip`; this is a
+  source-card input for binary provenance, not an install decision.
+- Google's MTP post for Gemma 4 reports up-to-3x inference acceleration from
+  multi-token-prediction drafters. Epistemos should treat MTP as a separate
+  drafter-compatibility and quality/latency proof axis, not as a free speed
+  entitlement for every runtime lane.
+- `google/gemma-4-12B-it-qat-q4_0-gguf` remains source-carded on Hugging Face
+  with Apache-2.0 tags, revision
+  `f6e7774e6148da3b7f201e42ba37cf084c1db35f`, and GGUF plus multimodal
+  projector files. This strengthens 12B as a Pro Gated target while preserving
+  the no-load/no-product-proof boundary.
+- Local Downloads research is useful but uneven: old files pushed MLX/llama.cpp
+  speed claims, Ollama avoidance, prompt-cache/speculative-decoding ideas, and
+  Gemma/Qwen catalog updates. Those become source cards and negative/uncertain
+  fixtures, not direct product truth.
+
+Buildable reconciliation:
+
+| Mechanism | Epistemos organ | Tier | MAS/Pro status | Required falsifier |
+|---|---|---|---|---|
+| LiteRT-LM Swift binary admission | RuntimeRouter/System G, SCOPE-Rex, AnswerPacket | T0/T1 candidate | Pro ResearchCandidate; MAS denied until sandbox and binary review | `F-LiteRTLM-NativeSwiftAdmission` with binary URL, checksum, unsafe linker, package size, tool-schema, cancellation, rollback, RunEventLog, AnswerPacket, and MAS/Pro verdict axes |
+| Gemma 4 MTP drafter compatibility | ActiveAssembly, RuntimeRouter, verifier/quality ledger | T0/T1 candidate | Pro ResearchCandidate | `F-Gemma4-MTP-DrafterCompatibilityCard` proving drafter model ID, target model ID, runtime lane, acceptance/quality metric, latency budget, extra memory, rollback, and abstention before any speed claim |
+| 12B QAT flagship route card | Local model ladder, ColdStore/AppColdStore, System G | T1 existing, T2 pending | Pro Gated target | Extend `F-RuntimePlural-QATLaneTournamentPlan` so GGUF and LiteRT 12B cards share one redacted prompt fixture, byte budget, cancellation policy, and visible packet schema |
+| E2B/E4B harness bridge | Small compressed model harness, LocalGGUFClient, future LiteRT lane | T1 existing, runtime pending | Pro ResearchCandidate; MAS only after package/runtime proof | Keep E2B as the first owner-approved probe lane and E4B as the next-size alternate |
+| Downloads research dedupe | SourceCard, SourceSignalGraph, provenance ledger | T0/T1 candidate | Research-only | `F-DownloadsLocalResearchDedupeProvenanceCard` must mark stale, contradicted, copied, or unsupported local claims before future agents cite them |
+
+Architecture fusion:
+
+```text
+SourceCard(Gemma/LiteRT/GGUF/MTP/local research)
+  -> ModelRuntimeOverlay
+  -> RuntimeLaneAdmissionCard
+  -> QATLaneTournamentPlan
+  -> owner-approved tiny probe
+  -> RunEventLog + AnswerPacket
+  -> only then L2/L3 consideration
+```
+
+Why this may be a breakthrough: LiteRT-LM's Swift package plus Gemma 4 12B QAT
+gives Epistemos a credible Google-native lane next to GGUF and MLX. If the
+binary package, tool API, cancellation, and AnswerPacket can be admitted
+cleanly, Pro can compare GGUF, LiteRT, and MLX on the same task instead of
+betting the architecture on one runtime. MTP then becomes a measurable
+ActiveAssembly/RuntimeRouter optimization rather than a hype claim.
+
+Why this may be wrong: binary-package integration may be too opaque for MAS,
+tool/multimodal API semantics may not match Epistemos' AnswerPacket contract,
+MTP may require model-specific drafter files that exceed the memory budget, and
+the fastest demo path may rely on server/CLI behavior that Epistemos must not
+hide inside product routing.
+
+Privacy/stability/provenance risks:
+
+- Prebuilt binary targets require checksum, license, provenance, signing, and
+  sandbox review before any product graph import.
+- OpenAI-compatible local servers are useful for research but are not MAS-safe
+  default paths; direct/native routes must be distinguished from sidecars.
+- Tool-use support must pass schema bounds and visible-denial behavior before
+  agent routes can cite it.
+- MTP/speculative decoding must report accepted/rejected draft tokens and final
+  quality; it must not hide alternative text, chain-of-thought, or route
+  authority.
+- Old local research claiming specific VRAM, speed, Ollama, or model-catalog
+  facts must be re-source-carded against current primary sources before coding.
+
+Best breakthrough candidate: a LiteRT-LM native Swift admission card that can
+prove whether Google's Swift package is a safe Pro lane without importing it
+into product code.
+
+Safest next falsifier: `F-LiteRTLM-NativeSwiftAdmission`, scoped as a
+metadata/source-card witness over `Package.swift`, release assets, checksums,
+unsafe linker flags, Swift docs, MAS/Pro verdict, cancellation/tool-schema
+requirements, RunEventLog, AnswerPacket, and rollback.
+
+Best near-term code unit: implement the LiteRT-LM admission falsifier as T1/L1
+metadata only, then update the runtime-plural lane tournament plan to include a
+separate MTP drafter-compatibility axis.
+
+Biggest false-claim risk: saying LiteRT-LM Swift support, Gemma 4 12B QAT file
+availability, or Google's MTP speed report means Epistemos can already ship a
+12B local product route.
+
+Biggest missing source: local Epistemos logs for LiteRT-LM package resolution,
+binary size, sandbox behavior, cancellation, and one redacted prompt under an
+owner-approved dry-run. Those do not exist yet.
+
+Next research query: "What exact source-card axes should
+`F-LiteRTLM-NativeSwiftAdmission` require so LiteRT-LM can become a Pro
+ResearchCandidate lane without contaminating MAS, hiding a server sidecar,
+trusting unsafe linker flags, or bypassing AnswerPacket visibility?"
+
+Sources:
+
+- https://github.com/google-ai-edge/LiteRT-LM
+- https://github.com/google-ai-edge/LiteRT-LM/blob/main/Package.swift
+- https://github.com/google-ai-edge/LiteRT-LM/releases/tag/v0.13.1
+- https://ai.google.dev/edge/litert-lm/swift
+- https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/
+- https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/
+- https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
+- `/Users/jojo/Downloads/compass_artifact_wf-a68c048f-5534-4dd2-a3b2-1807861834da_text_markdown (1).md`
+- `/Users/jojo/Downloads/last2.md`
+- `/Users/jojo/Downloads/last3.md`

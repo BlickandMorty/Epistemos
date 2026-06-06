@@ -1623,6 +1623,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_compressed_model_owner_approved_runtime_probe`; the guard-owned cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · Deep Research Pass 65 reconciles Google Gemma 4,
+  LiteRT-LM Swift, and MTP with the large-local-model build ladder in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The pass records current official/API
+  evidence for `google-ai-edge/LiteRT-LM` v0.13.1, its Swift/macOS package,
+  prebuilt binary targets, checksums, unsafe linker flag, official Swift API
+  docs, Google Gemma 4 12B laptop/agentic workflow docs, Google MTP speed
+  research, and the Hugging Face `google/gemma-4-12B-it-qat-q4_0-gguf` source
+  card. The build implication is `F-LiteRTLM-NativeSwiftAdmission` first,
+  `F-Gemma4-MTP-DrafterCompatibilityCard` second, and the existing
+  `F-RuntimePlural-QATLaneTournamentPlan` after those source-card axes exist.
+  This is T0/T1 canon/backlog only: no LiteRT import, no llama.cpp/MLX/LiteRT
+  runtime, no server sidecar, no model bytes, no benchmark, no MTP claim, no
+  MAS safety claim, no live dense 70B, and no L2/L3 promotion. The guard-owned
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
