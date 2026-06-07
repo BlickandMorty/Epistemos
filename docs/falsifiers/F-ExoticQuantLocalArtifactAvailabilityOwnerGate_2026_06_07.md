@@ -50,7 +50,7 @@ Accepted rows:
 - Source tree bytes read: `0`
 - Product bytes copied: `0`
 - Benchmark runs: `0`
-- Next research-to-build cursor: `exotic_quant_owner_path_manifest_intake_gate` (now landed downstream; downstream next is `exotic_quant_owner_path_canonicalization_preflight_gate`)
+- Next research-to-build cursor: `exotic_quant_owner_path_manifest_intake_gate` (now landed downstream; downstream path-canonicalization preflight is also landed; downstream next is `exotic_quant_owner_path_byte_envelope_preflight_gate`)
 
 ## Non-Promotion Boundary
 
@@ -68,4 +68,4 @@ The large-local-model track is becoming more practical because QAT, TurboVec-adj
 
 The downstream `F-ExoticQuantOwnerPathManifestIntakeGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
 
-The next required proof object is `exotic_quant_owner_path_canonicalization_preflight_gate`. Only after that can crash-safe command envelopes and owner-approved probes be considered.
+The downstream `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` has now landed. The next required proof object is `exotic_quant_owner_path_byte_envelope_preflight_gate`. Only after byte-envelope preflight can crash-safe command envelopes and owner-approved probes be considered.

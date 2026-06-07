@@ -313,8 +313,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > stat calls/file hashes/symlink resolution/command executions/model/runtime/
 > provider/source-tree/product/benchmark bytes at zero, and preserves
 > no-hidden-authority, no-MAS, no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM
-> boundaries. L2 and L3 remain unchanged; the next research-to-build unit is
-> `exotic_quant_owner_path_canonicalization_preflight_gate`.
+> boundaries. L2 and L3 remain unchanged; downstream owner path-canonicalization
+> preflight is now landed by Pass 80.
+> Deep Research Pass 80 now lands
+> `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` as a T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/exotic_quant_owner_path_canonicalization_preflight_gate/result.json`.
+> It consumes `F-ExoticQuantOwnerPathManifestIntakeGate`, accepts five owner
+> path-canonicalization preflight cards, compiles fail-closed path policies for
+> three Mac-candidate rows, denies two server/GPU rows for Mac canonicalization,
+> rejects 69 red fixtures, binds selected artifact bytes `96318502063` and
+> maximum minimum UMA bytes `39108307031`, rejects relative paths, tilde
+> expansion, environment expansion, parent traversal, unicode control
+> characters, NUL characters, symlink following, missing allowed roots, and file
+> access shortcuts, keeps owner manifests, owner path bytes, raw paths,
+> canonical paths, path digests, path canonicalization, path opens, stat calls,
+> file hashes, symlink resolution, command executions, model/runtime/provider/
+> source-tree/product/benchmark bytes at zero, and preserves no-hidden-authority,
+> no-MAS, no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3
+> remain unchanged; the next research-to-build unit is
+> `exotic_quant_owner_path_byte_envelope_preflight_gate`.
 
 ---
 
