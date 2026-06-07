@@ -456,7 +456,22 @@ abstention, provenance, and no-hidden-authority proof, and keeps model/runtime/
 provider/source-tree/product/command/benchmark bytes at zero. It does not load
 models, run GGUF/APEX/MLX/LiteRT, prove Apple Silicon fit, choose a model,
 make L2/L3 product capability green, or promote live dense 70B. The next
-large-local-model research-to-build unit is `exotic_quant_quarantine_route_card`.
+large-local-model research-to-build unit, `exotic_quant_quarantine_route_card`,
+is now landed by `F-ExoticQuantQuarantineRouteCard`.
+
+2026-06-07 exotic quant quarantine promotion note:
+`F-ExoticQuantQuarantineRouteCard` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by letting TQ3_4S, HLWQ, APEX,
+NVFP4, and AutoRound research enter canon while denying hidden route authority,
+product defaults, MAS/Pro Live promotion, source-tree import, benchmark-as-fit
+proof, runtime lane enablement, hidden PatternBoost/lattice/Eidos authority,
+live dense 70B, and SSD-as-RAM claims. It consumes the hardware catalog and MoE
+memory truth, accepts 5 quarantine cards, rejects 42 red fixtures, and keeps
+model/runtime/provider/source-tree/product/command/benchmark bytes at zero. It
+does not source-pin exact files, prove byte budgets, run runtimes, prove Apple
+Silicon fit, choose a model, make L2/L3 product capability green, or promote
+live dense 70B. The next large-local-model research-to-build unit is
+`exotic_quant_source_pin_and_byte_budget_preflight`.
 
 ## Required Surface Updates
 

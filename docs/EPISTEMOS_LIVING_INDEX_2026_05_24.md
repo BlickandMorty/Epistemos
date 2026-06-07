@@ -726,9 +726,35 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   parameters are compute evidence, not memory-fit proof. This advances L1
   MoE-memory-truth coverage only. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The downstream exotic
+  quant quarantine unit is now landed; the next research-to-build unit is
+  `exotic_quant_source_pin_and_byte_budget_preflight`; the guard-owned product
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-07** · `F-ExoticQuantQuarantineRouteCard` is now built as
+  the research-to-build exotic quant quarantine witness:
+  `agent_core/src/uas/exotic_quant_quarantine_route_card.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_exotic_quant_quarantine_route_card.rs`, script
+  `Tools/falsifiers/f_exotic_quant_quarantine_route_card.sh`, witness page
+  `docs/falsifiers/F-ExoticQuantQuarantineRouteCard_2026_06_07.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness consumes
+  `F-HardwareTieredModelCatalog-SourceCard` and
+  `F-MoEActiveParamsMemoryTruth`, accepts 5 TQ3_4S/HLWQ/APEX/NVFP4/AutoRound
+  rows, rejects 42 red fixtures, binds source-card, provenance, clean-room/
+  quarantine, rollback, RunEventLog, AnswerPacket, compatibility, privacy, and
+  abstention refs, denies hidden PatternBoost/lattice/Eidos route authority,
+  and keeps model/runtime/provider/source-tree/product/command/benchmark bytes
+  at zero. This advances L1 exotic-quant quarantine coverage only. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The next research-to-build
-  unit is `exotic_quant_quarantine_route_card`; the guard-owned product cursor
-  remains
+  unit is `exotic_quant_source_pin_and_byte_budget_preflight`; the guard-owned
+  product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
@@ -2873,8 +2899,22 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   provenance, and no-hidden-authority proof before any MoE row can influence
   RuntimeRouter/System G. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
-  large-local-model/runtime capability is not green. The next
-  research-to-build unit is `exotic_quant_quarantine_route_card`.
+  large-local-model/runtime capability is not green. The downstream exotic
+  quant quarantine unit is now landed; the next research-to-build unit is
+  `exotic_quant_source_pin_and_byte_budget_preflight`.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-ExoticQuantQuarantineRouteCard` witness. It consumes
+  `F-HardwareTieredModelCatalog-SourceCard` and
+  `F-MoEActiveParamsMemoryTruth`, accepts Qwopus 27B TQ3_4S, Qwopus 27B HLWQ,
+  Qwopus-MoE APEX, Gemma 31B NVFP4, and Gemma 31B AutoRound quarantine cards,
+  rejects 42 red fixtures, and keeps all model/runtime/provider/source-tree/
+  product/command/benchmark bytes at zero. It proves exotic quant rows remain
+  source-carded, provenance-gated, clean-room/quarantine-bound, runtime-
+  deferred, rollbackable, AnswerPacket-visible, and denied as hidden route/
+  default/product authority before any route use. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next research-to-build
+  unit is `exotic_quant_source_pin_and_byte_budget_preflight`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

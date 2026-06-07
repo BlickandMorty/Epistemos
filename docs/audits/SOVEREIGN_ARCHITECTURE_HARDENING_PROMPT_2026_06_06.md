@@ -117,7 +117,18 @@ Current 2026-06-07 large-local-model research-to-build status:
   hardware-tier refs, and no-hidden-authority proof. Active parameters are
   compute evidence, not memory-fit proof.
 - The next large-local-model research-to-build unit is
-  `exotic_quant_quarantine_route_card`.
+  now built as `F-ExoticQuantQuarantineRouteCard`.
+- `F-ExoticQuantQuarantineRouteCard` has landed as a metadata-only T1/L1
+  witness at
+  `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`. It
+  consumes the hardware catalog and MoE memory truth, accepts 5 TQ3_4S/HLWQ/
+  APEX/NVFP4/AutoRound quarantine cards, rejects 42 red fixtures, binds
+  source-card, provenance, clean-room/quarantine, rollback, RunEventLog,
+  AnswerPacket, compatibility, privacy, and abstention refs, denies hidden
+  PatternBoost/lattice/Eidos route authority, and keeps model/runtime/provider/
+  source-tree/product/command/benchmark bytes at zero. The next large-local-
+  model research-to-build unit is
+  `exotic_quant_source_pin_and_byte_budget_preflight`.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

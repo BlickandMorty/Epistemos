@@ -98,19 +98,22 @@ Runtime policy:
   Gemma 4 E2B/E4B QAT are MAS/Pro candidates only after memory,
   cancellation, structured-output, loader, package-size, RunEventLog, and
   AnswerPacket witnesses. MLX Gemma 4 repos are not Swift runtime proof.
-- 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard` is landed as
-  T1/L1 metadata-only. It makes Gemma/Qwopus/MoE/GPU rows addressable and
-  hardware-tiered, but it does not prove model load, Apple Silicon fit,
-  product default, or user-facing capability. The next research-to-build unit
-  is `moe_active_params_memory_truth`.
-- 2026-06-07 research-to-build lock: Deep Research Pass 72 defines
-  `F-MoEActiveParamsMemoryTruth` as the next buildable large-local-model
-  falsifier blueprint. Active parameters are compute evidence, not memory-fit
-  proof. Future work must separately bind full-weight bytes, active compute
-  count, KV cache bytes, expert-residency lease, router/runtime workspace, app
-  headroom, rollback, RunEventLog, AnswerPacket, abstention, and
-  no-hidden-authority proof before any MoE/A3B/A4B row can influence
-  RuntimeRouter/System G.
+- 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
+  `F-MoEActiveParamsMemoryTruth`, and
+  `F-ExoticQuantQuarantineRouteCard` are landed as T1/L1 metadata-only
+  witnesses. They make Gemma/Qwopus/MoE/GPU/exotic-quant rows addressable,
+  prove active parameters are compute evidence rather than memory-fit proof,
+  and quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before any route use.
+  They do not prove model load, Apple Silicon fit, product default, or
+  user-facing capability. The next research-to-build unit is
+  `exotic_quant_source_pin_and_byte_budget_preflight`.
+- 2026-06-07 research-to-build lock: future work must separately bind exact
+  source pins, file manifests, declared artifact bytes, runtime-lane byte
+  envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,
+  expert-residency leases, router/runtime workspace, app headroom, rollback,
+  RunEventLog, AnswerPacket, abstention, provenance, clean-room/import mode,
+  and no-hidden-authority proof before any MoE/A3B/A4B/exotic-quant row can
+  influence RuntimeRouter/System G.
 - TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed
   retrieval cache with UAS-stable external IDs, allowlist-before-rank privacy,
   crash-safe persistence wrapping, exact source validation, and no hidden route
