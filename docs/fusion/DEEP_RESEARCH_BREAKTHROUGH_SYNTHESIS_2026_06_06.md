@@ -5168,7 +5168,7 @@ bytes, product bytes, and benchmark runs at zero.
 
 ### Promotion Truth
 
-- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`
+- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathCanonicalizationPreflightGate`
   passes as metadata-only architecture evidence.
 - T2/L2 advanced: no. Product route remains
   `vault_research_route_with_packetized_mitigation`.
@@ -5213,6 +5213,202 @@ Sources:
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Deep Research Pass 81 - Build-Forcing Large-Model Source/Fork/Keyword Sweep
+
+Date: 2026-06-07
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+### Executive Synthesis
+
+Pass 81 turns the owner's "research far and wide" request into a build-forcing
+large-model research sweep. The local search now explicitly includes
+Epistemos canon, older Downloads research, TurboQuant/PolarQuant/QJL notes, KV
+prefix-caching research, EML/Lean primitive material, ternary/BitNet/Metal
+backend proposals, GitHub original/fork metadata, official runtime docs, and
+exact arXiv title validation.
+
+The strongest new synthesis is a three-lane breakthrough loop:
+
+1. **Crash-safe command envelopes before runtime.** The large-model side ladder
+   should continue with `exotic_quant_crash_safe_command_envelope_preflight_gate`.
+   It is the safest immediate code unit because the current architecture already
+   has source pins, owner path-manifest contracts, path-policy denial, and byte
+   envelopes, but no command can be trusted yet.
+2. **KV/cache compression as the real large-context lever.** KIVI, PolarQuant,
+   QJL, TurboQuant, vLLM, LMCache, SGLang, KTransformers, FlexLLMGen, and
+   PowerInfer should feed source cards for KV lineage, prefix reuse, cache
+   compatibility, cache eviction, and offload cost. This is how large local
+   models become practical without pretending selected weight bytes equal
+   runtime fit.
+3. **Custom low-bit Metal remains Pro Research, not product runtime.** T-MAC,
+   BitNet, SpinQuant, sparse ternary GEMM on Apple Silicon, and local ternary
+   backend proposals are promising as a `LowBitMetalKernelSourceCard` and later
+   a `TernaryMetalBackendPreflight`, but they must stay T0/T1 until bit-exact
+   baselines, ULP/numeric witnesses, kernel safety, rollback, and AnswerPacket
+   evidence exist.
+
+### Local Research Recovery
+
+| Local source | Mechanism | Epistemos organ | Build translation |
+|---|---|---|---|
+| `/Users/jojo/Downloads/old research/TurboQuant (PolarQuant + QJL) - Technical Deep Dive for Implementation.md` | TurboQuant as data-oblivious rotation + Lloyd-Max scalar quantization + QJL residual estimator; PolarQuant/QJL as KV-cache compression motifs | Eidos, KV lineage, AppColdStore, RuntimeRouter | `F-QuantizedKVCompressionSourceCard` and `F-AsymmetricKVEnvelopeModelFitGate` |
+| `/Users/jojo/Downloads/vector quant.md` | learned rotations, mixed precision, segment-level re-encoding, read-temperature scheduling | Eidos/AppColdStore compressed index, ColdStore, PatternBoost offline discovery | `F-CompressedVectorRotationFreshnessCard` |
+| `/Users/jojo/Downloads/kimis deep research/research/landslide_dim02_kv_prefix_caching.md` | vLLM/SGLang-style prefix reuse, hash/block and radix-tree cache motifs | KVLineageGraph, SemanticWorkingSetCompiler, RunEventLog | `F-KVPrefixReuseCompatibilityFence` |
+| `/Users/jojo/Downloads/kimis deep research/research/eml_universal_operator.md` | EML as elementary-function primitive and proof-search motif, not whole substrate | Primitive IR, EML, Lean/proof lane | `F-EMLPrimitiveIRSourceCard` |
+| `/Users/jojo/Downloads/deep-research-report (2).md` | ternary core with residual islands; dense MLX baseline plus BitNet reference plus custom Metal backend | Pro Research RuntimeRouter lane, Metal kernels, AnswerPacket | `F-LowBitMetalKernelSourceCard` then `F-TernaryMetalBackendPreflight` |
+
+These sources are not product truth. They are source-card and red-fixture
+material.
+
+### External Source/Fork Map
+
+| Source | Current public signal | Classification | Epistemos action |
+|---|---:|---|---|
+| `RyanCodrai/turbovec` | GitHub API: 6021 stars, 589 forks, MIT, pushed 2026-05-30 | quarantine_reference now; clean_room_rewrite later | Continue TurboVec real-adapter ladder; do not make it durable truth or hidden Eidos authority |
+| TurboVec forks sampled | Top sampled forks are mostly tiny one-star mirrors; `AKHtun/turbovec-wecos` was pushed 2026-06-06 | research_only unless diff proves unique tests/APIs | Add fork-delta source card only after manifest/diff inspection |
+| `google-ai-edge/LiteRT-LM` | 5469 stars, 562 forks, Apache-2.0, pushed 2026-06-06 | adapter_wrap candidate behind Pro review | Keep `F-LiteRTLM-NativeSwiftAdmission`; no MAS/live claim |
+| `ggml-org/llama.cpp` | 115063 stars, 19263 forks, MIT, pushed 2026-06-07 | adapter_wrap / external runtime lane | Crash-safe command envelope and first-token proof only after owner approval |
+| `vllm-project/vllm` | 82109 stars, 17735 forks, Apache-2.0, pushed 2026-06-07 | quarantine_reference for PagedAttention motifs | Source-card block table, prefix caching, and cache compatibility only |
+| `LMCache/LMCache` | 8435 stars, 1256 forks, Apache-2.0, pushed 2026-06-07 | quarantine_reference | Source-card KV reuse/offload motifs; no daemon/cache authority |
+| `kvcache-ai/ktransformers` | 17254 stars, 1311 forks, Apache-2.0, pushed 2026-06-05 | quarantine_reference | Heterogeneous placement motif, not a Mac runtime claim |
+| `FMInference/FlexLLMGen` | 9365 stars, 590 forks, Apache-2.0, last pushed 2024-10-28 | research_only / motif | Offload cost model only; no SSD-as-RAM |
+| `Tiiny-AI/PowerInfer` | 9536 stars, 578 forks, MIT, pushed 2026-05-11 | quarantine_reference | Activation-locality/sparse-wake source card |
+| `jy-yuan/KIVI` | 404 stars, 55 forks, MIT, pushed 2025-11-20 | quarantine_reference | Asymmetric KV source card and softmax stability fixture |
+| `microsoft/T-MAC` | 965 stars, 84 forks, MIT, pushed 2025-06-05 | quarantine_reference | Low-bit LUT/kernel source card only |
+| `microsoft/BitNet` | 39234 stars, 3587 forks, MIT, pushed 2026-03-10 | quarantine_reference | BitNet reference backend source card; no product import |
+| `facebookresearch/SpinQuant` | 399 stars, 90 forks, license needs review, pushed 2025-02-14 | quarantine_reference / clean_room_rewrite | Learned-rotation motif only; provenance gate required |
+
+### Exact Paper / Official-Doc Validation
+
+Broad keyword search produced noisy arXiv matches, so Pass 81 uses exact IDs
+when local canon names a paper. Exact-title validations:
+
+- KIVI: `https://arxiv.org/abs/2402.02750`
+- TurboQuant: `https://arxiv.org/abs/2504.19874`
+- QJL: `https://arxiv.org/abs/2406.03482`
+- PolarQuant: `https://arxiv.org/abs/2502.02617`
+- T-MAC: `https://arxiv.org/abs/2407.00088`
+- SpinQuant: `https://arxiv.org/abs/2405.16406`
+- Sparse ternary GEMM on Apple Silicon: `https://arxiv.org/abs/2510.06957`
+- EML universal operator: `https://arxiv.org/abs/2603.21852`
+- Hugging Face cache strategies: `https://huggingface.co/docs/transformers/kv_cache`
+- Hugging Face MLX integration: `https://huggingface.co/docs/transformers/community_integrations/mlx`
+- vLLM PagedAttention docs: `https://docs.vllm.ai/en/latest/design/paged_attention.html`
+- LMCache docs: `https://docs.lmcache.ai/`
+- Apple Metal overview: `https://developer.apple.com/metal/`
+- Apple `MTLStorageMode.shared`: `https://developer.apple.com/documentation/metal/mtlstoragemode/shared`
+
+### Ranked Breakthrough Candidates
+
+| Rank | Candidate | Tier now | Why it matters | Why it may be wrong | Next falsifier |
+|---|---|---|---|---|---|
+| 1 | Crash-safe command envelope for exotic quant rows | T0/T1 backlog | Converts byte envelopes into unarmed, visible, cancellable command cards before any runtime path | Too much command machinery before owner manifests exist | `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` |
+| 2 | KV prefix/cache compatibility fence | T0/T1 backlog | Prefix/KV reuse is a bigger practical lever than huge weight loading for agent/research workflows | Cache hits may be low with diverse note/task prompts | `F-KVPrefixReuseCompatibilityFence` |
+| 3 | Quantized KV compression source card | T0/T1 backlog | KIVI/QJL/PolarQuant/TurboQuant address long-context memory pressure directly | Paper metrics may not hold on Apple Silicon Metal or local models | `F-QuantizedKVCompressionSourceCard` |
+| 4 | Low-bit Metal kernel source card | T0 research | T-MAC/BitNet/sparse ternary GEMM can make custom Apple Silicon kernels a real Pro Research lane | Kernel speedups can destroy quality or stability without exact baselines | `F-LowBitMetalKernelSourceCard` |
+| 5 | EML primitive IR source card | T0 research | Gives math/proof lane a precise primitive map and ULP/Lean obligations | EML is not a whole substrate and can be numerically unstable | `F-EMLPrimitiveIRSourceCard` |
+| 6 | TurboVec fork-delta source card | T0/T1 backlog | Prevents losing useful fork changes while protecting provenance | Most forks may be shallow mirrors with no useful delta | `F-TurboVec-ForkDeltaSourceCard` |
+
+### Architecture Fusions
+
+| Fusion | Mechanism | Organ | MAS/Pro status | Runtime proof | User-visible proof | Rollback |
+|---|---|---|---|---|---|---|
+| CommandEnvelopeBeforeRuntime | Model/runtime commands serialize as inert cards with cwd/env/args/cancellation/proof refs and zero execution | SCOPE-Rex, RuntimeRouter/System G, RunEventLog | Pro ResearchCandidate | none until owner-approved probe | AnswerPacket shows unarmed command and denial | rollback ref required before command arm |
+| KVLineageReuseCompatibilityFence | Prefix/KV blocks carry hash, model, tokenizer, prompt-template, LoRA/adaptor, cache-salt, and privacy scope | ColdStore, SemanticWorkingSetCompiler, Eidos | Pro ResearchCandidate | metadata-only first | AnswerPacket shows hit/miss and caveat | stale/incompatible cache abstains |
+| QuantizedKVCompressionSourceCard | K/V bit width, per-channel/per-token policy, softmax risk, residual window, calibration, exact baseline | KVByteBudgetCard, RuntimeRouter | Pro ResearchCandidate | no live KV bytes until small harness | visible quality/KV caveat | revert to FP16/full cache |
+| TernaryMetalResearchLane | Dense MLX baseline, BitNet reference, and TernaryMetalBackend stay side-by-side for same-fixture replay | RuntimeRouter, Metal, AnswerPacket | Pro Research/Omega only | no runtime until kernel source-card and ULP/quality proof | control-room proof surface only after WRV | dense baseline fallback |
+| EMLPrimitiveIRSourceCard | EML source cards create proof obligations for elementary-function lowering, not hidden universal claims | Primitive IR, Lean, F-ULP | Pro ResearchCandidate | none | proof/certificate card | empirical-only if proof fails |
+
+### Buildable Falsifier Backlog
+
+1. `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`
+   - Consume `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`.
+   - Require zero executed commands, unarmed command cards, allowed cwd policy,
+     env allowlist, timeout, cancellation, rollback, RunEventLog, AnswerPacket,
+     abstention, owner approval absent, and no hidden provider fallback.
+   - Red fixtures: executable bit leakage, shell-string command, unsafe env,
+     bad cwd, missing rollback, hidden sidecar, L2/L3 promotion, live 70B,
+     missing byte-envelope ref, stale model revision.
+
+2. `F-KVPrefixReuseCompatibilityFence`
+   - Source-card vLLM hash-block caching, SGLang RadixAttention, LMCache reuse,
+     and local KV-prefix research.
+   - Require exact tokenizer/template/model/revision/adapter/cache-salt match
+     before cache reuse.
+   - Red fixtures: rowid cache identity, cross-model reuse, hidden remote cache,
+     stale prompt template, privacy scope leak, cache hit as answer quality proof.
+
+3. `F-QuantizedKVCompressionSourceCard`
+   - Bind KIVI/QJL/PolarQuant/TurboQuant-style claims to bit widths, asymmetry,
+     residual window, softmax stability, calibration, and exact baseline.
+   - Red fixtures: selected weight bytes as KV proof, paper metric as local
+     proof, no FP16 fallback, no quality replay, hidden cache authority.
+
+4. `F-LowBitMetalKernelSourceCard`
+   - Source-card BitNet, T-MAC, sparse ternary GEMM, SpinQuant/rotation motifs,
+     Apple Metal shared-memory constraints, and local ternary backend notes.
+   - Red fixtures: kernel speed as model quality, bundled model as MAS green,
+     missing ULP/numeric proof, unsafe Metal buffer aliasing, no dense fallback.
+
+5. `F-DownloadsLocalResearchDedupeProvenanceCard`
+   - Preserve old Downloads research without treating it as current truth.
+   - Red fixtures: duplicate paper IDs, stale repo stats, source contamination,
+     old Helios/ACS language promoted without current-organ translation.
+
+### Model / Runtime Ladder Update
+
+| Ladder | Target | Current tier | Required next evidence |
+|---|---|---|---|
+| Harness floor | small owner-approved model | T1/L2 red | guard-owned small-model L3 automated checks |
+| QAT practical target | Gemma 4 E2B/12B QAT GGUF or LiteRT | T0/T1 only | exact artifact, command envelope, first-token, quality replay |
+| Exotic quant Mac candidates | Qwopus TQ3_4S, HLWQ, APEX-Mini | T1 side ladder | crash-safe command envelope, owner manifests, first-token proof |
+| KV compression lane | KIVI/QJL/PolarQuant/TurboQuant motifs | T0/T1 backlog | source-card and compatibility fence |
+| Low-bit Metal lane | BitNet/T-MAC/sparse ternary kernels | T0 research | source-card, ULP/numeric proof, dense fallback, no MAS overclaim |
+| 70B-class ambition | cold assembly and routing | T0/T1 research | construction graph, leases, KV/cache, transport, AnswerPacket |
+
+### Promotion Truth
+
+- T0 research advanced: yes. More local and external sources are mapped into
+  buildable source-card/falsifier backlog.
+- T1/L1 advanced: no new falsifier landed in Pass 81.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, because it is the next
+concrete safety boundary between promising large-model metadata and any future
+owner-approved runtime command.
+
+Safest next falsifier:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Best near-term code unit:
+Add `agent_core/src/uas/exotic_quant_crash_safe_command_envelope_preflight_gate.rs`
+plus falsifier binary/script/schema axes/witness docs. It should be metadata-
+only, zero-execution, and red-fixture-heavy.
+
+Biggest false-claim risk:
+Saying KV compression, TurboQuant, BitNet/T-MAC, or a low-bit Metal kernel
+means a large model "works locally." These sources are mechanisms, not
+product capability.
+
+Biggest missing source:
+Owner-approved local manifests and command envelopes for the three Mac-
+candidate exotic quant rows, plus same-fixture quality baselines for QAT/KV/
+low-bit kernels on Jojo's hardware.
+
+Next research query:
+"What exact inert command-card schema can represent llama.cpp/GGUF, LiteRT-LM,
+MLX Swift, Transformers, and custom Metal runtime attempts while proving zero
+execution, safe cwd/env, cancellation, rollback, RunEventLog, AnswerPacket,
+owner approval absent, and no L2/L3 promotion?"
 
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
