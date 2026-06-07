@@ -131,6 +131,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-RuntimePlural-QATLaneTournamentPlan`. This is T0/T1 canon/backlog only:
 > no LiteRT import, no server sidecar, no model/runtime bytes, no MTP benchmark,
 > no MAS safety claim, and no L2/L3 promotion.
+> Deep Research Pass 66 now lands that first unit as a built T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/litertlm_native_swift_admission/result.json`. It binds
+> the official LiteRT-LM Swift/macOS package, v0.13.1 binary targets,
+> checksums, declared binary asset bytes, unsafe linker review, prebuilt-binary
+> review, MAS denial, Pro ResearchCandidate status, and 33 red-fixture
+> rejections while opening zero package/binary/runtime/model/provider/product
+> bytes. L2 and L3 remain unchanged; the next runtime-plural source-card unit is
+> `F-Gemma4-MTP-DrafterCompatibilityCard`.
 
 ---
 

@@ -47,6 +47,7 @@ pub mod kind;
 pub mod kv_runtime_source_card;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
+pub mod litertlm_native_swift_admission;
 pub mod metal_io_feature_gate;
 pub mod model_inventory_candidate;
 pub mod pattern_boost;
@@ -186,6 +187,13 @@ pub use kv_runtime_source_card::{
     KvRuntimeMechanism, KvRuntimeProofRefs, KvRuntimeShape, KvRuntimeSourceCard,
     KvRuntimeSourceCardError, KvRuntimeSourceCardMetrics, KvRuntimeSourceCardSet,
     KvRuntimeStorageTier, KV_RUNTIME_SOURCE_CARD_CURSOR, KV_RUNTIME_SOURCE_CARD_NEXT_CURSOR,
+};
+pub use litertlm_native_swift_admission::{
+    LiteRtMasVerdict, LiteRtNativeSwiftAdmissionCard, LiteRtNativeSwiftAdmissionError,
+    LiteRtNativeSwiftAdmissionMetrics, LiteRtNativeSwiftAdmissionSet,
+    LiteRtSwiftAdmissionProofRefs, LiteRtSwiftBinaryTarget, LiteRtSwiftByteScope,
+    LiteRtSwiftPlatform, LITERTLM_NATIVE_SWIFT_ADMISSION_CURSOR,
+    LITERTLM_NATIVE_SWIFT_ADMISSION_NEXT_CURSOR,
 };
 pub use large_model_deferral::{
     LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,

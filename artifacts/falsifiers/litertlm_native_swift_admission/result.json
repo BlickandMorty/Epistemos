@@ -1,0 +1,645 @@
+{
+  "falsifier_id": "F-LiteRTLM-NativeSwiftAdmission",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_litertlm_native_swift_admission.sh",
+  "command_digest": "sha256:d73d58bd24530b799c29ad6e9e27da8675558732437c66f487f7ce040cbfecf0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "be30f6ca758f95a0d7b7cbc8960687a38f1a4467",
+  "fixture_id": "litertlm_native_swift_admission_v1",
+  "timestamp_utc": "2026-06-06T23:42:27Z",
+  "result_digest": "sha256:5651c378d1301d29520cfa9e467d1611f116e7ad8a1c89271c5d2235bffd3f00",
+  "measurements": {
+    "accepted_admission_card_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_card_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "bad_binary_checksum_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_release_tag_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_asset_bytes_downloaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_checksums_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_downloaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_target_count": {
+      "value": 2,
+      "unit": "targets"
+    },
+    "declared_binary_asset_bytes": {
+      "value": 123675099,
+      "unit": "bytes"
+    },
+    "declared_binary_asset_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_binary_target_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ios_and_macos_binary_targets_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_promotion_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litertlm_native_swift_admission_address": {
+      "value": "litertlm_native_swift_admission:55e3ae206a2e221b5bec8e44aa8605453d4698fae689caf53ef2a4d2e1192f7f@1779055900000",
+      "unit": "uas_address"
+    },
+    "litertlm_native_swift_admission_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 64000,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_witness_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_witness_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_declared_asset_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ios_binary_target_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_macos_binary_target_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_witness_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_witness_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_unsafe_linker_flag_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_import_or_resolution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_https_url_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "official_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "package_bytes_downloaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "package_resolved_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "platform_count": {
+      "value": 2,
+      "unit": "platforms"
+    },
+    "prebuilt_binary_review_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prebuilt_binary_review_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_mas_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_imported_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "required_witnesses_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_default_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_not_denied_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_linker_flag_count": {
+      "value": 2,
+      "unit": "flags"
+    },
+    "unsafe_linker_review_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_linker_review_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_license_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_package_binary_runtime_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_and_product_copy": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_admission_card_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_card_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "bad_binary_checksum_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_release_tag_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_asset_bytes_downloaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_checksums_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_downloaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "binary_target_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "targets"
+    },
+    "declared_binary_asset_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "declared_binary_asset_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_binary_target_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ios_and_macos_binary_targets_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_promotion_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litertlm_native_swift_admission_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "litertlm_native_swift_admission_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "missing_answer_packet_witness_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cancellation_witness_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_declared_asset_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ios_binary_target_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_macos_binary_target_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_witness_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_witness_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_unsafe_linker_flag_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_import_or_resolution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_https_url_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "official_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "package_bytes_downloaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "package_resolved_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "platform_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "platforms"
+    },
+    "prebuilt_binary_review_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prebuilt_binary_review_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_mas_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_imported_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "required_witnesses_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_default_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_not_denied_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_linker_flag_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "flags"
+    },
+    "unsafe_linker_review_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsafe_linker_review_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_license_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_package_binary_runtime_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_provider_and_product_copy": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_admission_card_present": true,
+    "admission_card_count": true,
+    "bad_binary_checksum_rejected": true,
+    "bad_proof_ref_prefix_rejected": true,
+    "bad_release_tag_rejected": true,
+    "binary_asset_bytes_downloaded_rejected": true,
+    "binary_checksums_bound": true,
+    "binary_downloaded_rejected": true,
+    "binary_target_count": true,
+    "declared_binary_asset_bytes": true,
+    "declared_binary_asset_bytes_bound": true,
+    "duplicate_binary_target_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "ios_and_macos_binary_targets_bound": true,
+    "l2_l3_promotion_claim_rejected": true,
+    "litertlm_native_swift_admission_address": true,
+    "litertlm_native_swift_admission_address_deterministic": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_live_claim_rejected": true,
+    "metadata_bytes_read": true,
+    "missing_answer_packet_witness_rejected": true,
+    "missing_cancellation_witness_rejected": true,
+    "missing_declared_asset_bytes_rejected": true,
+    "missing_ios_binary_target_rejected": true,
+    "missing_macos_binary_target_rejected": true,
+    "missing_rollback_witness_rejected": true,
+    "missing_tool_schema_witness_rejected": true,
+    "missing_unsafe_linker_flag_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_loaded_rejected": true,
+    "model_loaded_rejected": true,
+    "next_cursor_bound": true,
+    "no_import_or_resolution": true,
+    "no_l2_l3_or_large_model_claim": true,
+    "non_https_url_rejected": true,
+    "official_sources_bound": true,
+    "package_bytes_downloaded_rejected": true,
+    "package_resolved_rejected": true,
+    "platform_count": true,
+    "prebuilt_binary_review_missing_rejected": true,
+    "prebuilt_binary_review_required": true,
+    "pro_research_mas_denied": true,
+    "pro_status_live_claim_rejected": true,
+    "product_dependency_imported_rejected": true,
+    "product_file_copied_rejected": true,
+    "proof_refs_bound": true,
+    "provider_call_made_rejected": true,
+    "red_fixture_rejection_count": true,
+    "required_witnesses_bound": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_loaded_rejected": true,
+    "runtime_loaded_rejected": true,
+    "server_sidecar_default_denied": true,
+    "server_sidecar_not_denied_rejected": true,
+    "unsafe_linker_flag_count": true,
+    "unsafe_linker_review_missing_rejected": true,
+    "unsafe_linker_review_required": true,
+    "unsupported_license_rejected": true,
+    "zero_package_binary_runtime_model_bytes": true,
+    "zero_provider_and_product_copy": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-LiteRTLM-NativeSwiftAdmission from official LiteRT-LM repo, Package.swift, release assets, Swift docs, and Pass 65 canon. Scope is T1/L1 metadata only: LiteRT-LM can feed later MTP/lane-tournament/runtime probes, but this witness imports no package, downloads no binary, loads no runtime/model bytes, starts no server, and promotes no MAS/L2/L3 capability."
+}

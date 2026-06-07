@@ -648,6 +648,35 @@ candidate, E2B/E4B as harness lanes, and 31B/70B-class routes as Pro
 Research/Vault. It imports no LiteRT-LM, runs no server, loads no model/runtime
 bytes, and makes no L2/L3 product claim.
 
+## LiteRT-LM Native Swift Admission Result Addendum
+
+Deep Research Pass 66 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns the
+Pass 65 LiteRT-LM recommendation into a built T1/L1 architecture gate:
+`F-LiteRTLM-NativeSwiftAdmission`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+The artifact is
+`artifacts/falsifiers/litertlm_native_swift_admission/result.json`; the script
+is `Tools/falsifiers/f_litertlm_native_swift_admission.sh`. The witness accepts
+the official `google-ai-edge/LiteRT-LM` v0.13.1 Swift/macOS source card, binds
+the `CLiteRTLM` and `CLiteRTLM_mac` binary targets, checksums, declared binary
+asset bytes, unsafe linker flags, prebuilt-binary review, MAS denial, Pro
+ResearchCandidate status, cancellation/tool-schema/rollback/RunEventLog/
+AnswerPacket requirements, and rejects 33 red fixtures.
+
+This is still metadata-only. It downloads zero package or binary bytes, loads
+zero runtime/model bytes, starts no server, imports no product dependency,
+copies no product files, calls no provider, and does not prove MAS safety,
+tool-calling, cancellation, MTP speed, Gemma 4 12B product readiness, L2
+capability, or L3 user-facing WRV. The next runtime-plural source-card unit is
+`F-Gemma4-MTP-DrafterCompatibilityCard`; the guard-owned product cursor remains
+the small-model L3 automated-checks bottleneck.
+
 ## KV Residency / Offload Companion Addendum
 
 Deep Research Pass 60 in

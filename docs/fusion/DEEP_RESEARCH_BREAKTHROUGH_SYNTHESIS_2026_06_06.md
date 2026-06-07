@@ -6011,3 +6011,98 @@ Sources:
 - `/Users/jojo/Downloads/compass_artifact_wf-a68c048f-5534-4dd2-a3b2-1807861834da_text_markdown (1).md`
 - `/Users/jojo/Downloads/last2.md`
 - `/Users/jojo/Downloads/last3.md`
+
+## 66. Pass 66 - LiteRT-LM Native Swift Admission Build Result
+
+Observed on 2026-06-06 through local canon and the newly generated
+`F-LiteRTLM-NativeSwiftAdmission` artifact. This pass converts the Pass 65
+recommendation into a real T1/L1 architecture gate without importing
+LiteRT-LM, resolving Swift packages, downloading binaries, loading model
+bytes, running a server, benchmarking MTP, or promoting L2/L3.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Build result:
+
+- `Tools/falsifiers/f_litertlm_native_swift_admission.sh` now emits and
+  validates
+  `artifacts/falsifiers/litertlm_native_swift_admission/result.json`.
+- The accepted admission card binds the official `google-ai-edge/LiteRT-LM`
+  repository, `Package.swift`, Swift docs, v0.13.1 release, Apache-2.0 license,
+  `CLiteRTLM` and `CLiteRTLM_mac` binary targets, release checksums, declared
+  binary asset bytes, unsafe linker flags, prebuilt-binary review, MAS denial,
+  Pro ResearchCandidate status, cancellation/tool-schema/rollback/RunEventLog/
+  AnswerPacket requirements, and a deterministic UAS address.
+- The artifact rejects 33 red fixtures for missing platform targets, bad
+  checksums, missing declared bytes, unsupported licenses, unsafe-linker review
+  gaps, prebuilt-binary review gaps, MAS or Pro Live overclaims, server-sidecar
+  defaulting, missing proof refs, product dependency import, package
+  resolution, binary download, runtime/model byte loads, provider calls,
+  product-file copies, hidden route authority, live dense 70B claims, and
+  L2/L3 promotion.
+- Runtime proof remains zero-byte by design: package bytes downloaded `0`,
+  binary bytes downloaded `0`, runtime bytes loaded `0`, model bytes loaded
+  `0`, provider calls `0`, product files copied `0`.
+
+Architecture fusion:
+
+```text
+LiteRT-LM SourceCard
+  -> LiteRtNativeSwiftAdmissionCard
+  -> SCOPE-Rex/SovereignGate admission facts
+  -> RuntimeRouter/System G candidate lane
+  -> F-Gemma4-MTP-DrafterCompatibilityCard
+  -> F-RuntimePlural-QATLaneTournamentPlan
+  -> owner-approved tiny runtime proof
+  -> RunEventLog + AnswerPacket
+```
+
+Why this matters: the architecture now has a concrete, fail-closed path for
+evaluating Google's native Swift runtime lane without smuggling the binary
+package into product code. That makes Gemma 4 12B QAT more buildable over
+time, because Pro can eventually compare LiteRT, GGUF/llama.cpp, MLX, and
+custom lanes under the same admission, byte, cancellation, packet, and rollback
+discipline.
+
+Why this may be wrong: the binary target may remain too opaque for MAS,
+unsafe linker behavior may be unacceptable, the tool/multimodal API may not
+match Epistemos' AnswerPacket contract, MTP may need separate drafter files or
+quality metrics that exceed local budgets, and the easiest runtime path may be
+the local server sidecar that Epistemos must keep denied by default.
+
+Promotion truth:
+
+- T1/L1 advanced: yes, metadata-only LiteRT-LM admission proof exists.
+- T2/L2 advanced: no, product runtime remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no, user-facing LiteRT/Gemma route is not wired, reachable,
+  visible, or verified.
+- T4/T5 green: no.
+
+Best breakthrough candidate: native Swift LiteRT admission plus a later MTP
+drafter compatibility card, because it gives Gemma 4 QAT a Google-native Pro
+lane without making MLX, GGUF, or LiteRT the whole architecture.
+
+Safest next falsifier: `F-Gemma4-MTP-DrafterCompatibilityCard`, because speed
+claims should be separated from package admission before the runtime-plural QAT
+lane tournament compares LiteRT, GGUF, MLX, and local endpoints.
+
+Best near-term code unit: add the MTP drafter compatibility primitive as
+metadata-only, with target/drafter model IDs, runtime lane, acceptance metric,
+quality guard, extra memory budget, cancellation, rollback, RunEventLog,
+AnswerPacket, and abstention axes.
+
+Biggest false-claim risk: treating the passing admission card as proof that
+LiteRT-LM is installed, linked, MAS-safe, tool-call ready, MTP-fast, or already
+able to serve Gemma 4 12B in the app.
+
+Biggest missing source: owner-approved local logs for package resolution,
+binary review, sandbox behavior, cancellation, and one redacted prompt under a
+tiny model. Those remain future L2/L3 evidence, not part of this pass.
+
+Next research query: "What exact MTP drafter compatibility axes let Epistemos
+measure Gemma 4 draft-token speedups without hidden alternate text, quality
+regression, excess memory, runtime-lane lock-in, or AnswerPacket suppression?"

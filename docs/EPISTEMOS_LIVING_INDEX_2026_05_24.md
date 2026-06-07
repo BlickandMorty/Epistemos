@@ -1642,6 +1642,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   MAS safety claim, no live dense 70B, and no L2/L3 promotion. The guard-owned
   cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-LiteRTLM-NativeSwiftAdmission` is now built as
+  the first Google LiteRT-LM runtime-plural admission gate:
+  `Tools/falsifiers/f_litertlm_native_swift_admission.sh` emits and validates
+  `artifacts/falsifiers/litertlm_native_swift_admission/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The T1/L1 metadata-only witness
+  binds the official `google-ai-edge/LiteRT-LM` Swift/macOS package, v0.13.1
+  release, `CLiteRTLM` and `CLiteRTLM_mac` binary targets, checksums, declared
+  binary asset bytes, unsafe linker flags, prebuilt-binary review, MAS denial,
+  Pro ResearchCandidate status, cancellation/tool-schema/rollback/RunEventLog/
+  AnswerPacket requirements, deterministic admission address, and 33
+  red-fixture rejections. It downloads zero package/binary bytes, loads zero
+  runtime/model bytes, starts no server, imports no product dependency, copies
+  no product file, calls no provider, and does not prove MAS safety,
+  tool-calling, cancellation, MTP speed, Gemma 4 12B product readiness, L2
+  capability, or L3 WRV. The runtime-plural next unit is
+  `F-Gemma4-MTP-DrafterCompatibilityCard`; the guard-owned product cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
@@ -2639,6 +2660,13 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   L1 source-card coverage only; L2 product capability remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing large
   model/runtime capability is still not green.
+- 2026-06-06 runtime-plural large-local-model build now includes the new
+  L1/T1 `F-LiteRTLM-NativeSwiftAdmission` witness. It source-cards official
+  LiteRT-LM Swift/macOS v0.13.1 package evidence and rejects 33 red fixtures
+  while opening zero package/binary/runtime/model/provider/product-copy bytes.
+  This advances L1 admission coverage only; L2 product capability remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing
+  LiteRT/Gemma capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

@@ -126,6 +126,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ProprietaryCompression-ProvenanceGate",
     "F-CompressedModelSourceCard-Intake",
     "F-KVRuntimeSourceCard",
+    "F-LiteRTLM-NativeSwiftAdmission",
     "F-TurboVec-Eidos-CompressedIndex-Plan",
     "F-TurboVec-UASAddressStableExternalIds",
     "F-TurboVec-FilterBeforeRankPrivacyGate",
