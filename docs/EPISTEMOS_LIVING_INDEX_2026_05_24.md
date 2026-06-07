@@ -143,6 +143,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   promotes without visible proof. This is T0 canon/backlog only: no model bytes
   were loaded, no runtime lane was promoted, no cache bytes were reused, L2/L3
   remain red, and no user-facing large-model green claim exists.
+- Updated **2026-06-07** · Deep Research Pass 109 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` converts
+  the body-read freshness envelope into a direct implementation blueprint for
+  `F-BodyReadChecksum-ReleaseBlockerCard`: new Rust UAS primitive, falsifier
+  binary, shell wrapper, artifact axes, exact Swift source refs, invariants,
+  red fixtures, witness doc, handbook/schema rows, guard/kernel consumption,
+  and S0 canon sync. North-star sentence: Epistemos is a local cognitive
+  substrate where every meaningful object has an address, plane, budget,
+  status, and witness; MAS ships the safe floor, Pro contains the
+  gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. This is T0 canon/build-plan only: no product code changed, no user
+  note bytes were opened, no model/runtime/cache bytes were loaded, no
+  source-card witness landed yet, L2/L3 remain red, and no user-facing
+  large-model green claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
@@ -684,6 +698,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   no model/runtime/cache bytes were loaded, no source-card witness landed yet,
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability and release readiness remain red.
+- Updated **2026-06-07** · Deep Research Pass 109 is now folded into the
+  current-state large-model research-to-build path. It makes the next coding
+  step explicit: implement `F-BodyReadChecksum-ReleaseBlockerCard` as a
+  metadata-only L1/T1 source-card witness consuming
+  `F-RuntimePerformancePolicy-ReleaseBlockerCard` and the retained
+  `body_read_checksum` family card, with exact source refs, 15 invariants, 32
+  red fixtures, zero body/model/cache/provider bytes, rollback, RunEventLog,
+  AnswerPacket, and no product promotion. North-star sentence: Epistemos is a
+  local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. This is T0 canon/build-plan only: no witness landed yet, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  and release readiness remain red.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every

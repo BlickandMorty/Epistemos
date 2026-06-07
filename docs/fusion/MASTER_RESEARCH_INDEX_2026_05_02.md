@@ -304,6 +304,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > RunEventLog, AnswerPacket, and non-promotion. It folds vLLM prefix-cache
 > hash/salt, LMCache local-disk KV chunking, and Prompt Cache prompt-module
 > schema ideas into Epistemos without granting hidden cache or route authority.
+> Deep Research Pass 109 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns that
+> freshness envelope into a direct implementation blueprint for
+> `F-BodyReadChecksum-ReleaseBlockerCard`: add a Rust UAS primitive,
+> falsifier binary, shell wrapper, artifact axes, witness doc, handbook/schema
+> rows, guard/kernel consumption, exact Swift source refs, 15 invariants, and
+> 32 invalid fixtures. The card remains metadata-only: it should open zero user
+> note bytes, load zero model/runtime/cache bytes, make zero provider calls,
+> and make no L2/L3/product/local-large-model green claim.
 > `F-DistributionProjectIntegrity-ReleaseBlockerCard` is now landed as a
 > metadata-only T1/L1 distribution/project source-card witness at
 > `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`.
