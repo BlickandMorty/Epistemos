@@ -1368,6 +1368,36 @@ Red-team variants:
 - `cache hit treated as runtime proof`
 - `accepted token ratio without held out baseline`
 
+## Pass 117 L3 Runtime Log Evidence Keywords
+
+The guard-owned product bottleneck now needs
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`.
+Search for exact log-correlation and release-audit proof motifs with:
+
+- `OSLogStore Swift read logs subsystem category process predicate`
+- `Apple unified logging log show predicate subsystem category process`
+- `xcodebuild test resultBundlePath xcresulttool extract failures logs`
+- `SwiftUI chat row AnswerPacket id OSLog correlation`
+- `local LLM runtime log evidence visible UI row AnswerPacket`
+- `release audit logs first evidence manual runtime verification local model`
+- `unsupported mode hidden local model agent mode release audit`
+- `MAS Pro capability gating local model liveAgent hidden`
+- `RunEventLog AnswerPacket visible row id runtime route log`
+- `small model runtime harness log evidence no raw prompt artifact`
+
+Red-team variants:
+
+- `UI row visible but no AnswerPacket id`
+- `AnswerPacket emitted but no runtime log`
+- `log window stale wrong process`
+- `raw prompt leaked into OSLog artifact`
+- `xcodebuild passed but runtime route failed`
+- `local model Agent mode visible unsupported`
+- `hidden cloud fallback log missing`
+- `sidecar server default endpoint hidden`
+- `MAS copy promises Omega 70B`
+- `release audit automated checks treated as ship ready`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

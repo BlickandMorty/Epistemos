@@ -13220,3 +13220,200 @@ Next research query: "Which acceptance-rate, target-verification, cache
 lineage, and held-out quality fields must be visible before a same-fixture
 small-model runtime probe may enable MTP, n-gram speculation, prefix cache, or
 session restore?"
+
+## Deep Research Pass 117 - L3 Runtime Log Evidence Packet
+
+This pass connects the guard-owned bottleneck to a buildable proof shape:
+automated release-audit commands are not enough for product promotion unless
+runtime logs and AnswerPacket-visible user surfaces agree. The current guard
+cursor is `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+that primitive's next cursor is already
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-first
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`
+that consumes the automated-checks witness and binds:
+
+- log source: OSLog subsystem/category predicates, xcodebuild log refs,
+  `.xcresult` bundle refs where available, falsifier log refs, and
+  AnswerPacket/RunEventLog ids;
+- product action: selected model mode, prompt submitted, route admitted or
+  denied, stream started, stream completed or cancelled, packet emitted,
+  visible chat row id, and release-audit caveat;
+- negative proof: unsupported mode hidden or gated, no hidden provider
+  fallback, no hidden sidecar, no fake Agent/LiveAgent for local modes, no
+  Omega/autogenous/70B/128K overclaim, and no green L2/L3 claim;
+- correlation: every user-visible row cited by the probe needs a matching log
+  event, AnswerPacket id, or explicit abstention packet;
+- byte boundary: no model/runtime/provider bytes in metadata scope unless a
+  separate owner-approved runtime harness says otherwise.
+
+This should not authorize release readiness. It should move the small-model
+runtime path toward L3 by making the next evidence layer precise: logs first,
+then manual/runtime verification, then distribution/compliance, then repeated
+zero-fail passes if a ship claim is requested.
+
+### Local Source Map
+
+| Organ | Local refs | Build implication |
+|---|---|---|
+| Guard-owned L3 blocker | `agent_core/src/uas/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs`, `agent_core/src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs` | The automated-checks witness already queues the log-evidence cursor and rejects log/manual/distribution overclaims. |
+| Release audit workflow | `.agents/skills/epistemos_release_audit/SKILL.md`, `docs/V1_RELEASE_AUDIT.md` | Logs are first-class evidence; UI behavior alone cannot promote product truth. |
+| Runtime logging surfaces | `Epistemos/Engine/Log.swift`, `Epistemos/State/NoteChatState.swift`, `Epistemos/State/ChatState.swift`, `Epistemos/State/AgentChatState.swift`, `Epistemos/Engine/LatestAnswerPacketSink.swift` | The probe needs log categories and packet ids, not just passing tests. |
+| Visible proof surfaces | `Epistemos/Models/AnswerPacket.swift`, `Epistemos/Engine/AnswerPacketEmitter.swift`, `Epistemos/Views/Chat/AnswerPacketBadge.swift`, `Epistemos/Views/Chat/MessageBubble.swift` | L3 proof requires packet-bound UI rows or explicit blocked confidence. |
+| Automated evidence files | `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/checks.tsv`, `.../logs/*.log`, `.../result.json` | The log-evidence probe should consume check logs but not mistake them for runtime logs. |
+
+### External Source Map
+
+- Apple Logging:
+  `https://developer.apple.com/documentation/os/logging`
+  - Use: Apple describes unified logging as the system for telemetry and says
+    logs are viewed through Console, the `log` command, Xcode, or OSLog.
+  - Epistemos fusion: log evidence should be predicate-bound by subsystem,
+    category, process, timeframe, route id, and packet id.
+- Apple OSLog:
+  `https://developer.apple.com/documentation/OSLog`
+  - Use: OSLog can read historical unified-log entries programmatically via
+    `OSLogStore` and related entry types.
+  - Epistemos fusion: future product proof can use a Swift log-reader harness
+    or structured command logs, but artifact output must remain redacted.
+- Apple running tests and interpreting results:
+  `https://developer.apple.com/documentation/xcode/running-tests-and-interpreting-results`
+  - Use: `xcodebuild test` can output `.xcresult` bundles with session
+    results, code coverage when enabled, and logs.
+  - Epistemos fusion: automated release checks should carry result-bundle
+    references/digests where possible instead of plain "test passed" prose.
+- Apple Testing in Xcode WWDC:
+  `https://developer.apple.com/videos/play/wwdc2019/413/`
+  - Use: Apple demonstrates `xcodebuild`, `xcresulttool`, and `xccov` as an
+    automated pipeline for extracting build/test failures and coverage data.
+  - Epistemos fusion: release-audit log evidence should be parseable, not
+    merely a terminal transcript.
+
+### Ranked Breakthrough Candidates
+
+1. `L3RuntimeLogEvidencePacket`
+   - Mechanism: correlate release-audit automated checks, OSLog predicates,
+     user-visible rows, AnswerPacket ids, RunEventLog ids, and blocked
+     promotion truth.
+   - Epistemos organ: SCOPE-Rex/SovereignGate -> RuntimeRouter/System G ->
+     RunEventLog -> AnswerPacket -> WRV.
+   - Tier: T0 now; T1 after metadata/log falsifier; T2/T3 only after real
+     runtime/manual proof.
+   - MAS/Pro: Pro Gated; MAS copy stays honest and unsupported modes hidden.
+   - Required falsifier:
+     `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`.
+   - Runtime proof: future owner-approved small-model run with logs.
+   - User-visible proof: AnswerPacket badge/row, blocked-confidence row, or
+     explicit abstention packet tied to logs.
+   - Rollback: deny promotion and keep `vault_research_route_with_packetized_mitigation`
+     when logs and UI disagree.
+   - Privacy risk: raw prompt/answer/log payload leakage into artifacts.
+   - Stability risk: stale logs, wrong process window, missing cancellation
+     event, UI row without packet.
+   - Provenance path: automated-check artifact + release-audit skill + Apple
+     logging/test-result references.
+   - Why breakthrough: this is the direct path from L1 source proofs to real
+     L3 product evidence without a false "green" claim.
+   - Why wrong: logs can still be incomplete unless paired with manual/runtime
+     checks and release-audit passes.
+
+2. `AnswerPacketLogCorrelationGate`
+   - Mechanism: require every visible large-model/local-model chat row to bind
+     an AnswerPacket id and at least one correlated log or abstention event.
+   - Organ: AnswerPacket/RunEventLog/Chat surface.
+   - Tier: T0 now.
+   - Why breakthrough: prevents UI-only demos from becoming capability truth.
+   - Why wrong: packet correlation says what happened, not whether the answer
+     was high quality.
+
+3. `UnsupportedModeHiddenLogGate`
+   - Mechanism: prove local fast/thinking/research modes expose only supported
+     capabilities while Agent/LiveAgent/Omega/70B remain hidden or gated.
+   - Organ: MAS/Pro copy, Settings, RuntimeRouter.
+   - Tier: T0 now.
+   - Why breakthrough: makes capability honesty testable.
+   - Why wrong: hidden unsupported modes still do not prove the supported mode
+     works well.
+
+### Candidate Falsifier Backlog
+
+1. `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`
+   - Accepted fields: upstream automated-checks artifact ref, release audit
+     skill ref, OSLog predicate set, log time window, process/subsystem/category
+     refs, xcodebuild/xcresult refs, user action refs, route decision refs,
+     AnswerPacket id, RunEventLog id, visible row id, hidden-mode assertions,
+     blocked promotion fields, rollback, no-runtime-byte metadata scope.
+   - Red fixtures: log missing, stale log window, wrong process, unredacted
+     prompt/answer in artifact, UI row without AnswerPacket, AnswerPacket
+     without log correlation, unsupported Agent visible on local model, hidden
+     provider fallback, sidecar default, Omega/autogenous promotion, live dense
+     70B claim, 128K shard claim, L2/L3/T4 green claim, model/runtime bytes
+     loaded in metadata scope.
+
+2. `F-AnswerPacketLogCorrelationGate`
+   - Accepted fields: packet id, chat row id, route id, log event id,
+     emission order, sink lookup, blocked-confidence fallback, ring-eviction
+     caveat.
+   - Red fixtures: timestamp-only binding, missing packet id, packet emitted
+     after row finalization, stale ring lookup, hidden confidence upgrade.
+
+3. `F-UnsupportedModeHiddenLogGate`
+   - Accepted fields: selected model kind, ProductBuild, visible mode list,
+     disabled/gated reason, settings copy digest, route denial log, no fake
+     success.
+   - Red fixtures: local model exposes LiveAgent, disabled button claims
+     success, cloud fallback hidden, MAS displays Pro/Omega promise, route
+     denial missing from logs.
+
+### Model / Runtime Ladder Implication
+
+The near-term L2/L3 ladder should be:
+
+1. Automated release-audit checks pass as L1/L3 blocker-preserving evidence.
+2. Runtime log evidence packet lands with no product promotion.
+3. Owner-approved small-model runtime proof emits AnswerPacket + logs.
+4. Manual/runtime release-audit spot checks correlate UI and logs.
+5. Distribution/compliance review keeps MAS/Pro copy honest.
+6. Repeated zero-fail passes are required before any release-ready wording.
+7. Only then should Gemma 4 E2B/E4B/12B or larger local lanes enter a visible
+   product route.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; the next guard-owned
+  build candidate is clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `L3RuntimeLogEvidencePacket`.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`.
+
+Best near-term code unit: implement
+`agent_core/src/uas/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe.rs`,
+`agent_core/src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe.rs`,
+and
+`Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe.sh`.
+
+Biggest false-claim risk: treating automated xcodebuild/cargo logs as product
+runtime evidence, or treating UI-visible output as verified without correlated
+logs and AnswerPacket evidence.
+
+Biggest missing artifact: a log-evidence packet that binds OSLog/xcodebuild/
+xcresult evidence to AnswerPacket and visible row ids without leaking raw user
+content.
+
+Next research query: "What is the smallest redacted log-correlation packet
+that proves a small-model runtime action was wired, reachable, visible, and
+verified without promoting L2/L3 or leaking prompt/answer bytes?"

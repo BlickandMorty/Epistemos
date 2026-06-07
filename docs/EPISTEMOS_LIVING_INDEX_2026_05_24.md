@@ -3770,6 +3770,29 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   model/runtime/cache/session bytes were loaded, no command was armed, no L1
   witness landed, L2 remains `vault_research_route_with_packetized_mitigation`,
   and L3 user-facing large-local-model capability remains red.
+- 2026-06-07 L3 runtime log-evidence research-to-build canon: Deep Research
+  Pass 117 is now folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`,
+  `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`, and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass defines the guard-owned
+  next bridge
+  `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`:
+  consume the automated-checks witness, then bind OSLog subsystem/category
+  predicates, log time windows, xcodebuild and optional `.xcresult` refs, user
+  action refs, route decisions, AnswerPacket id, RunEventLog id, visible row
+  id, unsupported-mode hidden/gated assertions, blocked promotion fields,
+  rollback, and no-runtime-byte metadata scope. External sources folded include
+  Apple Logging, Apple OSLog, Apple xcodebuild test-result docs, and Apple's
+  `xcresulttool` testing pipeline guidance. This is T0 canon/build-plan only:
+  no runtime proof, manual release-audit proof, distribution/compliance proof,
+  L2/L3/T4 green, live dense 70B, 128K shard, Omega/autogenous, or user-facing
+  product capability was claimed. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing large-
+  local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
