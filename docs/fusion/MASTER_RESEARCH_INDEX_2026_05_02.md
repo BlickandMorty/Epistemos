@@ -194,6 +194,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > bytes, and makes no MAS/L2/L3/live-70B claim. The next research-to-build unit
 > is `hardware_tiered_model_catalog_source_card`; the guard-owned product cursor
 > remains `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> Deep Research Pass 71 now lands `F-HardwareTieredModelCatalog-SourceCard` as
+> a T1/L1 metadata-only witness at
+> `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`.
+> It converts current Gemma/Qwopus/MoE/GPU model-card metadata and local
+> Downloads research into 9 hardware-tiered source cards, rejects 37 red
+> fixtures, keeps Gemma 4 E2B as a small-harness candidate only, Gemma 4 12B
+> QAT as Pro Gated only, Qwopus 27B as headroom-caveated, MoE rows as requiring
+> active-params/full-weight memory truth, exotic quant rows as provenance-gated
+> and runtime-deferred, and Gemma 31B NVFP4/AutoRound rows as GPU/server
+> research rather than Mac defaults. It opens zero model/runtime/provider/
+> source-tree/product/command/benchmark bytes and makes no MAS/L2/L3/live-70B
+> claim. The next research-to-build unit is `moe_active_params_memory_truth`;
+> the guard-owned product cursor remains
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 
 ---
 

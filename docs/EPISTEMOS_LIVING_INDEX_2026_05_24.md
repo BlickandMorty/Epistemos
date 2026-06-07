@@ -658,6 +658,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   unit is `hardware_tiered_model_catalog_source_card`; the guard-owned product
   cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-07** · `F-HardwareTieredModelCatalog-SourceCard` is now
+  built as the research-to-build hardware-tiered large-local-model catalog:
+  `agent_core/src/uas/hardware_tiered_model_catalog_source_card.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_hardware_tiered_model_catalog_source_card.rs`,
+  script `Tools/falsifiers/f_hardware_tiered_model_catalog_source_card.sh`,
+  witness page
+  `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness consumes
+  `F-KVSourceCard-ForkAndDaemonBoundary`, accepts 9 model cards, rejects 37 red
+  fixtures, keeps Gemma 4 E2B as a small-harness candidate only, Gemma 4 12B
+  QAT as Pro Gated only, Qwopus 27B as headroom-caveated, Qwopus MoE rows as
+  requiring active-params/full-weight memory truth, exotic quant rows as
+  provenance-gated/runtime-deferred, and Gemma 31B NVFP4/AutoRound rows as
+  GPU/server research rather than Mac defaults. It opens zero model/runtime/
+  provider/source-tree/product/command/benchmark bytes. This advances L1
+  catalog coverage only. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next
+  research-to-build unit is `moe_active_params_memory_truth`; the guard-owned
+  product cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
   `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
@@ -2778,6 +2805,18 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   product/command/benchmark bytes at zero, and advances L1 source-card boundary
   coverage only. L2 remains `vault_research_route_with_packetized_mitigation`;
   L3 user-facing large-local-model/runtime capability is not green.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
+  `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,
+  Qwopus 27B GGUF/TQ3_4S/HLWQ, Qwopus MoE 35B GGUF/APEX, Gemma 31B NVFP4, and
+  Gemma 31B AutoRound into hardware-tiered cards, rejects 37 red fixtures, and
+  keeps all model/runtime/provider/source-tree/product/command/benchmark bytes
+  at zero. Gemma 4 E2B is only a small-harness candidate; Gemma 4 12B is only
+  Pro Gated; Qwopus 27B is headroom-caveated; MoE rows require active-params
+  and full-weight memory truth; exotic quant rows require provenance gates; GPU
+  rows are not Mac defaults. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

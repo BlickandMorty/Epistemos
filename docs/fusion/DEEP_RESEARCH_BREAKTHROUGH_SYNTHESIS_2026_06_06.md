@@ -4953,6 +4953,82 @@ Current external checks sharpen the local-model path:
 Source refs for this pass:
 
 - https://github.com/RyanCodrai/turbovec
+
+## Pass 71 - Hardware-Tiered Model Catalog Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
+Status: `F-HardwareTieredModelCatalog-SourceCard` is now built and validated as a metadata-only T1/L1 witness at `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`.
+
+Mechanism:
+
+The new primitive `agent_core/src/uas/hardware_tiered_model_catalog_source_card.rs` converts local Downloads model research and current Hugging Face model-card metadata into typed, UAS-addressed hardware-tier cards. The catalog consumes `F-KVSourceCard-ForkAndDaemonBoundary`, accepts 9 model cards, rejects 37 red fixtures, and keeps all model/runtime/provider/source-tree/product/command/benchmark bytes at zero.
+
+Architecture fusion:
+
+- Gemma 4 E2B QAT GGUF is a small-harness candidate only.
+- Gemma 4 12B QAT GGUF is a Pro Gated flagship candidate only.
+- Qwopus 27B GGUF is a coding/reasoning candidate with explicit 16-18 GB headroom caveat.
+- Qwopus 27B TQ3_4S and HLWQ remain exotic quant candidates requiring provenance gates and runtime deferral.
+- Qwopus MoE 35B GGUF/APEX rows require active-params/full-weight memory truth before route-card use.
+- Gemma 31B NVFP4 and AutoRound rows are GPU/server research, not Mac defaults.
+
+Why it matters:
+
+This is the first build unit that turns the broader large-local-model research into a hardware-tiered catalog with falsifier-backed overclaim rejection. It prevents stale Downloads notes, active-parameter shortcuts, exotic quant forks, GPU-only assumptions, and model-card excitement from becoming route authority before memory, runtime, rollback, RunEventLog, AnswerPacket, and WRV proof exists.
+
+What this still does not prove:
+
+- no runtime package import
+- no model path readiness
+- no download/open/hash/load of model files
+- no first token
+- no speed, quality, coding, or long-context proof
+- no Apple Silicon memory fit
+- no MAS support
+- no product-default or best-model claim
+- no L2 capability promotion
+- no L3 user-facing large-local-model route
+- no live dense 70B or SSD-as-RAM claim
+
+Immediately codeable next unit:
+
+`F-MoEActiveParamsMemoryTruth` / `moe_active_params_memory_truth` should prove that MoE active-parameter counts cannot be treated as memory-fit proof. It should bind full-weight bytes, expert residency, router overhead, KV cache bytes, cold/hot lease policy, rollback, RunEventLog, AnswerPacket, and abstention before Qwopus-MoE or APEX rows can influence route selection.
+
+Promotion truth:
+
+- T1/L1 advanced: yes, `F-HardwareTieredModelCatalog-SourceCard` landed.
+- T2/L2 advanced: no. Product route remains `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. User-facing large-local-model capability remains red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: MoE memory-truth routing, because active params are promising for local large models but dangerous if confused with full resident memory.
+
+Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it blocks the most tempting false shortcut in MoE rows before runtime routing starts.
+
+Best near-term code unit: add a metadata-only MoE memory ledger card that rejects active-param-as-fit claims, missing full-weight bytes, missing KV bytes, missing expert-residency lease, hidden cloud fallback, live dense 70B, and L2/L3 promotion.
+
+Biggest false-claim risk: saying Qwopus-MoE "fits" because only ~A3B parameters are active, while full weights, KV cache, router overhead, and residency leases remain unproved.
+
+Biggest missing source: current, source-carded file-size and runtime-memory evidence for the exact Qwopus-MoE GGUF/APEX rows on the target Mac tier.
+
+Next research query: "How should Epistemos prove MoE active-parameter counts, full-weight residency, KV cache bytes, and expert-routing overhead separately before any MoE large-local-model row becomes a route candidate?"
+
+Sources:
+
+- `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`
+- `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`
+- `/Users/jojo/Downloads/locals.md`
+- `/Users/jojo/Downloads/locals2.md`
+- https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
+- https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
+- https://huggingface.co/Jackrong/Qwopus3.5-27B-v3-GGUF
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/samuelcardillo/Qwopus-MoE-35B-A3B-GGUF
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 - https://github.com/google-ai-edge/LiteRT-LM
 - https://github.com/google-ai-edge/LiteRT-LM/blob/main/Package.swift
 - https://github.com/google-ai-edge/LiteRT-LM/tree/main/swift
@@ -6404,23 +6480,24 @@ Model/runtime ladder implications:
 | Tier | Candidate role | Current truth |
 |---|---|---|
 | Harness floor | Gemma 4 E2B QAT GGUF and/or another tiny GGUF model | Already covered by source-card and runtime-plural plan, but runtime remains owner-approval gated. |
-| 16-18 GB Mac text/coding candidate | Qwopus3.5 27B GGUF at smaller quant, or a smaller dedicated tool-calling model | Local Downloads research says this may be useful, but Epistemos needs `F-HardwareTieredModelCatalog-SourceCard` before citing it. |
+| 16-18 GB Mac text/coding candidate | Qwopus3.5 27B GGUF at smaller quant, or a smaller dedicated tool-calling model | `F-HardwareTieredModelCatalog-SourceCard` now cites it as L1 catalog metadata only; runtime, memory fit, quality, and user-facing use remain gated. |
 | 16-18 GB Mac Gemma candidate | Gemma 4 REAP GGUF/Q4 style variants | Promising local research, but Gemma license/model-card/runtime proof must be explicit; MoE full-weight truth must be enforced. |
 | 24-32 GB+ Pro candidate | Qwopus-MoE 35B A3B GGUF/APEX, Gemma 31B mixed/INT4, Gemma 26B/31B variants | Pro Gated/Vault until hardware tier, model path, runtime lane, KV budget, and same-fixture logs exist. |
 | Server/GPU research | NVFP4, AutoRound/vLLM, LMCache/vLLM, KTransformers | Pro Research/Vault only unless an explicit non-MAS route and product-visible boundary is approved. |
 
 Breakthrough candidate:
 
-`HardwareTieredModelCatalog + KVForkDaemonBoundary` is the safest next
-large-local-model breakthrough because it prevents Epistemos from confusing
-model-card fit, active MoE compute, server benchmark fit, prompt-cache reuse,
-or exotic quant format with an actual user-facing local route. It also lets the
-architecture keep ambition: small harness first, 12B QAT next, 27B/31B/MoE
-as Pro Gated/Vault rows, 70B-class as cold assembly and route/transport proof.
+`HardwareTieredModelCatalog + KVForkDaemonBoundary` is now landed as L1/T1
+metadata architecture. The next safest large-local-model breakthrough is MoE
+active-params memory truth, because it prevents Epistemos from confusing
+active compute with full resident memory, KV cache, router overhead, or an
+actual user-facing local route. The ambition stays intact: small harness first,
+12B QAT next, 27B/31B/MoE as Pro Gated/Vault rows, 70B-class as cold assembly
+and route/transport proof.
 
 Buildable falsifier backlog:
 
-1. `F-KVSourceCard-ForkAndDaemonBoundary`
+1. `F-KVSourceCard-ForkAndDaemonBoundary` - landed 2026-06-07
    - Mechanism: classify every KV/runtime source card as
      `product_eligible_in_process`, `owner_approved_command`,
      `quarantine_server_daemon`, `remote_or_distributed_denied`, or
@@ -6434,7 +6511,7 @@ Buildable falsifier backlog:
    - Tier: T1/L1 metadata first. T2+ requires a tiny owner-approved runtime
      witness.
 
-2. `F-HardwareTieredModelCatalog-SourceCard`
+2. `F-HardwareTieredModelCatalog-SourceCard` - landed 2026-06-07
    - Mechanism: convert local Downloads model research into UAS-addressed
      model catalog cards with HF revision, license, format, runtime lane,
      weight/KV budget, hardware tier, intended role, false-claim blockers, and
@@ -6486,18 +6563,20 @@ Promotion truth:
   pass.
 - T4/T5 green: no.
 
-Best breakthrough candidate: hardware-tiered model catalog plus
-KV/fork/daemon boundary, because it converts the big-model dream into concrete
-source cards, RAM/KV budgets, and no-hidden-sidecar gates.
+Best breakthrough candidate: MoE active-params memory truth, because the
+hardware catalog and KV/fork boundary now exist and the next dangerous shortcut
+is treating active experts as if they prove full model memory fit.
 
-Safest next falsifier: `F-KVSourceCard-ForkAndDaemonBoundary`, because it
-builds directly on the already-passed `F-KVRuntimeSourceCard` and prevents
-server/daemon/cache motifs from leaking into product truth.
+Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it builds
+directly on the now-passed hardware catalog and prevents MoE marketing from
+leaking into product route truth.
 
-Best near-term code unit: add the KV boundary primitive and falsifier as
-metadata-only, consuming `artifacts/falsifiers/kv_runtime_source_card/result.json`
-and rejecting server-as-product, daemon-as-product, remote-cache-as-local,
-hidden cache authority, and L2/L3 promotion.
+Best near-term code unit: add the MoE memory-truth primitive and falsifier as
+metadata-only, consuming
+`artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`
+and rejecting active-param-as-memory-fit, missing full-weight bytes, missing KV
+bytes, missing expert-residency lease, hidden cloud fallback, and L2/L3
+promotion.
 
 Biggest false-claim risk: saying Qwopus, Gemma REAP, AutoRound, NVFP4,
 PolarQuant, TQ3_4S, vLLM, LMCache, KTransformers, or KIVI makes large local
@@ -6508,9 +6587,9 @@ Biggest missing source: owner-approved same-fixture local logs for the first
 tiny GGUF harness lane and current source cards for the local Downloads model
 catalog candidates.
 
-Next research query: "Which local Downloads model-catalog candidates should be
-source-carded first into hardware tiers, and what current Hugging Face metadata
-invalidates or sharpens each local claim?"
+Next research query: "How should Epistemos separately prove MoE active
+parameter count, full-weight bytes, KV cache bytes, expert residency, and
+router overhead before any MoE model row can influence a runtime route?"
 
 ## 70. Pass 70 - KV Source-Card Fork and Daemon Boundary Build
 
@@ -6588,11 +6667,11 @@ What this did not prove:
 
 Buildable next unit:
 
-`F-HardwareTieredModelCatalog-SourceCard` should convert local Downloads model
-research and current model-card metadata into UAS-addressed hardware-tier cards
-with revision, license, format, runtime lane, weight/KV budget, role, false-
-claim blockers, rollback, RunEventLog, AnswerPacket refs, and explicit
-non-promotion language.
+`F-HardwareTieredModelCatalog-SourceCard` has now landed. The next unit is
+`F-MoEActiveParamsMemoryTruth` / `moe_active_params_memory_truth`, which should
+prove active-parameter counts, full-weight bytes, KV cache bytes, expert
+residency, router overhead, rollback, RunEventLog, AnswerPacket, and abstention
+before MoE rows can influence runtime routing.
 
 Promotion truth:
 
@@ -6602,18 +6681,18 @@ Promotion truth:
 - T3/L3 advanced: no. User-facing large-local-model capability remains red.
 - T4/T5 green: no.
 
-Best breakthrough candidate: hardware-tiered model catalog, because the
-architecture now has source-card and fork/daemon boundaries and needs exact
-model rows before larger runtime work can safely choose candidates.
+Best breakthrough candidate: MoE memory-truth routing, because the architecture
+now has source-card, fork/daemon, and hardware-catalog boundaries and needs to
+separate active compute from resident memory before MoE rows can route.
 
-Safest next falsifier: `F-HardwareTieredModelCatalog-SourceCard`, because it
-turns the local Downloads model research into current, source-carded,
-hardware-tiered, non-promotional model truth.
+Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it turns the
+now-cataloged MoE rows into explicit full-weight/KV/expert-residency truth
+before any model can be treated as a route candidate.
 
-Best near-term code unit: add `HardwareTieredModelCatalogSourceCard` and a
-metadata-only falsifier that rejects stale local model claims, missing HF
-revision/license/format, active-parameter-as-memory-fit claims, hidden cloud
-fallback, live dense 70B, and L2/L3 promotion.
+Best near-term code unit: add a metadata-only MoE memory ledger that consumes
+`F-HardwareTieredModelCatalog-SourceCard` and rejects active-parameter-as-fit,
+missing full-weight bytes, missing KV bytes, missing expert-residency lease,
+hidden cloud fallback, live dense 70B, and L2/L3 promotion.
 
 Biggest false-claim risk: calling any model "best" or "green" from catalog
 metadata before owner-approved same-fixture runtime, byte, cancellation,

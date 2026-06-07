@@ -44,6 +44,7 @@ pub mod copy_counter;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
 pub mod kv_runtime_source_card;
 pub mod kv_source_card_fork_and_daemon_boundary;
@@ -190,6 +191,14 @@ pub use gemma4_mtp_drafter_compatibility_card::{
     Gemma4MtpDrafterCompatibilitySet, Gemma4MtpPromotionTier, Gemma4MtpProofRefs,
     Gemma4MtpRuntimeLane, GEMMA4_MTP_DRAFTER_COMPATIBILITY_CARD_CURSOR,
     GEMMA4_MTP_DRAFTER_COMPATIBILITY_CARD_NEXT_CURSOR,
+};
+pub use hardware_tiered_model_catalog_source_card::{
+    HardwareTier, HardwareTieredModelCatalog, HardwareTieredModelCatalogCard,
+    HardwareTieredModelCatalogError, HardwareTieredModelCatalogMetrics,
+    ModelCatalogByteScope, ModelCatalogFormat, ModelCatalogProofRefs, ModelCatalogRole,
+    ModelCatalogRuntimeLane, ModelCatalogSourceAuthority,
+    HARDWARE_TIERED_MODEL_CATALOG_SOURCE_CARD_CURSOR,
+    HARDWARE_TIERED_MODEL_CATALOG_SOURCE_CARD_NEXT_CURSOR,
 };
 pub use kind::UasKind;
 pub use kv_runtime_source_card::{
