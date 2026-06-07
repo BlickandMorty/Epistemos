@@ -226,6 +226,13 @@ Current 2026-06-07 large-local-model research-to-build status:
   to produce buildable outputs: source cards, falsifiers, red fixtures,
   blue-team repairs, UAS primitives, runtime harnesses, or WRV promotion
   requirements. Keyword research alone is not promotion evidence.
+- Deep Research Pass 84 expands the keyword atlas into a build-forcing compiler:
+  cross Epistemos organs, mechanisms, runtime lanes, artifact formats,
+  bottlenecks, failure modes, proof surfaces, and build targets; then turn each
+  useful source into a source card, UAS primitive, red fixture, falsifier
+  backlog item, command/byte/KV/retrieval/proof gate, AnswerPacket field,
+  RunEventLog evidence, or WRV requirement. Treat this as T0 research method
+  only until a falsifier lands.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

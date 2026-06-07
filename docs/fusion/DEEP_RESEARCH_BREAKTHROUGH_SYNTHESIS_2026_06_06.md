@@ -6017,6 +6017,166 @@ large-model runtime evidence captures one bounded token, model/runtime bytes,
 memory delta, stderr/stdout scans, rollback, RunEventLog, AnswerPacket, and
 quality non-promotion without leaking user data or claiming L2/L3?"
 
+## Deep Research Pass 84 - Large-Model Keyword Breakthrough Atlas Expansion
+
+Date: 2026-06-07
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+### Executive Synthesis
+
+Pass 84 expands `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+from a useful keyword list into a build-forcing research instrument. The atlas
+now tells future agents how to combine Epistemos organs, runtime lanes,
+artifact formats, bottlenecks, failure modes, proof surfaces, and build targets
+so large-local-model research produces falsifiers and code units instead of
+loose summaries.
+
+This is the search pattern:
+
+```text
+Epistemos organ + mechanism + runtime lane + artifact format + bottleneck +
+failure mode + proof surface + build target
+```
+
+Examples now canonized:
+
+- `UAS source card GGUF LFS OID wrong tokenizer AnswerPacket`
+- `RuntimeRouter llama.cpp Metal QAT byte envelope first token rollback`
+- `ColdStore KV cache quantization prefix cache eviction RunEventLog`
+- `Eidos TurboVec compressed index stable external id collision ledger`
+- `SovereignGate MLX Swift loader QAT memory pressure MAS denial`
+- `ColdStream DispatchIO Metal buffer read amplification cancellation`
+- `ProofPressureSignal Lean compiler feedback route repair AnswerPacket`
+
+### Local Mining Inputs
+
+The expansion mined current app/code/doc vocabulary rather than inventing a
+generic LLM search list. High-frequency and load-bearing local terms include
+UAS/OAS, AnswerPacket, RunEventLog, RuntimeRouter/System G, SovereignGate,
+SCOPE-Rex, Eidos, AppColdStore, PatternBoost, small-model runtime harness
+probes, release-audit probes, TurboVec, GGUF, MLX, LiteRT-LM, KV cache,
+Metal/UMA/ANE, source cards, byte ledgers, command envelopes, dry-run
+transcripts, first-token probes, and the exotic-quant gate family.
+
+The Downloads recovery layer remains in scope and now has stronger search
+families for TurboQuant/PolarQuant/QJL, vector quantization, EML, Lean/proof
+feedback, KV prefix caching, MLX constrained decoding, on-device MoLoRA with
+MLX/Metal, Mamba/local-agent research, and older Cognitive OS material.
+
+### External Validation Inputs
+
+The atlas expansion keeps the external search surfaces grounded in current
+primary or source-cardable references:
+
+- TurboVec repository: `https://github.com/RyanCodrai/turbovec`
+- Google Gemma 4 QAT:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- Google TurboQuant:
+  `https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/`
+- llama.cpp CLI docs:
+  `https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md`
+- MLX LM: `https://github.com/ml-explore/mlx-lm`
+- MLX Swift LM: `https://github.com/ml-explore/mlx-swift-lm`
+- LiteRT-LM: `https://github.com/google-ai-edge/LiteRT-LM`
+- Swift Subprocess: `https://github.com/swiftlang/swift-subprocess`
+- Apple Metal command buffers:
+  `https://developer.apple.com/documentation/metal/mtlcommandbuffer`
+- Hugging Face cache docs: `https://huggingface.co/docs/transformers/kv_cache`
+- vLLM: `https://github.com/vllm-project/vllm`
+- LMCache: `https://docs.lmcache.ai/`
+- KTransformers: `https://github.com/kvcache-ai/ktransformers`
+- FlexGen: `https://github.com/FMInference/FlexLLMGen`
+- KIVI: `https://arxiv.org/abs/2402.02750`
+
+### New Atlas Content
+
+Pass 84 adds:
+
+- A deep keyword mining protocol with strict/paper, repo, failure, and
+  Epistemos-build phrasings for every bottleneck.
+- Bottleneck term banks for artifact pull/provenance, loader/runtime
+  compatibility, memory/byte fit, quantization/compression, KV/cache/context,
+  retrieval/Eidos/AppColdStore, sparse wake/residency, Apple Silicon/Metal
+  transport, and proof/math/accuracy.
+- Ultra-dense query lines for pulling the right artifact, avoiding runtime
+  crashes, making 24-32 GB class rows honest, finding better quant/low-bit
+  kernels, extending context without lying, making retrieval faster/private,
+  routing large models as assemblies, using proof/math for accuracy, searching
+  for claim-breaking evidence, and searching for repair primitives.
+- Expanded GitHub search recipes for forks, issues, loaders, KV systems,
+  ternary/BitNet/T-MAC/SpinQuant, and proof systems.
+- A buildable output filter that maps each research result to one required
+  Epistemos output: `ModelSourceCard`, `CompressionSourceCard`,
+  `RuntimeCommandEnvelopeCard`, `KVRuntimeSourceCard`,
+  `CompressedIndexPlan`, `LowBitMetalKernelSourceCard`,
+  `ProofPressureSignal`, `EMLPrimitiveIRSourceCard`, red fixtures,
+  AnswerPacket caveats, and rollback requirements.
+- A recursive red/blue/purple research loop: red-team the claim, blue-team the
+  repair, then purple-team the smallest falsifier or code unit that makes the
+  red failure impossible or visible.
+
+### Architecture Fusion
+
+The keyword atlas now acts as a pre-falsifier compiler:
+
+```text
+Keyword sweep
+  -> source/fork/paper/model-card lead
+  -> source card or red fixture
+  -> UAS primitive candidate
+  -> falsifier backlog item
+  -> command/byte/KV/retrieval/proof gate
+  -> AnswerPacket/RunEventLog/WRV requirement
+```
+
+This keeps research in favor of building. A search result can be exciting, but
+it only enters architecture if it names an organ, a proof surface, a failure
+fixture, and a next build unit.
+
+### Promotion Truth
+
+- T0 research advanced: yes. The large-model keyword atlas is now a stronger
+  research-to-build canon surface.
+- T1/L1 advanced: no. No falsifier landed in Pass 84.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+Use the atlas to force every promising quant/KV/runtime/retrieval/proof source
+into a concrete `F-*` gate, starting with
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Safest next falsifier:
+Still `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`; keyword research
+does not replace the guard or runtime safety queue.
+
+Best near-term code unit:
+Implement the crash-safe command envelope so the large-model rows can carry
+artifact identity, byte-envelope denial, owner boundaries, dry-run policy,
+rollback, RunEventLog, AnswerPacket, and no-promotion proof into future
+redacted first-token work.
+
+Biggest false-claim risk:
+Treating broad research coverage or many keywords as product progress.
+Pass 84 improves the research method only; it does not prove a large model can
+run locally, answer accurately, fit memory, or ship to users.
+
+Biggest missing source:
+Exact owner-approved local artifact manifests and current fork/source-card
+evidence for whichever quant/runtime rows the owner chooses next.
+
+Next research query:
+"Which current forks, model cards, papers, and issue threads most directly
+produce red fixtures for `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`,
+the owner-approved dry-run transcript, and the future redacted first-token
+probe?"
+
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
 Date: 2026-06-07

@@ -3042,6 +3042,17 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   useful research to become source cards, falsifiers, red fixtures, UAS
   primitives, runtime harnesses, or WRV promotion requirements. This advances
   research method/canon only; L2 and L3 remain red for large-model runtime.
+- 2026-06-07 keyword-atlas expansion: Deep Research Pass 84 expands
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` into a
+  build-forcing keyword compiler. Future large-model research must cross
+  Epistemos organs, mechanisms, runtime lanes, artifact formats, bottlenecks,
+  failure modes, proof surfaces, and build targets; then turn useful sources
+  into source cards, UAS primitives, red fixtures, falsifier backlog,
+  command/byte/KV/retrieval/proof gates, AnswerPacket fields, RunEventLog
+  evidence, or WRV requirements. It adds bottleneck term banks, ultra-dense
+  query lines, GitHub/fork/HF/arXiv/official-doc recipes, and a red/blue/purple
+  loop. This advances T0 research method only; no new falsifier landed and L2/L3
+  large-local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

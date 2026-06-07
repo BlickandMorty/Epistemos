@@ -379,6 +379,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`; it advances T0
 > research/backlog canon only and still proves no command execution, no first
 > token, no model/runtime/provider bytes, no L2/L3, and no live dense 70B.
+> Deep Research Pass 84 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` expands
+> `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` into a
+> build-forcing keyword compiler. Future large-model research must combine
+> Epistemos organs, mechanisms, runtime lanes, artifact formats, bottlenecks,
+> failure modes, proof surfaces, and build targets; then convert useful
+> results into source cards, UAS primitives, red fixtures, falsifier backlog,
+> command/byte/KV/retrieval/proof gates, AnswerPacket fields, RunEventLog
+> evidence, or WRV requirements. The expanded atlas adds bottleneck term banks,
+> ultra-dense query lines, GitHub/fork/HF/arXiv/official-doc recipes, and a
+> red/blue/purple research loop. It advances T0 research method only: no new
+> falsifier landed, no runtime/model/provider bytes are loaded, no L2/L3
+> product capability changes, and no live dense 70B claim is allowed.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
