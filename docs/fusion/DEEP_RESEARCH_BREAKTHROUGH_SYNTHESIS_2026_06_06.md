@@ -10288,3 +10288,113 @@ Sources:
 - `agent_core/src/tools/registry.rs`
 - `agent_core/src/bridge.rs`
 - `EpistemosTests/ResearchModeTests.swift`
+
+## Pass 100 - Theme Presentation Release-Blocker Card
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+promotes without visible proof.
+
+### Executive Synthesis
+
+Landed `F-ThemePresentation-ReleaseBlockerCard` as a metadata-only L1/T1
+source-card witness so retained `theme_presentation` release-audit failures
+become exact repair units before visual surfaces can be cited as large-model,
+agent, or release proof. This matters for local large models because every
+future "it works" claim must be seen through stable, honest, readable,
+motion-safe, MAS/Pro-honest surfaces that preserve AnswerPacket caveats instead
+of using polish, theme state, or settings copy as hidden capability promotion.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/theme_presentation_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_theme_presentation_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_theme_presentation_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/theme_presentation_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-ThemePresentation-ReleaseBlockerCard_2026_06_07.md`
+
+### Bound Repair Surface
+
+The witness binds retained issue count `19`, source refs `12`, invariants `12`,
+focused commands `4`, rejected red fixtures `24`, zero model/product/runtime
+bytes, zero provider calls, and deterministic address
+`sha256:1c46e838765af87ad48a89304017ab086205c3bc64aa2f2732757b5194ed8077`.
+
+Source refs include `EpistemosTheme.swift`, `PlatinumTheme.swift`,
+`GlassModifiers.swift`, `NativeButtonStyles.swift`, `ToolbarGlass.swift`,
+`PhysicsModifiers.swift`, `PageShell.swift`, `MiniChatView.swift`,
+`LiquidGreeting.swift`, `ThemePairTests.swift`, `ChatPresentationTests.swift`,
+and `SettingsWindowPresentationTests.swift`.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Theme/presentation release blockers now have deterministic source-card identity and cannot drift as vague visual QA. |
+| Eidos | Evidence and citations must render with caveats intact; visual polish cannot become hidden evidence ranking or route authority. |
+| ActiveAssembly | Presentation state cannot wake model/runtime handles, mutate active context, or claim capability from surface selection. |
+| SCOPE-Rex/SovereignGate | Admission rejects presentation-as-proof, theme-as-route, MAS/Pro copy overclaims, hidden tool payloads, and unstable animation gates. |
+| RuntimeRouter/System G | Runtime routes remain independent of theme tokens, settings toggles, and visual presentation states. |
+| RunEventLog/AnswerPacket | Future visible proof must preserve caveats, rollback, release-red status, and no-green boundaries in the UI. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ThemePresentation-ReleaseBlockerCard` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Theme/presentation release readiness and large-local-model
+  user capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make visible proof surfaces robust enough that a
+future local model harness can show routes, caveats, memory budgets,
+AnswerPackets, and abstentions without leaking hidden tool payloads or implying
+capability from styling.
+
+Safest next falsifier: `F-DistributionProjectIntegrity-ReleaseBlockerCard`,
+matching the new side-card cursor
+`distribution_project_integrity_release_blocker_card`.
+
+Best near-term code unit: inspect theme/presentation focused failures in
+`ThemePairTests`, `ChatPresentationTests`, `SettingsWindowPresentationTests`,
+and `MiniChatViewAuditTests`, then decide whether source guards or production
+presentation behavior need the smallest repair.
+
+Biggest false-claim risk: treating a beautiful or polished UI, a theme-selected
+state, a settings copy change, or a visible packet surface as L2 route proof,
+L3 WRV completion, release readiness, or large-model runtime proof.
+
+Biggest missing source: exact focused Swift failure lines from a current
+theme/presentation rerun after this source-card binding.
+
+Next research query: "Which presentation invariants must be verified before
+Epistemos can honestly display large-model route packets, memory budgets,
+source cards, and AnswerPacket caveats as user-facing proof?"
+
+Sources:
+
+- `docs/falsifiers/F-ThemePresentation-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/theme_presentation_release_blocker_card/result.json`
+- `agent_core/src/uas/theme_presentation_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_theme_presentation_release_blocker_card.rs`
+- `Epistemos/Theme/EpistemosTheme.swift`
+- `Epistemos/Theme/PlatinumTheme.swift`
+- `Epistemos/Theme/GlassModifiers.swift`
+- `Epistemos/Theme/NativeButtonStyles.swift`
+- `Epistemos/Theme/ToolbarGlass.swift`
+- `Epistemos/Theme/PhysicsModifiers.swift`
+- `Epistemos/Views/Shell/PageShell.swift`
+- `Epistemos/Views/MiniChat/MiniChatView.swift`
+- `Epistemos/Views/Landing/LiquidGreeting.swift`
+- `EpistemosTests/ThemePairTests.swift`
+- `EpistemosTests/ChatPresentationTests.swift`
+- `EpistemosTests/SettingsWindowPresentationTests.swift`
