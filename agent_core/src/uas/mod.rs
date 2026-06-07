@@ -132,6 +132,7 @@ pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
 pub mod turbovec_stable_external_id_registry_plan;
+pub mod visible_output_sanitization_release_blocker_card;
 pub mod weight_block;
 pub mod witness;
 
@@ -918,6 +919,16 @@ pub use turbovec_stable_external_id_registry_plan::{
     TurboVecStableExternalIdRegistryStatus, TurboVecStableExternalIdSource,
     TURBOVEC_STABLE_EXTERNAL_ID_REGISTRY_PLAN_CURSOR,
     TURBOVEC_STABLE_EXTERNAL_ID_REGISTRY_PLAN_NEXT_CURSOR,
+};
+pub use visible_output_sanitization_release_blocker_card::{
+    required_visible_output_sanitization_invariants,
+    required_visible_output_sanitization_source_refs, VisibleOutputSanitizationOrgan,
+    VisibleOutputSanitizationReleaseBlockerCard, VisibleOutputSanitizationReleaseBlockerWitness,
+    VisibleOutputSanitizationStatus, VISIBLE_OUTPUT_SANITIZATION_FAMILY_SOURCE_REF,
+    VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_CURSOR,
+    VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_ID,
+    VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
+    VISIBLE_OUTPUT_SANITIZATION_UPSTREAM_REF,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

@@ -1,0 +1,590 @@
+{
+  "falsifier_id": "F-VisibleOutputSanitization-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_visible_output_sanitization_release_blocker_card.sh",
+  "command_digest": "sha256:6d0119b2f02ee0400ec875ef635de4d7ebab93b82cc65bfc001668d8ecb29092",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "e2d7f20d6988379dae10ae1f3f92f048a9ae39c6",
+  "fixture_id": "visible_output_sanitization_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T16:06:43Z",
+  "result_digest": "sha256:ee79c90e827ec625ec1e085bf70c9e7f57a78874ef334debaf381b24c1375fac",
+  "measurements": {
+    "answer_packet_caveat_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "control_prelude_visible_without_answer_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "explicit_final_answer_dropped_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "explicit_final_answer_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_cover_visible_output_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_reasoning_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_extensions_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_final_answer_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "graph_filter_visibility_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_control_prelude_without_answer": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_reasoning_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_action_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_function_call_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_tool_json_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_action_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_function_call_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_tool_json_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 17,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 17,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 9,
+      "unit": "refs"
+    },
+    "source_refs_cover_visible_output_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_agent_route_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_visible_output": {
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_model_output_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_model_output_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "visible_output_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_issue_count": {
+      "value": 5,
+      "unit": "issues"
+    },
+    "visible_output_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_sanitization_address": {
+      "value": "sha256:3fe36c7c3d24e809faad6c3efc84b6a8cc58b394c7d3fd4301c5aea58a1b8e53",
+      "unit": "sha256"
+    },
+    "visible_output_sanitization_card": {
+      "value": {
+        "family_id": "visible_output_sanitization",
+        "issue_count": 5,
+        "organ": "answer_packet_sanitization",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Engine/Extensions.swift",
+          "Epistemos/Engine/TriageService.swift",
+          "Epistemos/Engine/ThinkTagStreamRouter.swift",
+          "Epistemos/State/ChatState.swift",
+          "Epistemos/State/AgentChatState.swift",
+          "Epistemos/State/NoteChatState.swift",
+          "Epistemos/Views/Chat/ChatView.swift",
+          "Epistemos/Views/MiniChat/MiniChatView.swift",
+          "EpistemosTests/UserFacingModelOutputTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests",
+          "xcodebuild test -only-testing:EpistemosTests/AssistantInlineTranscriptTests",
+          "xcodebuild test -only-testing:EpistemosTests/ChatPresentationTests",
+          "xcodebuild test -only-testing:EpistemosTests/MiniChatViewAuditTests"
+        ],
+        "required_invariants": [
+          "function_call_envelopes_never_surface_without_final_answer",
+          "action_envelopes_never_surface_without_final_answer",
+          "scratch_pad_and_tool_call_blocks_are_stripped",
+          "incomplete_control_envelopes_suppress_prelude_only_text",
+          "explicit_final_answer_survives_after_control_envelopes",
+          "dangling_answer_markers_stay_empty",
+          "structured_tool_json_fragments_stay_hidden",
+          "thinking_trace_and_reasoning_preludes_stay_out_of_visible_stream",
+          "visible_streaming_and_final_paths_share_sanitizer",
+          "answer_packet_caveat_required_for_sanitized_output",
+          "no_hidden_chain_of_thought_or_tool_payload",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "raw_function_call_visible": false,
+        "raw_action_visible": false,
+        "raw_tool_json_visible": false,
+        "hidden_reasoning_visible": false,
+        "control_prelude_visible_without_answer": false,
+        "explicit_final_answer_dropped": false,
+        "answer_packet_caveat_missing": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "rollback_ref": "rollback:visible_output_sanitization_release_blocker",
+        "run_event_log_ref": "run_event_log:visible_output_sanitization_release_blocker",
+        "answer_packet_ref": "answer_packet:visible_output_sanitization_release_blocker"
+      },
+      "unit": "card"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_caveat_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "control_prelude_visible_without_answer_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "explicit_final_answer_dropped_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "explicit_final_answer_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_cover_visible_output_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_reasoning_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_extensions_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_final_answer_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "graph_filter_visibility_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_control_prelude_without_answer": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_reasoning_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_action_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_function_call_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_tool_json_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_action_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_function_call_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_tool_json_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 17,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 17,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "refs"
+    },
+    "source_refs_cover_visible_output_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_agent_route_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_visible_output": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_model_output_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "user_facing_model_output_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "visible_output_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_issue_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "issues"
+    },
+    "visible_output_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_output_sanitization_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "visible_output_sanitization_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_caveat_missing_rejected": true,
+    "answer_packet_caveat_present": true,
+    "control_prelude_visible_without_answer_rejected": true,
+    "explicit_final_answer_dropped_rejected": true,
+    "explicit_final_answer_preserved": true,
+    "focused_command_count": true,
+    "focused_commands_cover_visible_output_tests": true,
+    "hidden_reasoning_visible_rejected": true,
+    "hidden_route_cloud_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_extensions_source_rejected": true,
+    "missing_final_answer_invariant_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_control_prelude_without_answer": true,
+    "no_hidden_reasoning_visible": true,
+    "no_hidden_route_or_cloud_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_model_runtime_bytes": true,
+    "no_raw_action_visible": true,
+    "no_raw_function_call_visible": true,
+    "no_raw_tool_json_visible": true,
+    "raw_action_visible_rejected": true,
+    "raw_function_call_visible_rejected": true,
+    "raw_tool_json_visible_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "source_ref_count": true,
+    "source_refs_cover_visible_output_surfaces": true,
+    "upstream_agent_route_card_pass": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_visible_output": true,
+    "user_facing_model_output_source_bound": true,
+    "user_facing_model_output_tests_bound": true,
+    "visible_output_family_bound": true,
+    "visible_output_invariant_count": true,
+    "visible_output_invariants_bound": true,
+    "visible_output_issue_count": true,
+    "visible_output_issue_count_retained": true,
+    "visible_output_sanitization_address": true,
+    "visible_output_sanitization_card": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-VisibleOutputSanitization-ReleaseBlockerCard: consumes the agent-route blocker and release-audit family source card, binds visible_output_sanitization issue count 5 to exact UserFacingModelOutput and chat-surface source refs, focused tests, privacy/output invariants, rollback, RunEventLog, AnswerPacket, and rejects function/action/tool payload leaks, hidden reasoning visibility, control-prelude leakage, dropped final answers, missing packet caveats, hidden route/cloud authority, runtime byte loads, L2/L3/product green, and live dense-70B claims."
+}
