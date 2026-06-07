@@ -126,6 +126,20 @@ metadata scope. Treat this as the field blueprint for
 `F-SameFixtureRuntimeReplayEnvelope`; it is still T0 canon/build-plan only and
 does not prove a runtime lane, load model bytes, or advance L2/L3.
 
+2026-06-07 Pass 113 addendum: same-fixture research now has a minimal
+metadata-only build slice. The first `F-SameFixtureRuntimeReplayEnvelope`
+should require claim-boundary, fixture identity, source/search freshness,
+prompt/tokenizer/template/tool boundary, runtime-lane, model artifact,
+cache/byte, and proof-ref fields. The first lane cards should be
+`gguf_llama_cpp`, `litert_lm_swift`, `mlx_swift_candidate`,
+`mlx_lm_python_research`, and `no_runtime_abstention`. Red-team every source
+against prompt mismatch, search abstention, tokenizer/template drift,
+Gemma 4 tool-parser drift, cache-salt omission, non-deterministic hash
+promotion, Python MLX as Swift proof, LiteRT-LM early-preview overclaim,
+sidecar defaults, raw byte leakage, and false L2/L3/T4 promotion. This is
+research-to-build canon only; it does not prove a runtime lane, load model
+bytes, or advance L2/L3.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
@@ -138,6 +152,7 @@ Prioritize mechanisms that plausibly become code:
 - KV compression lane: KIVI/LeanKV/InnerQ/TurboQuant-style ideas as source-carded motifs before runtime authority.
 - MoE/sparse lane: active params are compute evidence only; full-weight bytes and KV bytes still bind.
 - Same-fixture replay lane: field-complete packet proof before any runtime-lane tournament.
+- Same-fixture minimal build lane: metadata-only UAS primitive with five lane cards and fail-closed abstention.
 - Proof-guided route lane: Lean/AxProver/OProver-style compiler feedback, verifier traces, and repair loops for route correctness and code-generation confidence.
 - EML/Primitive IR lane: elementary-function charts are internal primitive maps, not substrate-wide proof; source-card EML/math repos as motifs before implementation.
 
@@ -198,6 +213,10 @@ These are leads for falsifiers, not product claims.
    - Red-team mismatched prompts per lane, stale search packets, wrong
      tokenizer, hidden cache reuse, tool-call parser drift, server sidecar
      defaults, MAS/Pro collapse, and product-green overclaims.
+   - Minimal first build: five lane cards, zero runtime/model/provider bytes,
+     explicit abstention card, cache salt/hash policy, direct CLI versus
+     sidecar denial, owner approval ref, command envelope ref, and no L2/L3/T4
+     promotion.
 
 7. `gemma_qat_tool_json_chat_template_replay`
    - Bind Gemma 4 QAT chat-template/tool-call parser risks before agentic

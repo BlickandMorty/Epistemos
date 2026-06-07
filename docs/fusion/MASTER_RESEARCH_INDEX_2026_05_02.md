@@ -331,6 +331,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `Tools/falsifiers/f_same_fixture_runtime_replay_envelope.sh`. This is T0
 > canon/build-plan only: no runtime bytes loaded, no product route promoted,
 > and L2/L3 remain red.
+> Deep Research Pass 113 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` trims the
+> Pass 112 packet into the minimal metadata-only build slice for
+> `F-SameFixtureRuntimeReplayEnvelope`. Required field families are claim
+> boundary, fixture identity, source/retrieval freshness, prompt/tokenizer/
+> template/tool boundary, runtime lane boundary, model artifact boundary,
+> cache/byte boundary, and proof refs. Required first fixture cards are
+> `gguf_llama_cpp`, `litert_lm_swift`, `mlx_swift_candidate`,
+> `mlx_lm_python_research`, and `no_runtime_abstention`. The pass folds vLLM
+> cache-salt/hash determinism, MLX-LM Gemma 4 tool-parser drift, MLX Swift
+> Gemma 4 loader caveats, LiteRT-LM Swift/Gemma 4 release facts, and official
+> Gemma 4 QAT GGUF source-card facts into red fixtures. This is T0
+> canon/build-plan only: no runtime bytes loaded, no product route promoted,
+> and L2/L3 remain red.
 > Deep Research Pass 106 in
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
 > fresh large-local-model research into buildable backlog. It validates

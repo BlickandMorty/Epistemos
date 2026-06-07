@@ -1260,6 +1260,38 @@ not another high-level runtime preference.
 - `LLM AnswerPacket rollback cancellation output digest`
 - `metadata source card product overclaim runtime proof red fixture`
 
+## Pass 113 Minimal Build Query Packs
+
+Use these when implementing the first metadata-only
+`F-SameFixtureRuntimeReplayEnvelope` primitive. The goal is to keep the
+falsifier small enough to land while still blocking false runtime promotion.
+
+### Minimal Envelope Shape
+
+- `minimal LLM runtime replay envelope metadata only fields`
+- `same fixture lane cards abstention card falsifier`
+- `runtime lane tournament metadata proof refs AnswerPacket rollback`
+- `LLM benchmark fixture canonical serialization digest lane cards`
+
+### Five-Lane First Fixture
+
+- `gguf llama.cpp Gemma 4 QAT command envelope no server sidecar`
+- `LiteRT LM Swift Gemma 4 early preview package proof macOS`
+- `MLX Swift Gemma 4 unsupported architecture model registry`
+- `MLX LM Gemma 4 tool parser raw content tool_calls empty`
+- `runtime abstention card no winner no quality claim`
+
+### Red Fixtures To Force
+
+- `same fixture prompt digest mismatch per runtime lane`
+- `cache salt omitted prefix caching privacy leakage`
+- `non deterministic hash algorithm product proof red fixture`
+- `Python MLX support treated as Swift product proof`
+- `LiteRT Swift early preview treated as local runtime proof`
+- `server sidecar default hidden local endpoint runtime route`
+- `declared model bytes treated as resident memory proof`
+- `metadata only runtime bytes loaded product green overclaim`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

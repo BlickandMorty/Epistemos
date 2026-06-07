@@ -12414,3 +12414,298 @@ Next research query: "Which field subset is the smallest metadata-only
 `F-SameFixtureRuntimeReplayEnvelope` that still prevents prompt mismatch,
 search staleness, tokenizer drift, hidden cache reuse, sidecar defaults,
 tool-parser bypass, and product overclaim?"
+
+## Deep Research Pass 113 - Minimal Same-Fixture Replay Envelope Build Slice
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 112 defined the field-complete `SameFixtureRuntimeReplayEnvelope`. Pass
+113 trims that into the smallest metadata-only build slice that is still worth
+implementing. The goal is not to compare models yet. The goal is to make it
+impossible for a future lane tournament to compare GGUF, LiteRT-LM, MLX Swift,
+Python MLX, vLLM/LMCache, KTransformers, or custom Metal against different
+prompts, stale search, mismatched tokenizer/template state, hidden cache
+reuse, server sidecar defaults, or product-promotion copy.
+
+The local implementation anchor remains
+`agent_core/src/uas/runtime_plural_qat_lane_tournament_plan.rs`. That code
+already has lane enums, byte ledgers, proof refs, same-fixture refs, loader
+caveats, sidecar/default denials, and T0/T1/T2/T3/T4/T5 tier fields. The next
+build slice should not duplicate the whole tournament plan. It should produce
+a smaller upstream envelope that every lane card can cite.
+
+### Fresh Source Implications
+
+- vLLM automatic prefix caching requires cache block identity to include
+  parent hash, block tokens, and extra hashes such as cache salts. Its docs
+  distinguish deterministic/cross-language hash choices from faster
+  non-cryptographic choices and explicitly warn that weaker hashes can create
+  collision/security risk. Epistemos should require `cache_hash_algorithm`,
+  `cache_salt_digest`, and `cache_reuse_visible` even for metadata-only
+  envelopes.
+- MLX-LM Gemma 4 tool parsing has a concrete drift class: Gemma 4 native tool
+  calls can appear as raw content when parser inference misses the template.
+  Epistemos should require both `chat_template_digest` and
+  `tool_parser_policy`, plus red fixtures for escaped strings, booleans,
+  numbers, and multiple calls before any agentic quality claim.
+- MLX Swift Gemma 4 remains a loader caveat until local Swift proof exists.
+  Public Python MLX support and converted model cards do not prove Swift app
+  loadability.
+- LiteRT-LM has become a more credible Pro Gated lane because its public repo
+  lists cross-platform support, Swift early preview, Gemma 4 12B release
+  notes, function calling, and macOS Swift package support. That still remains
+  source-card evidence until Epistemos proves local package resolution,
+  command/API envelope, cancellation, rollback, RunEventLog, AnswerPacket, and
+  memory envelope.
+- Hugging Face's official Gemma 4 E2B QAT GGUF card is useful as a source
+  card because it states QAT is intended to preserve similar quality while
+  reducing memory requirements. It is not local memory proof or product
+  capability.
+
+External source URLs:
+
+- vLLM Automatic Prefix Caching:
+  `https://docs.vllm.ai/en/v0.15.1/design/prefix_caching/`
+- MLX-LM Gemma 4 tool parser issue:
+  `https://github.com/ml-explore/mlx-lm/issues/1096`
+- MLX Swift Gemma 4 loader issue:
+  `https://github.com/ml-explore/mlx-swift/issues/389`
+- LiteRT-LM repository:
+  `https://github.com/google-ai-edge/LiteRT-LM`
+- Official Gemma 4 E2B QAT GGUF model card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+
+### Minimal Metadata-Only Field Set
+
+The first build of `F-SameFixtureRuntimeReplayEnvelope` should require exactly
+these field families. Any lane that cannot supply them must emit an abstention
+card instead of disappearing.
+
+1. Claim boundary
+   - `falsifier_id`
+   - `fixture_id`
+   - `metadata_only`
+   - `product_build`
+   - `pro_status`
+   - `promotion_tier`
+   - `l1_architecture_effect`
+   - `l2_capability_effect`
+   - `l3_wrv_effect`
+   - `t4_build_green_effect`
+   - `still_red`
+
+2. Fixture identity
+   - `fixture_version`
+   - `fixture_digest`
+   - `canonical_serialization_digest`
+   - `same_fixture_for_all_lanes`
+   - `lane_count`
+   - `abstention_count`
+
+3. Source and retrieval freshness
+   - `body_read_checksum_ref`
+   - `search_index_freshness_ref`
+   - `search_index_abstention_reason`
+   - `source_revision_map_digest`
+   - `retrieval_packet_digest`
+   - `source_deleted_or_tombstoned_count`
+
+4. Prompt, tokenizer, template, and tool boundary
+   - `redacted_prompt_digest`
+   - `system_prompt_digest`
+   - `tool_schema_digest`
+   - `tokenizer_digest`
+   - `chat_template_digest`
+   - `tool_parser_policy`
+   - `hidden_chain_denied`
+   - `raw_prompt_bytes_retained`
+   - `raw_tool_json_bytes_retained`
+
+5. Runtime lane boundary
+   - `lane_id`
+   - `runtime_lane`
+   - `runtime_repo_url`
+   - `runtime_revision_or_release`
+   - `runtime_license_spdx`
+   - `direct_cli_or_in_process`
+   - `server_sidecar_denied`
+   - `explicit_local_endpoint_default_denied`
+   - `command_envelope_ref`
+   - `owner_approval_ref`
+   - `loader_caveat_ref`
+
+6. Model artifact boundary
+   - `model_id`
+   - `model_revision`
+   - `selected_file_manifest_digest`
+   - `declared_selected_file_bytes`
+   - `local_owner_manifest_ref`
+   - `modality_subset`
+   - `context_window_claim`
+
+7. Cache and byte boundary
+   - `cache_policy`
+   - `cache_salt_digest`
+   - `cache_hash_algorithm`
+   - `cache_reuse_allowed`
+   - `cache_reuse_visible`
+   - `selected_model_bytes`
+   - `resident_weight_budget`
+   - `kv_cache_budget`
+   - `runtime_workspace_budget`
+   - `app_headroom_budget`
+   - `runtime_bytes_loaded`
+   - `model_bytes_loaded`
+   - `provider_calls_made`
+
+8. Proof refs
+   - `cancellation_ref`
+   - `rollback_ref`
+   - `run_event_log_ref`
+   - `answer_packet_ref`
+   - `quality_metric_ref`
+   - `abstention_ref`
+
+This set is intentionally smaller than Pass 112. It drops detailed task
+metrics and stdout/stderr fields for the first metadata-only implementation,
+because those belong to later owner-approved runtime probes. It keeps every
+field needed to stop false product promotion.
+
+### Required Lane Cards
+
+The first fixture should include five cards:
+
+1. `gguf_llama_cpp`
+   - Status: `future_probe_candidate`.
+   - Why: best near-term local artifact/lane for Gemma 4 QAT source-carding.
+   - Required caveat: command envelope unarmed; no server sidecar default.
+
+2. `litert_lm_swift`
+   - Status: `blocked_until_admission`.
+   - Why: promising Pro Gated lane due to Swift early preview and Gemma 4
+     release notes.
+   - Required caveat: package/API/support proof is source-card only until
+     local resolution and cancellation proof.
+
+3. `mlx_swift_candidate`
+   - Status: `blocked_until_loader`.
+   - Why: Apple Silicon first-lane remains desirable.
+   - Required caveat: current Gemma 4 Swift loader support is not proven by
+     Python MLX.
+
+4. `mlx_lm_python_research`
+   - Status: `quarantine_reference`.
+   - Why: useful for parser motifs and quick source inspection.
+   - Required caveat: not a Swift product lane and not MAS route authority.
+
+5. `no_runtime_abstention`
+   - Status: `deferred_abstention`.
+   - Why: proves abstention is a first-class lane result rather than a missing
+     field.
+   - Required caveat: can never win, claim speed, or claim quality.
+
+### Red Fixtures For The Minimal Build
+
+The falsifier should reject:
+
+- lane count under 2;
+- missing abstention card;
+- different fixture digest per lane;
+- missing body-read checksum ref;
+- missing search freshness ref with no abstention reason;
+- missing tokenizer or chat-template digest;
+- Gemma 4 tool parser policy omitted;
+- raw prompt, raw tool JSON, raw body, raw token, stdout, or stderr retained;
+- cache reuse allowed without `cache_salt_digest`;
+- cache hash algorithm omitted or non-deterministic without visible caveat;
+- runtime lane uses Python MLX as Swift proof;
+- LiteRT-LM Swift early preview treated as local package proof;
+- server sidecar default allowed;
+- explicit local endpoint default allowed;
+- command envelope missing;
+- owner approval missing with runtime probe claimed;
+- declared file bytes treated as resident bytes;
+- active MoE params treated as memory-fit proof;
+- runtime/model/provider bytes greater than zero in metadata-only scope;
+- L2/L3/T4 claim set to true;
+- MAS copy allowed for Pro Gated runtime lane;
+- live dense 70B or SSD-as-RAM claim.
+
+### Buildable Rust Shape
+
+The smallest implementation should be a new UAS primitive, not a runtime
+probe:
+
+- `agent_core/src/uas/same_fixture_runtime_replay_envelope.rs`
+- `agent_core/src/bin/falsify_same_fixture_runtime_replay_envelope.rs`
+- `Tools/falsifiers/f_same_fixture_runtime_replay_envelope.sh`
+- `artifacts/falsifiers/same_fixture_runtime_replay_envelope/result.json`
+- `docs/falsifiers/F-SameFixtureRuntimeReplayEnvelope_2026_06_07.md`
+
+It should mirror the existing `RuntimePluralQatLaneTournamentPlan` validation
+style: enums for lane/status/tier, typed lane cards, byte ledger, proof refs,
+deterministic address, invalid fixtures, and a metrics struct. It should not
+open model paths, resolve packages, spawn commands, run benchmarks, or copy
+product files.
+
+### Ranked Breakthrough Candidates
+
+1. `SameFixtureRuntimeReplayEnvelopeMinimal`
+   - Mechanism: minimal field-complete packet for runtime comparison.
+   - Epistemos organ: UAS/OAS -> SCOPE-Rex -> RuntimeRouter/System G ->
+     RunEventLog -> AnswerPacket.
+   - Tier: T0 now, T1 after falsifier.
+   - MAS/Pro: Pro Gated/Vault; MAS copy only gets caveats.
+   - Runtime proof: none in this pass.
+   - User-visible proof: future visible route caveat and AnswerPacket summary.
+   - Rollback: required ref, not executed.
+   - Risk: can become paperwork if not implemented next.
+   - Why breakthrough: turns large-model ambition into comparable packets.
+   - Why wrong: may still be too broad if search-index proof is missing.
+
+2. `GemmaQATToolParserReplay`
+   - Mechanism: same fixture tool JSON replay for Gemma 4 parser drift.
+   - Organ: RuntimeRouter/System G + AnswerPacket.
+   - Tier: T0 now, T1 after metadata parser fixture, T2 only after runtime.
+   - Risk: parser success can be mistaken for answer quality.
+
+3. `KVCacheSaltLineageFence`
+   - Mechanism: cache salt/hash/deletion/tombstone proof.
+   - Organ: AppColdStore/Eidos/RuntimeRouter.
+   - Tier: T0 now.
+   - Risk: cache hit timing can leak source presence if salt policy is wrong.
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no; this is a build slice.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `SameFixtureRuntimeReplayEnvelopeMinimal`.
+
+Safest next falsifier: guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+the safest research-to-build side unit is now the metadata-only
+`F-SameFixtureRuntimeReplayEnvelope` minimal slice.
+
+Best near-term code unit: implement
+`agent_core/src/uas/same_fixture_runtime_replay_envelope.rs` with five lane
+cards and the red fixtures above, then wire the falsifier shell and validator.
+
+Biggest false-claim risk: using LiteRT-LM's newer Swift/Gemma 4 source facts,
+MLX Python Gemma 4 support, or a GGUF model card as local Swift/runtime proof.
+
+Biggest missing source: a landed `F-SearchIndex-ReleaseBlockerCard` artifact
+or explicit same-fixture search-abstention placeholder.
+
+Next research query: "What exact invalid fixture matrix should the first
+`F-SameFixtureRuntimeReplayEnvelope` Rust falsifier include so it rejects
+cross-lane prompt mismatch, cache-salt omission, tool-parser drift,
+sidecar-default leakage, missing abstention, and false L2/L3/T4 promotion?"
