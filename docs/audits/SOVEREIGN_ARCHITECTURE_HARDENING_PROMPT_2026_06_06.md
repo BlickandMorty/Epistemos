@@ -100,6 +100,21 @@ Use web research only when local canon lacks current API, package, OS, model,
 license, App Store, or security facts. Prefer primary/official sources. Web
 validates the local plan; it does not replace the local research corpus.
 
+Current 2026-06-07 large-local-model research-to-build status:
+
+- `F-KVSourceCard-ForkAndDaemonBoundary` has landed as a metadata-only T1/L1
+  witness at
+  `artifacts/falsifiers/kv_source_card_fork_and_daemon_boundary/result.json`.
+- `F-HardwareTieredModelCatalog-SourceCard` has landed as a metadata-only
+  T1/L1 witness at
+  `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`.
+- The next research-to-build unit after the hardware catalog is
+  `moe_active_params_memory_truth`.
+- The guard-owned product cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 remains `vault_research_route_with_packetized_mitigation`; L3
+  user-facing large-local-model/runtime capability is not green.
+
 ## Architecture Spine To Preserve
 
 ```text

@@ -98,6 +98,11 @@ Runtime policy:
   Gemma 4 E2B/E4B QAT are MAS/Pro candidates only after memory,
   cancellation, structured-output, loader, package-size, RunEventLog, and
   AnswerPacket witnesses. MLX Gemma 4 repos are not Swift runtime proof.
+- 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard` is landed as
+  T1/L1 metadata-only. It makes Gemma/Qwopus/MoE/GPU rows addressable and
+  hardware-tiered, but it does not prove model load, Apple Silicon fit,
+  product default, or user-facing capability. The next research-to-build unit
+  is `moe_active_params_memory_truth`.
 - TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed
   retrieval cache with UAS-stable external IDs, allowlist-before-rank privacy,
   crash-safe persistence wrapping, exact source validation, and no hidden route
