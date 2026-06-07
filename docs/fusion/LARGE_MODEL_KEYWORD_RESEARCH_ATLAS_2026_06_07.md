@@ -31,6 +31,143 @@ Use these terms alone, then combine them with the bottleneck modifiers below:
 - KV/cache: KV cache, KV quantization, KIVI, InnerQ, LeanKV, KVQuant, LMCache, PagedAttention, PageAttention, FlexGen, PowerInfer, KTransformers, vLLM, SGLang, prompt cache, prefix cache, offload, eviction
 - Proof/math: Lean, Lean 4, mathlib, OProver, AxProver, DeepSeek-Prover, Goedel-Code-Prover, EML, exponential-minus-logarithm, elementary mathematical language, verifier feedback, compiler feedback, formal code generation
 
+## Deep Keyword Mining Protocol
+
+Generate research queries with this grammar:
+
+```text
+Epistemos organ + mechanism + runtime lane + artifact format + bottleneck +
+failure mode + proof surface + build target
+```
+
+Examples:
+
+- `UAS source card GGUF LFS OID wrong tokenizer AnswerPacket`
+- `RuntimeRouter llama.cpp Metal QAT byte envelope first token rollback`
+- `ColdStore KV cache quantization prefix cache eviction RunEventLog`
+- `Eidos TurboVec compressed index stable external id collision ledger`
+- `SovereignGate MLX Swift loader QAT memory pressure MAS denial`
+- `ColdStream DispatchIO Metal buffer read amplification cancellation`
+- `ProofPressureSignal Lean compiler feedback route repair AnswerPacket`
+
+Do not stop at one phrase. For every bottleneck, run at least four phrasings:
+
+- strict paper phrasing: `KV cache quantization long context LLM`
+- repo phrasing: `KV cache quantization implementation GitHub`
+- failure phrasing: `KV cache quantization quality regression OOM`
+- Epistemos build phrasing: `KV cache quantization source card byte envelope rollback`
+
+Then mutate the same phrase across sources:
+
+- GitHub: repo, fork, issues, PRs, benchmark scripts, CI failures
+- Hugging Face: model cards, files, revisions, GGUF names, safetensors names
+- arXiv: paper titles, author pages, code URLs, ablation terms
+- official docs: runtime flags, memory APIs, cancellation semantics, platform constraints
+- local Downloads: older research names, hidden notes, generated reports, session graphs
+
+## Bottleneck Term Banks
+
+Use these as high-density term banks when the search is getting too shallow.
+
+### Artifact Pull / Provenance
+
+- source pin, source card, source distinction, source byte manifest
+- owner path manifest, owner approval, owner manifest intake, path canonicalization
+- selected artifact path, selected file, local artifact availability, allowed root
+- LFS OID, Xet pointer, snapshot revision, model revision, commit digest, tag digest
+- Hugging Face `allow_patterns`, `snapshot_download`, `model.safetensors.index.json`
+- GGUF tensor map, tokenizer model, chat template, generation config, config digest
+- file-size evidence, byte envelope, declared bytes, model bytes, runtime bytes
+- symlink denial, path traversal denial, stale snapshot, stale cache, wrong row ID
+- quarantine reference, direct import, adapter wrap, clean-room rewrite, research only
+
+### Loader / Runtime Compatibility
+
+- loader compatibility, model path readiness, command envelope, dry-run transcript
+- llama-cli, llama.cpp Metal, GGUF split, GGUF mmap, prompt cache, chat template
+- MLX `load`, MLX `generate`, MLX `stream_generate`, MLX Swift `ChatSession`
+- LiteRT-LM Swift Package, binary target, unsafe linker flag, Google AI Edge
+- Transformers `from_pretrained`, `trust_remote_code`, AutoRound, Quanto, HQQ
+- KTransformers expert placement, vLLM PagedAttention, SGLang RadixAttention
+- server sidecar, daemon, local endpoint, OpenAI-compatible local API, hidden provider
+- stdout/stderr policy, token capture policy, timeout, cancellation, abort path
+- first token, redacted first token, token digest, stop reason, one-token probe
+
+### Memory / Byte Fit
+
+- unified memory, UMA headroom, resident set size, peak RSS, memory pressure
+- app headroom, OS pressure, swap, compressed memory, jetsam-like denial
+- KV bytes, weight bytes, activation bytes, scratch bytes, runtime workspace
+- selected bytes, support bytes, hot bytes, warm bytes, cold bytes, transport bytes
+- active parameters, full weights, expert bytes, MoE resident bytes, drafter bytes
+- context length, token budget, batch size, prompt length, rope scaling, sliding window
+- byte budget, memory envelope, byte ledger, cold miss ledger, wear budget
+- no-runtime-bytes-loaded, no model bytes loaded, non-resident selected bytes
+
+### Quantization / Compression
+
+- quantization-aware training, post-training quantization, low-bit quantization
+- Gemma 4 QAT, Gemma 4 E2B QAT, Gemma 4 12B QAT, Gemma 4 31B
+- GGUF q4_0, Q4_K_M, Q5_K_M, Q6_K, IQ quants, imatrix, calibration data
+- TurboQuant, PolarQuant, QJL, TurboVec, vector quantization, product quantization
+- NVFP4, MXFP4, FP8, NF4, HQQ, HIGGS, AutoRound, SpinQuant, GPTQ, AWQ
+- BitNet, T-MAC, ternary GEMM, ternary GEMV, XNOR, 1-bit LLM, sparse ternary
+- E8 quantization, lattice quantization, Leech lattice, Sherry pack, count sketch
+- quality regression, perplexity delta, code benchmark drift, tool-call JSON drift
+- exact baseline, held-out replay, same-fixture lane tournament, abstention
+
+### KV / Cache / Context
+
+- KV cache quantization, asymmetric KV, 2-bit KV, residual window, attention sink
+- prompt cache, prefix cache, paged KV, block table, virtual block table
+- cache eviction, cache restore checkpoint, cache pollution, cache compatibility fence
+- LMCache, PagedAttention, RadixAttention, HiCache, KIVI, InnerQ, LeanKV, KVQuant
+- FlexGen offload, CPU-GPU-disk schedule, heterogeneous placement, cache offload
+- KV lineage, KV direct, KV page sketch, KV page bloom sketch, query-aware KV selector
+- long context, 128K, 1M context, needle retrieval, recall drop, recency bias
+- context compression, summary cache, semantic working set, active assembly
+
+### Retrieval / Eidos / AppColdStore
+
+- TurboVec, compressed vector search, quantized embeddings, binary embeddings
+- HNSW, usearch, FAISS, ScaNN, Annoy, product quantization, scalar quantization
+- filter-before-rank, allowlist-before-rank, private prefilter, tombstone leak
+- stable external ID, row ID drift, generation counter, collision ledger
+- exact citation baseline, recall quality replay, rerank, hybrid search
+- Eidos route priors, closed citations, source refs, AppColdStore cache rebuild
+- semantic working set compiler, context island, retrieval island, local recall island
+
+### Sparse Wake / Residency / Large Model Assembly
+
+- ColdStore, AppColdStore, ActiveAssembly, smallest waking set, cold assembly
+- constructive residency, residency lease, proof-carrying residency lease
+- coactivation tile prefetch, residency construction graph, cold miss ledger
+- sparse wake proposal, sparse wake certificate, active params, hot expert
+- PowerInfer activation locality, MoE active parameters, expert cache
+- LayerSkip, early exit, Mixture-of-Depths, depth lease, speculative decoding
+- MTP drafter, target-token verification, accepted draft token, rejected draft token
+- construction graph, route distillation tournament, PatternBoost, held-out winners
+
+### Apple Silicon / Metal / Transport
+
+- Apple Silicon local LLM, M2 Pro 16GB, M3 Max, unified memory inference
+- Metal backend, Metal command buffer, MTLBuffer, MTLHeap, IOSurface, MPSGraph
+- DispatchIO, mmap replacement, read plan, copy budget, slab arena, stream frame arena
+- memory pressure, page fault, read amplification, SSD wear, cache pollution
+- MLX Metal kernels, llama.cpp Metal ops, Swift concurrency, serialized executor
+- Process/Pipe, Swift Subprocess, App Sandbox, MAS denial, direct-distribution Pro
+- cancelable transport, rollback transport trace, ColdPanicFallback
+
+### Proof / Math / Accuracy
+
+- Lean 4, mathlib, OProver, AxProver, DeepSeek-Prover, Goedel-Prover
+- compiler feedback, type error repair, proof repair, tactic search, library search
+- verifier-guided routing, proof-carrying route, proof pressure, verifier regret
+- EML, elementary mathematical language, exponential-minus-logarithm
+- Primitive IR, ULP oracle, interval proof, numeric stability, softmax proof
+- citation drift, tool JSON drift, hallucination delta, refusal drift
+- AnswerPacket, RunEventLog, redacted token digest, visible proof, closed citation
+
 ## Synonym Families
 
 Use multiple phrasings because repos and papers name the same bottleneck differently:
@@ -277,21 +414,166 @@ When a source looks useful, ask these questions immediately:
 - `"quantization" "tool use" "function calling" "accuracy"`
 - `"Gemma QAT" "coding" "writing" "research" "benchmark"`
 
+## Ultra-Dense Query Lines By Bottleneck
+
+These are intentionally repetitive in different language. Different repos,
+papers, model cards, and issues use different words for the same failure.
+
+### Pull The Right Artifact
+
+- `"Gemma 4 QAT" "GGUF" "LFS OID" "revision" "file manifest"`
+- `"Gemma 4 QAT" "selected file" "snapshot" "chat template" "GGUF"`
+- `"Gemma 4 QAT" "q4_0" "wrong tokenizer" "llama.cpp" "model card"`
+- `"QAT GGUF" "Xet" "OID" "Hugging Face" "snapshot_download"`
+- `"GGUF" "model.safetensors.index.json" "conversion" "tokenizer mismatch"`
+- `"GGUF split" "selected artifact" "file size" "sha256" "source pin"`
+- `"Qwopus" "TQ3_4S" "GGUF" "LFS" "chat template"`
+- `"Qwopus" "HLWQ" "GGUF" "revision" "quality regression"`
+- `"APEX GGUF" "MoE" "active parameters" "full weight bytes"`
+- `"NVFP4" "Gemma" "31B" "AutoRound" "artifact manifest"`
+
+### Avoid Local Runtime Crashes
+
+- `"llama.cpp Metal" "first token" "timeout" "cancellation" "Apple Silicon"`
+- `"llama-cli" "--predict 1" "offline" "GGUF" "stdout"`
+- `"llama.cpp" "Metal" "memory pressure" "KV cache" "M2 Pro"`
+- `"MLX Swift" "Gemma" "QAT" "loader" "memory pressure"`
+- `"MLX LM" "stream_generate" "redacted token" "Apple Silicon"`
+- `"LiteRT-LM Swift" "Gemma" "binary target" "unsafe linker"`
+- `"LiteRT-LM" "macOS" "Swift Package" "Gemma 4 12B"`
+- `"local LLM" "subprocess" "Pipe" "deadlock" "cancellation"`
+- `"Swift Subprocess" "stdout" "stderr" "LLM" "timeout"`
+- `"Metal command buffer" "LLM inference" "abort" "rollback"`
+
+### Make 24-32 GB Class Rows Honest
+
+- `"Apple Silicon" "24GB" "local LLM" "GGUF" "KV cache"`
+- `"Apple Silicon" "32GB" "Gemma 12B" "QAT" "llama.cpp"`
+- `"M2 Pro 16GB" "Gemma 12B" "QAT" "not enough memory"`
+- `"unified memory" "LLM inference" "KV cache" "context length"`
+- `"local LLM" "peak RSS" "activation memory" "scratch buffer"`
+- `"MoE" "active parameters" "memory footprint" "full weights"`
+- `"QAT" "file size" "runtime memory" "KV cache" "Apple Silicon"`
+- `"GGUF" "context length" "KV memory" "memory envelope"`
+- `"llama.cpp" "context size" "KV cache" "Metal" "memory"`
+- `"MLX" "memory pressure" "unified memory" "token generation"`
+
+### Find Better Quant And Low-Bit Kernels
+
+- `"TurboQuant" "PolarQuant" "QJL" "implementation"`
+- `"TurboQuant" "Gemma" "QAT" "KV cache" "quality"`
+- `"T-MAC" "Apple Silicon" "ternary" "GEMM" "LLM"`
+- `"BitNet" "Apple Silicon" "1-bit" "inference" "Metal"`
+- `"ternary GEMV" "Metal" "LLM" "low bit"`
+- `"SpinQuant" "low-bit" "LLM" "activation rotation" "implementation"`
+- `"AutoRound" "Gemma" "int4" "quality" "code"`
+- `"HQQ" "4-bit" "LLM" "Apple Silicon" "MLX"`
+- `"AWQ" "GGUF" "imatrix" "quality regression"`
+- `"E8 quantization" "LLM" "lattice" "implementation"`
+
+### Extend Context Without Lying
+
+- `"KIVI" "2-bit" "KV cache" "residual window" "code"`
+- `"InnerQ" "hardware aware" "KV cache quantization" "implementation"`
+- `"LeanKV" "KV cache" "long context" "quality"`
+- `"KVQuant" "10 million context" "implementation" "quality"`
+- `"LMCache" "KV cache" "compression" "control API"`
+- `"vLLM" "PagedAttention" "block table" "memory fragmentation"`
+- `"SGLang" "RadixAttention" "prefix cache" "implementation"`
+- `"FlexGen" "offload" "CPU GPU disk" "LLM inference"`
+- `"prompt cache" "llama.cpp" "Metal" "save load"`
+- `"KV cache" "needle retrieval" "quantization" "quality regression"`
+
+### Make Retrieval Faster And Private
+
+- `"TurboVec" "fork" "HNSW" "Rust" "SIMD"`
+- `"TurboVec" "external id" "rowid" "vector search"`
+- `"compressed vector search" "allowlist before rank" "privacy"`
+- `"quantized embeddings" "RAG" "recall baseline" "exact"`
+- `"binary embeddings" "HNSW" "privacy" "filter before rank"`
+- `"usearch" "compressed vector index" "Rust" "Apple Silicon"`
+- `"FAISS" "product quantization" "HNSW" "recall quality"`
+- `"ANN" "tombstone" "stable id" "collision ledger"`
+- `"vector search" "source citation" "exact baseline" "RAG"`
+- `"local retrieval" "compressed embeddings" "private" "Mac"`
+
+### Route Large Models As Assemblies
+
+- `"PowerInfer" "activation locality" "hot neurons" "local inference"`
+- `"MoE" "active parameters" "expert cache" "local inference"`
+- `"KTransformers" "MoE" "expert placement" "local" "KV cache"`
+- `"LayerSkip" "early exit" "speculative decoding" "local LLM"`
+- `"Mixture-of-Depths" "dynamic depth" "inference efficiency"`
+- `"MTP drafter" "target token verification" "Gemma" "LiteRT"`
+- `"speculative decoding" "draft model" "Apple Silicon" "quality"`
+- `"sparse activation" "local LLM" "memory footprint" "proof"`
+- `"cold assembly" "active assembly" "LLM routing" "byte budget"`
+- `"routing" "small model scout" "large model" "abstention"`
+
+### Use Proof And Math To Improve Accuracy
+
+- `"Lean 4" "LLM" "compiler feedback" "repair"`
+- `"OProver" "Lean" "agentic theorem proving" "library search"`
+- `"AxProver" "proof" "LLM" "memory" "feedback"`
+- `"verified code generation" "Lean" "compiler feedback" "LLM"`
+- `"DeepSeek-Prover" "Lean" "proof repair" "code generation"`
+- `"EML" "elementary mathematical language" "LLM" "proof"`
+- `"exponential-minus-logarithm" "elementary mathematical language" "arXiv"`
+- `"softmax" "ULP oracle" "Metal" "numerical stability"`
+- `"formal verifier" "tool calling" "JSON schema" "LLM"`
+- `"proof carrying route" "verifier feedback" "runtime routing"`
+
+### Search For Things That Break The Claim
+
+- `"Gemma QAT" "quality regression" "wrong tokenizer" "GGUF"`
+- `"llama.cpp Metal" "crash" "memory pressure" "KV cache"`
+- `"MLX Swift" "unsupported model" "Gemma" "issue"`
+- `"LiteRT-LM Swift" "unsafe linker" "App Store" "macOS"`
+- `"TurboVec" "rowid" "collision" "recall loss"`
+- `"KV cache quantization" "needle" "quality drop"`
+- `"MoE active parameters" "memory footprint" "full weights"`
+- `"local LLM" "hidden provider" "server fallback" "benchmark"`
+- `"QAT" "tool calling" "JSON invalid" "quantization"`
+- `"large local model" "Apple Silicon" "OOM" "context length"`
+
+### Search For The Repair Primitive
+
+- `"Gemma QAT" "source card" "byte envelope" "exact baseline"`
+- `"GGUF" "command envelope" "rollback" "first token"`
+- `"MLX Swift" "owner approved" "dry run" "token digest"`
+- `"LiteRT-LM" "AnswerPacket" "RunEventLog" "abstention"`
+- `"KV cache quantization" "held out replay" "compatibility fence"`
+- `"TurboVec" "stable external id" "allowlist before rank"`
+- `"Metal LLM" "copy count" "transport trace" "cancellation"`
+- `"Lean proof repair" "verifier regret" "route feedback"`
+- `"MoE active parameters" "no hidden wake" "sparse certificate"`
+- `"quantized LLM" "same fixture" "lane tournament" "quality"`
+
 ## GitHub Search Recipes
 
 Use these with GitHub search and fork inspection:
 
 - `turbovec fork:true vector compression Rust SIMD`
+- `turbovec fork:true external id rowid collision`
 - `TurboQuant fork:true quantization LLM`
 - `GGUF QAT Gemma fork:true`
 - `llama.cpp KV cache quantization Metal`
+- `llama.cpp prompt cache Metal first token cancellation`
 - `mlx-swift Gemma QAT loader`
+- `mlx-swift ChatSession Gemma loader memory`
 - `LiteRT-LM Swift macOS tool calling`
+- `LiteRT-LM Gemma Swift Package unsafe linker`
 - `KIVI KV cache quantization implementation`
 - `InnerQ KV cache quantization GitHub`
+- `LeanKV KV cache compression implementation`
+- `KVQuant long context implementation`
 - `LMCache compression control API`
+- `SGLang RadixAttention prefix cache implementation`
 - `PowerInfer MoE sparse activation local inference`
 - `KTransformers local MoE inference Mac`
+- `T-MAC ternary GEMM Apple Silicon`
+- `BitNet Apple Silicon Metal ternary`
+- `SpinQuant low bit quantization implementation`
 - `EML Lean elementary mathematical language`
 - `Lean LLM compiler feedback proof repair`
 - `AxProver Lean memory system library search`
@@ -408,13 +690,63 @@ Every good result should map to one of these immediate build tracks:
 - Google Gemma 4 QAT: `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
 - Google TurboQuant: `https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/`
 - Hugging Face cache strategies: `https://huggingface.co/docs/transformers/kv_cache`
+- llama.cpp CLI docs: `https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md`
+- llama.cpp prompt-cache discussion surface: `https://github.com/ggml-org/llama.cpp`
+- MLX LM repository and docs surface: `https://github.com/ml-explore/mlx-lm`
+- MLX Swift LM repository and docs surface: `https://github.com/ml-explore/mlx-swift-lm`
+- LiteRT-LM repository and Swift/macOS surface: `https://github.com/google-ai-edge/LiteRT-LM`
+- Swift Subprocess repository: `https://github.com/swiftlang/swift-subprocess`
+- Apple Metal command-buffer docs: `https://developer.apple.com/documentation/metal/mtlcommandbuffer`
+- vLLM PagedAttention/runtime source: `https://github.com/vllm-project/vllm`
+- LMCache docs: `https://docs.lmcache.ai/`
+- KTransformers repository: `https://github.com/kvcache-ai/ktransformers`
+- FlexGen repository: `https://github.com/FMInference/FlexLLMGen`
+- PowerInfer repository: `https://github.com/SJTU-IPADS/PowerInfer`
 - KIVI: `https://arxiv.org/abs/2402.02750`
 - InnerQ: `https://arxiv.org/abs/2602.23200`
+- LeanKV search target: search arXiv, GitHub, and implementation forks for exact repo provenance before canon promotion
+- KVQuant search target: search arXiv, GitHub, and implementation forks for exact repo provenance before canon promotion
 - LMCache: `https://arxiv.org/abs/2510.09665`
 - OProver: `https://arxiv.org/abs/2605.17283`
 - AxProver base: `https://github.com/Axiomatic-AI/ax-prover-base`
 - AxProver project: `https://prover.axiomatic-ai.com/`
 - Lean theorem proving docs: `https://leanprover.github.io/theorem_proving_in_lean4/`
+
+## Buildable Output Filter
+
+After any keyword sweep, force the best result through this filter:
+
+| Research result type | Required Epistemos output |
+|---|---|
+| New model or model fork | `ModelSourceCard`, exact revision, selected file list, byte envelope, tokenizer/chat-template caveat |
+| New quantizer | `CompressionSourceCard`, calibration/eval source, quality-regression fixtures, import mode |
+| New runtime lane | `RuntimeCommandEnvelopeCard`, owner approval boundary, timeout/cancel/rollback, stdout/stderr policy |
+| New KV/cache system | `KVRuntimeSourceCard`, compatibility fence, eviction red fixtures, no remote cache laundering |
+| New retrieval/index library | `CompressedIndexPlan`, stable external IDs, allowlist-before-rank, recall baseline |
+| New Metal/kernel idea | `LowBitMetalKernelSourceCard`, ULP/numeric test plan, crash-safe no-link preflight |
+| New proof/math tool | `ProofPressureSignal` or `EMLPrimitiveIRSourceCard`, verifier feedback boundary, no hidden route authority |
+| New issue/failure report | Red fixture, abstention rule, AnswerPacket caveat, rollback requirement |
+
+If no falsifier, source card, red fixture, or code unit can be named, the source
+is inspiration only and must not enter the architecture cursor.
+
+## Recursive Red/Blue/Purple Research Loop
+
+Run this loop for every promising bottleneck:
+
+1. Red-team search: append `OOM`, `wrong tokenizer`, `quality regression`,
+   `crash`, `hidden provider`, `server sidecar`, `unsafe linker`, `no license`,
+   `rowid`, `stale snapshot`, or `benchmark cherry picked`.
+2. Blue-team search: append `manifest`, `source pin`, `dry run`, `rollback`,
+   `memory envelope`, `exact baseline`, `held out`, `abstention`,
+   `allowlist`, `token digest`, or `compatibility fence`.
+3. Purple-team synthesis: write the smallest Epistemos gate that makes the red
+   failure impossible or visible while preserving the blue repair.
+4. Build pressure: name the one `agent_core/src/uas/` primitive, one
+   `src/bin/falsify_*` binary, one `Tools/falsifiers/f_*.sh` script, one
+   artifact root, one witness doc, and one S0 canon surface that would land it.
+5. Promotion truth: label it T0/T1/T2/T3/T4/T5 and reject any L2/L3 claim not
+   backed by capability-kernel and WRV evidence.
 
 ## Stop Condition
 
