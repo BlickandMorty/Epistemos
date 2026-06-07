@@ -86,6 +86,7 @@ pub mod residency_lease;
 pub mod residency_tier;
 pub mod runtime_performance_policy_release_blocker_card;
 pub mod runtime_plural_qat_lane_tournament_plan;
+pub mod same_fixture_runtime_replay_envelope;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_compressed_model_live_harness_preflight;
@@ -492,6 +493,14 @@ pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatTournamentError, RuntimePluralQatTournamentMetrics,
     RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_PLAN_CURSOR,
     RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_PLAN_NEXT_CURSOR,
+};
+pub use same_fixture_runtime_replay_envelope::{
+    SameFixtureRuntimeLane, SameFixtureRuntimeLaneStatus,
+    SameFixtureRuntimeReplayByteBoundary, SameFixtureRuntimeReplayEnvelope,
+    SameFixtureRuntimeReplayError, SameFixtureRuntimeReplayLaneCard,
+    SameFixtureRuntimeReplayMetrics, SameFixtureRuntimeReplayProofRefs,
+    SAME_FIXTURE_RUNTIME_REPLAY_ENVELOPE_CURSOR,
+    SAME_FIXTURE_RUNTIME_REPLAY_ENVELOPE_NEXT_CURSOR,
 };
 pub use semantic_working_set::{
     ColdFaultTrace, EvidenceNeed, KVByteBudgetCard, LayoutPatch, LayoutPatchPromotionStatus,
