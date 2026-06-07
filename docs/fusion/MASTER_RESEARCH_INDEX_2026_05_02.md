@@ -151,8 +151,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > output, hidden alternate text and hidden-chain rejection, quality/acceptance/
 > latency/extra-memory metrics, rollback, RunEventLog, AnswerPacket,
 > abstention, and 41 red-fixture rejections while opening zero target/drafter/
-> runtime/provider/product bytes. L2 and L3 remain unchanged; the next
-> runtime-plural source-card unit is `F-RuntimePlural-QATLaneTournamentPlan`.
+> runtime/provider/product bytes. L2 and L3 remain unchanged; that
+> runtime-plural source-card unit is now covered by Pass 68, and the current
+> runtime-plural next unit is
+> `runtime_plural_qat_lane_tournament_owner_approval_gate`.
+> Deep Research Pass 68 now lands that third unit as a built T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`.
+> It binds five same-fixture lane cards across GGUF/llama.cpp, LiteRT-LM
+> Swift, MLX Swift, and MLX-LM research; consumes upstream LiteRT/MTP/QAT
+> route-preflight/AnswerPacket witnesses; records current model/runtime
+> revisions, licenses, byte/memory/cancellation/rollback/RunEventLog/
+> AnswerPacket/quality/latency/tool-JSON/abstention requirements; rejects 61
+> red fixtures; opens zero model/runtime/provider/command/benchmark bytes; and
+> declares no runtime winner, speed, quality, MAS, L2/L3, or live dense 70B
+> claim. L2 and L3 remain unchanged; the next runtime-plural unit is
+> `runtime_plural_qat_lane_tournament_owner_approval_gate`.
 
 ---
 

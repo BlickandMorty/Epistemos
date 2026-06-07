@@ -1683,9 +1683,30 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   rejections. It downloads zero target/drafter bytes, loads zero runtime bytes,
   runs no benchmark, starts no server, imports no product dependency, and does
   not prove MTP speed, quality, MAS safety, Gemma 4 12B product readiness, L2
-  capability, or L3 WRV. The runtime-plural next unit is
+  capability, or L3 WRV. The runtime-plural tournament unit is now covered by
   `F-RuntimePlural-QATLaneTournamentPlan`; the guard-owned product cursor
   remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-RuntimePlural-QATLaneTournamentPlan` is now
+  built as the same-fixture runtime-plural QAT lane tournament plan:
+  `Tools/falsifiers/f_runtime_plural_qat_lane_tournament_plan.sh` emits and
+  validates
+  `artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The T1/L1 metadata-only witness
+  binds five lane cards across GGUF/llama.cpp, LiteRT-LM Swift, MLX Swift, and
+  MLX-LM research; consumes upstream LiteRT/MTP/QAT route-preflight/
+  AnswerPacket witnesses; records current source revisions, licenses, one
+  redacted fixture, byte/memory/cancellation/rollback/RunEventLog/AnswerPacket/
+  quality/latency/tool-JSON/abstention requirements; and rejects 61 red
+  fixtures. It opens zero model/runtime/provider bytes, runs zero commands and
+  zero benchmarks, starts no server/local endpoint, declares no runtime
+  winner, and does not prove speed, quality, MAS readiness, Gemma 4 12B
+  product readiness, L2 capability, or L3 WRV. The runtime-plural next unit is
+  `runtime_plural_qat_lane_tournament_owner_approval_gate`; the guard-owned
+  product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
@@ -2698,6 +2719,14 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   advances L1 MTP compatibility coverage only; L2 product capability remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing
   MTP/Gemma capability is not green.
+- 2026-06-06 runtime-plural large-local-model build now includes the new
+  L1/T1 `F-RuntimePlural-QATLaneTournamentPlan` witness. It source-cards five
+  same-fixture lane cards across GGUF/llama.cpp, LiteRT-LM Swift, MLX Swift,
+  and MLX-LM research, rejects 61 red fixtures, opens zero model/runtime/
+  provider bytes, runs zero commands/benchmarks, and declares no runtime
+  winner. This advances L1 runtime-plural comparison discipline only; L2
+  product capability remains `vault_research_route_with_packetized_mitigation`,
+  and L3 user-facing runtime/Gemma capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

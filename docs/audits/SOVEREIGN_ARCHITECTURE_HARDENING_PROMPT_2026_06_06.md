@@ -650,6 +650,26 @@ When the current prompt/canon changes, update the Master Research Index and the
 future-session prompt docs too, so future agents inherit the new shape without
 losing nuance.
 
+## Runtime-Plural QAT State Addendum
+
+As of the 2026-06-06 runtime-plural build sequence, the Google/Gemma/QAT lane
+has three source-card gates landed:
+
+- `F-LiteRTLM-NativeSwiftAdmission`: LiteRT-LM Swift/macOS package admission,
+  binary/unsafe-linker/MAS denial, zero package/runtime/model bytes.
+- `F-Gemma4-MTP-DrafterCompatibilityCard`: Gemma 4 12B/E2B target-drafter
+  compatibility, target-token verification, quality/acceptance/latency/memory
+  metrics required, zero target/drafter/runtime bytes.
+- `F-RuntimePlural-QATLaneTournamentPlan`: same-fixture tournament plan across
+  GGUF/llama.cpp, LiteRT-LM Swift, MLX Swift, and MLX-LM research, zero
+  model/runtime/provider/command/benchmark bytes, no winner, no speed claim,
+  no MAS/L2/L3 promotion.
+
+The current runtime-plural next unit is
+`runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned
+product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
 ## Verification Order
 
 For each scoped unit:

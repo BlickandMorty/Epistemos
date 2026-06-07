@@ -1,0 +1,955 @@
+{
+  "falsifier_id": "F-RuntimePlural-QATLaneTournamentPlan",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_runtime_plural_qat_lane_tournament_plan.sh",
+  "command_digest": "sha256:b080ed9fb40dc769e4aae4a4cd4475663be95927c668f0f138cccf6eb4b20b3d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "176327b8e0b885966f1966f9fa3febf9a864ea36",
+  "fixture_id": "runtime_plural_qat_lane_tournament_plan_v1",
+  "timestamp_utc": "2026-06-07T01:12:04Z",
+  "result_digest": "sha256:755e61b509185cebd4efd29ef0d31bfb919be7a0dd27079b4a1714f6ed6bfc5e",
+  "measurements": {
+    "abstention_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_lane_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_license": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_revision": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_url": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_repo_url": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_commit": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_license": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "byte_ledger_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "current_source_metadata_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_model_bytes_total": {
+      "value": 16535920211,
+      "unit": "bytes"
+    },
+    "duplicate_lane_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lane_model": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_hash_drift": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_id_drift": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_not_redacted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_qat_e2b_future_probe_and_12b_abstention": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_capability_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_wrv_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lane_card_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "latency_metric_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_and_mlx_blocked_until_admission": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_marked_future_probe": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_endpoint_not_default_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_readiness_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_preflight_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_lane": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_loader_caveat_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_marked_future_probe": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlxlm_promoted_from_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlxlm_python_research_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_count": {
+      "value": 4,
+      "unit": "models"
+    },
+    "model_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "runtime_plural_qat_lane_tournament_owner_approval_gate",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_route_or_server_sidecar": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_package_import_load_or_execution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_execution_and_product_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_lane": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_winner_speed_quality_mas_l2_l3_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "opened_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "package_resolved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_resident_floor_bytes_total": {
+      "value": 19327352832,
+      "unit": "bytes"
+    },
+    "pro_live_status": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_t0_t1_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_imported": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_not_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_declared": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_tier_t2": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_metric_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 61,
+      "unit": "fixtures"
+    },
+    "resident_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_count": {
+      "value": 4,
+      "unit": "lanes"
+    },
+    "runtime_lane_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_plural_not_monopoly": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_plural_tournament_address": {
+      "value": "runtime_plural_qat_lane_tournament_plan:7dd4b5103f1e1a556bf3cbe5164fe5fbed413759c08ee266f2d0bcd75d4818d2@1779061300000",
+      "unit": "uas_address"
+    },
+    "same_redacted_fixture_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_default": {
+      "value": true,
+      "unit": "bool"
+    },
+    "speed_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_json_metric_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_witnesses_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_metadata_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_model_provider_command_benchmark_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_lane_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_license": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_revision": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_url": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_repo_url": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_commit": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_license": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "byte_ledger_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "current_source_metadata_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_model_bytes_total": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "duplicate_lane_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_lane_model": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_hash_drift": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_id_drift": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_not_redacted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_qat_e2b_future_probe_and_12b_abstention": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_capability_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_wrv_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lane_card_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "latency_metric_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_and_mlx_blocked_until_admission": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_marked_future_probe": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_endpoint_not_default_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_build": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_readiness_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_preflight_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_lane": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_loader_caveat_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_marked_future_probe": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlxlm_promoted_from_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlxlm_python_research_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "models"
+    },
+    "model_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "runtime_plural_qat_lane_tournament_owner_approval_gate",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_route_or_server_sidecar": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_package_import_load_or_execution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_execution_and_product_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_lane": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_winner_speed_quality_mas_l2_l3_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "opened_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "package_resolved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_resident_floor_bytes_total": {
+      "operator": ">",
+      "value": 16535920211,
+      "unit": "bytes"
+    },
+    "pro_live_status": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_t0_t1_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_dependency_imported": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_not_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_declared": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_tier_t2": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_metric_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 61,
+      "unit": "fixtures"
+    },
+    "resident_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "lanes"
+    },
+    "runtime_lane_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_not_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_plural_not_monopoly": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_plural_tournament_address": {
+      "operator": "starts_with",
+      "value": "runtime_plural_qat_lane_tournament_plan:",
+      "unit": "uas_address"
+    },
+    "same_redacted_fixture_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_sidecar_default": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "speed_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_json_metric_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_witnesses_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_metadata_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_model_provider_command_benchmark_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_missing": true,
+    "accepted_lane_pack_present": true,
+    "answer_packet_missing": true,
+    "bad_model_license": true,
+    "bad_model_revision": true,
+    "bad_model_url": true,
+    "bad_proof_ref_prefix": true,
+    "bad_repo_url": true,
+    "bad_runtime_commit": true,
+    "bad_runtime_license": true,
+    "benchmark_executed": true,
+    "benchmark_run": true,
+    "benchmark_runs": true,
+    "byte_ledger_missing": true,
+    "cancellation_missing": true,
+    "command_executed": true,
+    "command_execution": true,
+    "command_executions": true,
+    "current_source_metadata_bound": true,
+    "declared_model_bytes_total": true,
+    "duplicate_lane_id": true,
+    "duplicate_lane_model": true,
+    "first_token_claim": true,
+    "fixture_hash_drift": true,
+    "fixture_id_drift": true,
+    "fixture_not_redacted": true,
+    "gguf_qat_e2b_future_probe_and_12b_abstention": true,
+    "hidden_cloud_fallback": true,
+    "hidden_route_authority": true,
+    "l2_capability_claim": true,
+    "l3_wrv_claim": true,
+    "lane_card_count": true,
+    "latency_metric_missing": true,
+    "litert_and_mlx_blocked_until_admission": true,
+    "litert_marked_future_probe": true,
+    "live_dense_70b_claim": true,
+    "local_endpoint_not_default_denied": true,
+    "mas_product_build": true,
+    "mas_readiness_claim": true,
+    "memory_preflight_missing": true,
+    "missing_runtime_lane": true,
+    "mlx_loader_caveat_missing": true,
+    "mlx_marked_future_probe": true,
+    "mlxlm_promoted_from_research_only": true,
+    "mlxlm_python_research_only": true,
+    "model_bytes_loaded": true,
+    "model_count": true,
+    "model_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_cloud_route_or_server_sidecar": true,
+    "no_package_import_load_or_execution": true,
+    "no_runtime_execution_and_product_blocked": true,
+    "no_runtime_lane": true,
+    "no_winner_speed_quality_mas_l2_l3_or_large_model_claim": true,
+    "opened_model_bytes": true,
+    "package_resolved": true,
+    "plan_address_deterministic": true,
+    "planned_resident_floor_bytes_total": true,
+    "pro_live_status": true,
+    "pro_t0_t1_only": true,
+    "product_dependency_imported": true,
+    "product_file_copied": true,
+    "product_promotion_not_blocked": true,
+    "product_winner_declared": true,
+    "promotion_tier_t2": true,
+    "proof_refs_bound": true,
+    "proof_surfaces_required": true,
+    "provider_call_made": true,
+    "provider_calls_made": true,
+    "quality_claim": true,
+    "quality_metric_missing": true,
+    "red_fixture_rejection_count": true,
+    "resident_model_bytes": true,
+    "rollback_missing": true,
+    "run_event_log_missing": true,
+    "runtime_bytes_loaded": true,
+    "runtime_lane_count": true,
+    "runtime_lane_coverage_bound": true,
+    "runtime_loaded": true,
+    "runtime_not_deferred": true,
+    "runtime_plural_not_monopoly": true,
+    "runtime_plural_tournament_address": true,
+    "same_redacted_fixture_bound": true,
+    "server_sidecar_default": true,
+    "speed_claim": true,
+    "ssd_as_ram_claim": true,
+    "tool_json_metric_missing": true,
+    "upstream_witnesses_pass": true,
+    "zero_metadata_bytes": true,
+    "zero_runtime_model_provider_command_benchmark_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-RuntimePlural-QATLaneTournamentPlan from LiteRT-LM admission, Gemma 4 MTP compatibility, Gemma QAT route preflight, compressed-route AnswerPacket dry-run, and current runtime/model source metadata. Scope is T1/L1 metadata only: no package resolution, no model/runtime bytes, no commands, no benchmarks, no server sidecar, no runtime winner, no MAS/L2/L3/product claim, and no live dense 70B claim."
+}
