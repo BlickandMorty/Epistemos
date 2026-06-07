@@ -14616,3 +14616,171 @@ post-run source-status evidence.
 Next research query: "How should the automated-checks proof consume a fresh
 test-products bundle and nonzero executed-test evidence without accepting stale
 DerivedData or selector-only success?"
+
+## Deep Research Pass 126 - Automated Checks Fresh Test-Products Evidence Envelope
+
+### Executive Synthesis
+
+Pass 126 turns the next guard-owned bottleneck into a stricter build target:
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The current architecture truth is intentionally uncomfortable:
+`F-GraphFilterVisibilityTestProductsCommandSpec` is now a landed T1/L1 command
+spec, but the guard-owned automated-checks probe is still red because
+`xcodebuild_test` failed. Pass 126 defines the missing bridge between those two
+facts: a fresh evidence envelope that can consume the command spec and a future
+proof root without letting stale DerivedData, filename selectors,
+enumeration-only output, hidden pre-action mutation, or zero executed tests
+masquerade as release-audit progress.
+
+This is not just a graph-filter concern. Large local model work needs the same
+quality bar. Gemma 4 QAT, GGUF/LiteRT/MLX lane tournaments, TurboVec/Eidos
+compressed retrieval, KV reuse, and cold-assembly routing can only become
+product proof if their supporting app evidence is fresh, addressable,
+redacted, rollbackable, and visible through RunEventLog and AnswerPacket.
+
+### Proposed Build Unit
+
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope`
+
+Mechanism:
+
+- Consume
+  `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`.
+- Consume the retained red
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`.
+- Require a future `PROOF_ROOT` under
+  `artifacts/xcode/graph-filter-visibility-test-products/`.
+- Bind `source_commit_sha` to the commit that produced the test products.
+- Bind `pre_build_status_digest` and `post_test_status_digest`.
+- Bind the selected `.xctestrun` or `.xctestproducts` path under that
+  `PROOF_ROOT`, never global DerivedData.
+- Bind digests for the selected test product, enumeration JSON, focused
+  `.xcresult`, and any parsed full automated-check row.
+- Require nonzero executed-test evidence for every selector counted as proof.
+- Require the scheme pre-action record and reject unaccounted source mutation.
+- Require rollback, RunEventLog, AnswerPacket, and visible caveat refs.
+- Preserve the full automated-check row requirement; focused proof may explain
+  or repair the family, but cannot replace the full release-audit command.
+
+### Acceptance Fields
+
+- `upstream_command_spec_pass`
+- `upstream_automated_checks_red_bound`
+- `proof_root_path`
+- `source_commit_sha`
+- `pre_build_status_digest`
+- `post_test_status_digest`
+- `scheme_pre_action_title`
+- `scheme_pre_action_script`
+- `selected_test_product_path`
+- `selected_test_product_kind`
+- `selected_test_product_digest`
+- `enumeration_json_digest`
+- `enumerated_selector_digest`
+- `seed_selector_digest`
+- `selector_mismatch_rejected`
+- `focused_result_bundle_digest`
+- `executed_test_count`
+- `zero_executed_tests_rejected`
+- `full_automated_check_row_still_required`
+- `automated_check_row_digest`
+- `xcodebuild_test_failure_family_before`
+- `xcodebuild_test_failure_family_after`
+- `rollback_ref`
+- `run_event_log_ref`
+- `answer_packet_ref`
+- `raw_note_prompt_model_bytes_logged=false`
+- `model_runtime_bytes_loaded=0`
+- `app_runtime_bytes_loaded=0`
+- `l2_green_claimed=false`
+- `l3_green_claimed=false`
+- `release_ready_claimed=false`
+- `live_dense_70b_claimed=false`
+
+### Red-Team Fixtures
+
+Reject:
+
+- missing command-spec artifact;
+- command-spec artifact with stale commit or failed validation;
+- proof root outside repo artifacts;
+- global DerivedData path;
+- selected product from a different commit;
+- selected product without digest;
+- enumeration JSON absent, empty, unparsable, or older than product;
+- focused `.xcresult` absent, overwritten, or older than enumeration;
+- selector digest mismatch;
+- filename selector or suite display-name laundering;
+- zero executed tests;
+- pre-action source mutation without explicit rejection;
+- focused proof treated as replacement for full automated checks;
+- raw note/prompt/token/model bytes in logs;
+- L2/L3/T4/release-ready promotion;
+- live dense 70B or SSD-as-RAM claim.
+
+### Epistemos Organ Mapping
+
+- Organ: Verification plane, release-audit evidence envelope.
+- ProductBuild: MAS/Pro boundary unchanged.
+- ProStatus: Gated.
+- Tier: T0 now; intended T1/L1 metadata witness next.
+- Admission: SCOPE-Rex/SovereignGate only after artifact proof is present.
+- Route: no RuntimeRouter/System G route change.
+- Visibility: Living Index, lattice HTML, RunEventLog, AnswerPacket refs.
+- Rollback: required before any post-proof route or release-audit state change.
+
+### Why It May Be A Breakthrough
+
+The breakthrough is making expensive product proof composable. Instead of
+rerunning broad checks blindly, Epistemos can keep a strict chain:
+source-carded failure family -> exact command spec -> fresh proof-root envelope
+-> full automated-check row -> log/manual/release audit -> L3/T4.
+
+That same chain is what lets larger models become practical without false
+claims. A 12B or 70B-class cold-assembly route is only useful if the app can
+prove that the note body, graph evidence, visible output, route decision,
+runtime bytes, rollback, and AnswerPacket all refer to the same fresh run.
+
+### Why It May Be Wrong
+
+The envelope can still be too metadata-heavy if it never reaches executed Swift
+test evidence. It can also hide real product regressions if future agents treat
+focused proof as a replacement for full automated checks. The mitigation is to
+keep the full automated-check row and release-audit skill mandatory.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not yet; build the metadata falsifier next.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+fresh evidence envelopes as reusable proof infrastructure for both release
+audit and large-local-model lane promotion.
+
+Safest next falsifier:
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope`, because it can be built
+metadata-only before any Xcode or model runtime cost is incurred.
+
+Best near-term code unit: implement the Rust metadata primitive and falsifier
+binary for the envelope, consuming the command-spec witness and the retained
+red automated-checks artifact.
+
+Biggest false-claim risk: using focused graph-filter evidence as a substitute
+for the full automated-check row.
+
+Biggest missing artifact: a future proof root with selected test product,
+enumeration JSON, focused `.xcresult`, parsed executed-test count, and source
+status digests.
+
+Next research query: "What exact metadata primitive should validate the fresh
+test-products evidence envelope while keeping the full automated-checks row red
+until it is rerun?"

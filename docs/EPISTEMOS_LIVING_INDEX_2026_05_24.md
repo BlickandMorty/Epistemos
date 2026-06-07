@@ -3965,6 +3965,26 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   `vault_research_route_with_packetized_mitigation`; L3 product capability and
   release readiness remain red. Next guard-owned unit remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- 2026-06-07 automated-checks fresh test-products evidence envelope canon:
+  Deep Research Pass 126 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+  `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` as the next
+  research-to-build bridge between the landed command-spec witness and the red
+  guard-owned automated-checks probe. North-star sentence: Epistemos is a
+  local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The proposed unit must consume
+  `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`
+  plus the retained red automated-checks artifact, bind a future proof-root
+  source commit, pre/post source-status digests, selected `.xctestrun` or
+  `.xctestproducts` digest, enumeration JSON digest, focused `.xcresult`
+  digest, nonzero executed-test proof, scheme pre-action handling, rollback,
+  RunEventLog, AnswerPacket, and full automated-check-row preservation. This
+  is T0 canon/research-to-build only: no product code changed, no Xcode command
+  run, no model/runtime bytes loaded, no L1 cursor advance, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3/release readiness
+  remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
