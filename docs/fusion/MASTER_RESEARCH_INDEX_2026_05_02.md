@@ -4756,3 +4756,25 @@ Rust primitive and witness doc. It runs no Xcode command, changes no product
 source, opens zero selected test-product bytes, loads no app/model/runtime
 bytes, and does not promote L2/L3/T4. The next proof remains the actual fresh
 test-products proof root and the guard-owned automated-checks cursor.
+
+### §28.17 KV cache identity, salt, and offload proof packet (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 128.
+
+Pass 128 folds current vLLM prefix-caching, LMCache local-storage/architecture,
+llama.cpp slot prompt-cache save/restore, KTransformers heterogeneous cache/
+expert scheduling, and KIVI asymmetric KV quantization research into the next
+large-local-model side-ladder packet. The buildable target is
+`F-KVCacheIdentitySaltAndOffloadProofPacket`: bind source/search freshness,
+tokenizer/chat-template/tool-schema digests, model/runtime/artifact identity,
+block hash, parent hash, token-range digest, cache salt/trust group,
+adapter/modality extras, K/V dtype and quant profile, layer/head layout,
+offload tier budgets, eviction/prefetch/cleanup policies, rollback,
+RunEventLog, AnswerPacket, abstention, and explicit non-promotion.
+
+Promotion truth: this is T0 research-to-build canon only. It runs no server,
+opens no model/KV/cache/runtime/product bytes, arms no command, and does not
+promote L1/L2/L3/T4. It specifically rejects SSD-as-RAM, unsalted shared cache,
+cross-model/tokenizer/tool-schema reuse, remote hidden cache authority, raw
+prompt/token logging, and cache-hit-as-quality-proof claims.

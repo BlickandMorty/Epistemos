@@ -14887,3 +14887,228 @@ status digests, and full automated-check-row correlation.
 Next research query: "How should the fresh proof-root parser represent
 enumerated Swift Testing identifiers, executed-test counts, and `.xcresult`
 digests without leaking raw app, note, prompt, or model bytes?"
+
+## Deep Research Pass 128 - KV Cache Identity, Salt, And Offload Proof Packet
+
+### Executive Synthesis
+
+Pass 128 converts fresh KV/cache/offload research into a buildable proof packet
+for large local models. The key finding is that "cache reuse" is too vague to
+be trusted. Epistemos needs a typed cache identity contract before any
+Gemma QAT, GGUF/llama.cpp, LiteRT-LM, MLX, vLLM, LMCache, KTransformers,
+PowerInfer, KIVI, or cold-assembly lane can claim that a saved/reused/offloaded
+KV block is compatible with a future prompt, tool schema, adapter, model, or
+privacy boundary.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The breakthrough is not "put KV on disk." It is a fail-closed identity lattice:
+
+```text
+prompt/search/source freshness
+  -> tokenizer/chat-template/tool-schema digest
+  -> model/source/revision/lane digest
+  -> block hash + parent hash + block token range
+  -> salt/trust group + adapter/modality extras
+  -> KV dtype/quant profile + layer/head layout
+  -> offload tier budget + eviction/prefetch policy
+  -> rollback + RunEventLog + AnswerPacket caveat
+```
+
+If any piece is missing, stale, unsalted, cross-user, or derived from a hidden
+route, the cache must abstain. This is what lets large local models become
+practical without making SSD-as-RAM, hidden cache authority, or stale-context
+claims.
+
+### Fresh External Evidence
+
+Checked on 2026-06-07. These are source facts and motifs only; no runtime,
+model, KV, cache, server, source-tree, product, or benchmark bytes were loaded.
+
+- vLLM automatic prefix caching docs:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+  - Source fact: vLLM hashes KV blocks from parent hash, block tokens, and
+    extra hashes such as LoRA IDs, multimodal hashes, and cache salts.
+  - Epistemos fusion: `KVBlockIdentity` must include parent hash, token-range
+    digest, adapter/tool/modality extras, and a privacy salt before reuse.
+- LMCache local storage docs:
+  `https://docs.lmcache.ai/kv_cache/storage_backends/local_storage.html`
+  - Source fact: LMCache supports CPU RAM and local disk as same-machine KV
+    offload tiers, with chunk size, disk path, max disk size, and O_DIRECT
+    configuration.
+  - Epistemos fusion: local disk can be a Pro Research offload tier only when
+    the path, byte budget, chunk size, page-cache policy, cleanup, and latency
+    caveat are explicit. This is not SSD-as-RAM.
+- LMCache architecture docs:
+  `https://docs.lmcache.ai/developer_guide/architecture.html`
+  - Source fact: LMCache describes multi-tier KV movement across GPU memory,
+    CPU DRAM, disk, and remote storage, plus async offload/load and cache
+    indices.
+  - Epistemos fusion: model this as `KVOffloadTierBudgetEnvelope`; remote tiers
+    remain denied by default for MAS and hidden-provider policy.
+- KTransformers GitHub:
+  `https://github.com/kvcache-ai/ktransformers`
+  - Source fact: KTransformers is a heterogeneous inference research project
+    with CPU-GPU expert scheduling and 3-layer GPU-CPU-disk prefix-cache reuse
+    claims in its update history.
+  - Epistemos fusion: mine expert scheduling and three-tier cache placement as
+    `HeterogeneousExpertCacheLeaseCard`, not as a direct Mac product route.
+- llama.cpp server README:
+  `https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md`
+  - Source fact: the server exposes slot prompt-cache save, restore, and erase
+    actions with filenames scoped under `--slot-save-path`.
+  - Epistemos fusion: any llama.cpp prompt-cache reuse must be represented as
+    an owner-approved command card with slot id, save path, n_saved/n_restored,
+    n_read/n_written, timings, deletion policy, and no raw prompt/token logs.
+- KIVI paper:
+  `https://arxiv.org/abs/2402.02750`
+  - Source fact: KIVI proposes tuning-free asymmetric 2-bit KV quantization,
+    with per-channel key quantization and per-token value quantization.
+  - Epistemos fusion: treat KIVI as a stability source-card and invalid-fixture
+    generator. It must not influence runtime until softmax/attention error,
+    layer/layout compatibility, and same-fixture quality replay are proven.
+
+### Buildable Packet
+
+Candidate falsifier:
+`F-KVCacheIdentitySaltAndOffloadProofPacket`
+
+Mechanism:
+
+- Bind `source_freshness_digest`, `search_freshness_digest`,
+  `prompt_assembly_digest`, `tokenizer_digest`, `chat_template_digest`,
+  `tool_schema_digest`, and `answer_packet_visibility_ref`.
+- Bind `model_id`, `model_revision`, `selected_artifact_digest`,
+  `runtime_lane`, `runtime_version`, and `lane_owner_approval`.
+- Bind `block_hash`, `parent_block_hash`, `block_token_range_digest`,
+  `cache_salt_digest`, `trust_group_id`, `adapter_ids_digest`,
+  `modality_hash_digest`, `kv_dtype_k`, `kv_dtype_v`, `kv_quant_profile`,
+  `layer_range`, `head_layout`, and `position_encoding_policy`.
+- Bind offload tiers separately: `hot_resident_bytes`, `cpu_cache_bytes`,
+  `local_disk_cache_bytes`, `remote_cache_bytes`, `chunk_size_tokens`,
+  `eviction_policy`, `prefetch_policy`, `path_scope`, and `cleanup_policy`.
+- Require `rollback_ref`, `run_event_log_ref`, `answer_packet_ref`,
+  `abstention_reason`, and `cache_caveat_ref`.
+- Preserve `model_bytes_loaded=0`, `kv_bytes_loaded=0`, `cache_bytes_opened=0`,
+  `server_started=false`, `command_armed=false`, `l2_green_claimed=false`,
+  `l3_green_claimed=false`, `live_dense_70b_claimed=false`,
+  `ssd_as_ram_claimed=false`.
+
+### Red-Team Fixtures
+
+Reject:
+
+- cache block with missing parent hash;
+- token range digest computed from raw prompt text in logs;
+- cache reuse with missing or mismatched tokenizer/chat-template digest;
+- cache reuse across tool-schema changes;
+- cache reuse across model revision or selected artifact changes;
+- unsalted shared cache;
+- reused cache salt across unrelated vault/user trust groups;
+- missing adapter, LoRA, modality, or image hash extras;
+- K/V dtype mismatch;
+- KIVI-style K/V asymmetric policy without separate K and V proofs;
+- partial block reuse claimed as full block reuse;
+- remote cache or server cache used as hidden provider;
+- local disk cache path outside owner-approved artifact/cache root;
+- missing max disk budget, cleanup policy, or eviction policy;
+- prompt-cache save/restore without slot id and save-path scope;
+- cache hit treated as quality proof;
+- cache hit treated as live large-model or product green proof;
+- any raw prompt, raw token, note body, stdout, stderr, provider, or model byte
+  leakage in proof logs.
+
+### Epistemos Organ Mapping
+
+- UAS/OAS: cache blocks become addressed objects with block identity, salt,
+  model/runtime, and source freshness refs.
+- ColdStore/AppColdStore: offloaded KV/cache chunks are cold candidates, not
+  durable truth.
+- ActiveAssembly: only the smallest compatible cache/adapter/model support set
+  may wake.
+- Eidos: search/source freshness must precede cache reuse; compressed recall
+  cannot create hidden cache authority.
+- SCOPE-Rex/SovereignGate: denies unsalted, stale, cross-user, remote, or
+  hidden-route cache reuse.
+- RuntimeRouter/System G: may compare cache-enabled lanes only after the packet
+  passes and an owner-approved runtime probe exists.
+- RunEventLog/AnswerPacket: must expose cache policy, caveat, rollback, and
+  abstention.
+
+### Why It May Be A Breakthrough
+
+Large local models fail on memory, prefill, stale context, and uncontrolled
+side effects. A cache identity packet gives Epistemos a way to reuse work
+without trusting opaque runtime internals. It also gives the 70B-class cold
+assembly story a concrete substrate: not dense hot RAM, but addressed KV
+blocks, route cards, leases, prefetch plans, and visible abstention.
+
+### Why It May Be Wrong
+
+The packet can become over-specified before the runtime harness is healthy.
+Some lanes may not expose enough internal KV identity to populate every field.
+The mitigation is to keep this first pass metadata-only, allow lane-specific
+`unavailable_but_required` caveats, and reject promotion until measured runtime
+proof exists.
+
+### Candidate Backlog
+
+1. `F-KVCacheIdentitySaltAndOffloadProofPacket`
+   - Purpose: field-complete metadata packet for cache identity, privacy salt,
+     offload budget, and no-promotion.
+   - Tier: T0 now, intended T1/L1.
+2. `F-LlamaCppSlotPromptCacheCommandCard`
+   - Purpose: owner-approved, unarmed save/restore/erase command card with
+     path scope, slot id, n_saved/n_restored, bytes, timings, deletion, and
+     no raw prompt/token logging.
+   - Tier: T0 now, intended T1/L1.
+3. `F-KIVIAsymmetricKVStabilitySourceCard`
+   - Purpose: source-card K/V asymmetric quantization claims and require
+     softmax/attention/quality replay gates before route use.
+   - Tier: T0 now, intended T1/L1.
+4. `F-KVOffloadTierBudgetEnvelope`
+   - Purpose: separate hot resident, CPU cache, local disk, remote-denied,
+     chunk size, eviction, prefetch, cleanup, and latency caveat fields.
+   - Tier: T0 now, intended T1/L1.
+5. `F-HeterogeneousExpertCacheLeaseCard`
+   - Purpose: mine KTransformers/PowerInfer expert-placement motifs as
+     abstained lease cards before any expert or MoE route can affect
+     RuntimeRouter/System G.
+   - Tier: T0 now, intended T1/L1.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`KVCacheIdentitySaltAndOffloadProofPacket`, because it converts cache reuse
+from a runtime hope into an addressable, privacy-salted, falsifiable substrate
+object.
+
+Safest next falsifier:
+`F-KVCacheIdentitySaltAndOffloadProofPacket`, if working the large-model side
+ladder; otherwise keep the guard-owned automated-checks cursor.
+
+Best near-term code unit: implement a metadata-only UAS primitive that rejects
+unsalted, stale, cross-model, cross-tokenizer, cross-tool-schema, remote, or
+path-unsafe KV reuse while loading zero cache/model bytes.
+
+Biggest false-claim risk: using prefix-cache, prompt-cache, or disk offload
+availability to imply large-model quality, fit, release readiness, or
+SSD-as-RAM.
+
+Biggest missing source: Epistemos-owned runtime logs showing a small approved
+lane can emit redacted cache identity, cancellation, teardown, and AnswerPacket
+fields without leaking prompt/model bytes.
+
+Next research query: "Which Epistemos runtime lane can expose the smallest
+redacted KV/cache identity packet first: llama.cpp prompt-cache command card,
+MLX Swift cache metadata, LiteRT-LM session metadata, or a pure dry-run
+RuntimeRouter packet?"
