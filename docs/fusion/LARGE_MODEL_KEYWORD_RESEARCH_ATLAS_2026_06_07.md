@@ -1398,6 +1398,34 @@ Red-team variants:
 - `MAS copy promises Omega 70B`
 - `release audit automated checks treated as ship ready`
 
+## Pass 118 Small Harness Lane Selection Keywords
+
+Search for proof-anchor and QAT-side-lane evidence with:
+
+- `Qwen3-4B MLX 4bit local harness AnswerPacket RunEventLog`
+- `Qwen3-4B MLX mlx_lm server local OpenAI compatible source card`
+- `Qwen3-4B Swift MLX product runtime log correlation`
+- `small model runtime harness lane selection release audit`
+- `Gemma 4 E2B QAT GGUF llama.cpp command envelope`
+- `Gemma 4 E2B QAT GGUF selected file LFS OID byte envelope`
+- `Gemma 4 QAT MLX Swift loader unsupported model type gemma4`
+- `Gemma 4 QAT GGUF tokenizer chat template tool call parser`
+- `local LLM lane selection objective proof anchor side lane`
+- `Qwen3-4B proof anchor Gemma E2B QAT side lane`
+
+Red-team variants:
+
+- `best model selected before smallest runtime proof`
+- `Gemma 4 model card treated as Swift loader proof`
+- `GGUF availability treated as product route proof`
+- `Qwen3-4B first token treated as L2 green`
+- `Gemma 12B selected on 16GB before E2B proof`
+- `unsupported local Agent mode visible`
+- `hidden sidecar server default endpoint`
+- `raw prompt token digest missing redaction`
+- `model source card no local artifact path`
+- `lane selection missing rollback abstention`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

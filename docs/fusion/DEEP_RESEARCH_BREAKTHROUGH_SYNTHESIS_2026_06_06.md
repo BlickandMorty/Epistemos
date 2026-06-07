@@ -13417,3 +13417,204 @@ content.
 Next research query: "What is the smallest redacted log-correlation packet
 that proves a small-model runtime action was wired, reachable, visible, and
 verified without promoting L2/L3 or leaking prompt/answer bytes?"
+
+## Deep Research Pass 118 - Small Harness Lane Selection Packet
+
+This pass narrows the guard-owned runtime bottleneck into a concrete lane
+selection rule: the next product proof should anchor on the lowest-risk
+already-evidenced small lane, while Gemma 4 QAT remains the larger-model
+ladder lane that must prove artifact/path/command/log parity before it can
+compete.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-first
+`F-SmallModelRuntimeHarnessLaneSelectionPacket` that consumes the existing
+small-model runtime harness family and makes the next automated-checks/log
+evidence pass choose lanes by objective:
+
+- release-audit product proof: prefer the existing Qwen3-4B MLX product-path
+  lane, because prior Epistemos witnesses already bind fresh Qwen3-4B runtime
+  bytes, AnswerPacket, RunEventLog, WRV source refs, log-correlation, manual
+  review, and release-audit blockers without promoting L2/L3;
+- QAT/larger-model ladder proof: keep Gemma 4 E2B QAT GGUF as the smallest
+  Google QAT candidate, but require exact artifact refs, selected GGUF file,
+  byte envelope, llama.cpp command envelope, tokenizer/chat-template proof,
+  source/search freshness, first-token proof, quality replay, rollback,
+  RunEventLog, and AnswerPacket before it can affect RuntimeRouter/System G;
+- Swift-native MLX proof: keep MLX Swift as the preferred Apple Silicon lane
+  only where loader support is known; Gemma 4 MLX/Swift remains blocked until
+  the Swift loader/config path is proven locally;
+- large-model ambition: keep Gemma 4 12B/26B/31B QAT, MoE, TurboQuant,
+  TurboVec, KIVI/KV, and cold assembly in Pro Gated/Research, not in the first
+  L3 release-audit harness.
+
+This packet prevents the next session from thrashing between "best model" and
+"safest proof." The best proof lane is Qwen3-4B MLX. The best QAT growth lane
+is Gemma 4 E2B QAT GGUF. The best ambitious target remains Gemma 4 12B+ QAT or
+70B-class cold assembly, but only after the smaller proof packet lands.
+
+### Local Source Map
+
+| Organ | Local refs | Build implication |
+|---|---|---|
+| Guard-owned bottleneck | `artifacts/falsifiers/architecture_pending_work_guard/result.json`, `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` | Current L1 cursor and L2 bottleneck remain `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`. |
+| Product-path model evidence | `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` small-model harness rows; `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`; `docs/falsifiers/F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe_2026_06_05.md`; fresh AnswerPacket/WRV/log/manual/release-audit rows | Qwen3-4B has retained and fresh product-path evidence, but still only L1/L3-source evidence; it is the safest lane for the next release-audit proof. |
+| Runtime selection code | `Epistemos/Engine/TriageService.swift`, `Epistemos/LocalAgent/RuntimeRouter.swift` | Current app logic already favors Qwen/Qwen3 small MLX lanes for practical fast/light and excludes Gemma 4 family from automatic shipped fallback until loader support is proven. |
+| QAT lane canon | `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`; `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`; prior Gemma QAT source-card/preflight rows | Gemma 4 E2B QAT GGUF is the side-ladder candidate, not the release-audit anchor. |
+| L3 release proof | `.agents/skills/epistemos_release_audit/SKILL.md`; `docs/V1_RELEASE_AUDIT.md`; Pass 117 log-evidence packet | Lane selection must feed automated checks, runtime logs, AnswerPacket, visible row id, hidden unsupported modes, and blocked promotion fields. |
+
+### External Source Map
+
+- Qwen/Qwen3-4B-MLX-4bit Hugging Face:
+  `https://huggingface.co/Qwen/Qwen3-4B-MLX-4bit`
+  - Source-card fact: the model card exposes an MLX 4-bit text-generation
+    model, Apache-2.0 license, `mlx_lm` load/generate examples, local
+    `mlx_lm.chat`, and local OpenAI-compatible `mlx_lm.server` usage.
+  - Epistemos fusion: this supports Qwen3-4B as the least-surprising MLX
+    harness anchor, but does not by itself prove Swift product runtime.
+- Google Gemma 4 E2B QAT GGUF Hugging Face:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+  - Source-card fact: the model card exposes GGUF Q4_0 usage through
+    llama.cpp/llama-cpp-python and describes Gemma 4 QAT checkpoints across
+    GGUF, unquantized QAT, mobile-optimized, and compressed-tensors formats.
+  - Epistemos fusion: Gemma 4 E2B QAT GGUF is a strong QAT growth lane, but
+    its route must be a GGUF/llama.cpp artifact and command-envelope proof
+    first, not a silent MLX/Swift product route.
+- MLX Swift Examples:
+  `https://github.com/ml-explore/mlx-swift-examples`
+  - Source-card fact: the examples repo points language-model examples at
+    reusable MLX Swift LM libraries and includes LLMBasic, LLMEval,
+    MLXChatExample, and command-line examples.
+  - Epistemos fusion: MLX Swift is a real Apple Silicon implementation lane,
+    but support for a specific model family still needs model-loader proof.
+
+### Ranked Breakthrough Candidates
+
+1. `SmallHarnessLaneSelectionPacket`
+   - Mechanism: choose a lane by proof objective instead of model ambition.
+   - Epistemos organ: RuntimeRouter/System G -> SovereignGate -> RunEventLog
+     -> AnswerPacket -> release-audit WRV.
+   - Tier: T0 now; T1 after falsifier.
+   - MAS/Pro: Pro Gated for runtime proof; MAS copy stays honest and hides or
+     gates unsupported modes.
+   - Required falsifier: `F-SmallModelRuntimeHarnessLaneSelectionPacket`.
+   - Runtime proof: none now; future Qwen3-4B small harness automated-checks
+     and log-evidence proof.
+   - User-visible proof: future AnswerPacket badge/row with logs and
+     unsupported-mode hidden assertions.
+   - Rollback: abstain if local artifact, command envelope, logs, packet, or
+     visible row evidence is missing.
+   - Privacy risk: raw prompt/token leakage if lane evidence is logged
+     without redaction.
+   - Stability risk: choosing a bigger or newer model before the small lane
+     closes the release-audit loop.
+   - Provenance path: local Qwen3-4B witness family plus Qwen HF source card.
+   - Why breakthrough: it stops architecture drift and makes the next build
+     unit obvious.
+   - Why wrong: Qwen3-4B is not the final best research/coding/writing model;
+     it is only the proof anchor.
+
+2. `GemmaQATSideLaneEscalationPacket`
+   - Mechanism: keep Gemma 4 E2B QAT GGUF as the first Google QAT ladder lane
+     with exact artifact/path/command/quality proof.
+   - Organ: AppColdStore, RuntimeRouter/System G, AnswerPacket.
+   - Tier: T0 now.
+   - Why breakthrough: gives the QAT/large-model ambition a safe path after
+     the small harness closes.
+   - Why wrong: GGUF availability does not prove Apple Silicon fit, Swift
+     product integration, or user-visible quality.
+
+3. `SwiftLoaderCompatibilityAbstentionGate`
+   - Mechanism: any model family without MLX Swift loader/config proof must
+     abstain from automatic product route selection.
+   - Organ: RuntimeRouter, local model catalog, MAS/Pro copy.
+   - Tier: T0 now.
+   - Why breakthrough: prevents the old "model card exists, app can load it"
+     mistake.
+   - Why wrong: it may temporarily block promising models that could work
+     through GGUF/LiteRT/custom Metal.
+
+### Candidate Falsifier Backlog
+
+1. `F-SmallModelRuntimeHarnessLaneSelectionPacket`
+   - Accepted fields: objective class, selected first lane, alternate lane,
+     denied lanes, model id, runtime lane, source-card refs, local witness
+     refs, local availability evidence, context limit, memory byte envelope,
+     tokenizer/chat-template status, command envelope status, log evidence
+     requirement, AnswerPacket requirement, RunEventLog requirement, unsupported
+     mode policy, owner approval, rollback, abstention, and promotion boundary.
+   - Red fixtures: Gemma 4 selected as MLX/Swift without loader proof, Gemma
+     12B selected before small harness closeout, Qwen3-4B product route marked
+     L2/L3 green, missing model source card, missing AnswerPacket, missing log
+     predicate, hidden provider fallback, hidden sidecar, unsupported Agent
+     visible, raw prompt/token artifact, and live dense 70B overclaim.
+
+2. `F-GemmaQATSideLaneEscalationPacket`
+   - Accepted fields: exact Hugging Face repo/revision, selected file, LFS OID
+     or digest, declared bytes, runtime lane, command envelope, tokenizer/chat
+     template, same-fixture freshness ref, byte envelope, first-token witness
+     plan, quality replay plan, rollback, RunEventLog, AnswerPacket, and
+     no-product-promotion caveat.
+   - Red fixtures: wrong GGUF file, mmproj/main-model confusion, provider
+     reference laundering, rowid identity, missing byte envelope, hidden
+     server endpoint, quality-free speed claim, MLX-Swift loader overclaim, and
+     MAS live overclaim.
+
+3. `F-SwiftLoaderCompatibilityAbstentionGate`
+   - Accepted fields: model family, Swift loader/config proof, tokenizer
+     support, chat-template support, tool-call parser support, fallback lane,
+     unsupported-mode visibility, and abstention reason.
+   - Red fixtures: Hugging Face card treated as Swift proof, Python MLX treated
+     as Swift proof, unsupported family selected by shipped fallback, and
+     disabled mode claiming success.
+
+### Model / Runtime Ladder Implication
+
+1. Qwen3-4B MLX remains the small release-audit proof anchor.
+2. Qwen2.5-Coder 7B, DeepSeek R1 7B, and Qwen3-Coder lanes can compete later
+   for coding/thinking quality once the proof harness is stable.
+3. Gemma 4 E2B QAT GGUF is the first QAT side-lane candidate after exact
+   artifact/path/command proof.
+4. Gemma 4 12B QAT remains Pro Gated; it should not be the first L3 harness
+   anchor on the current 16 GB Mac.
+5. Gemma 4 26B/31B, MoE, TurboQuant, KIVI/KV, and 70B-class cold assembly stay
+   Pro Research/Omega ladder until source-card, byte-envelope, quality, and
+   visible proof gates are landed.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `SmallHarnessLaneSelectionPacket`.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`,
+with `F-SmallModelRuntimeHarnessLaneSelectionPacket` as the side-ladder that
+keeps the model choice stable.
+
+Best near-term code unit: implement the guard-owned automated-checks/log
+evidence probe using Qwen3-4B MLX as the explicit small harness anchor and
+Gemma 4 E2B QAT GGUF as an abstained QAT side-lane.
+
+Biggest false-claim risk: using "best model" language to skip the smallest
+release-audit proof, or using Gemma 4 QAT GGUF availability to imply a Swift
+product route.
+
+Biggest missing artifact: a lane-selection artifact that records why Qwen3-4B
+is the current proof anchor, why Gemma 4 E2B is a side-lane, and why 12B/26B/
+31B/70B-class routes remain gated.
+
+Next research query: "What exact source-card, local-artifact, command-envelope,
+and log-correlation fields are needed so a Qwen3-4B small-harness proof can
+close L3 release-audit blockers while Gemma 4 E2B QAT GGUF remains a clean
+next-ladder candidate?"
