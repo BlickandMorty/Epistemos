@@ -230,6 +230,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   only: no product code changed, no model/runtime/KV/cache/index bytes were
   loaded, no command was armed, L2/L3 remain red, and no user-facing
   large-model green claim exists.
+- Updated **2026-06-07** · `F-SameFixtureRuntimeReplayEnvelope` landed as a
+  metadata-only L1/T1 same-fixture runtime replay envelope witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the
+  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness binds five lane cards
+  (`gguf_llama_cpp`, `litert_lm_swift`, `mlx_swift_candidate`,
+  `mlx_lm_python_research`, and `no_runtime_abstention`) to the same fixture
+  identity, source/search freshness, tokenizer/chat-template/tool-parser
+  policy, model artifact boundary, runtime lane boundary, cache/byte boundary,
+  rollback, RunEventLog, AnswerPacket, owner approval, command envelope, and
+  abstention. It rejects 28 red fixtures including missing abstention, fixture
+  drift, missing body/search/tokenizer/template/tool/cache proof, raw
+  prompt/tool retention, hidden cache reuse, MLX/LiteRT lane laundering,
+  sidecar/default endpoint authority, nonzero runtime/model/provider bytes,
+  L2/L3/T4 promotion, MAS copy, live dense-70B claims, and SSD-as-RAM claims.
+  L1 side-ladder advanced; the guard-owned product cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-model capability remains red.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of

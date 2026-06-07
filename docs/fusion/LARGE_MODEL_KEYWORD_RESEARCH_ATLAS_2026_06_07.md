@@ -1292,6 +1292,24 @@ falsifier small enough to land while still blocking false runtime promotion.
 - `declared model bytes treated as resident memory proof`
 - `metadata only runtime bytes loaded product green overclaim`
 
+## Pass 114 Landed Witness Follow-Up Keywords
+
+`F-SameFixtureRuntimeReplayEnvelope` is now landed as L1/T1 metadata-only
+architecture proof, so future searches should move one step deeper:
+
+- `same fixture runtime replay invalid fixture matrix prompt cache tokenizer tool parser`
+- `GGUF LiteRT MLX same fixture first token AnswerPacket RunEventLog`
+- `Gemma 4 QAT tokenizer chat template tool parser replay exact fixture`
+- `local LLM cache salt prompt digest privacy deletion lineage same fixture`
+- `llama.cpp LiteRT MLX Swift compare same prompt no sidecar endpoint`
+- `first comparable token runtime lane tournament redacted token digest`
+- `runtime lane owner approval command envelope cancellation rollback local LLM`
+- `search freshness body digest prompt digest AnswerPacket large model replay`
+
+Research should now ask which fields must graduate from metadata-only proof to
+owner-approved first-token replay while preserving zero hidden route authority,
+zero raw prompt retention, and L2/L3 promotion truth.
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

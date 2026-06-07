@@ -12709,3 +12709,71 @@ Next research query: "What exact invalid fixture matrix should the first
 `F-SameFixtureRuntimeReplayEnvelope` Rust falsifier include so it rejects
 cross-lane prompt mismatch, cache-salt omission, tool-parser drift,
 sidecar-default leakage, missing abstention, and false L2/L3/T4 promotion?"
+
+## Deep Research Pass 114 - Same-Fixture Envelope Landed Witness
+
+`F-SameFixtureRuntimeReplayEnvelope` now exists as a metadata-only L1/T1 UAS
+primitive and falsifier, rather than only a research blueprint. The landed
+unit proves the smallest useful large-model runtime comparison envelope:
+five lane cards (`gguf_llama_cpp`, `litert_lm_swift`, `mlx_swift_candidate`,
+`mlx_lm_python_research`, and `no_runtime_abstention`) bound to the same
+fixture identity, source/search freshness, tokenizer/chat-template/tool-parser
+policy, model-artifact boundary, runtime-lane boundary, cache/byte boundary,
+command envelope, owner approval, rollback, RunEventLog, AnswerPacket, and
+abstention.
+
+Local refs:
+
+- `agent_core/src/uas/same_fixture_runtime_replay_envelope.rs`
+- `agent_core/src/bin/falsify_same_fixture_runtime_replay_envelope.rs`
+- `Tools/falsifiers/f_same_fixture_runtime_replay_envelope.sh`
+- `docs/falsifiers/F-SameFixtureRuntimeReplayEnvelope_2026_06_07.md`
+- `artifacts/falsifiers/same_fixture_runtime_replay_envelope/result.json`
+
+External refs folded from Passes 111-113 remain the same source family:
+official Gemma 4 QAT GGUF model metadata, LiteRT-LM, MLX Swift loader caveat,
+MLX-LM Gemma 4 tool-parser caveat, vLLM prefix-cache salt/hash policy, and
+runtime-lane quarantine/source-card evidence. The landed witness does not
+download, open, or load those sources; it binds their source-card role and
+rejects source laundering.
+
+### What It Blocks
+
+The red fixture matrix rejects missing abstention, fixture digest drift,
+missing body/search/tokenizer/template/tool/cache proof, raw prompt retention,
+raw tool JSON retention, hidden cache reuse, Python MLX being treated as Swift
+runtime proof, LiteRT early-preview being treated as live, server sidecar or
+local endpoint defaults, missing command envelope, missing owner approval,
+missing declared bytes, nonzero runtime/model/provider bytes, L2/L3/T4
+promotion, MAS copy, live dense 70B, and SSD-as-RAM claims.
+
+### Promotion Truth
+
+- T0 research/canon: advanced into code.
+- T1/L1 architecture proof: advanced as a metadata-only side-ladder witness.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: same-fixture lane comparison remains the safest
+bridge from research to runtime because it prevents apples-to-oranges model
+claims before first-token work.
+
+Safest next falsifier: guard-owned
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+Best near-term code unit: either implement
+`same_fixture_runtime_replay_envelope_invalid_fixture_matrix` as the next
+side-ladder hardening pass, or return to the guard-owned product runtime L3
+release-audit blocker if the owner wants product proof before more side-ladder
+work.
+
+Biggest false-claim risk: treating this witness as a runtime benchmark or as
+proof that Gemma 4, MLX, LiteRT, or GGUF is user-facing.
+
+Biggest missing source: a landed same-fixture search-index/body-read route
+artifact that can feed actual runtime replay without raw user body leakage.
+
+Next research query: "Which exact same-fixture search and prompt-body
+freshness fields must be visible in AnswerPacket before GGUF, LiteRT, MLX
+Swift, and MLX-LM quarantine lanes can run a first comparable token?"

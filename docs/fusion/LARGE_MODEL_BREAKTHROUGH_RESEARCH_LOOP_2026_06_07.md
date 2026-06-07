@@ -140,6 +140,17 @@ sidecar defaults, raw byte leakage, and false L2/L3/T4 promotion. This is
 research-to-build canon only; it does not prove a runtime lane, load model
 bytes, or advance L2/L3.
 
+2026-06-07 Pass 114 addendum: `F-SameFixtureRuntimeReplayEnvelope` is now
+landed as a metadata-only L1/T1 side-ladder witness. It implements the five
+lane cards above, binds same-fixture identity, source/search freshness,
+tokenizer/chat-template/tool-parser policy, model artifact boundary,
+runtime-lane boundary, cache/byte boundary, rollback, RunEventLog,
+AnswerPacket, command envelope, owner approval, and abstention, and rejects 28
+red fixtures for byte loads, lane laundering, sidecar defaults, raw prompt/tool
+retention, hidden cache reuse, L2/L3/T4 promotion, MAS copy, live dense-70B,
+and SSD-as-RAM claims. This is architecture proof only: no runtime lane winner
+exists, no model/runtime/provider bytes were loaded, and L2/L3 remain red.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:

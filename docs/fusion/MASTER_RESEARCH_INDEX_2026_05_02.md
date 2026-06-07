@@ -345,6 +345,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Gemma 4 QAT GGUF source-card facts into red fixtures. This is T0
 > canon/build-plan only: no runtime bytes loaded, no product route promoted,
 > and L2/L3 remain red.
+> `F-SameFixtureRuntimeReplayEnvelope` has now landed as a metadata-only L1/T1
+> side-ladder witness with Rust primitive, falsifier binary, shell wrapper,
+> validator/schema/handbook surfaces, and artifact root
+> `artifacts/falsifiers/same_fixture_runtime_replay_envelope/`. It binds five
+> runtime lane cards to the same fixture, source/search freshness,
+> tokenizer/template/tool policy, model/runtime/cache byte boundaries,
+> rollback, RunEventLog, AnswerPacket, owner approval, command envelope, and
+> abstention, while rejecting 28 overclaim/byte/authority fixtures. This
+> advances architecture proof only: no runtime/model/provider bytes were
+> loaded, no lane winner exists, L2 remains red, and L3 user-facing
+> large-model capability remains red.
 > Deep Research Pass 106 in
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
 > fresh large-local-model research into buildable backlog. It validates
