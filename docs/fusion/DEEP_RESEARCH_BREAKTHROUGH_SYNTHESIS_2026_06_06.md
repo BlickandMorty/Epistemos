@@ -7045,17 +7045,18 @@ product/command/benchmark bytes.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: exotic-quant quarantine route cards, because the
-hardware catalog now has TQ3_4S, HLWQ, APEX, TurboQuant-like, and other
-nonstandard quant rows that need provenance/import-mode and byte-accounting
-proof before any runtime lane can cite them.
+Best breakthrough candidate, now landed by Pass 74: exotic-quant quarantine
+route cards, because the hardware catalog has TQ3_4S, HLWQ, APEX,
+TurboQuant-like, and other nonstandard quant rows that need provenance/
+import-mode and byte-accounting proof before any runtime lane can cite them.
 
-Safest next falsifier: `F-ExoticQuantQuarantineRouteCard`.
+Former safest falsifier, now landed by Pass 74:
+`F-ExoticQuantQuarantineRouteCard`.
 
-Best near-term code unit: add an `exotic_quant_quarantine_route_card` primitive,
-binary, script, axes, validator registration, witness page, Living Index row,
-handbook/schema row, and lattice row that consumes the hardware catalog and MoE
-memory truth where applicable.
+Former near-term code unit, now landed by Pass 74: add an
+`exotic_quant_quarantine_route_card` primitive, binary, script, axes, validator
+registration, witness page, Living Index row, handbook/schema row, and lattice
+row that consumes the hardware catalog and MoE memory truth where applicable.
 
 Biggest false-claim risk: saying APEX, TQ3_4S, HLWQ, TurboQuant-like, or any
 forked low-bit artifact is "best" or product-ready because its model-card size
@@ -7067,3 +7068,96 @@ each exotic quant format on the target Mac tier.
 Next research query: "Which exotic quant formats from the hardware catalog can
 be source-carded into quarantine route cards without importing code, arming
 commands, loading model bytes, or bypassing clean-room provenance?"
+
+## Pass 74 - Exotic Quant Quarantine Route Card Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 74 implements `F-ExoticQuantQuarantineRouteCard`. The point is not to
+make exotic quant live; the point is to keep ambitious compression research
+usable without letting it become hidden product truth. TQ3_4S, HLWQ, APEX,
+NVFP4, and AutoRound rows now have a metadata-only quarantine route-card layer
+that denies route authority until source pins, byte budgets, runtime proof,
+rollback, RunEventLog, AnswerPacket, and WRV evidence exist.
+
+### Landed Architecture
+
+- Primitive: `agent_core/src/uas/exotic_quant_quarantine_route_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_quarantine_route_card.rs`
+- Script: `Tools/falsifiers/f_exotic_quant_quarantine_route_card.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantQuarantineRouteCard_2026_06_07.md`
+
+The witness consumes `F-HardwareTieredModelCatalog-SourceCard` and
+`F-MoEActiveParamsMemoryTruth`, accepts five quarantine cards, rejects 42 red
+fixtures, and binds source-card, provenance, clean-room/quarantine, rollback,
+RunEventLog, AnswerPacket, compatibility, privacy, and abstention refs. It
+opens zero model/runtime/provider/source-tree/product/command/benchmark bytes.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Exotic quant rows have deterministic addresses and cannot be duplicated, replaced, or promoted by model-card enthusiasm. |
+| ColdStore/AppColdStore | Exotic quant artifacts remain cold research material until exact source pins and byte budgets are proven. |
+| ActiveAssembly | Future active assemblies may cite TQ3_4S/HLWQ/APEX/NVFP4/AutoRound only after the quarantine card and later byte/runtime proofs pass. |
+| Eidos | Exotic quant evidence may become a visible prior, never hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission can reject missing provenance, clean-room path, Mac-tier denial, source-card refs, or AnswerPacket caveats. |
+| RuntimeRouter/System G | No exotic row can become a product default, best model, runtime lane, or hidden fallback from T1 metadata. |
+| RunEventLog/AnswerPacket | Future packets must expose source pins, byte budgets, runtime lane caveats, rollback, and abstention. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantQuarantineRouteCard` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: source-pinned byte-budget preflight for exotic
+quant rows, because the architecture now has a quarantine boundary but still
+needs exact file manifests and runtime-lane byte envelopes before any probe is
+safe.
+
+Safest next falsifier:
+`F-ExoticQuantSourcePinAndByteBudgetPreflight`.
+
+Best near-term code unit: add
+`exotic_quant_source_pin_and_byte_budget_preflight` so TQ3_4S, HLWQ, APEX,
+NVFP4, and AutoRound rows must bind exact source pins, file manifests,
+declared artifact bytes, runtime-lane byte envelopes, Mac-tier denial/
+allowance, rollback, RunEventLog, AnswerPacket, and abstention.
+
+Biggest false-claim risk: saying an exotic low-bit artifact is product-ready
+because its file or active-compute footprint looks attractive, while source
+provenance, runtime loader support, KV bytes, app headroom, quality, and
+rollback are still unproved.
+
+Biggest missing source: owner-approved exact file manifests and local byte
+budgets for each accepted exotic quant row on the target Mac tier.
+
+Next research query: "How should Epistemos source-pin, manifest, and byte-budget
+each exotic quant row before any owner-approved runtime probe is allowed?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantQuarantineRouteCard_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`
+- `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`
+- `docs/falsifiers/F-MoEActiveParamsMemoryTruth_2026_06_07.md`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound

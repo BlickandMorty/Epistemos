@@ -234,8 +234,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > abstention, provenance, hardware-tier refs, and no-hidden-authority proof,
 > while opening zero model/runtime/provider/source-tree/product/command/
 > benchmark bytes. Active parameters are compute evidence, not memory-fit
-> proof. L2 and L3 remain unchanged; the next research-to-build unit is
-> `exotic_quant_quarantine_route_card`.
+> proof. L2 and L3 remain unchanged; its downstream
+> `exotic_quant_quarantine_route_card` unit is now landed by Pass 74.
+> Deep Research Pass 74 now lands `F-ExoticQuantQuarantineRouteCard` as a
+> T1/L1 metadata-only witness at
+> `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`. It
+> consumes `F-HardwareTieredModelCatalog-SourceCard` and
+> `F-MoEActiveParamsMemoryTruth`, accepts five TQ3_4S/HLWQ/APEX/NVFP4/
+> AutoRound quarantine cards, rejects 42 red fixtures, binds source-card,
+> provenance, clean-room/quarantine, rollback, RunEventLog, AnswerPacket,
+> compatibility, privacy, and abstention refs, denies hidden PatternBoost/
+> lattice/Eidos route authority, and opens zero model/runtime/provider/
+> source-tree/product/command/benchmark bytes. L2 and L3 remain unchanged; the
+> next research-to-build unit is
+> `exotic_quant_source_pin_and_byte_budget_preflight`.
 
 ---
 

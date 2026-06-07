@@ -42,4 +42,4 @@ Correct phrasing: architecture catalog coverage advanced; product capability and
 
 ## Next Unit
 
-`moe_active_params_memory_truth` should prove that MoE active-parameter claims cannot be treated as full memory-fit proof. It should bind full-weight bytes, expert residency, KV bytes, routing overhead, cold/hot leases, rollback, RunEventLog, AnswerPacket, and abstention before any MoE row can become a route candidate.
+`F-MoEActiveParamsMemoryTruth` and `F-ExoticQuantQuarantineRouteCard` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_source_pin_and_byte_budget_preflight`, which should bind exact source pins, file manifests, and byte-budget envelopes for exotic quant rows before any runtime probe is considered.

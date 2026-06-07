@@ -35,4 +35,4 @@ Correct phrasing: architecture MoE memory-truth coverage advanced; product capab
 
 ## Next Unit
 
-`exotic_quant_quarantine_route_card` should prove TQ3_4S, HLWQ, APEX, TurboQuant-like, and other exotic quant rows cannot influence RuntimeRouter/System G until provenance, clean-room/import mode, declared byte accounting, runtime lane limits, rollback, RunEventLog, AnswerPacket, and abstention are bound.
+`F-ExoticQuantQuarantineRouteCard` is now landed as the metadata-only downstream witness. The current research-to-build next unit is `exotic_quant_source_pin_and_byte_budget_preflight`, which should bind exact source pins, file manifests, declared artifact bytes, runtime-lane byte envelopes, Mac-tier denial/allowance, rollback, RunEventLog, AnswerPacket, and abstention for every accepted exotic quant row.
