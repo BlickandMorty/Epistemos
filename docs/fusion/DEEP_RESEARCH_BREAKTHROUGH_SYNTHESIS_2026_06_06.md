@@ -5030,6 +5030,97 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Pass 93 - Release-Audit Failure-Family Source Cards
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 93 implements `F-ReleaseAuditFailureFamily-SourceCard`. This is a
+research-to-build bridge for the current product bottleneck: the retained RED
+release-audit automated-checks ledger is no longer generic test noise. It is
+now source-carded into 15 repair families with organs, source refs, focused
+commands, and falsifier backlog refs.
+
+The witness consumes
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`,
+preserves the RED truth (`xcodebuild_test` failed with 161 issues across 84
+unique failing tests), records `graph_filter_visibility` as the top family,
+rejects 9 red fixtures, and emits a deterministic family source-card address.
+It does not rerun `xcodebuild`, load model/runtime bytes, repair the product
+suite, or promote L2/L3.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/release_audit_failure_family_source_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_release_audit_failure_family_source_card.rs`
+- Script:
+  `Tools/falsifiers/f_release_audit_failure_family_source_card.sh`
+- Artifact:
+  `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-ReleaseAuditFailureFamily-SourceCard_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | RED release-audit families now have stable source-card identity instead of terminal-only failure text. |
+| ColdStore/AppColdStore | Retained logs stay cold evidence; they do not become runtime proof or product truth. |
+| ActiveAssembly | Repair work can wake one family at a time instead of a vague all-suite marathon. |
+| Eidos | Failure families become searchable evidence and route priors for repair planning, never hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects missing/unknown/zero-issue families, green upstream laundering, byte leaks, promotion, and hidden authority. |
+| RuntimeRouter/System G | Product runtime routes remain red until actual checks, logs, manual evidence, distribution review, and three-pass proof exist. |
+| RunEventLog/AnswerPacket | Future repair packets can cite exact family cards and keep failed-check caveats visible. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes, as a source-card side bridge.
+- Guard-owned L1 product cursor advanced: no; it remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Release readiness and product capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: family-scoped release repair that starts with
+`model_vault_catalog_release_blocker_card` and
+`agent_route_policy_large_model_no_hidden_authority`, because large-local-model
+ambition cannot safely become user-facing while the product release ledger
+remains red.
+
+Safest next falsifier: `F-ModelVaultCatalog-ReleaseBlockerCard`.
+
+Best near-term code unit: source-card and then repair the model-vault catalog
+failure family so model availability, provider labels, local snapshot truth,
+MAS/Pro status, and no-hidden-authority copy are all explicit before any
+larger-model catalog UI or runtime selector can turn green.
+
+Biggest false-claim risk: treating a source-carded RED ledger as a release
+audit pass or using large-model research progress to distract from the Swift
+suite still failing.
+
+Biggest missing source: the exact current Swift failure log after the next
+product repair pass; this witness intentionally used retained logs and did not
+rerun the suite.
+
+Next research query: "Which release-audit failure family blocks large local
+model user trust most directly: model vault catalog, agent route policy, visible
+output sanitization, or graph/filter visibility?"
+
+Sources:
+
+- `docs/falsifiers/F-ReleaseAuditFailureFamily-SourceCard_2026_06_07.md`
+- `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
+- `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
+
 ## Pass 92 - Automated Release-Check Failure Synthesis
 
 Date: 2026-06-07
