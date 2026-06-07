@@ -10398,3 +10398,109 @@ Sources:
 - `EpistemosTests/ThemePairTests.swift`
 - `EpistemosTests/ChatPresentationTests.swift`
 - `EpistemosTests/SettingsWindowPresentationTests.swift`
+
+## Pass 101 - Distribution Project Integrity Release-Blocker Card
+
+### Executive Synthesis
+
+Landed `F-DistributionProjectIntegrity-ReleaseBlockerCard` as a metadata-only
+L1/T1 source-card witness so retained `distribution_project_integrity`
+release-audit failures become exact repair units before project generation,
+schemes, entitlements, privacy manifests, release scripts, archives,
+code-signing, notarization, App Store review, or local model catalog rows can be
+cited as releasable product proof. This matters for large local models because
+even the best Gemma/QAT/GGUF/MLX/LiteRT lane cannot become user-facing until
+the distribution envelope proves MAS/Pro boundaries, privacy disclosure, release
+logs, archive evidence, and review posture without smuggling Pro research
+capability into MAS or turning a model catalog into runtime proof.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/distribution_project_integrity_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_distribution_project_integrity_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_distribution_project_integrity_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-DistributionProjectIntegrity-ReleaseBlockerCard_2026_06_07.md`
+
+### Bound Repair Surface
+
+The witness binds retained issue count `18`, source refs `14`, invariants `12`,
+focused commands `5`, rejected red fixtures `25`, zero archive/model/runtime
+bytes, zero provider calls, and deterministic address
+`sha256:a63a7fbc8622e7ad5a92b82571416f10f40301e4ee3208a5ae1bca44ed7da0fc`.
+
+Source refs include `project.yml`, `Epistemos.xcodeproj/project.pbxproj`, both
+shared Xcode schemes, both Info.plists, both entitlement files, the privacy
+manifest, MAS/Pro source guard, App Store hardening tests, release-script audit
+tests, MAS boundary source guard tests, and cargo release-profile tests.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Distribution blockers now have deterministic identity and source refs instead of vague "release needs fixing" notes. |
+| SCOPE-Rex/SovereignGate | Release admission must reject build-as-release-proof, MAS/Pro entitlement collapse, hidden release logs, and local-model catalog distribution proof. |
+| RuntimeRouter/System G | Runtime lanes cannot become shipping routes until distribution evidence, privacy manifests, and MAS/Pro boundaries are separately witnessed. |
+| ActiveAssembly | Build products, schemes, and entitlement envelopes are part of the smallest safe shipping assembly for any local model feature. |
+| RunEventLog/AnswerPacket | Future user-facing large-model claims need release logs and AnswerPacket caveats; archive/code-sign/review claims cannot be inferred from tests or catalogs. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-DistributionProjectIntegrity-ReleaseBlockerCard`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Distribution readiness and large-local-model user
+  capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make distribution integrity a first-class witness
+lane for local-model rollout, so model catalogs, runtime lanes, privacy
+manifests, MAS/Pro entitlements, and release evidence are all joined before any
+large-model feature is presented as shippable.
+
+Safest next falsifier: `F-EditorEpdocSurface-ReleaseBlockerCard`, matching the
+new side-card cursor `editor_epdoc_surface_release_blocker_card`.
+
+Best near-term code unit: inspect the retained editor/epdoc release family,
+bind its source refs and focused commands, then build a metadata-only blocker
+card that prevents editor surfaces from becoming hidden proof for large-model
+note/research workflows.
+
+Biggest false-claim risk: treating a successful build, generated Xcode project,
+installed local model, or model-catalog row as App Store readiness, distribution
+proof, product route proof, or live large-model capability.
+
+Biggest missing source: current focused failure lines for the
+`distribution_project_integrity` family after the full Swift suite is repaired
+enough to rerun release checks.
+
+Next research query: "Which release/distribution invariants must be witnessed
+before Epistemos can ship a MAS-safe small local model lane and a Pro-gated
+large-model lane without entitlement, privacy, or marketing drift?"
+
+Sources:
+
+- `docs/falsifiers/F-DistributionProjectIntegrity-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`
+- `agent_core/src/uas/distribution_project_integrity_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_distribution_project_integrity_release_blocker_card.rs`
+- `project.yml`
+- `Epistemos.xcodeproj/project.pbxproj`
+- `Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme`
+- `Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme`
+- `Epistemos-Info.plist`
+- `Epistemos-AppStore-Info.plist`
+- `Epistemos/Epistemos.entitlements`
+- `Epistemos/Epistemos-AppStore.entitlements`
+- `Epistemos/Resources/PrivacyInfo.xcprivacy`
+- `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md`
+- `EpistemosTests/AppStoreHardeningTests.swift`
+- `EpistemosTests/ReleaseScriptAuditTests.swift`
+- `EpistemosTests/CoreMASBoundarySourceGuardTests.swift`
+- `EpistemosTests/CargoReleaseProfileTests.swift`

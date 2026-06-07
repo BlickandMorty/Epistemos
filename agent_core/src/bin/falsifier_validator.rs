@@ -127,6 +127,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GraphFilterVisibility-ReleaseBlockerCard",
     "F-ResearchToolCatalog-NoHiddenAuthority",
     "F-ThemePresentation-ReleaseBlockerCard",
+    "F-DistributionProjectIntegrity-ReleaseBlockerCard",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-ModelInventory-ZeroByteCandidateCards",
