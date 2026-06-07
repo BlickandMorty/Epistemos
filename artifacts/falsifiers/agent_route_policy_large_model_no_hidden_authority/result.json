@@ -1,0 +1,592 @@
+{
+  "falsifier_id": "F-AgentRoutePolicy-LargeModelNoHiddenAuthority",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_agent_route_policy_large_model_no_hidden_authority.sh",
+  "command_digest": "sha256:a4d4f15570af6dab48c525838a3d8c56117b855ce56db633c6d9b64119e89cf1",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0b6fb413b0bd4b69636bbd34666e4ee593c548ed",
+  "fixture_id": "agent_route_policy_large_model_no_hidden_authority_v1",
+  "timestamp_utc": "2026-06-07T15:53:04Z",
+  "result_digest": "sha256:732ce4fd5be8982c6d55ad0b5752dd1be2ad886c7f13b6836f0e503612e77c9e",
+  "measurements": {
+    "agent_route_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_route_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_route_policy_address": {
+      "value": "sha256:8b7bc646880948c4669bb60918203735dcf3df98caa0e5918cbc033c752ae71e",
+      "unit": "sha256"
+    },
+    "agent_route_policy_card": {
+      "value": {
+        "family_id": "agent_route_policy",
+        "issue_count": 21,
+        "organ": "runtime_router",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Engine/TriageService.swift",
+          "Epistemos/Engine/PipelineService.swift",
+          "Epistemos/State/AgentCommandCenterState.swift",
+          "Epistemos/State/InferenceState+RouteProfiles.swift",
+          "Epistemos/LocalAgent/RuntimeRouter.swift",
+          "Epistemos/LocalAgent/LocalAgentLoop.swift",
+          "Epistemos/LocalAgent/LocalAgentCommandDispatcher.swift",
+          "Epistemos/SystemG/RealSystemGRunSeam.swift",
+          "agent_core/src/command_center.rs",
+          "agent_core/src/routing.rs"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/TriageServiceTests",
+          "xcodebuild test -only-testing:EpistemosTests/PipelineServiceTests",
+          "xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests",
+          "xcodebuild test -only-testing:EpistemosTests/AgentAuthorityPersistenceTests",
+          "cargo test --manifest-path agent_core/Cargo.toml command_center"
+        ],
+        "required_invariants": [
+          "local_only_fast_paths_do_not_inherit_tool_authority",
+          "model_vault_rows_are_not_route_authority",
+          "large_model_candidates_require_catalog_loader_byte_runtime_proof",
+          "mas_forbidden_tools_remain_denied",
+          "pro_agent_tools_require_explicit_status_and_approval",
+          "runtime_router_profile_is_visible_not_hidden",
+          "system_g_run_requires_answer_packet",
+          "system_g_run_requires_run_event_log",
+          "cloud_fallback_never_hidden",
+          "patternboost_eidos_lattice_not_live_authority",
+          "rollback_required_before_route_mutation",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "hidden_route_authority": false,
+        "hidden_tool_authority": false,
+        "hidden_cloud_fallback": false,
+        "model_vault_row_as_route_authority": false,
+        "large_model_candidate_auto_route": false,
+        "patternboost_live_authority": false,
+        "eidos_live_router": false,
+        "lattice_live_router": false,
+        "mas_forbidden_tool_enabled": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "rollback_ref": "rollback:agent_route_policy_large_model_no_hidden_authority",
+        "run_event_log_ref": "run_event_log:agent_route_policy_large_model_no_hidden_authority",
+        "answer_packet_ref": "answer_packet:agent_route_policy_large_model_no_hidden_authority"
+      },
+      "unit": "card"
+    },
+    "agent_route_policy_issue_count": {
+      "value": 21,
+      "unit": "issues"
+    },
+    "focused_command_count": {
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_route_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_tool_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_auto_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_runtime_proof_invariant_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tool_enabled_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tools_invariant_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mas_forbidden_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_router_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "visible_output_sanitization_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_candidate_auto_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_forbidden_tool_enabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_vault_row_as_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_patternboost_eidos_lattice_live_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "patternboost_eidos_lattice_live_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 16,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 16,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "route_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_router_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 10,
+      "unit": "refs"
+    },
+    "source_refs_cover_route_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_answer_packet_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_vault_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_agent_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "agent_route_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_route_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_route_policy_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "agent_route_policy_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "agent_route_policy_issue_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "issues"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_route_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_tool_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_auto_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_runtime_proof_invariant_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tool_enabled_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tools_invariant_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mas_forbidden_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_router_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "visible_output_sanitization_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_candidate_auto_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_forbidden_tool_enabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_vault_row_as_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_patternboost_eidos_lattice_live_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "patternboost_eidos_lattice_live_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "route_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_router_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "refs"
+    },
+    "source_refs_cover_route_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_answer_packet_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_model_vault_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_agent_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "agent_route_family_bound": true,
+    "agent_route_issue_count_retained": true,
+    "agent_route_policy_address": true,
+    "agent_route_policy_card": true,
+    "agent_route_policy_issue_count": true,
+    "focused_command_count": true,
+    "focused_commands_cover_route_tests": true,
+    "hidden_cloud_fallback_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "hidden_tool_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "large_model_auto_route_rejected": true,
+    "large_model_runtime_proof_invariant_bound": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_forbidden_tool_enabled_rejected": true,
+    "mas_forbidden_tools_invariant_bound": true,
+    "missing_mas_forbidden_invariant_rejected": true,
+    "missing_runtime_router_source_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "model_vault_route_authority_rejected": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_cloud_fallback": true,
+    "no_hidden_route_authority": true,
+    "no_hidden_tool_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_large_model_candidate_auto_route": true,
+    "no_live_dense_70b_claim": true,
+    "no_mas_forbidden_tool_enabled": true,
+    "no_model_runtime_bytes": true,
+    "no_model_vault_row_as_route_authority": true,
+    "no_patternboost_eidos_lattice_live_authority": true,
+    "patternboost_eidos_lattice_live_authority_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "route_invariant_count": true,
+    "route_invariants_bound": true,
+    "runtime_router_source_bound": true,
+    "source_ref_count": true,
+    "source_refs_cover_route_surfaces": true,
+    "system_g_answer_packet_source_bound": true,
+    "upstream_fail_rejected": true,
+    "upstream_model_vault_card_pass": true,
+    "upstream_next_cursor_agent_route": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-AgentRoutePolicy-LargeModelNoHiddenAuthority: consumes the model-vault blocker and release-audit family source card, binds agent_route_policy issue count 21 to exact route-policy source refs, focused tests, MAS/Pro invariants, rollback, RunEventLog, AnswerPacket, and rejects hidden route/tool/cloud authority, model-vault-as-route-authority, large-model auto-route, PatternBoost/Eidos/lattice live authority, MAS forbidden tools, runtime byte loads, L2/L3/product green, and live dense-70B claims."
+}

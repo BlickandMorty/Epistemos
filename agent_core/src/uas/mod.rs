@@ -27,6 +27,7 @@
 
 pub mod acs_anchor;
 pub mod address;
+pub mod agent_route_policy_large_model_no_hidden_authority;
 pub mod anchor_registry;
 pub mod app_cold_store;
 pub mod cache_policy_pollution;
@@ -136,6 +137,15 @@ pub mod witness;
 
 pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
+pub use agent_route_policy_large_model_no_hidden_authority::{
+    required_agent_route_policy_invariants, required_agent_route_policy_source_refs,
+    AgentRoutePolicyLargeModelNoHiddenAuthorityCard,
+    AgentRoutePolicyLargeModelNoHiddenAuthorityWitness, AgentRoutePolicyOrgan,
+    AgentRoutePolicyStatus, AGENT_ROUTE_POLICY_FAMILY_SOURCE_REF,
+    AGENT_ROUTE_POLICY_LARGE_MODEL_NO_HIDDEN_AUTHORITY_CURSOR,
+    AGENT_ROUTE_POLICY_LARGE_MODEL_NO_HIDDEN_AUTHORITY_ID,
+    AGENT_ROUTE_POLICY_LARGE_MODEL_NO_HIDDEN_AUTHORITY_NEXT_CURSOR, AGENT_ROUTE_POLICY_UPSTREAM_REF,
+};
 pub use anchor_registry::AcsAnchorRegistry;
 pub use app_cold_store::{
     AppColdStorePlacement, AppColdStoreRouteCard, AppColdStoreRouteCardError,
