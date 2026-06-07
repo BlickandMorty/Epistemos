@@ -261,7 +261,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > abstention refs, denies 16-18 GB Mac overclaims for every row, and opens zero
 > model/runtime/provider/source-tree/product/command/benchmark bytes. L2 and L3
 > remain unchanged; the next research-to-build unit is
-> `exotic_quant_runtime_lane_owner_approval_gate`.
+> now landed by Pass 76.
+> Deep Research Pass 76 now lands
+> `F-ExoticQuantRuntimeLaneOwnerApprovalGate` as a T1/L1 metadata-only witness
+> at
+> `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`.
+> It consumes `F-ExoticQuantSourcePinAndByteBudgetPreflight`, accepts five
+> runtime owner gate cards, records three Mac-candidate rows pending owner
+> approval, two server-only rows denied for Mac runtime, unarmed command
+> envelopes, unopened model paths, pending/denied loader compatibility,
+> rollback, RunEventLog, AnswerPacket, abstention, and SovereignGate refs,
+> rejects 53 red fixtures, and opens zero command/model-path/model/runtime/
+> provider/source-tree/product/benchmark bytes. L2 and L3 remain unchanged; the
+> next research-to-build unit is
+> `exotic_quant_loader_compatibility_model_path_gate`.
 
 ---
 

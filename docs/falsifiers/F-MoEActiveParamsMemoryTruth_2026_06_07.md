@@ -35,4 +35,4 @@ Correct phrasing: architecture MoE memory-truth coverage advanced; product capab
 
 ## Downstream Units
 
-`F-ExoticQuantQuarantineRouteCard` and `F-ExoticQuantSourcePinAndByteBudgetPreflight` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_runtime_lane_owner_approval_gate`, which should require explicit owner approval, command/readiness envelopes, model-path and loader compatibility proof, crash-safe rollback, RunEventLog, AnswerPacket, abstention, and zero hidden authority before any exotic quant runtime probe is armed.
+`F-ExoticQuantQuarantineRouteCard`, `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and `F-ExoticQuantRuntimeLaneOwnerApprovalGate` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_loader_compatibility_model_path_gate`, which should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.

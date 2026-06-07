@@ -38,4 +38,6 @@ Correct phrasing: architecture source-pin and byte-budget preflight advanced; pr
 
 ## Next Unit
 
-`exotic_quant_runtime_lane_owner_approval_gate` should require explicit owner approval, command/readiness envelopes, model-path and loader compatibility proof, crash-safe rollback, RunEventLog, AnswerPacket, abstention, and zero hidden authority before any small owner-approved exotic quant runtime probe is armed.
+`F-ExoticQuantRuntimeLaneOwnerApprovalGate` is now landed as the metadata-only downstream witness. It records three Mac-candidate rows as pending owner approval, two server-only rows as denied for Mac runtime, unarmed command envelopes, unopened model paths, pending/denied loader compatibility, rollback, RunEventLog, AnswerPacket, abstention, and zero runtime/model/provider/source/product/benchmark bytes.
+
+The current research-to-build next unit is `exotic_quant_loader_compatibility_model_path_gate`. It should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.

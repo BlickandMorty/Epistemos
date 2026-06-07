@@ -5089,15 +5089,13 @@ provider/source-tree/product/command/benchmark bytes.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: owner-approved runtime-lane gate for exact
-exotic quant rows, because source pins and byte budgets now exist but command
-arming, loader compatibility, model-path readiness, crash-safe rollback, and
-AnswerPacket visibility are still missing.
+Former best breakthrough candidate, now landed by Pass 76: owner-approved
+runtime-lane gate for exact exotic quant rows.
 
-Safest next falsifier:
+Former safest falsifier, now landed by Pass 76:
 `F-ExoticQuantRuntimeLaneOwnerApprovalGate`.
 
-Best near-term code unit: add
+Former near-term code unit, now landed by Pass 76: add
 `exotic_quant_runtime_lane_owner_approval_gate` so every exotic quant runtime
 probe requires explicit owner approval, unarmed command envelopes, model path
 readiness, loader compatibility, rollback, RunEventLog, AnswerPacket,
@@ -5121,6 +5119,103 @@ Sources:
 - `docs/falsifiers/F-ExoticQuantSourcePinAndByteBudgetPreflight_2026_06_07.md`
 - `artifacts/falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json`
 - `docs/falsifiers/F-ExoticQuantQuarantineRouteCard_2026_06_07.md`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 76 implements `F-ExoticQuantRuntimeLaneOwnerApprovalGate`. This turns
+source-pinned exotic quant rows into explicit fail-closed runtime-lane gates:
+three Mac-candidate rows are pending owner approval, two server-only rows are
+denied for Mac runtime, command envelopes remain unarmed, model paths remain
+unopened, loader compatibility is pending or denied, and every route/product
+claim remains blocked.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_runtime_lane_owner_approval_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_runtime_lane_owner_approval_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_runtime_lane_owner_approval_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantRuntimeLaneOwnerApprovalGate_2026_06_07.md`
+
+The witness consumes `F-ExoticQuantSourcePinAndByteBudgetPreflight`, accepts
+five runtime owner gate cards, rejects 53 red fixtures, carries forward
+selected artifact bytes `97269645985`, carries forward maximum minimum UMA
+bytes `39108307031`, and records zero command executions, model-path opens,
+model bytes, runtime bytes, provider calls, source-tree bytes, product bytes,
+and benchmark runs.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Exotic quant runtime-lane gates now have deterministic addresses separate from source-pin and byte-budget addresses. |
+| ColdStore/AppColdStore | Selected artifact bytes can stay cold metadata until loader/path proof exists. |
+| ActiveAssembly | No exotic quant row can wake an assembly from source-pin metadata alone. |
+| Eidos | Source evidence may inform visible priors but remains denied as hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission now rejects owner-approval leaks, armed commands, opened paths, loader shortcuts, hidden authority, source import, benchmark laundering, and promotion attempts. |
+| RuntimeRouter/System G | Runtime lanes remain unarmed; server-only rows are denied for Mac runtime. |
+| RunEventLog/AnswerPacket | Later probes must expose owner approval, command envelope, model path, loader compatibility, rollback, abstention, and packet refs. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantRuntimeLaneOwnerApprovalGate` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: loader compatibility plus model-path readiness
+for exact exotic quant rows, because owner approval is now fail-closed but no
+row has proven loader support, local file readiness, command safety, or first
+token.
+
+Safest next falsifier:
+`F-ExoticQuantLoaderCompatibilityModelPathGate`.
+
+Best near-term code unit: add
+`exotic_quant_loader_compatibility_model_path_gate` so each exotic quant row
+must prove loader compatibility class, local model-path readiness, file-source
+visibility, rollback, RunEventLog, AnswerPacket, abstention, no hidden
+authority, and zero runtime/model bytes before any owner-approved command can
+be armed.
+
+Biggest false-claim risk: treating pending owner approval as approval, or
+treating an unarmed command envelope as a runtime proof.
+
+Biggest missing source: local loader/path evidence for the selected artifacts
+on Jojo's actual Mac tier, especially whether GGUF/llama.cpp, Transformers, or
+server-only lanes can be represented without importing source, opening model
+files, or mutating product routes.
+
+Next research query: "What loader compatibility and model-path readiness
+contract can prove exact exotic quant rows are locally representable without
+opening model bytes or arming runtime commands?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantRuntimeLaneOwnerApprovalGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantSourcePinAndByteBudgetPreflight_2026_06_07.md`
 - https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
 - https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF

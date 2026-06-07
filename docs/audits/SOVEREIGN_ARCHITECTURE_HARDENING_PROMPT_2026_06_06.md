@@ -137,9 +137,18 @@ Current 2026-06-07 large-local-model research-to-build status:
   AnswerPacket, compatibility, privacy, and abstention refs, denies 16-18 GB
   Mac overclaims for every row, keeps model/runtime/provider/source-tree/
   product/command/benchmark bytes at zero, and still does not prove runtime
-  load, Apple Silicon fit, product default, or user-facing capability. The next
+  load, Apple Silicon fit, product default, or user-facing capability.
+- `F-ExoticQuantRuntimeLaneOwnerApprovalGate` has landed as a metadata-only
+  T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`.
+  It consumes the source-pin byte-budget preflight, accepts 5 runtime owner
+  gate cards, records 3 Mac-candidate rows pending owner approval and 2
+  server-only rows denied for Mac runtime, rejects 53 red fixtures, keeps
+  command executions/model-path opens/model/runtime/provider/source-tree/
+  product/benchmark bytes at zero, and still does not prove runtime load,
+  Apple Silicon fit, product default, or user-facing capability. The next
   large-local-model research-to-build unit is
-  `exotic_quant_runtime_lane_owner_approval_gate`.
+  `exotic_quant_loader_compatibility_model_path_gate`.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3
