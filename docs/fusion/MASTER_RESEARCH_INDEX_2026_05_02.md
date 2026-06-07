@@ -4576,3 +4576,26 @@ release readiness. L2/L3/T4 remain red until family repairs land, the full
 evidence binds visible AnswerPacket/RunEventLog surfaces, manual/runtime and
 distribution/compliance checks complete, and three uninterrupted zero-fail
 passes exist.
+
+### §28.11 Graph-filter visibility focused repair canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 120 plus `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+
+Pass 120 defines `F-GraphFilterVisibilityFocusedRepairPacket` as the
+research-to-build map for the top retained release-audit family,
+`graph_filter_visibility`. The source truth is precise:
+`GraphNodeType.visibleCases` means every graph-visible type except `.block`,
+while `GraphNodeType.defaultActiveCases` means the default-active set and
+intentionally excludes `.folder`. `FilterEngine` initializes, resets,
+`showAllTypes()`, and `resetForVaultLifecycle()` to `defaultActiveCases`; folder
+nodes remain reachable only through explicit opt-in. Retained failures and
+current test anchors show stale expectations in `FilterEngineComprehensiveTests`,
+`ResourceExhaustionTests`, and `ConcurrencyEdgeCaseTests`.
+
+Promotion truth: this is T0 research-to-build canon only. It lands no product
+patch, opens no runtime/model bytes, and does not promote L2/L3/T4. The safe
+next build unit is a focused test repair that preserves folder opt-in semantics,
+then focused Swift test logs, then full `xcodebuild_test` rerun before release
+or model-route capability can move.
