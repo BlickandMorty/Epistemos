@@ -41,6 +41,7 @@ pub mod compressed_model_source_card_intake;
 pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
+pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_quarantine_route_card;
 pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
@@ -188,6 +189,15 @@ pub use exotic_quant_quarantine_route_card::{
     ExoticQuantQuarantineRouteLedger, ExoticQuantQuarantineRouteMetrics,
     EXOTIC_QUANT_QUARANTINE_ROUTE_CARD_CURSOR,
     EXOTIC_QUANT_QUARANTINE_ROUTE_CARD_NEXT_CURSOR,
+};
+pub use exotic_quant_loader_compatibility_model_path_gate::{
+    expected_loader_path_model_ids, ExoticQuantLoaderCompatibilityClass,
+    ExoticQuantLoaderPathAction, ExoticQuantLoaderPathByteLedger,
+    ExoticQuantLoaderPathGateCard, ExoticQuantLoaderPathGateError,
+    ExoticQuantLoaderPathGateLedger, ExoticQuantLoaderPathGateMetrics,
+    ExoticQuantLoaderPathProofRefs, ExoticQuantModelPathState,
+    EXOTIC_QUANT_LOADER_COMPATIBILITY_MODEL_PATH_GATE_CURSOR,
+    EXOTIC_QUANT_LOADER_COMPATIBILITY_MODEL_PATH_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,

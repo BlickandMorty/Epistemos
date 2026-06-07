@@ -5184,20 +5184,20 @@ and benchmark runs.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: loader compatibility plus model-path readiness
-for exact exotic quant rows, because owner approval is now fail-closed but no
-row has proven loader support, local file readiness, command safety, or first
-token.
+Former best breakthrough candidate, now landed by Pass 77: loader
+compatibility plus model-path readiness for exact exotic quant rows. The
+remaining breakthrough candidate is owner-approved local artifact availability,
+because loader classes are now metadata-bound but no row has proven local file
+availability, command safety, Apple Silicon fit, or first token.
 
-Safest next falsifier:
+Former safest next falsifier, now landed by Pass 77:
 `F-ExoticQuantLoaderCompatibilityModelPathGate`.
 
 Best near-term code unit: add
-`exotic_quant_loader_compatibility_model_path_gate` so each exotic quant row
-must prove loader compatibility class, local model-path readiness, file-source
-visibility, rollback, RunEventLog, AnswerPacket, abstention, no hidden
-authority, and zero runtime/model bytes before any owner-approved command can
-be armed.
+`exotic_quant_local_artifact_availability_owner_gate` so any local file
+visibility must be owner-approved, manifest-bound, path-canonicalized,
+size-budgeted, rollbackable, RunEventLog/AnswerPacket visible, and unable to
+arm a command by itself.
 
 Biggest false-claim risk: treating pending owner approval as approval, or
 treating an unarmed command envelope as a runtime proof.
@@ -7348,6 +7348,106 @@ Sources:
 - `artifacts/falsifiers/exotic_quant_quarantine_route_card/result.json`
 - `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`
 - `docs/falsifiers/F-MoEActiveParamsMemoryTruth_2026_06_07.md`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 77 - Exotic Quant Loader Compatibility Model-Path Gate Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 77 implements `F-ExoticQuantLoaderCompatibilityModelPathGate`. The point is
+to turn promising exotic quant rows into safe, buildable Epistemos objects
+without treating a loader label or local-looking filename as runtime proof.
+TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound rows now have metadata-only loader
+compatibility classes, fail-closed model-path states, and explicit proof
+requirements before any local artifact, loader import, command envelope, or
+runtime probe can open.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_loader_compatibility_model_path_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_loader_compatibility_model_path_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_loader_compatibility_model_path_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantLoaderCompatibilityModelPathGate_2026_06_07.md`
+
+The witness consumes `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, accepts five
+loader/path gate cards, rejects 63 red fixtures, binds GGUF/llama.cpp and
+Transformers metadata-only loader classes, records three Mac-candidate rows as
+owner-path-manifest-required with no local file verified, denies two
+server/GPU rows for Mac path/runtime, and keeps command executions, path opens,
+stat calls, file hashes, model bytes, runtime bytes, provider calls,
+source-tree bytes, product bytes, and benchmark runs at zero.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each exotic quant row has a deterministic loader/path gate address and cannot be replaced by a filename, loader label, or benchmark. |
+| ColdStore/AppColdStore | Exotic quant artifacts remain cold and unavailable until owner-approved local artifact availability proof exists. |
+| ActiveAssembly | Future assemblies may cite loader classes as metadata only, never as executable residency proof. |
+| Eidos | Loader/path facts can be visible evidence and route caveats, not hidden self-routing authority. |
+| SCOPE-Rex/SovereignGate | Admission can fail closed on missing owner path manifest, path opens, file hashes, loader imports, or server-only Mac leakage. |
+| RuntimeRouter/System G | Runtime lanes stay unarmed until local artifact availability, crash-safe command envelopes, owner-approved probes, rollback, and AnswerPacket evidence exist. |
+| RunEventLog/AnswerPacket | Future packets must show loader class, path availability, denial/abstention, and byte-zero boundaries before promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantLoaderCompatibilityModelPathGate` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: owner-approved local artifact availability for
+the three Mac-candidate exotic quant rows, because loader classes are now
+source-pinned but still cannot open a file or prove Apple Silicon fit.
+
+Safest next falsifier:
+`F-ExoticQuantLocalArtifactAvailabilityOwnerGate`.
+
+Best near-term code unit: add
+`exotic_quant_local_artifact_availability_owner_gate` so any local file
+visibility must be owner-approved, manifest-bound, path-canonicalized,
+size-budgeted, non-hashed unless explicitly allowed, rollbackable, and unable
+to arm a command by itself.
+
+Biggest false-claim risk: saying "GGUF-compatible", "Transformers-compatible",
+or "file found in Downloads" means the model is runnable, high quality,
+memory-fit, product-ready, or user-facing.
+
+Biggest missing source: owner-approved local artifact manifests for
+`Qwopus3.5-27B-v3-TQ3_4S.gguf`, `model_int4.pt`, and
+`Qwopus-MoE-35B-A3B-APEX-I-Mini.gguf`, plus a crash-safe command envelope for
+the chosen runtime lane.
+
+Next research query: "What exact owner-approved local artifact manifest shape
+lets Epistemos verify path existence, byte envelope, loader lane, rollback,
+RunEventLog, and AnswerPacket requirements without hashing/loading model
+bytes or promoting runtime capability?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantLoaderCompatibilityModelPathGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantRuntimeLaneOwnerApprovalGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`
 - https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
 - https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF

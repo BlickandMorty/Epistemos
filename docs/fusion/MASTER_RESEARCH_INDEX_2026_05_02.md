@@ -273,8 +273,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > rollback, RunEventLog, AnswerPacket, abstention, and SovereignGate refs,
 > rejects 53 red fixtures, and opens zero command/model-path/model/runtime/
 > provider/source-tree/product/benchmark bytes. L2 and L3 remain unchanged; the
-> next research-to-build unit is
-> `exotic_quant_loader_compatibility_model_path_gate`.
+> downstream loader/path gate is now landed by Pass 77.
+> Deep Research Pass 77 now lands
+> `F-ExoticQuantLoaderCompatibilityModelPathGate` as a T1/L1 metadata-only
+> witness at
+> `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`.
+> It consumes `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, accepts five
+> loader/path gate cards, binds metadata-only GGUF/llama.cpp and Transformers
+> loader classes, records three Mac-candidate rows requiring owner path
+> manifests with no local file verified, denies two server/GPU rows for Mac
+> path/runtime, rejects 63 red fixtures, keeps command executions/path
+> opens/stat calls/file hashes/model/runtime/provider/source-tree/product/
+> benchmark bytes at zero, and preserves no-hidden-authority, no-MAS, no-L2/L3,
+> no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3 remain unchanged;
+> the next research-to-build unit is
+> `exotic_quant_local_artifact_availability_owner_gate`.
 
 ---
 

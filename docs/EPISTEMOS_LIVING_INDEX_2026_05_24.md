@@ -727,9 +727,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   MoE-memory-truth coverage only. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The downstream exotic
-  quant quarantine unit is now landed; the next research-to-build unit is
-  `exotic_quant_source_pin_and_byte_budget_preflight`; the guard-owned product
-  cursor remains
+  quant quarantine, source-pin byte-budget, runtime owner-approval, and
+  loader/path units are now landed; the next research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`; the guard-owned
+  product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-07** · `F-ExoticQuantQuarantineRouteCard` is now built as
   the research-to-build exotic quant quarantine witness:
@@ -2900,9 +2901,9 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   RuntimeRouter/System G. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The downstream exotic
-  quant quarantine, source-pin byte-budget, and runtime owner-approval units
-  are now landed; the next research-to-build unit is
-  `exotic_quant_loader_compatibility_model_path_gate`.
+  quant quarantine, source-pin byte-budget, runtime owner-approval, and
+  loader/path units are now landed; the next research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantQuarantineRouteCard` witness. It consumes
   `F-HardwareTieredModelCatalog-SourceCard` and
@@ -2915,9 +2916,9 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   default/product authority before any route use. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. Its downstream source-pin
-  byte-budget and runtime owner-approval units are now landed; the next
-  research-to-build unit is
-  `exotic_quant_loader_compatibility_model_path_gate`.
+  byte-budget, runtime owner-approval, and loader/path units are now landed;
+  the next research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantSourcePinAndByteBudgetPreflight` witness. It consumes
   `F-ExoticQuantQuarantineRouteCard`, accepts 5 exact TQ3_4S/HLWQ/APEX/NVFP4/
@@ -2929,8 +2930,9 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   provider/source-tree/product/command/benchmark bytes at zero. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The downstream runtime
-  owner-approval unit is now landed; the next research-to-build unit is
-  `exotic_quant_loader_compatibility_model_path_gate`.
+  owner-approval and loader/path units are now landed; the next
+  research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantRuntimeLaneOwnerApprovalGate` witness. It consumes
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, accepts 5 runtime owner gate
@@ -2940,8 +2942,22 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   benchmark bytes at zero, and preserves rollback, RunEventLog, AnswerPacket,
   abstention, SovereignGate, no-hidden-authority, no-MAS, and no-L2/L3
   boundaries. L2 remains `vault_research_route_with_packetized_mitigation`;
-  L3 user-facing large-local-model/runtime capability is not green. The next
-  research-to-build unit is `exotic_quant_loader_compatibility_model_path_gate`.
+  L3 user-facing large-local-model/runtime capability is not green. The
+  downstream loader/path unit is now landed; the next research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-ExoticQuantLoaderCompatibilityModelPathGate` witness. It consumes
+  `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, accepts 5 loader/path gate
+  cards, binds metadata-only GGUF/llama.cpp and Transformers loader classes,
+  records 3 Mac-candidate rows requiring owner path manifests with no local
+  file verified, denies 2 server/GPU rows for Mac path/runtime, rejects 63 red
+  fixtures, keeps command executions/path opens/stat calls/file hashes/model/
+  runtime/provider/source-tree/product/benchmark bytes at zero, and preserves
+  rollback, RunEventLog, AnswerPacket, abstention, SovereignGate,
+  no-hidden-authority, no-MAS, and no-L2/L3 boundaries. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next research-to-build
+  unit is `exotic_quant_local_artifact_availability_owner_gate`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus
