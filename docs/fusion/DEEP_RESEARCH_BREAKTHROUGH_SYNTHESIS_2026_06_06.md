@@ -6208,3 +6208,131 @@ Next research query: "What is the smallest same-fixture runtime-plural QAT lane
 tournament that compares LiteRT-LM, GGUF/llama.cpp, MLX, and explicit local
 endpoints without loading 12B first, without hidden sidecars, and without
 turning MTP source cards into product speed claims?"
+
+## 68. Pass 68 - Runtime-Plural QAT Lane Tournament Build Result
+
+Observed on 2026-06-06 through local canon, the newly generated
+`F-RuntimePlural-QATLaneTournamentPlan` artifact, current Hugging Face model
+metadata, and current GitHub/runtime metadata for `ggml-org/llama.cpp`,
+`google-ai-edge/LiteRT-LM`, `ml-explore/mlx-swift`, and `ml-explore/mlx-lm`.
+This pass converts the Pass 67 next unit into a real T1/L1 architecture gate
+without resolving packages, downloading model files, importing runtimes,
+running commands, starting servers, benchmarking lanes, choosing a winner, or
+promoting L2/L3.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Build result:
+
+- `Tools/falsifiers/f_runtime_plural_qat_lane_tournament_plan.sh` now emits
+  and validates
+  `artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`.
+- The accepted tournament pack binds five lane cards:
+  `gguf_e2b_qat_llama_cpp_future_probe`,
+  `gguf_12b_qat_llama_cpp_flagship_abstain`,
+  `litert_e2b_mtp_swift_blocked_until_package_proof`,
+  `mlx_swift_gemma4_loader_blocked`, and
+  `mlxlm_python_12b_research_reference`.
+- The artifact binds upstream
+  `F-LiteRTLM-NativeSwiftAdmission`,
+  `F-Gemma4-MTP-DrafterCompatibilityCard`,
+  `F-QAT-ModelRouteCard-MemoryPreflight`, and
+  `F-CompressedRoute-AnswerPacket-DryRun` evidence before any runtime lane can
+  cite the tournament.
+- The artifact records one redacted future fixture, model/runtime revisions,
+  licenses, byte ledgers, memory preflight, cancellation, rollback,
+  RunEventLog, AnswerPacket, quality ledger, latency ledger, tool-JSON ledger,
+  compatibility fence, and abstention requirements.
+- The artifact rejects 61 red fixtures for source drift, duplicate lane/model
+  identity, missing runtime coverage, fixture drift, missing proof surfaces,
+  missing MLX loader caveat, LiteRT/MLX premature future-probe promotion,
+  MLX-LM promotion out of research-only, package/runtime/model loading,
+  command/benchmark execution, sidecar defaults, hidden route authority, hidden
+  cloud fallback, first-token/winner/speed/quality claims, MAS/L2/L3
+  promotion, live dense 70B, and SSD-as-RAM.
+- Runtime proof remains zero-byte by design: runtime bytes loaded `0`, model
+  bytes loaded `0`, provider calls `0`, command executions `0`, benchmark runs
+  `0`.
+
+Architecture fusion:
+
+```text
+LiteRT-LM AdmissionCard
+  -> Gemma4MtpDrafterCompatibilityCard
+  -> QAT ModelRouteCard MemoryPreflight
+  -> CompressedRoute AnswerPacket DryRun
+  -> RuntimePluralQATLaneTournamentPlan
+  -> owner approval gate
+  -> one-token tiny same-fixture proof
+  -> RunEventLog + AnswerPacket
+  -> only then L2/L3 consideration
+```
+
+Why this matters: Epistemos now has a runtime-neutral gate for the exact large
+local model dilemma. GGUF/llama.cpp can be the first tiny E2B proof lane,
+Gemma 4 12B QAT stays visible as the Pro Gated flagship target, LiteRT-LM can
+remain a Google-native Swift candidate without being smuggled into MAS, MLX
+Swift remains useful but loader-caveated, and MLX-LM remains research-only.
+System G can no longer prefer a runtime merely because a repo, package, or
+model card exists.
+
+Why this may be wrong: same-fixture metadata can still miss real runtime
+semantics. `llama-cli` may be available but not product-safe; LiteRT-LM may
+require opaque binaries or APIs that do not fit Epistemos' packet contract;
+MLX Swift may lag model-family loader support; Python MLX-LM may be useful for
+research but not a MAS path; and the 12B route may remain too tight on the
+16 GB UMA floor. That is why the next unit must be an owner-approval gate
+before any tiny probe can execute.
+
+Promotion truth:
+
+- T1/L1 advanced: yes, metadata-only runtime-plural tournament proof exists.
+- T2/L2 advanced: no, product runtime remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no, no user-facing runtime lane is wired, reachable,
+  visible, and verified from this witness.
+- T4/T5 green: no.
+
+Best breakthrough candidate: same-fixture runtime pluralism with an explicit
+owner-approval gate, because it lets Epistemos adopt the best local runtime
+over time without becoming MLX-only, GGUF-only, LiteRT-only, or sidecar-driven.
+
+Safest next falsifier:
+`F-RuntimePlural-QATLaneTournamentOwnerApprovalGate`, scoped as a fail-closed
+owner-approval and command/package lease before any tiny same-fixture proof can
+run.
+
+Best near-term code unit: add the owner-approval gate for the runtime-plural
+tournament, carrying only the E2B GGUF direct CLI candidate as the future
+probe lane while keeping LiteRT-LM, MLX Swift, MLX-LM, local endpoints, 12B,
+31B, and 70B-class routes denied/deferred/vaulted until their separate proof
+exists.
+
+Biggest false-claim risk: saying the tournament plan proves runtime
+loadability, Gemma 4 12B usability, LiteRT package safety, MLX loader support,
+MTP speed, local endpoint safety, or product capability.
+
+Biggest missing source: owner-approved local one-token same-fixture logs with
+retained command/package lease, model-path proof, byte ledger, cancellation,
+quality/latency/tool JSON metrics, RunEventLog, and AnswerPacket evidence.
+
+Next research query: "What exact owner-approval, file-path, command/package,
+timeout, memory, cancellation, and rollback envelope should
+`F-RuntimePlural-QATLaneTournamentOwnerApprovalGate` require so the first E2B
+same-fixture proof can run without accidentally promoting 12B, LiteRT, MLX, a
+server sidecar, or local endpoint into product truth?"
+
+Sources:
+
+- https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
+- https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
+- https://huggingface.co/google/gemma-4-E2B-it
+- https://huggingface.co/google/gemma-4-12B-it
+- https://github.com/ggml-org/llama.cpp
+- https://github.com/google-ai-edge/LiteRT-LM
+- https://github.com/ml-explore/mlx-swift
+- https://github.com/ml-explore/mlx-lm
+- `artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`

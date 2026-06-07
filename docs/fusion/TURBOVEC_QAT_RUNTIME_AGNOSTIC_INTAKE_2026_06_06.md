@@ -705,7 +705,38 @@ This is still metadata-only. It downloads zero target or drafter bytes, loads
 zero runtime bytes, runs no benchmark, starts no server, imports no product
 dependency, and does not prove MTP speed, quality, MAS safety, Gemma 4 12B
 product readiness, L2 capability, or L3 user-facing WRV. The next
-runtime-plural unit is `F-RuntimePlural-QATLaneTournamentPlan`; the guard-owned
+runtime-plural unit has now landed as `F-RuntimePlural-QATLaneTournamentPlan`;
+the current runtime-plural next unit is
+`runtime_plural_qat_lane_tournament_owner_approval_gate`; the guard-owned
+product cursor remains the small-model L3 automated-checks bottleneck.
+
+## Runtime-Plural QAT Lane Tournament Result Addendum
+
+Deep Research Pass 68 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns the
+runtime-plural recommendation into a built T1/L1 architecture gate:
+`F-RuntimePlural-QATLaneTournamentPlan`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+The artifact is
+`artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`;
+the script is `Tools/falsifiers/f_runtime_plural_qat_lane_tournament_plan.sh`.
+The witness accepts five same-fixture lane cards across GGUF/llama.cpp,
+LiteRT-LM Swift, MLX Swift, and MLX-LM research. It binds upstream LiteRT,
+MTP, QAT route-preflight, and compressed-route AnswerPacket witnesses plus
+current model/runtime revisions, licenses, byte/memory/cancellation/rollback/
+RunEventLog/AnswerPacket/quality/latency/tool-JSON/abstention requirements.
+
+This remains metadata-only. It resolves no package, imports no runtime, opens
+no model path, runs no `llama-cli`, runs no benchmark, starts no server or
+local endpoint, chooses no winner, and does not prove Gemma 4 12B usability,
+LiteRT safety, MLX loader support, MTP speed, MAS readiness, L2 capability, or
+L3 user-facing WRV. The next runtime-plural unit is
+`runtime_plural_qat_lane_tournament_owner_approval_gate`; the guard-owned
 product cursor remains the small-model L3 automated-checks bottleneck.
 
 ## KV Residency / Offload Companion Addendum

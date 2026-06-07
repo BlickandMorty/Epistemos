@@ -75,8 +75,9 @@ Correct phrasing:
 
 ## Next Unit
 
-The next runtime-plural research-to-build unit is
-`F-RuntimePlural-QATLaneTournamentPlan`, comparing LiteRT-LM, GGUF/llama.cpp,
-MLX, and explicit local endpoint candidates on the same redacted fixture with
-visible byte, latency, cancellation, quality, rollback, RunEventLog, and
-AnswerPacket evidence.
+`F-RuntimePlural-QATLaneTournamentPlan` is now covered by the
+metadata-only tournament witness. The next runtime-plural research-to-build
+unit is `runtime_plural_qat_lane_tournament_owner_approval_gate`, which must
+keep owner approval, command/package leases, byte ledgers, cancellation,
+rollback, RunEventLog, AnswerPacket, and abstention fail-closed before any
+same-fixture tiny proof can execute.

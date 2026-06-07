@@ -128,6 +128,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-KVRuntimeSourceCard",
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
+    "F-RuntimePlural-QATLaneTournamentPlan",
     "F-TurboVec-Eidos-CompressedIndex-Plan",
     "F-TurboVec-UASAddressStableExternalIds",
     "F-TurboVec-FilterBeforeRankPrivacyGate",
