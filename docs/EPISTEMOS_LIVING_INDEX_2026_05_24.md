@@ -409,6 +409,31 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `graph_filter_visibility_release_blocker_card`.
+- Updated **2026-06-07** ·
+  `F-GraphFilterVisibility-ReleaseBlockerCard` landed:
+  `Tools/falsifiers/f_graph_filter_visibility_release_blocker_card.sh`
+  emits and validates
+  `artifacts/falsifiers/graph_filter_visibility_release_blocker_card/result.json`
+  as a metadata-only L1/T1 graph/filter source-card witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness consumes
+  `F-VisibleOutputSanitization-ReleaseBlockerCard` and the release-audit family
+  source card, binds retained family `graph_filter_visibility` with issue count
+  `34`, records 9 graph/filter source refs, 12 invariants, 3 focused Swift
+  commands, 21 rejected red fixtures, zero graph/model/runtime/product bytes,
+  and deterministic graph-filter address
+  `sha256:6cbd4593308e56ff2ef5b4f000bf1b105d8efe3ae76d1e763b2fc9237270efbc`.
+  It rejects graph filters as hidden Eidos route authority, hidden graph
+  authority, app-level `GraphNodeType` FFI promotion, folder-default overclaims,
+  search/focus/edge visibility bypasses, graph-family green claims, hidden
+  route/cloud authority, L2/L3/product green, live dense 70B, and byte leaks.
+  Guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `research_tool_catalog_no_hidden_authority`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every

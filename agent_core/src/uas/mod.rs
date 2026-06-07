@@ -56,6 +56,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod graph_filter_visibility_release_blocker_card;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
 pub mod kv_runtime_source_card;
@@ -929,6 +930,14 @@ pub use visible_output_sanitization_release_blocker_card::{
     VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_ID,
     VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
     VISIBLE_OUTPUT_SANITIZATION_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_release_blocker_card::{
+    required_graph_filter_visibility_invariants, required_graph_filter_visibility_source_refs,
+    GraphFilterVisibilityOrgan, GraphFilterVisibilityReleaseBlockerCard,
+    GraphFilterVisibilityReleaseBlockerWitness, GraphFilterVisibilityStatus,
+    GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF, GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_CURSOR,
+    GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_ID,
+    GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR, GRAPH_FILTER_VISIBILITY_UPSTREAM_REF,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

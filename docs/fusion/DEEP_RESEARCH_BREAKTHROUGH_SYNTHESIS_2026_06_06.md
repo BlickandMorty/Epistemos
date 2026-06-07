@@ -10077,3 +10077,104 @@ Sources:
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 98 - Graph Filter Visibility Release-Blocker Card
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+promotes without visible proof.
+
+### Executive Synthesis
+
+Landed `F-GraphFilterVisibility-ReleaseBlockerCard` as a metadata-only L1/T1
+source-card witness so the top retained release-audit family,
+`graph_filter_visibility`, becomes an exact repair unit instead of opaque Swift
+test noise. This matters for large local models because Eidos graph evidence,
+research citations, source cards, model catalogs, and route caveats will only be
+trustworthy if the graph/filter surface cannot hide route authority, promote
+app-level graph types into Rust FFI, bypass search/focus/edge visibility, or
+pretend release readiness is green before focused tests pass.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/graph_filter_visibility_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_graph_filter_visibility_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-GraphFilterVisibility-ReleaseBlockerCard_2026_06_07.md`
+
+### Bound Repair Surface
+
+The witness binds retained issue count `34`, source refs `9`, invariants `12`,
+focused commands `3`, rejected red fixtures `21`, zero graph/model/runtime bytes,
+and deterministic address
+`sha256:6cbd4593308e56ff2ef5b4f000bf1b105d8efe3ae76d1e763b2fc9237270efbc`.
+
+Source refs include `FilterEngine.swift`, `GraphTypes.swift`, `GraphState.swift`,
+`GraphStore.swift`, graph view surfaces, `FilterEngineComprehensiveTests`,
+`ResourceExhaustionTests`, and `ConcurrencyEdgeCaseTests`.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Graph/filter release blockers have deterministic source-card identity and cannot drift as informal QA notes. |
+| Eidos | Graph evidence and research-source navigation remain visible evidence only, not hidden route authority. |
+| ActiveAssembly | Search/focus/vault/edge visibility must be repaired before graph-selected evidence can shape user-facing active context claims. |
+| SCOPE-Rex/SovereignGate | Admission rejects hidden graph authority, app-level FFI type promotion, folder-default overclaims, visibility bypasses, and green release claims. |
+| RuntimeRouter/System G | Graph filters cannot become route selectors for large-model research rows until product proof and AnswerPacket visibility exist. |
+| RunEventLog/AnswerPacket | Future graph-filter repairs must surface visibility, abstention, rollback, and release-red caveats as visible proof. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-GraphFilterVisibility-ReleaseBlockerCard` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Graph/filter release readiness and large-local-model
+  user capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: repair the graph/filter family so Eidos can safely
+display and filter evidence for model/source/research routes without becoming a
+hidden router.
+
+Safest next falsifier: `F-ResearchToolCatalog-NoHiddenAuthority`, matching the
+new next side-card cursor `research_tool_catalog_no_hidden_authority`.
+
+Best near-term code unit: inspect `FilterEngine.swift`, `GraphTypes.swift`,
+`GraphState.swift`, and the three focused Swift test files to decide whether the
+default-active/folder-visible contract or the failing test expectation should be
+changed, then land the smallest source repair with focused tests.
+
+Biggest false-claim risk: treating graph evidence visibility, source-card
+presence, or graph filter selection as live route authority, L2 capability, L3
+release readiness, or large-model runtime proof.
+
+Biggest missing source: the exact failing Swift lines from the latest full
+`xcodebuild_test` rerun after graph/filter source repair.
+
+Next research query: "Which graph-filter invariants must be user-visible before
+Eidos can safely navigate large-model source cards, model catalogs, citations,
+and AnswerPacket evidence without hidden routing authority?"
+
+Sources:
+
+- `docs/falsifiers/F-GraphFilterVisibility-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/graph_filter_visibility_release_blocker_card/result.json`
+- `agent_core/src/uas/graph_filter_visibility_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_graph_filter_visibility_release_blocker_card.rs`
+- `Epistemos/Graph/FilterEngine.swift`
+- `Epistemos/Models/GraphTypes.swift`
+- `Epistemos/Graph/GraphState.swift`
+- `EpistemosTests/FilterEngineComprehensiveTests.swift`
+- `EpistemosTests/ResourceExhaustionTests.swift`
+- `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
