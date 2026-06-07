@@ -361,6 +361,30 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `agent_route_policy_large_model_no_hidden_authority`.
+- Updated **2026-06-07** ·
+  `F-AgentRoutePolicy-LargeModelNoHiddenAuthority` landed:
+  `Tools/falsifiers/f_agent_route_policy_large_model_no_hidden_authority.sh`
+  emits and validates
+  `artifacts/falsifiers/agent_route_policy_large_model_no_hidden_authority/result.json`
+  as a metadata-only L1/T1 route-policy source-card witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness consumes
+  `F-ModelVaultCatalog-ReleaseBlockerCard` and the release-audit family source
+  card, binds retained family `agent_route_policy` with issue count `21`,
+  records 10 route source refs, 12 route invariants, 5 focused Swift/Rust
+  commands, 16 rejected red fixtures, zero model/runtime/product bytes, and
+  deterministic route-policy address
+  `sha256:8b7bc646880948c4669bb60918203735dcf3df98caa0e5918cbc033c752ae71e`.
+  It rejects hidden route/tool/cloud authority, model-vault rows as route
+  authority, large-model candidate auto-routing, PatternBoost/Eidos/lattice
+  live authority, MAS-forbidden tools, L2/L3/product green, live dense 70B, and
+  byte leaks. Guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `visible_output_sanitization_release_blocker_card`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every

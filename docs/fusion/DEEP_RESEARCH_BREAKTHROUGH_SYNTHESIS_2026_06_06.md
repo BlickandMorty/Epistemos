@@ -5030,6 +5030,94 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Pass 95 - Agent Route Policy No Hidden Authority (2026-06-07)
+
+Pass 95 implements `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`. This is a
+research-to-build guard for the exact bottleneck that can corrupt the
+large-local-model vision: confusing catalog/research/model-vault rows with live
+agent route authority.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Mechanism
+
+The new source-card witness consumes:
+
+- `F-ModelVaultCatalog-ReleaseBlockerCard`
+- The retained `agent_route_policy` row from
+  `F-ReleaseAuditFailureFamily-SourceCard`
+
+It binds retained `agent_route_policy` issue count `21` to 10 concrete route
+source refs, 12 invariants, 5 focused Swift/Rust commands, 16 rejected red
+fixtures, and deterministic route-policy address
+`sha256:8b7bc646880948c4669bb60918203735dcf3df98caa0e5918cbc033c752ae71e`.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/agent_route_policy_large_model_no_hidden_authority.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_agent_route_policy_large_model_no_hidden_authority.rs`
+- Script:
+  `Tools/falsifiers/f_agent_route_policy_large_model_no_hidden_authority.sh`
+- Artifact:
+  `artifacts/falsifiers/agent_route_policy_large_model_no_hidden_authority/result.json`
+- Witness page:
+  `docs/falsifiers/F-AgentRoutePolicy-LargeModelNoHiddenAuthority_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Agent-route policy now has a deterministic blocker address before large-model rows can influence routing. |
+| Eidos | Eidos can surface evidence and route priors, but cannot become hidden live router authority. |
+| RuntimeRouter/System G | Route profiles, local-only paths, and System G local-model handoff must stay visible and AnswerPacket/RunEventLog-bound. |
+| SCOPE-Rex/SovereignGate | Admission rejects hidden route/tool/cloud authority, model-vault route authority, large-model auto-routing, MAS-forbidden tools, and promotion attempts. |
+| PatternBoost/Lattice | Research and controller motifs remain offline/gated until held-out wins, rollback, RunEventLog, AnswerPacket, and explicit route admission exist. |
+| MAS/Pro | MAS cannot inherit Pro tools or large-model ambition from route tables; Pro remains gated until focused tests and release evidence pass. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: route-policy repair that proves large-model
+catalog rows, TurboVec/QAT research, Eidos priors, PatternBoost discoveries,
+and lattice controller motifs can be visible evidence without becoming hidden
+authority.
+
+Safest next falsifier:
+`F-VisibleOutputSanitization-ReleaseBlockerCard`.
+
+Best near-term code unit: add `visible_output_sanitization_release_blocker_card`
+so route-policy claims feed into visible output/privacy/log evidence before
+any user-facing release readiness or large-model route promotion.
+
+Biggest false-claim risk: treating local model IDs, model-vault rows,
+large-model research cards, or route profiles as proof that the app can safely
+execute those models or tools in product.
+
+Biggest missing source: focused Swift test repair evidence for the retained
+`agent_route_policy` failure family.
+
+Next research query: "Which route-policy tests most directly prove that
+large-model candidates, local-only fast paths, tool permissions, and System G
+AnswerPacket emission cannot form hidden authority?"
+
+Sources:
+
+- `docs/falsifiers/F-AgentRoutePolicy-LargeModelNoHiddenAuthority_2026_06_07.md`
+- `artifacts/falsifiers/agent_route_policy_large_model_no_hidden_authority/result.json`
+- `docs/falsifiers/F-ModelVaultCatalog-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/model_vault_catalog_release_blocker_card/result.json`
+
 ## Pass 93 - Release-Audit Failure-Family Source Cards
 
 Date: 2026-06-07
