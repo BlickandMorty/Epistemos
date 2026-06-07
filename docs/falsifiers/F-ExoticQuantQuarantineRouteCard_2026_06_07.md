@@ -38,6 +38,6 @@ Correct phrasing: architecture exotic-quant quarantine coverage advanced; produc
 
 ## Downstream Unit Landed
 
-`F-ExoticQuantSourcePinAndByteBudgetPreflight` is now landed as the metadata-only downstream witness. It binds exact Hugging Face source pins, manifest digests, declared tree bytes, selected artifact envelopes, Mac/server tier decisions, rollback, RunEventLog, AnswerPacket, and abstention for each accepted exotic quant row before any owner-approved runtime probe is considered.
+`F-ExoticQuantSourcePinAndByteBudgetPreflight` and `F-ExoticQuantRuntimeLaneOwnerApprovalGate` are now landed as metadata-only downstream witnesses. They bind exact Hugging Face source pins, manifest digests, declared tree bytes, selected artifact envelopes, Mac/server tier decisions, pending owner approval, unarmed command envelopes, unopened model paths, rollback, RunEventLog, AnswerPacket, and abstention for each accepted exotic quant row before any owner-approved runtime probe is considered.
 
-The current research-to-build next unit is `exotic_quant_runtime_lane_owner_approval_gate`. It must require explicit owner approval, command/readiness envelopes, model-path and loader compatibility proof, crash-safe rollback, RunEventLog, AnswerPacket, abstention, and zero hidden authority before any exotic quant runtime probe is armed.
+The current research-to-build next unit is `exotic_quant_loader_compatibility_model_path_gate`. It should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.

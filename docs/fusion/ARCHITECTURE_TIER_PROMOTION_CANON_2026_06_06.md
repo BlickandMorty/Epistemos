@@ -485,7 +485,21 @@ provider/source-tree/product/command/benchmark bytes at zero. It does not load
 models, run GGUF/APEX/MLX/LiteRT/vLLM, prove Apple Silicon fit, choose a
 default, make L2/L3 product capability green, or promote live dense 70B. The
 next large-local-model research-to-build unit is
-`exotic_quant_runtime_lane_owner_approval_gate`.
+now landed by `F-ExoticQuantRuntimeLaneOwnerApprovalGate`.
+
+2026-06-07 exotic quant runtime owner-approval promotion note:
+`F-ExoticQuantRuntimeLaneOwnerApprovalGate` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by turning exact source-pinned
+exotic quant rows into fail-closed runtime owner gates: three Mac-candidate
+rows pending owner approval, two server-only rows denied for Mac runtime,
+unarmed command envelopes, unopened model paths, pending/denied loader
+compatibility, rollback, RunEventLog, AnswerPacket, abstention, and zero
+command/model-path/model/runtime/provider/source-tree/product/benchmark bytes.
+It does not grant owner approval, prove loader support, open local model files,
+run GGUF/APEX/Transformers/NVFP4/AutoRound, prove Apple Silicon fit, choose a
+default, make L2/L3 product capability green, or promote live dense 70B. The
+next large-local-model research-to-build unit is
+`exotic_quant_loader_compatibility_model_path_gate`.
 
 ## Required Surface Updates
 
