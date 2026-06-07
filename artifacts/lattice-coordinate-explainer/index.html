@@ -1436,6 +1436,22 @@
 </div>
 
 <div class="canon-hook">
+  <strong>2026-06-07 deep-research Pass 83 folded.</strong>
+  The downstream gate after the command envelope is now
+  <code>OwnerApprovedDryRunTranscript</code> /
+  <code>F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate</code>. It
+  binds owner approval, admission, serialized executor, prompt redaction,
+  model-path status, stdout/stderr or native event capture, output limits,
+  credential redaction, memory before/start/after-abort samples, timeout,
+  cancellation, process lifetime or native lease closure, rollback,
+  RunEventLog, AnswerPacket, token-digest future policy, and non-promotion.
+  The immediate buildable gate remains
+  <code>F-ExoticQuantCrashSafeCommandEnvelopePreflightGate</code>; no dry run,
+  command execution, first token, model/runtime bytes, L2/L3 proof, live 70B,
+  or SSD-as-RAM claim is made.
+</div>
+
+<div class="canon-hook">
   <strong>2026-06-06 Google Gemma / LiteRT / MTP reconciliation.</strong>
   Deep Research Pass 65 keeps the large-local-model ladder ambitious but
   proof-split: <code>google-ai-edge/LiteRT-LM</code> Swift/macOS package
