@@ -109,7 +109,13 @@ Current 2026-06-07 large-local-model research-to-build status:
   T1/L1 witness at
   `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`.
 - The next research-to-build unit after the hardware catalog is
-  `moe_active_params_memory_truth`.
+  `moe_active_params_memory_truth`. Deep Research Pass 72 now defines the
+  buildable `F-MoEActiveParamsMemoryTruth` blueprint: consume the hardware
+  catalog, select MoE/A3B/A4B rows, and separately bind full-weight bytes,
+  active compute count, KV cache bytes, expert-residency lease,
+  router/runtime workspace, app headroom, rollback, RunEventLog, AnswerPacket,
+  abstention, and no-hidden-authority proof. Active parameters are compute
+  evidence, not memory-fit proof.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

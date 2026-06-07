@@ -103,6 +103,14 @@ Runtime policy:
   hardware-tiered, but it does not prove model load, Apple Silicon fit,
   product default, or user-facing capability. The next research-to-build unit
   is `moe_active_params_memory_truth`.
+- 2026-06-07 research-to-build lock: Deep Research Pass 72 defines
+  `F-MoEActiveParamsMemoryTruth` as the next buildable large-local-model
+  falsifier blueprint. Active parameters are compute evidence, not memory-fit
+  proof. Future work must separately bind full-weight bytes, active compute
+  count, KV cache bytes, expert-residency lease, router/runtime workspace, app
+  headroom, rollback, RunEventLog, AnswerPacket, abstention, and
+  no-hidden-authority proof before any MoE/A3B/A4B row can influence
+  RuntimeRouter/System G.
 - TurboVec belongs first in Eidos/AppColdStore as a rebuildable compressed
   retrieval cache with UAS-stable external IDs, allowlist-before-rank privacy,
   crash-safe persistence wrapping, exact source validation, and no hidden route

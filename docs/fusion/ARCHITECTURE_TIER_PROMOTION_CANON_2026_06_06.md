@@ -165,6 +165,7 @@ Future architecture commits should classify affected segments like this:
 | RuntimeRouter/System G | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | route packet, cancellation, fallback, tests, user surface |
 | Local model ladder | T1/T2/T3/T4/T5 | MAS/Pro | red/amber/blue/green | source metadata, command card, model path, owner approval, harness, memory preflight, AnswerPacket, release audit |
 | Hardware-tiered model catalog | T1 now | Pro | blue | MoE memory truth, exotic quant quarantine, model path, owner approval, runtime proof, WRV |
+| MoE active-params memory truth | T0/T1 backlog | Pro | amber | full-weight bytes, active compute count, KV bytes, expert-residency lease, router/runtime workspace, app headroom, rollback, AnswerPacket |
 | Large-model cold assembly | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | construction graph, lease, transport, runtime proof |
 | TurboVec/QAT compression | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | provenance gate, source card, memory proof, product route |
 | PatternBoost | T0/T1/T2/T3/T4/T5 | Pro | red/amber/blue/green | held-out wins, no-hidden-authority, rollback, live gate |

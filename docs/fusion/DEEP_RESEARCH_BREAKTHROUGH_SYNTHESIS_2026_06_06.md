@@ -6726,3 +6726,269 @@ Sources:
 - https://github.com/Tiiny-AI/PowerInfer
 - https://github.com/jy-yuan/KIVI
 - https://github.com/RyanCodrai/turbovec
+
+## 72. Pass 72 - MoE Active-Params Memory Truth Blueprint
+
+Research-to-build pass on 2026-06-07. This pass does not edit product code,
+does not import runtime packages, does not open model files, does not run
+llama.cpp/MLX/LiteRT/vLLM/KTransformers, and does not promote any large local
+model. It turns the next research-to-build cursor,
+`moe_active_params_memory_truth`, into a concrete falsifier blueprint.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+MoE is one of the strongest paths toward practical large local models, but only
+if Epistemos separates five different truths:
+
+1. **Total resident weights**: the whole quantized model artifact, or the
+   explicitly leased expert subset, must be budgeted as resident/cold/warm
+   bytes.
+2. **Active compute**: the parameters touched per token can be much smaller
+   than total parameters, but this is throughput/compute evidence, not memory
+   fit evidence.
+3. **Expert residency**: expert placement, eviction, offload, prefetch, and
+   fallback need their own lease; they cannot hide behind "3B active".
+4. **KV and context bytes**: KV cache grows with context, layers, heads, head
+   size, dtype/codec, batch, and multimodal state, and can dominate headroom.
+5. **Router/runtime overhead**: router logits, expert indices, scratch buffers,
+   tokenizer/chat-template/runtime workspace, Metal/ggml allocations, and app
+   memory reserve must be included before any route can claim fit.
+
+The buildable breakthrough is not "MoE fits because active params are small."
+The breakthrough is:
+
+```text
+MoE route permission =
+  source-carded model row
+  + full-weight byte ledger
+  + active-compute ledger
+  + KV/context byte ledger
+  + expert-residency lease
+  + router/runtime overhead ledger
+  + app headroom reserve
+  + rollback/abstention/AnswerPacket
+```
+
+### Local Canon Map
+
+- `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`
+  already requires MoE rows to pass active-params/full-weight memory truth
+  before route-card use.
+- `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`
+  records `next_cursor = moe_active_params_memory_truth`.
+- `/Users/jojo/Downloads/locals.md` explicitly says Gemma 4 26B A4B has about
+  4B active parameters but all 26B must still be loaded for routing.
+- `/Users/jojo/Downloads/locals.md` and `/Users/jojo/Downloads/locals2.md`
+  both treat Qwopus-MoE-35B-A3B as attractive for 24-32 GB+ machines, not an
+  18 GB default, because Q4_K_M-style artifacts are around the 20 GB class
+  before app, KV, and runtime headroom.
+- `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` defines the
+  compiler lens: hot active support set is not the same as the whole cold
+  substrate.
+- `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` defines the
+  transport lens: cold bytes need planned, cancelable leases, not surprise
+  page faults or SSD-as-RAM claims.
+
+### External Source Map
+
+Current source-card facts checked in this pass:
+
+| Source | Current fact | Epistemos classification |
+|---|---|---|
+| `samuelcardillo/Qwopus-MoE-35B-A3B-GGUF` | HF API observed sha `19f9e6fa8065b2f1e42aaa16d4adafac1e9a9a01`, Apache-2.0, 6 files including Q4_K_M/Q5_K_M/Q6_K/Q8_0 GGUF rows, 273 downloads, 24 likes, last modified 2026-04-06. | `quarantine_reference` / future source card; no runtime proof. |
+| `mudler/Qwopus-MoE-35B-A3B-APEX-GGUF` | HF API observed sha `724281f1f6af99158ae89cba4196f39ccc4e039e`, Apache-2.0, 10 APEX GGUF rows, 788 downloads, 20 likes, last modified 2026-04-27. | `quarantine_reference`; APEX calibration is promising but provenance-gated. |
+| `samuelcardillo/Qwopus-MoE-35B-A3B` | HF API observed sha `18d6791c8149d29e818e4731c76ad2fa2344e82e`, Apache-2.0, 14 safetensor shards plus config/template files. | `research_only` source lineage until exact config and memory budget are carded. |
+| `Qwen/Qwen3.5-35B-A3B` | HF API observed sha `59d61f3ce65a6d9863b86d2e96597125219dc754`, Apache-2.0, high-download base MoE lineage. | `research_only` base architecture source; not an Epistemos route. |
+| `kvcache-ai/ktransformers` | GitHub API observed 17,254 stars, 1,311 forks, Apache-2.0, pushed 2026-06-05. | `quarantine_reference` for heterogeneous expert placement/offload motifs. |
+| `ggml-org/llama.cpp` | GitHub API observed 115,024 stars, 19,265 forks, MIT, pushed 2026-06-06. | `adapter_wrap`/owner-approved command candidate for GGUF only after command card, model path, and runtime proof. |
+| `PKU-SEC-Lab/HybriMoE` | GitHub API observed 118 stars, 17 forks, Apache-2.0, pushed 2025-12-15. | `research_only` for hybrid MoE memory/placement motifs. |
+| `Tiiny-AI/PowerInfer` | GitHub API observed 9,536 stars, 578 forks, MIT, pushed 2026-05-11. | `clean_room_rewrite` motif source for activation locality; never hidden wake authority. |
+| `vllm-project/vllm` and `LMCache/LMCache` | GitHub API observed active server/cache ecosystems pushed 2026-06-07. | `quarantine_reference`; server/daemon assumptions cannot become MAS product proof. |
+
+Primary architecture lesson from Mixtral-style sparse MoE remains useful:
+active experts reduce per-token compute, but the total model still has many
+more parameters than the active path. Epistemos must treat active count as a
+compute lane property and full weights/KV/runtime memory as residency facts.
+
+### Architecture Fusion
+
+| Epistemos organ | MoE memory-truth role |
+|---|---|
+| UAS/OAS | Address each MoE model card, expert set, quant artifact, router config, KV budget, and proof packet separately. |
+| ColdStore/AppColdStore | Store full-weight and expert-residency ledgers as cold material; never collapse them to active params. |
+| ActiveAssembly | May wake only selected experts for a token, but must cite the expert residency lease and fallback. |
+| Eidos | Can provide route priors for "coding MoE" vs "dense 12B" but cannot secretly route from MoE marketing. |
+| SCOPE-Rex/SovereignGate | Admits only if memory ledger, hardware tier, owner approval, and rollback are complete. |
+| RuntimeRouter/System G | Treats MoE as a candidate lane only after the ledger proves fit/abstention on the target hardware tier. |
+| RunEventLog/AnswerPacket | Must show total weights, active params, KV bytes, runtime lane, loaded/resident bytes, caveats, and rollback. |
+
+### Proposed Falsifier
+
+`F-MoEActiveParamsMemoryTruth`
+
+Mechanism:
+
+- consumes `F-HardwareTieredModelCatalog-SourceCard`
+- selects only MoE rows from the catalog
+- records full-weight artifact bytes separately from active params
+- records KV cache budget separately from weight bytes
+- records expert-residency policy separately from runtime lane
+- records router/runtime workspace and app headroom
+- denies product route, product default, and "fits" language unless every
+  budget field exists and the status is metadata-only
+
+Suggested primitive fields:
+
+```text
+MoeActiveParamsMemoryTruthCard {
+  upstream_catalog_artifact
+  model_id
+  base_model_id
+  source_sha
+  hardware_tier
+  total_params_declared
+  active_params_declared
+  routed_expert_count_total
+  active_experts_per_token
+  shared_expert_count
+  full_weight_artifact_bytes_declared
+  full_weight_residency_policy
+  expert_residency_policy
+  kv_cache_budget_bytes
+  router_workspace_bytes
+  runtime_workspace_bytes
+  app_headroom_bytes
+  active_compute_not_memory_fit
+  route_authority_denied
+  product_default_denied
+  rollback_ref
+  run_event_log_ref
+  answer_packet_ref
+  abstention_ref
+}
+```
+
+Required red fixtures:
+
+- empty MoE ledger
+- non-MoE row accepted
+- active params used as resident-memory proof
+- missing full-weight artifact bytes
+- missing KV budget
+- missing router/runtime workspace
+- missing app headroom
+- missing expert-residency lease
+- "3B active means 3B memory" claim
+- Qwopus-MoE allowed on 16-18 GB without headroom caveat
+- APEX row accepted without provenance/import-mode gate
+- server benchmark treated as local Mac proof
+- hidden cloud/provider fallback
+- hidden Eidos/PatternBoost/lattice route authority
+- live dense 70B or SSD-as-RAM claim
+- L2/L3/T4 promotion from metadata
+- nonzero model/runtime/provider/source-tree/product/command/benchmark bytes
+
+### Model/Runtime Ladder Update
+
+| Band | Current best role | Required next proof |
+|---|---|---|
+| Small harness | Gemma 4 E2B QAT GGUF / tiny GGUF | guard-owned product runtime probe, owner approval, AnswerPacket. |
+| Pro Gated flagship | Gemma 4 12B QAT GGUF/LiteRT lane | model path, memory preflight, runtime lane tournament, cancellation, quality, WRV. |
+| 16-18 GB coding candidate | Qwopus 27B smaller GGUF/TQ class | headroom proof, KV budget, exact local logs, no exotic runtime hidden import. |
+| 24-32 GB+ MoE candidate | Qwopus-MoE 35B A3B GGUF/APEX | `F-MoEActiveParamsMemoryTruth` before any route-card use. |
+| Server/GPU/Vault | Gemma 31B NVFP4/AutoRound, KTransformers/vLLM/LMCache | Pro Research/Vault only; fork/daemon boundary and explicit non-MAS route. |
+| 70B-class ambition | cold assembly, constructive residency, transport, PatternBoost discovery | no dense live claim; only proof-carrying cold/hot lease plan and owner-approved probes. |
+
+### Ranked Breakthrough Candidates
+
+1. MoE memory-truth ledger: highest immediate value because it blocks the most
+   tempting false local-model claim while preserving the 24-32 GB+ MoE path.
+2. Expert residency lease: lets Epistemos reason about active expert hotness,
+   cold expert fallback, and prefetch without pretending full weights vanished.
+3. KV/context byte classing by model lane: makes long context and tool loops
+   fail closed before runtime instead of after swap pressure.
+4. Same-fixture dense-vs-MoE route tournament: only after small harness and
+   memory truth; compares Gemma 12B QAT, Qwopus 27B, and Qwopus-MoE on the same
+   coding/research/writing tasks.
+5. Clean-room MoE placement motifs from KTransformers/HybriMoE/PowerInfer:
+   future Pro Research only until source-card, quarantine, and no-hidden-wake
+   proof land.
+
+### Why This Could Be A Breakthrough
+
+If Epistemos proves this ledger, it can safely exploit MoE's real advantage:
+fast active compute and candidate expert locality. That gives a path to larger
+local reasoning brains without pretending a 35B or 70B-class model became a 3B
+resident model. The ledger also becomes reusable for Gemma A4B/REAP, Qwopus
+A3B, future sparse/QAT variants, and any cold-assembly route where active
+support is smaller than total substrate.
+
+### Why It Might Be Wrong
+
+- HF/model-card metadata may be incomplete or stale; file sizes can be absent
+  from APIs and must not be invented.
+- GGUF/APEX rows can have different memory behavior than raw file size.
+- macOS unified-memory pressure can degrade before theoretical fit is reached.
+- A server/GPU MoE strategy can rely on daemon scheduling, remote KV, or
+  distributed prefill that does not transfer to MAS or in-process Pro.
+- Quality can fall apart if expert quantization, routing, or KV compression
+  damages coding/tool-call behavior.
+
+### Promotion Truth
+
+- T0/T1 advanced: yes, the falsifier blueprint and canon synthesis advanced.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: MoE active-params memory truth, because it lets
+Epistemos keep sparse large-model ambition while preventing active-count
+marketing from becoming route authority.
+
+Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, consuming the
+hardware-tiered catalog artifact and rejecting active-param-as-fit, missing
+full-weight bytes, missing KV bytes, missing expert residency, hidden fallback,
+and L2/L3 promotion.
+
+Best near-term code unit: add `agent_core/src/uas/moe_active_params_memory_truth.rs`,
+`agent_core/src/bin/falsify_moe_active_params_memory_truth.rs`,
+`Tools/falsifiers/f_moe_active_params_memory_truth.sh`, schema axes, validator
+registration, witness doc, Living Index row, and lattice row.
+
+Biggest false-claim risk: saying Qwopus-MoE, Gemma A4B/REAP, or any future
+"A3B/A4B" model fits because only the active path is small.
+
+Biggest missing source: exact source-carded file-size/runtime-memory evidence
+for each MoE quant on the target Mac tier, plus same-fixture local logs after
+owner-approved runtime probes.
+
+Next research query: "Which exact fields should `F-MoEActiveParamsMemoryTruth`
+require so active compute, full resident weights, KV cache, expert placement,
+router overhead, and app headroom cannot be conflated by future route cards?"
+
+Sources:
+
+- `docs/falsifiers/F-HardwareTieredModelCatalog-SourceCard_2026_06_07.md`
+- `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`
+- `/Users/jojo/Downloads/locals.md`
+- `/Users/jojo/Downloads/locals2.md`
+- `/Users/jojo/Downloads/locals3.txt`
+- `/Users/jojo/Downloads/locals4.txt`
+- https://huggingface.co/samuelcardillo/Qwopus-MoE-35B-A3B-GGUF
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/samuelcardillo/Qwopus-MoE-35B-A3B
+- https://huggingface.co/Qwen/Qwen3.5-35B-A3B
+- https://huggingface.co/Qwen/Qwen3.5-35B-A3B-Base
+- https://github.com/kvcache-ai/ktransformers
+- https://github.com/ggml-org/llama.cpp
+- https://github.com/PKU-SEC-Lab/HybriMoE
+- https://github.com/Tiiny-AI/PowerInfer
+- https://github.com/vllm-project/vllm
+- https://github.com/LMCache/LMCache
+- https://arxiv.org/abs/2401.04088

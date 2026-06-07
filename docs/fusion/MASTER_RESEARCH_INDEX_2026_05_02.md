@@ -208,6 +208,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > claim. The next research-to-build unit is `moe_active_params_memory_truth`;
 > the guard-owned product cursor remains
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> Deep Research Pass 72 now turns `moe_active_params_memory_truth` into the
+> next buildable falsifier blueprint. It verifies local Downloads MoE warnings
+> (`/Users/jojo/Downloads/locals.md`, `locals2.md`, `locals3.txt`, and
+> `locals4.txt`) against current Hugging Face and GitHub source-card facts for
+> Qwopus-MoE, Qwen3.5 A3B, KTransformers, llama.cpp, HybriMoE, PowerInfer,
+> vLLM, and LMCache. The canon lock is explicit: active parameters are compute
+> evidence, not resident-memory proof. `F-MoEActiveParamsMemoryTruth` should
+> consume the hardware-tiered catalog and require full-weight bytes, active
+> compute count, KV cache bytes, expert-residency lease, router/runtime
+> workspace, app headroom, rollback, RunEventLog, AnswerPacket, abstention,
+> and no-hidden-authority proof before any MoE row can influence RuntimeRouter
+> or System G. This is T0/T1 research-to-build canon only; no runtime package,
+> model bytes, source-tree bytes, command, benchmark, MAS/L2/L3 promotion,
+> live dense 70B, or SSD-as-RAM claim was made.
 
 ---
 

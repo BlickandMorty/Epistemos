@@ -685,6 +685,24 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   research-to-build unit is `moe_active_params_memory_truth`; the guard-owned
   product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-07** · Deep Research Pass 72 folds
+  `moe_active_params_memory_truth` into canon as the next buildable
+  large-local-model falsifier blueprint. North-star sentence: Epistemos is a
+  local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. This pass did not edit product code, run runtimes, open model files,
+  clone forks, start servers, arm commands, or promote any capability. It
+  tightens the MoE rule: active parameters are compute evidence, not
+  resident-memory proof. Future `F-MoEActiveParamsMemoryTruth` work must
+  consume `F-HardwareTieredModelCatalog-SourceCard` and separately bind
+  full-weight bytes, active compute count, KV cache bytes, expert-residency
+  lease, router/runtime workspace, app headroom, rollback, RunEventLog,
+  AnswerPacket, abstention, and no-hidden-authority proof before Qwopus-MoE,
+  Gemma A4B/REAP, APEX, or any future A3B/A4B model row can influence
+  RuntimeRouter/System G. L1 code did not advance in this pass; L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model capability is still not green.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
   `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
