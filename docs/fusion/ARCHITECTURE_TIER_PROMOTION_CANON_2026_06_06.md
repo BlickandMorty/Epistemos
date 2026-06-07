@@ -634,6 +634,26 @@ product default, L2/L3 product capability, or live dense 70B. The next large-
 local-model research-to-build unit is
 `exotic_quant_redacted_first_token_probe_preflight_gate`.
 
+2026-06-07 exotic quant redacted first-token probe preflight promotion note:
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by binding the
+future owner-approved one-token probe contract after dry-run transcript
+preflight and before any token, command execution, model-path open, provider
+call, benchmark, or product-route claim can begin: five preflight cards are
+accepted, three Mac-candidate rows remain owner-approval-pending, two
+server/GPU rows are denied for Mac first-token probes, prompt digest is bound
+without raw prompt, first-token digest is bound without raw token, one-token/
+context/batch limits are fixed, 20 memory sample slots are required, and 45
+red fixtures reject prompt leakage, token leakage, execution, byte loads,
+hidden authority, source import, benchmark laundering, live-70B, SSD-as-RAM,
+and promotion shortcuts. It executes zero commands, observes zero first
+tokens, captures zero raw prompt/raw token/stdout/stderr bytes, loads zero
+model/runtime/provider/network/source/product/benchmark bytes, and does not
+prove owner approval, local artifact availability, actual runtime safety,
+quality, Apple Silicon fit, product default, L2/L3 product capability, or live
+dense 70B. The next large-local-model side-ladder unit is
+`exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate`.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

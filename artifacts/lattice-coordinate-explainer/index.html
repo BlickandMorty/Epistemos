@@ -7,8 +7,8 @@
   <meta name="epistemos-thread-codeword" content="JUNE1-CANON-FUSION-LOCK">
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
-  <meta name="epistemos-research-to-build-cursor" content="exotic_quant_redacted_first_token_probe_preflight_gate">
-  <meta name="epistemos-commit-sha" content="303ce365ae6ff528f84b0b27a9847bc963900d49">
+  <meta name="epistemos-research-to-build-cursor" content="exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate">
+  <meta name="epistemos-commit-sha" content="ffba615defa4f0a00f195b41f2a4f53b3ce69ec3">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1522,11 +1522,11 @@
   credential redaction, memory before/start/after-abort samples, timeout,
   cancellation, process lifetime or native lease closure, rollback,
   RunEventLog, AnswerPacket, token-digest future policy, and non-promotion.
-  The command-envelope and transcript preflight gates have now landed; the
-  immediate buildable gate is
-  <code>F-ExoticQuantRedactedFirstTokenProbePreflightGate</code>. No dry run,
-  command execution, first token, model/runtime bytes, L2/L3 proof, live 70B,
-  or SSD-as-RAM claim is made by the transcript witness.
+  The command-envelope, transcript preflight, and redacted first-token preflight
+  gates have now landed; the immediate side-ladder gate is
+  <code>F-ExoticQuantOwnerApprovedRedactedFirstTokenRuntimeProbeGate</code>.
+  No dry run, command execution, first token, model/runtime bytes, L2/L3 proof,
+  live 70B, or SSD-as-RAM claim is made by the transcript witness.
 </div>
 
 <div class="canon-hook">
@@ -1553,6 +1553,23 @@
   Transformers lane caveats, RunEventLog, AnswerPacket, rollback, abstention,
   and explicit non-promotion. This is T0 canon/backlog only; no model is run,
   no token is captured, no large-model bytes load, and L2/L3 remain red.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-07 redacted first-token preflight landed.</strong>
+  <code>F-ExoticQuantRedactedFirstTokenProbePreflightGate</code> is now a
+  metadata-only T1/L1 witness at
+  <code>artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json</code>.
+  It accepts 5 preflight cards, keeps 3 Mac-candidate rows owner-approval
+  pending, denies 2 server/GPU rows on Mac, rejects 45 red fixtures, and binds
+  prompt digest/no raw prompt, first-token digest/no raw token, one-token
+  bounds, memory sampling, cancellation, teardown, rollback,
+  <code>RunEventLog</code>, <code>AnswerPacket</code>, lane caveat, and
+  non-promotion. It executes zero commands, observes zero first tokens,
+  captures zero raw prompt/raw token/stdout/stderr bytes, loads zero model or
+  runtime bytes, and does not advance L2/L3 or user-facing large-model green.
+  The research-to-build side ladder now points to
+  <code>exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate</code>.
 </div>
 
 <div class="canon-hook">

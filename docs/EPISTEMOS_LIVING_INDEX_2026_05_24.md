@@ -2938,6 +2938,28 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   owner-approved dry-run transcript preflight units are now landed; the next
   research-to-build unit is
   `exotic_quant_redacted_first_token_probe_preflight_gate`.
+- Updated **2026-06-07** · Large-model research-to-build side ladder lands
+  `F-ExoticQuantRedactedFirstTokenProbePreflightGate` as a metadata-only
+  T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness consumes
+  `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`, accepts 5
+  redacted first-token preflight cards, records 3 Mac-candidate owner-
+  approval-pending rows, denies 2 server/GPU rows on Mac, rejects 45 red
+  fixtures, binds prompt digest/no raw prompt, first-token digest/no raw token,
+  one-token/context/batch bounds, 20 memory sample slots, cancellation,
+  teardown, rollback, RunEventLog, AnswerPacket, lane caveat, and explicit
+  non-promotion. It executes zero commands, opens zero paths, observes zero
+  first tokens, captures zero raw prompt/raw token/stdout/stderr bytes, loads
+  zero model/runtime/provider/network/source-tree/product/benchmark bytes, and
+  preserves no-hidden-authority, no-MAS, no-L2/L3, no-live-dense-70B, and
+  no-SSD-as-RAM boundaries. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing large-
+  local-model/runtime capability is not green. The next side-ladder unit is
+  `exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantQuarantineRouteCard` witness. It consumes
   `F-HardwareTieredModelCatalog-SourceCard` and

@@ -49,6 +49,7 @@ pub mod exotic_quant_owner_path_byte_envelope_preflight_gate;
 pub mod exotic_quant_owner_path_canonicalization_preflight_gate;
 pub mod exotic_quant_owner_path_manifest_intake_gate;
 pub mod exotic_quant_quarantine_route_card;
+pub mod exotic_quant_redacted_first_token_probe_preflight_gate;
 pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
@@ -262,6 +263,18 @@ pub use exotic_quant_owner_approved_dry_run_transcript_preflight_gate::{
     EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_CURSOR,
     EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_ID,
     EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_redacted_first_token_probe_preflight_gate::{
+    canonical_redacted_first_token_probe_preflight_cards,
+    canonical_redacted_first_token_probe_preflight_ledger,
+    RedactedFirstTokenProbeByteLedger, RedactedFirstTokenProbePolicy,
+    RedactedFirstTokenProbePreflightCard, RedactedFirstTokenProbePreflightError,
+    RedactedFirstTokenProbePreflightLedger, RedactedFirstTokenProbePreflightMetrics,
+    RedactedFirstTokenProbeProofRefs, RedactedFirstTokenProbeState,
+    RedactedFirstTokenProbeSurface, EXOTIC_QUANT_DRY_RUN_TRANSCRIPT_UPSTREAM_REF,
+    EXOTIC_QUANT_REDACTED_FIRST_TOKEN_PROBE_PREFLIGHT_GATE_CURSOR,
+    EXOTIC_QUANT_REDACTED_FIRST_TOKEN_PROBE_PREFLIGHT_GATE_ID,
+    EXOTIC_QUANT_REDACTED_FIRST_TOKEN_PROBE_PREFLIGHT_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,
