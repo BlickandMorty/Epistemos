@@ -61,4 +61,4 @@ The downstream `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` has landed as a
 
 The downstream `F-ExoticQuantOwnerPathManifestIntakeGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
 
-The next research-to-build unit is `exotic_quant_owner_path_canonicalization_preflight_gate`, which should prove owner-approved path handling without file opens, symlink following, command arming, or product promotion before any crash-safe command envelope or runtime probe can be armed.
+The downstream owner path-canonicalization preflight gate is now landed. The next research-to-build unit is `exotic_quant_owner_path_byte_envelope_preflight_gate`, which should prove selected byte envelopes without path opens, symlink following, command arming, or product promotion before any crash-safe command envelope or runtime probe can be armed.

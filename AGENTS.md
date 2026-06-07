@@ -104,7 +104,8 @@ Runtime policy:
   `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, and
   `F-ExoticQuantLoaderCompatibilityModelPathGate`, and
   `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`, and
-  `F-ExoticQuantOwnerPathManifestIntakeGate` are landed as T1/L1
+  `F-ExoticQuantOwnerPathManifestIntakeGate`, and
+  `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` are landed as T1/L1
   metadata-only witnesses. They make Gemma/Qwopus/MoE/GPU/exotic-quant rows
   addressable, prove active parameters are compute evidence rather than
   memory-fit proof, quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before
@@ -113,11 +114,12 @@ Runtime policy:
   command envelopes, unopened model paths, metadata-only loader classes, owner
   path-manifest requirements, server-only Mac denials, zero owner manifests
   present, zero local paths verified, zero path canonicalization, a typed
-  owner path-manifest intake contract, rollback, RunEventLog, AnswerPacket, and
-  abstention. They do not prove model load, local artifact availability, Apple
-  Silicon fit, product default, or user-facing capability. The next
-  research-to-build unit is
-  `exotic_quant_owner_path_canonicalization_preflight_gate`.
+  owner path-manifest intake contract, fail-closed path policy, unsafe path
+  shape rejection, zero owner path bytes stored, zero file access, rollback,
+  RunEventLog, AnswerPacket, and abstention. They do not prove model load,
+  local artifact availability, owner path safety, Apple Silicon fit, product
+  default, or user-facing capability. The next research-to-build unit is
+  `exotic_quant_owner_path_byte_envelope_preflight_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

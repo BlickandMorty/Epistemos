@@ -5125,6 +5125,92 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Deep Research Pass 80 - Owner Path Canonicalization Preflight Landed
+
+Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
+Pass 80 converts the Pass 79 safest next falsifier into buildable architecture:
+`F-ExoticQuantOwnerPathCanonicalizationPreflightGate` now passes as a
+metadata-only T1/L1 witness. The gate consumes the owner path-manifest intake
+witness, accepts five owner path-canonicalization preflight cards, compiles
+fail-closed path policies for three Mac-candidate rows, denies two server/GPU
+rows for Mac canonicalization, rejects 69 red fixtures, binds selected artifact
+bytes `96318502063` and maximum minimum UMA bytes `39108307031`, and keeps
+owner manifests, owner path bytes, raw paths, canonical paths, path digests,
+path canonicalization, path opens, stat calls, file hashes, symlink resolution,
+command executions, model bytes, runtime bytes, provider calls, source-tree
+bytes, product bytes, and benchmark runs at zero.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_owner_path_canonicalization_preflight_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_owner_path_canonicalization_preflight_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_owner_path_canonicalization_preflight_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_owner_path_canonicalization_preflight_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantOwnerPathCanonicalizationPreflightGate_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each path preflight card has a deterministic address and exact source-pin/byte-budget binding before any path bytes exist. |
+| ColdStore/AppColdStore | Candidate artifacts remain cold; fail-closed policy prevents local-looking paths from becoming artifact availability. |
+| ActiveAssembly | No active assembly can wake from owner path intent; policy preflight is not residency or loadability. |
+| Eidos | Path requirements can be surfaced as visible caveats and future packet fields, not hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects relative paths, tilde/env expansion, parent traversal, unicode control characters, NUL, symlinks, missing allowed roots, file access, hidden authority, and promotion attempts. |
+| RuntimeRouter/System G | Runtime lanes stay unarmed until byte-envelope preflight, crash-safe command envelopes, rollback, and AnswerPacket evidence exist. |
+| RunEventLog/AnswerPacket | Future packets must expose path-policy state, byte envelope, denial/abstention, and zero-byte boundaries before promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathCanonicalizationPreflightGate`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: byte-envelope preflight for the three Mac-candidate
+exotic quant rows, because the architecture now has manifest and path-policy
+contracts but still must prove selected bytes cannot exceed the allowed
+envelope or become runtime proof.
+
+Safest next falsifier:
+`F-ExoticQuantOwnerPathByteEnvelopePreflightGate`.
+
+Best near-term code unit: add
+`exotic_quant_owner_path_byte_envelope_preflight_gate` so selected artifact
+bytes, owner path policy, app headroom, rollback, and abstention are checked
+before any crash-safe command envelope or runtime probe can be considered.
+
+Biggest false-claim risk: treating fail-closed path policy as actual owner
+approval, local file existence, path canonicalization success, byte-envelope
+success, loader support, Apple Silicon fit, or first-token proof.
+
+Biggest missing source: actual owner-approved manifests, allowed-root policy
+inputs, and local file byte envelopes for the three Mac-candidate rows.
+
+Next research query: "How should Epistemos prove owner-approved selected model
+artifact byte envelopes without opening model bytes, following symlinks, arming
+commands, or promoting runtime capability?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantOwnerPathCanonicalizationPreflightGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_owner_path_canonicalization_preflight_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantOwnerPathManifestIntakeGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
 Date: 2026-06-07
@@ -5202,8 +5288,10 @@ arm a command by itself.
 Former current best near-term code unit, now landed by Pass 79: add
 `exotic_quant_owner_path_manifest_intake_gate` so the owner-approved local path
 manifest format is explicit before any path canonicalization, byte envelope,
-loader lane, command envelope, or runtime probe can begin. Current best
-near-term code unit: add `exotic_quant_owner_path_canonicalization_preflight_gate`.
+loader lane, command envelope, or runtime probe can begin. Former current best
+near-term code unit, now landed by Pass 80: add
+`exotic_quant_owner_path_canonicalization_preflight_gate`. Current best
+near-term code unit: add `exotic_quant_owner_path_byte_envelope_preflight_gate`.
 
 Biggest false-claim risk: treating pending owner approval as approval, or
 treating an unarmed command envelope as a runtime proof.
@@ -7440,7 +7528,7 @@ Former current best near-term code unit, now landed by Pass 79: add
 shape is explicit before path canonicalization, byte-envelope checking, loader
 lane selection, crash-safe command envelopes, or runtime probes can begin.
 Current best near-term code unit: add
-`exotic_quant_owner_path_canonicalization_preflight_gate`.
+`exotic_quant_owner_path_byte_envelope_preflight_gate`.
 
 Biggest false-claim risk: saying "GGUF-compatible", "Transformers-compatible",
 or "file found in Downloads" means the model is runnable, high quality,
@@ -7528,20 +7616,23 @@ bytes, product bytes, and benchmark runs at zero.
 
 Best breakthrough candidate: owner path-manifest intake for the three
 Mac-candidate exotic quant rows. This candidate is now landed by Pass 79, so the
-current breakthrough candidate is path canonicalization preflight that preserves
-zero file access and no runtime promotion.
+path canonicalization preflight is now landed by Pass 80; the current
+breakthrough candidate is byte-envelope preflight that preserves zero file
+access and no runtime promotion.
 
 Safest next falsifier:
-`F-ExoticQuantOwnerPathManifestIntakeGate` (landed by Pass 79); current next is
-`exotic_quant_owner_path_canonicalization_preflight_gate`.
+`F-ExoticQuantOwnerPathManifestIntakeGate` (landed by Pass 79);
+`F-ExoticQuantOwnerPathCanonicalizationPreflightGate` is now landed by Pass 80;
+current next is `exotic_quant_owner_path_byte_envelope_preflight_gate`.
 
 Best near-term code unit: add
 `exotic_quant_owner_path_manifest_intake_gate` so every owner-provided path
 manifest must bind model ID, selected artifact path, expected byte envelope,
 runtime lane, rollback, RunEventLog, AnswerPacket, abstention, and explicit
 non-promotion before any path is canonicalized or command envelope is armed.
-This unit is now built; next code should preflight canonicalization without path
-opens, symlink following, hash attempts, or runtime claims.
+This unit is now built; the downstream canonicalization preflight is also built;
+next code should preflight selected byte envelopes without path opens, symlink
+following, hash attempts, or runtime claims.
 
 Biggest false-claim risk: treating "owner has a file" as local runtime proof,
 or allowing path existence, hashes, symlinks, loader classes, or benchmark
@@ -7629,19 +7720,18 @@ provider calls, source-tree bytes, product bytes, and benchmark runs at zero.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: owner-approved path canonicalization preflight for
-the three Mac-candidate exotic quant rows, because the architecture now has a
-manifest contract but still must prove safe path handling without opening model
-bytes or making runtime claims.
+Best breakthrough candidate: selected byte-envelope preflight for the three
+Mac-candidate exotic quant rows, because the architecture now has manifest and
+fail-closed path-policy contracts but still must prove byte envelopes without
+opening model bytes or making runtime claims.
 
 Safest next falsifier:
-`F-ExoticQuantOwnerPathCanonicalizationPreflightGate`.
+`F-ExoticQuantOwnerPathByteEnvelopePreflightGate`.
 
 Best near-term code unit: add
-`exotic_quant_owner_path_canonicalization_preflight_gate` so owner-supplied
-paths can be normalized, policy-checked, and prepared for later byte-envelope
-proof without following symlinks, opening files, hashing artifacts, arming
-commands, or promoting L2/L3.
+`exotic_quant_owner_path_byte_envelope_preflight_gate` so selected artifact
+bytes can be checked against owner path policy, hardware headroom, rollback,
+and abstention before command envelopes, runtime probes, or L2/L3 promotion.
 
 Biggest false-claim risk: treating a manifest contract as owner approval, local
 file existence, path safety, loader support, Apple Silicon fit, or first-token
