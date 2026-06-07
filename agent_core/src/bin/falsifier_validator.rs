@@ -126,6 +126,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ProprietaryCompression-ProvenanceGate",
     "F-CompressedModelSourceCard-Intake",
     "F-KVRuntimeSourceCard",
+    "F-KVSourceCard-ForkAndDaemonBoundary",
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
     "F-RuntimePlural-QATLaneTournamentPlan",

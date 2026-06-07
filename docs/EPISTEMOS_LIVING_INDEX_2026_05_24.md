@@ -633,6 +633,31 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `kv_source_card_fork_and_daemon_boundary`; the guard-owned product cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-07** · `F-KVSourceCard-ForkAndDaemonBoundary` is now built
+  as the research-to-build KV fork/daemon boundary witness:
+  `agent_core/src/uas/kv_source_card_fork_and_daemon_boundary.rs`, export
+  surface `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_kv_source_card_fork_and_daemon_boundary.rs`,
+  script `Tools/falsifiers/f_kv_source_card_fork_and_daemon_boundary.sh`,
+  witness page
+  `docs/falsifiers/F-KVSourceCard-ForkAndDaemonBoundary_2026_06_07.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/kv_source_card_fork_and_daemon_boundary/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness consumes
+  `F-KVRuntimeSourceCard`, classifies 9 KV/runtime motifs, rejects 33 red
+  fixtures for server/daemon laundering, remote/distributed leakage, armed or
+  executed commands, hidden route/cache authority, nonzero bytes, bad proof
+  refs, L2/L3 promotion, live dense 70B, and SSD-as-RAM, and opens zero
+  model/KV/index/runtime/provider/source-tree/product/command/benchmark bytes.
+  This is T1/L1 metadata only. It does not clone forks, start servers, arm
+  commands, run benchmarks, import runtimes, load model/KV bytes, advance L2,
+  or make L3 user-facing model capability green. The next research-to-build
+  unit is `hardware_tiered_model_catalog_source_card`; the guard-owned product
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
   `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
@@ -2743,6 +2768,16 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   bytes were opened, no server/daemon was started, and no model was promoted
   as user-facing. L2 remains `vault_research_route_with_packetized_mitigation`;
   L3 user-facing large-local-model capability is not green.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-KVSourceCard-ForkAndDaemonBoundary` witness. It consumes
+  `F-KVRuntimeSourceCard`, classifies vLLM and LMCache as quarantined
+  server/daemon motifs, SGLang as remote/distributed denied, KTransformers,
+  FlexGen, PowerInfer, KIVI, and Transformers as research-only motifs, and
+  llama.cpp prompt-cache as an owner-approval-pending unarmed command. It
+  rejects 33 red fixtures, keeps model/KV/index/runtime/provider/source-tree/
+  product/command/benchmark bytes at zero, and advances L1 source-card boundary
+  coverage only. L2 remains `vault_research_route_with_packetized_mitigation`;
+  L3 user-facing large-local-model/runtime capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

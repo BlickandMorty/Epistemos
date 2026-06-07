@@ -1,0 +1,680 @@
+{
+  "falsifier_id": "F-KVSourceCard-ForkAndDaemonBoundary",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_source_card_fork_and_daemon_boundary.sh",
+  "command_digest": "sha256:85c87a6301825981a630831cc6415109ab9bbbca9a255ff7fe2569f908a66161",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "f7d64bce34b8b7325a4b8c098934f7f58b7a3353",
+  "fixture_id": "kv_source_card_fork_and_daemon_boundary_v1",
+  "timestamp_utc": "2026-06-07T02:10:06Z",
+  "result_digest": "sha256:4791014627bc59e4517343e1a76f2a290c6d2e15a876eb5c555e61ee7997d339",
+  "measurements": {
+    "accepted_boundary_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_upstream_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "classification_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "command_execution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "value": 0,
+      "unit": "count"
+    },
+    "daemon_as_command": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_decision_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_plan": {
+      "value": true,
+      "unit": "bool"
+    },
+    "every_source_card_classified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_boundary_address": {
+      "value": "kv_source_card_fork_and_daemon_boundary:d49d5f34541c1fa8cecf2fca995139a389105c2a51ea0de5907dd07c7807a704@1779140000000",
+      "unit": "uas_address"
+    },
+    "kv_boundary_decision_count": {
+      "value": 9,
+      "unit": "count"
+    },
+    "kv_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "l2_l3_promotion_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_server": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 73728,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "hardware_tiered_model_catalog_source_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_runtime_or_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approved_command_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_armed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "owner_command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_missing_approval": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_metadata_budget_exceeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_metadata_bytes": {
+      "value": 128000,
+      "unit": "bytes"
+    },
+    "pro_live_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_enabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_server_daemon_count": {
+      "value": 2,
+      "unit": "count"
+    },
+    "red_fixture_count": {
+      "value": 33,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "count"
+    },
+    "remote_as_local": {
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_denied_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "remote_distributed_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_only_count": {
+      "value": 5,
+      "unit": "count"
+    },
+    "research_only_not_product": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_only_product": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_shape_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "server_as_product": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_daemon_quarantined": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_runtime_source_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_and_benchmark_execution": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_kv_runtime_provider_source_product_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_boundary_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_upstream_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "classification_count": {
+      "operator": ">=",
+      "value": 4,
+      "unit": "count"
+    },
+    "command_execution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "daemon_as_command": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_decision_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_plan": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "every_source_card_classified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "index_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_boundary_address": {
+      "operator": "starts_with",
+      "value": "kv_source_card_fork_and_daemon_boundary:",
+      "unit": "uas_address"
+    },
+    "kv_boundary_decision_count": {
+      "operator": ">=",
+      "value": 9,
+      "unit": "count"
+    },
+    "kv_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "l2_l3_promotion_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_server": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "hardware_tiered_model_catalog_source_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_runtime_or_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approved_command_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_armed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "count"
+    },
+    "owner_command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_command_missing_approval": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_metadata_budget_exceeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_metadata_bytes": {
+      "operator": "<=",
+      "value": 393216,
+      "unit": "bytes"
+    },
+    "pro_live_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_enabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quarantine_server_daemon_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "count"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 24,
+      "unit": "count"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 33,
+      "unit": "count"
+    },
+    "remote_as_local": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_denied_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "remote_distributed_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_only_count": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "count"
+    },
+    "research_only_not_product": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_only_product": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_shape_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "count"
+    },
+    "server_as_product": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_daemon_quarantined": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unknown_source_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_kv_runtime_source_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_and_benchmark_execution": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_kv_runtime_provider_source_product_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_boundary_pack_present": true,
+    "bad_proof_ref_prefix": true,
+    "bad_upstream_ref": true,
+    "benchmark_run": true,
+    "classification_count": true,
+    "command_execution": true,
+    "command_executions": true,
+    "daemon_as_command": true,
+    "duplicate_decision_id": true,
+    "duplicate_source_card_id": true,
+    "empty_plan": true,
+    "every_source_card_classified": true,
+    "hidden_authority_rejected": true,
+    "hidden_cache_authority": true,
+    "hidden_route_authority": true,
+    "index_bytes_loaded": true,
+    "kv_boundary_address": true,
+    "kv_boundary_decision_count": true,
+    "kv_bytes_loaded": true,
+    "l2_l3_promotion_claim": true,
+    "layer_separation_missing": true,
+    "live_dense_70b_claim": true,
+    "mas_live_server": true,
+    "mas_pro_boundary_bound": true,
+    "metadata_budget_exceeded": true,
+    "metadata_bytes_read": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_l2_l3_live70b_ssd": true,
+    "no_product_runtime_or_route": true,
+    "owner_approved_command_unarmed": true,
+    "owner_command_armed": true,
+    "owner_command_count": true,
+    "owner_command_executed": true,
+    "owner_command_missing_approval": true,
+    "plan_address_deterministic": true,
+    "plan_metadata_budget_exceeded": true,
+    "plan_metadata_bytes": true,
+    "pro_live_status_rejected": true,
+    "product_file_copied": true,
+    "product_route_enabled": true,
+    "proof_refs_bound": true,
+    "provider_call_made": true,
+    "quarantine_server_daemon_count": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "remote_as_local": true,
+    "remote_denied_count": true,
+    "remote_distributed_denied": true,
+    "research_only_count": true,
+    "research_only_not_product": true,
+    "research_only_product": true,
+    "runtime_bytes_loaded": true,
+    "runtime_shape_count": true,
+    "server_as_product": true,
+    "server_daemon_quarantined": true,
+    "source_tree_bytes_read": true,
+    "ssd_as_ram_claim": true,
+    "unknown_source_card_id": true,
+    "upstream_kv_runtime_source_card_pass": true,
+    "zero_command_and_benchmark_execution": true,
+    "zero_model_kv_runtime_provider_source_product_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "metadata-only KV fork/daemon boundary; no repository clone, source-tree read, command execution, benchmark, daemon, server, provider call, product copy, model bytes, KV bytes, runtime bytes, or L2/L3 promotion"
+    }
+  ],
+  "notes": "Builds F-KVSourceCard-ForkAndDaemonBoundary from F-KVRuntimeSourceCard. Server and daemon motifs stay quarantine references, remote/distributed motifs are denied from local product routes, llama.cpp prompt-cache command work remains owner-approval-pending and unarmed, and research-only motifs cannot become hidden route or cache authority."
+}

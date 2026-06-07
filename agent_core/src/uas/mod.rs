@@ -46,6 +46,7 @@ pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod kind;
 pub mod kv_runtime_source_card;
+pub mod kv_source_card_fork_and_daemon_boundary;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod litertlm_native_swift_admission;
@@ -196,6 +197,12 @@ pub use kv_runtime_source_card::{
     KvRuntimeMechanism, KvRuntimeProofRefs, KvRuntimeShape, KvRuntimeSourceCard,
     KvRuntimeSourceCardError, KvRuntimeSourceCardMetrics, KvRuntimeSourceCardSet,
     KvRuntimeStorageTier, KV_RUNTIME_SOURCE_CARD_CURSOR, KV_RUNTIME_SOURCE_CARD_NEXT_CURSOR,
+};
+pub use kv_source_card_fork_and_daemon_boundary::{
+    KvBoundaryByteScope, KvBoundaryClassification, KvBoundaryDecision, KvBoundaryError,
+    KvBoundaryMetrics, KvBoundaryProofRefs, KvBoundaryRuntimeShape,
+    KvSourceCardForkDaemonBoundaryPlan, KV_SOURCE_CARD_FORK_AND_DAEMON_BOUNDARY_CURSOR,
+    KV_SOURCE_CARD_FORK_AND_DAEMON_BOUNDARY_NEXT_CURSOR,
 };
 pub use litertlm_native_swift_admission::{
     LiteRtMasVerdict, LiteRtNativeSwiftAdmissionCard, LiteRtNativeSwiftAdmissionError,

@@ -184,6 +184,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > claims, and exotic quant formats remain unpromoted until source-card,
 > memory/KV budget, owner approval, runtime proof, rollback, RunEventLog,
 > AnswerPacket, and WRV evidence land.
+> Deep Research Pass 70 now lands `F-KVSourceCard-ForkAndDaemonBoundary` as
+> a T1/L1 metadata-only witness at
+> `artifacts/falsifiers/kv_source_card_fork_and_daemon_boundary/result.json`.
+> It classifies 9 source-carded KV/runtime motifs, rejects 33 red fixtures,
+> quarantines server/daemon motifs, denies remote/distributed motifs, keeps
+> llama.cpp prompt-cache command work owner-approval-pending and unarmed, opens
+> zero model/KV/index/runtime/provider/source-tree/product/command/benchmark
+> bytes, and makes no MAS/L2/L3/live-70B claim. The next research-to-build unit
+> is `hardware_tiered_model_catalog_source_card`; the guard-owned product cursor
+> remains `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 
 ---
 
