@@ -10178,3 +10178,113 @@ Sources:
 - `EpistemosTests/FilterEngineComprehensiveTests.swift`
 - `EpistemosTests/ResourceExhaustionTests.swift`
 - `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
+
+## Pass 99 - Research Tool Catalog No Hidden Authority
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+promotes without visible proof.
+
+### Executive Synthesis
+
+Landed `F-ResearchToolCatalog-NoHiddenAuthority` as a metadata-only L1/T1
+source-card witness so the retained `research_tool_catalog` release-audit
+family is bound to exact registry, bridge, orchestrator, gate, view, authority,
+and test surfaces. This matters for large local models because deep research,
+GitHub/fork mining, TurboVec/QAT intake, proof search, and model/source-card
+work can only become useful if tool catalogs stay visible, read-only where
+advertised, admitted by authority policy, and unable to become hidden route
+selectors for Eidos, lattice, PatternBoost, System G, or cloud/provider
+fallbacks.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/research_tool_catalog_no_hidden_authority.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_research_tool_catalog_no_hidden_authority.rs`
+- Script:
+  `Tools/falsifiers/f_research_tool_catalog_no_hidden_authority.sh`
+- Artifact:
+  `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`
+- Witness page:
+  `docs/falsifiers/F-ResearchToolCatalog-NoHiddenAuthority_2026_06_07.md`
+
+### Bound Repair Surface
+
+The witness binds retained issue count `16`, source refs `10`, invariants `12`,
+focused commands `3`, rejected red fixtures `23`, zero model/runtime/tool bytes,
+zero provider calls, and deterministic address
+`sha256:07788d3b10d8aaba6855daa7dbe4cbfa3769dd9c57dd425f03635699c5157828`.
+
+Source refs include `MCPBridge.swift`, `ToolTierBridge.swift`,
+`ResearchOrchestrator.swift`, `ResearchComplexityGate.swift`,
+`ResearchRequestView.swift`, `AgentCommandCenterState.swift`,
+`AgentAuthority.swift`, `agent_core/src/tools/registry.rs`,
+`agent_core/src/bridge.rs`, and `ResearchModeTests.swift`.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | The research-tool catalog now has deterministic source-card identity instead of floating as release-audit noise. |
+| Eidos | Research collection and evidence scoring remain visible evidence functions, not hidden route authority. |
+| ActiveAssembly | Tool-selected research inputs cannot silently enlarge the active set without explicit authority, route, rollback, and AnswerPacket evidence. |
+| SCOPE-Rex/SovereignGate | Admission rejects alias authority expansion, destructive/unconfirmed research-tool claims, and catalog export as runtime proof. |
+| RuntimeRouter/System G | Research tools cannot select large-model routes, cloud routes, or PatternBoost/lattice/Eidos authority without a separate admitted route witness. |
+| RunEventLog/AnswerPacket | Future research-tool repairs must expose canonical tool names, caveats, authority decisions, and release-red status as visible proof. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ResearchToolCatalog-NoHiddenAuthority` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Research-tool release readiness and large-local-model
+  user capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make the research-tool catalog repairable enough
+that Epistemos can mine GitHub forks, Hugging Face repos, arXiv, Google runtime
+docs, quantization code, and local Downloads-folder research without letting the
+catalog become hidden execution authority.
+
+Safest next falsifier: `F-ThemePresentation-ReleaseBlockerCard`, matching the
+new side-card cursor `theme_presentation_release_blocker_card`.
+
+Best near-term code unit: inspect `OmegaToolRegistry`, `ToolTierBridge`,
+`ResearchOrchestrator`, `ResearchComplexityGate`, and `ResearchModeTests` to
+decide which retained research-tool catalog failures are source bugs versus
+outdated expectations, then land the smallest focused Swift repair.
+
+Biggest false-claim risk: treating a visible research-tool catalog, canonical
+tool-name prompt, or evidence-score helper as live agent authority, route
+authority, L2 capability, L3 release readiness, or large-model runtime proof.
+
+Biggest missing source: exact focused Swift failure lines from a current
+`ResearchModeTests` rerun after the next source repair.
+
+Next research query: "Which research-tool catalog invariants must be visibly
+verified before Epistemos can safely automate large-model source discovery,
+fork mining, citation capture, and evidence scoring without hidden routing or
+provider fallback?"
+
+Sources:
+
+- `docs/falsifiers/F-ResearchToolCatalog-NoHiddenAuthority_2026_06_07.md`
+- `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`
+- `agent_core/src/uas/research_tool_catalog_no_hidden_authority.rs`
+- `agent_core/src/bin/falsify_research_tool_catalog_no_hidden_authority.rs`
+- `Epistemos/Omega/MCPBridge.swift`
+- `Epistemos/Bridge/ToolTierBridge.swift`
+- `Epistemos/Omega/ResearchOrchestrator.swift`
+- `Epistemos/Omega/ResearchComplexityGate.swift`
+- `Epistemos/Views/Omega/ResearchRequestView.swift`
+- `Epistemos/State/AgentCommandCenterState.swift`
+- `Epistemos/Engine/AgentHarness/AgentAuthority.swift`
+- `agent_core/src/tools/registry.rs`
+- `agent_core/src/bridge.rs`
+- `EpistemosTests/ResearchModeTests.swift`

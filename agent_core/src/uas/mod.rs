@@ -77,6 +77,7 @@ pub mod provider_route_copy_source_guard;
 pub mod qat_model_route_card_memory_preflight;
 pub mod reasoning_state_continuity;
 pub mod release_audit_failure_family_source_card;
+pub mod research_tool_catalog_no_hidden_authority;
 pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
@@ -938,6 +939,14 @@ pub use graph_filter_visibility_release_blocker_card::{
     GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF, GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_CURSOR,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_ID,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR, GRAPH_FILTER_VISIBILITY_UPSTREAM_REF,
+};
+pub use research_tool_catalog_no_hidden_authority::{
+    required_research_tool_catalog_invariants, required_research_tool_catalog_source_refs,
+    ResearchToolCatalogNoHiddenAuthorityCard, ResearchToolCatalogNoHiddenAuthorityWitness,
+    ResearchToolCatalogOrgan, ResearchToolCatalogStatus, RESEARCH_TOOL_CATALOG_FAMILY_SOURCE_REF,
+    RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_CURSOR,
+    RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_ID,
+    RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_NEXT_CURSOR, RESEARCH_TOOL_CATALOG_UPSTREAM_REF,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

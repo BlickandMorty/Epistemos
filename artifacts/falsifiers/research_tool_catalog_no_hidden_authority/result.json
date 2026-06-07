@@ -1,0 +1,704 @@
+{
+  "falsifier_id": "F-ResearchToolCatalog-NoHiddenAuthority",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_research_tool_catalog_no_hidden_authority.sh",
+  "command_digest": "sha256:6816ce9a8331506a88e729c03c512e0de92b7fde153756518e4de168a344cf24",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "a40cfe42d19bbb49688418e3b99e7b47a0607c1c",
+  "fixture_id": "research_tool_catalog_no_hidden_authority_v1",
+  "timestamp_utc": "2026-06-07T16:47:13Z",
+  "result_digest": "sha256:5d538aff1be6aac521d1eca492e8bb7d57b41c78e001d2875663fa26d741b5df",
+  "measurements": {
+    "alias_authority_expansion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "catalog_export_not_runtime_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "catalog_export_runtime_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_lite_agent_tool_inheritance_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_pro_full_agent_inheritance_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "destructive_research_tool_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_research_tool_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_research_tool_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_agent_authority_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_omega_tool_registry_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_research_tools_explicit_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_tier_bridge_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "theme_presentation_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_alias_authority_expansion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_chat_lite_agent_tool_inheritance": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_chat_pro_full_agent_inheritance": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_destructive_or_unconfirmed_research_tools": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_research_tool_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_research_catalog_as_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_or_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_tool_registry_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 23,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 23,
+      "unit": "fixtures"
+    },
+    "research_catalog_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_complexity_gate_not_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_complexity_gate_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_mode_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_catalog_address": {
+      "value": "sha256:07788d3b10d8aaba6855daa7dbe4cbfa3769dd9c57dd425f03635699c5157828",
+      "unit": "sha256"
+    },
+    "research_tool_catalog_card": {
+      "value": {
+        "family_id": "research_tool_catalog",
+        "issue_count": 16,
+        "organ": "research_tool_catalog",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Omega/MCPBridge.swift",
+          "Epistemos/Bridge/ToolTierBridge.swift",
+          "Epistemos/Omega/ResearchOrchestrator.swift",
+          "Epistemos/Omega/ResearchComplexityGate.swift",
+          "Epistemos/Views/Omega/ResearchRequestView.swift",
+          "Epistemos/State/AgentCommandCenterState.swift",
+          "Epistemos/Engine/AgentHarness/AgentAuthority.swift",
+          "agent_core/src/tools/registry.rs",
+          "agent_core/src/bridge.rs",
+          "EpistemosTests/ResearchModeTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/ResearchModeTests",
+          "xcodebuild test -only-testing:EpistemosTests/ToolTierBridgeVisibleFailureGuardTests",
+          "xcodebuild test -only-testing:EpistemosTests/ToolSurfacePolicyTests"
+        ],
+        "required_invariants": [
+          "seven_research_tools_are_explicit_catalog_entries",
+          "research_tools_stay_read_only_non_destructive",
+          "planning_prompt_surfaces_canonical_names_only",
+          "aliases_normalize_without_expanding_authority",
+          "chat_lite_research_tools_do_not_inherit_agent_tools",
+          "chat_pro_tools_do_not_inherit_full_agent_surface",
+          "tool_tier_bridge_matches_rust_registry_names",
+          "research_complexity_gate_is_signal_not_route_authority",
+          "research_orchestrator_outputs_visible_evidence_not_hidden_routes",
+          "agent_authority_policy_must_admit_each_tool_use",
+          "mcp_bridge_catalog_export_is_visible_not_runtime_proof",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "research_catalog_as_route_authority": false,
+        "hidden_research_tool_authority": false,
+        "destructive_research_tool_claimed": false,
+        "unconfirmed_mutating_research_tool_claimed": false,
+        "alias_expands_authority": false,
+        "chat_lite_inherits_agent_tools": false,
+        "chat_pro_inherits_full_agent_surface": false,
+        "catalog_export_as_runtime_proof": false,
+        "research_complexity_gate_as_route_authority": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "tool_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:research_tool_catalog_no_hidden_authority",
+        "run_event_log_ref": "run_event_log:research_tool_catalog_no_hidden_authority",
+        "answer_packet_ref": "answer_packet:research_tool_catalog_no_hidden_authority"
+      },
+      "unit": "card"
+    },
+    "research_tool_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "research_tool_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_issue_count": {
+      "value": 16,
+      "unit": "issues"
+    },
+    "research_tool_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_tool_registry_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 10,
+      "unit": "refs"
+    },
+    "source_refs_cover_research_tool_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_tier_bridge_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unconfirmed_mutating_research_tool_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_graph_filter_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_research_tool_catalog": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "alias_authority_expansion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "catalog_export_not_runtime_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "catalog_export_runtime_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_lite_agent_tool_inheritance_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_pro_full_agent_inheritance_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "destructive_research_tool_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_research_tool_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_research_tool_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_agent_authority_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_omega_tool_registry_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_research_tools_explicit_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_tier_bridge_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "theme_presentation_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_alias_authority_expansion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_chat_lite_agent_tool_inheritance": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_chat_pro_full_agent_inheritance": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_destructive_or_unconfirmed_research_tools": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_research_tool_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_research_catalog_as_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_or_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "omega_tool_registry_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 23,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 23,
+      "unit": "fixtures"
+    },
+    "research_catalog_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_complexity_gate_not_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_complexity_gate_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_mode_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_catalog_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "research_tool_catalog_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "research_tool_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "research_tool_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "research_tool_issue_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "issues"
+    },
+    "research_tool_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_tool_registry_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "refs"
+    },
+    "source_refs_cover_research_tool_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_tier_bridge_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unconfirmed_mutating_research_tool_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_graph_filter_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_research_tool_catalog": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "alias_authority_expansion_rejected": true,
+    "catalog_export_not_runtime_proof": true,
+    "catalog_export_runtime_proof_rejected": true,
+    "chat_lite_agent_tool_inheritance_rejected": true,
+    "chat_pro_full_agent_inheritance_rejected": true,
+    "destructive_research_tool_claim_rejected": true,
+    "focused_command_count": true,
+    "focused_commands_cover_research_tool_tests": true,
+    "hidden_research_tool_authority_rejected": true,
+    "hidden_route_cloud_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_agent_authority_invariant_rejected": true,
+    "missing_omega_tool_registry_source_rejected": true,
+    "missing_research_tools_explicit_invariant_rejected": true,
+    "missing_tool_tier_bridge_source_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_alias_authority_expansion": true,
+    "no_chat_lite_agent_tool_inheritance": true,
+    "no_chat_pro_full_agent_inheritance": true,
+    "no_destructive_or_unconfirmed_research_tools": true,
+    "no_hidden_research_tool_authority": true,
+    "no_hidden_route_or_cloud_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_research_catalog_as_route_authority": true,
+    "no_runtime_bytes_or_provider_calls": true,
+    "omega_tool_registry_source_bound": true,
+    "provider_call_leak_rejected": true,
+    "provider_calls_made_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "research_catalog_route_authority_rejected": true,
+    "research_complexity_gate_not_route_authority": true,
+    "research_complexity_gate_route_authority_rejected": true,
+    "research_mode_tests_bound": true,
+    "research_tool_catalog_address": true,
+    "research_tool_catalog_card": true,
+    "research_tool_family_bound": true,
+    "research_tool_invariant_count": true,
+    "research_tool_invariants_bound": true,
+    "research_tool_issue_count": true,
+    "research_tool_issue_count_retained": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "rust_tool_registry_source_bound": true,
+    "source_ref_count": true,
+    "source_refs_cover_research_tool_surfaces": true,
+    "tool_runtime_byte_leak_rejected": true,
+    "tool_runtime_bytes_loaded_total": true,
+    "tool_tier_bridge_source_bound": true,
+    "unconfirmed_mutating_research_tool_rejected": true,
+    "upstream_fail_rejected": true,
+    "upstream_graph_filter_card_pass": true,
+    "upstream_next_cursor_research_tool_catalog": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ResearchToolCatalog-NoHiddenAuthority: consumes the graph-filter blocker and release-audit family source card, binds research_tool_catalog issue count 16 to exact OmegaToolRegistry, ToolTierBridge, ResearchOrchestrator, ResearchComplexityGate, AgentAuthority, Rust ToolRegistry, and ResearchModeTests refs, and rejects research catalogs as hidden route authority, destructive or unconfirmed research tool claims, alias authority expansion, ChatLite/ChatPro tool-surface inheritance, runtime proof claims, provider calls, L2/L3/product green, and live dense-70B claims."
+}
