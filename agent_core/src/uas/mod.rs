@@ -44,6 +44,7 @@ pub mod copy_counter;
 pub mod exotic_quant_crash_safe_command_envelope_preflight_gate;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
+pub mod exotic_quant_owner_approved_dry_run_transcript_preflight_gate;
 pub mod exotic_quant_owner_path_byte_envelope_preflight_gate;
 pub mod exotic_quant_owner_path_canonicalization_preflight_gate;
 pub mod exotic_quant_owner_path_manifest_intake_gate;
@@ -248,6 +249,19 @@ pub use exotic_quant_crash_safe_command_envelope_preflight_gate::{
     CrashSafeCommandPolicy, CrashSafeCommandProofRefs, CrashSafeCommandSurface,
     EXOTIC_QUANT_CRASH_SAFE_COMMAND_ENVELOPE_PREFLIGHT_GATE_CURSOR,
     EXOTIC_QUANT_CRASH_SAFE_COMMAND_ENVELOPE_PREFLIGHT_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_owner_approved_dry_run_transcript_preflight_gate::{
+    canonical_owner_approved_dry_run_transcript_preflight_cards,
+    canonical_owner_approved_dry_run_transcript_preflight_ledger,
+    OwnerApprovedDryRunTranscriptByteLedger, OwnerApprovedDryRunTranscriptPolicy,
+    OwnerApprovedDryRunTranscriptPreflightCard, OwnerApprovedDryRunTranscriptPreflightError,
+    OwnerApprovedDryRunTranscriptPreflightLedger,
+    OwnerApprovedDryRunTranscriptPreflightMetrics, OwnerApprovedDryRunTranscriptProofRefs,
+    OwnerApprovedDryRunTranscriptState, OwnerApprovedDryRunTranscriptSurface,
+    EXOTIC_QUANT_BYTE_ENVELOPE_UPSTREAM_REF, EXOTIC_QUANT_COMMAND_ENVELOPE_UPSTREAM_REF,
+    EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_CURSOR,
+    EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_ID,
+    EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,

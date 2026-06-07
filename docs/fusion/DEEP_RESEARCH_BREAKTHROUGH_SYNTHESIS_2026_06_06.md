@@ -5039,6 +5039,77 @@ meaningful object has an address, plane, budget, status, and witness; MAS ships
 the safe floor, Pro contains the gated/research/vault/omega ladder, and no
 claim promotes without visible proof.
 
+### Pass 88 - Owner-Approved Dry-Run Transcript Preflight Landed
+
+Pass 88 implements `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`.
+This is still not a runtime probe: it turns inert command-envelope metadata into
+owner-approved dry-run transcript templates with explicit proof slots before any
+first token, command execution, model-path open, provider call, benchmark, or
+product-route claim can begin.
+
+Landed architecture:
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_owner_approved_dry_run_transcript_preflight_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_owner_approved_dry_run_transcript_preflight_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_owner_approved_dry_run_transcript_preflight_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_owner_approved_dry_run_transcript_preflight_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate_2026_06_07.md`
+
+Architecture fusion:
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each dry-run transcript preflight card has addressable phase refs and consumes a crash-safe command-envelope card without opening paths or loading bytes. |
+| ColdStore/AppColdStore | Candidate model artifacts remain cold and non-resident; transcript templates are proof metadata, not model residency. |
+| ActiveAssembly | No assembly can wake from command metadata alone; owner approval remains required and not granted. |
+| Eidos | Source and runtime-lane evidence can inform transcript red fixtures without becoming hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission, serialized executor, redaction, memory sampling, timeout, cancellation, teardown, rollback, RunEventLog, and AnswerPacket slots are now mandatory before first-token work. |
+| RuntimeRouter/System G | Runtime lanes remain unarmed and non-promoting; server-only rows stay denied on Mac. |
+| RunEventLog/AnswerPacket | Future first-token probes must carry visible packet/log evidence instead of treating stdout or token text as hidden proof. |
+
+Promotion truth:
+
+- T1/L1 advanced: yes. `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: redacted first-token preflight, because the side
+ladder now has source pins, owner-path policy, byte envelope, command envelope,
+and transcript slots, but still needs an owner-approved, redacted, abortable,
+packetized first-token proof before any larger local model row can become a
+runtime candidate.
+
+Safest next falsifier:
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate`.
+
+Best near-term code unit: add
+`exotic_quant_redacted_first_token_probe_preflight_gate` so the transcript
+contract can bind token-digest policy, first-token redaction, memory deltas,
+timeout/cancellation/teardown, rollback, RunEventLog, AnswerPacket, and
+non-promotion before any live command/native API probe is permitted.
+
+Biggest false-claim risk: treating a transcript template as proof that
+llama.cpp, Transformers, LiteRT, MLX, or a server-only exotic quant row has
+actually run locally or is useful for user-facing research/coding/writing.
+
+Biggest missing source: owner-approved local manifests and a live-safe
+first-token policy for exact model path, command/native executor, redacted
+token digest, memory sampling, process/native lease closure, rollback, and
+AnswerPacket attachment.
+
+Next research query: "What redacted first-token preflight contract lets
+Epistemos prove one safe first-token attempt while preserving owner approval,
+abortability, memory accounting, stdout/stderr privacy, no hidden route
+authority, and no L2/L3 promotion?"
+
 ### Executive Synthesis
 
 Pass 87 implements `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`. This

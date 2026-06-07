@@ -235,6 +235,19 @@ Current 2026-06-07 large-local-model research-to-build status:
   availability, runtime load, Apple Silicon fit, product default, or user-
   facing capability. The next large-local-model research-to-build unit is
   `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
+- `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_owner_approved_dry_run_transcript_preflight_gate/result.json`.
+  It consumes the crash-safe command-envelope preflight gate, accepts 5 owner-
+  approved dry-run transcript preflight cards, records 3 Mac-candidate owner-
+  approval-pending rows, denies 2 server/GPU transcript rows on Mac, binds 65
+  transcript phase refs, rejects 47 red fixtures, keeps owner approval
+  ungranted, executes zero commands, observes zero first tokens, captures zero
+  stdout/stderr/token bytes, loads zero model/runtime/provider/network/source-
+  tree/product/benchmark bytes, and still does not prove local artifact
+  availability, runtime load, Apple Silicon fit, product default, L2/L3, live
+  dense 70B, or user-facing capability. The next large-local-model research-
+  to-build unit is `exotic_quant_redacted_first_token_probe_preflight_gate`.
 - `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
   `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` are now part
   of the large-model research gate. Future research passes must mine local
