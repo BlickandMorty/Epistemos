@@ -130,6 +130,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-HardwareTieredModelCatalog-SourceCard",
     "F-MoEActiveParamsMemoryTruth",
     "F-ExoticQuantQuarantineRouteCard",
+    "F-ExoticQuantSourcePinAndByteBudgetPreflight",
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
     "F-RuntimePlural-QATLaneTournamentPlan",

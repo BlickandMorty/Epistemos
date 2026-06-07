@@ -36,6 +36,8 @@ This is not a runtime proof. It does not clone repos, import source, build adapt
 
 Correct phrasing: architecture exotic-quant quarantine coverage advanced; product capability and user-facing runtime did not.
 
-## Next Unit
+## Downstream Unit Landed
 
-`exotic_quant_source_pin_and_byte_budget_preflight` should bind exact source pins, file manifests, declared artifact bytes, runtime-lane byte envelopes, Mac-tier denial/allowance, rollback, RunEventLog, AnswerPacket, and abstention for each accepted exotic quant row before any owner-approved runtime probe is considered.
+`F-ExoticQuantSourcePinAndByteBudgetPreflight` is now landed as the metadata-only downstream witness. It binds exact Hugging Face source pins, manifest digests, declared tree bytes, selected artifact envelopes, Mac/server tier decisions, rollback, RunEventLog, AnswerPacket, and abstention for each accepted exotic quant row before any owner-approved runtime probe is considered.
+
+The current research-to-build next unit is `exotic_quant_runtime_lane_owner_approval_gate`. It must require explicit owner approval, command/readiness envelopes, model-path and loader compatibility proof, crash-safe rollback, RunEventLog, AnswerPacket, abstention, and zero hidden authority before any exotic quant runtime probe is armed.

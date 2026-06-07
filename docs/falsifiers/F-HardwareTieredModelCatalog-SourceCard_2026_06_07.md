@@ -40,6 +40,6 @@ This is not a runtime proof. It does not download, hash, open, mmap, or load any
 
 Correct phrasing: architecture catalog coverage advanced; product capability and user-facing runtime did not.
 
-## Next Unit
+## Downstream Units
 
-`F-MoEActiveParamsMemoryTruth` and `F-ExoticQuantQuarantineRouteCard` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_source_pin_and_byte_budget_preflight`, which should bind exact source pins, file manifests, and byte-budget envelopes for exotic quant rows before any runtime probe is considered.
+`F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and `F-ExoticQuantSourcePinAndByteBudgetPreflight` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_runtime_lane_owner_approval_gate`, which should require explicit owner approval, command/readiness envelopes, model-path and loader compatibility proof, crash-safe rollback, RunEventLog, AnswerPacket, abstention, and zero hidden authority before any exotic quant runtime probe is armed.
