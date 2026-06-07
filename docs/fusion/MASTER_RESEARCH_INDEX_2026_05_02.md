@@ -205,23 +205,37 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and runtime-deferred, and Gemma 31B NVFP4/AutoRound rows as GPU/server
 > research rather than Mac defaults. It opens zero model/runtime/provider/
 > source-tree/product/command/benchmark bytes and makes no MAS/L2/L3/live-70B
-> claim. The next research-to-build unit is `moe_active_params_memory_truth`;
+> claim. The former next research-to-build unit,
+> `moe_active_params_memory_truth`, is now landed by Pass 73;
 > the guard-owned product cursor remains
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > Deep Research Pass 72 now turns `moe_active_params_memory_truth` into the
-> next buildable falsifier blueprint. It verifies local Downloads MoE warnings
+> buildable falsifier blueprint now implemented by Pass 73. It verifies local Downloads MoE warnings
 > (`/Users/jojo/Downloads/locals.md`, `locals2.md`, `locals3.txt`, and
 > `locals4.txt`) against current Hugging Face and GitHub source-card facts for
 > Qwopus-MoE, Qwen3.5 A3B, KTransformers, llama.cpp, HybriMoE, PowerInfer,
 > vLLM, and LMCache. The canon lock is explicit: active parameters are compute
-> evidence, not resident-memory proof. `F-MoEActiveParamsMemoryTruth` should
-> consume the hardware-tiered catalog and require full-weight bytes, active
+> evidence, not resident-memory proof. The landed
+> `F-MoEActiveParamsMemoryTruth` consumes the hardware-tiered catalog and
+> requires full-weight bytes, active
 > compute count, KV cache bytes, expert-residency lease, router/runtime
 > workspace, app headroom, rollback, RunEventLog, AnswerPacket, abstention,
 > and no-hidden-authority proof before any MoE row can influence RuntimeRouter
 > or System G. This is T0/T1 research-to-build canon only; no runtime package,
 > model bytes, source-tree bytes, command, benchmark, MAS/L2/L3 promotion,
 > live dense 70B, or SSD-as-RAM claim was made.
+> Deep Research Pass 73 now lands `F-MoEActiveParamsMemoryTruth` as a T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/moe_active_params_memory_truth/result.json`. It
+> consumes `F-HardwareTieredModelCatalog-SourceCard`, accepts the two
+> Qwopus-MoE 35B A3B GGUF/APEX rows, rejects 35 red fixtures, binds full-weight
+> artifact bytes, active-compute counts, KV cache bytes, expert-residency lease,
+> router/runtime workspace, app headroom, rollback, RunEventLog, AnswerPacket,
+> abstention, provenance, hardware-tier refs, and no-hidden-authority proof,
+> while opening zero model/runtime/provider/source-tree/product/command/
+> benchmark bytes. Active parameters are compute evidence, not memory-fit
+> proof. L2 and L3 remain unchanged; the next research-to-build unit is
+> `exotic_quant_quarantine_route_card`.
 
 ---
 

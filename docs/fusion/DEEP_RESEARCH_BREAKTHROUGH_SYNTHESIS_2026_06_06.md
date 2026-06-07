@@ -4991,9 +4991,9 @@ What this still does not prove:
 - no L3 user-facing large-local-model route
 - no live dense 70B or SSD-as-RAM claim
 
-Immediately codeable next unit:
+Former immediately codeable next unit, now landed by Pass 73:
 
-`F-MoEActiveParamsMemoryTruth` / `moe_active_params_memory_truth` should prove that MoE active-parameter counts cannot be treated as memory-fit proof. It should bind full-weight bytes, expert residency, router overhead, KV cache bytes, cold/hot lease policy, rollback, RunEventLog, AnswerPacket, and abstention before Qwopus-MoE or APEX rows can influence route selection.
+`F-MoEActiveParamsMemoryTruth` / `moe_active_params_memory_truth` now proves that MoE active-parameter counts cannot be treated as memory-fit proof at T1/L1 metadata scope. It binds full-weight bytes, expert residency, router overhead, KV cache bytes, rollback, RunEventLog, AnswerPacket, and abstention before Qwopus-MoE or APEX rows can influence route selection.
 
 Promotion truth:
 
@@ -5004,7 +5004,7 @@ Promotion truth:
 
 Best breakthrough candidate: MoE memory-truth routing, because active params are promising for local large models but dangerous if confused with full resident memory.
 
-Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it blocks the most tempting false shortcut in MoE rows before runtime routing starts.
+Former safest falsifier, now landed by Pass 73: `F-MoEActiveParamsMemoryTruth`, because it blocks the most tempting false shortcut in MoE rows before runtime routing starts.
 
 Best near-term code unit: add a metadata-only MoE memory ledger card that rejects active-param-as-fit claims, missing full-weight bytes, missing KV bytes, missing expert-residency lease, hidden cloud fallback, live dense 70B, and L2/L3 promotion.
 
@@ -6567,11 +6567,11 @@ Best breakthrough candidate: MoE active-params memory truth, because the
 hardware catalog and KV/fork boundary now exist and the next dangerous shortcut
 is treating active experts as if they prove full model memory fit.
 
-Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it builds
+Former safest falsifier, now landed by Pass 73: `F-MoEActiveParamsMemoryTruth`, because it builds
 directly on the now-passed hardware catalog and prevents MoE marketing from
 leaking into product route truth.
 
-Best near-term code unit: add the MoE memory-truth primitive and falsifier as
+Former near-term code unit, now landed by Pass 73: add the MoE memory-truth primitive and falsifier as
 metadata-only, consuming
 `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`
 and rejecting active-param-as-memory-fit, missing full-weight bytes, missing KV
@@ -6685,11 +6685,11 @@ Best breakthrough candidate: MoE memory-truth routing, because the architecture
 now has source-card, fork/daemon, and hardware-catalog boundaries and needs to
 separate active compute from resident memory before MoE rows can route.
 
-Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, because it turns the
+Former safest falsifier, now landed by Pass 73: `F-MoEActiveParamsMemoryTruth`, because it turns the
 now-cataloged MoE rows into explicit full-weight/KV/expert-residency truth
 before any model can be treated as a route candidate.
 
-Best near-term code unit: add a metadata-only MoE memory ledger that consumes
+Former near-term code unit, now landed by Pass 73: add a metadata-only MoE memory ledger that consumes
 `F-HardwareTieredModelCatalog-SourceCard` and rejects active-parameter-as-fit,
 missing full-weight bytes, missing KV bytes, missing expert-residency lease,
 hidden cloud fallback, live dense 70B, and L2/L3 promotion.
@@ -6951,12 +6951,12 @@ Best breakthrough candidate: MoE active-params memory truth, because it lets
 Epistemos keep sparse large-model ambition while preventing active-count
 marketing from becoming route authority.
 
-Safest next falsifier: `F-MoEActiveParamsMemoryTruth`, consuming the
+Former safest falsifier, now landed by Pass 73: `F-MoEActiveParamsMemoryTruth`, consuming the
 hardware-tiered catalog artifact and rejecting active-param-as-fit, missing
 full-weight bytes, missing KV bytes, missing expert residency, hidden fallback,
 and L2/L3 promotion.
 
-Best near-term code unit: add `agent_core/src/uas/moe_active_params_memory_truth.rs`,
+Former near-term code unit, now landed by Pass 73: add `agent_core/src/uas/moe_active_params_memory_truth.rs`,
 `agent_core/src/bin/falsify_moe_active_params_memory_truth.rs`,
 `Tools/falsifiers/f_moe_active_params_memory_truth.sh`, schema axes, validator
 registration, witness doc, Living Index row, and lattice row.
@@ -6992,3 +6992,78 @@ Sources:
 - https://github.com/vllm-project/vllm
 - https://github.com/LMCache/LMCache
 - https://arxiv.org/abs/2401.04088
+
+## Pass 73 - MoE Active-Params Memory Truth Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 73 implements the Pass 72 blueprint as `F-MoEActiveParamsMemoryTruth`.
+This is the first code/artifact rung that makes the MoE warning executable:
+active parameters are compute evidence, not memory-fit proof.
+
+### Landed Architecture
+
+- Primitive: `agent_core/src/uas/moe_active_params_memory_truth.rs`
+- Falsifier binary: `agent_core/src/bin/falsify_moe_active_params_memory_truth.rs`
+- Script: `Tools/falsifiers/f_moe_active_params_memory_truth.sh`
+- Artifact: `artifacts/falsifiers/moe_active_params_memory_truth/result.json`
+- Witness page: `docs/falsifiers/F-MoEActiveParamsMemoryTruth_2026_06_07.md`
+
+The witness consumes `F-HardwareTieredModelCatalog-SourceCard`, accepts the two
+Qwopus-MoE 35B A3B GGUF/APEX rows, rejects 35 red fixtures, and binds
+full-weight artifact bytes, active compute counts, KV cache bytes,
+expert-residency lease, router/runtime workspace, app headroom, rollback,
+RunEventLog, AnswerPacket, abstention, provenance, hardware-tier refs, and
+no-hidden-authority proof. It opens zero model/runtime/provider/source-tree/
+product/command/benchmark bytes.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | MoE cards now have deterministic addresses and cannot be duplicated or replaced by source marketing. |
+| ColdStore/AppColdStore | Full-weight bytes and expert residency are cold material; active params never erase them. |
+| ActiveAssembly | Future sparse wake plans must cite expert-residency leases instead of claiming active params fit memory. |
+| Eidos | MoE evidence can become a route prior only after visible memory truth, not as hidden authority. |
+| SCOPE-Rex/SovereignGate | Admission can reject missing full weights, KV bytes, app headroom, APEX provenance, and 16 GB overclaims. |
+| RuntimeRouter/System G | MoE rows stay non-product candidates until later byte/runtime/quality proof lands. |
+| RunEventLog/AnswerPacket | Future MoE packets must expose total weights, active params, KV bytes, caveats, rollback, and abstention. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-MoEActiveParamsMemoryTruth` passes as metadata-only
+  architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: exotic-quant quarantine route cards, because the
+hardware catalog now has TQ3_4S, HLWQ, APEX, TurboQuant-like, and other
+nonstandard quant rows that need provenance/import-mode and byte-accounting
+proof before any runtime lane can cite them.
+
+Safest next falsifier: `F-ExoticQuantQuarantineRouteCard`.
+
+Best near-term code unit: add an `exotic_quant_quarantine_route_card` primitive,
+binary, script, axes, validator registration, witness page, Living Index row,
+handbook/schema row, and lattice row that consumes the hardware catalog and MoE
+memory truth where applicable.
+
+Biggest false-claim risk: saying APEX, TQ3_4S, HLWQ, TurboQuant-like, or any
+forked low-bit artifact is "best" or product-ready because its model-card size
+looks attractive.
+
+Biggest missing source: exact owner-approved local runtime and byte evidence for
+each exotic quant format on the target Mac tier.
+
+Next research query: "Which exotic quant formats from the hardware catalog can
+be source-carded into quarantine route cards without importing code, arming
+commands, loading model bytes, or bypassing clean-room provenance?"
