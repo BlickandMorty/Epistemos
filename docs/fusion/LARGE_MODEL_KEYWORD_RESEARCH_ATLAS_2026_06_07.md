@@ -1310,6 +1310,34 @@ Research should now ask which fields must graduate from metadata-only proof to
 owner-approved first-token replay while preserving zero hidden route authority,
 zero raw prompt retention, and L2/L3 promotion truth.
 
+## Pass 115 Source/Search Freshness Packet Keywords
+
+The next buildable side-ladder candidate is
+`F-SameFixtureSourceSearchFreshnessPacket`. Search for exact field shapes and
+failure cases with:
+
+- `same fixture source freshness body digest editor snapshot RRF prompt cache`
+- `local LLM first token replay search freshness AnswerPacket RunEventLog`
+- `FTS5 BM25 RRF vault scope prompt digest local model replay`
+- `readable block digest graph evidence digest LLM prompt replay`
+- `vLLM cache_salt sha256_cbor privacy prompt cache deterministic replay`
+- `LMCache local disk offload O_DIRECT KV cache privacy deletion tombstone`
+- `Gemma 4 QAT tool parser chat template digest same fixture`
+- `MLX LM Gemma 4 tool parser raw tool_call text OpenAI tool_calls empty`
+- `Prompt Cache modular attention reuse schema positional accuracy`
+- `KVSwap disk aware KV cache on device preloading compact metadata`
+
+Red-team variants:
+
+- `raw body retained in model replay artifact`
+- `cross vault search result leak RRF fusion local LLM`
+- `stale editor snapshot prompt digest mismatch`
+- `cache hit deleted note prompt cache privacy`
+- `non deterministic cache hash cross runtime replay`
+- `search fallback hidden from AnswerPacket`
+- `model card treated as runtime proof Gemma 4 QAT`
+- `parser fix treated as tool use capability`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

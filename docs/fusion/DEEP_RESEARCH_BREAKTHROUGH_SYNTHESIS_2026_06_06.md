@@ -12777,3 +12777,220 @@ artifact that can feed actual runtime replay without raw user body leakage.
 Next research query: "Which exact same-fixture search and prompt-body
 freshness fields must be visible in AnswerPacket before GGUF, LiteRT, MLX
 Swift, and MLX-LM quarantine lanes can run a first comparable token?"
+
+## Deep Research Pass 115 - Same-Fixture Source/Search Freshness Packet
+
+This pass converts the next large-local-model bottleneck into a buildable
+source/search/prompt freshness packet. `F-SameFixtureRuntimeReplayEnvelope`
+proved that runtime lanes can be compared only under the same fixture. The
+next missing bridge is the packet that says what "same" means before the first
+comparable token can be attempted.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-only `F-SameFixtureSourceSearchFreshnessPacket` candidate
+that binds:
+
+- body source order: managed sidecar body, live editor snapshot sequence,
+  readable-block projection, graph/evidence projection, and prompt assembly;
+- search source order: FTS page search, block search, readable-block FTS, RRF
+  fused score, recency half-life, vault scope, and fallback reason;
+- prompt/cache order: canonical prompt digest, tokenizer digest,
+  chat-template digest, tool-schema digest, cache salt digest, cache hash
+  algorithm, cache privacy class, and no raw prompt retention;
+- runtime proof boundary: lane id, model source card, command envelope,
+  owner approval, cancellation, rollback, RunEventLog, AnswerPacket, and
+  abstention;
+- byte boundary: zero body bytes, DB bytes, cache bytes, runtime bytes, model
+  bytes, provider calls, and product mutations in metadata scope.
+
+This packet should feed the existing `F-SameFixtureRuntimeReplayEnvelope`
+instead of replacing it. The envelope says which lanes are allowed to compare;
+the freshness packet says which exact source/search/prompt state every lane
+must consume.
+
+### Local Source Map
+
+| Organ | Local refs | Build implication |
+|---|---|---|
+| Body/read freshness | `Epistemos/Models/SDPage.swift`, `Epistemos/Sync/NoteFileStorage.swift`, `Epistemos/Sync/MappedNoteBody.swift`, `Epistemos/State/NoteChatState.swift` | First-token replay cannot use a note body unless the source-of-truth order and digest are visible. |
+| Readable-block projection | `Epistemos/Sync/ReadableBlocksIndex.swift`, `Epistemos/Sync/ReadableBlocksProjector.swift` | Search snippets need block ids, projection digest, updated_at, and vault id; snippets are evidence candidates, not durable truth. |
+| Search/RRF | `Epistemos/Sync/SearchIndexService.swift`, `Epistemos/Sync/RRFFusionQuery.swift`, `Epistemos/Views/Settings/SearchFusionHealthRow.swift` | Fused search must expose source, rank, recency, vault scope, p95/error telemetry, and fallback path before it can feed Eidos or model replay. |
+| Prompt/cache | `Epistemos/Engine/PromptCache.swift`, `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift`, `Epistemos/Engine/PromptRenderer.swift` | Prompt modules, tool schema, knowledge index position, and cache hints need a digest fence before cross-lane replay. |
+| Visible proof | `Epistemos/Models/AnswerPacket.swift`, `Epistemos/Engine/AnswerPacketEmitter.swift`, `Epistemos/Engine/LatestAnswerPacketSink.swift` | AnswerPacket must show source freshness and cache caveats before runtime-lane output can be visible proof. |
+
+### External Source Map
+
+- vLLM Automatic Prefix Caching:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+  - Use: cache block hash, deterministic hash caveat, `sha256_cbor`
+    preference for cross-environment replay, and `cache_salt` privacy.
+  - Epistemos fusion: cache salt digest and hash algorithm become required
+    fields before KV/prompt reuse.
+- LMCache local storage:
+  `https://docs.lmcache.ai/kv_cache/storage_backends/local_storage.html`
+  - Use: CPU/local-disk offload can exist, disk offload is disabled by
+    default, local disk size is explicit, and O_DIRECT/path sharding are
+    configuration facts.
+  - Epistemos fusion: cache storage is a Pro research lane, not hidden
+    authority; all cache bytes remain zero until owner-approved runtime proof.
+- MLX-LM Gemma 4 tool parser issue:
+  `https://github.com/ml-explore/mlx-lm/issues/1096`
+  - Use: Gemma 4 native tool-call markers needed parser inference; even a
+    closed issue remains a source-card test requirement.
+  - Epistemos fusion: tool-parser digest and parser fixture must be part of
+    same-fixture replay, especially for coding/agentic work.
+- Prompt Cache paper:
+  `https://arxiv.org/abs/2311.04934`
+  - Use: reusable prompt modules need explicit schemas and positional
+    accuracy.
+  - Epistemos fusion: prompt modules become digest-addressed UAS units, not
+    informal text chunks.
+- Probing Prompt KV Cache:
+  `https://arxiv.org/abs/2605.30574`
+  - Use: prompt KV redundancy is layer/step/form dependent and cannot be
+    generalized blindly.
+  - Epistemos fusion: any KV compression/splice candidate must carry
+    layer/decode-step/content-role fields and fail closed.
+- KVSwap:
+  `https://arxiv.org/abs/2511.11907`
+  - Use: on-device long-context inference can use disk-aware KV offload with
+    compact metadata, preloading, and hardware-aware I/O.
+  - Epistemos fusion: this supports ColdStream-style planned transport, not
+    SSD-as-RAM overclaims.
+- Google Gemma 4 QAT:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+  - Use: QAT reduces memory requirements; Google names Q4_0, mobile
+    compressed tensors, KV/cache optimization, GGUF, LiteRT-LM, vLLM, and MLX
+    ecosystem lanes.
+  - Epistemos fusion: model cards become source cards and runtime lanes, not
+    local usability proof.
+- Official Gemma 4 E2B QAT GGUF:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+  - Use: source-card identity for the near-term GGUF lane.
+  - Epistemos fusion: exact revision/file/digest must be bound before owner
+    path or first-token proof.
+
+### Ranked Breakthrough Candidates
+
+1. `SameFixtureSourceSearchFreshnessPacket`
+   - Mechanism: source/search/prompt digest packet consumed by every runtime
+     lane before first comparable token.
+   - Epistemos organ: UAS/OAS -> Eidos -> SCOPE-Rex/SovereignGate ->
+     RuntimeRouter/System G -> RunEventLog -> AnswerPacket.
+   - Tier: T0 now; T1 after metadata falsifier; T2 only after owner-approved
+     runtime proof.
+   - MAS/Pro: Pro Gated research; MAS may show caveats only.
+   - Required falsifier: `F-SameFixtureSourceSearchFreshnessPacket`.
+   - Runtime proof: none yet; future first-token replay must cite this packet.
+   - User-visible proof: AnswerPacket freshness/caveat chips.
+   - Rollback: reject stale source/search/cache refs and roll back to
+     no-runtime abstention.
+   - Privacy risk: raw body/query/prompt snippets leaking into artifacts.
+   - Stability risk: stale editor snapshot or RRF fallback silently changing
+     fixture identity.
+   - Provenance path: local source refs plus external cache/runtime source
+     cards.
+   - Why breakthrough: makes local large-model comparison reproducible and
+     privacy-bound.
+   - Why wrong: can become paperwork unless it directly gates the first-token
+     harness.
+
+2. `ToolParserDigestReplay`
+   - Mechanism: bind chat template, parser inference rule, tool schema, and
+     red fixtures for Gemma/Qwen/MLX/GGUF tool JSON.
+   - Organ: RuntimeRouter/System G + AnswerPacket.
+   - Tier: T0 now; T1 after parser metadata fixture.
+   - Why breakthrough: coding/agentic models are useless if tool calls leak as
+     visible text or parse differently by lane.
+   - Why wrong: parser success is not answer quality and not runtime proof.
+
+3. `CacheSaltDeletionFence`
+   - Mechanism: cache salt/hash/deletion/tombstone fields for prompt/KV reuse.
+   - Organ: AppColdStore/Eidos/RuntimeRouter.
+   - Tier: T0 now.
+   - Why breakthrough: safe cache reuse is one of the only plausible ways to
+     make larger local models feel fast.
+   - Why wrong: cache-hit timing and stale source leakage can violate privacy
+     if lineage is weak.
+
+### Candidate Falsifier Backlog
+
+1. `F-SameFixtureSourceSearchFreshnessPacket`
+   - Accepted packet fields: body-source order, editor snapshot sequence,
+     readable-block digest, graph/evidence digest, fused-search digest,
+     RRF rank/recency/vault-scope fields, prompt digest, tool-schema digest,
+     cache salt/hash algorithm, AnswerPacket caveat ref, no-runtime
+     abstention ref.
+   - Red fixtures: missing body ref, stale editor sequence, missing readable
+     block digest, RRF rank inversion, cross-vault search leak, raw query/body
+     retention, missing cache salt, non-deterministic hash, missing tool
+     schema digest, hidden search fallback, L2/L3/T4 claim, live 70B claim,
+     provider call, nonzero DB/body/cache/model/runtime bytes.
+
+2. `F-GemmaQATToolParserDigestReplay`
+   - Accepted packet fields: model id/revision, tokenizer digest,
+     chat-template digest, tool-parser policy, parser test cases, hidden-chain
+     denial, visible tool-call denial, AnswerPacket parser caveat.
+   - Red fixtures: Gemma 4 native marker unparsed, raw tool text visible,
+     OpenAI-compatible `tool_calls` empty when tool output exists, parser
+     policy drift, MLX Python parser treated as Swift proof, L2/L3 claim.
+
+3. `F-CacheSaltDeletionFence`
+   - Accepted packet fields: cache salt digest, hash algorithm, trust group,
+     deletion/tombstone ref, TTL or eviction policy, source revision, prompt
+     module identity, no raw prompt retention.
+   - Red fixtures: cache without salt, cross-user reuse, stale source reuse,
+     deleted note cache hit, non-cryptographic hash promoted without caveat,
+     cache timing hidden from AnswerPacket.
+
+### Model / Runtime Ladder Implication
+
+The near-term large-local-model ladder should become:
+
+1. Freshness packet metadata proof.
+2. Same-fixture first-token owner-approved probe on the smallest safe lane.
+3. GGUF Gemma 4 E2B QAT source-card + command envelope.
+4. LiteRT-LM Swift admission only after package/binary/macOS proof.
+5. MLX Swift only after local loader proof and parser/tool fixtures.
+6. Gemma 4 12B QAT Pro Gated only after E2B/E4B packet replay passes.
+7. 26B/31B/MoE/exotic quant remain Pro Research/Vault until byte envelopes,
+   expert residency, first-token proof, and AnswerPacket visibility exist.
+8. 70B-class remains cold assembly/routing/transport, not dense live RAM.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; next build candidate is
+  named.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `SameFixtureSourceSearchFreshnessPacket`.
+
+Safest next falsifier: guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+the safest side-ladder build is `F-SameFixtureSourceSearchFreshnessPacket`.
+
+Best near-term code unit: implement
+`agent_core/src/uas/same_fixture_source_search_freshness_packet.rs`,
+`agent_core/src/bin/falsify_same_fixture_source_search_freshness_packet.rs`,
+and `Tools/falsifiers/f_same_fixture_source_search_freshness_packet.sh` with
+the red fixtures above.
+
+Biggest false-claim risk: treating a search result, cache hit, model card, or
+parser fix as runtime quality proof.
+
+Biggest missing source: a landed `F-SearchIndex-ReleaseBlockerCard` or direct
+search freshness primitive that binds RRF output without reading raw user
+body/query bytes into artifacts.
+
+Next research query: "What is the smallest Rust metadata packet that can bind
+body/readable-block/search/RRF/prompt/cache freshness for one no-runtime
+abstention fixture and reject raw body/query/prompt leakage?"
