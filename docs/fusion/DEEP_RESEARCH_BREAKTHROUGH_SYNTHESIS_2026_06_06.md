@@ -12994,3 +12994,229 @@ body/query bytes into artifacts.
 Next research query: "What is the smallest Rust metadata packet that can bind
 body/readable-block/search/RRF/prompt/cache freshness for one no-runtime
 abstention fixture and reject raw body/query/prompt leakage?"
+
+## Deep Research Pass 116 - Speculation / Session Quality Acceptance Packet
+
+This pass turns the latest MTP, speculative decoding, prefix-cache, and
+LiteRT-LM session-management research into a buildable acceptance packet for
+larger local models. The win condition is not "turn on speculation." The win
+condition is that Epistemos can prove when speed mechanisms preserve answer
+quality, privacy, source freshness, and rollback under the same fixture.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-only `F-SpeculationSessionQualityAcceptancePacket`
+candidate that consumes `F-SameFixtureRuntimeReplayEnvelope` and the proposed
+`F-SameFixtureSourceSearchFreshnessPacket`, then binds:
+
+- speculation mode: none, draft model, MTP drafter, n-gram cache, n-gram map,
+  n-gram mod, LiteRT-LM MTP, vLLM prefix cache, LMCache local storage, MLX
+  prompt cache, or no-runtime abstention;
+- acceptance metrics: attempted draft tokens, accepted draft tokens, rejected
+  draft tokens, target verification count, acceptance ratio, first-token
+  latency, decode throughput, prefill time, and cache hit/miss lineage;
+- quality packet: exact baseline answer digest, candidate answer digest,
+  target-only final-output rule, held-out task class, refusal/citation/tool
+  JSON drift flags, and "speed-only, not quality proof" caveat;
+- session packet: cache salt digest, session id digest, prompt-cache
+  descriptor, KV/session restore descriptor, deletion/tombstone ref, and
+  compatibility fence;
+- byte packet: model bytes, runtime bytes, KV/cache bytes, prompt bytes,
+  token bytes, stdout/stderr bytes, provider bytes, and product mutations all
+  remain zero in metadata scope;
+- promotion packet: L1/T1 metadata only, L2/L3 unchanged unless the runtime
+  harness and release audit explicitly prove otherwise.
+
+This packet is a practical bridge to larger local models because MTP,
+speculative decoding, prompt/prefix caching, and session restore attack the
+real bottleneck: repeated memory-bandwidth-bound decoding and expensive
+prefill. But they also create new failure modes: draft leakage, cache
+cross-contamination, stale prompts, parser drift, and false speed claims.
+
+### Local Source Map
+
+| Organ | Local refs | Build implication |
+|---|---|---|
+| Session/cache continuity | `Epistemos/Vault/SSMStateService.swift`, `Epistemos/Engine/PromptCache.swift` | Cache/session resume needs salt, digest, deletion, and compatibility fields before it can become route evidence. |
+| Retrieval freshness | `Epistemos/Engine/QueryRuntime.swift`, `Epistemos/Sync/SearchIndexService.swift`, `Epistemos/Sync/RRFFusionQuery.swift` | A speed win cannot matter if the source/search fixture changed. |
+| Runtime proof | `agent_core/src/uas/exotic_quant_redacted_first_token_probe_preflight_gate.rs`, `agent_core/src/agent_runtime_v2/system_g_runtime.rs` | First-token and runtime probes need redacted token digests, cancellation, teardown, rollback, RunEventLog, and AnswerPacket refs. |
+| Visible proof | `Epistemos/Models/AnswerPacket.swift`, `Epistemos/Engine/AnswerPacketEmitter.swift`, `Epistemos/Views/Chat/AnswerPacketBadge.swift` | User-visible proof should distinguish target output from draft/cache/session accelerators. |
+
+### External Source Map
+
+- llama.cpp speculative decoding:
+  `https://github.com/ggml-org/llama.cpp/blob/master/docs/speculative.md`
+  - Use: llama.cpp supports draft model speculation plus draftless n-gram
+    modes; n-gram cache/map/mod can exploit repeated code/text patterns; some
+    modes track accepted tokens; draft-cache options have separate KV dtypes.
+  - Epistemos fusion: speculation mode, acceptance ratio, draft KV type, and
+    target-only output become required packet fields.
+- LiteRT-LM:
+  `https://github.com/google-ai-edge/LiteRT-LM`
+  - Use: Swift is early preview; v0.13 records Gemma 4 12B and MacOS Swift
+    package support; v0.11 records Gemma 4 MTP support.
+  - Epistemos fusion: LiteRT-LM is a Pro Gated lane with source-card and
+    package proof, not a default app route.
+- Google LiteRT-LM developer post:
+  `https://developers.googleblog.com/en/blazing-fast-on-device-genai-with-litert-lm/`
+  - Use: Google reports MTP, session save/restore, constrained decoding,
+    function calling, Swift API, and edge memory optimizations.
+  - Epistemos fusion: session restore and MTP require cache lineage, quality
+    floor, and structured-output drift tests before product promotion.
+- Hugging Face Gemma 4 QAT model cards:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`,
+  `https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf`,
+  `https://huggingface.co/google/models`
+  - Use: official QAT GGUF and assistant/MTP-related source-card rows exist
+    across E2B, E4B, 12B, 26B-A4B, and 31B families.
+  - Epistemos fusion: model-card availability is a source-card input only;
+    exact file/revision/byte and runtime proof remain separate.
+- vLLM prefix caching:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+  - Use: prefix-cache hashing and cache salt are part of privacy-aware cache
+    reuse.
+  - Epistemos fusion: cache salt/hash and deletion lineage become visible
+    AnswerPacket caveats.
+- LMCache local storage:
+  `https://docs.lmcache.ai/kv_cache/storage_backends/local_storage.html`
+  - Use: local CPU/disk KV storage requires explicit paths, sizes, and
+    configuration.
+  - Epistemos fusion: disk/cache storage stays Pro Research until owner
+    approval, byte proof, deletion proof, and rollback exist.
+
+### Ranked Breakthrough Candidates
+
+1. `SpeculationSessionQualityAcceptancePacket`
+   - Mechanism: field-level packet proving acceleration did not change the
+     same fixture, leak raw draft/prompt/token bytes, or demote target
+     verification.
+   - Epistemos organ: ActiveAssembly -> RuntimeRouter/System G -> RunEventLog
+     -> AnswerPacket.
+   - Tier: T0 now; T1 after metadata falsifier; T2 only after small-model
+     runtime harness evidence.
+   - MAS/Pro: Pro Gated research; MAS may receive only honest disabled/gated
+     copy.
+   - Required falsifier: `F-SpeculationSessionQualityAcceptancePacket`.
+   - Runtime proof: future owner-approved one-token or small-model replay.
+   - User-visible proof: AnswerPacket chips for speculation mode, acceptance
+     ratio, cache lineage, target-only output, and quality caveat.
+   - Rollback: disable speculation/cache/session reuse and fall back to
+     baseline same-fixture lane.
+   - Privacy risk: cache salt omission, raw prompt/token capture, cross-vault
+     reuse.
+   - Stability risk: MTP/draft/KV state mismatch, server sidecar slot sharing,
+     stale session restore, unbounded output.
+   - Provenance path: local code refs plus official runtime/model docs above.
+   - Why breakthrough: makes the performance layer measurable enough to let
+     12B/26B/MoE rows become realistic without pretending weights alone fit.
+   - Why wrong: acceptance-rate wins can still reduce answer quality or tool
+     JSON reliability if held-out replay is weak.
+
+2. `TargetOnlyDraftLeakFence`
+   - Mechanism: prove that draft tokens, thinking scratchpads, rejected MTP
+     candidates, and speculative cache rows never become visible final output
+     or hidden chain.
+   - Organ: RuntimeRouter/System G + AnswerPacket.
+   - Tier: T0 now.
+   - Why breakthrough: agentic coding needs fast repeated-token paths, but the
+     user must see only verified target output.
+   - Why wrong: target-only output is necessary but not sufficient for quality.
+
+3. `SessionRestoreDeletionLineageFence`
+   - Mechanism: bind MLX/LiteRT/vLLM/LMCache session restore to source
+     revision, cache salt, tombstone, TTL, and vault scope.
+   - Organ: AppColdStore/Eidos/RuntimeRouter.
+   - Tier: T0 now.
+   - Why breakthrough: safe session restore reduces repeated prefill, which is
+     central to making larger models tolerable.
+   - Why wrong: stale or cross-vault restore would be a privacy failure.
+
+### Candidate Falsifier Backlog
+
+1. `F-SpeculationSessionQualityAcceptancePacket`
+   - Accepted fields: upstream same-fixture envelope ref, freshness packet ref,
+     runtime lane id, model/source card, speculation mode, draft source card,
+     accepted/rejected/attempted draft token counts, acceptance ratio,
+     target verification count, prefill/decode/first-token metrics,
+     cache/session lineage, quality floor refs, rollback, RunEventLog,
+     AnswerPacket, and no-runtime abstention.
+   - Red fixtures: accepted tokens without target verification, rejected draft
+     tokens surfaced, raw token text retained, cache salt missing, session
+     restore without tombstone check, cross-vault cache reuse, n-gram shared
+     across users, LiteRT Swift preview treated as MAS live, MTP speed treated
+     as quality proof, model card treated as runtime proof, nonzero metadata
+     bytes, L2/L3/T4 claim, live dense 70B claim.
+
+2. `F-TargetOnlyDraftLeakFence`
+   - Accepted fields: draft visibility denied, final target output digest,
+     hidden scratchpad denied, tool JSON final-only digest, rejected token
+     count, no raw draft bytes, no hidden chain.
+   - Red fixtures: draft token appears in AnswerPacket text, rejected draft
+     appears in tool call, hidden reasoning streamed as user-visible claim,
+     final digest missing, target model verification missing.
+
+3. `F-SessionRestoreDeletionLineageFence`
+   - Accepted fields: session id digest, cache salt digest, source revision,
+     deletion/tombstone ref, TTL/eviction, vault scope, prompt module digest,
+     KV/cache byte envelope, compatibility fence, AnswerPacket caveat.
+   - Red fixtures: deleted note cache hit, stale source restore, cross-vault
+     reuse, missing salt, hidden disk cache, unbounded local storage path,
+     cache hit without visible caveat.
+
+### Model / Runtime Ladder Implication
+
+The large-local-model ladder should now split first-token proof from speed
+proof:
+
+1. Source/search/prompt freshness packet.
+2. Same-fixture first-token proof on smallest safe lane.
+3. Speculation/session quality acceptance packet with no runtime bytes.
+4. Owner-approved small-model runtime replay with speculation disabled.
+5. Owner-approved small-model runtime replay with one accelerator enabled.
+6. Gemma 4 E2B/E4B QAT GGUF or LiteRT-LM candidate replay.
+7. Gemma 4 12B QAT Pro Gated replay only after cache/session/quality
+   acceptance.
+8. 26B/31B/MoE/exotic rows only after byte envelopes, first-token proof,
+   target-only output, acceptance-rate proof, and AnswerPacket visibility.
+9. 70B-class remains cold assembly/routing/transport, with speculation/cache
+   as possible support mechanisms rather than dense hot residency.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; the next build
+  candidate is named.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `SpeculationSessionQualityAcceptancePacket`.
+
+Safest next falsifier: guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+the safest side-ladder build is
+`F-SpeculationSessionQualityAcceptancePacket` after
+`F-SameFixtureSourceSearchFreshnessPacket`.
+
+Best near-term code unit: implement the freshness packet first, then
+`agent_core/src/uas/speculation_session_quality_acceptance_packet.rs`,
+`agent_core/src/bin/falsify_speculation_session_quality_acceptance_packet.rs`,
+and `Tools/falsifiers/f_speculation_session_quality_acceptance_packet.sh`.
+
+Biggest false-claim risk: treating MTP/speculative speed, LiteRT-LM Swift
+preview, cache hits, or QAT model-card availability as quality, runtime, MAS,
+or user-facing proof.
+
+Biggest missing artifact: a landed freshness packet and a landed quality
+acceptance packet that can be consumed by the guard-owned small-model runtime
+harness.
+
+Next research query: "Which acceptance-rate, target-verification, cache
+lineage, and held-out quality fields must be visible before a same-fixture
+small-model runtime probe may enable MTP, n-gram speculation, prefix cache, or
+session restore?"

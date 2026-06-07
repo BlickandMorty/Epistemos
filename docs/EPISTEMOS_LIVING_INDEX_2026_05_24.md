@@ -3746,6 +3746,30 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   `F-ProofGuidedRouteRepairCard`. This advances T0 research/backlog only; no
   command is armed, no model/runtime/provider bytes are loaded, and L2/L3
   large-local-model capability remains red.
+- 2026-06-07 speculation/session quality research-to-build canon: Deep
+  Research Pass 116 is now folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`,
+  `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`, and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass defines the buildable
+  side-ladder candidate `F-SpeculationSessionQualityAcceptancePacket`, which
+  must consume the same-fixture envelope and source/search freshness packet
+  before MTP, n-gram speculation, prefix cache, LiteRT/MLX session restore, or
+  other speed mechanisms can influence runtime planning. Required packet fields
+  include speculation mode, draft source card, accepted/rejected/attempted
+  draft-token counts, target verification count, acceptance ratio,
+  first-token/prefill/decode metrics, cache/session lineage, target-only final
+  output, held-out quality floor, rollback, RunEventLog, AnswerPacket, and
+  no-runtime abstention. External sources folded include llama.cpp
+  speculative decoding, Google LiteRT-LM, Google LiteRT-LM MTP/session
+  management, official Gemma 4 QAT Hugging Face model cards, vLLM prefix
+  caching, and LMCache local storage. This is T0 canon/build-plan only: no
+  model/runtime/cache/session bytes were loaded, no command was armed, no L1
+  witness landed, L2 remains `vault_research_route_with_packetized_mitigation`,
+  and L3 user-facing large-local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

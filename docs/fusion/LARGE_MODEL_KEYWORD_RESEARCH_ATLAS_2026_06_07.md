@@ -1338,6 +1338,36 @@ Red-team variants:
 - `model card treated as runtime proof Gemma 4 QAT`
 - `parser fix treated as tool use capability`
 
+## Pass 116 Speculation / Session Quality Keywords
+
+The next performance side-ladder candidate is
+`F-SpeculationSessionQualityAcceptancePacket`. Search for exact field shapes,
+failure reports, and code motifs with:
+
+- `MTP acceptance ratio target verification quality drift local LLM`
+- `llama.cpp speculative decoding ngram accepted tokens target only output`
+- `llama.cpp ngram-mod shared hash pool privacy multi user cache`
+- `Gemma 4 MTP LiteRT-LM session save restore cache lineage quality`
+- `LiteRT-LM Swift early preview macOS Gemma 4 12B MTP session management`
+- `vLLM prefix cache salt deletion lineage AnswerPacket`
+- `LMCache local storage O_DIRECT path sharding deleted note leakage`
+- `MLX savePromptCache loadPromptCache session restore stale source`
+- `local LLM speculative decoding tool JSON drift parser drift`
+- `same fixture first token speculation disabled enabled quality replay`
+
+Red-team variants:
+
+- `speculative draft token leaked final output`
+- `rejected MTP token visible tool call`
+- `MTP speedup treated as quality proof`
+- `n gram cache shared across users privacy`
+- `LiteRT Swift preview treated as MAS live`
+- `session restore stale deleted source`
+- `prefix cache salt omitted cross vault`
+- `target verification count missing speculative decoding`
+- `cache hit treated as runtime proof`
+- `accepted token ratio without held out baseline`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:
