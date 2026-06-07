@@ -1426,6 +1426,34 @@ Red-team variants:
 - `model source card no local artifact path`
 - `lane selection missing rollback abstention`
 
+## Pass 119 Automated Checks Closure Matrix Keywords
+
+Search for release-audit closure and family-repair evidence with:
+
+- `xcodebuild test failure family closure matrix`
+- `Swift Testing xcodebuild only-testing release audit rerun`
+- `xcodebuild result bundle failure family parser`
+- `graph filter visibility Swift tests FilterEngine GraphState`
+- `focused Swift test pass full xcodebuild rerun release gate`
+- `release audit automated checks log evidence AnswerPacket RunEventLog`
+- `model runtime harness xcodebuild_test failed family count`
+- `MAS Pro boundary App Store hardening focused test release blocker`
+- `SwiftData graph filter visibility source guard regression`
+- `large local model release audit product capability blocked by xcodebuild`
+
+Red-team variants:
+
+- `focused only-testing pass treated as full release pass`
+- `family source card treated as bug repair`
+- `retained xcodebuild log stale reused as green`
+- `top failure family not mapped`
+- `xcodebuild_test failure count not reduced`
+- `release audit log evidence attempted before automated checks pass`
+- `Gemma QAT route promoted while app tests red`
+- `Qwen small harness L3 green while xcodebuild_test fails`
+- `manual runtime check replaces full automated check`
+- `three zero fail passes claimed after code change`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:
