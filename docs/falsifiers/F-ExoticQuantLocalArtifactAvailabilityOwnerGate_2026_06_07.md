@@ -50,7 +50,7 @@ Accepted rows:
 - Source tree bytes read: `0`
 - Product bytes copied: `0`
 - Benchmark runs: `0`
-- Next research-to-build cursor: `exotic_quant_owner_path_manifest_intake_gate`
+- Next research-to-build cursor: `exotic_quant_owner_path_manifest_intake_gate` (now landed downstream; downstream next is `exotic_quant_owner_path_canonicalization_preflight_gate`)
 
 ## Non-Promotion Boundary
 
@@ -66,4 +66,6 @@ The red fixtures reject duplicate IDs, missing expected models, bad source-pin b
 
 The large-local-model track is becoming more practical because QAT, TurboVec-adjacent compression, TurboQuant-like formats, GGUF, HLWQ, APEX, NVFP4, and AutoRound may shrink selected artifacts or active compute. That ambition is useful only if Epistemos can keep every step witnessed. This gate makes local artifact availability an owner-approved manifest problem rather than a hidden filesystem guess.
 
-This gate creates the next required proof object: an owner path-manifest intake gate. Only after that can crash-safe command envelopes and owner-approved probes be considered.
+The downstream `F-ExoticQuantOwnerPathManifestIntakeGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
+
+The next required proof object is `exotic_quant_owner_path_canonicalization_preflight_gate`. Only after that can crash-safe command envelopes and owner-approved probes be considered.

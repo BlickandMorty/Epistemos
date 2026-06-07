@@ -300,8 +300,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > symlink resolution/command executions/model/runtime/provider/source-tree/
 > product/benchmark bytes at zero, and preserves no-hidden-authority, no-MAS,
 > no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3 remain
-> unchanged; the next research-to-build unit is
-> `exotic_quant_owner_path_manifest_intake_gate`.
+> unchanged; downstream owner path-manifest intake is now landed by Pass 79.
+> Deep Research Pass 79 now lands
+> `F-ExoticQuantOwnerPathManifestIntakeGate` as a T1/L1 metadata-only witness at
+> `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
+> It consumes `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`, accepts five
+> owner path-manifest intake cards, records three Mac-candidate rows with
+> required manifest schema and zero owner manifests/signatures/digests present,
+> denies two server/GPU rows for Mac manifest intake, rejects 64 red fixtures,
+> binds selected artifact bytes `96318502063` and maximum minimum UMA bytes
+> `39108307031`, keeps owner-manifest bytes/path canonicalization/path opens/
+> stat calls/file hashes/symlink resolution/command executions/model/runtime/
+> provider/source-tree/product/benchmark bytes at zero, and preserves
+> no-hidden-authority, no-MAS, no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM
+> boundaries. L2 and L3 remain unchanged; the next research-to-build unit is
+> `exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 ---
 
