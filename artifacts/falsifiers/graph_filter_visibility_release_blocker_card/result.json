@@ -1,0 +1,661 @@
+{
+  "falsifier_id": "F-GraphFilterVisibility-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_graph_filter_visibility_release_blocker_card.sh",
+  "command_digest": "sha256:cacd9e64d5c0aa6791edf08d341ec8d21211718aefd3617b08471c86de3e803e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9d45d2a2ea76590a8cfce6a3fa4866aa321da328",
+  "fixture_id": "graph_filter_visibility_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T16:30:33Z",
+  "result_digest": "sha256:2e3bc5e532bdf5f9864b6f9d07a3d317b034403714e618c5fb17cf213b95c548",
+  "measurements": {
+    "app_level_ffi_type_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_visibility_endpoint_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_visibility_requires_visible_endpoints": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focus_filter_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_graph_filter_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_default_on_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "graph_filter_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_issue_count": {
+      "value": 34,
+      "unit": "issues"
+    },
+    "graph_filter_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_address": {
+      "value": "sha256:6cbd4593308e56ff2ef5b4f000bf1b105d8efe3ae76d1e763b2fc9237270efbc",
+      "unit": "sha256"
+    },
+    "graph_filter_visibility_card": {
+      "value": {
+        "family_id": "graph_filter_visibility",
+        "issue_count": 34,
+        "organ": "eidos_graph_visibility",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Graph/FilterEngine.swift",
+          "Epistemos/Models/GraphTypes.swift",
+          "Epistemos/Graph/GraphState.swift",
+          "Epistemos/Graph/GraphStore.swift",
+          "Epistemos/Views/Graph/MetalGraphView.swift",
+          "Epistemos/Views/Graph/HologramSearchSidebar.swift",
+          "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "EpistemosTests/ResourceExhaustionTests.swift",
+          "EpistemosTests/ConcurrencyEdgeCaseTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/FilterEngineComprehensiveTests",
+          "xcodebuild test -only-testing:EpistemosTests/ResourceExhaustionTests",
+          "xcodebuild test -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests"
+        ],
+        "required_invariants": [
+          "default_active_cases_are_single_source_of_truth",
+          "folder_nodes_remain_opt_in_default",
+          "visible_cases_include_app_level_artifacts_without_ffi_promotion",
+          "ffi_graph_node_type_contract_stays_fourteen_cases",
+          "app_level_graph_types_never_bridge_to_rust_ffi",
+          "search_filter_participates_in_node_visibility",
+          "focus_filter_participates_in_node_visibility",
+          "vault_filter_is_visible_and_lenient_for_missing_origin",
+          "edge_visibility_requires_visible_endpoints_and_active_edge_type",
+          "filter_snapshot_binds_visible_state_for_background_payloads",
+          "graph_filter_repairs_required_before_eidos_evidence_navigation_green",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "graph_filter_as_eidos_route_authority": false,
+        "hidden_graph_filter_authority": false,
+        "ffi_app_level_type_promoted": false,
+        "folder_default_on_claimed": false,
+        "search_filter_bypass_claimed": false,
+        "focus_filter_bypass_claimed": false,
+        "edge_visibility_endpoint_bypass_claimed": false,
+        "graph_release_family_green_claimed": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "graph_runtime_bytes_loaded": 0,
+        "rollback_ref": "rollback:graph_filter_visibility_release_blocker",
+        "run_event_log_ref": "run_event_log:graph_filter_visibility_release_blocker",
+        "answer_packet_ref": "answer_packet:graph_filter_visibility_release_blocker"
+      },
+      "unit": "card"
+    },
+    "graph_release_family_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "graph_types_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_graph_filter_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_default_active_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ffi_contract_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_filter_engine_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_graph_types_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "research_tool_catalog_no_hidden_authority",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_app_level_ffi_type_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_folder_default_on_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_graph_filter_as_eidos_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_graph_release_family_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_graph_filter_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_search_or_focus_visibility_bypass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "resource_exhaustion_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_filter_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 9,
+      "unit": "refs"
+    },
+    "source_refs_cover_graph_filter_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_graph_filter_visibility": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_visible_output_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_level_ffi_type_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_visibility_endpoint_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "edge_visibility_requires_visible_endpoints": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focus_filter_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_graph_filter_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_default_on_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "graph_filter_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_issue_count": {
+      "operator": "==",
+      "value": 34,
+      "unit": "issues"
+    },
+    "graph_filter_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "graph_filter_visibility_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "graph_release_family_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "graph_types_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_graph_filter_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_default_active_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_ffi_contract_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_filter_engine_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_graph_types_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "research_tool_catalog_no_hidden_authority",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_app_level_ffi_type_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_folder_default_on_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_graph_filter_as_eidos_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_graph_release_family_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_graph_filter_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_search_or_focus_visibility_bypass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "resource_exhaustion_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_filter_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "refs"
+    },
+    "source_refs_cover_graph_filter_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_graph_filter_visibility": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_visible_output_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "app_level_ffi_type_promotion_rejected": true,
+    "edge_visibility_endpoint_bypass_rejected": true,
+    "edge_visibility_requires_visible_endpoints": true,
+    "filter_engine_source_bound": true,
+    "filter_engine_tests_bound": true,
+    "focus_filter_bypass_rejected": true,
+    "focused_command_count": true,
+    "focused_commands_cover_graph_filter_tests": true,
+    "folder_default_on_claim_rejected": true,
+    "graph_filter_family_bound": true,
+    "graph_filter_invariant_count": true,
+    "graph_filter_invariants_bound": true,
+    "graph_filter_issue_count": true,
+    "graph_filter_issue_count_retained": true,
+    "graph_filter_route_authority_rejected": true,
+    "graph_filter_visibility_address": true,
+    "graph_filter_visibility_card": true,
+    "graph_release_family_green_claim_rejected": true,
+    "graph_runtime_byte_leak_rejected": true,
+    "graph_runtime_bytes_loaded_total": true,
+    "graph_types_source_bound": true,
+    "hidden_graph_filter_authority_rejected": true,
+    "hidden_route_cloud_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_default_active_invariant_rejected": true,
+    "missing_ffi_contract_invariant_rejected": true,
+    "missing_filter_engine_source_rejected": true,
+    "missing_graph_types_source_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_app_level_ffi_type_promotion": true,
+    "no_folder_default_on_overclaim": true,
+    "no_graph_filter_as_eidos_route_authority": true,
+    "no_graph_release_family_green_claim": true,
+    "no_hidden_graph_filter_authority": true,
+    "no_hidden_route_or_cloud_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_runtime_bytes": true,
+    "no_search_or_focus_visibility_bypass": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "resource_exhaustion_tests_bound": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "search_filter_bypass_rejected": true,
+    "source_ref_count": true,
+    "source_refs_cover_graph_filter_surfaces": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_graph_filter_visibility": true,
+    "upstream_visible_output_card_pass": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GraphFilterVisibility-ReleaseBlockerCard: consumes the visible-output blocker and release-audit family source card, binds graph_filter_visibility issue count 34 to exact FilterEngine/GraphTypes/GraphState/GraphStore/graph-view source refs, focused tests, visibility invariants, rollback, RunEventLog, AnswerPacket, and rejects graph filters as hidden Eidos route authority, app-level GraphNodeType FFI promotion, default-folder overclaims, search/focus/edge visibility bypasses, runtime byte loads, L2/L3/product green, and live dense-70B claims."
+}
