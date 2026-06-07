@@ -55,4 +55,6 @@ This is not a runtime probe. It does not download, clone, import, mmap, load, ru
 
 ## Next Unit
 
-`exotic_quant_loader_compatibility_model_path_gate` should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.
+The downstream `F-ExoticQuantLoaderCompatibilityModelPathGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`.
+
+The next research-to-build unit is `exotic_quant_local_artifact_availability_owner_gate`, which should prove owner-approved local artifact availability before any crash-safe command envelope or runtime probe can be armed.

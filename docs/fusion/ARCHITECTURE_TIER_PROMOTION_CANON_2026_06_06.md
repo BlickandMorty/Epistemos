@@ -498,8 +498,22 @@ command/model-path/model/runtime/provider/source-tree/product/benchmark bytes.
 It does not grant owner approval, prove loader support, open local model files,
 run GGUF/APEX/Transformers/NVFP4/AutoRound, prove Apple Silicon fit, choose a
 default, make L2/L3 product capability green, or promote live dense 70B. The
-next large-local-model research-to-build unit is
-`exotic_quant_loader_compatibility_model_path_gate`.
+downstream loader/path gate is now landed by
+`F-ExoticQuantLoaderCompatibilityModelPathGate`.
+
+2026-06-07 exotic quant loader/path promotion note:
+`F-ExoticQuantLoaderCompatibilityModelPathGate` is T1/L1 only. It strengthens
+the architecture in favor of larger local models by binding exact exotic quant
+rows to metadata-only loader compatibility classes and fail-closed model-path
+states: three Mac-candidate rows require owner path manifests with no local
+file verified, two server/GPU rows are denied for Mac path/runtime, command
+envelopes stay unarmed, no path is opened, no stat/hash attempt is made, and
+rollback, RunEventLog, AnswerPacket, abstention, and zero
+command/model-path/model/runtime/provider/source-tree/product/benchmark bytes
+remain mandatory. It does not prove local artifact availability, loader import,
+first token, quality, Apple Silicon fit, product default, L2/L3 product
+capability, or live dense 70B. The next large-local-model research-to-build
+unit is `exotic_quant_local_artifact_availability_owner_gate`.
 
 ## Required Surface Updates
 

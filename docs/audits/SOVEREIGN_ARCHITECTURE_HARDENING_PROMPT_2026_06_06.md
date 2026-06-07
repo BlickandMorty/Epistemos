@@ -146,9 +146,19 @@ Current 2026-06-07 large-local-model research-to-build status:
   server-only rows denied for Mac runtime, rejects 53 red fixtures, keeps
   command executions/model-path opens/model/runtime/provider/source-tree/
   product/benchmark bytes at zero, and still does not prove runtime load,
-  Apple Silicon fit, product default, or user-facing capability. The next
-  large-local-model research-to-build unit is
-  `exotic_quant_loader_compatibility_model_path_gate`.
+  Apple Silicon fit, product default, or user-facing capability.
+- `F-ExoticQuantLoaderCompatibilityModelPathGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`.
+  It consumes the runtime owner gate, accepts 5 loader/path gate cards, binds
+  metadata-only GGUF/llama.cpp and Transformers loader classes, records 3
+  Mac-candidate rows requiring owner path manifests with no local file
+  verified, denies 2 server/GPU rows for Mac path/runtime, rejects 63 red
+  fixtures, keeps command executions/path opens/stat calls/file hashes/model/
+  runtime/provider/source-tree/product/benchmark bytes at zero, and still does
+  not prove runtime load, Apple Silicon fit, product default, or user-facing
+  capability. The next large-local-model research-to-build unit is
+  `exotic_quant_local_artifact_availability_owner_gate`.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

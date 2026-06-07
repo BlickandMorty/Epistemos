@@ -101,16 +101,18 @@ Runtime policy:
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
-  `F-ExoticQuantRuntimeLaneOwnerApprovalGate` are landed as T1/L1 metadata-only
-  witnesses. They make Gemma/Qwopus/MoE/GPU/exotic-quant rows addressable,
-  prove active parameters are compute evidence rather than memory-fit proof,
-  quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before any route use,
-  and bind exact source pins, manifest digests, selected-artifact bytes, Mac/
-  server tier decisions, pending owner approval, unarmed command envelopes,
-  unopened model paths, rollback, RunEventLog, AnswerPacket, and abstention.
-  They do not prove model load, Apple Silicon fit, product default, or
-  user-facing capability. The next research-to-build unit is
-  `exotic_quant_loader_compatibility_model_path_gate`.
+  `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, and
+  `F-ExoticQuantLoaderCompatibilityModelPathGate` are landed as T1/L1
+  metadata-only witnesses. They make Gemma/Qwopus/MoE/GPU/exotic-quant rows
+  addressable, prove active parameters are compute evidence rather than
+  memory-fit proof, quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before
+  any route use, and bind exact source pins, manifest digests, selected-
+  artifact bytes, Mac/server tier decisions, pending owner approval, unarmed
+  command envelopes, unopened model paths, metadata-only loader classes, owner
+  path-manifest requirements, server-only Mac denials, rollback, RunEventLog,
+  AnswerPacket, and abstention. They do not prove model load, Apple Silicon
+  fit, product default, or user-facing capability. The next research-to-build
+  unit is `exotic_quant_local_artifact_availability_owner_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,
