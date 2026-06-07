@@ -13880,3 +13880,72 @@ repaired without changing product semantics or claiming L2/L3.
 Next research query: "Which retained graph_filter_visibility failures remain
 after the folder opt-in test repair, and do any require product-source changes
 rather than stale test expectation updates?"
+
+## Deep Research Pass 121 - Graph Filter Visibility Test Patch Checkpoint
+
+This pass records the first focused implementation step after Pass 120. The
+patch updates stale graph-filter test expectations so they match the existing
+product contract: `folder` is graph-visible, but default-off unless explicitly
+opted in. No product source was changed.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Patch Scope
+
+- `FilterEngineComprehensiveTests.swift` now separates default-active types
+  from all graph-visible types, explicitly opts `.folder` in when a scenario
+  expects folder visibility, and keeps `showAllTypes()` aligned with
+  `defaultActiveCases`.
+- `ResourceExhaustionTests.swift` now checks both the default-active contract
+  and an explicit all-visible baseline.
+- `ConcurrencyEdgeCaseTests.swift` now bounds rapid toggling by graph-visible
+  types while asserting the default-active set excludes `.folder`.
+
+### Verification Truth
+
+- `git diff --check`: PASS.
+- `epistemos_doctrine_lint`: PASS.
+- `Tools/falsifiers/f_architecture_pending_work_guard.sh`: PASS with
+  `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  and `duplicate_risk_count=0`.
+- `Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh`: expected RED;
+  route status remains `vault_research_route_with_packetized_mitigation` and
+  next bottleneck remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- First focused Xcode command built the test bundle and reported success, but
+  executed zero tests because the selector used a filename instead of Swift
+  Testing suite/test identifiers.
+- A second suite-selector Xcode command was stopped after a long compile for
+  cost before reliable test execution evidence existed.
+
+### Promotion Truth
+
+- T0 research/canon: advanced by recording the applied patch checkpoint.
+- T1/L1 architecture proof: unchanged; no new falsifier rung landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `GraphFilterVisibilityFocusedRepairProof`.
+
+Safest next falsifier: `F-GraphFilterVisibilityFocusedRepairProof`, or the
+guard-owned automated-checks probe after the correct Swift Testing focused
+selectors are known.
+
+Best near-term code unit: find the correct focused Swift Testing invocation
+for the repaired graph-filter suites, execute it, then rerun the retained
+automated-checks row only when the focused family is clean.
+
+Biggest false-claim risk: treating the zero-test Xcode success or the stopped
+suite-selector run as evidence that the graph-filter family is repaired.
+
+Biggest missing artifact: a focused executed-test log proving the patched
+graph-filter suites ran and passed.
+
+Next research query: "What exact Swift Testing selector form runs the repaired
+FilterEngine graph-filter tests without rebuilding the whole release-audit
+surface, and which retained graph_filter_visibility failures remain after that
+real execution?"

@@ -612,7 +612,7 @@ struct ConcurrencyFilterEngineTests {
     func rapidTypeToggling() {
         let filter = FilterEngine()
         
-        let types = GraphNodeType.allCases
+        let types = GraphNodeType.visibleCases
         
         for _ in 0..<10 {
             for type in types {
@@ -659,7 +659,11 @@ struct ConcurrencyFilterEngineTests {
     func allTypesVisibleByDefault() {
         let filter = FilterEngine()
         
-        #expect(filter.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+        #expect(filter.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
+        for type in GraphNodeType.defaultActiveCases {
+            #expect(filter.activeNodeTypes.contains(type))
+        }
+        #expect(!filter.activeNodeTypes.contains(.folder))
     }
     
     @Test("Filter is filtered check")
