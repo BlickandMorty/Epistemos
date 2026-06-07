@@ -88,6 +88,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   no model/runtime/KV/index bytes, no SSD-as-RAM claim, no hidden route
   authority, no L2/L3 promotion, and no user-facing large-local-model green
   claim.
+- Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
+  redacted first-token artifact schema for
+  `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has an
+  address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The schema requires model/source identity, owner lease, prompt
+  digest without raw prompt, first-token digest without raw token, one-token
+  bounds, memory samples, lane caveats, RunEventLog, AnswerPacket, rollback,
+  abstention, and explicit non-promotion. This is T0 canon/backlog only: no
+  model run, no token capture, no L2/L3 promotion, and no user-facing green
+  claim.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
