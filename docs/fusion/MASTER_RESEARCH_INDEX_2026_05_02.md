@@ -4482,3 +4482,27 @@ and should feed Stage F only. `docs/fusion/WORKTREE_FUSION_BRAINSTORM_2026_05_04
 is the selective-port strategy for turning salvaged worktree prototypes into
 current-main code without raw merges. Full native `Tool` trait migration remains
 staged; do not raw-copy `v2_catalog/`.
+
+### §28.7 Large-model speculation/session quality canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 116 plus `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+
+Pass 116 defines `F-SpeculationSessionQualityAcceptancePacket` as the next
+performance side-ladder candidate after the same-fixture envelope and
+source/search freshness packet. It folds current source evidence from
+llama.cpp speculative decoding, Google LiteRT-LM, Google LiteRT-LM MTP/session
+management, official Gemma 4 QAT Hugging Face cards, vLLM prefix caching, and
+LMCache local storage into an Epistemos packet that binds speculation mode,
+accepted/rejected/attempted draft tokens, target verification count,
+acceptance ratio, first-token/prefill/decode metrics, cache/session lineage,
+target-only final output, held-out quality floor, rollback, RunEventLog,
+AnswerPacket, and no-runtime abstention.
+
+Promotion truth: this is T0 research-to-build canon only. It loads zero
+model/runtime/cache/session bytes, arms zero commands, makes zero provider
+calls, lands no L1 witness, and does not change L2/L3. Speed mechanisms such
+as MTP, n-gram speculation, prefix cache, and session restore remain Pro
+Gated/Research until a falsifier, owner-approved runtime harness, quality
+replay, release audit, and user-visible AnswerPacket evidence prove them.

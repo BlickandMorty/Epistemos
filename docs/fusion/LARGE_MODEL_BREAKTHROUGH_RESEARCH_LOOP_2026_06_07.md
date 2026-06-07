@@ -166,6 +166,22 @@ provider calls, and nonzero metadata-scope bytes. This is T0 canon/build-plan
 only: no runtime/model/cache/search bytes were loaded, no command was armed,
 and product capability did not advance.
 
+2026-06-07 Pass 116 addendum: speed research now has to become quality and
+session proof before it helps larger local models. The next performance
+side-ladder candidate is `F-SpeculationSessionQualityAcceptancePacket`: consume
+the same-fixture envelope and source/search freshness packet, then bind
+speculation mode, draft source card, accepted/rejected/attempted draft token
+counts, target verification count, acceptance ratio, first-token latency,
+prefill/decode metrics, cache/session lineage, prompt-cache salt, deletion or
+tombstone refs, target-only final output, held-out quality floor, rollback,
+RunEventLog, AnswerPacket, and no-runtime abstention. Red-team draft leakage,
+MTP speed as quality proof, n-gram cache sharing across users, cache salt
+omission, stale LiteRT/MLX session restore, rejected token visibility, tool
+JSON drift, parser drift, hidden sidecar slots, L2/L3/T4 promotion, live dense
+70B, provider calls, and nonzero metadata-scope bytes. This is T0
+canon/build-plan only: no runtime/model/cache/session bytes were loaded, no
+command was armed, and product capability did not advance.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
@@ -179,6 +195,10 @@ Prioritize mechanisms that plausibly become code:
 - MoE/sparse lane: active params are compute evidence only; full-weight bytes and KV bytes still bind.
 - Same-fixture replay lane: field-complete packet proof before any runtime-lane tournament.
 - Same-fixture minimal build lane: metadata-only UAS primitive with five lane cards and fail-closed abstention.
+- Speculation/session quality lane: acceptance-rate, target-only output,
+  cache-lineage, session-restore, and held-out quality packets before MTP,
+  n-gram speculation, prefix cache, or LiteRT/MLX session restore can accelerate
+  a product route.
 - Proof-guided route lane: Lean/AxProver/OProver-style compiler feedback, verifier traces, and repair loops for route correctness and code-generation confidence.
 - EML/Primitive IR lane: elementary-function charts are internal primitive maps, not substrate-wide proof; source-card EML/math repos as motifs before implementation.
 
@@ -206,6 +226,12 @@ Prioritize mechanisms that plausibly become code:
   `https://docs.lmcache.ai/index.html`
 - KTransformers expert placement docs:
   `https://ktransformers.net/docs/optimization-techniques/expert-placement`
+- llama.cpp speculative decoding:
+  `https://github.com/ggml-org/llama.cpp/blob/master/docs/speculative.md`
+- Google LiteRT-LM repository:
+  `https://github.com/google-ai-edge/LiteRT-LM`
+- Google LiteRT-LM MTP/session-management post:
+  `https://developers.googleblog.com/en/blazing-fast-on-device-genai-with-litert-lm/`
 
 These are leads for falsifiers, not product claims.
 
@@ -256,6 +282,15 @@ These are leads for falsifiers, not product claims.
      AnswerPacket caveats.
    - Red-team deleted-note leakage, stale retrieval cache hits, hidden remote
      cache, cache salt collision, and KV bytes treated as free memory.
+
+9. `speculation_session_quality_acceptance_packet`
+   - Bind MTP/draft/ngram/prefix-cache/session-restore speedups to accepted
+     token counts, rejected token counts, target verification, first-token
+     latency, decode throughput, prompt/cache/session lineage, held-out quality
+     floor, rollback, RunEventLog, AnswerPacket, and target-only final output.
+   - Red-team draft leakage, shared n-gram caches, stale session restore,
+     speed-only promotion, tool JSON drift, hidden sidecars, and cache hits
+     treated as quality proof.
 
 ## Promotion Rule
 
