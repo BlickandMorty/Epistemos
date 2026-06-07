@@ -10504,3 +10504,110 @@ Sources:
 - `EpistemosTests/ReleaseScriptAuditTests.swift`
 - `EpistemosTests/CoreMASBoundarySourceGuardTests.swift`
 - `EpistemosTests/CargoReleaseProfileTests.swift`
+
+## Pass 102 - Editor / EPDoc Surface Release-Blocker Card
+
+### Executive Synthesis
+
+Landed `F-EditorEpdocSurface-ReleaseBlockerCard` as a metadata-only L1/T1
+source-card witness so retained `editor_epdoc_surface` release-audit failures
+become exact repair units before note editor, EPDoc package, EPDoc bridge,
+readable-block projection, copilot dock, slash/action surface, or
+editor-visible model output can be cited as route, runtime, WRV, or product
+proof. This matters for local large models because the user-facing writing and
+research surface is where large-model assistance must become visible, accepted,
+undo-safe, source-bound, and AnswerPacket-caveated instead of silently mutating
+notes or laundering readable-block indices into hidden route authority.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/editor_epdoc_surface_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_editor_epdoc_surface_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_editor_epdoc_surface_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/editor_epdoc_surface_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-EditorEpdocSurface-ReleaseBlockerCard_2026_06_07.md`
+
+### Bound Repair Surface
+
+The witness binds retained issue count `14`, source refs `14`, invariants `12`,
+focused commands `5`, rejected red fixtures `21`, zero editor/model/runtime
+bytes, zero provider calls, and deterministic address
+`sha256:75372b802e624f61af91c34c5d8c6d04e8388325d7ac30a68f7cdd400e0037a5`.
+
+Source refs include Prose editor/TextKit files, EPDoc chrome and copilot dock,
+the JS inbound bridge, `EpdocDocument`, `EpdocEditorBridge`, readable-block
+projection/index code, and focused EPDoc/editor tests.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Editor and EPDoc blockers now have deterministic source-card identity, not vague note-editor release debt. |
+| Eidos | Readable-block projection and editor indices are evidence surfaces only; they cannot become hidden route authority. |
+| ActiveAssembly | Editor-visible model output must be accepted, undo-safe, and AnswerPacket-bound before it mutates the active note assembly. |
+| SCOPE-Rex/SovereignGate | Admission rejects hidden chain/tool editor content, unsafe model mutation, stale projection, checksum bypass, and copilot overclaims. |
+| RuntimeRouter/System G | EPDoc package, bridge, or editor surface state cannot prove runtime route success without separate runtime and L2/L3 witnesses. |
+| RunEventLog/AnswerPacket | Large-model editor claims must show visible caveats, rollback, RunEventLog, and AnswerPacket proof before user-facing promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-EditorEpdocSurface-ReleaseBlockerCard` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Editor/EPDoc release readiness and large-local-model user
+  capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make the editor itself a proof-carrying local
+model surface, where every generated edit has explicit acceptance, rollback,
+source refs, visible caveats, and AnswerPacket linkage before it enters the
+durable note body.
+
+Safest next falsifier: `F-UIShellSourceGuard-ReleaseBlockerCard`, matching the
+new side-card cursor `ui_shell_source_guard_release_blocker_card`.
+
+Best near-term code unit: inspect UI shell source-guard failures and bind them
+to exact shell/bootstrap/settings/navigation surfaces before any large-model
+route, EPDoc editor action, or research-tool surface is presented as product
+reachable.
+
+Biggest false-claim risk: treating EPDoc packaging, readable-block projection,
+editor chrome, or model suggestions in the editor as product runtime proof,
+large-model capability, or WRV completion without explicit acceptance,
+rollback, logs, and AnswerPacket proof.
+
+Biggest missing source: current focused failure lines for the retained
+`editor_epdoc_surface` family after the Swift suite is repaired enough to rerun
+release checks.
+
+Next research query: "What minimum proof-carrying editor protocol lets
+Epistemos safely expose local-model writing/research/coding assistance while
+preserving undo, user acceptance, source binding, hidden-chain suppression, and
+AnswerPacket visibility?"
+
+Sources:
+
+- `docs/falsifiers/F-EditorEpdocSurface-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/editor_epdoc_surface_release_blocker_card/result.json`
+- `agent_core/src/uas/editor_epdoc_surface_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_editor_epdoc_surface_release_blocker_card.rs`
+- `Epistemos/Views/Notes/ProseEditorView.swift`
+- `Epistemos/Views/Notes/ProseEditorRepresentable2.swift`
+- `Epistemos/Views/Notes/ProseTextView2.swift`
+- `Epistemos/Views/Notes/MarkdownContentStorage.swift`
+- `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift`
+- `Epistemos/Views/Epdoc/EpdocCopilotDockView.swift`
+- `js-editor/src/bridge/inbound.ts`
+- `Epistemos/Engine/EpdocDocument.swift`
+- `Epistemos/Engine/EpdocEditorBridge.swift`
+- `Epistemos/Sync/ReadableBlocksProjector.swift`
+- `Epistemos/Sync/ReadableBlocksIndex.swift`
+- `EpistemosTests/EpdocDocumentTests.swift`
+- `EpistemosTests/EpdocCopilotSurfaceTests.swift`
+- `EpistemosTests/ProseTextView2AppearanceTests.swift`
