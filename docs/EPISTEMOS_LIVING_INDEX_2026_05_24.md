@@ -1663,6 +1663,30 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `F-Gemma4-MTP-DrafterCompatibilityCard`; the guard-owned product cursor
   remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Updated **2026-06-06** · `F-Gemma4-MTP-DrafterCompatibilityCard` is now
+  built as the Gemma 4 target/drafter compatibility gate:
+  `Tools/falsifiers/f_gemma4_mtp_drafter_compatibility_card.sh` emits and
+  validates
+  `artifacts/falsifiers/gemma4_mtp_drafter_compatibility_card/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The T1/L1 metadata-only witness
+  binds two MTP source-card pairs, `google/gemma-4-12B-it` with
+  `google/gemma-4-12B-it-assistant` and `google/gemma-4-E2B-it` with
+  `google/gemma-4-E2B-it-assistant`, official Google MTP source material,
+  Hugging Face revisions/licenses, upstream LiteRT-LM admission, target-token
+  verification, accepted/rejected draft-token visibility, target-only final
+  output, hidden alternate text and hidden-chain rejection, quality/acceptance/
+  latency/extra-memory metrics, rollback, RunEventLog, AnswerPacket,
+  abstention, deterministic compatibility address, and 41 red-fixture
+  rejections. It downloads zero target/drafter bytes, loads zero runtime bytes,
+  runs no benchmark, starts no server, imports no product dependency, and does
+  not prove MTP speed, quality, MAS safety, Gemma 4 12B product readiness, L2
+  capability, or L3 WRV. The runtime-plural next unit is
+  `F-RuntimePlural-QATLaneTournamentPlan`; the guard-owned product cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · current architecture-hardening prompt folded into
   future-session canon:
   `docs/audits/SOVEREIGN_ARCHITECTURE_HARDENING_PROMPT_2026_06_06.md` is now
@@ -2667,6 +2691,13 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   This advances L1 admission coverage only; L2 product capability remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing
   LiteRT/Gemma capability is not green.
+- 2026-06-06 runtime-plural large-local-model build now also includes the new
+  L1/T1 `F-Gemma4-MTP-DrafterCompatibilityCard` witness. It source-cards Gemma
+  4 12B and E2B target/drafter MTP pairs and rejects 41 red fixtures while
+  opening zero target/drafter/runtime/provider/product-copy bytes. This
+  advances L1 MTP compatibility coverage only; L2 product capability remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing
+  MTP/Gemma capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

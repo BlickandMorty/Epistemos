@@ -1,0 +1,725 @@
+{
+  "falsifier_id": "F-Gemma4-MTP-DrafterCompatibilityCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma4_mtp_drafter_compatibility_card.sh",
+  "command_digest": "sha256:db6043ce99a8b1a430b86f73adbf7164e0bcec0d5694f17fab4df245f734ae0d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "54d88a5b8b9190d58318c5d02968718f0956b5c5",
+  "fixture_id": "gemma4_mtp_drafter_compatibility_card_v1",
+  "timestamp_utc": "2026-06-07T00:27:16Z",
+  "result_digest": "sha256:97b5455412170befcc44af1e1fa1f9b1cd1f8dc52ea3d34ff475c0793e136c11",
+  "measurements": {
+    "abstention_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "acceptance_metric_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_mtp_pair_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_tokens_not_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_target_revision_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "draft_token_visibility_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "drafter_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "drafter_model_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "drafter_not_assistant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "extra_memory_budget_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "final_output_not_target_only_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "final_output_target_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_revisions_and_license_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_alternate_and_chain_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_alternate_text_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_readiness_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_reported_speedup_upper_bound_bps": {
+      "value": 30000,
+      "unit": "bps_x"
+    },
+    "metadata_bytes_read": {
+      "value": 90000,
+      "unit": "bytes"
+    },
+    "mtp_compatibility_address": {
+      "value": "gemma4_mtp_drafter_compatibility_card:7c0e76226307f5206a92b4af59914f802a3a3fbcc485b4b0f528e02b886214cb@1779060700000",
+      "unit": "uas_address"
+    },
+    "mtp_compatibility_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_speed_quality_mas_l2_l3_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_https_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "official_google_mtp_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_t1_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_not_blocked_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_speedup_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_tier_t2_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_acceptance_latency_memory_metrics_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_improvement_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_metric_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 41,
+      "unit": "fixtures"
+    },
+    "rejected_tokens_not_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_deferred_and_product_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "runtime_not_deferred_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_and_drafter_model_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_drafter_size_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "target_model_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_model_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_verification_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "target_verification_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unbounded_speedup_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_license_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_runtime_lane_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_litert_admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_target_drafter_runtime_provider_product_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "abstention_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "acceptance_metric_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_mtp_pair_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_tokens_not_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_proof_ref_prefix_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_target_revision_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "compatibility_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "draft_token_visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "drafter_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "drafter_model_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "drafter_not_assistant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "extra_memory_budget_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "final_output_not_target_only_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "final_output_target_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_revisions_and_license_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_alternate_and_chain_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_alternate_text_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "latency_budget_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "layer_separation_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_readiness_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_reported_speedup_upper_bound_bps": {
+      "operator": "==",
+      "value": 30000,
+      "unit": "bps_x"
+    },
+    "metadata_bytes_read": {
+      "operator": "<=",
+      "value": 131072,
+      "unit": "bytes"
+    },
+    "mtp_compatibility_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "mtp_compatibility_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_speed_quality_mas_l2_l3_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_https_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "official_google_mtp_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_research_t1_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_status_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_promotion_not_blocked_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_speedup_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_tier_t2_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_acceptance_latency_memory_metrics_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_improvement_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_metric_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 32,
+      "unit": "fixtures"
+    },
+    "rejected_tokens_not_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_deferred_and_product_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_count": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "runtime_not_deferred_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_and_drafter_model_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_drafter_size_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "target_model_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_model_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_verification_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "target_verification_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unbounded_speedup_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_license_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_runtime_lane_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_litert_admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_target_drafter_runtime_provider_product_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_missing_rejected": true,
+    "abstention_required": true,
+    "acceptance_metric_missing_rejected": true,
+    "accepted_mtp_pair_pack_present": true,
+    "accepted_tokens_not_visible_rejected": true,
+    "answer_packet_missing_rejected": true,
+    "bad_proof_ref_prefix_rejected": true,
+    "bad_target_revision_rejected": true,
+    "compatibility_card_count": true,
+    "draft_token_visibility_required": true,
+    "drafter_model_bytes_loaded": true,
+    "drafter_model_bytes_loaded_rejected": true,
+    "drafter_not_assistant_rejected": true,
+    "extra_memory_budget_missing_rejected": true,
+    "final_output_not_target_only_rejected": true,
+    "final_output_target_only": true,
+    "first_token_claim_rejected": true,
+    "hf_revisions_and_license_bound": true,
+    "hidden_alternate_and_chain_blocked": true,
+    "hidden_alternate_text_allowed_rejected": true,
+    "hidden_chain_allowed_rejected": true,
+    "hidden_cloud_fallback_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "latency_budget_missing_rejected": true,
+    "layer_separation_missing_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_live_claim_rejected": true,
+    "mas_readiness_claim_rejected": true,
+    "max_reported_speedup_upper_bound_bps": true,
+    "metadata_bytes_read": true,
+    "mtp_compatibility_address": true,
+    "mtp_compatibility_address_deterministic": true,
+    "next_cursor_bound": true,
+    "no_speed_quality_mas_l2_l3_or_large_model_claim": true,
+    "non_https_source_rejected": true,
+    "official_google_mtp_source_bound": true,
+    "pro_research_t1_only": true,
+    "pro_status_live_claim_rejected": true,
+    "product_file_copied_rejected": true,
+    "product_promotion_not_blocked_rejected": true,
+    "product_speedup_claim_rejected": true,
+    "promotion_tier_t2_claim_rejected": true,
+    "proof_refs_bound": true,
+    "provider_call_made_rejected": true,
+    "quality_acceptance_latency_memory_metrics_required": true,
+    "quality_improvement_claim_rejected": true,
+    "quality_metric_missing_rejected": true,
+    "red_fixture_rejection_count": true,
+    "rejected_tokens_not_visible_rejected": true,
+    "rollback_missing_rejected": true,
+    "run_event_log_missing_rejected": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_loaded_rejected": true,
+    "runtime_deferred_and_product_blocked": true,
+    "runtime_lane_count": true,
+    "runtime_not_deferred_rejected": true,
+    "target_and_drafter_model_ids_bound": true,
+    "target_drafter_size_mismatch_rejected": true,
+    "target_model_bytes_loaded": true,
+    "target_model_bytes_loaded_rejected": true,
+    "target_model_missing_rejected": true,
+    "target_verification_missing_rejected": true,
+    "target_verification_required": true,
+    "unbounded_speedup_source_rejected": true,
+    "unsupported_license_rejected": true,
+    "unsupported_runtime_lane_rejected": true,
+    "upstream_litert_admission_bound": true,
+    "zero_target_drafter_runtime_provider_product_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-Gemma4-MTP-DrafterCompatibilityCard from official Google Gemma 4 MTP source, Hugging Face Gemma 4 target/assistant model cards, and the LiteRT-LM admission witness. Scope is T1/L1 metadata only: no runtime/model bytes, no package import, no first token, no speed benchmark, no MAS/L2/L3 product claim."
+}

@@ -677,6 +677,37 @@ capability, or L3 user-facing WRV. The next runtime-plural source-card unit is
 `F-Gemma4-MTP-DrafterCompatibilityCard`; the guard-owned product cursor remains
 the small-model L3 automated-checks bottleneck.
 
+## Gemma 4 MTP Drafter Compatibility Result Addendum
+
+Deep Research Pass 67 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns the
+MTP recommendation into a built T1/L1 architecture gate:
+`F-Gemma4-MTP-DrafterCompatibilityCard`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+The artifact is
+`artifacts/falsifiers/gemma4_mtp_drafter_compatibility_card/result.json`; the
+script is `Tools/falsifiers/f_gemma4_mtp_drafter_compatibility_card.sh`. The
+witness accepts two target/drafter source-card pairs:
+`google/gemma-4-12B-it` with `google/gemma-4-12B-it-assistant`, and
+`google/gemma-4-E2B-it` with `google/gemma-4-E2B-it-assistant`. It binds
+official Google MTP source material, Hugging Face revisions/licenses, upstream
+LiteRT-LM admission, target-token verification, draft-token visibility,
+target-only final output, hidden alternate text rejection, quality/acceptance/
+latency/extra-memory metrics, rollback, RunEventLog, AnswerPacket, abstention,
+and 41 red-fixture rejections.
+
+This is still metadata-only. It downloads zero target or drafter bytes, loads
+zero runtime bytes, runs no benchmark, starts no server, imports no product
+dependency, and does not prove MTP speed, quality, MAS safety, Gemma 4 12B
+product readiness, L2 capability, or L3 user-facing WRV. The next
+runtime-plural unit is `F-RuntimePlural-QATLaneTournamentPlan`; the guard-owned
+product cursor remains the small-model L3 automated-checks bottleneck.
+
 ## KV Residency / Offload Companion Addendum
 
 Deep Research Pass 60 in

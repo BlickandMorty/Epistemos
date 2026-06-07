@@ -42,6 +42,7 @@ pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
+pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod kind;
 pub mod kv_runtime_source_card;
@@ -180,6 +181,13 @@ pub use gemma_qat_local_runtime_candidate_card::{
     GemmaQatMemoryEnvelope, GemmaQatModelSize, GemmaQatPromotionTier, GemmaQatProofRefs,
     GemmaQatRuntimeLane, GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_CURSOR,
     GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_NEXT_CURSOR,
+};
+pub use gemma4_mtp_drafter_compatibility_card::{
+    Gemma4MtpByteScope, Gemma4MtpDrafterCompatibilityCard,
+    Gemma4MtpDrafterCompatibilityError, Gemma4MtpDrafterCompatibilityMetrics,
+    Gemma4MtpDrafterCompatibilitySet, Gemma4MtpPromotionTier, Gemma4MtpProofRefs,
+    Gemma4MtpRuntimeLane, GEMMA4_MTP_DRAFTER_COMPATIBILITY_CARD_CURSOR,
+    GEMMA4_MTP_DRAFTER_COMPATIBILITY_CARD_NEXT_CURSOR,
 };
 pub use kind::UasKind;
 pub use kv_runtime_source_card::{
