@@ -487,6 +487,34 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `distribution_project_integrity_release_blocker_card`.
+- Updated **2026-06-07** ·
+  `F-DistributionProjectIntegrity-ReleaseBlockerCard` landed:
+  `Tools/falsifiers/f_distribution_project_integrity_release_blocker_card.sh`
+  emits and validates
+  `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`
+  as a metadata-only L1/T1 distribution/project source-card witness.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The witness consumes
+  `F-ThemePresentation-ReleaseBlockerCard` and the release-audit family source
+  card, binds retained family `distribution_project_integrity` with issue
+  count `18`, records 14 project/scheme/entitlement/privacy/release source
+  refs, 12 invariants, 5 focused commands, 25 rejected red fixtures, zero
+  archive/model/runtime/product bytes, zero provider calls, and deterministic
+  distribution integrity address
+  `sha256:a63a7fbc8622e7ad5a92b82571416f10f40301e4ee3208a5ae1bca44ed7da0fc`.
+  It rejects build-as-release-proof, App Store archive claims, distribution
+  code-signing claims, notarization/review claims, ignored XcodeGen drift, MAS
+  entitlements inheriting Pro tools, Pro entitlements marketed as MAS, missing
+  privacy manifest, ignored scheme mismatch, local model catalog as
+  distribution proof, hidden release logs, hidden route/cloud authority,
+  L2/L3/product green, live dense 70B, provider calls, and byte leaks.
+  Guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `editor_epdoc_surface_release_blocker_card`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every

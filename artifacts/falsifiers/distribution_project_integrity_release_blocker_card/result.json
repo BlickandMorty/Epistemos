@@ -1,0 +1,722 @@
+{
+  "falsifier_id": "F-DistributionProjectIntegrity-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_distribution_project_integrity_release_blocker_card.sh",
+  "command_digest": "sha256:25965ecf72093cf776da5a190b1536e76354f956750513b23c98f6542b3e9a65",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "165a20fd88ff0b12167739e8c05e4249f1ff0b9e",
+  "fixture_id": "distribution_project_integrity_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T17:19:08Z",
+  "result_digest": "sha256:ad5a79da3bc261e58175d448b7ed1d370cf73f2e8a25573b61e75aa8fa9d455a",
+  "measurements": {
+    "appstore_archive_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_entitlements_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_hardening_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "archive_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "archive_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "build_as_release_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_codesign_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "distribution_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_project_integrity_address": {
+      "value": "sha256:a63a7fbc8622e7ad5a92b82571416f10f40301e4ee3208a5ae1bca44ed7da0fc",
+      "unit": "sha256"
+    },
+    "distribution_project_integrity_card": {
+      "value": {
+        "family_id": "distribution_project_integrity",
+        "issue_count": 18,
+        "organ": "distribution_integrity",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "project.yml",
+          "Epistemos.xcodeproj/project.pbxproj",
+          "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme",
+          "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme",
+          "Epistemos-Info.plist",
+          "Epistemos-AppStore-Info.plist",
+          "Epistemos/Epistemos.entitlements",
+          "Epistemos/Epistemos-AppStore.entitlements",
+          "Epistemos/Resources/PrivacyInfo.xcprivacy",
+          "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md",
+          "EpistemosTests/AppStoreHardeningTests.swift",
+          "EpistemosTests/ReleaseScriptAuditTests.swift",
+          "EpistemosTests/CoreMASBoundarySourceGuardTests.swift",
+          "EpistemosTests/CargoReleaseProfileTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build",
+          "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' build",
+          "xcodebuild test -only-testing:EpistemosTests/AppStoreHardeningTests",
+          "xcodebuild test -only-testing:EpistemosTests/ReleaseScriptAuditTests",
+          "xcodebuild test -only-testing:EpistemosTests/CoreMASBoundarySourceGuardTests"
+        ],
+        "required_invariants": [
+          "project_yml_is_xcodegen_source_of_truth",
+          "pro_and_appstore_schemes_are_both_bound",
+          "mas_and_pro_entitlements_remain_separated",
+          "privacy_manifest_is_distribution_bound",
+          "appstore_info_plist_does_not_claim_pro_capability",
+          "pro_info_plist_does_not_claim_mas_review_status",
+          "xcodeproj_drift_requires_explicit_regeneration_proof",
+          "release_scripts_require_log_evidence",
+          "local_model_catalog_is_not_distribution_proof",
+          "mas_forbidden_tools_remain_distribution_blockers",
+          "archive_codesign_notary_and_review_are_required_for_green",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "project_build_as_release_proof": false,
+        "app_store_archive_claimed": false,
+        "distribution_codesign_claimed": false,
+        "notarization_or_review_claimed": false,
+        "xcodegen_drift_ignored": false,
+        "mas_entitlements_include_pro_tools": false,
+        "pro_entitlements_marketed_as_mas": false,
+        "privacy_manifest_missing": false,
+        "scheme_mismatch_ignored": false,
+        "local_model_catalog_as_distribution_proof": false,
+        "release_script_log_hidden": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "archive_bytes_loaded": 0,
+        "model_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:distribution_project_integrity_release_blocker_card",
+        "run_event_log_ref": "run_event_log:distribution_project_integrity_release_blocker_card",
+        "answer_packet_ref": "answer_packet:distribution_project_integrity_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "distribution_project_integrity_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_project_integrity_issue_count": {
+      "value": 18,
+      "unit": "issues"
+    },
+    "distribution_project_integrity_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_build_and_distribution_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_catalog_distribution_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_catalog_not_distribution_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_pro_tool_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_entitlements_separated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_appstore_entitlements_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_archive_review_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_project_yml_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_xcodegen_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "editor_epdoc_surface_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_archive_codesign_notary_review_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_archive_model_bytes_or_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_project_build_as_release_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "notary_review_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_entitlements_as_mas_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "project_yml_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "release_script_log_hidden_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_script_logs_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_mismatch_ignored_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_mismatch_not_ignored": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_distribution_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_distribution_project_integrity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_theme_presentation_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodegen_drift_ignored_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodegen_drift_not_ignored": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "appstore_archive_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_entitlements_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_hardening_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "archive_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "archive_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "build_as_release_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_codesign_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "distribution_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_project_integrity_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "distribution_project_integrity_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "distribution_project_integrity_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_project_integrity_issue_count": {
+      "operator": "==",
+      "value": 18,
+      "unit": "issues"
+    },
+    "distribution_project_integrity_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_build_and_distribution_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_catalog_distribution_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_catalog_not_distribution_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_pro_tool_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_entitlements_separated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_appstore_entitlements_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_archive_review_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_project_yml_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_xcodegen_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "editor_epdoc_surface_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_archive_codesign_notary_review_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_archive_model_bytes_or_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_project_build_as_release_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "notary_review_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_entitlements_as_mas_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "project_yml_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "release_script_log_hidden_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_script_logs_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_mismatch_ignored_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_mismatch_not_ignored": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_distribution_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_distribution_project_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_theme_presentation_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodegen_drift_ignored_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodegen_drift_not_ignored": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "appstore_archive_claim_rejected": true,
+    "appstore_entitlements_bound": true,
+    "appstore_hardening_tests_bound": true,
+    "archive_byte_leak_rejected": true,
+    "archive_bytes_loaded_total": true,
+    "build_as_release_proof_rejected": true,
+    "distribution_codesign_claim_rejected": true,
+    "distribution_invariant_count": true,
+    "distribution_invariants_bound": true,
+    "distribution_project_integrity_address": true,
+    "distribution_project_integrity_card": true,
+    "distribution_project_integrity_family_bound": true,
+    "distribution_project_integrity_issue_count": true,
+    "distribution_project_integrity_issue_count_retained": true,
+    "focused_command_count": true,
+    "focused_commands_cover_build_and_distribution_tests": true,
+    "hidden_route_cloud_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "local_model_catalog_distribution_proof_rejected": true,
+    "local_model_catalog_not_distribution_proof": true,
+    "mas_entitlements_pro_tool_rejected": true,
+    "mas_pro_entitlements_separated": true,
+    "missing_appstore_entitlements_source_rejected": true,
+    "missing_archive_review_invariant_rejected": true,
+    "missing_project_yml_source_rejected": true,
+    "missing_xcodegen_invariant_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_archive_codesign_notary_review_claim": true,
+    "no_archive_model_bytes_or_provider_calls": true,
+    "no_hidden_route_or_cloud_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_project_build_as_release_proof": true,
+    "notary_review_claim_rejected": true,
+    "privacy_manifest_bound": true,
+    "privacy_manifest_missing_rejected": true,
+    "pro_entitlements_as_mas_rejected": true,
+    "project_yml_source_bound": true,
+    "provider_call_leak_rejected": true,
+    "provider_calls_made_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_script_log_hidden_rejected": true,
+    "release_script_logs_required": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "scheme_mismatch_ignored_rejected": true,
+    "scheme_mismatch_not_ignored": true,
+    "source_ref_count": true,
+    "source_refs_cover_distribution_surfaces": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_distribution_project_integrity": true,
+    "upstream_theme_presentation_card_pass": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "xcodegen_drift_ignored_rejected": true,
+    "xcodegen_drift_not_ignored": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-DistributionProjectIntegrity-ReleaseBlockerCard: consumes the theme/presentation blocker and release-audit family source card, binds distribution_project_integrity issue count 18 to project.yml, xcodeproj, schemes, plist, entitlements, privacy manifest, MAS/Pro source guard, and release tests, and rejects build-as-release-proof, archive/codesign/notary/review claims, xcodegen drift laundering, MAS/Pro entitlement collapse, local model catalog as distribution proof, hidden logs, hidden authority, L2/L3/product green, provider calls, and live dense-70B claims."
+}

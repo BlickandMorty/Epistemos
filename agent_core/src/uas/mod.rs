@@ -42,6 +42,7 @@ pub mod compressed_model_source_card_intake;
 pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
+pub mod distribution_project_integrity_release_blocker_card;
 pub mod exotic_quant_crash_safe_command_envelope_preflight_gate;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
@@ -948,6 +949,17 @@ pub use research_tool_catalog_no_hidden_authority::{
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_CURSOR,
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_ID,
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_NEXT_CURSOR, RESEARCH_TOOL_CATALOG_UPSTREAM_REF,
+};
+pub use distribution_project_integrity_release_blocker_card::{
+    required_distribution_project_integrity_invariants,
+    required_distribution_project_integrity_source_refs, DistributionProjectIntegrityOrgan,
+    DistributionProjectIntegrityReleaseBlockerCard,
+    DistributionProjectIntegrityReleaseBlockerWitness, DistributionProjectIntegrityStatus,
+    DISTRIBUTION_PROJECT_INTEGRITY_FAMILY_SOURCE_REF,
+    DISTRIBUTION_PROJECT_INTEGRITY_RELEASE_BLOCKER_CARD_CURSOR,
+    DISTRIBUTION_PROJECT_INTEGRITY_RELEASE_BLOCKER_CARD_ID,
+    DISTRIBUTION_PROJECT_INTEGRITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
+    DISTRIBUTION_PROJECT_INTEGRITY_UPSTREAM_REF,
 };
 pub use theme_presentation_release_blocker_card::{
     required_theme_presentation_invariants, required_theme_presentation_source_refs,
