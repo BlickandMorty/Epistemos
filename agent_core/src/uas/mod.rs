@@ -73,6 +73,7 @@ pub mod provider_reference;
 pub mod provider_route_copy_source_guard;
 pub mod qat_model_route_card_memory_preflight;
 pub mod reasoning_state_continuity;
+pub mod release_audit_failure_family_source_card;
 pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
@@ -411,6 +412,15 @@ pub use residency_construction_graph::{
 };
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;
+pub use release_audit_failure_family_source_card::{
+    required_release_audit_failure_families, ReleaseAuditFailureFamilyError,
+    ReleaseAuditFailureFamilyMetrics, ReleaseAuditFailureFamilyOrgan,
+    ReleaseAuditFailureFamilySourceCard, ReleaseAuditFailureFamilySourceCardWitness,
+    ReleaseAuditFailureFamilyStatus, RELEASE_AUDIT_AUTOMATED_CHECKS_UPSTREAM_REF,
+    RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_CURSOR,
+    RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_ID,
+    RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_NEXT_CURSOR,
+};
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,
     RuntimePluralQatLaneStatus, RuntimePluralQatLaneTournamentPlan,

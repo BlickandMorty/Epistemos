@@ -1,0 +1,722 @@
+{
+  "falsifier_id": "F-ReleaseAuditFailureFamily-SourceCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_release_audit_failure_family_source_card.sh",
+  "command_digest": "sha256:3ab3b7c6255e8249aceb8e7e48e0b2110a9ac232f9361371eca8b938b1975299",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "3b67aa9fca8b8ab75dcb7ed6e4ee3f681db9254c",
+  "fixture_id": "release_audit_failure_family_source_card_v1",
+  "timestamp_utc": "2026-06-07T15:14:39Z",
+  "result_digest": "sha256:73a68240f0ad865114649f9b71b129c3ce99ede296a661f1119729b37022961a",
+  "measurements": {
+    "agent_route_policy_family_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "all_failure_families_carded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_check_count": {
+      "value": 1,
+      "unit": "checks"
+    },
+    "failure_family_cards": {
+      "value": [
+        {
+          "family_id": "agent_route_policy",
+          "issue_count": 21,
+          "organ": "runtime_router_policy",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "EpistemosTests/AgentCommandCenterStateTests.swift"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests"
+          ],
+          "falsifier_backlog": "F-AgentRoutePolicy-LargeModelNoHiddenAuthority",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "body_read_checksum",
+          "issue_count": 1,
+          "organ": "body_read_checksum",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Models",
+            "EpistemosTests"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-BodyReadChecksum-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "distribution_project_integrity",
+          "issue_count": 18,
+          "organ": "distribution_integrity",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos.xcodeproj",
+            "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md"
+          ],
+          "focused_commands": [
+            "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build"
+          ],
+          "falsifier_backlog": "F-DistributionProjectIntegrity-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "editor_epdoc_surface",
+          "issue_count": 14,
+          "organ": "editor_surface",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Views/Notes",
+            "EpistemosTests"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-EditorEpdocSurface-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "graph_filter_visibility",
+          "issue_count": 34,
+          "organ": "eidos_graph_visibility",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Graph",
+            "EpistemosTests/FilterEngineComprehensiveTests.swift"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/FilterEngineComprehensiveTests",
+            "xcodebuild test -only-testing:EpistemosTests/ResourceExhaustionTests"
+          ],
+          "falsifier_backlog": "F-GraphFilterVisibility-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "model_vault_catalog",
+          "issue_count": 9,
+          "organ": "model_vault_catalog",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-ModelVaultCatalog-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "research_tool_catalog",
+          "issue_count": 16,
+          "organ": "research_tool_catalog",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "agent_core/src"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-ResearchToolCatalog-NoHiddenAuthority",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "runtime_performance_policy",
+          "issue_count": 3,
+          "organ": "runtime_performance_policy",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "benchmarks/results"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-RuntimePerformancePolicy-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "search_index",
+          "issue_count": 1,
+          "organ": "search_index",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Graph",
+            "Epistemos/Sync"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-SearchIndex-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "source_guard_drift",
+          "issue_count": 3,
+          "organ": "source_guard_drift",
+          "status": "red_retained_log",
+          "source_refs": [
+            "EpistemosTests",
+            "docs"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-SourceGuardDrift-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "theme_presentation",
+          "issue_count": 19,
+          "organ": "theme_presentation",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Theme",
+            "EpistemosTests"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-ThemePresentation-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "tool_execution_surface",
+          "issue_count": 2,
+          "organ": "tool_execution_surface",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "agent_core/src"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-ToolExecutionSurface-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "ui_shell_source_guard",
+          "issue_count": 14,
+          "organ": "ui_shell_source_guard",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Views/Shell",
+            "EpistemosTests"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "falsifier_backlog": "F-UiShellSourceGuard-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "visible_output_sanitization",
+          "issue_count": 5,
+          "organ": "answer_packet_sanitization",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/Engine",
+            "EpistemosTests/UserFacingModelOutputTests.swift"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests"
+          ],
+          "falsifier_backlog": "F-VisibleOutputSanitization-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        },
+        {
+          "family_id": "xpc_trust_configuration",
+          "issue_count": 1,
+          "organ": "xpc_trust",
+          "status": "red_retained_log",
+          "source_refs": [
+            "Epistemos/XPC",
+            "EpistemosTests/XPCSmokeTests.swift"
+          ],
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/XPCSmokeTests"
+          ],
+          "falsifier_backlog": "F-XpcTrustConfiguration-ReleaseBlockerCard",
+          "promotion_blocker": true,
+          "product_green_claimed": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "live_70b_claimed": false,
+          "hidden_authority_claimed": false,
+          "model_runtime_bytes_loaded": 0
+        }
+      ],
+      "unit": "cards"
+    },
+    "failure_family_count": {
+      "value": 15,
+      "unit": "families"
+    },
+    "family_cards_are_promotion_blockers": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_family_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "green_upstream_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_graph_filter_visibility_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_catalog_family_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "model_vault_catalog_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_blocker_count": {
+      "value": 15,
+      "unit": "cards"
+    },
+    "red_fixture_count": {
+      "value": 9,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 9,
+      "unit": "fixtures"
+    },
+    "release_audit_failure_family_source_card_address": {
+      "value": "sha256:a4798526637ad18e28e27535dcc739a042be3058928d178b8be3f4bd1dbc0167",
+      "unit": "sha256"
+    },
+    "source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "top_failure_family": {
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "top_family_graph_filter_visibility": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_issue_count": {
+      "value": 161,
+      "unit": "issues"
+    },
+    "total_issue_count_matches_upstream": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_failure_count": {
+      "value": 84,
+      "unit": "tests"
+    },
+    "unknown_failure_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_artifact_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_failed_xcodebuild_test_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_failed_check_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_unique_failures_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "agent_route_policy_family_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_failure_families_carded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_check_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "checks"
+    },
+    "failure_family_cards": {
+      "operator": "present",
+      "value": true,
+      "unit": "cards"
+    },
+    "failure_family_count": {
+      "operator": "==",
+      "value": 15,
+      "unit": "families"
+    },
+    "family_cards_are_promotion_blockers": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_family_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "green_upstream_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_graph_filter_visibility_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_catalog_family_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "model_vault_catalog_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_blocker_count": {
+      "operator": "==",
+      "value": 15,
+      "unit": "cards"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "fixtures"
+    },
+    "release_audit_failure_family_source_card_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "top_failure_family": {
+      "operator": "eq",
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "top_family_graph_filter_visibility": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_issue_count": {
+      "operator": "==",
+      "value": 161,
+      "unit": "issues"
+    },
+    "total_issue_count_matches_upstream": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_failure_count": {
+      "operator": "==",
+      "value": 84,
+      "unit": "tests"
+    },
+    "unknown_failure_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_artifact_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_failed_xcodebuild_test_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_failed_check_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_unique_failures_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "agent_route_policy_family_present": true,
+    "all_failure_families_carded": true,
+    "failed_check_count": true,
+    "failure_family_cards": true,
+    "failure_family_count": true,
+    "family_cards_are_promotion_blockers": true,
+    "focused_commands_bound": true,
+    "graph_filter_visibility_family_present": true,
+    "green_upstream_rejected": true,
+    "hidden_authority_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "missing_graph_filter_visibility_family_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "model_vault_catalog_family_present": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_product_promotion": true,
+    "promotion_blocker_count": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_audit_failure_family_source_card_address": true,
+    "source_refs_bound": true,
+    "top_failure_family": true,
+    "top_family_graph_filter_visibility": true,
+    "total_issue_count": true,
+    "total_issue_count_matches_upstream": true,
+    "unique_failure_count": true,
+    "unknown_failure_family_rejected": true,
+    "upstream_automated_checks_artifact_present": true,
+    "upstream_automated_checks_red": true,
+    "upstream_failed_xcodebuild_test_bound": true,
+    "zero_failed_check_rejected": true,
+    "zero_issue_family_rejected": true,
+    "zero_model_runtime_bytes": true,
+    "zero_unique_failures_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ReleaseAuditFailureFamily-SourceCard: consumes the retained red automated-checks artifact, turns 15 xcode failure families into typed source cards with organs/source refs/focused commands/falsifier backlog, keeps model/runtime bytes at zero, and makes no product, L2, L3, MAS, live-70B, or release-readiness claim."
+}

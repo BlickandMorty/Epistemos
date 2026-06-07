@@ -320,6 +320,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red.
+- Updated **2026-06-07** · `F-ReleaseAuditFailureFamily-SourceCard` landed:
+  `Tools/falsifiers/f_release_audit_failure_family_source_card.sh` emits and
+  validates
+  `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
+  as a metadata-only L1/T1 source-card witness over the retained RED
+  automated-checks artifact. North-star sentence: Epistemos is a local
+  cognitive substrate where every meaningful object has an address, plane,
+  budget, status, and witness; MAS ships the safe floor, Pro contains the
+  gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The witness cards all 15 retained failure families, preserves 161
+  total issues and 84 unique failing tests, records top family
+  `graph_filter_visibility`, rejects 9 red fixtures, binds next source-card
+  unit `model_vault_catalog_release_blocker_card`, opens zero model/runtime/
+  product bytes, reruns no `xcodebuild`, and makes no release-ready, L2, L3,
+  MAS, live-70B, or SSD-as-RAM claim. This advances a source-card side bridge
+  only: the guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red until the Swift suite is repaired and
+  log/manual/distribution/three-pass release-audit proof exists.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every
