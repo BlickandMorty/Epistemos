@@ -13618,3 +13618,146 @@ Next research query: "What exact source-card, local-artifact, command-envelope,
 and log-correlation fields are needed so a Qwen3-4B small-harness proof can
 close L3 release-audit blockers while Gemma 4 E2B QAT GGUF remains a clean
 next-ladder candidate?"
+
+## Deep Research Pass 119 - Automated Checks Closure Matrix
+
+This pass converts the retained red release-audit ledger into a buildable
+closure matrix. The bottleneck is no longer mysterious: the guard-owned
+automated-checks probe has five required command rows, four pass, and the
+remaining failed row is `xcodebuild_test` with durable failure-family evidence.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-first
+`F-ReleaseAuditAutomatedChecksClosureMatrix` that consumes the retained
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+artifact and turns it into a family-scoped repair program:
+
+- retain the five-command release-audit set exactly:
+  `xcodebuild_build`, `xcodebuild_test`, `graph_engine_cargo_test`,
+  `omega_mcp_cargo_test`, and `omega_ax_cargo_test`;
+- bind the current red ledger:
+  `failed_check_count=1`, `xcodebuild_test_issue_count=161`,
+  `xcodebuild_test_unique_failure_count=84`, and
+  `top_xcodebuild_test_failure_family=graph_filter_visibility`;
+- preserve the family histogram as an addressable work queue:
+  graph/filter visibility 34, agent route policy 21, theme/presentation 19,
+  distribution/project integrity 18, research tool catalog 16,
+  editor/epdoc surface 14, UI shell source guard 14, model vault/catalog 9,
+  visible output sanitization 5, runtime performance policy 3,
+  source-guard drift 3, tool execution surface 2, body-read checksum 1,
+  search index 1, and XPC trust 1;
+- require each family to close in this order:
+  source-card/falsifier family mapped -> focused `-only-testing` commands pass
+  -> retained log issue count is lower or zero for that family -> full
+  `xcodebuild_test` is rerun -> all five automated checks pass -> log evidence
+  packet can be attempted;
+- keep focused test success as repair evidence only, not product promotion.
+
+The breakthrough is procedural rather than flashy: large local models cannot
+be trustworthy if the app shell, graph filters, routing policy, visible output,
+distribution project, and model vault tests are red. This matrix makes those
+red families part of the large-model architecture instead of "unrelated test
+noise."
+
+### Local Source Map
+
+| Organ | Local refs | Build implication |
+|---|---|---|
+| Automated-check primitive | `agent_core/src/uas/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs` | Required checks, phases, blockers, and next cursor are already typed; the closure matrix should consume them rather than create another authority. |
+| Falsifier binary | `agent_core/src/bin/falsify_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.rs` | Already parses retained `xcodebuild_test` failures into family counts, exemplars, focused commands, and source refs. |
+| Retained artifact | `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`; `checks.tsv`; `logs/xcodebuild_test.log` | Current red ledger is durable evidence: one failed command, 161 issues, 84 unique failures, top family `graph_filter_visibility`. |
+| Release audit skill | `.agents/skills/epistemos_release_audit/SKILL.md` | Full release readiness still requires automated checks, logs, manual/runtime checks, distribution/compliance, and three uninterrupted zero-fail passes. |
+| Existing side-card ladder | `agent_core/src/uas/release_audit_failure_family_source_card.rs`; `model_vault_catalog_release_blocker_card.rs`; `agent_route_policy_large_model_no_hidden_authority.rs`; `visible_output_sanitization_release_blocker_card.rs`; `graph_filter_visibility_release_blocker_card.rs`; later family cards | Family source cards are useful but not sufficient; the closure matrix should require focused tests and then the full `xcodebuild_test` row. |
+
+### Closure Matrix
+
+| Family | Count | Current status | Next proof |
+|---|---:|---|---|
+| graph_filter_visibility | 34 | Top red family; focused plan points to FilterEngine, GraphTypes, GraphState | Run focused graph/filter tests, repair source, then reduce retained family count before full `xcodebuild_test`. |
+| agent_route_policy | 21 | Prior repair checkpoints exist, but retained ledger still has family evidence | Re-run focused Triage/Pipeline/AgentCommandCenter tests and keep MAS/Pro route authority red until full suite passes. |
+| theme_presentation | 19 | Source-carded blocker family | Focus Swift presentation/settings tests; avoid copy-only fixes that hide unsupported modes. |
+| distribution_project_integrity | 18 | Source-carded blocker family | Prove direct/MAS project build integrity without collapsing MAS/Pro boundaries. |
+| research_tool_catalog | 16 | Source-carded blocker family | Prove research tools do not become hidden local-model authority. |
+| editor_epdoc_surface | 14 | Source-carded blocker family | Prove editor/EPDoc surface repairs do not leak model output or mutate notes without acceptance. |
+| ui_shell_source_guard | 14 | Source-carded blocker family | Prove shell/settings surfaces describe runtime capability honestly. |
+| model_vault_catalog | 9 | Source-carded blocker family | Prove model catalog hides unsupported modes and does not promote Gemma/70B from source cards. |
+| remaining small families | 12 total | Visible output, runtime policy, source guard, tool surface, body read, search index, XPC trust | Close after larger families, then rerun the full command set. |
+
+### Candidate Falsifier Backlog
+
+1. `F-ReleaseAuditAutomatedChecksClosureMatrix`
+   - Accepted fields: upstream automated-check artifact ref, five required
+     command rows, failed command id, family histogram, top family, focused
+     commands, source refs, test refs, repair status per family, full-rerun
+     requirement, log-evidence next cursor, rollback, RunEventLog,
+     AnswerPacket, blocked L2/L3/T4 fields, and no-runtime-byte scope.
+   - Red fixtures: missing family count, stale retained log, top family not
+     mapped, focused test treated as full release pass, missing full-rerun
+     requirement, family source-card treated as repair, log-evidence attempted
+     before all five checks pass, hidden L2/L3 green claim, live 70B claim,
+     and raw test/log leakage.
+
+2. `F-GraphFilterVisibilityFocusedRepairProof`
+   - Accepted fields: upstream closure matrix ref, source refs
+     `FilterEngine.swift`, `GraphTypes.swift`, `GraphState.swift`, focused
+     command refs, failing exemplar refs, patch digest, focused test logs,
+     family issue-count delta, rollback, and no product promotion.
+   - Red fixtures: unrelated graph refactor, hidden route mutation, focused
+     command omitted, test count not recorded, family count not reduced,
+     large-model route greened by graph repair.
+
+3. `F-AutomatedChecksFullRerunReadinessGate`
+   - Accepted fields: all family repair proofs, full `xcodebuild_test`
+     command envelope, cargo check refs, log paths, log digests, duration,
+     expected pass criteria, and release-audit caveats.
+   - Red fixtures: rerun skipped, cached old logs, only focused tests run,
+     missing omega cargo rows, sanitizer or manual proof overclaimed, and
+     ship-call authorization.
+
+### Model / Runtime Ladder Implication
+
+The large-model ladder now has a hard engineering prerequisite:
+
+1. Close release-audit family repairs until the full automated-check row can
+   pass.
+2. Land log-evidence proof after all five automated command rows pass.
+3. Only then promote the small Qwen3-4B harness toward L2/L3 review.
+4. Only after the small harness is stable should Gemma 4 E2B QAT GGUF attempt
+   first-token/quality replay as a side-lane.
+5. Larger QAT/MoE/70B-class work remains Pro Research until the app shell and
+   release ledger are stable enough to carry visible proof.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `ReleaseAuditAutomatedChecksClosureMatrix`.
+
+Safest next falsifier: `F-ReleaseAuditAutomatedChecksClosureMatrix`, because it
+turns the retained red `xcodebuild_test` ledger into a typed repair order
+without rerunning heavy tests or claiming capability.
+
+Best near-term code unit: implement the closure-matrix primitive and binary,
+then optionally repair the top `graph_filter_visibility` family with focused
+Swift tests before attempting the full release-audit command set.
+
+Biggest false-claim risk: treating family source-card witnesses or focused
+`-only-testing` passes as equivalent to the full automated-checks row.
+
+Biggest missing artifact: a matrix artifact that binds every retained
+`xcodebuild_test` failure family to repair status, focused commands, full-rerun
+requirement, and blocked promotion truth.
+
+Next research query: "Which graph_filter_visibility failing exemplars map to
+the smallest source patch and focused Swift test subset without weakening graph
+filter visibility, source-guard honesty, or large-model route gating?"

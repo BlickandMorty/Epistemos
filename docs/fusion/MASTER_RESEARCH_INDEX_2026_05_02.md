@@ -4552,3 +4552,27 @@ Promotion truth: this is T0 research-to-build canon only. It lands no
 falsifier, opens no local artifact path, loads no model/runtime/provider bytes,
 arms no command, and does not promote L2/L3/T4, live dense 70B, Gemma 4 product
 runtime, MAS LiveAgent, or user-facing large-model capability.
+
+### §28.10 Automated-checks closure-matrix canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 119 plus `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+
+Pass 119 defines `F-ReleaseAuditAutomatedChecksClosureMatrix` as the
+research-to-build bridge from the retained red
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+ledger to actual repair order. The automated-check command set remains fixed:
+`xcodebuild_build`, `xcodebuild_test`, `graph_engine_cargo_test`,
+`omega_mcp_cargo_test`, and `omega_ax_cargo_test`. Current retained evidence
+has one failed command, `xcodebuild_test`, with 161 issues, 84 unique failures,
+and top family `graph_filter_visibility`; the family histogram becomes a typed
+repair queue rather than generic test noise.
+
+Promotion truth: this is T0 research-to-build canon only. Focused family tests,
+source-card witnesses, and retained log parsing are repair guidance, not
+release readiness. L2/L3/T4 remain red until family repairs land, the full
+`xcodebuild_test` row reruns cleanly, all five automated checks pass, log
+evidence binds visible AnswerPacket/RunEventLog surfaces, manual/runtime and
+distribution/compliance checks complete, and three uninterrupted zero-fail
+passes exist.

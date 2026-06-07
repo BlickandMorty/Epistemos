@@ -3816,6 +3816,30 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   provider bytes were loaded, no command was armed, no new falsifier landed,
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 user-
   facing large-local-model capability remains red.
+- 2026-06-07 automated-checks closure-matrix research-to-build canon: Deep
+  Research Pass 119 is now folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`,
+  `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`, and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass defines
+  `F-ReleaseAuditAutomatedChecksClosureMatrix` as the T0 bridge from the
+  retained red automated-checks ledger to repair order: five required command
+  rows remain fixed (`xcodebuild_build`, `xcodebuild_test`,
+  `graph_engine_cargo_test`, `omega_mcp_cargo_test`, and
+  `omega_ax_cargo_test`), four pass, and `xcodebuild_test` remains the failed
+  row with 161 issues, 84 unique failures, and top family
+  `graph_filter_visibility`. The family histogram is now canonically treated
+  as a repair queue, not generic test noise. Focused family tests and
+  source-card witnesses are repair evidence only; they do not replace the full
+  `xcodebuild_test` rerun, log evidence, manual/runtime checks,
+  distribution/compliance review, or three uninterrupted zero-fail passes. No
+  product code was changed, no heavy command was rerun, no model/runtime bytes
+  were loaded, no new falsifier landed, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing large-
+  local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

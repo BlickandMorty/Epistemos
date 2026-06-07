@@ -343,6 +343,19 @@ These are leads for falsifiers, not product claims.
      hidden sidecar/provider fallback, unsupported Agent visibility, and raw
      prompt/token artifact leakage.
 
+12. `release_audit_automated_checks_closure_matrix`
+   - Consume the retained red automated-checks artifact and convert the
+     `xcodebuild_test` failure families into a typed repair queue before any
+     log-evidence or small-model L3 promotion attempt.
+   - Bind the five command rows: `xcodebuild_build`, `xcodebuild_test`,
+     `graph_engine_cargo_test`, `omega_mcp_cargo_test`, and
+     `omega_ax_cargo_test`.
+   - Current red ledger: one failed command, 161 xcodebuild issues, 84 unique
+     failures, top family `graph_filter_visibility`.
+   - Red-team focused tests treated as full release pass, family source cards
+     treated as repair, stale retained logs, hidden L2/L3 green, and Gemma/70B
+     product promotion before the full command row passes.
+
 ## Promotion Rule
 
 Research can be brilliant and still be T0. It reaches T1 only when a falsifier exists. It reaches T2 only when the capability kernel admits a product route. It reaches T3 only when WRV proves a user-visible surface. It reaches T4 only when MAS/Pro build and logs agree. It reaches T5 only when the whole substrate segment has no unmapped gaps.
