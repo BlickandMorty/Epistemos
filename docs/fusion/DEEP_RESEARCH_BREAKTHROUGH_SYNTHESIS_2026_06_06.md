@@ -10611,3 +10611,95 @@ Sources:
 - `EpistemosTests/EpdocDocumentTests.swift`
 - `EpistemosTests/EpdocCopilotSurfaceTests.swift`
 - `EpistemosTests/ProseTextView2AppearanceTests.swift`
+
+## Deep Research Pass 104 — UI Shell Truth Barrier
+
+### Executive Synthesis
+
+`F-UiShellSourceGuard-ReleaseBlockerCard` landed as a metadata-only L1/T1
+source-card witness. This is not a runtime breakthrough by itself, but it is a
+critical research-to-build barrier for large local models: the app shell,
+settings panes, runtime-lane status rows, AnswerPacket health rows, Mini Chat,
+utility windows, and shell toasts can no longer be treated as capability proof
+without separate route, runtime, WRV, log, rollback, and AnswerPacket evidence.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Bound Repair Surface
+
+The witness binds retained issue count `14`, source refs `14`, invariants `12`,
+focused commands `5`, rejected red fixtures `24`, zero shell/model/runtime
+bytes, zero provider calls, and deterministic address
+`sha256:ebebf96cb9d42f3ce3d3cf80765b177fff1ffa49bdff730db9bffed5ddf7a606`.
+
+Source refs include `AppEnvironment`, `AppBootstrap`, `RootView`,
+`UtilityWindowManager`, `PageShell`, `ToastOverlay`, settings runtime-truth and
+AnswerPacket-health rows, Mini Chat surfaces, settings-window tests, and
+sidebar-shell tests.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | UI-shell blockers now have deterministic source-card identity, not vague "settings/shell polish" debt. |
+| ColdStore/AppColdStore | Shell-visible model/catalog/status surfaces cannot imply bytes are resident, loaded, or route-eligible. |
+| ActiveAssembly | Mini Chat, runtime-lane rows, and shell toasts cannot become active assembly proof without admitted runtime evidence. |
+| Eidos | Shell status and settings rows may display evidence, but cannot rank or route as hidden Eidos authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects shell capability proof, settings unlock shortcuts, hidden agent overlays, and MAS/Pro boundary collapse. |
+| RuntimeRouter/System G | Runtime-lane UI is a truthful display surface only; route mutation still requires explicit runtime/router witnesses. |
+| RunEventLog/AnswerPacket | AnswerPacket health must keep caveats visible before large-model claims become user-facing. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-UiShellSourceGuard-ReleaseBlockerCard` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. UI shell release readiness and large-local-model user
+  capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: use shell truth as a hard presentation barrier so
+Gemma/QAT/GGUF/MLX/TurboVec research can be shown ambitiously while still
+requiring real runtime and AnswerPacket proof before any mode becomes usable.
+
+Safest next falsifier: `F-RuntimePerformancePolicy-ReleaseBlockerCard`, matching
+the source-card cursor `runtime_performance_policy_release_blocker_card`.
+
+Best near-term code unit: bind runtime-performance release blockers to exact
+performance policy, cancellation, thermal, route-budget, and test surfaces so
+large-model lanes cannot be presented as performant before measured evidence.
+
+Biggest false-claim risk: a settings row, Mini Chat affordance, runtime-lane
+label, or shell toast visually implying local-agent or large-model capability
+while L2/L3 remain red.
+
+Biggest missing source: fresh Swift release-check logs after the automated
+checks family is repaired enough to rerun without broad suite failure.
+
+Next research query: "What shell-visible runtime-performance policy should
+Epistemos require before Gemma QAT, GGUF, MLX, LiteRT, or TurboVec-backed lanes
+can be shown as reachable rather than gated?"
+
+Sources:
+
+- `docs/falsifiers/F-UiShellSourceGuard-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/ui_shell_source_guard_release_blocker_card/result.json`
+- `agent_core/src/uas/ui_shell_source_guard_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_ui_shell_source_guard_release_blocker_card.rs`
+- `Epistemos/App/AppEnvironment.swift`
+- `Epistemos/App/AppBootstrap.swift`
+- `Epistemos/App/RootView.swift`
+- `Epistemos/App/UtilityWindowManager.swift`
+- `Epistemos/Views/Shell/PageShell.swift`
+- `Epistemos/Views/Shell/ToastOverlay.swift`
+- `Epistemos/Views/Settings/RuntimeLanesSection.swift`
+- `Epistemos/Views/Settings/RuntimeTruthHealthRow.swift`
+- `Epistemos/Views/Settings/AnswerPacketHealthRow.swift`
+- `Epistemos/Views/MiniChat/MiniChatView.swift`
+- `Epistemos/Views/MiniChat/MiniChatWindowController.swift`
+- `EpistemosTests/SettingsWindowPresentationTests.swift`
+- `EpistemosTests/SidebarShellValidationTests.swift`

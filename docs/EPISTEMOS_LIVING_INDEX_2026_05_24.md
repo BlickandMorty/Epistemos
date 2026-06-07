@@ -542,6 +542,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `ui_shell_source_guard_release_blocker_card`.
+- Updated **2026-06-07** ·
+  `F-UiShellSourceGuard-ReleaseBlockerCard` landed:
+  `Tools/falsifiers/f_ui_shell_source_guard_release_blocker_card.sh` emits and
+  validates
+  `artifacts/falsifiers/ui_shell_source_guard_release_blocker_card/result.json`
+  as a metadata-only L1/T1 UI-shell source-card witness. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The witness consumes
+  `F-EditorEpdocSurface-ReleaseBlockerCard` and the release-audit family source
+  card, binds retained family `ui_shell_source_guard` with issue count `14`,
+  records 14 app-shell/environment/settings/Mini Chat source refs, 12
+  invariants, 5 focused commands, 24 rejected red fixtures, zero
+  shell/model/runtime/product bytes, zero provider calls, and deterministic
+  UI-shell address
+  `sha256:ebebf96cb9d42f3ce3d3cf80765b177fff1ffa49bdff730db9bffed5ddf7a606`.
+  It rejects shell surfaces as capability proof, settings unlocking gated
+  runtime capability, Mini Chat as agent route proof, runtime-lane UI mutating
+  routes, hidden AnswerPacket caveats, MAS/Pro boundary collapse, unsupported
+  modes marked live, AppEnvironment drift, hidden agent overlays, L2/L3/product
+  green, live dense 70B, provider calls, and byte leaks. Guard-owned cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `runtime_performance_policy_release_blocker_card`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every
