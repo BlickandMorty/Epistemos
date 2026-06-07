@@ -10993,3 +10993,183 @@ Sources:
 - `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
 - `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
 - `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`
+
+## Deep Research Pass 107 - Gemma QAT Quality / Loader Parity Source Card
+
+### Executive Synthesis
+
+This pass narrows the previous build bridge into the next large-model
+source-card requirement: `F-GemmaQAT-QualityAndLoaderParitySourceCard`.
+Current official Google and Hugging Face metadata make Gemma 4 QAT more
+actionable than it was in the earlier canon: E2B, E4B, and 12B QAT GGUF repos
+now have exact official model ids, source revisions, selected GGUF filenames,
+LFS OIDs, and declared byte sizes. Google also exposes mobile/compressed-tensor
+QAT variants with tokenizer, chat-template, config, and safetensors artifacts.
+
+The research-to-build conclusion is strict: the GGUF lane is the most concrete
+near-term source-card lane because it has exact official files and llama.cpp
+command shapes; the mobile/LiteRT lane is promising but still requires
+platform/API and package proof; the MLX Swift lane remains blocked by an open
+Gemma 4 loader issue; Python MLX support is not Swift app proof; and every lane
+needs same-fixture quality replay before it can influence product routing.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Current Official Source Facts
+
+| Candidate | Revision | Selected files / bytes | Epistemos status |
+|---|---|---:|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | `1894d1fc0a19d86697abd40483f5983c867df03f` | `gemma-4-E2B_q4_0-it.gguf` 3349514112 bytes, LFS `3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd`; `gemma-4-E2B-it-mmproj.gguf` 986833312 bytes, LFS `58c187648007cab392bd5678b87e862c3e8794017deb945feea2cf256195e96a` | Small-harness source-card candidate only |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `gemma-4-E4B_q4_0-it.gguf` 5154939136 bytes, LFS `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`; `gemma-4-E4B-it-mmproj.gguf` 991551904 bytes, LFS `c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12` | Bigger small-harness candidate; Pro Gated until byte/quality proof |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | `f6e7774e6148da3b7f201e42ba37cf084c1db35f` | `gemma-4-12b-it-qat-q4_0.gguf` 6975877728 bytes, LFS `faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1`; `mmproj-gemma-4-12b-it-qat-q4_0.gguf` 175115264 bytes, LFS `e70b0e5cd80323d5d588b4ed06780356b7b1ba03995a4b8164c6ae9db0ff5989` | Flagship Pro Gated target; not a 16 GB Mac green claim |
+| `google/gemma-4-E2B-it-qat-mobile-ct` | `2334dc3e0d6ae21801f26caf1c06ae9ad51f0e69` | `model.safetensors` 2671733574 bytes, LFS `fc473b530643a0fce6c13d0d26e87b7df177e5ac156027721f1ba07db2060c54`; `tokenizer.json` 32169626 bytes, LFS `cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f`; plus `chat_template.jinja`, config, processor, tokenizer config | LiteRT/mobile source-card only until API/platform proof |
+
+Google's QAT launch post explicitly frames the release as multiple formats:
+GGUF for llama.cpp, compressed tensors for vLLM, mobile weights for LiteRT-LM,
+and unquantized QAT checkpoints for other conversions. Hugging Face model cards
+for E2B and 12B expose local app command examples, but those commands include
+`llama-server`, remote `-hf` fetching, Ollama, Docker, Lemonade, and other
+tools that must remain denied or owner-approved in Epistemos command envelopes.
+
+### Loader / Quality Caveats From Current Issues
+
+- MLX Swift issue `ml-explore/mlx-swift#389` remains direct evidence that
+  Swift-side Gemma 4 loader support cannot be inferred from Python MLX or
+  Hugging Face MLX model availability. The issue reports `gemma4` is not
+  registered in the Swift model registry and names PLE, shared KV, dual RoPE,
+  and MoE support as missing architecture obligations.
+- Python `mlx-lm#1125` shows that even where Python MLX supports Gemma 4, tool
+  call parsing can fail. That turns tool JSON / function-call parity into a
+  required same-fixture quality axis.
+- Google AI Edge Gallery issue `#692` reports Gemma 4 LiteRT-LM iOS
+  initialization uncertainty and missing public Swift/Xcode sample parity with
+  Android. That keeps LiteRT-LM promising but not product-ready.
+- LiteRT-LM issue `#2202` is especially useful because it describes a serious
+  tool-call evaluation rig: arity sweeps, phrasing styles, multi-turn cases,
+  post-execution assertions, latency/memory capture, and structured failure
+  buckets. Epistemos should copy the evaluation shape, not the code.
+
+### Required Source-Card Axes
+
+`F-GemmaQAT-QualityAndLoaderParitySourceCard` should require:
+
+- official model id, revision, selected file names, LFS OIDs, declared bytes,
+  and source URL for each lane;
+- model family and format class: GGUF Q4_0, mobile compressed tensor, w4a16
+  compressed tensor, unquantized QAT, MLX, or research-only;
+- tokenizer, chat-template, generation-config, processor-config, and mmproj
+  policy;
+- runtime lane status: GGUF/llama.cpp, LiteRT-LM, MLX Swift, Python MLX,
+  Transformers, vLLM, or denied server;
+- command/API envelope class: unarmed command, native Swift API plan,
+  quarantine Python, denied server, or owner-approved future probe;
+- Apple Silicon memory envelope fields: selected file bytes, optional mmproj
+  bytes, tokenizer/config bytes, KV bytes, runtime workspace bytes, app
+  headroom, and modality-selected bytes;
+- quality fixtures: note QA, coding, writing, citation, tool-call JSON,
+  refusal/safety, multi-turn context, and body-checksum freshness;
+- promotion denial fields: no MAS Live, no L2/L3, no product green, no live
+  dense 70B, no hidden cloud, no hidden server, no route mutation.
+
+### Same-Fixture Lane Tournament Shape
+
+The eventual tournament must compare lanes on the same redacted fixtures:
+
+| Lane | First proof | Quality proof | Red-team failures |
+|---|---|---|---|
+| GGUF/llama.cpp | owner-approved `llama-cli` one-token probe from local path | held-out note/coding/writing/tool JSON replay | remote `-hf` fetch, `llama-server`, wrong selected file, missing mmproj policy, wrong chat template |
+| LiteRT-LM | package/API/source-card proof before any native call | tool-call and sampler-order replay | iOS/macOS allowlist mismatch, binary target drift, no cancellation, memory counter mismatch |
+| MLX Swift | Gemma 4 architecture loader witness | same replay plus serialized executor and memory-pressure proof | repo availability as loader proof, nonisolated model handles, hidden downloader |
+| Python MLX | quarantine-only dry run | research-only parser and quality comparison | hidden network download, Python sidecar leakage, tool-call parser failure |
+| vLLM compressed tensors | server/research-only source-card | batch quality only after server lane explicitly approved | daemon/server leakage, cache authority, provider-like endpoint |
+
+### Red Fixtures To Add
+
+- `qat_model_card_as_loader_proof`
+- `hf_use_this_model_command_as_epistemos_command`
+- `remote_hf_fetch_flag_unarmed_command`
+- `llama_server_as_product_runtime`
+- `mmproj_missing_for_multimodal_claim`
+- `chat_template_missing_or_unhashed`
+- `tokenizer_config_missing_or_unhashed`
+- `mobile_ct_as_litert_swift_runtime_proof`
+- `mlx_python_support_as_mlx_swift_support`
+- `mlx_swift_gemma4_loader_issue_ignored`
+- `tool_call_parser_gap_ignored`
+- `sampler_order_unverified`
+- `qat_memory_without_kv_workspace_headroom`
+- `e2b_small_harness_as_12b_product_claim`
+- `twelve_b_qat_as_16gb_green_claim`
+- `quality_not_replayed_same_fixture`
+- `body_checksum_freshness_missing`
+
+### Architecture Fusion
+
+| Organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each Gemma QAT artifact gets addressable source identity: model id, revision, selected files, LFS OIDs, tokenizer/config refs, and lane caveats. |
+| ColdStore/AppColdStore | QAT bytes remain cold material until owner path, byte envelope, command/API envelope, and quality replay pass. |
+| ActiveAssembly | E2B/E4B can become small waking-set candidates; 12B is Pro Gated; no row joins active assembly from model-card availability alone. |
+| Eidos | Quality replay must include citation and tool-output correctness, not only model-card benchmark prose. |
+| SCOPE-Rex/SovereignGate | Admission denies remote fetch flags, server sidecars, loader-caveat bypass, stale body context, and missing tokenizer/template hashes. |
+| RuntimeRouter/System G | Runtime-plural route choice requires the same fixture across GGUF, LiteRT, MLX, Python MLX, and vLLM; no winner by preference. |
+| RunEventLog/AnswerPacket | Future probes must expose selected file, lane, caveat, memory envelope, quality fixture id, rollback, and non-promotion. |
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no new falsifier landed in this pass.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make Gemma QAT source-card parity exact enough
+that Epistemos can choose a runtime lane by evidence, not by hype: official
+files, local path, memory envelope, command/API safety, tool JSON, context
+freshness, and same-fixture quality replay.
+
+Safest next falsifier: still `F-BodyReadChecksum-ReleaseBlockerCard`, because
+even perfect model/lane metadata cannot make an answer trustworthy if the
+note body, readable block projection, or graph evidence is stale.
+
+Best near-term code unit: after the body-read checksum blocker, implement
+`F-GemmaQAT-QualityAndLoaderParitySourceCard` as metadata-only with the exact
+official Google/HF revisions, LFS OIDs, file bytes, loader caveats, and red
+fixtures listed above.
+
+Biggest false-claim risk: using the Hugging Face "Use this model" commands or
+Google QAT memory framing as Epistemos command/runtime proof. Those are source
+signals, not owner-approved local paths, not cancellation proof, not Swift
+loader proof, and not L2/L3 capability.
+
+Biggest missing source: local owner-approved artifact manifest for the selected
+E2B/E4B/12B files, plus a fresh product runtime release-audit log after the
+small-model automated-check bottleneck is repaired.
+
+Next research query: "What exact body-read checksum fields must be inserted
+into the Gemma QAT same-fixture replay so model quality is measured against the
+current note/evidence state rather than stale context?"
+
+Sources:
+
+- Google Gemma 4 QAT official blog:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- Hugging Face official E2B QAT GGUF:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- Hugging Face official E4B QAT GGUF:
+  `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- Hugging Face official 12B QAT GGUF:
+  `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+- Hugging Face official E2B mobile compressed tensor:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-mobile-ct`
+- MLX Swift Gemma 4 loader issue:
+  `https://github.com/ml-explore/mlx-swift/issues/389`
+- MLX-LM Gemma 4 tool-call issue:
+  `https://github.com/ml-explore/mlx-lm/issues/1125`
+- Google AI Edge Gallery Gemma 4 LiteRT-LM iOS issue:
+  `https://github.com/google-ai-edge/gallery/issues/692`
+- LiteRT-LM Gemma 4 E2B field report:
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/2202`

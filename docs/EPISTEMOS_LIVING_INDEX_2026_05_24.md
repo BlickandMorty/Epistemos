@@ -114,6 +114,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   proof. This is T0 canon/backlog only: no model/runtime/KV/cache bytes, no
   command execution, no MLX/GGUF/LiteRT product claim, no L2/L3 promotion, no
   user-facing large-model green claim, and no live dense 70B claim.
+- Updated **2026-06-07** · Deep Research Pass 107 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` narrows
+  the Gemma 4 QAT build bridge into
+  `F-GemmaQAT-QualityAndLoaderParitySourceCard`: exact official E2B/E4B/12B
+  QAT GGUF model ids, source revisions, selected filenames, declared bytes,
+  LFS OIDs, mobile compressed-tensor refs, loader caveats, and same-fixture
+  quality replay requirements are now canon backlog. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor,
+  Pro contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. This is T0 canon/backlog only: no model bytes were
+  loaded, no command was armed, MLX Swift Gemma 4 remains unproven, GGUF and
+  LiteRT lanes remain source-card candidates, L2/L3 are not promoted, and no
+  user-facing large-model green claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
@@ -625,6 +639,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   loaded, no commands were armed, no MLX/GGUF/LiteRT lane was promoted, L2
   remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red.
+- Updated **2026-06-07** · Deep Research Pass 107 is now folded into the
+  current-state large-model research-to-build path. It turns current official
+  Gemma 4 QAT E2B/E4B/12B GGUF and mobile compressed-tensor metadata into the
+  next source-card backlog:
+  `F-GemmaQAT-QualityAndLoaderParitySourceCard`. The card must bind model id,
+  revision, selected file, declared byte count, LFS OID, tokenizer/template
+  policy, lane caveat, command/API envelope, memory envelope, same-fixture
+  quality replay, rollback, RunEventLog, and AnswerPacket. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the
+  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. This is T0 canon/backlog only: no
+  model/runtime bytes were loaded, no local artifact path was verified, no
+  Swift/GGUF/LiteRT lane was promoted, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  and release readiness remain red.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every
