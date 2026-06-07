@@ -14114,3 +14114,177 @@ Next research query: "Can a prebuilt `test-without-building` or
 `-testProductsPath` flow enumerate and run the repaired graph-filter Swift
 Testing identifiers with lower cost than `xcodebuild test`, while preserving
 fresh result-bundle proof and no stale evidence?"
+
+## Deep Research Pass 123 - Test-Without-Building Result Bundle Proof Path
+
+### Executive Synthesis
+
+The next research-to-build breakthrough is not another model lane. It is a
+lower-cost, harder-to-fake proof loop for the release-audit blocker that keeps
+the small-model runtime harness from moving toward L2/L3. The repo has already
+learned two painful facts: filename selectors can execute zero tests, and raw
+`xcodebuild test -enumerate-tests` can still walk package resolution,
+pre-actions, plug-ins, and the build graph before yielding any identifier
+evidence. The safer bridge is to split the work into a fresh build-for-testing
+phase and a prebuilt test-products phase.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass defines `F-GraphFilterVisibilityTestWithoutBuildingProofPath` as the
+next source-card/proof-path candidate. It should not claim a focused test pass
+until a fresh `.xcresult` or equivalent result bundle proves nonzero executed
+tests against exact Swift Testing identifiers. Enumeration-only output is a
+map, not proof. A prebuilt test-products run is proof only when it is tied to
+the current source commit, a fresh build artifact, a non-stale result bundle,
+and the retained release-audit family it is meant to close.
+
+### Mechanism
+
+Use Xcode's two-phase test workflow as a proof harness:
+
+1. Run `build-for-testing` once with an explicit `-derivedDataPath`,
+   destination, scheme, start/end timestamps, and result-bundle/log policy.
+2. Discover the generated `.xctestrun` and/or `.xctestproducts` path and bind
+   it to `git rev-parse HEAD`, selected build settings, and a digest of the
+   produced test artifacts.
+3. Enumerate tests from the prebuilt products when supported, using
+   `test-without-building`, `-testProductsPath` or `-xctestrun`,
+   `-enumerate-tests`, `-test-enumeration-format json`, and a captured
+   enumeration digest.
+4. Run the exact repaired graph-filter identifiers with
+   `test-without-building`, `-only-testing:<test-identifier>`, and a fresh
+   `-resultBundlePath`.
+5. Parse the result bundle/logs enough to prove `executed_test_count > 0`,
+   zero skipped proof selectors, no stale bundle reuse, and no replacement of
+   the full automated-check row.
+
+### External / Primary Source Validation
+
+- Apple Technical Note TN2339 documents `build-for-testing` followed by
+  `test-without-building`, including `-derivedDataPath` and `.xctestrun`
+  flows:
+  https://developer.apple.com/library/archive/technotes/tn2339/_index.html
+- Apple "Running tests and interpreting results" documents result bundles and
+  single-test command-line selection with `-only-testing` identifiers:
+  https://developer.apple.com/documentation/xcode/running-tests-and-interpreting-results
+- Apple Xcode 15 release notes document test enumeration and show
+  `xcodebuild test-without-building -enumerate-tests -testProductsPath ...` as
+  a supported shape:
+  https://developer.apple.com/documentation/xcode-release-notes/xcode-15-release-notes
+- Local `xcodebuild -help` on 2026-06-07 exposes `-xctestrun`,
+  `-testProductsPath`, `-resultBundlePath`, `-only-testing:TEST-IDENTIFIER`,
+  `-enumerate-tests`, `-test-enumeration-format`, and
+  `-test-enumeration-output-path`.
+
+### Epistemos Fusion
+
+- Organ: Verification plane, feeding the small-model runtime harness release
+  audit path.
+- Addressable object: the graph-filter focused proof run, not the whole Xcode
+  test suite.
+- Upstream refs:
+  `F-ReleaseAuditAutomatedChecksClosureMatrix`,
+  `F-GraphFilterVisibilityFocusedRepairPacket`,
+  `F-GraphFilterVisibilityTestPatchCheckpoint`, and
+  `F-GraphFilterVisibilityFocusedIdentifierProof`.
+- Downstream refs:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`,
+  RunEventLog, AnswerPacket, and release-audit WRV.
+- Model/large-local implication: a trustworthy, cheaper automated-check
+  closure path lets the Qwen3-4B small harness prove the app's evidence
+  surfaces before Gemma 4 QAT, GGUF, LiteRT, MLX, TurboVec, KV reuse, or
+  larger cold-assembly lanes compare runtime output.
+
+### Candidate Falsifier
+
+`F-GraphFilterVisibilityTestWithoutBuildingProofPath`
+
+Accepted fields:
+
+- `source_commit_sha`;
+- `dirty_worktree_policy`;
+- `build_for_testing_command`;
+- `build_for_testing_started_at`;
+- `build_for_testing_finished_at`;
+- `derived_data_path`;
+- `destination`;
+- `scheme`;
+- `xctestrun_path`;
+- `test_products_path`;
+- `test_artifact_digest`;
+- `enumeration_command`;
+- `enumeration_json_digest`;
+- `enumerated_identifier_count`;
+- `selected_identifier_count`;
+- `selected_identifier_digest`;
+- `test_without_building_command`;
+- `result_bundle_path`;
+- `result_bundle_created_at`;
+- `result_bundle_digest`;
+- `executed_test_count`;
+- `failed_test_count`;
+- `zero_test_run_rejected`;
+- `stale_result_bundle_rejected`;
+- `different_commit_artifact_rejected`;
+- `enumeration_only_not_pass`;
+- `full_automated_check_row_still_required`;
+- `runtime_bytes_loaded`;
+- `model_bytes_loaded`;
+- `raw_note_prompt_or_model_bytes_logged`;
+- `rollback_ref`;
+- `run_event_log_ref`;
+- `answer_packet_ref`;
+- `blocked_l2_l3_t4_claims`.
+
+Red fixtures:
+
+- `.xctestrun` or `.xctestproducts` was produced by a different commit;
+- derived data path exists but predates the source commit or patch;
+- `-only-testing` selector is a filename, file path, or guessed suite string;
+- `-enumerate-tests` completes but no focused run executes;
+- focused run returns success with zero executed tests;
+- stale `.xcresult` is reused;
+- result bundle path is absent, overwritten without digest, or older than the
+  build-for-testing timestamp;
+- selected identifiers are not present in enumeration output when enumeration
+  is available;
+- logs include raw user notes, prompts, model outputs, or hidden chain bytes;
+- focused pass replaces the full `xcodebuild_test` automated-check row;
+- proof is used to promote model/runtime, large-local-model, MAS, Pro Live, or
+  release-ready claims.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`GraphFilterVisibilityTestWithoutBuildingProofPath`.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityTestWithoutBuildingProofPath`, because it turns the
+official prebuilt-test workflow into a stale-proof, zero-test-proof source card
+before the next expensive Xcode run.
+
+Best near-term code unit: implement the metadata-only proof-path primitive and
+validator axes, then run the real build-for-testing/test-without-building
+commands only when the owner is ready for the Xcode cost.
+
+Biggest false-claim risk: treating a prebuilt enumeration or stale result
+bundle as a fresh focused test pass.
+
+Biggest missing artifact: a current `.xctestrun` or `.xctestproducts` path and
+fresh `.xcresult` proving the repaired graph-filter identifiers execute
+nonzero tests.
+
+Next research query: "Which exact Epistemos `build-for-testing` command,
+DerivedData root, `.xctestrun`/`.xctestproducts` discovery rule, and
+`test-without-building` selector set should become the first crash-safe
+metadata falsifier for graph-filter release-audit closure?"

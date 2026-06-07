@@ -4641,3 +4641,25 @@ a metadata-only identifier/source-card proof that records exact Swift Testing
 suite/function identifiers, rejects filename selectors and zero-test passes,
 and requires fresh `-resultBundlePath` evidence before focused repair proof can
 advance.
+
+### §28.14 Test-without-building result-bundle proof path canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 123.
+
+Pass 123 defines `F-GraphFilterVisibilityTestWithoutBuildingProofPath` as the
+lower-cost, harder-to-fake bridge after the focused Swift Testing identifier
+proof. Apple TN2339 and the local 2026-06-07 `xcodebuild -help` surface support
+the two-phase shape: build fresh test products with `build-for-testing`, bind
+the generated `.xctestrun` and/or `.xctestproducts` to the current source
+commit and explicit DerivedData root, then enumerate/run exact repaired
+identifiers with `test-without-building`, `-only-testing`, and a fresh
+`-resultBundlePath`.
+
+Promotion truth: this is T0 research-to-build canon only. It lands no
+falsifier, executes no tests, changes no product source, loads no
+model/runtime bytes, and does not promote L2/L3/T4. The next buildable unit is
+a metadata-only proof-path primitive that rejects different-commit test
+products, stale result bundles, filename selectors, enumeration-only passes,
+zero executed tests, raw note/prompt/model log leakage, and any attempt to use
+focused repair evidence as a large-local-model or release-ready claim.
