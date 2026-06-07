@@ -3883,6 +3883,26 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3/release
   readiness remains red until a real focused graph-filter execution and then
   the full automated-check row pass.
+- 2026-06-07 focused Swift Testing identifier proof canon: Deep Research Pass
+  122 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+  `F-GraphFilterVisibilityFocusedIdentifierProof` as the preflight before any
+  focused graph-filter repair proof can count. North-star sentence: Epistemos
+  is a local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. Apple and local `xcodebuild -help` validation show `-only-testing`
+  needs test identifiers, not filenames, and local source inspection found the
+  relevant Swift Testing suites in `FilterEngineComprehensiveTests.swift`,
+  `ResourceExhaustionTests.swift`, `ConcurrencyEdgeCaseTests.swift`, and
+  `VaultLifecycleResetTests.swift`. A local `xcodebuild ... -enumerate-tests`
+  attempt did not produce proof: it resolved packages, ran pre-actions,
+  invoked dependency SwiftLint plug-ins, entered the build graph, and was
+  stopped for cost before completed JSON enumeration or executed-test evidence
+  existed. This is T0 canon/research-to-build only: no product code changed,
+  no model/runtime bytes loaded, no tests executed, no L1 cursor advance, L2
+  remains `vault_research_route_with_packetized_mitigation`, and L3/release
+  readiness remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
