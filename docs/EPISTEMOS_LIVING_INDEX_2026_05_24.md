@@ -153,10 +153,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   substrate where every meaningful object has an address, plane, budget,
   status, and witness; MAS ships the safe floor, Pro contains the
   gated/research/vault/omega ladder, and no claim promotes without visible
-  proof. This is T0 canon/build-plan only: no product code changed, no user
-  note bytes were opened, no model/runtime/cache bytes were loaded, no
-  source-card witness landed yet, L2/L3 remain red, and no user-facing
+  proof. This was T0 canon/build-plan at pass time and is now superseded by
+  the landed `F-BodyReadChecksum-ReleaseBlockerCard` L1/T1 witness; no product
+  code changed, no user note bytes were opened, no model/runtime/cache bytes
+  were loaded by the research pass, L2/L3 remain red, and no user-facing
   large-model green claim exists.
+- Updated **2026-06-07** · Deep Research Pass 110 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns the
+  new body-read checksum handoff into the next buildable source-card:
+  `F-SearchIndex-ReleaseBlockerCard`. Search freshness is now canon as the
+  Eidos evidence supply line for large-model replay: page FTS, block FTS,
+  readable-block FTS, RRF fusion, query-parser fallback, rebuild/fallback
+  behavior, vault scoping, graph/evidence caveats, and retrieval provenance
+  must be source-carded before Gemma QAT, KV/cache reuse, TurboVec/Eidos
+  compressed retrieval, or local agent routes can treat search hits as fresh
+  evidence. North-star sentence: Epistemos is a local cognitive substrate
+  where every meaningful object has an address, plane, budget, status, and
+  witness; MAS ships the safe floor, Pro contains the gated/research/vault/
+  omega ladder, and no claim promotes without visible proof. This is T0
+  canon/build-plan only: no product code changed, no DB/user-body/model/runtime/
+  cache bytes were opened, no provider calls were made, L2/L3 remain red, and
+  no user-facing large-model green claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
@@ -680,6 +697,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `search_index_release_blocker_card`.
+- Updated **2026-06-07** · Deep Research Pass 110 is now folded into the
+  current-state large-model research-to-build path. It converts
+  `search_index_release_blocker_card` into a buildable
+  `F-SearchIndex-ReleaseBlockerCard` blueprint after the landed body-read
+  checksum witness: exact refs must bind `SearchIndexService`,
+  `RRFFusionQuery`, `ReadableBlocksIndex`, `ReadableBlocksProjector`,
+  `VaultSyncService`, `QueryRuntime`, `QueryTypes`, graph state/store, RRF
+  fusion tests, search-index fusion tests, and query-runtime tests. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the
+  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. This is T0 canon/build-plan only: search is
+  not Eidos route authority, no product code changed, no DB/user-body/model/
+  runtime/cache bytes were opened, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 product capability
+  and release readiness remain red.
 - Updated **2026-06-07** · Deep Research Pass 106 is now folded into the
   current-state large-model research-to-build path. It translates current QAT,
   KV/cache, and heterogeneous-placement research into concrete backlog:
