@@ -233,6 +233,17 @@ Current 2026-06-07 large-local-model research-to-build status:
   backlog item, command/byte/KV/retrieval/proof gate, AnswerPacket field,
   RunEventLog evidence, or WRV requirement. Treat this as T0 research method
   only until a falsifier lands.
+- Deep Research Pass 85 adds current source-backed red fixtures for the next
+  large-model gate. When implementing
+  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, carry forward the
+  pass-85 denials for llama.cpp remote-download flags, HF token env, unbounded
+  predict/context/cache RAM, KV/cache policy gaps, mmap/mlock fit claims,
+  server sidecars, MLX Python hidden downloads/trust-remote-code, MLX Swift
+  Gemma loader/tool-call/MTP gaps, LiteRT OpenAI-server/SPM/QAT uncertainty,
+  Swift Subprocess output-limit/teardown gaps, missing HF revision/selected
+  file, wrong artifact-format assumptions, MoE active-param overclaims,
+  uninspected fork deltas, and no-license direct imports. Treat all of this as
+  T0/T1 input until the falsifier lands.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

@@ -6177,6 +6177,263 @@ produce red fixtures for `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`,
 the owner-approved dry-run transcript, and the future redacted first-token
 probe?"
 
+## Deep Research Pass 85 - Command-Envelope Red Fixtures From Current Source Signals
+
+Date: 2026-06-07
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+### Executive Synthesis
+
+Pass 85 answers the Pass 84 query by turning current source/fork/model-card and
+issue-thread signals into concrete red fixtures for
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, the downstream
+owner-approved dry-run transcript, and the future redacted first-token probe.
+
+The result is not "try a model." It is a sharper falsifier blueprint:
+
+```text
+source/fork/model-card/issue signal
+  -> failure mode
+  -> red fixture
+  -> command-envelope axis
+  -> dry-run transcript requirement
+  -> redacted first-token non-promotion rule
+```
+
+### Local Canon Inputs
+
+| Local authority | Build lesson |
+|---|---|
+| `agent_core/src/uas/exotic_quant_owner_path_byte_envelope_preflight_gate.rs` | The current upstream gate already advances the next cursor to `exotic_quant_crash_safe_command_envelope_preflight_gate`, keeps owner paths/files/stats/hashes/symlinks/commands/runtime/model/provider bytes at zero, and exposes unarmed command envelope refs for every row. |
+| `agent_core/src/uas/small_compressed_model_runtime_probe_proof_envelope.rs` | The small compressed model proof envelope already requires `--offline`, `--predict 1`, bounded context/batch, `--simple-io`, `--no-display-prompt`, `--no-mmap`, `--log-disable`, prompt hash, one-token budget, first-token redaction, memory sampling, cancellation, rollback, RunEventLog, AnswerPacket, and non-promotion. The exotic gate should reuse the discipline, not the exact model assumptions. |
+| `agent_core/src/security.rs` | Credential redaction and subprocess hardening provide the security baseline: no provider/HF token inheritance, no dynamic-loader env, no interpreter env, no output persistence without redaction/threat scan, and no process lifecycle shortcuts. |
+| `agent_core/src/uas/small_model_runtime_harness_answer_packet_runtime_probe.rs` | Future first-token evidence must retain only a redacted marker and `token_sha256:*` digest, correlated through AnswerPacket and RunEventLog. |
+| `agent_core/src/uas/small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe.rs` | Product-facing L3 evidence requires token digest correlation across AnswerPacket, RunEventLog, and live sidecar; command envelopes and dry runs cannot claim this early. |
+
+### Current External Source Matrix
+
+Checked 2026-06-07 with source/repo APIs and primary docs:
+
+| Source | Current signal | Import class | Command-envelope consequence |
+|---|---:|---|---|
+| `ggml-org/llama.cpp` | MIT; 115068 stars; 19265 forks; pushed 2026-06-07 | `adapter_wrap` / external CLI lane | Require vectorized args, `--offline`, bounded `--predict`, bounded context, output policy, explicit KV/cache policy, no server, no URL/HF download, no HF token, no mmap/mlock fit claim. |
+| `ml-explore/mlx-lm` | MIT; 5547 stars; 738 forks; pushed 2026-06-06 | `quarantine_reference` for Python lane | Python MLX can download from Hugging Face and has default model paths; command envelope must deny Python env inheritance, hub tokens, hidden download, and product route mutation. |
+| `ml-explore/mlx-swift-lm` | MIT; 542 stars; 255 forks; pushed 2026-06-04 | `adapter_wrap` / native Swift lane candidate | Native Swift lane needs API-plan envelope, local-only downloader/tokenizer proof, serialized executor, cancellation, and explicit unsupported-Gemma caveats. |
+| `google-ai-edge/LiteRT-LM` | Apache-2.0; 5469 stars; 562 forks; pushed 2026-06-06 | `adapter_wrap` / Pro Gated native or CLI lane | Separate Swift/native API, CLI, OpenAI-compatible server, and app-demo claims. Server/CLI do not become MAS/product proof. |
+| `swiftlang/swift-subprocess` | Apache-2.0; 633 stars; 57 forks; pushed 2026-06-05 | `adapter_wrap` for Pro subprocess harness only | Output limits, closure-scoped execution handles, environment, working directory, and teardown sequence become transcript axes. |
+| `huggingface/transformers` | Apache-2.0; 161374 stars; 33438 forks; pushed 2026-06-07 | `quarantine_reference` | Requires `local_files_only`/offline proof and denies `trust_remote_code` or hub cache as product truth unless source-carded. |
+| `kvcache-ai/ktransformers` | Apache-2.0; 17254 stars; 1311 forks; pushed 2026-06-05 | `quarantine_reference` / expert-placement motif | Useful for heterogeneous expert/KV placement, but command envelope must deny daemon/server laundering and hidden wake. |
+| `vllm-project/vllm` | Apache-2.0; 82113 stars; 17737 forks; pushed 2026-06-07 | `research_only` for product Mac lane | PagedAttention/KV motifs only; do not import server/runtime assumptions into MAS. |
+| `LMCache/LMCache` | Apache-2.0; 8435 stars; 1257 forks; pushed 2026-06-07 | `research_only` / KV lineage motif | Remote/shared KV cache motifs require no-remote-cache laundering red fixtures. |
+
+### Current Issue / Failure Signals
+
+Issue threads are not architecture proof. They are useful red-team inputs:
+
+| Source issue signal | Red fixture generated |
+|---|---|
+| llama.cpp Metal crash reports, including macOS Metal crash and SIGBUS examples: `https://github.com/ggml-org/llama.cpp/issues/16266`, `https://github.com/ggml-org/llama.cpp/issues/18568` | `metal_backend_crash_not_l2_proof`, `metal_backend_error_policy_missing`, `first_token_probe_without_abort_path` |
+| llama.cpp current KV/cache/memory reports: KV spill-over request, KVarN KV research, KV metrics exposure, quantized KV leak/memory tracking, compute-buffer explosion, and llama-server heap corruption: `https://github.com/ggml-org/llama.cpp/issues/23855`, `https://github.com/ggml-org/llama.cpp/issues/24139`, `https://github.com/ggml-org/llama.cpp/issues/23632`, `https://github.com/ggml-org/llama.cpp/issues/23873`, `https://github.com/ggml-org/llama.cpp/issues/24159`, `https://github.com/ggml-org/llama.cpp/issues/24175`, `https://github.com/ggml-org/llama.cpp/issues/23072` | `kv_cache_policy_missing`, `cache_ram_unbounded`, `server_sidecar_default`, `memory_metric_absent`, `buffer_explosion_no_budget`, `server_heap_corruption_not_product_lane` |
+| MLX Swift Gemma 4 support/loader/tool-call issues: `https://github.com/ml-explore/mlx-swift-lm/issues/177`, `https://github.com/ml-explore/mlx-swift-lm/issues/292`, `https://github.com/ml-explore/mlx-swift-lm/issues/219`, `https://github.com/ml-explore/mlx-swift-lm/issues/259`, `https://github.com/ml-explore/mlx-swift-lm/issues/279`, `https://github.com/ml-explore/mlx-swift-lm/issues/282` | `mlx_swift_repo_is_not_gemma4_loader_proof`, `loader_gap_not_product_proof`, `tool_call_parser_gap`, `mtp_drafter_loader_gap`, `unsupported_family_claim_rejected` |
+| LiteRT-LM Swift/SPM/QAT support questions and LFS issue: `https://github.com/google-ai-edge/LiteRT-LM/issues/1906`, `https://github.com/google-ai-edge/LiteRT-LM/issues/1959`, `https://github.com/google-ai-edge/LiteRT-LM/issues/2385`, `https://github.com/google-ai-edge/LiteRT-LM/issues/2407`, `https://github.com/google-ai-edge/LiteRT-LM/issues/2497`, `https://github.com/google-ai-edge/LiteRT-LM/issues/2498` | `litert_swift_binding_not_admission`, `spm_lfs_failure_not_product_proof`, `qat_support_unclear`, `mtp_support_unclear`, `vision_encoder_location_unclear`, `openai_server_not_mas_lane` |
+
+### Primary-Doc Flag Consequences
+
+The current llama.cpp CLI README exposes exact gate obligations:
+
+- default `--predict` / `--n-predict` can be `-1` infinite, so the envelope
+  must require `--predict 1` for first-token probes and reject unbounded values.
+- `--ctx-size` defaults to model-provided or zero behavior, so the envelope
+  must bind a context budget rather than inherit runtime defaults.
+- `--hf-repo`, `--hf-file`, `--model-url`, and `--hf-token` exist, so the
+  envelope must deny remote downloads and hub tokens unless a future owner-
+  approved, source-carded path explicitly allows them.
+- `--offline` exists and must be required for local probes.
+- `--cache-type-k`, `--cache-type-v`, `--cache-ram`, `--kv-offload`, and
+  speculative-draft cache flags exist, so KV/cache policy must be visible.
+- `--mlock`, `--mmap`, and `--no-mmap` exist, so the envelope must reject
+  "mmap/mlock means fit" and record the transport/memory caveat.
+- `--simple-io`, `--no-display-prompt`, `--single-turn`, and `--log-disable`
+  are useful for bounded proof but must be explicit.
+
+The current MLX LM README exposes Python-lane denials:
+
+- `mlx_lm.generate` and `mlx_lm.chat` have a default generation/chat model.
+- Hugging Face Hub integration and command examples can download models.
+- `stream_generate` yields tokens; any future use must redact token text and
+  retain only digest refs in witnesses.
+- prompt caches and rotating KV caches exist, so cache compatibility must be
+  explicit.
+- tokenizer `trust_remote_code` appears as a practical caveat and must be
+  denied or source-carded before product use.
+
+The current MLX Swift LM README exposes native-lane requirements:
+
+- downloader/tokenizer integration is pluggable, so the envelope needs a
+  `native_api_plan` with local-only downloader/tokenizer refs.
+- `#huggingFaceLoadModelContainer` is convenient but cannot become hidden
+  download authority.
+- `ChatSession` is a native API surface; cancellation and executor isolation
+  must be represented without subprocess semantics.
+
+The current LiteRT-LM README exposes lane separation:
+
+- Gemma 4 12B, CLI, OpenAI-compatible server, and Swift package surfaces are
+  all advertised, but each is a different lane.
+- OpenAI-compatible server mode is denied by default for Epistemos product
+  inference.
+- Swift package/macOS support is a source signal, not product admission.
+
+Swift Subprocess docs expose transcript obligations:
+
+- output collection has explicit byte limits;
+- execution handles and streams are closure-scoped and must not escape;
+- environment and working directory are configured surfaces;
+- cancellation uses teardown sequence and forced termination if needed.
+
+### Hugging Face Artifact Pull Leads
+
+Current model-card API signals checked 2026-06-07:
+
+| Model | Current sha / files | Gate consequence |
+|---|---|---|
+| `google/gemma-4-E2B-it-qat-q4_0-gguf` | sha `1894d1fc0a19d86697abd40483f5983c867df03f`; files include `gemma-4-E2B_q4_0-it.gguf` and `gemma-4-E2B-it-mmproj.gguf` | E2B remains small harness lane; command envelope must bind exact revision and selected file, not just model ID. |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | sha `f6e7774e6148da3b7f201e42ba37cf084c1db35f`; files include `gemma-4-12b-it-qat-q4_0.gguf` and `mmproj-gemma-4-12b-it-qat-q4_0.gguf` | Pro Gated 12B target; requires 24-32 GB class preflight, selected file, optional mmproj policy, and no Swift MLX claim without loader proof. |
+| `YTan2000/Qwopus3.5-27B-v3-TQ3_4S` | sha `d1f4ed7d1c610cfac430c244d456af6aeac442ce`; files include `Qwopus3.5-27B-v3-TQ3_4S.gguf` and `mmproj.gguf` | Exotic GGUF row; selected GGUF/mmproj policy must be explicit and no artifact availability is assumed. |
+| `caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5` | sha `f744e234acfbf2a281eb916424bbaaf914e70329`; files include `model_int4.pt`, tokenizer/config files | HLWQ row is not GGUF/llama.cpp by default; command envelope must reject wrong-runtime assumptions. |
+| `mudler/Qwopus-MoE-35B-A3B-APEX-GGUF` | sha `724281f1f6af99158ae89cba4196f39ccc4e039e`; multiple APEX GGUF variants | MoE row must bind selected variant and full-weight-vs-active-parameter caveat. |
+| `nvidia/Gemma-4-31B-IT-NVFP4` | sha `e5ef03afa233c35cb000323ff098d4291e1dd07c`; safetensors/config files | Blackwell/server-class row stays denied for Mac command envelope unless a separate local lane proves otherwise. |
+| `Intel/gemma-4-31B-it-int4-AutoRound` | sha `a428c96a57976947b0f12735f0cf5fcae69019ad`; many safetensors shards | Transformers/quarantine row; no GGUF/MLX/LiteRT lane can be inferred from model-card existence. |
+
+HF search also surfaced high-activity adjacent rows such as
+`unsloth/gemma-4-12B-it-qat-GGUF`, `unsloth/gemma-4-31B-it-qat-GGUF`, many
+Jackrong Qwopus GGUF/MTP rows, `RedHatAI/gemma-4-31B-it-NVFP4`, and multiple
+uncensored/turbo/forked NVFP4 variants. These become search leads and
+quarantine/source-card candidates, not product truth.
+
+### TurboVec Fork Sweep Lesson
+
+The first GitHub forks page for `RyanCodrai/turbovec` is mostly low-star,
+recently updated mirrors with MIT inherited metadata and one `NOASSERTION`
+license fork. The architecture consequence is:
+
+- fork count is not proof;
+- fork deltas must be inspected before motifs are trusted;
+- no-license forks may be quarantine references only;
+- useful fork changes must become `F-TurboVec-ForkDeltaSourceCard` style
+  source cards before code import, adapter wrap, or clean-room rewrite.
+
+### New Red Fixtures For The Next Gate
+
+Add these to the `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`
+blueprint:
+
+```text
+llama_predict_default_infinite
+llama_ctx_size_default_unbounded
+llama_hf_repo_download
+llama_hf_file_download
+llama_model_url_download
+llama_hf_token_env
+llama_cache_ram_unbounded
+llama_kv_cache_type_unspecified
+llama_kv_offload_unspecified
+llama_mlock_as_fit_claim
+llama_mmap_as_fit_claim
+llama_server_sidecar
+llama_metal_crash_issue_noted_without_abort_policy
+mlx_python_default_model_download
+mlx_python_hf_cache_as_truth
+mlx_python_trust_remote_code
+mlx_python_prompt_cache_without_compat_fence
+mlx_stream_generate_retains_raw_token
+mlx_swift_huggingface_macro_hidden_download
+mlx_swift_gemma4_loader_gap_ignored
+mlx_swift_tool_call_parser_gap_ignored
+mlx_swift_mtp_drafter_gap_ignored
+litert_openai_server_default
+litert_swift_package_as_product_admission
+litert_spm_lfs_failure_ignored
+litert_qat_support_unclear_ignored
+swift_subprocess_output_limit_missing
+swift_subprocess_execution_handle_escape
+swift_subprocess_teardown_sequence_missing
+hf_model_id_without_revision
+hf_selected_file_missing
+hf_mmproj_policy_missing
+hf_safetensors_row_treated_as_gguf
+moe_active_params_without_full_weight_bytes
+turbovec_fork_delta_uninspected
+no_license_fork_direct_import
+```
+
+### Additional Required Axes
+
+Pass 82 axes still stand. Pass 85 adds these axis refinements:
+
+```text
+model_revision_and_selected_file_bound
+mmproj_or_aux_file_policy_visible
+runtime_lane_matches_artifact_format
+llama_cli_offline_one_token_policy_bound
+llama_remote_download_flags_denied
+llama_kv_cache_policy_bound
+llama_cache_ram_policy_bound
+mlx_python_quarantine_downloads_denied
+mlx_swift_native_loader_caveats_visible
+litert_server_mode_denied
+swift_subprocess_output_limit_and_teardown_bound
+hf_token_provider_env_denied
+fork_delta_license_classification_bound
+issue_failure_refs_recorded_as_red_fixtures_only
+```
+
+### Promotion Truth
+
+- T0 research advanced: yes. The command-envelope red-fixture map now includes
+  current source, issue, fork, and HF artifact signals.
+- T1/L1 advanced: no. No new falsifier landed in Pass 85.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, now with current
+source-backed red fixtures for remote downloads, wrong artifact formats,
+runtime-lane mismatch, subprocess output/teardown gaps, KV/cache policy gaps,
+loader support gaps, and first-token overclaim risk.
+
+Safest next falsifier:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Best near-term code unit:
+Implement the metadata-only command-envelope primitive with lane variants for
+`LlamaCppCli`, `MlxPythonQuarantine`, `MlxSwiftNativeApi`,
+`LiteRTLMNativeApi`, `LiteRTLMCliQuarantine`, `TransformersPythonQuarantine`,
+`CustomMetalKernelPlan`, `LocalEndpointDenied`, and `ServerOnlyDenied`, plus
+the Pass 85 red fixtures above.
+
+Biggest false-claim risk:
+Treating current docs, active repos, issue fixes, HF downloads, or model-card
+popularity as local product proof. They are source signals only.
+
+Biggest missing source:
+Owner-approved local manifests for the target rows and a chosen first
+owner-approved runtime lane for future dry-run proof.
+
+Next research query:
+"What exact `RuntimeCommandEnvelopeCard` Rust shape and invalid fixture matrix
+will let `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` consume the
+byte-envelope preflight artifact while proving zero command execution, zero
+path/file access, exact model revision/file binding, lane-format compatibility,
+subprocess/native/Metal separation, rollback, RunEventLog, AnswerPacket, and
+no L2/L3 promotion?"
+
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
 Date: 2026-06-07

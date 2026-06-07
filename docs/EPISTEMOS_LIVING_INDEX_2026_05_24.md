@@ -3053,6 +3053,22 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   query lines, GitHub/fork/HF/arXiv/official-doc recipes, and a red/blue/purple
   loop. This advances T0 research method only; no new falsifier landed and L2/L3
   large-local-model capability remains red.
+- 2026-06-07 command-envelope red-fixture pass: Deep Research Pass 85 turns
+  current source/fork/model-card/issue signals into concrete red fixtures for
+  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, the downstream dry-run
+  transcript, and future redacted first-token probe. It uses current source
+  metadata and docs for llama.cpp, MLX LM, MLX Swift LM, LiteRT-LM, Swift
+  Subprocess, Transformers, KTransformers, vLLM, and LMCache; current issue
+  leads for llama.cpp Metal/KV/server failures, MLX Swift Gemma 4 loader/tool-
+  call gaps, and LiteRT-LM Swift/SPM/QAT/MTP questions; and current HF
+  revisions/file lists for Gemma 4 QAT, Qwopus exotic rows, NVFP4, and
+  AutoRound. New red fixtures include remote-download flags, HF token env,
+  unbounded predict/context/cache RAM, mmap/mlock fit claims, server sidecars,
+  MLX hidden downloads, Swift loader gaps, LiteRT server/SPM/QAT uncertainty,
+  subprocess output/teardown gaps, missing HF revision/selected file, wrong
+  artifact-format assumptions, MoE active-param overclaims, and uninspected
+  fork/no-license import attempts. This advances T0 research/backlog only; no
+  command is armed and L2/L3 large-local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
