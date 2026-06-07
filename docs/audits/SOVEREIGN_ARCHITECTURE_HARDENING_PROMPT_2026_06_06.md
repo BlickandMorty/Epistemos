@@ -157,9 +157,10 @@ Current 2026-06-07 large-local-model research-to-build status:
   fixtures, keeps command executions/path opens/stat calls/file hashes/model/
   runtime/provider/source-tree/product/benchmark bytes at zero, and still does
   not prove runtime load, Apple Silicon fit, product default, or user-facing
-  capability. Its downstream local artifact availability owner gate is now
-  landed; the next large-local-model research-to-build unit is
-  `exotic_quant_owner_path_manifest_intake_gate`.
+  capability. Its downstream local artifact availability owner gate and owner
+  path-manifest intake gate are now landed; the next large-local-model
+  research-to-build unit is
+  `exotic_quant_owner_path_canonicalization_preflight_gate`.
 - `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` has landed as a
   metadata-only T1/L1 witness at
   `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`.
@@ -170,8 +171,21 @@ Current 2026-06-07 large-local-model research-to-build status:
   opens/stat calls/file hashes/symlink resolution/command executions/model/
   runtime/provider/source-tree/product/benchmark bytes at zero, and still does
   not prove local artifact availability, runtime load, Apple Silicon fit,
-  product default, or user-facing capability. The next large-local-model
-  research-to-build unit is `exotic_quant_owner_path_manifest_intake_gate`.
+  product default, or user-facing capability. Its downstream owner path-
+  manifest intake gate is now landed.
+- `F-ExoticQuantOwnerPathManifestIntakeGate` has landed as a metadata-only
+  T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
+  It consumes the local artifact availability owner gate, accepts 5 owner
+  path-manifest intake cards, records 3 Mac-candidate rows with required
+  manifest schema and zero owner manifests/signatures/digests present, denies 2
+  server/GPU rows for Mac manifest intake, rejects 64 red fixtures, keeps owner
+  manifest bytes/path canonicalization/path opens/stat calls/file hashes/
+  symlink resolution/command executions/model/runtime/provider/source-tree/
+  product/benchmark bytes at zero, and still does not prove local artifact
+  availability, runtime load, Apple Silicon fit, product default, or
+  user-facing capability. The next large-local-model research-to-build unit is
+  `exotic_quant_owner_path_canonicalization_preflight_gate`.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

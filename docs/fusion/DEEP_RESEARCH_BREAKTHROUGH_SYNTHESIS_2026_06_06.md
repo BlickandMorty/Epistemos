@@ -5199,10 +5199,11 @@ visibility must be owner-approved, manifest-bound, path-canonicalized,
 size-budgeted, rollbackable, RunEventLog/AnswerPacket visible, and unable to
 arm a command by itself.
 
-Current best near-term code unit: add
+Former current best near-term code unit, now landed by Pass 79: add
 `exotic_quant_owner_path_manifest_intake_gate` so the owner-approved local path
 manifest format is explicit before any path canonicalization, byte envelope,
-loader lane, command envelope, or runtime probe can begin.
+loader lane, command envelope, or runtime probe can begin. Current best
+near-term code unit: add `exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 Biggest false-claim risk: treating pending owner approval as approval, or
 treating an unarmed command envelope as a runtime proof.
@@ -7434,10 +7435,12 @@ visibility must be owner-approved, manifest-bound, path-canonicalized,
 size-budgeted, non-hashed unless explicitly allowed, rollbackable, and unable
 to arm a command by itself.
 
-Current best near-term code unit: add
+Former current best near-term code unit, now landed by Pass 79: add
 `exotic_quant_owner_path_manifest_intake_gate` so the owner-approved manifest
 shape is explicit before path canonicalization, byte-envelope checking, loader
 lane selection, crash-safe command envelopes, or runtime probes can begin.
+Current best near-term code unit: add
+`exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 Biggest false-claim risk: saying "GGUF-compatible", "Transformers-compatible",
 or "file found in Downloads" means the model is runnable, high quality,
@@ -7524,19 +7527,21 @@ bytes, product bytes, and benchmark runs at zero.
 - T4/T5 green: no.
 
 Best breakthrough candidate: owner path-manifest intake for the three
-Mac-candidate exotic quant rows, because the architecture now knows loader
-class and fail-closed availability state but still has no owner-approved local
-artifact manifest, byte envelope, path canonicalization proof, or crash-safe
-command envelope.
+Mac-candidate exotic quant rows. This candidate is now landed by Pass 79, so the
+current breakthrough candidate is path canonicalization preflight that preserves
+zero file access and no runtime promotion.
 
 Safest next falsifier:
-`F-ExoticQuantOwnerPathManifestIntakeGate`.
+`F-ExoticQuantOwnerPathManifestIntakeGate` (landed by Pass 79); current next is
+`exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 Best near-term code unit: add
 `exotic_quant_owner_path_manifest_intake_gate` so every owner-provided path
 manifest must bind model ID, selected artifact path, expected byte envelope,
 runtime lane, rollback, RunEventLog, AnswerPacket, abstention, and explicit
 non-promotion before any path is canonicalized or command envelope is armed.
+This unit is now built; next code should preflight canonicalization without path
+opens, symlink following, hash attempts, or runtime claims.
 
 Biggest false-claim risk: treating "owner has a file" as local runtime proof,
 or allowing path existence, hashes, symlinks, loader classes, or benchmark
@@ -7559,6 +7564,103 @@ Sources:
 - `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`
 - `docs/falsifiers/F-ExoticQuantLoaderCompatibilityModelPathGate_2026_06_07.md`
 - `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 79 - Exotic Quant Owner Path-Manifest Intake Gate
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 79 implements `F-ExoticQuantOwnerPathManifestIntakeGate`. The point is to
+turn owner intent into a typed manifest contract before any exotic quant
+candidate can move toward path canonicalization, byte-envelope validation,
+command envelopes, runtime probes, or product-route claims.
+
+The gate consumes the local artifact availability witness, accepts five owner
+path-manifest intake cards, rejects 64 red fixtures, records three Mac-candidate
+rows requiring manifest schema with zero owner manifests, signatures, or digests
+present, denies two server/GPU rows for Mac manifest intake, binds selected
+artifact bytes `96318502063` and maximum minimum UMA bytes `39108307031`, and
+keeps owner-manifest bytes, path canonicalization, path opens, stat calls, file
+hashes, symlink resolution, command executions, model bytes, runtime bytes,
+provider calls, source-tree bytes, product bytes, and benchmark runs at zero.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_owner_path_manifest_intake_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_owner_path_manifest_intake_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_owner_path_manifest_intake_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantOwnerPathManifestIntakeGate_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each owner manifest intake card has a deterministic address and exact source-pin/byte-budget binding. |
+| ColdStore/AppColdStore | Candidate artifacts remain cold until an owner manifest exists and later gates prove path identity without shortcutting into runtime proof. |
+| ActiveAssembly | No active assembly can wake from owner intent alone; manifest intake is not residency or loadability. |
+| Eidos | Manifest requirements can be surfaced as visible evidence and caveats, not hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects owner manifest leaks, missing manifest fields, server-only Mac intake, path/file shortcuts, command arming, hidden authority, and promotion attempts. |
+| RuntimeRouter/System G | Runtime lanes stay unarmed until canonicalization preflight, crash-safe command envelopes, rollback, and AnswerPacket evidence exist. |
+| RunEventLog/AnswerPacket | Future packets must expose owner manifest state, byte envelope, denial/abstention, and zero-byte boundaries before promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathManifestIntakeGate` passes as
+  metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: owner-approved path canonicalization preflight for
+the three Mac-candidate exotic quant rows, because the architecture now has a
+manifest contract but still must prove safe path handling without opening model
+bytes or making runtime claims.
+
+Safest next falsifier:
+`F-ExoticQuantOwnerPathCanonicalizationPreflightGate`.
+
+Best near-term code unit: add
+`exotic_quant_owner_path_canonicalization_preflight_gate` so owner-supplied
+paths can be normalized, policy-checked, and prepared for later byte-envelope
+proof without following symlinks, opening files, hashing artifacts, arming
+commands, or promoting L2/L3.
+
+Biggest false-claim risk: treating a manifest contract as owner approval, local
+file existence, path safety, loader support, Apple Silicon fit, or first-token
+proof.
+
+Biggest missing source: actual owner-approved manifests and an exact policy for
+absolute-path canonicalization, symlink denial, sandbox boundaries, allowed
+roots, and digest timing.
+
+Next research query: "How should Epistemos canonicalize owner-supplied local
+model paths in a crash-safe, symlink-safe, privacy-preserving way that proves
+path identity without reading model bytes or promoting runtime capability?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantOwnerPathManifestIntakeGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantLocalArtifactAvailabilityOwnerGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`
 - https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
 - https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF

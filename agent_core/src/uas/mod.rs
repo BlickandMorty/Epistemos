@@ -43,6 +43,7 @@ pub mod construction_card;
 pub mod copy_counter;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
+pub mod exotic_quant_owner_path_manifest_intake_gate;
 pub mod exotic_quant_quarantine_route_card;
 pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
@@ -208,6 +209,16 @@ pub use exotic_quant_local_artifact_availability_owner_gate::{
     ExoticQuantArtifactAvailabilityState,
     EXOTIC_QUANT_LOCAL_ARTIFACT_AVAILABILITY_OWNER_GATE_CURSOR,
     EXOTIC_QUANT_LOCAL_ARTIFACT_AVAILABILITY_OWNER_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_owner_path_manifest_intake_gate::{
+    canonical_owner_path_manifest_intake_cards, expected_owner_path_manifest_model_ids,
+    OwnerPathManifestByteEnvelope, OwnerPathManifestIntakeAction,
+    OwnerPathManifestIntakeByteLedger, OwnerPathManifestIntakeCard, OwnerPathManifestIntakeError,
+    OwnerPathManifestIntakeLedger, OwnerPathManifestIntakeMetrics,
+    OwnerPathManifestIntakeProofRefs, OwnerPathManifestIntakeState,
+    OwnerPathManifestRequiredFields,
+    EXOTIC_QUANT_OWNER_PATH_MANIFEST_INTAKE_GATE_CURSOR,
+    EXOTIC_QUANT_OWNER_PATH_MANIFEST_INTAKE_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,

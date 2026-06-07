@@ -35,4 +35,4 @@ Correct phrasing: architecture MoE memory-truth coverage advanced; product capab
 
 ## Downstream Units
 
-`F-ExoticQuantQuarantineRouteCard`, `F-ExoticQuantSourcePinAndByteBudgetPreflight`, `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, `F-ExoticQuantLoaderCompatibilityModelPathGate`, and `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_owner_path_manifest_intake_gate`, which should define owner-approved path manifest intake before any exotic quant command envelope can be armed.
+`F-ExoticQuantQuarantineRouteCard`, `F-ExoticQuantSourcePinAndByteBudgetPreflight`, `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, `F-ExoticQuantLoaderCompatibilityModelPathGate`, `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`, and `F-ExoticQuantOwnerPathManifestIntakeGate` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_owner_path_canonicalization_preflight_gate`, which should prove owner-approved path handling without file opens, symlink following, command arming, or product promotion.

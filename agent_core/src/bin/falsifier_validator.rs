@@ -134,6 +134,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ExoticQuantRuntimeLaneOwnerApprovalGate",
     "F-ExoticQuantLoaderCompatibilityModelPathGate",
     "F-ExoticQuantLocalArtifactAvailabilityOwnerGate",
+    "F-ExoticQuantOwnerPathManifestIntakeGate",
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
     "F-RuntimePlural-QATLaneTournamentPlan",

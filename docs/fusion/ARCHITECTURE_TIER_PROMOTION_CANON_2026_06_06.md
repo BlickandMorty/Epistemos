@@ -512,9 +512,10 @@ rollback, RunEventLog, AnswerPacket, abstention, and zero
 command/model-path/model/runtime/provider/source-tree/product/benchmark bytes
 remain mandatory. It does not prove local artifact availability, loader import,
 first token, quality, Apple Silicon fit, product default, L2/L3 product
-capability, or live dense 70B. The next large-local-model research-to-build
-unit is now `exotic_quant_owner_path_manifest_intake_gate` because downstream
-local artifact availability gating has landed.
+capability, or live dense 70B. Its downstream local artifact availability and
+owner path-manifest intake gates have landed; the next large-local-model
+research-to-build unit is now
+`exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 2026-06-07 exotic quant local artifact availability promotion note:
 `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` is T1/L1 only. It strengthens
@@ -528,8 +529,26 @@ AnswerPacket, abstention, and zero owner-manifest/model/runtime/provider/
 source-tree/product/benchmark bytes remain mandatory. It does not prove local
 artifact availability, owner approval, path safety, loader import, first token,
 quality, Apple Silicon fit, product default, L2/L3 product capability, or live
-dense 70B. The next large-local-model research-to-build unit is
-`exotic_quant_owner_path_manifest_intake_gate`.
+dense 70B. Its downstream owner path-manifest intake gate has landed; the next
+large-local-model research-to-build unit is
+`exotic_quant_owner_path_canonicalization_preflight_gate`.
+
+2026-06-07 exotic quant owner path-manifest intake promotion note:
+`F-ExoticQuantOwnerPathManifestIntakeGate` is T1/L1 only. It strengthens the
+architecture in favor of larger local models by defining the owner manifest
+contract before any path canonicalization, file access, byte-envelope check,
+command envelope, runtime probe, or product-route claim can begin: three
+Mac-candidate rows require manifest schema with zero owner manifests,
+signatures, or digests present; two server/GPU rows are denied for Mac manifest
+intake; selected artifact bytes `96318502063` and maximum minimum UMA bytes
+`39108307031` are bound; no path canonicalization/open/stat/hash/symlink,
+command, model/runtime/provider/source-tree/product, or benchmark bytes are
+loaded; and rollback, RunEventLog, AnswerPacket, abstention, and no-hidden-
+authority proof remain mandatory. It does not prove local artifact
+availability, owner approval, path safety, loader import, first token, quality,
+Apple Silicon fit, product default, L2/L3 product capability, or live dense 70B.
+The next large-local-model research-to-build unit is
+`exotic_quant_owner_path_canonicalization_preflight_gate`.
 
 ## Required Surface Updates
 

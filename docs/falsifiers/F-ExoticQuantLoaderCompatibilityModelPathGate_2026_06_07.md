@@ -47,7 +47,7 @@ Accepted rows:
 - Source tree bytes read: `0`
 - Product bytes copied: `0`
 - Benchmark runs: `0`
-- Next research-to-build cursor: `exotic_quant_local_artifact_availability_owner_gate` (now landed downstream; downstream next is `exotic_quant_owner_path_manifest_intake_gate`)
+- Next research-to-build cursor: `exotic_quant_local_artifact_availability_owner_gate` (now landed downstream; downstream owner path-manifest intake is also landed; downstream next is `exotic_quant_owner_path_canonicalization_preflight_gate`)
 
 ## Non-Promotion Boundary
 
@@ -65,4 +65,6 @@ The large-local-model track needs ambition without accidental promotion. Exotic 
 
 The downstream `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`.
 
-The next required proof object is `exotic_quant_owner_path_manifest_intake_gate`, which should define the owner-approved manifest shape before any crash-safe command envelope or runtime probe can be armed.
+The downstream `F-ExoticQuantOwnerPathManifestIntakeGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_owner_path_manifest_intake_gate/result.json`.
+
+The next required proof object is `exotic_quant_owner_path_canonicalization_preflight_gate`, which should prove owner-approved path handling without file opens, symlink following, command arming, or product promotion before any crash-safe command envelope or runtime probe can be armed.
