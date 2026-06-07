@@ -5029,6 +5029,103 @@ Sources:
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 75 - Exotic Quant Source-Pin Byte-Budget Preflight Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 75 implements `F-ExoticQuantSourcePinAndByteBudgetPreflight`. This is the
+research-to-build bridge between "interesting compressed model card" and "safe
+owner-approved runtime probe." It binds exact Hugging Face revisions, manifest
+digests, declared tree bytes, selected artifact bytes, Mac/server tier
+decisions, rollback, RunEventLog, AnswerPacket, compatibility, privacy, and
+abstention before any exotic quant row can be armed.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_source_pin_byte_budget_preflight.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_source_pin_byte_budget_preflight.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_source_pin_byte_budget_preflight.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantSourcePinAndByteBudgetPreflight_2026_06_07.md`
+
+The witness consumes `F-ExoticQuantQuarantineRouteCard`, accepts five
+source-pin byte-budget cards, rejects 43 red fixtures, records 5 distinct
+manifest digests, 3 Mac preflight candidates, 2 server-only rows, declared
+tree bytes `298121896823`, selected preflight artifact bytes `97269645985`,
+maximum declared minimum UMA requirement `39108307031`, and zero model/runtime/
+provider/source-tree/product/command/benchmark bytes.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Exotic quant candidates now have deterministic source-pin byte-budget addresses, not just model-card names. |
+| ColdStore/AppColdStore | Full repo bytes and selected artifact bytes are separated, so a 215 GB APEX tree cannot masquerade as a 14 GB runtime fact. |
+| ActiveAssembly | Future assembly candidates must cite selected artifacts plus KV/runtime/headroom budgets before waking anything. |
+| Eidos | Model-card and manifest evidence can become visible priors, never hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission can reject missing pins, bad manifests, 16-18 GB Mac overclaims, server-only Mac defaults, and benchmark-as-fit shortcuts. |
+| RuntimeRouter/System G | Exotic quant remains runtime-deferred until owner approval, loader compatibility, model-path readiness, and crash-safe proof land. |
+| RunEventLog/AnswerPacket | Future packets must expose exact source pin, manifest digest, selected bytes, minimum UMA caveat, rollback, and abstention. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantSourcePinAndByteBudgetPreflight` passes
+  as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: owner-approved runtime-lane gate for exact
+exotic quant rows, because source pins and byte budgets now exist but command
+arming, loader compatibility, model-path readiness, crash-safe rollback, and
+AnswerPacket visibility are still missing.
+
+Safest next falsifier:
+`F-ExoticQuantRuntimeLaneOwnerApprovalGate`.
+
+Best near-term code unit: add
+`exotic_quant_runtime_lane_owner_approval_gate` so every exotic quant runtime
+probe requires explicit owner approval, unarmed command envelopes, model path
+readiness, loader compatibility, rollback, RunEventLog, AnswerPacket,
+abstention, no hidden authority, and zero source/product contamination before
+any runtime bytes are opened.
+
+Biggest false-claim risk: saying TQ3_4S, HLWQ, APEX, NVFP4, or AutoRound is
+"working locally" because the source pin and byte budget are known. Known bytes
+are not runtime proof, quality proof, first-token proof, MAS proof, or L3 WRV.
+
+Biggest missing source: owner-approved local loader and command evidence for
+the selected artifacts on Jojo's actual Mac tier.
+
+Next research query: "What exact owner-approved command, model-path, loader,
+rollback, and AnswerPacket envelope is safe enough to probe a small selected
+exotic quant artifact without importing source code, arming hidden routes, or
+promoting L2/L3 capability?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantSourcePinAndByteBudgetPreflight_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json`
+- `docs/falsifiers/F-ExoticQuantQuarantineRouteCard_2026_06_07.md`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 - https://github.com/google-ai-edge/LiteRT-LM
 - https://github.com/google-ai-edge/LiteRT-LM/blob/main/Package.swift
 - https://github.com/google-ai-edge/LiteRT-LM/tree/main/swift
@@ -7130,10 +7227,10 @@ quant rows, because the architecture now has a quarantine boundary but still
 needs exact file manifests and runtime-lane byte envelopes before any probe is
 safe.
 
-Safest next falsifier:
+Former safest falsifier, now landed by Pass 75:
 `F-ExoticQuantSourcePinAndByteBudgetPreflight`.
 
-Best near-term code unit: add
+Former near-term code unit, now landed by Pass 75: add
 `exotic_quant_source_pin_and_byte_budget_preflight` so TQ3_4S, HLWQ, APEX,
 NVFP4, and AutoRound rows must bind exact source pins, file manifests,
 declared artifact bytes, runtime-lane byte envelopes, Mac-tier denial/

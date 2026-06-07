@@ -2900,8 +2900,8 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   RuntimeRouter/System G. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The downstream exotic
-  quant quarantine unit is now landed; the next research-to-build unit is
-  `exotic_quant_source_pin_and_byte_budget_preflight`.
+  quant quarantine and source-pin byte-budget units are now landed; the next
+  research-to-build unit is `exotic_quant_runtime_lane_owner_approval_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantQuarantineRouteCard` witness. It consumes
   `F-HardwareTieredModelCatalog-SourceCard` and
@@ -2913,8 +2913,21 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   deferred, rollbackable, AnswerPacket-visible, and denied as hidden route/
   default/product authority before any route use. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. Its downstream source-pin
+  byte-budget unit is now landed; the next research-to-build unit is
+  `exotic_quant_runtime_lane_owner_approval_gate`.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-ExoticQuantSourcePinAndByteBudgetPreflight` witness. It consumes
+  `F-ExoticQuantQuarantineRouteCard`, accepts 5 exact TQ3_4S/HLWQ/APEX/NVFP4/
+  AutoRound source-pin byte-budget cards, rejects 43 red fixtures, binds
+  Hugging Face revisions, manifest digests, declared tree bytes `298121896823`,
+  selected preflight artifact bytes `97269645985`, Mac/server tier decisions,
+  rollback, RunEventLog, AnswerPacket, compatibility, privacy, and abstention,
+  denies 16-18 GB Mac overclaims for every row, and keeps all model/runtime/
+  provider/source-tree/product/command/benchmark bytes at zero. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The next research-to-build
-  unit is `exotic_quant_source_pin_and_byte_budget_preflight`.
+  unit is `exotic_quant_runtime_lane_owner_approval_gate`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

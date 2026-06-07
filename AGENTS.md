@@ -99,14 +99,16 @@ Runtime policy:
   cancellation, structured-output, loader, package-size, RunEventLog, and
   AnswerPacket witnesses. MLX Gemma 4 repos are not Swift runtime proof.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
-  `F-MoEActiveParamsMemoryTruth`, and
-  `F-ExoticQuantQuarantineRouteCard` are landed as T1/L1 metadata-only
+  `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
+  `F-ExoticQuantSourcePinAndByteBudgetPreflight` are landed as T1/L1 metadata-only
   witnesses. They make Gemma/Qwopus/MoE/GPU/exotic-quant rows addressable,
   prove active parameters are compute evidence rather than memory-fit proof,
-  and quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before any route use.
+  quarantine TQ3_4S, HLWQ, APEX, NVFP4, and AutoRound before any route use,
+  and bind exact source pins, manifest digests, selected-artifact bytes, Mac/
+  server tier decisions, rollback, RunEventLog, AnswerPacket, and abstention.
   They do not prove model load, Apple Silicon fit, product default, or
   user-facing capability. The next research-to-build unit is
-  `exotic_quant_source_pin_and_byte_budget_preflight`.
+  `exotic_quant_runtime_lane_owner_approval_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

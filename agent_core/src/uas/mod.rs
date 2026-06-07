@@ -42,6 +42,7 @@ pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod exotic_quant_quarantine_route_card;
+pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
@@ -186,6 +187,13 @@ pub use exotic_quant_quarantine_route_card::{
     ExoticQuantQuarantineRouteLedger, ExoticQuantQuarantineRouteMetrics,
     EXOTIC_QUANT_QUARANTINE_ROUTE_CARD_CURSOR,
     EXOTIC_QUANT_QUARANTINE_ROUTE_CARD_NEXT_CURSOR,
+};
+pub use exotic_quant_source_pin_byte_budget_preflight::{
+    ExoticQuantByteBudgetEnvelope, ExoticQuantMacBudgetTier, ExoticQuantPreflightAction,
+    ExoticQuantSourcePinByteBudgetCard, ExoticQuantSourcePinByteBudgetError,
+    ExoticQuantSourcePinByteBudgetLedger, ExoticQuantSourcePinByteBudgetMetrics,
+    ExoticQuantSourcePinProofRefs, EXOTIC_QUANT_SOURCE_PIN_BYTE_BUDGET_PREFLIGHT_CURSOR,
+    EXOTIC_QUANT_SOURCE_PIN_BYTE_BUDGET_PREFLIGHT_NEXT_CURSOR,
 };
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use gemma_qat_local_runtime_candidate_card::{

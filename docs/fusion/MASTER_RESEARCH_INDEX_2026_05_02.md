@@ -179,7 +179,8 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-KVSourceCard-ForkAndDaemonBoundary`,
 > `F-HardwareTieredModelCatalog-SourceCard`,
 > `F-MoEActiveParamsMemoryTruth`, and
-> `F-ExoticQuantQuarantineRouteCard`. This is T0/T1 research-to-build canon
+> `F-ExoticQuantQuarantineRouteCard`, plus
+> `F-ExoticQuantSourcePinAndByteBudgetPreflight`. This is T0/T1 research-to-build canon
 > only: hardware-tiered model selection, KV/cache reuse, MoE active-parameter
 > claims, and exotic quant formats remain unpromoted until source-card,
 > memory/KV budget, owner approval, runtime proof, rollback, RunEventLog,
@@ -247,7 +248,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > lattice/Eidos route authority, and opens zero model/runtime/provider/
 > source-tree/product/command/benchmark bytes. L2 and L3 remain unchanged; the
 > next research-to-build unit is
-> `exotic_quant_source_pin_and_byte_budget_preflight`.
+> now landed by Pass 75.
+> Deep Research Pass 75 now lands
+> `F-ExoticQuantSourcePinAndByteBudgetPreflight` as a T1/L1 metadata-only
+> witness at
+> `artifacts/falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json`.
+> It consumes `F-ExoticQuantQuarantineRouteCard`, accepts five exact source-pin
+> byte-budget cards for TQ3_4S/HLWQ/APEX/NVFP4/AutoRound rows, rejects 43 red
+> fixtures, binds Hugging Face revisions, manifest digests, declared tree bytes
+> `298121896823`, selected artifact bytes `97269645985`, Mac/server tier
+> decisions, rollback, RunEventLog, AnswerPacket, compatibility, privacy, and
+> abstention refs, denies 16-18 GB Mac overclaims for every row, and opens zero
+> model/runtime/provider/source-tree/product/command/benchmark bytes. L2 and L3
+> remain unchanged; the next research-to-build unit is
+> `exotic_quant_runtime_lane_owner_approval_gate`.
 
 ---
 

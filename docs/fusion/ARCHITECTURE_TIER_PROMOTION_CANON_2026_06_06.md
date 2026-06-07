@@ -471,7 +471,21 @@ model/runtime/provider/source-tree/product/command/benchmark bytes at zero. It
 does not source-pin exact files, prove byte budgets, run runtimes, prove Apple
 Silicon fit, choose a model, make L2/L3 product capability green, or promote
 live dense 70B. The next large-local-model research-to-build unit is
-`exotic_quant_source_pin_and_byte_budget_preflight`.
+now landed by `F-ExoticQuantSourcePinAndByteBudgetPreflight`.
+
+2026-06-07 exotic quant source-pin byte-budget promotion note:
+`F-ExoticQuantSourcePinAndByteBudgetPreflight` is T1/L1 only. It strengthens
+the architecture in favor of larger local models by turning exotic compression
+research into exact source pins, manifest digests, selected-artifact byte
+envelopes, Mac/server tier decisions, rollback, RunEventLog, AnswerPacket, and
+abstention. It consumes the quarantine route-card witness, accepts 5 source-pin
+cards, rejects 43 red fixtures, records declared tree bytes `298121896823`,
+selected preflight artifact bytes `97269645985`, and keeps model/runtime/
+provider/source-tree/product/command/benchmark bytes at zero. It does not load
+models, run GGUF/APEX/MLX/LiteRT/vLLM, prove Apple Silicon fit, choose a
+default, make L2/L3 product capability green, or promote live dense 70B. The
+next large-local-model research-to-build unit is
+`exotic_quant_runtime_lane_owner_approval_gate`.
 
 ## Required Surface Updates
 
