@@ -217,6 +217,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > visibility bypasses, hidden route/cloud authority, L2/L3/product green, live
 > dense 70B, and byte leaks. Guard-owned product cursor remains automated
 > checks; L2 and L3 remain red.
+> `F-GraphFilterVisibilityTestProductsCommandSpec` is now landed as a
+> metadata-only T1/L1 command-spec witness at
+> `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`.
+> It consumes the graph-filter blocker, binds `Epistemos.xcodeproj`, scheme
+> `Epistemos`, `EpistemosTests.xctest`, `Debug`, `platform=macOS`, 5 source
+> refs, 8 seed Swift Testing selectors, 3 proof-root-scoped command templates,
+> the scheme pre-action `Patch MLX Metal Warning` /
+> `scripts/patch_mlx_metal_warnings.sh`, 24 rejected red fixtures, zero
+> selected test-product/app/model/runtime bytes, deterministic address
+> `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> It rejects stale/global/different-commit test-products proof shapes,
+> filename selectors, enumeration-only and zero-test passes, pre-action
+> mutation, automated-check replacement, L2/L3/product/release green, live
+> dense 70B, and byte leaks. Guard-owned product cursor remains automated
+> checks; L2 and L3 remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4681,10 +4698,10 @@ for the repaired graph-filter tests. It also records the scheme pre-action
 the proof boundary, because release-audit evidence must reject or explicitly
 account for source mutation.
 
-Promotion truth: this is T0 research-to-build canon only. It lands no
-falsifier, runs no Xcode command, changes no product source, loads no
-model/runtime bytes, and does not promote L2/L3/T4. The next buildable unit is
-a Rust metadata primitive that validates the command spec, selector seed list,
-pre-action record, path policy, stale-artifact rejection, nonzero-test
-requirement, rollback, RunEventLog, AnswerPacket, and no large-local-model or
-release-ready promotion.
+Promotion truth: this pass is now implemented by
+`F-GraphFilterVisibilityTestProductsCommandSpec`, a metadata-only T1/L1 Rust
+primitive and witness doc. It runs no Xcode command, changes no product source,
+opens zero selected test-product bytes, loads no app/model/runtime bytes, and
+does not promote L2/L3/T4. The next proof remains the actual fresh
+build-for-testing / test-without-building evidence and the guard-owned
+automated-checks cursor.

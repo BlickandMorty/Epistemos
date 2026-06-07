@@ -1,0 +1,706 @@
+{
+  "falsifier_id": "F-GraphFilterVisibilityTestProductsCommandSpec",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_graph_filter_visibility_test_products_command_spec.sh",
+  "command_digest": "sha256:4928edde38a0138b88b4094a56e0e551519ea56f935ef5a4002809d5ff87674e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "23b1592bd127b5a49a1d86bc3e0aa37996cbfe9f",
+  "fixture_id": "graph_filter_visibility_test_products_command_spec_v1",
+  "timestamp_utc": "2026-06-07T22:45:15Z",
+  "result_digest": "sha256:af5fe59230eefb1d9be4541f75cfb40247781511b13e5d83f5cd8d0373d12b17",
+  "measurements": {
+    "app_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "automated_row_replacement_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "build_for_testing_template_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_template_count": {
+      "value": 3,
+      "unit": "commands"
+    },
+    "derived_data_is_proof_root_scoped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_seed_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_automated_check_row_still_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "global_derived_data_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_test_products_address": {
+      "value": "sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d",
+      "unit": "sha256"
+    },
+    "graph_filter_test_products_command_spec": {
+      "value": {
+        "scheme_path": "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme",
+        "scheme_name": "Epistemos",
+        "configuration": "Debug",
+        "destination": "platform=macOS",
+        "testable_name": "EpistemosTests.xctest",
+        "proof_root_template": "artifacts/xcode/graph-filter-visibility-test-products/$STAMP",
+        "derived_data_path_template": "$PROOF_ROOT/DerivedData",
+        "build_result_bundle_name": "build-for-testing.xcresult",
+        "enumeration_json_name": "enumerated-tests.json",
+        "focused_result_bundle_name": "focused-graph-filter.xcresult",
+        "scheme_pre_action_title": "Patch MLX Metal Warning",
+        "scheme_pre_action_script": "scripts/patch_mlx_metal_warnings.sh",
+        "source_refs": [
+          "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme",
+          "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "EpistemosTests/ResourceExhaustionTests.swift",
+          "EpistemosTests/ConcurrencyEdgeCaseTests.swift",
+          "EpistemosTests/VaultLifecycleResetTests.swift"
+        ],
+        "seed_selectors": [
+          "EpistemosTests/FilterEngineNodeVisibilityTests/isNodeVisibleForAllTypes",
+          "EpistemosTests/FilterEngineTypeFilterSpecificTests/allSevenTypesCanBeToggled",
+          "EpistemosTests/FilterEngineTypeFilterSpecificTests/visibilityForEachType",
+          "EpistemosTests/FilterEngineComplexScenarioTests/realisticFilteringScenario",
+          "EpistemosTests/ResourceEdgeCaseTests/filterAllTypesActive",
+          "EpistemosTests/ConcurrencyFilterEngineTests/rapidTypeToggling",
+          "EpistemosTests/ConcurrencyFilterEngineTests/allTypesVisibleByDefault",
+          "EpistemosTests/VaultLifecycleResetTests/graphLifecycleResetClearsVisibleStoreAndQueues"
+        ],
+        "command_templates": [
+          "xcodebuild build-for-testing -project Epistemos.xcodeproj -scheme Epistemos -configuration Debug -destination platform=macOS -derivedDataPath $PROOF_ROOT/DerivedData -resultBundlePath $PROOF_ROOT/build-for-testing.xcresult",
+          "xcodebuild test-without-building -xctestrun $SELECTED_TEST_PRODUCT -destination platform=macOS -enumerate-tests -test-enumeration-format json -test-enumeration-output-path $PROOF_ROOT/enumerated-tests.json",
+          "xcodebuild test-without-building -xctestrun $SELECTED_TEST_PRODUCT -destination platform=macOS -only-testing:<seed-selectors> -resultBundlePath $PROOF_ROOT/focused-graph-filter.xcresult"
+        ],
+        "organ": "release_audit_verification",
+        "status": "metadata_command_spec_only",
+        "metadata_only": true,
+        "xcode_command_executed": false,
+        "product_code_changed": false,
+        "selected_test_product_bytes_opened": 0,
+        "model_runtime_bytes_loaded": 0,
+        "app_runtime_bytes_loaded": 0,
+        "rejects_global_derived_data": true,
+        "rejects_different_commit_products": true,
+        "rejects_stale_result_bundle": true,
+        "rejects_selector_mismatch": true,
+        "rejects_filename_selector": true,
+        "rejects_enumeration_only_pass": true,
+        "rejects_zero_executed_tests": true,
+        "rejects_pre_action_mutation": true,
+        "full_automated_check_row_still_required": true,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "release_ready_claimed": false,
+        "live_dense_70b_claimed": false,
+        "raw_note_prompt_model_bytes_logged": false,
+        "rollback_ref": "rollback:graph_filter_visibility_test_products_command_spec",
+        "run_event_log_ref": "run_event_log:graph_filter_visibility_test_products_command_spec",
+        "answer_packet_ref": "answer_packet:graph_filter_visibility_test_products_command_spec"
+      },
+      "unit": "command_spec"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_build_template_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_pre_action_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scheme_path_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_seed_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_without_building_template_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_or_app_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_code_changed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_note_prompt_model_log_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_test_product_bytes_opened": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_xcode_command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pre_action_mutation_policy_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_code_change_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_root_is_artifact_scoped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_note_prompt_model_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "rejects_enumeration_only_and_zero_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_pre_action_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_selector_mismatch_and_filename_selectors": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_stale_and_global_artifacts": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_ready_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_path_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_pre_action_recorded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_testable_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seed_selector_count": {
+      "value": 8,
+      "unit": "selectors"
+    },
+    "seed_selectors_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_test_product_bytes_opened_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selector_mismatch_policy_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 5,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_artifact_policy_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_product_byte_open_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_without_building_templates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_graph_filter_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_research_tool_catalog": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_testable_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_execution_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_test_policy_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "automated_row_replacement_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "build_for_testing_template_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_template_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
+    "derived_data_is_proof_root_scoped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_seed_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_automated_check_row_still_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "global_derived_data_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_test_products_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "graph_filter_test_products_command_spec": {
+      "operator": "present",
+      "value": true,
+      "unit": "command_spec"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_build_template_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_pre_action_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_scheme_path_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_seed_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_without_building_template_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_or_app_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_code_changed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_note_prompt_model_log_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_test_product_bytes_opened": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_xcode_command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pre_action_mutation_policy_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_code_change_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_root_is_artifact_scoped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_note_prompt_model_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "rejects_enumeration_only_and_zero_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_pre_action_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_selector_mismatch_and_filename_selectors": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejects_stale_and_global_artifacts": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_ready_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_path_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_pre_action_recorded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_testable_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seed_selector_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "selectors"
+    },
+    "seed_selectors_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_test_product_bytes_opened_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selector_mismatch_policy_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_artifact_policy_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_product_byte_open_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_without_building_templates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_graph_filter_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_research_tool_catalog": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_testable_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_execution_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_test_policy_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "app_runtime_bytes_loaded_total": true,
+    "automated_row_replacement_rejected": true,
+    "build_for_testing_template_bound": true,
+    "command_template_count": true,
+    "derived_data_is_proof_root_scoped": true,
+    "duplicate_seed_selector_rejected": true,
+    "filename_selector_rejected": true,
+    "full_automated_check_row_still_required": true,
+    "global_derived_data_rejected": true,
+    "graph_filter_test_products_address": true,
+    "graph_filter_test_products_command_spec": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_build_template_rejected": true,
+    "missing_pre_action_rejected": true,
+    "missing_scheme_path_rejected": true,
+    "missing_seed_selector_rejected": true,
+    "missing_test_without_building_template_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_l2_l3_product_release_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_model_or_app_runtime_bytes": true,
+    "no_product_code_changed": true,
+    "no_raw_note_prompt_model_log_bytes": true,
+    "no_test_product_bytes_opened": true,
+    "no_xcode_command_executed": true,
+    "pre_action_mutation_policy_missing_rejected": true,
+    "product_code_change_claim_rejected": true,
+    "proof_root_is_artifact_scoped": true,
+    "raw_note_prompt_model_log_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rejects_enumeration_only_and_zero_tests": true,
+    "rejects_pre_action_mutation": true,
+    "rejects_selector_mismatch_and_filename_selectors": true,
+    "rejects_stale_and_global_artifacts": true,
+    "release_ready_claim_rejected": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "runtime_byte_leak_rejected": true,
+    "scheme_path_bound": true,
+    "scheme_pre_action_recorded": true,
+    "scheme_testable_bound": true,
+    "seed_selector_count": true,
+    "seed_selectors_bound": true,
+    "selected_test_product_bytes_opened_total": true,
+    "selector_mismatch_policy_missing_rejected": true,
+    "source_ref_count": true,
+    "source_refs_bound": true,
+    "stale_artifact_policy_missing_rejected": true,
+    "test_product_byte_open_rejected": true,
+    "test_without_building_templates_bound": true,
+    "upstream_fail_rejected": true,
+    "upstream_graph_filter_card_pass": true,
+    "upstream_next_cursor_research_tool_catalog": true,
+    "wrong_testable_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "xcode_execution_claim_rejected": true,
+    "zero_test_policy_missing_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GraphFilterVisibilityTestProductsCommandSpec: consumes the graph-filter visibility release-blocker card, binds the Epistemos scheme/testable/pre-action, proof-root-scoped build-for-testing and test-without-building command templates, seed Swift Testing selectors, stale-artifact and zero-test rejection policy, rollback, RunEventLog, AnswerPacket, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion."
+}
