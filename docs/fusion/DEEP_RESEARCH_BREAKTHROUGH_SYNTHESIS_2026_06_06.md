@@ -5358,6 +5358,66 @@ Sources:
 - `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`
 - `docs/falsifiers/F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe_2026_06_05.md`
 - `docs/falsifiers/F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate_2026_06_07.md`
+
+## Pass 91 - Redacted First-Token Preflight Implemented
+
+Pass 91 implements `F-ExoticQuantRedactedFirstTokenProbePreflightGate` as a
+metadata-only T1/L1 witness.
+
+New code and artifacts:
+
+- `agent_core/src/uas/exotic_quant_redacted_first_token_probe_preflight_gate.rs`
+- `agent_core/src/bin/falsify_exotic_quant_redacted_first_token_probe_preflight_gate.rs`
+- `Tools/falsifiers/f_exotic_quant_redacted_first_token_probe_preflight_gate.sh`
+- `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantRedactedFirstTokenProbePreflightGate_2026_06_07.md`
+
+The witness consumes `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`,
+accepts 5 redacted first-token preflight cards, records 3 Mac-candidate owner-
+approval-pending rows, denies 2 server/GPU rows for Mac first-token probes,
+rejects 45 red fixtures, and binds:
+
+- synthetic prompt descriptor without raw prompt text
+- prompt digest policy with zero prompt bytes captured
+- first-token digest policy with zero raw token text and zero digest observed
+- `max_new_tokens = 1`, bounded context, and batch cap 1
+- four memory sample slots per row
+- cancellation, teardown, rollback, RunEventLog, and AnswerPacket
+- lane caveat and explicit non-promotion
+- zero command execution, model path opens, local artifact verification,
+  runtime bytes, model bytes, provider bytes, stdout/stderr bytes, raw prompt
+  bytes, raw token bytes, source-tree bytes, benchmark bytes, and product bytes
+
+Promotion truth:
+
+- T1/L1 advanced: yes. `F-ExoticQuantRedactedFirstTokenProbePreflightGate`
+  now has a schema-valid artifact and handbook row.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model route is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: use this contract as the safety envelope for a
+future owner-approved, tiny, redacted one-token probe, then require same-fixture
+quality replay before any route can influence RuntimeRouter/System G.
+
+Safest next falsifier:
+`F-ExoticQuantOwnerApprovedRedactedFirstTokenRuntimeProbeGate`.
+
+Best near-term code unit: keep the product-owned guard cursor on
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+unless the owner explicitly approves a side-ladder runtime probe.
+
+Biggest false-claim risk: calling this first-token preflight a first-token run.
+
+Biggest missing source: owner-provided local manifests plus a tiny approved
+runtime transcript that proves redaction, memory sampling, cancellation,
+rollback, RunEventLog, and AnswerPacket correlation on a small model before
+exotic rows touch any large bytes.
+
+Next research query: "What exact owner-approved one-token runtime transcript
+fields are sufficient to prove redaction and stability without promoting
+quality, product capability, or large-model fit?"
 - https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md
 - https://github.com/ml-explore/mlx-swift-lm
 - https://developers.google.com/edge/api/litert/c/classlitert/1-1-compiled-model

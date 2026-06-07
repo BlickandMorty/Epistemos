@@ -248,6 +248,22 @@ Current 2026-06-07 large-local-model research-to-build status:
   availability, runtime load, Apple Silicon fit, product default, L2/L3, live
   dense 70B, or user-facing capability. The next large-local-model research-
   to-build unit is `exotic_quant_redacted_first_token_probe_preflight_gate`.
+- `F-ExoticQuantRedactedFirstTokenProbePreflightGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
+  It consumes the owner-approved dry-run transcript preflight gate, accepts 5
+  redacted first-token preflight cards, records 3 Mac-candidate owner-
+  approval-pending rows, denies 2 server/GPU rows for Mac first-token probes,
+  rejects 45 red fixtures, binds prompt digest/no raw prompt, first-token
+  digest/no raw token, one-token/context/batch bounds, memory sample slots,
+  cancellation, teardown, rollback, RunEventLog, AnswerPacket, lane caveat,
+  and explicit non-promotion, executes zero commands, observes zero first
+  tokens, captures zero raw prompt/raw token/stdout/stderr bytes, loads zero
+  model/runtime/provider/network/source-tree/product/benchmark bytes, and
+  still does not prove owner approval, local artifact availability, runtime
+  load, Apple Silicon fit, product default, L2/L3, live dense 70B, or user-
+  facing capability. The next large-model side-ladder unit is
+  `exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate`.
 - `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
   `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` are now part
   of the large-model research gate. Future research passes must mine local

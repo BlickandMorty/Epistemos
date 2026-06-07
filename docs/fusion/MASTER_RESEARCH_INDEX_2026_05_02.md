@@ -125,6 +125,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > AnswerPacket, rollback, abstention, and explicit non-promotion. This is T0
 > canon/backlog only; it does not run a model, capture a token, or advance
 > L2/L3.
+> `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
+> metadata-only T1/L1 witness at
+> `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
+> It consumes `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`,
+> accepts five redacted first-token preflight cards, records three Mac-candidate
+> owner-approval-pending rows, denies two server/GPU rows for Mac first-token
+> probes, rejects 45 red fixtures, binds prompt digest/no raw prompt, token
+> digest/no raw token, one-token/context/batch bounds, memory samples,
+> cancellation, teardown, rollback, RunEventLog, AnswerPacket, lane caveat,
+> and non-promotion, and preserves zero command/model/runtime/provider/raw-
+> prompt/raw-token/stdout/stderr bytes. This is still L1/T1 only; no product
+> capability, user-facing green, live dense 70B, or SSD-as-RAM claim exists.
+> The next large-local-model side-ladder unit is
+> `exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate`.
 > Deep Research Pass 61 turns that cluster into an implementable
 > `F-KVRuntimeSourceCard` blueprint, and Pass 62 lands it as a T1/L1
 > metadata-only witness at
