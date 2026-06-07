@@ -513,7 +513,23 @@ command/model-path/model/runtime/provider/source-tree/product/benchmark bytes
 remain mandatory. It does not prove local artifact availability, loader import,
 first token, quality, Apple Silicon fit, product default, L2/L3 product
 capability, or live dense 70B. The next large-local-model research-to-build
-unit is `exotic_quant_local_artifact_availability_owner_gate`.
+unit is now `exotic_quant_owner_path_manifest_intake_gate` because downstream
+local artifact availability gating has landed.
+
+2026-06-07 exotic quant local artifact availability promotion note:
+`F-ExoticQuantLocalArtifactAvailabilityOwnerGate` is T1/L1 only. It strengthens
+the architecture in favor of larger local models by proving that exact exotic
+quant rows remain fail-closed when no owner-approved local artifact manifest
+exists: three Mac-candidate rows require owner path manifests with zero owner
+manifests present and zero local paths verified, two server/GPU rows are denied
+for Mac artifact probes, command envelopes stay unarmed, no path is opened, no
+stat/hash/symlink resolution is attempted, and rollback, RunEventLog,
+AnswerPacket, abstention, and zero owner-manifest/model/runtime/provider/
+source-tree/product/benchmark bytes remain mandatory. It does not prove local
+artifact availability, owner approval, path safety, loader import, first token,
+quality, Apple Silicon fit, product default, L2/L3 product capability, or live
+dense 70B. The next large-local-model research-to-build unit is
+`exotic_quant_owner_path_manifest_intake_gate`.
 
 ## Required Surface Updates
 

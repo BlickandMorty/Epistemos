@@ -157,8 +157,21 @@ Current 2026-06-07 large-local-model research-to-build status:
   fixtures, keeps command executions/path opens/stat calls/file hashes/model/
   runtime/provider/source-tree/product/benchmark bytes at zero, and still does
   not prove runtime load, Apple Silicon fit, product default, or user-facing
-  capability. The next large-local-model research-to-build unit is
-  `exotic_quant_local_artifact_availability_owner_gate`.
+  capability. Its downstream local artifact availability owner gate is now
+  landed; the next large-local-model research-to-build unit is
+  `exotic_quant_owner_path_manifest_intake_gate`.
+- `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`.
+  It consumes the loader/path gate, accepts 5 artifact-availability cards,
+  records 3 Mac-candidate rows requiring owner path manifests with zero owner
+  manifests present and zero local paths verified, denies 2 server/GPU rows for
+  Mac artifact probes, rejects 66 red fixtures, keeps owner-manifest bytes/path
+  opens/stat calls/file hashes/symlink resolution/command executions/model/
+  runtime/provider/source-tree/product/benchmark bytes at zero, and still does
+  not prove local artifact availability, runtime load, Apple Silicon fit,
+  product default, or user-facing capability. The next large-local-model
+  research-to-build unit is `exotic_quant_owner_path_manifest_intake_gate`.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

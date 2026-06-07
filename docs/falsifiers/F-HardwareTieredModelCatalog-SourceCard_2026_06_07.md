@@ -42,4 +42,4 @@ Correct phrasing: architecture catalog coverage advanced; product capability and
 
 ## Downstream Units
 
-`F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and `F-ExoticQuantRuntimeLaneOwnerApprovalGate` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_loader_compatibility_model_path_gate`, which should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.
+`F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, `F-ExoticQuantSourcePinAndByteBudgetPreflight`, `F-ExoticQuantRuntimeLaneOwnerApprovalGate`, `F-ExoticQuantLoaderCompatibilityModelPathGate`, and `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` are now landed as metadata-only downstream witnesses. The current research-to-build next unit is `exotic_quant_owner_path_manifest_intake_gate`, which should define owner-approved path manifest intake before any exotic quant command envelope can be armed.

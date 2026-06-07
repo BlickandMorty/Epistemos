@@ -286,8 +286,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > opens/stat calls/file hashes/model/runtime/provider/source-tree/product/
 > benchmark bytes at zero, and preserves no-hidden-authority, no-MAS, no-L2/L3,
 > no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3 remain unchanged;
-> the next research-to-build unit is
-> `exotic_quant_local_artifact_availability_owner_gate`.
+> the downstream local artifact availability owner gate is now landed by Pass
+> 78.
+> Deep Research Pass 78 now lands
+> `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` as a T1/L1 metadata-only
+> witness at
+> `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`.
+> It consumes `F-ExoticQuantLoaderCompatibilityModelPathGate`, accepts five
+> artifact-availability gate cards, records three Mac-candidate rows requiring
+> owner path manifests with zero owner manifests present and zero local paths
+> verified, denies two server/GPU rows for Mac artifact probes, rejects 66 red
+> fixtures, keeps owner-manifest bytes/path opens/stat calls/file hashes/
+> symlink resolution/command executions/model/runtime/provider/source-tree/
+> product/benchmark bytes at zero, and preserves no-hidden-authority, no-MAS,
+> no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3 remain
+> unchanged; the next research-to-build unit is
+> `exotic_quant_owner_path_manifest_intake_gate`.
 
 ---
 
