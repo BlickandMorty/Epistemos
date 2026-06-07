@@ -6336,3 +6336,200 @@ Sources:
 - https://github.com/ml-explore/mlx-swift
 - https://github.com/ml-explore/mlx-lm
 - `artifacts/falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`
+
+## 69. Pass 69 - Hardware-Tiered Model Catalog and KV/Fork Boundary Synthesis
+
+Observed on 2026-06-07 through local canon, `/Users/jojo/Downloads/locals.md`,
+`/Users/jojo/Downloads/locals2.md`,
+`docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md`, current Hugging Face
+model metadata, current GitHub repository/fork metadata, and official runtime
+documentation for Transformers KV cache, vLLM prefix/KV features, LMCache, and
+Google TurboQuant/QAT. This pass is research-to-build: it does not edit product
+code, import runtime packages, clone forks, open model files, run commands, run
+benchmarks, start servers, or promote product capability. It turns the next
+large-local-model risk into buildable gates.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Executive synthesis:
+
+- The large-local-model path should not crown one default model. It needs a
+  hardware-tiered model catalog where each candidate has a UAS address,
+  model-card revision, license, format, runtime lane, RAM/KV budget, user role,
+  false-claim blockers, and required proof tier.
+- The real memory bottleneck is not only weight size. KV cache strategy,
+  prompt-cache reuse, offload behavior, server/daemon boundaries, MoE full
+  weight residency, and cancellation/rollback determine whether a model is
+  stable inside Epistemos.
+- Local Downloads research is useful but cannot be product authority. It should
+  seed source cards for Qwopus, Gemma REAP, Gemma 31B AutoRound/NVFP4,
+  Qwopus-MoE APEX, PolarQuant, and TQ3_4S variants, then require current model
+  metadata and same-fixture proof before RuntimeRouter/System G can cite them.
+- Official runtime docs strengthen the build logic: Transformers exposes
+  Dynamic, Static, Quantized, and offload-related KV cache strategies; vLLM
+  exposes automatic prefix caching, quantized KV cache, and speculative/MTP
+  feature surfaces; LMCache explicitly frames CPU/offload, cross-LLM sharing,
+  disaggregated prefill, multimodal KV support, and standalone/benchmark
+  tooling. These are powerful motifs, but most are server/distributed-first and
+  must not be smuggled into MAS or hidden product routes.
+
+Local canon map:
+
+| Local source | Build implication |
+|---|---|
+| `docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md` | Already source-cards 9 KV/runtime motifs and names `kv_source_card_fork_and_daemon_boundary` as next. |
+| `artifacts/falsifiers/kv_runtime_source_card/result.json` | T1/L1 metadata witness only; rejects server-as-product, daemon-as-product, remote-storage-as-local, hidden cache authority, SSD-as-RAM, and L2/L3 promotion. |
+| `/Users/jojo/Downloads/locals.md` | Preserves a hardware-tiered model thesis, but many entries remain local-research claims until source-carded against current HF metadata and runtime proof. |
+| `/Users/jojo/Downloads/locals2.md` | Confirms multi-agent convergence on hardware tiers, standard GGUF as the compatibility floor, and exotic quants as optional/provenance-gated routes. |
+| `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md` | Keeps MLX as one lane, requires `F-ProprietaryCompression-ProvenanceGate`, and prevents TurboVec/QAT from becoming hidden route authority. |
+
+Current external source-card observations:
+
+| Source | Current observed metadata | Epistemos classification |
+|---|---|---|
+| `huggingface/transformers` | Apache-2.0, active main, latest release observed `v5.10.2`; official docs list cache classes with different memory/compile/offload tradeoffs. | `clean_room_rewrite` motif source for in-process cache policy; no product import from Python runtime. |
+| `vllm-project/vllm` | Apache-2.0, active main, latest release observed `v0.22.1`; docs expose prefix caching, quantized KV cache, speculative decoding, and MTP surfaces. | `research_only` / `quarantine_reference` for server/GPU scheduling motifs. |
+| `LMCache/LMCache` | Apache-2.0, active dev branch, latest release observed `v0.4.6`; docs include CPU offload, shared KV, disaggregated prefill, multimodal KV, benchmark, and size calculator surfaces. | `quarantine_reference`; server/daemon motifs must be denied from MAS and product routes until boundary proof. |
+| `kvcache-ai/ktransformers` | Apache-2.0, active main, latest release observed `v0.6.2`; fork scan shows active but heterogeneous downstream forks. | `quarantine_reference` for heterogeneous placement and expert/KV policy motifs. |
+| `FMInference/FlexLLMGen` | Apache-2.0, older push observed 2024-10-28, no latest release via API. | `research_only` for offload cost-model motifs. |
+| `Tiiny-AI/PowerInfer` | MIT, active main observed 2026-05-11, inherited from `SJTU-IPADS/PowerInfer`; sparse forks have low activity. | `clean_room_rewrite` for activation-locality priors; never hidden wake authority. |
+| `jy-yuan/KIVI` | MIT, active enough for source card, low-star fork ecosystem; fork scan shows small downstream forks. | `clean_room_rewrite` / `research_only` for asymmetric KV quantization and residual caveats. |
+| `RyanCodrai/turbovec` forks | Low-star but active sampled forks such as `AKHtun/turbovec-wecos` and `pellera9/turbovec`. | `quarantine_reference`; mine motifs/tests/failure cases only. |
+
+Model/runtime ladder implications:
+
+| Tier | Candidate role | Current truth |
+|---|---|---|
+| Harness floor | Gemma 4 E2B QAT GGUF and/or another tiny GGUF model | Already covered by source-card and runtime-plural plan, but runtime remains owner-approval gated. |
+| 16-18 GB Mac text/coding candidate | Qwopus3.5 27B GGUF at smaller quant, or a smaller dedicated tool-calling model | Local Downloads research says this may be useful, but Epistemos needs `F-HardwareTieredModelCatalog-SourceCard` before citing it. |
+| 16-18 GB Mac Gemma candidate | Gemma 4 REAP GGUF/Q4 style variants | Promising local research, but Gemma license/model-card/runtime proof must be explicit; MoE full-weight truth must be enforced. |
+| 24-32 GB+ Pro candidate | Qwopus-MoE 35B A3B GGUF/APEX, Gemma 31B mixed/INT4, Gemma 26B/31B variants | Pro Gated/Vault until hardware tier, model path, runtime lane, KV budget, and same-fixture logs exist. |
+| Server/GPU research | NVFP4, AutoRound/vLLM, LMCache/vLLM, KTransformers | Pro Research/Vault only unless an explicit non-MAS route and product-visible boundary is approved. |
+
+Breakthrough candidate:
+
+`HardwareTieredModelCatalog + KVForkDaemonBoundary` is the safest next
+large-local-model breakthrough because it prevents Epistemos from confusing
+model-card fit, active MoE compute, server benchmark fit, prompt-cache reuse,
+or exotic quant format with an actual user-facing local route. It also lets the
+architecture keep ambition: small harness first, 12B QAT next, 27B/31B/MoE
+as Pro Gated/Vault rows, 70B-class as cold assembly and route/transport proof.
+
+Buildable falsifier backlog:
+
+1. `F-KVSourceCard-ForkAndDaemonBoundary`
+   - Mechanism: classify every KV/runtime source card as
+     `product_eligible_in_process`, `owner_approved_command`,
+     `quarantine_server_daemon`, `remote_or_distributed_denied`, or
+     `research_only`.
+   - Organ: RuntimeRouter/System G, SCOPE-Rex/SovereignGate, RunEventLog,
+     AnswerPacket.
+   - Required proof: no hidden sidecar, no daemon-as-product, no remote cache
+     laundering, no server benchmark as local proof, MAS denial where needed,
+     explicit owner approval for command/server experiments, rollback and
+     visible AnswerPacket caveats.
+   - Tier: T1/L1 metadata first. T2+ requires a tiny owner-approved runtime
+     witness.
+
+2. `F-HardwareTieredModelCatalog-SourceCard`
+   - Mechanism: convert local Downloads model research into UAS-addressed
+     model catalog cards with HF revision, license, format, runtime lane,
+     weight/KV budget, hardware tier, intended role, false-claim blockers, and
+     required next proof.
+   - Organ: UAS/OAS, ActiveAssembly, RuntimeRouter/System G.
+   - Required proof: current model-card metadata, no model bytes opened,
+     source digest, license/provenance, model role, RAM tier, KV caveat,
+     compatible runtime lane, rollback, RunEventLog, AnswerPacket refs.
+   - Tier: T0/T1 only. It cannot promote any model as "best" or "green".
+
+3. `F-MoEActiveParamsMemoryTruth`
+   - Mechanism: reject active-parameter counts as memory-fit evidence unless
+     full weight residency, expert cache, router state, KV cache, and fallback
+     costs are budgeted.
+   - Organ: ActiveAssembly, ColdStore/AppColdStore, RuntimeRouter/System G.
+   - Required proof: full-weight byte ledger, active-token compute ledger,
+     expert placement caveat, compatibility fence, abstention packet, and
+     no hidden "3B active means 3B memory" claim.
+
+4. `F-ExoticQuantQuarantineRouteCard`
+   - Mechanism: route TQ3_4S, PolarQuant, NVFP4, AutoRound, TurboQuant forks,
+     and other exotic formats through provenance/import-mode gates before they
+     enter model catalog or runtime tournament rows.
+   - Organ: UAS, SCOPE-Rex/SovereignGate, RuntimeRouter/System G.
+   - Required proof: compatible runtime, license, source digest, dependency
+     envelope, clean-room/adapt/import mode, benchmark quarantine, no product
+     import, and no hidden fallback.
+
+Why this may be wrong:
+
+- Some local Downloads model claims may be outdated, model-card-derived,
+  benchmark-blog-derived, or fork-specific. Treat them as leads, not truth.
+- Server runtimes can make KV reuse look easy while relying on daemons,
+  distributed prefill, GPUs, remote storage, or dynamic batching assumptions
+  that do not fit MAS or the in-process product path.
+- Quantized KV cache can reduce memory but may destabilize attention quality,
+  especially under long-context, coding, or tool-call tasks; it needs exact
+  target-vs-candidate quality baselines and abstention.
+- MoE models can be fast per token while still requiring full weight residency
+  or complicated expert placement; active-parameter marketing is not memory
+  proof.
+
+Promotion truth:
+
+- T0/T1 advanced: research-to-build backlog and canon synthesis advanced.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing model/runtime surface is green from this
+  pass.
+- T4/T5 green: no.
+
+Best breakthrough candidate: hardware-tiered model catalog plus
+KV/fork/daemon boundary, because it converts the big-model dream into concrete
+source cards, RAM/KV budgets, and no-hidden-sidecar gates.
+
+Safest next falsifier: `F-KVSourceCard-ForkAndDaemonBoundary`, because it
+builds directly on the already-passed `F-KVRuntimeSourceCard` and prevents
+server/daemon/cache motifs from leaking into product truth.
+
+Best near-term code unit: add the KV boundary primitive and falsifier as
+metadata-only, consuming `artifacts/falsifiers/kv_runtime_source_card/result.json`
+and rejecting server-as-product, daemon-as-product, remote-cache-as-local,
+hidden cache authority, and L2/L3 promotion.
+
+Biggest false-claim risk: saying Qwopus, Gemma REAP, AutoRound, NVFP4,
+PolarQuant, TQ3_4S, vLLM, LMCache, KTransformers, or KIVI makes large local
+models work in Epistemos before model path, KV budget, runtime lane,
+cancellation, rollback, RunEventLog, AnswerPacket, and WRV proof exists.
+
+Biggest missing source: owner-approved same-fixture local logs for the first
+tiny GGUF harness lane and current source cards for the local Downloads model
+catalog candidates.
+
+Next research query: "Which local model catalog cards should Epistemos source
+first for 16-18 GB, 24-32 GB, and 48 GB+ hardware tiers, and how should their
+KV budget, runtime lane, and false-claim blockers feed the runtime-plural
+tournament without promoting any model from Downloads research alone?"
+
+Sources:
+
+- `docs/falsifiers/F-KVRuntimeSourceCard_2026_06_06.md`
+- `artifacts/falsifiers/kv_runtime_source_card/result.json`
+- `/Users/jojo/Downloads/locals.md`
+- `/Users/jojo/Downloads/locals2.md`
+- https://huggingface.co/docs/transformers/en/kv_cache
+- https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html
+- https://docs.vllm.ai/en/latest/usage/reproducibility.html
+- https://docs.lmcache.ai/
+- https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/
+- https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/
+- https://github.com/huggingface/transformers
+- https://github.com/vllm-project/vllm
+- https://github.com/LMCache/LMCache
+- https://github.com/kvcache-ai/ktransformers
+- https://github.com/FMInference/FlexLLMGen
+- https://github.com/Tiiny-AI/PowerInfer
+- https://github.com/jy-yuan/KIVI
+- https://github.com/RyanCodrai/turbovec

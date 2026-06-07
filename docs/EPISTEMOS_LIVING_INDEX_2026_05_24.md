@@ -2693,7 +2693,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 | Superseded | Old name/mechanism replaced by a cleaner current organ. |
 | Deprecated | Old path should not receive new work except compatibility removal/migration. |
 
-## 6 · CURRENT STATE (2026-06-06 — architecture hardening checkpoint)
+## 6 · CURRENT STATE (2026-06-07 — architecture hardening checkpoint)
 
 ### Wired and on main
 - 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
@@ -2727,6 +2727,22 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   winner. This advances L1 runtime-plural comparison discipline only; L2
   product capability remains `vault_research_route_with_packetized_mitigation`,
   and L3 user-facing runtime/Gemma capability is not green.
+- 2026-06-07 research-to-build large-local-model canon now includes Deep
+  Research Pass 69 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It folds
+  local Downloads model research, current Hugging Face model metadata, current
+  GitHub repo/fork metadata, Transformers KV cache docs, vLLM prefix/KV docs,
+  LMCache docs, Google TurboQuant/QAT docs, and the existing
+  `F-KVRuntimeSourceCard` witness into a hardware-tiered model catalog plus
+  KV/fork boundary backlog. The new buildable gates are
+  `F-KVSourceCard-ForkAndDaemonBoundary`,
+  `F-HardwareTieredModelCatalog-SourceCard`,
+  `F-MoEActiveParamsMemoryTruth`, and
+  `F-ExoticQuantQuarantineRouteCard`. This advances T0/T1 canon/backlog only:
+  no runtime packages were imported, no forks were cloned, no model/KV/runtime
+  bytes were opened, no server/daemon was started, and no model was promoted
+  as user-facing. L2 remains `vault_research_route_with_packetized_mitigation`;
+  L3 user-facing large-local-model capability is not green.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus
