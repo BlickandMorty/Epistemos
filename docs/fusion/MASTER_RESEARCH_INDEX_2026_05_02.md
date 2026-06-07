@@ -293,6 +293,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > LiteRT/mobile remains promising but needs platform/API/package proof, MLX
 > Swift Gemma 4 remains blocked by loader evidence, Python MLX is quarantine
 > research only, and none of these source facts promote L2/L3 or product green.
+> Deep Research Pass 108 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` connects
+> large-model replay to the guard-owned runtime blocker:
+> `F-BodyReadChecksum-ReleaseBlockerCard` should become the freshness root for
+> Gemma QAT lane tournaments, prompt/KV cache reuse, and later cold-assembly
+> quality evidence. The required envelope binds body source-of-truth order,
+> body digest, editor snapshot sequence, readable-block projection digest,
+> graph/evidence digest, prompt assembly digest, cache salt lineage, rollback,
+> RunEventLog, AnswerPacket, and non-promotion. It folds vLLM prefix-cache
+> hash/salt, LMCache local-disk KV chunking, and Prompt Cache prompt-module
+> schema ideas into Epistemos without granting hidden cache or route authority.
 > `F-DistributionProjectIntegrity-ReleaseBlockerCard` is now landed as a
 > metadata-only T1/L1 distribution/project source-card witness at
 > `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`.

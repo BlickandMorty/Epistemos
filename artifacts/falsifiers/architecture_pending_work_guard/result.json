@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "de08a247148d11498e3f6be588be894d7322e084",
+  "commit_sha": "bdfaf8f48d29fcc84806661aecdaaae6bbbf0951",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-07T18:21:09Z",
+  "timestamp_utc": "2026-06-07T18:29:46Z",
   "result_digest": "sha256:d31df29c76e97db418322575a20dd052de918a673b48550c55f24a7ec42477c5",
   "measurements": {
     "ablation_shadow_run_available": {
