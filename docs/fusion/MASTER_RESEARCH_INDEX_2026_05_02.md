@@ -335,6 +335,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `exotic_quant_crash_safe_command_envelope_preflight_gate` after landed
 > `F-ExoticQuantOwnerPathByteEnvelopePreflightGate` bound selected bytes,
 > current-hardware denial, and zero file/runtime bytes.
+> Deep Research Pass 81 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
+> the large-model keyword/fork/source sweep into buildable canon. It mines
+> local Downloads TurboQuant/PolarQuant/QJL, vector quant, KV prefix caching,
+> EML/Lean, and ternary/BitNet/Metal research; validates current GitHub source
+> signals for TurboVec, LiteRT-LM, llama.cpp, vLLM, LMCache, KTransformers,
+> FlexLLMGen, PowerInfer, KIVI, T-MAC, BitNet, and SpinQuant; exact-title
+> validates named arXiv/official-doc sources; and translates them into
+> `F-KVPrefixReuseCompatibilityFence`,
+> `F-QuantizedKVCompressionSourceCard`, `F-LowBitMetalKernelSourceCard`,
+> `F-EMLPrimitiveIRSourceCard`, and
+> `F-DownloadsLocalResearchDedupeProvenanceCard`. It advances T0 research and
+> backlog canon only; no runtime import, model bytes, KV bytes, command
+> execution, MAS/L2/L3 promotion, live dense 70B, or SSD-as-RAM claim.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
