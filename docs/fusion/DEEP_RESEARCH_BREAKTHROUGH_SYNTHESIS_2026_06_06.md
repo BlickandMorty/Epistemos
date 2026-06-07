@@ -5720,6 +5720,303 @@ envelope so it proves cancellation, timeout, process lifetime, stdout/stderr
 redaction, memory sampling, rollback, RunEventLog, AnswerPacket, and no
 product promotion before any first-token large-model probe?"
 
+## Deep Research Pass 83 - Owner-Approved Dry-Run Transcript Before First Token
+
+Date: 2026-06-07
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+### Executive Synthesis
+
+Pass 83 defines the transcript that must follow
+`RuntimeCommandEnvelopeCard` before any first-token large-model probe can be
+trusted. The dry run is still not inference. It is a witness-shaped replay of
+what would be observed if a future owner-approved command or native runtime
+attempt were allowed to start, with explicit proof that cancellation, timeout,
+process lifetime, stdout/stderr capture, redaction, memory sampling, rollback,
+RunEventLog, AnswerPacket, and non-promotion are already specified.
+
+The breakthrough is a two-layer runtime preflight:
+
+1. `RuntimeCommandEnvelopeCard`: proves the command/API/kernel plan is inert.
+2. `OwnerApprovedDryRunTranscript`: proves the observation and abort protocol
+   is complete before a future command can emit even one redacted token.
+
+This prevents the next large-model step from becoming "we have a command, try
+it and hope." The dry-run transcript makes the attempt inspectable, bounded,
+and reversible before bytes are opened.
+
+### Local Canon Synthesis
+
+| Local authority | Dry-run transcript lesson |
+|---|---|
+| `agent_core/src/bin/falsify_small_model_runtime_harness_abortable_runtime_probe.rs` | Abortability is a separate metadata witness: owner-probe artifact, prompt envelope, admission, serialized executor, cancellation token, deadline, abort signal, runtime start suppression, rollback, RunEventLog, AnswerPacket, and evidence review all appear before runtime/model bytes open. |
+| `agent_core/src/bin/falsify_small_model_runtime_harness_logged_runtime_smoke.rs` | Runtime logging can be proven without loading bytes: the small-model harness records missing snapshots, failure reasons, rollback, RunEventLog, AnswerPacket, privacy, budget, and no first token. |
+| `agent_core/src/bin/falsify_small_compressed_model_runtime_probe_proof_envelope.rs` | A runtime proof envelope can require 16 phases: owner approval, model path, command card, offline mode, synthetic prompt hash, one-token budget, context/batch caps, memory-before sample, runtime-start sample, redaction, cancellation deadline, rollback, RunEventLog, AnswerPacket, non-promotion, and larger-model escalation blockers. |
+| `agent_core/src/uas/small_model_runtime_harness_answer_packet_runtime_probe.rs` and fresh-product variants | If a token is ever observed, it is represented as a redacted digest marker and correlated across AnswerPacket, RunEventLog, and sidecar evidence. Pass 83 keeps this as future proof only. |
+| `agent_core/src/security.rs` | Runtime transcript stdout/stderr must pass credential redaction and threat scanning before any line can enter a witness or AnswerPacket. |
+| `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` | Memory and transport readings must distinguish model bytes, runtime bytes, transport bytes, cold I/O, copy count, and cache caveats; none can be collapsed into "fit." |
+
+### External Source Map
+
+Primary/current source signals:
+
+| Source | Transcript implication |
+|---|---|
+| Rust `std::process::Command` / `Child` docs | A future Rust runner must avoid shell strings, own stdin/stdout/stderr policy, wait or kill children, and avoid leaving child handles behind. The metadata dry run should require command lifecycle events even before execution. |
+| Tokio `process::Command` docs | Tokio child processes are asynchronous; local canon already requires `kill_on_drop(true)` and Unix process groups. The transcript should require a `kill_on_drop` or equivalent process-lifetime ref for executable lanes. |
+| Swift Subprocess docs | Streamed stdout/stderr and stdin lifetimes are closure-scoped, and output limits/buffering policy are explicit. Swift Pro subprocess lanes must record bounded output and cannot let execution handles escape. |
+| Apple Foundation `Process` docs | Native Apple process execution exposes arguments, environment, working directory, pipes, termination, and process identifiers. MAS/product paths still deny hidden subprocess inference; Pro dry runs must record these surfaces if ever used. |
+| llama.cpp CLI docs | Future GGUF dry runs need `--offline`, `--predict 1`, bounded context/batch, `--simple-io`, hidden prompt suppression, log policy, no server, no URL/HF download, no token env, and explicit KV/cache flags. |
+| MLX LM / MLX Swift LM docs | Python MLX is quarantine; Swift MLX is native API. The transcript must support both process transcript and native API event transcript without pretending the two are the same. |
+| LiteRT-LM docs | LiteRT-LM exposes CLI, OpenAI-compatible server, Swift, and other APIs. Dry-run transcript must deny server mode and separate native Swift/API admission from CLI quarantine. |
+| Apple Metal command buffer docs | Custom Metal has no stdout/stderr; the transcript must instead require feature gate, command-buffer status/error/completion policy, buffer aliasing policy, ULP/numeric proof refs, and dense fallback refs. |
+
+Primary source URLs:
+
+- `https://doc.rust-lang.org/std/process/struct.Command.html`
+- `https://doc.rust-lang.org/std/process/struct.Child.html`
+- `https://docs.rs/tokio/latest/tokio/process/struct.Command.html`
+- `https://github.com/swiftlang/swift-subprocess`
+- `https://developer.apple.com/documentation/foundation/process`
+- `https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md`
+- `https://github.com/ml-explore/mlx-lm`
+- `https://github.com/ml-explore/mlx-swift-lm`
+- `https://github.com/google-ai-edge/LiteRT-LM`
+- `https://developer.apple.com/documentation/metal/mtlcommandbuffer`
+
+### Proposed Primitive
+
+```text
+OwnerApprovedDryRunTranscript {
+  transcript_id
+  upstream_command_envelope_ref
+  owner_approval_ref
+  owner_approval_present
+  runtime_lane
+  runtime_surface
+  dry_run_mode
+  admission_ref
+  sovereign_gate_ref
+  serialized_executor_ref
+  prompt_fixture_ref
+  prompt_fixture_redacted
+  model_path_status_ref
+  command_or_api_plan_ref
+  process_lifetime_ref
+  stdout_policy_ref
+  stderr_policy_ref
+  output_capture_limit_bytes
+  stdout_redaction_policy
+  stderr_redaction_policy
+  memory_before_sample_ref
+  memory_start_sample_ref
+  memory_after_abort_sample_ref
+  timeout_ref
+  cancellation_ref
+  abort_signal_ref
+  expected_abort_phase
+  rollback_ref
+  run_event_log_ref
+  answer_packet_ref
+  token_digest_policy_ref
+  route_mutation_allowed
+  command_executed
+  inference_executed
+  first_token_observed
+  model_bytes_loaded
+  runtime_bytes_loaded
+  provider_calls_made
+  l1_l2_l3_separated
+}
+```
+
+Transcript event order:
+
+```text
+OwnerApprovalBound
+CommandEnvelopeBound
+AdmissionChecked
+SerializedExecutorEntered
+PromptFixtureBound
+ModelPathStatusRechecked
+EnvAndCwdPolicyRechecked
+StdoutStderrPolicyBound
+MemoryBeforeSamplePlanned
+TimeoutArmed
+CancellationTokenArmed
+DryRunStartSuppressedOrSimulated
+AbortSignalObserved
+ProcessLifetimeClosedOrNativeLeaseReleased
+MemoryAfterAbortSamplePlanned
+RollbackVerified
+RunEventLogged
+AnswerPacketDrafted
+NonPromotionReviewed
+EvidenceReviewPending
+```
+
+For metadata-only Pass 83 and the future preflight gate, `DryRunStartSuppressedOrSimulated`
+is the only allowed start phase. The first real dry run would be a later
+owner-approved witness and would still not claim product capability.
+
+### Runtime-Specific Transcript Rules
+
+| Lane | Transcript shape | Extra denials |
+|---|---|---|
+| `LlamaCppCli` | CLI process transcript with vectorized args, stdout/stderr redaction, process lifetime, timeout/cancel, and memory sample refs. | No server, no URL/HF download, no unbounded tokens/context, no hidden mmap/mlock fit claim. |
+| `MlxPythonCliQuarantine` | Quarantine process transcript with Python env scrub, hub-token denial, import-path denial, output cap, and no product route. | No `PYTHONPATH`, no `HF_TOKEN`, no default model download, no product dependency. |
+| `MlxSwiftNativeApi` | Native API transcript with serialized Swift executor, cancellation lease, local-only model-container proof, loader support, and no subprocess fields. | No hidden downloader, no unsupported Gemma loader claim, no nonisolated model handle. |
+| `LiteRTLMNativeApi` | Native/API transcript with package/source-card ref, backend selection ref, cancellation, memory, and AnswerPacket proof. | No OpenAI-compatible server default, no CLI download proof as product proof. |
+| `TransformersPythonQuarantine` | Quarantine process/API transcript with offline/local-files-only proof and source-carded cache behavior. | No HF cache as durable truth, no provider token inheritance, no model-card metric as local proof. |
+| `CustomMetalKernelPlan` | Kernel dry-run transcript with feature gate, command-buffer status/error/completion refs, buffer lifetime, ULP/numeric proof, dense fallback, and no stdout/stderr. | No kernel speed as quality, no unsafe aliasing, no hidden route mutation. |
+
+### Falsifier Backlog Detail
+
+Add the downstream backlog item
+`F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` after
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Required axes:
+
+```text
+upstream_command_envelope_bound
+owner_approval_ref_visible
+owner_approval_absent_or_preflight_only
+runtime_lane_transcript_variant_bound
+admission_and_sovereign_gate_bound
+serialized_executor_bound
+prompt_fixture_redacted
+model_path_status_rechecked
+cwd_env_policy_rechecked
+stdout_stderr_or_native_event_policy_bound
+output_capture_limits_bound
+credential_redaction_policy_bound
+threat_scan_policy_bound
+memory_before_start_after_abort_refs_bound
+timeout_and_cancellation_bound
+abort_signal_or_simulated_abort_bound
+process_lifetime_or_native_lease_closed
+rollback_run_event_log_answer_packet_bound
+token_digest_future_policy_bound
+no_command_execution_in_preflight
+no_inference_execution_in_preflight
+no_first_token_observed
+zero_model_runtime_provider_bytes
+route_mutation_rejected
+promotion_rejected
+deterministic_transcript_address
+red_fixture_rejection_count
+```
+
+Red-fixture families:
+
+```text
+missing_command_envelope_ref
+owner_approval_claim_without_token
+runtime_lane_missing_transcript_variant
+prompt_contains_user_data
+prompt_fixture_not_redacted
+stdout_unbounded
+stderr_unbounded
+stdout_contains_secret
+stderr_contains_secret
+stdout_unscanned
+stderr_unscanned
+memory_before_sample_missing
+memory_after_abort_missing
+timeout_missing
+cancellation_missing
+abort_signal_missing
+process_handle_escape
+kill_on_drop_missing_for_tokio_lane
+process_group_missing_for_unix_cli_lane
+swift_subprocess_execution_escape
+metal_command_buffer_error_policy_missing
+model_path_opened
+command_executed
+inference_executed
+first_token_observed
+token_digest_recorded_in_preflight
+runtime_bytes_nonzero
+model_bytes_nonzero
+provider_calls_nonzero
+route_policy_mutated
+answer_packet_missing
+rollback_missing
+run_event_log_missing
+l2_claimed
+l3_claimed
+mas_live_claimed
+live_dense_70b_claimed
+ssd_as_ram_claimed
+```
+
+### Architecture Fusion
+
+```text
+RuntimeCommandEnvelopeCard
+  -> OwnerApprovedDryRunTranscript
+  -> AbortableRuntimeStartWitness
+  -> RedactedFirstTokenProbe
+  -> CapabilityKernelRecheck
+  -> L3 WRV only if product surface and logs prove it
+```
+
+This inserts a transcript-quality gate between command safety and token
+generation. That gate is where Epistemos proves it can observe and kill the
+attempt before it proves the model can answer.
+
+### Model / Runtime Ladder Update
+
+| Ladder | Pass 83 effect |
+|---|---|
+| Qwopus / APEX Mac candidates | Need command envelope first, then owner-approved dry-run transcript preflight; still no runtime. |
+| Gemma 4 QAT GGUF | Existing E2B proof-envelope phases become the template for dry-run transcript phases. |
+| LiteRT-LM | Native/API transcript branch added; CLI/server remains quarantined or denied. |
+| MLX Swift | Native serialized-executor transcript branch added; no shell semantics. |
+| Custom Metal | Command-buffer transcript branch added; no stdout/stderr assumption. |
+| 70B-class ambition | Still cold assembly and routing; dry-run transcript does not prove live dense 70B. |
+
+### Promotion Truth
+
+- T0 research advanced: yes. The owner-approved dry-run transcript schema and
+  downstream falsifier backlog are now canon.
+- T1/L1 advanced: no. No new falsifier landed in Pass 83.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`OwnerApprovedDryRunTranscript`, because it forces the future large-model
+probe to prove observability and abortability before any first-token ambition.
+
+Safest next falsifier:
+Still `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`; Pass 83 defines
+the gate after it, not a replacement for it.
+
+Best near-term code unit:
+Implement `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` first. When it
+passes, implement `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`
+using the transcript phases above.
+
+Biggest false-claim risk:
+Calling a dry-run transcript "model works." The transcript proves safety and
+observability, not quality, local fit, or product capability.
+
+Biggest missing source:
+Actual owner approval plus local model manifests for the Mac-candidate rows.
+
+Next research query:
+"What exact redacted first-token probe should follow the dry-run transcript so
+large-model runtime evidence captures one bounded token, model/runtime bytes,
+memory delta, stderr/stdout scans, rollback, RunEventLog, AnswerPacket, and
+quality non-promotion without leaking user data or claiming L2/L3?"
+
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
 Date: 2026-06-07

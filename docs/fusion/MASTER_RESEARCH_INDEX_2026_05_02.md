@@ -365,6 +365,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > It advances T0 research/backlog canon only; no command is armed, no runtime
 > or model bytes are loaded, no provider call is made, and no MAS/L2/L3, live
 > dense 70B, or SSD-as-RAM claim is allowed.
+> Deep Research Pass 83 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now defines
+> the owner-approved dry-run transcript that must follow a runtime command
+> envelope before any first-token large-model probe. It source-cards local
+> small-model abortable/logged-smoke/runtime-proof-envelope witnesses,
+> redacted-token AnswerPacket patterns, subprocess security redaction, and
+> ColdStream byte separation, then validates Rust/Tokio process lifecycle,
+> Swift Subprocess stream/closure constraints, Apple `Process`, llama.cpp
+> CLI dry-run-relevant flags, MLX/LiteRT/Transformers lane differences, and
+> Metal command-buffer transcript requirements. The downstream backlog item is
+> `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` after
+> `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`; it advances T0
+> research/backlog canon only and still proves no command execution, no first
+> token, no model/runtime/provider bytes, no L2/L3, and no live dense 70B.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
