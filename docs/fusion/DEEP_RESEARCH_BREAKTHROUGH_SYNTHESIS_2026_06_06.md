@@ -12111,3 +12111,306 @@ Next research query: "What exact same-fixture packet fields let a small
 local model, Gemma 4 E2B QAT GGUF, Gemma 4 12B QAT, MLX Swift, LiteRT-LM, and
 llama.cpp be compared without stale retrieval, tokenizer drift, hidden cache
 reuse, tool-parser mismatch, or product overclaim?"
+
+## Deep Research Pass 112 - Same-Fixture Packet Field Specification
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 111 named the `SameFixtureRuntimeReplayEnvelope`. Pass 112 turns it into
+a field-level build spec that can become a metadata-only UAS primitive before
+any runtime lane is compared. The key move is to treat runtime comparison as a
+proof packet, not a benchmark table.
+
+The current local code already has
+`RuntimePluralQatLaneTournamentPlan` in
+`agent_core/src/uas/runtime_plural_qat_lane_tournament_plan.rs`. That witness
+requires same fixture alignment, byte ledgers, memory preflight,
+cancellation, rollback, RunEventLog, AnswerPacket, quality, latency,
+tool-JSON, and abstention surfaces while keeping runtime/model/provider bytes
+at zero. The new packet should sit downstream of that plan and upstream of
+any owner-approved runtime probe. It narrows "same fixture" from a single hash
+into a structured packet that proves source, search, prompt, tool, model,
+runtime, cache, output, and promotion boundaries are identical or visibly
+different.
+
+### Fresh Source Implications
+
+- vLLM prefix caching source-card requirement: include parent hash, block
+  tokens digest, extra hashes, cache salt, hash algorithm, and cache isolation
+  policy. vLLM warns that hash algorithms differ in reproducibility and
+  collision/security properties; Epistemos should prefer deterministic,
+  cross-language digest fields for metadata and deny hidden cache reuse.
+- llama.cpp source-card requirement: include local model path or HF model id,
+  direct CLI versus server lane, slot policy, prompt-cache setting, prompt
+  match threshold, `n_past`, `n_tokens`, KV eviction logs, and explicit
+  sidecar denial. Prompt cache logs are evidence only when correlated with
+  RunEventLog and AnswerPacket.
+- LiteRT-LM source-card requirement: include package version, release tag,
+  platform, backend, model format, Swift API maturity, support caveat, and
+  Gemma 4 platform allowlist. Recent LiteRT-LM metadata is promising for
+  macOS/iOS Swift, but iOS Gemma 4 failures and Swift binding reports still
+  require owner-approved local proof.
+- Gemma 4 QAT source-card requirement: include model id, revision, selected
+  files, QAT format family, declared bytes, tokenizer, chat template, tool
+  delimiter policy, modality subset, context window, and memory claim source.
+  Google/HF memory claims remain source facts until local byte, KV, runtime
+  workspace, and app-headroom proof exists.
+
+External source URLs:
+
+- vLLM Automatic Prefix Caching:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+- llama.cpp repository:
+  `https://github.com/ggml-org/llama.cpp`
+- llama.cpp KV cache reuse discussion:
+  `https://github.com/ggml-org/llama.cpp/discussions/13606`
+- LiteRT-LM repository:
+  `https://github.com/google-ai-edge/LiteRT-LM`
+- LiteRT GenAI overview:
+  `https://developers.google.com/edge/litert/genai/overview`
+- LiteRT-LM Swift binding issue:
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/1906`
+- Google AI Edge Gallery Gemma 4 iOS load issue:
+  `https://github.com/google-ai-edge/gallery/issues/692`
+
+### Packet Fields
+
+`SameFixtureRuntimeReplayEnvelope` should carry these field groups:
+
+1. Identity and tier
+   - `fixture_id`
+   - `fixture_version`
+   - `fixture_digest`
+   - `product_build`
+   - `pro_status`
+   - `tier_before`
+   - `tier_after`
+   - `metadata_only`
+   - `promotion_blocked_reason`
+
+2. Source freshness
+   - `body_read_checksum_ref`
+   - `search_index_freshness_ref`
+   - `source_revision_map`
+   - `vault_scope_digest`
+   - `readable_block_projection_digest`
+   - `graph_evidence_digest`
+   - `source_deleted_or_tombstoned_count`
+   - `freshness_abstention_reason`
+
+3. Prompt and tool packet
+   - `redacted_prompt_digest`
+   - `system_prompt_digest`
+   - `retrieval_packet_digest`
+   - `tool_schema_digest`
+   - `tool_parser_policy`
+   - `tool_json_expected_shape`
+   - `hidden_chain_denied`
+   - `raw_prompt_bytes_retained`
+   - `raw_tool_json_bytes_visible`
+
+4. Model artifact packet
+   - `model_id`
+   - `model_owner`
+   - `model_revision`
+   - `selected_files`
+   - `selected_file_digests`
+   - `declared_file_bytes`
+   - `local_owner_manifest_ref`
+   - `tokenizer_digest`
+   - `chat_template_digest`
+   - `generation_config_digest`
+   - `license_spdx`
+   - `modality_subset`
+   - `context_window_claim`
+
+5. Runtime lane packet
+   - `runtime_lane`
+   - `runtime_repo_url`
+   - `runtime_revision`
+   - `runtime_release_tag`
+   - `runtime_license_spdx`
+   - `direct_cli_or_in_process`
+   - `server_sidecar_denied`
+   - `explicit_local_endpoint_default_denied`
+   - `command_envelope_ref`
+   - `owner_approval_ref`
+   - `loader_caveat_ref`
+
+6. Memory and cache packet
+   - `selected_model_bytes`
+   - `resident_weight_budget`
+   - `kv_cache_budget`
+   - `runtime_workspace_budget`
+   - `app_headroom_budget`
+   - `cache_policy`
+   - `cache_salt_digest`
+   - `cache_hash_algorithm`
+   - `cache_block_identity_policy`
+   - `cache_deletion_policy`
+   - `cache_reuse_allowed`
+   - `cache_reuse_visible`
+
+7. Execution proof packet
+   - `timeout_ms`
+   - `cancellation_ref`
+   - `rollback_ref`
+   - `run_event_log_ref`
+   - `answer_packet_ref`
+   - `memory_sample_slots`
+   - `first_token_digest`
+   - `output_digest`
+   - `stdout_bytes_captured`
+   - `stderr_bytes_captured`
+   - `provider_calls_made`
+   - `runtime_bytes_loaded`
+   - `model_bytes_loaded`
+
+8. Quality packet
+   - `held_out_task_set_id`
+   - `coding_task_digest`
+   - `research_note_task_digest`
+   - `writing_task_digest`
+   - `citation_task_digest`
+   - `tool_json_task_digest`
+   - `refusal_task_digest`
+   - `exact_baseline_ref`
+   - `quality_metric_ref`
+   - `latency_metric_ref`
+   - `abstention_ref`
+
+9. Visibility and promotion packet
+   - `visible_summary`
+   - `user_visible_route_caveat`
+   - `mas_copy_allowed`
+   - `pro_copy_allowed`
+   - `l1_architecture_effect`
+   - `l2_capability_effect`
+   - `l3_wrv_effect`
+   - `t4_build_green_effect`
+   - `still_red`
+
+### Proposed Falsifier
+
+`F-SameFixtureRuntimeReplayEnvelope`
+
+Purpose:
+
+Prove that runtime-lane comparison cannot occur unless every candidate lane is
+bound to the same source/search/prompt/tool/model/cache/proof packet or emits
+a visible abstention.
+
+Scope:
+
+- T0/T1 metadata-only source-card witness first.
+- No command execution.
+- No local model path open.
+- No runtime, model, KV, cache, index, provider, stdout, stderr, or token
+  bytes unless explicitly promoted to an owner-approved runtime probe.
+- No L2/L3/product green and no live dense-70B claim.
+
+Required upstream refs:
+
+- `artifact:falsifiers/body_read_checksum_release_blocker_card/result.json`
+- `artifact:falsifiers/search_index_release_blocker_card/result.json`
+  or visible fail-closed placeholder until that witness lands
+- `artifact:falsifiers/runtime_plural_qat_lane_tournament_plan/result.json`
+- `artifact:falsifiers/gemma_qat_local_runtime_candidate_card/result.json`
+- `artifact:falsifiers/qat_model_route_card_memory_preflight/result.json`
+  if present under the exact local spelling used by the repo
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+
+Required red fixtures:
+
+- different prompt digest per lane;
+- missing body-read checksum ref;
+- missing or stale search freshness ref;
+- missing tokenizer/chat-template digest;
+- Gemma 4 tool parser bypass;
+- cache reuse without cache salt digest;
+- vLLM non-deterministic hash used as product proof;
+- llama.cpp slot reuse claimed without logs;
+- LiteRT Swift availability treated as Gemma 4 iOS proof;
+- Python MLX support treated as Swift product proof;
+- direct CLI and server sidecar collapsed into one lane;
+- hidden local endpoint default;
+- raw prompt/body/tool/token bytes retained in artifact;
+- output digest claimed without AnswerPacket;
+- first-token or quality claim in metadata-only scope;
+- file bytes treated as resident memory;
+- MoE active params treated as full memory proof;
+- product/MAS/L2/L3 green overclaim;
+- live dense 70B or SSD-as-RAM claim.
+
+### Buildable Rust Shape
+
+Future implementation should mirror the existing
+`RuntimePluralQatLaneTournamentPlan` style and add:
+
+- `agent_core/src/uas/same_fixture_runtime_replay_envelope.rs`
+- `agent_core/src/bin/falsify_same_fixture_runtime_replay_envelope.rs`
+- `Tools/falsifiers/f_same_fixture_runtime_replay_envelope.sh`
+- `artifacts/falsifiers/same_fixture_runtime_replay_envelope/result.json`
+- `docs/falsifiers/F-SameFixtureRuntimeReplayEnvelope_2026_06_07.md`
+- axes in `agent_core/src/falsifier_artifacts/axes.rs`
+- validator row in `agent_core/src/bin/falsifier_validator.rs`
+- handbook/schema/Living Index/Master/lattice updates
+
+The primitive should be strict about optional fields. Optional runtime lanes
+may abstain, but they must not disappear. If MLX Swift, LiteRT-LM Swift,
+GGUF/llama.cpp, Python MLX, vLLM/LMCache, KTransformers, or custom Metal are
+named in the tournament, each must either provide a packet card or an
+abstention card with a reason.
+
+### Architecture Fusion
+
+Intent -> UAS/OAS -> BodyReadFreshnessEnvelope -> SearchFreshnessPacket ->
+SameFixtureRuntimeReplayEnvelope -> RuntimePluralQatLaneTournamentPlan ->
+SCOPE-Rex/SovereignGate -> RuntimeRouter/System G -> post-validation ->
+RunEventLog -> AnswerPacket.
+
+This turns "large local model works" into a sequence of visible packet proofs.
+It is the opposite of a hidden runtime win. The packet allows Epistemos to
+become more ambitious because every risky claim has a field, a witness, a red
+fixture, and an abstention path.
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no; this is a blueprint.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: the field-level
+`SameFixtureRuntimeReplayEnvelope`, because it converts runtime-plural
+research into a falsifier-shaped packet that can later govern real probes.
+
+Safest next falsifier: guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+the safest research side-card remains `F-SearchIndex-ReleaseBlockerCard`,
+then `F-SameFixtureRuntimeReplayEnvelope`.
+
+Best near-term code unit: implement the metadata-only
+`F-SearchIndex-ReleaseBlockerCard` if continuing the release-blocker chain, or
+implement `F-SameFixtureRuntimeReplayEnvelope` if continuing the
+runtime-plural research side ladder.
+
+Biggest false-claim risk: treating a cache hit, command snippet, Swift package
+line, model-card memory number, or paper result as Epistemos runtime proof
+without the same-fixture packet.
+
+Biggest missing source: exact current local runtime log fixture for the
+small-model L3 automated-checks bottleneck, plus exact landed
+`F-SearchIndex-ReleaseBlockerCard` evidence.
+
+Next research query: "Which field subset is the smallest metadata-only
+`F-SameFixtureRuntimeReplayEnvelope` that still prevents prompt mismatch,
+search staleness, tokenizer drift, hidden cache reuse, sidecar defaults,
+tool-parser bypass, and product overclaim?"
