@@ -11842,3 +11842,272 @@ Biggest missing source: retained focused Swift log identifying the exact
 Next research query: "Which `source_guard_drift` and `tool_execution_surface`
 release blockers should follow search freshness so large-model route evidence,
 tool evidence, and UI copy cannot drift after retrieval becomes source-carded?"
+
+## Deep Research Pass 111 - Same-Fixture Runtime Proof Bridge
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+The most useful next breakthrough is not "pick MLX" or "pick llama.cpp." It is
+to make every candidate runtime lane prove itself on the same fresh fixture
+packet. Fresh external sources make Gemma 4 QAT much more promising for local
+work, but they also make the false-claim risk sharper: a Hugging Face model
+card, a Google memory-footprint claim, a llama.cpp command snippet, a Python
+MLX issue, or an arXiv KV-cache result can each be true and still not prove an
+Epistemos product route.
+
+The build bridge is a `SameFixtureRuntimeReplayEnvelope`: one witnessed packet
+that binds source freshness, search freshness, selected model artifact,
+tokenizer/chat template, runtime lane, prompt/KV cache policy, cancellation,
+quality task, redacted output digest, rollback, RunEventLog, AnswerPacket, and
+abstention before comparing GGUF/llama.cpp, LiteRT-LM, MLX Swift, Python MLX
+quarantine, vLLM/LMCache/KTransformers server lanes, or future Metal research.
+
+This keeps ambition intact. Gemma 4 12B QAT remains the Pro Gated flagship
+target, E2B/E4B stay the harness proving lane, 26B A4B/31B and 70B-class stay
+Pro Research/Vault/cold-assembly material, and no lane becomes green until it
+reaches T4+.
+
+### Current External Evidence
+
+- Google's Gemma 4 QAT launch says the QAT release includes Q4_0 checkpoints
+  and a mobile-specialized format, and that GGUF is intended for llama.cpp
+  while compressed tensors are provided for vLLM. It also frames E2B
+  text-only as below 1 GB in a mobile deployment format. Epistemos should
+  source-card these as model/lane facts, not product memory proof.
+- The official Hugging Face Gemma 4 E2B QAT GGUF card exposes llama.cpp
+  command examples and lists QAT formats across unquantized QAT, GGUF Q4_0,
+  mobile-optimized `wNa8o8`, and compressed tensors `w4a16`. Epistemos should
+  bind exact model id, selected file, revision, bytes, tokenizer, and lane
+  caveats before any local probe.
+- The MLX Swift Gemma 4 issue states Swift-side loading failed because
+  `gemma4` was not registered, while Python MLX added support earlier. This is
+  exactly why Python MLX availability cannot be promoted as Swift runtime
+  proof.
+- The MLX-LM Gemma 4 tool-call issue reports Gemma 4 native tool-call markers
+  were not parsed into OpenAI-compatible `tool_calls` and proposes parser
+  tests for escaped strings, booleans/numbers, and multiple calls. This makes
+  tool-JSON replay a required quality axis for agentic local work.
+- Open-TQ-Metal reports compressed-domain int4 attention on Apple Silicon for
+  long-context Gemma 4 31B and Llama 3.1 70B experiments. It is a strong Pro
+  Research source-card lead, but it must enter through crash-safe Metal/kernel
+  harnesses, exact source pins, and no kernel-panic-class default path.
+- Agent Memory Below the Prompt reports persistent Q4 KV cache restoration for
+  multi-agent edge inference. It is a strong cache-lineage motif, but
+  Epistemos must bind cache salt, prompt/module identity, deletion policy,
+  compatibility fence, and AnswerPacket caveats before any cache reuse.
+- LMCache docs describe reusable KV caches for non-prefix text and local
+  storage backends. The useful motif is cache lineage and eviction proof, not
+  a hidden external cache authority.
+- KTransformers docs describe heterogeneous MoE expert placement. The useful
+  motif is explicit hot/cold expert placement and dynamic updates, but
+  Epistemos must keep full-weight bytes, expert residency leases, active-param
+  caveats, and server/daemon boundaries visible.
+
+External source URLs:
+
+- Google Gemma 4 QAT official blog:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- Official Hugging Face Gemma 4 E2B QAT GGUF card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- MLX Swift Gemma 4 loader issue:
+  `https://github.com/ml-explore/mlx-swift/issues/389`
+- MLX-LM Gemma 4 tool-call parser issue:
+  `https://github.com/ml-explore/mlx-lm/issues/1096`
+- Open-TQ-Metal Apple Silicon compressed-domain attention:
+  `https://arxiv.org/abs/2604.16957`
+- Agent Memory Below the Prompt:
+  `https://arxiv.org/abs/2603.04428`
+- LMCache docs:
+  `https://docs.lmcache.ai/index.html`
+- KTransformers expert placement docs:
+  `https://ktransformers.net/docs/optimization-techniques/expert-placement`
+
+### Ranked Breakthrough Candidates
+
+1. `SameFixtureRuntimeReplayEnvelope`
+   - Mechanism: one fixture packet feeds every runtime lane with identical
+     source freshness, search freshness, prompt digest, model artifact,
+     tokenizer, tool schema, KV/cache policy, budget, timeout, cancellation,
+     and AnswerPacket requirements.
+   - Epistemos organ: RuntimeRouter/System G plus SCOPE-Rex/SovereignGate,
+     Eidos, RunEventLog, and AnswerPacket.
+   - Tier: T0 now; T1 when a metadata falsifier lands; T2 only after product
+     route admission and focused runtime logs.
+   - MAS/Pro status: MAS can only inherit tiny local lanes after build-green
+     proof; Pro Gated owns Gemma 4 12B QAT, runtime-plural, and server-lane
+     experiments.
+   - Falsifier: `F-SameFixtureRuntimeReplayEnvelope`.
+   - Runtime proof: small local model first, one-token redacted probe, then
+     held-out coding/research/writing/tool-JSON replay.
+   - User-visible proof: AnswerPacket shows model id, runtime lane, source
+     freshness, search freshness, caveats, token/output digest, and rollback.
+   - Why breakthrough: prevents lane comparison from being corrupted by stale
+     retrieval, different prompts, tokenizer drift, hidden cache reuse, or
+     mismatched tool parsers.
+   - Why wrong: it may be too strict and slow until the small-model harness
+     proves an ergonomic packet shape.
+
+2. `GemmaQATToolJsonAndChatTemplateReplay`
+   - Mechanism: source-card Gemma 4 chat-template and tool-call delimiters,
+     then replay escaped strings, booleans/numbers, multiple calls, refusal,
+     citation, and coding tasks on the same fixtures.
+   - Epistemos organ: LocalAgent, RuntimeRouter/System G, AnswerPacket.
+   - Tier: T0/T1 candidate; not L2 until runtime logs exist.
+   - MAS/Pro status: E2B/E4B may become harness candidates; 12B stays Pro
+     Gated until byte envelope, cancellation, quality, and WRV pass.
+   - Falsifier: `F-GemmaQAT-ToolJsonChatTemplateReplay`.
+   - Why breakthrough: agentic local work fails if tool JSON is wrong even
+     when prose quality looks good.
+   - Why wrong: model cards and issue reports are not enough; local parser and
+     Swift bridge proof are still required.
+
+3. `KVCacheLineageAndDeletionFence`
+   - Mechanism: every prompt/KV cache unit gets UAS identity, source freshness
+     salt, compatibility fence, deletion/tombstone policy, budget, and
+     AnswerPacket caveat before reuse.
+   - Epistemos organ: ColdStore/AppColdStore, Eidos, RuntimeRouter/System G.
+   - Tier: T0/T1 candidate.
+   - MAS/Pro status: MAS only after in-process tiny-lane proof; LMCache/vLLM
+     style server lanes stay Pro Research/Vault.
+   - Falsifier: `F-KVCacheLineageDeletionFence`.
+   - Why breakthrough: large local models become more practical when repeated
+     research/note/coding context does not need full prefill every time.
+   - Why wrong: cache reuse can leak deleted context or stale retrieval unless
+     deletion and freshness are first-class.
+
+4. `CompressedDomainAttentionMetalQuarantineCard`
+   - Mechanism: source-card Open-TQ-Metal-style compressed-domain attention as
+     a future custom Metal research motif with exact paper/code refs, crash
+     harness requirements, memory sample slots, token-equivalence oracle, and
+     no default execution.
+   - Epistemos organ: Pro Research/Omega only, Metal lane, ColdStream, kernel
+     harness, AnswerPacket.
+   - Tier: T0 only until source pins and dry-run witnesses exist.
+   - MAS/Pro status: Pro Research/Omega only.
+   - Falsifier: `F-CompressedDomainAttentionMetalQuarantineCard`.
+   - Why breakthrough: if reproduced safely, it directly targets the KV
+     memory/context bottleneck on Apple Silicon.
+   - Why wrong: kernel-panic-class risk, paper claims are not Epistemos local
+     proof, and 64 GB Mac experiments do not imply Jojo's 16 GB M2 Pro fit.
+
+5. `HotColdExpertPlacementLease`
+   - Mechanism: source-card KTransformers/PowerInfer-style expert placement
+     as explicit hot expert leases, cold expert bytes, router workspace, and
+     active-param caveats.
+   - Epistemos organ: ActiveAssembly, ColdStore/AppColdStore, RuntimeRouter.
+   - Tier: T0/T1 candidate.
+   - MAS/Pro status: Pro Research/Vault for server/daemon lanes.
+   - Falsifier: `F-HotColdExpertPlacementLease`.
+   - Why breakthrough: MoE can be powerful locally only if active compute is
+     separated from full resident bytes.
+   - Why wrong: dynamic expert placement can become hidden route authority or
+     daemon dependency if not fenced.
+
+### Architecture Fusion
+
+Intent -> UAS/OAS -> BodyReadFreshnessEnvelope -> SearchFreshnessPacket ->
+SameFixtureRuntimeReplayEnvelope -> SCOPE-Rex/SovereignGate -> RuntimeRouter /
+System G -> post-validation -> RunEventLog -> AnswerPacket.
+
+The new bridge says that model runtime evidence is invalid unless it consumes
+the same source/search packet and exposes the same caveats. That lets Epistemos
+be ambitious about Gemma 4 QAT, TurboVec, KV compression, and future Apple
+Silicon Metal kernels while preserving privacy and stability.
+
+### Candidate Falsifier Backlog
+
+1. `F-SameFixtureRuntimeReplayEnvelope`
+   - Source refs: BodyRead checksum witness, SearchIndex freshness card,
+     Gemma QAT source card, runtime-plural QAT tournament plan, LocalAgent
+     tool schema, QueryRuntime, RuntimeRouter/System G, RunEventLog, and
+     AnswerPacket.
+   - Required axes: fixture id, source freshness digest, search freshness
+     digest, model artifact id, tokenizer/chat-template digest, runtime lane,
+     KV/cache salt, tool schema digest, timeout/cancellation, rollback,
+     output digest, AnswerPacket caveat, no raw prompt/token/body, no hidden
+     cache/provider/route authority, zero bytes for metadata-only scope.
+   - Red fixtures: mismatched prompt per lane, stale search packet, missing
+     tokenizer, hidden prompt cache, raw token leak, tool JSON parser bypass,
+     server sidecar default, MAS/Pro collapse, L2/L3/product green claim.
+
+2. `F-GemmaQAT-ToolJsonChatTemplateReplay`
+   - Source refs: official Gemma QAT blog, official HF model cards, MLX-LM
+     tool-call issue, LocalAgent grammar/tool schema, AnswerPacket.
+   - Required axes: escaped string args, booleans/numbers, multiple tool
+     calls, no hidden chain, refusal/citation/coding held-out tasks, parser
+     abstention.
+
+3. `F-KVCacheLineageDeletionFence`
+   - Source refs: LMCache docs, vLLM cache docs, Agent Memory paper, local
+     cache salt/freshness envelope docs.
+   - Required axes: source freshness salt, search freshness salt, cache owner,
+     compatibility fence, tombstone/deletion purge, eviction, byte budget,
+     rollback, AnswerPacket.
+
+4. `F-CompressedDomainAttentionMetalQuarantineCard`
+   - Source refs: Open-TQ-Metal paper, Metal runtime policy, ColdStream, mmap
+     replacement atlas, kernel-panic harness doctrine.
+   - Required axes: paper/source pin, no default execution, dry-run only,
+     token-equivalence oracle, crash-safe cancellation, memory-pressure guard,
+     no MAS, no L2/L3.
+
+5. `F-HotColdExpertPlacementLease`
+   - Source refs: KTransformers expert placement docs, MoE active-params
+     memory truth, hardware-tiered model catalog.
+   - Required axes: full-weight bytes, active compute count, expert residency
+     lease, router workspace, dynamic placement visibility, rollback,
+     AnswerPacket, no hidden authority.
+
+### Model / Runtime Recommendation Ladder
+
+| Lane | Near-term role | Required proof |
+|---|---|---|
+| Small harness | E2B QAT GGUF or another tiny local model | owner approval, redacted first token, same-fixture replay, tool JSON, cancellation, AnswerPacket |
+| Pro Gated flagship | Gemma 4 12B QAT GGUF/LiteRT | byte envelope, model path, tokenizer/template proof, quality replay, runtime lane tournament, WRV |
+| Swift MLX | Apple Silicon first-lane candidate | Swift loader proof for Gemma 4, serialized executor, memory pressure, tool parser parity |
+| Python MLX | Quarantine research | source-card motifs only; never Swift product proof |
+| llama.cpp/GGUF | Most concrete local runtime source-card lane | command envelope, no hidden server, prompt/KV policy, first-token, quality replay |
+| LiteRT-LM | MAS/edge candidate if proven | Swift package/binary review, sandbox, cancellation, memory, package-size, model support |
+| vLLM/LMCache/KTransformers | Pro Research/server lane | daemon boundary, no MAS, no hidden provider, cache/expert lineage, owner approval |
+| Custom Metal / Open-TQ-style | Pro Research/Omega | crash-safe harness, dry-run, memory-pressure oracle, token-equivalence proof |
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no; this pass is blueprint/canon.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `SameFixtureRuntimeReplayEnvelope`, because it
+turns Gemma QAT, GGUF, LiteRT, MLX, KV/cache, and future Metal research into a
+single falsifiable comparison surface instead of fragmented hype.
+
+Safest next falsifier: guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+the safest research side-card remains `F-SearchIndex-ReleaseBlockerCard`
+before `F-SameFixtureRuntimeReplayEnvelope`.
+
+Best near-term code unit: build `F-SearchIndex-ReleaseBlockerCard` if staying
+on metadata/source-card architecture, then build `F-SameFixtureRuntimeReplayEnvelope`
+as the first runtime-comparison proof packet.
+
+Biggest false-claim risk: saying Google/HF Gemma 4 QAT memory numbers,
+llama.cpp command examples, Python MLX support, LMCache reuse, KTransformers
+expert placement, or Open-TQ-Metal paper results prove Epistemos product
+runtime. They do not.
+
+Biggest missing source: exact local focused logs for the current
+small-model runtime L3 automated-checks bottleneck and the retained
+`search_index` failure, because those decide the L2/L3 route after the source
+cards.
+
+Next research query: "What exact same-fixture packet fields let a small
+local model, Gemma 4 E2B QAT GGUF, Gemma 4 12B QAT, MLX Swift, LiteRT-LM, and
+llama.cpp be compared without stale retrieval, tokenizer drift, hidden cache
+reuse, tool-parser mismatch, or product overclaim?"

@@ -174,6 +174,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   canon/build-plan only: no product code changed, no DB/user-body/model/runtime/
   cache bytes were opened, no provider calls were made, L2/L3 remain red, and
   no user-facing large-model green claim exists.
+- Updated **2026-06-07** · Deep Research Pass 111 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` folds fresh
+  Gemma 4 QAT, Hugging Face QAT GGUF, MLX Swift loader, MLX-LM tool-parser,
+  Open-TQ-Metal, Agent Memory, LMCache, and KTransformers evidence into a
+  buildable `SameFixtureRuntimeReplayEnvelope` bridge. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor,
+  Pro contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. The bridge requires every GGUF/llama.cpp, LiteRT-LM,
+  MLX Swift, Python MLX quarantine, vLLM/LMCache/KTransformers, or future
+  custom Metal lane to compare on the same source/search freshness packet,
+  tokenizer/chat-template digest, prompt/KV cache policy, tool schema,
+  cancellation, rollback, RunEventLog, AnswerPacket, and abstention evidence.
+  It adds candidate falsifiers `F-SameFixtureRuntimeReplayEnvelope`,
+  `F-GemmaQAT-ToolJsonChatTemplateReplay`,
+  `F-KVCacheLineageDeletionFence`,
+  `F-CompressedDomainAttentionMetalQuarantineCard`, and
+  `F-HotColdExpertPlacementLease`. This is T0 canon/build-plan only: no
+  product code changed, no model/runtime/KV/cache/index bytes were loaded, no
+  command was armed, L2/L3 remain red, and no user-facing large-model green
+  claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of

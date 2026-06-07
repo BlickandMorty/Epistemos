@@ -299,6 +299,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > L2/L3/product/live-70B promotion. This is T0 canon/build-plan only: no
 > product code changed, no DB/user-body/model/runtime/cache bytes were opened,
 > no provider call occurred, and L2/L3 remain red.
+> Deep Research Pass 111 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` folds fresh
+> Google Gemma 4 QAT, official Hugging Face QAT GGUF, MLX Swift loader, MLX-LM
+> tool-parser, Open-TQ-Metal, Agent Memory, LMCache, and KTransformers evidence
+> into a `SameFixtureRuntimeReplayEnvelope` build bridge. It says every GGUF/
+> llama.cpp, LiteRT-LM, MLX Swift, Python MLX quarantine, vLLM/LMCache/
+> KTransformers, or future Metal lane must consume the same source freshness,
+> search freshness, tokenizer/chat-template digest, tool schema, KV/cache salt,
+> cancellation, rollback, RunEventLog, AnswerPacket, and abstention packet
+> before lane comparison can matter. New backlog gates are
+> `F-SameFixtureRuntimeReplayEnvelope`,
+> `F-GemmaQAT-ToolJsonChatTemplateReplay`,
+> `F-KVCacheLineageDeletionFence`,
+> `F-CompressedDomainAttentionMetalQuarantineCard`, and
+> `F-HotColdExpertPlacementLease`. This is T0 canon/build-plan only: no
+> command was armed, no model/runtime/KV/cache/index bytes were loaded, no
+> product route promoted, and L2/L3 remain red.
 > Deep Research Pass 106 in
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
 > fresh large-local-model research into buildable backlog. It validates
