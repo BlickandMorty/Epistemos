@@ -569,6 +569,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `runtime_performance_policy_release_blocker_card`.
+- Updated **2026-06-07** ·
+  `F-RuntimePerformancePolicy-ReleaseBlockerCard` landed:
+  `Tools/falsifiers/f_runtime_performance_policy_release_blocker_card.sh`
+  emits and validates
+  `artifacts/falsifiers/runtime_performance_policy_release_blocker_card/result.json`
+  as a metadata-only L1/T1 runtime-performance source-card witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness consumes
+  `F-UiShellSourceGuard-ReleaseBlockerCard` and the release-audit family source
+  card, binds retained family `runtime_performance_policy` with issue count
+  `3`, records 15 backend-runtime/thermal/route-profile/performance-settings/
+  test source refs, 12 invariants, 5 focused commands, 25 rejected red
+  fixtures, zero benchmark/model/runtime/product bytes, zero provider calls,
+  and deterministic runtime-performance address
+  `sha256:4d03fa6f84806c61b837e0aa6fece2af56ae108ff794f854be7b680380af9f98`.
+  It rejects performance surfaces as capability proof, benchmark results as
+  runtime proof, stale benchmark baselines, thermal-policy bypass,
+  memory-pressure bypass, missing cancellation/timeouts, unbounded runtime
+  lanes, settings performance controls unlocking routes, hidden AnswerPacket
+  caveats, MAS/Pro boundary collapse, L2/L3/product green, live dense 70B,
+  provider calls, and byte leaks. Guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `body_read_checksum_release_blocker_card`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every
