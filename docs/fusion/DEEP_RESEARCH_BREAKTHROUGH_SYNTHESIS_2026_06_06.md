@@ -5410,6 +5410,316 @@ MLX Swift, Transformers, and custom Metal runtime attempts while proving zero
 execution, safe cwd/env, cancellation, rollback, RunEventLog, AnswerPacket,
 owner approval absent, and no L2/L3 promotion?"
 
+## Deep Research Pass 82 - Runtime-Agnostic Crash-Safe Command Envelope Schema
+
+Date: 2026-06-07
+
+Epistemos is a local cognitive substrate where every meaningful object has an
+address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+contains the gated/research/vault/omega ladder, and no claim promotes without
+visible proof.
+
+### Executive Synthesis
+
+Pass 82 answers the Pass 81 research query by turning "future large-model
+runtime commands" into an inert schema, not an executable plan. The safest next
+breakthrough is a `RuntimeCommandEnvelopeCard` that can represent CLI, native
+API, local endpoint, and custom Metal runtime attempts while proving all of
+them remain unarmed.
+
+The envelope is not a permission slip. It is a typed denial surface. It should
+make it impossible for a promising large-model row to skip from source pins and
+byte envelopes into a shell command, Python sidecar, OpenAI-compatible server,
+Metal kernel, local endpoint, or hidden route without owner approval,
+preflighted bytes, cancellation, rollback, RunEventLog, AnswerPacket, and
+separate L2/L3 proof.
+
+### Local Canon Synthesis
+
+| Local authority | Command-envelope lesson |
+|---|---|
+| `agent_core/src/security.rs` | Existing subprocess hardening clears env, restores a narrow allowlist, blocks loader/interpreter/provider-token variables, sets `kill_on_drop(true)` for Tokio commands, and uses a Unix process group. The new envelope should reference this doctrine but should not instantiate a command in the metadata-only gate. |
+| `agent_core/src/bin/falsify_small_compressed_model_local_runtime_command_card.rs` | Small Gemma E2B command cards already prove direct `llama-cli` inventory, denied `llama-server`, pending owner approval, no command execution, zero bytes, and no L2/L3 promotion. The exotic envelope should generalize this shape to larger rows. |
+| `agent_core/src/bin/falsify_small_compressed_model_runtime_probe_proof_envelope.rs` | Runtime proof envelopes already require prompt hash, one-token template, memory sampling, cancellation, rollback, RunEventLog, AnswerPacket, and larger-model escalation blockers. The exotic envelope should reuse those proof phases. |
+| `agent_core/src/bin/falsify_turbovec_real_adapter_owner_approved_native_dry_run_probe.rs` | TurboVec native dry-run cards prove build/link/Python/native dependency commands stay visible and unarmed. The large-model command envelope should carry the same "native build is not runtime" separation. |
+| `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md` | A command is only one effect of a `SemanticWorkingSetPlan`; it must name selected evidence, KV, adapter, weight, verifier, hot/warm/cold bytes, fallback, and rollback separately. |
+| `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md` | The envelope must not imply mmap or SSD are runtime proof. Any future cold-byte movement needs transport manifests, cancellation, cache policy, checksum, copy count, and visible caveats. |
+| `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` | Offline assembly motifs cannot arm live commands. PatternBoost may propose a command envelope only after held-out proof and must remain no-hidden-authority. |
+
+### External Source Map
+
+Current public source signals checked 2026-06-07:
+
+| Source | Current signal | Envelope implication |
+|---|---:|---|
+| `ggml-org/llama.cpp` | 115065 stars, 19264 forks, MIT, pushed 2026-06-07 | `llama-cli` is a real local CLI lane, but its docs expose flags that must be fenced: `--offline` should be required for Epistemos probes; `--model-url`, `--hf-repo`, `--hf-file`, `--hf-token`, OpenAI-compatible server, unbounded `--n-predict -1`, context inflation, cache RAM, `--mlock`, `--mmap`, `--no-mmap`, and KV cache types must be explicit, not defaults. |
+| `ml-explore/mlx-lm` | 5547 stars, 738 forks, MIT, pushed 2026-06-06 | Python `mlx_lm.generate` can download from Hugging Face and has a default model. It is useful in quarantine, but product use must not inherit Python env, hub tokens, downloads, or a hidden sidecar. |
+| `ml-explore/mlx-swift-lm` | 542 stars, 255 forks, MIT, pushed 2026-06-04 | Native Swift MLX is the product-friendlier lane, but it is API configuration rather than a shell command. The envelope needs a `native_api_plan` variant with local-only downloader/tokenizer proof and serialized cancellation. |
+| `google-ai-edge/LiteRT-LM` | 5469 stars, 562 forks, Apache-2.0, pushed 2026-06-06 | LiteRT-LM now advertises Gemma 4 12B, CLI, OpenAI-compatible server, and Swift package support. The envelope must deny server/default download paths and require a separate native Swift admission/source-card before product use. |
+| `huggingface/transformers` | 161373 stars, 33437 forks, Apache-2.0, pushed 2026-06-06 | Transformers is a strong research/runtime reference, but Python/HF cache/offline behavior needs explicit `local_files_only` or offline env proof. It stays quarantine/reference until a product-safe lane exists. |
+| `swiftlang/swift-subprocess` | 633 stars, 57 forks, Apache-2.0, pushed 2026-06-05 | Swift subprocess is a candidate Pro tool surface, not MAS/local inference default. Its closure lifetime and stream semantics are useful for future command execution, but Pass 82 keeps command cards inert. |
+| `tokio-rs/tokio` | 32216 stars, 3095 forks, MIT, pushed 2026-06-04 | Tokio `Command` hardening already informs Rust process execution. The envelope should require the hardening ref and forbid future execution without it. |
+
+Primary docs consulted:
+
+- `https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md`
+- `https://github.com/ml-explore/mlx-lm`
+- `https://github.com/ml-explore/mlx-swift-lm`
+- `https://github.com/google-ai-edge/LiteRT-LM`
+- `https://github.com/swiftlang/swift-subprocess`
+- `https://doc.rust-lang.org/std/process/struct.Command.html`
+- `https://docs.rs/tokio/latest/tokio/process/struct.Command.html`
+- `https://developer.apple.com/documentation/foundation/process`
+- `https://developer.apple.com/documentation/metal/mtlcommandbuffer`
+
+### Proposed Primitive
+
+```text
+RuntimeCommandEnvelopeCard {
+  envelope_id
+  model_id
+  source_pin_ref
+  owner_manifest_ref
+  owner_path_policy_ref
+  byte_envelope_ref
+  runtime_lane
+  runtime_surface
+  executable_ref_or_api_ref
+  normalized_args
+  forbidden_args
+  cwd_policy
+  env_policy
+  network_policy
+  download_policy
+  model_path_policy
+  prompt_policy
+  cache_policy
+  kv_policy
+  output_policy
+  timeout_policy
+  cancellation_policy
+  process_lifetime_policy
+  memory_budget_ref
+  transport_ref
+  rollback_ref
+  run_event_log_ref
+  answer_packet_ref
+  owner_approval_required
+  owner_approval_granted
+  command_armed
+  command_executed
+  inference_executed
+  model_bytes_loaded
+  runtime_bytes_loaded
+  provider_calls_made
+  promotion_tier
+}
+```
+
+Required enum shape:
+
+| Field | Required values |
+|---|---|
+| `runtime_lane` | `LlamaCppCli`, `MlxPythonCliQuarantine`, `MlxSwiftNativeApi`, `LiteRTLMNativeApi`, `LiteRTLMCliQuarantine`, `TransformersPythonQuarantine`, `CustomMetalKernelPlan`, `LocalEndpointDenied`, `ServerOnlyDenied` |
+| `runtime_surface` | `CliArgsVector`, `NativeSwiftApiPlan`, `PythonApiPlan`, `MetalCommandBufferPlan`, `DeniedServerSidecar`, `DeniedRemoteEndpoint` |
+| `promotion_tier` | `T1L1Metadata` only for this gate |
+| `env_policy` | `InertNoEnv`, `SubprocessAllowlistRef`, `DeniedProviderTokenEnv`, `DeniedDynamicLoaderEnv`, `DeniedInterpreterOptionEnv` |
+| `network_policy` | `DenyAll`, `OfflineCacheOnly`, `OwnerApprovedLocalOnlyFuture` |
+
+The deterministic UAS address should include:
+
+```text
+source_pin_ref
+owner_manifest_ref
+byte_envelope_ref
+runtime_lane
+runtime_surface
+executable_or_api_ref
+normalized_args_digest
+cwd_policy_digest
+env_policy_digest
+network_policy_digest
+timeout_policy_digest
+rollback_ref
+answer_packet_ref
+```
+
+It should not include raw owner paths or secret env values.
+
+### Runtime-Specific Red And Blue Rules
+
+| Lane | Blue rule | Red fixtures |
+|---|---|---|
+| GGUF / llama.cpp | Args are a vector, not a shell string; future direct CLI requires `--offline`, owner path, bounded `--ctx-size`, bounded `--n-predict`, no server, no URL/HF download, visible KV cache type, and no quality claim. | `--model-url`, `--hf-repo`, `--hf-file`, `--hf-token`, `llama-server`, OpenAI-compatible server, `--n-predict -1`, runaway ctx, hidden `--mlock`, hidden `--mmap` claim, unbounded cache RAM, shell metacharacters. |
+| MLX Python | Quarantine-only until product-safe proof; no inherited Python path, no hub token, no default download, no hidden sidecar. | `mlx_lm.generate` default model, implicit Hugging Face download, `PYTHONPATH`, `HF_TOKEN`, provider env, unbounded generation, Python package import as product proof. |
+| MLX Swift | Native API plan, not subprocess; requires serialized executor, cancellation, local-only model container, loader support, and AnswerPacket refs. | treating MLX repo availability as Swift Gemma 4 proof, no cancellation, nonisolated model handles, hidden downloader, route mutation. |
+| LiteRT-LM | Source-card native Swift/API and CLI separately; CLI remains quarantine unless owner-approved. | `--from-huggingface-repo` as product proof, OpenAI-compatible server default, web/mobile demo as MAS proof, hidden endpoint fallback. |
+| Transformers | Research/quarantine lane only unless local-files-only proof and product-safe host exist. | HF download, cache as durable truth, provider token inheritance, Python sidecar default, model-card metric as local proof. |
+| Custom Metal | No process; only a kernel-plan card with feature gate, command-buffer error policy, ULP/numeric proof, dense fallback, and cancellation. | kernel speed as quality, unsafe buffer aliasing, missing fallback, missing Metal family gate, no AnswerPacket caveat. |
+
+### Falsifier Backlog Detail
+
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` should consume
+`F-ExoticQuantOwnerPathByteEnvelopePreflightGate` and accept five envelope
+cards:
+
+- three Mac-candidate rows as pending owner-approved future envelopes;
+- two server/GPU rows as denied-on-Mac envelopes;
+- zero commands armed;
+- zero commands executed;
+- zero model/runtime/provider/source-tree/product/benchmark bytes;
+- zero path opens, stat calls, file hashes, or symlink resolution;
+- no owner paths stored;
+- no shell strings;
+- no dynamic loader, interpreter-option, provider-token, or hub-token env;
+- no remote download, server sidecar, OpenAI-compatible endpoint, or hidden
+  provider fallback;
+- no L2/L3, MAS Live, user-facing, live dense 70B, or SSD-as-RAM claim.
+
+Minimum axes:
+
+```text
+upstream_byte_envelope_bound
+five_envelope_cards_present
+mac_candidates_pending_owner_approval
+server_gpu_rows_denied_on_mac
+args_vectorized_no_shell
+cwd_policy_fail_closed
+env_policy_bound_to_subprocess_hardening
+provider_and_hub_env_denied
+network_and_downloads_denied
+server_sidecars_denied
+bounded_token_and_context_policy_visible
+kv_cache_policy_visible
+timeout_cancellation_process_lifetime_visible
+rollback_run_event_log_answer_packet_required
+no_command_armed_or_executed
+zero_runtime_model_provider_bytes
+no_path_or_file_access
+hidden_authority_rejected
+promotion_rejected
+deterministic_uas_address_stable
+red_fixture_rejection_count
+```
+
+Red-fixture families should include:
+
+```text
+shell_string_with_semicolon
+pipe_to_interpreter
+relative_executable
+cwd_outside_quarantine
+missing_owner_manifest_ref
+missing_byte_envelope_ref
+owner_approval_granted
+command_armed
+command_executed
+model_file_opened
+runtime_bytes_nonzero
+provider_call_nonzero
+DYLD_INSERT_LIBRARIES
+LD_PRELOAD
+PYTHONPATH
+NODE_OPTIONS
+HF_TOKEN
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+--model-url
+--hf-repo
+--hf-token
+llama-server_default
+openai_compatible_server_default
+unbounded_n_predict
+ctx_size_over_budget
+mlock_as_fit_claim
+mmap_as_memory_fit_claim
+cache_ram_unbounded
+hidden_cloud_fallback
+hidden_eidos_route_authority
+hidden_patternboost_route_authority
+route_policy_mutated
+answer_packet_missing
+rollback_missing
+run_event_log_missing
+quality_claimed
+l2_claimed
+l3_claimed
+mas_live_claimed
+live_dense_70b_claimed
+ssd_as_ram_claimed
+```
+
+### Architecture Fusion
+
+The new fusion is `RuntimeCommandEnvelopeBeforeAnyRuntime`.
+
+```text
+ExoticQuantSourcePin
+  -> OwnerPathManifestIntake
+  -> OwnerPathCanonicalizationPreflight
+  -> OwnerPathByteEnvelopePreflight
+  -> RuntimeCommandEnvelopeCard
+  -> OwnerApprovedDryRun
+  -> AbortableFirstTokenProbe
+  -> CapabilityKernelRecheck
+  -> WRV / release audit if product-facing
+```
+
+The envelope is the last metadata-only barrier before a future owner-approved
+dry run. It lets Epistemos be ambitious about llama.cpp, LiteRT-LM, MLX,
+Transformers, and custom Metal while keeping the app private, stable, and
+truthful.
+
+### Model / Runtime Ladder Update
+
+| Ladder | Pass 82 effect |
+|---|---|
+| Qwopus TQ3_4S / HLWQ / APEX-Mini | Ready for command-envelope metadata gate, not runtime. |
+| Gemma 4 QAT GGUF | Existing small-compressed command-card lessons should be reused as fixtures, not blindly copied. |
+| LiteRT-LM Gemma 4 | Stronger source signal for Pro Gated native/API research, but server/CLI remains denied by default. |
+| MLX Python | Useful quarantine lane and benchmark reference, not product default. |
+| MLX Swift | Preferred product-style lane when loader proof exists; no shell command card needed. |
+| 70B-class ambition | Still cold assembly, route, KV/cache, transport, and proof discipline; command envelope does not make dense 70B live. |
+
+### Promotion Truth
+
+- T0 research advanced: yes. The next command-envelope schema and red/blue
+  fixture map are now canon.
+- T1/L1 advanced: no. No new falsifier landed in Pass 82.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`RuntimeCommandEnvelopeBeforeAnyRuntime`, because it prevents the large-model
+ladder from turning repo/model-card excitement into a crash-prone subprocess,
+hidden server, Python download path, or unsafe Metal run.
+
+Safest next falsifier:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Best near-term code unit:
+Add the metadata-only UAS primitive and falsifier binary for
+`exotic_quant_crash_safe_command_envelope_preflight_gate`, borrowing source
+guard shapes from small-compressed command cards and TurboVec native dry-run
+cards while consuming the exotic quant byte-envelope artifact.
+
+Biggest false-claim risk:
+Treating a visible command card as permission to run it. The card is only a
+denial and witness surface until owner approval, dry-run, abortability,
+first-token, capability-kernel, WRV, and release-audit evidence exist.
+
+Biggest missing source:
+Owner-approved local manifests for actual candidate model files plus a
+same-fixture first-token command dry run on the user's hardware.
+
+Next research query:
+"What exact owner-approved dry-run transcript should follow the inert command
+envelope so it proves cancellation, timeout, process lifetime, stdout/stderr
+redaction, memory sampling, rollback, RunEventLog, AnswerPacket, and no
+product promotion before any first-token large-model probe?"
+
 ## Pass 76 - Exotic Quant Runtime Lane Owner Approval Gate Implementation
 
 Date: 2026-06-07
