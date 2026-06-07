@@ -125,6 +125,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-AgentRoutePolicy-LargeModelNoHiddenAuthority",
     "F-VisibleOutputSanitization-ReleaseBlockerCard",
     "F-GraphFilterVisibility-ReleaseBlockerCard",
+    "F-GraphFilterVisibilityTestProductsCommandSpec",
     "F-ResearchToolCatalog-NoHiddenAuthority",
     "F-ThemePresentation-ReleaseBlockerCard",
     "F-DistributionProjectIntegrity-ReleaseBlockerCard",

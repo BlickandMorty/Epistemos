@@ -60,6 +60,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod graph_filter_visibility_release_blocker_card;
+pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
 pub mod kv_runtime_source_card;
@@ -990,6 +991,18 @@ pub use graph_filter_visibility_release_blocker_card::{
     GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF, GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_CURSOR,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_ID,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR, GRAPH_FILTER_VISIBILITY_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_test_products_command_spec::{
+    required_graph_filter_test_products_command_templates,
+    required_graph_filter_test_products_seed_selectors,
+    required_graph_filter_test_products_source_refs, GraphFilterTestProductsOrgan,
+    GraphFilterTestProductsStatus, GraphFilterVisibilityTestProductsCommandSpec,
+    GraphFilterVisibilityTestProductsCommandSpecWitness,
+    GraphFilterVisibilityTestProductsMetrics, GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_CURSOR,
+    GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_ID,
+    GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_REF,
 };
 pub use research_tool_catalog_no_hidden_authority::{
     required_research_tool_catalog_invariants, required_research_tool_catalog_source_refs,

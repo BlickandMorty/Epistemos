@@ -14512,3 +14512,107 @@ nonzero executed-test evidence.
 Next research query: "What Rust metadata primitive and invalid fixture matrix
 should validate `F-GraphFilterVisibilityTestProductsCommandSpec` before any
 actual Xcode build-for-testing run is attempted?"
+
+## Deep Research Pass 125 - Graph Filter Test Products Command Spec Landed
+
+### Executive Synthesis
+
+Pass 125 converts Pass 124 from T0 research-to-build canon into a landed
+metadata-only T1/L1 witness:
+`F-GraphFilterVisibilityTestProductsCommandSpec`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The mechanism is intentionally small: validate the exact Epistemos
+build-for-testing / test-without-building command contract, source refs, seed
+selectors, pre-action record, path policy, rollback, RunEventLog, AnswerPacket,
+and rejection matrix without running Xcode or opening test-product bytes. This
+is the correct next architecture move because large-local-model capability
+eventually depends on fresh, replayable, non-stale product evidence. A local
+model answer cannot be trusted if graph/evidence visibility and release-audit
+proof can be satisfied by stale products, filename selectors, enumeration-only
+runs, or zero executed tests.
+
+### Landed Artifact
+
+- Falsifier: `F-GraphFilterVisibilityTestProductsCommandSpec`
+- Command:
+  `Tools/falsifiers/f_graph_filter_visibility_test_products_command_spec.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityTestProductsCommandSpec_2026_06_07.md`
+- Rust primitive:
+  `agent_core/src/uas/graph_filter_visibility_test_products_command_spec.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_test_products_command_spec.rs`
+- Deterministic address:
+  `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only command-spec evidence.
+- Source refs: 5.
+- Seed selectors: 8.
+- Command templates: 3.
+- Red fixtures rejected: 24.
+- Selected test-product bytes opened: 0.
+- App/model/runtime bytes loaded: 0.
+- Xcode commands executed: 0.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Focused graph-filter test execution: not proven.
+- Automated-checks row: still required.
+- Large local model runtime: not promoted.
+
+### Architecture Fusion
+
+This is a Verification-plane bridge between release-audit repair and the large
+local model architecture. It keeps RuntimeRouter/System G honest by requiring
+the later product proof to carry exact source identity, exact artifacts, fresh
+result bundles, nonzero executed-test evidence, redacted logs, rollback,
+RunEventLog, and AnswerPacket before L2/L3 can move.
+
+The same pattern should be reused for Gemma 4 QAT, GGUF/LiteRT/MLX lane
+tournaments, TurboVec/Eidos cache candidates, KV reuse, and cold-assembly
+transport: small, addressable proof cards first; runtime bytes only after
+source, path, byte envelope, privacy, rollback, and visible-proof gates exist.
+
+### Promotion Truth
+
+- T0 research/canon: superseded by landed T1 command-spec witness.
+- T1/L1 architecture proof: advanced for command-spec metadata only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+fresh test-products proof as a reusable artifact discipline for all future
+large-model product claims.
+
+Safest next falsifier:
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+because the guard and capability kernel still point there.
+
+Best near-term code unit: keep the next proof bounded to automated-checks/log
+evidence or a focused graph-filter test-products proof, with no model/runtime
+probe until the owner explicitly approves.
+
+Biggest false-claim risk: treating this command-spec witness as executed Swift
+test evidence.
+
+Biggest missing artifact: a fresh proof root with build-for-testing output,
+enumeration JSON, focused `.xcresult`, parsed nonzero executed-test count, and
+post-run source-status evidence.
+
+Next research query: "How should the automated-checks proof consume a fresh
+test-products bundle and nonzero executed-test evidence without accepting stale
+DerivedData or selector-only success?"

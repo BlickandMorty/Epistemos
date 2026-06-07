@@ -3939,6 +3939,32 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   run, no model/runtime bytes loaded, no L1 cursor advance, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3/release readiness
   remains red.
+- Updated **2026-06-07** ·
+  `F-GraphFilterVisibilityTestProductsCommandSpec` landed:
+  `Tools/falsifiers/f_graph_filter_visibility_test_products_command_spec.sh`
+  emits and validates
+  `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`
+  as a metadata-only L1/T1 command-spec witness. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor,
+  Pro contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. The witness consumes
+  `F-GraphFilterVisibility-ReleaseBlockerCard`, binds `Epistemos.xcodeproj`,
+  scheme `Epistemos`, `EpistemosTests.xctest`, `Debug`, `platform=macOS`, 5
+  source refs, 8 seed Swift Testing selectors, 3 proof-root-scoped command
+  templates, the scheme pre-action `Patch MLX Metal Warning` /
+  `scripts/patch_mlx_metal_warnings.sh`, 24 rejected red fixtures, zero
+  selected test-product bytes opened, zero app/model/runtime bytes, and
+  deterministic address
+  `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`.
+  It rejects global DerivedData, different-commit products, stale result
+  bundles, selector mismatch, filename selectors, enumeration-only passes,
+  zero executed tests, pre-action mutation, full automated-check replacement,
+  raw note/prompt/model byte logging, L2/L3/product/release green, and live
+  dense 70B. L1 advanced only as metadata command-spec evidence; L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 product capability and
+  release readiness remain red. Next guard-owned unit remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
