@@ -83,6 +83,7 @@ pub mod research_tool_catalog_no_hidden_authority;
 pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
+pub mod runtime_performance_policy_release_blocker_card;
 pub mod runtime_plural_qat_lane_tournament_plan;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
@@ -463,6 +464,16 @@ pub use ui_shell_source_guard_release_blocker_card::{
     UiShellSourceGuardStatus, UI_SHELL_SOURCE_GUARD_FAMILY_SOURCE_REF,
     UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_CURSOR, UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_ID,
     UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_NEXT_CURSOR, UI_SHELL_SOURCE_GUARD_UPSTREAM_REF,
+};
+pub use runtime_performance_policy_release_blocker_card::{
+    required_runtime_performance_policy_invariants, required_runtime_performance_policy_source_refs,
+    RuntimePerformancePolicyError, RuntimePerformancePolicyMetrics, RuntimePerformancePolicyOrgan,
+    RuntimePerformancePolicyReleaseBlockerCard, RuntimePerformancePolicyReleaseBlockerWitness,
+    RuntimePerformancePolicyStatus, RUNTIME_PERFORMANCE_POLICY_FAMILY_SOURCE_REF,
+    RUNTIME_PERFORMANCE_POLICY_RELEASE_BLOCKER_CARD_CURSOR,
+    RUNTIME_PERFORMANCE_POLICY_RELEASE_BLOCKER_CARD_ID,
+    RUNTIME_PERFORMANCE_POLICY_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
+    RUNTIME_PERFORMANCE_POLICY_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,

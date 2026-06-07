@@ -10703,3 +10703,100 @@ Sources:
 - `Epistemos/Views/MiniChat/MiniChatWindowController.swift`
 - `EpistemosTests/SettingsWindowPresentationTests.swift`
 - `EpistemosTests/SidebarShellValidationTests.swift`
+
+## Deep Research Pass 105 — Runtime Performance Policy Barrier
+
+### Executive Synthesis
+
+`F-RuntimePerformancePolicy-ReleaseBlockerCard` landed as a metadata-only L1/T1
+source-card witness. This is a research-to-build step for making larger local
+models practical: Epistemos now has a source-card barrier that prevents latency
+budgets, benchmark baselines, thermal policy, memory pressure, cancellation,
+timeouts, route profiles, or settings performance controls from being used as
+product runtime proof without fresh logs, runtime evidence, rollback, and
+AnswerPacket visibility.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Bound Repair Surface
+
+The witness binds retained issue count `3`, source refs `15`, invariants `12`,
+focused commands `5`, rejected red fixtures `25`, zero benchmark/model/runtime
+bytes, zero provider calls, and deterministic address
+`sha256:4d03fa6f84806c61b837e0aa6fece2af56ae108ff794f854be7b680380af9f98`.
+
+Source refs include backend runtime contract, TriageService, Apple
+Intelligence thermal handling, RuntimeExecutor, MetalRuntimeManager,
+ThermalGuard, ThermalMonitor, route profiles, RuntimeRouter, performance
+settings, runtime capability/performance tests, perf budget tests, resource
+runtime regression tests, backend-runtime contract tests, and the R15 benchmark
+evidence ledger.
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Runtime-performance blockers now have deterministic source-card identity, not vague "make it faster" debt. |
+| ActiveAssembly | A larger local model lane cannot enter active assembly merely because a benchmark or settings row looks good. |
+| Eidos | Benchmark evidence is evidence only; it cannot rank routes as hidden authority or substitute for fresh task-local logs. |
+| SCOPE-Rex/SovereignGate | Admission rejects stale baselines, thermal/memory bypass, missing cancellation/timeouts, and unbounded runtime lanes. |
+| RuntimeRouter/System G | Route decisions must carry explicit budgets, performance caveats, rollback, RunEventLog, and AnswerPacket proof. |
+| RunEventLog/AnswerPacket | Performance claims must remain visible and caveated until fresh runtime evidence verifies them. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-RuntimePerformancePolicy-ReleaseBlockerCard` passes
+  as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Runtime performance and large-local-model user
+  capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: make every large-model lane carry a performance
+lease: latency budget, memory headroom, thermal policy, cancellation deadline,
+fresh log pointer, rollback, and AnswerPacket caveat before it can appear
+reachable.
+
+Safest next falsifier: `F-BodyReadChecksum-ReleaseBlockerCard`, matching the
+source-card cursor `body_read_checksum_release_blocker_card`.
+
+Best near-term code unit: bind body-read checksum release blockers so model
+output, note context, readable blocks, and runtime evidence cannot operate on
+stale or mismatched body bytes.
+
+Biggest false-claim risk: treating old benchmark JSONs, p95/p99 baselines, or
+settings performance labels as proof that Gemma/QAT/GGUF/MLX/LiteRT lanes are
+stable on the user's current machine.
+
+Biggest missing source: fresh runtime logs after the small-model automated
+release audit is repaired and rerun.
+
+Next research query: "What body/read checksum and context freshness proof is
+required before local model runtime output can be trusted as operating on the
+current note, graph, and evidence state?"
+
+Sources:
+
+- `docs/falsifiers/F-RuntimePerformancePolicy-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/runtime_performance_policy_release_blocker_card/result.json`
+- `agent_core/src/uas/runtime_performance_policy_release_blocker_card.rs`
+- `agent_core/src/bin/falsify_runtime_performance_policy_release_blocker_card.rs`
+- `Epistemos/Engine/BackendRuntimeContract.swift`
+- `Epistemos/Engine/TriageService.swift`
+- `Epistemos/Engine/AppleIntelligenceService.swift`
+- `Epistemos/Engine/RuntimeExecutor.swift`
+- `Epistemos/Engine/MetalRuntimeManager.swift`
+- `Epistemos/State/ThermalGuard.swift`
+- `Epistemos/State/ThermalMonitor.swift`
+- `Epistemos/State/InferenceState+RouteProfiles.swift`
+- `Epistemos/LocalAgent/RuntimeRouter.swift`
+- `Epistemos/Views/Settings/PerformanceSettingsSection.swift`
+- `EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests.swift`
+- `EpistemosTests/PerfBudgetsTests.swift`
+- `EpistemosTests/ResourceRuntimeRegressionTests.swift`
+- `EpistemosTests/BackendRuntimeContractTests.swift`
+- `EpistemosTests/Benchmarks/R15BenchmarkEvidenceLedgerTests.swift`
