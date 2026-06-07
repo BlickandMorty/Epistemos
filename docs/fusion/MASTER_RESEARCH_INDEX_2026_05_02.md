@@ -4529,3 +4529,26 @@ capability. Apple unified logging, OSLog, xcodebuild result bundles, and
 xcresulttool are source-carded as evidence mechanisms; they do not promote a
 claim unless the Epistemos falsifier and release-audit workflow bind them to
 visible AnswerPacket/RunEventLog evidence.
+
+### §28.9 Small harness lane-selection canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 118 plus `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+
+Pass 118 defines `F-SmallModelRuntimeHarnessLaneSelectionPacket` as the
+research-to-build side-ladder that keeps the guard-owned runtime proof from
+thrashing between "safest proof" and "best model." The release-audit product
+proof anchor remains Qwen3-4B MLX because local Epistemos witnesses already
+bind retained/fresh Qwen3-4B runtime bytes, AnswerPacket, RunEventLog, WRV,
+log/manual/release-audit blockers, and explicit no-L2/L3 promotion. Gemma 4
+E2B QAT GGUF remains the first Google QAT growth side-lane because the
+official Hugging Face card exposes concrete GGUF/llama.cpp usage, but it must
+prove exact artifact/path/command, byte envelope, tokenizer/chat-template,
+first-token, quality replay, rollback, RunEventLog, and AnswerPacket before it
+can influence RuntimeRouter/System G.
+
+Promotion truth: this is T0 research-to-build canon only. It lands no
+falsifier, opens no local artifact path, loads no model/runtime/provider bytes,
+arms no command, and does not promote L2/L3/T4, live dense 70B, Gemma 4 product
+runtime, MAS LiveAgent, or user-facing large-model capability.

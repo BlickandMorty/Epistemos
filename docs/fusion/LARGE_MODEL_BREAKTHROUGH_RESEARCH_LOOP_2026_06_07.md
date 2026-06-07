@@ -328,6 +328,21 @@ These are leads for falsifiers, not product claims.
      hidden provider fallback, unsupported Agent visibility, and false L2/L3
      promotion.
 
+11. `small_model_runtime_harness_lane_selection_packet`
+   - Consume the small-model runtime harness witness family and choose a lane
+     by proof objective, not model ambition.
+   - Release-audit product proof anchor: Qwen3-4B MLX, because retained/fresh
+     product-path witnesses already bind runtime bytes, AnswerPacket,
+     RunEventLog, WRV, log/manual/release-audit blockers, and no L2/L3
+     promotion.
+   - QAT side-lane: Gemma 4 E2B QAT GGUF, because the official card exposes
+     a concrete GGUF/llama.cpp path, but exact artifact/path/command/log/
+     quality proof is still required before route influence.
+   - Red-team Gemma selected as MLX Swift without loader proof, Qwen marked
+     product green, 12B/26B/31B/70B selected before the small harness closes,
+     hidden sidecar/provider fallback, unsupported Agent visibility, and raw
+     prompt/token artifact leakage.
+
 ## Promotion Rule
 
 Research can be brilliant and still be T0. It reaches T1 only when a falsifier exists. It reaches T2 only when the capability kernel admits a product route. It reaches T3 only when WRV proves a user-visible surface. It reaches T4 only when MAS/Pro build and logs agree. It reaches T5 only when the whole substrate segment has no unmapped gaps.

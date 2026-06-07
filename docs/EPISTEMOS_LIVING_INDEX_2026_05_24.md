@@ -3793,6 +3793,29 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   product capability was claimed. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing large-
   local-model capability remains red.
+- 2026-06-07 small harness lane-selection research-to-build canon: Deep
+  Research Pass 118 is now folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`,
+  `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`, and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass defines
+  `F-SmallModelRuntimeHarnessLaneSelectionPacket` as a T0 side-ladder so the
+  guard-owned small-model release-audit proof has a stable proof anchor:
+  Qwen3-4B MLX remains the lowest-risk harness lane because retained/fresh
+  local witnesses already bind Qwen3-4B runtime bytes, AnswerPacket,
+  RunEventLog, WRV, log/manual/release-audit blockers, and no L2/L3 promotion.
+  Gemma 4 E2B QAT GGUF remains the first Google QAT growth side-lane because
+  the official model card exposes concrete GGUF/llama.cpp usage, but it still
+  needs exact artifact/path/command proof, byte envelope, tokenizer/chat-
+  template proof, first-token proof, quality replay, rollback, RunEventLog,
+  and AnswerPacket before it can influence RuntimeRouter/System G. This is T0
+  canon/build-plan only: no local artifact path was opened, no model/runtime/
+  provider bytes were loaded, no command was armed, no new falsifier landed,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 user-
+  facing large-local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
