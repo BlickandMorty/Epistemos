@@ -1,0 +1,694 @@
+{
+  "falsifier_id": "F-AutomatedChecksFreshTestProductsEvidenceEnvelope",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_automated_checks_fresh_test_products_evidence_envelope.sh",
+  "command_digest": "sha256:7fb46a229b32fcfccd45320a196dcec5ca7ba1b0fc7c1b03cba9b4a1b2124788",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "96ebbfee06b4c6f202588b67d3b007b0eec76ed0",
+  "fixture_id": "automated_checks_fresh_test_products_evidence_envelope_v1",
+  "timestamp_utc": "2026-06-07T23:32:41Z",
+  "result_digest": "sha256:a7bfc08cddafcba6359ca42d07480778d649dec9d66164467929b1c39d4872da",
+  "measurements": {
+    "app_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "automated_checks_fresh_test_products_envelope_address": {
+      "value": "sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad",
+      "unit": "sha256"
+    },
+    "automated_checks_fresh_test_products_evidence_envelope": {
+      "value": {
+        "falsifier_id": "F-AutomatedChecksFreshTestProductsEvidenceEnvelope",
+        "cursor": "automated_checks_fresh_test_products_evidence_envelope",
+        "next_cursor": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+        "command_spec_artifact_ref": "artifact:falsifiers/graph_filter_visibility_test_products_command_spec/result.json#F-GraphFilterVisibilityTestProductsCommandSpec",
+        "command_spec_overall_pass": true,
+        "automated_checks_artifact_ref": "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
+        "automated_checks_overall_pass": false,
+        "automated_checks_next_bottleneck": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+        "automated_checks_top_failure_family": "graph_filter_visibility",
+        "automated_checks_xcodebuild_test_passed": false,
+        "spec": {
+          "command_spec_artifact_ref": "artifact:falsifiers/graph_filter_visibility_test_products_command_spec/result.json#F-GraphFilterVisibilityTestProductsCommandSpec",
+          "automated_checks_artifact_ref": "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
+          "proof_root_prefix": "artifacts/xcode/graph-filter-visibility-test-products/",
+          "selected_test_product_kinds": [
+            "xctestrun",
+            "xctestproducts"
+          ],
+          "required_digest_fields": [
+            "source_commit_sha",
+            "pre_build_status_digest",
+            "post_test_status_digest",
+            "selected_test_product_digest",
+            "enumeration_json_digest",
+            "seed_selector_digest",
+            "enumerated_selector_digest",
+            "focused_result_bundle_digest"
+          ],
+          "required_rejection_policies": [
+            "missing_command_spec_artifact",
+            "failed_command_spec_artifact",
+            "proof_root_outside_artifacts",
+            "global_derived_data",
+            "different_commit_product",
+            "missing_selected_product_digest",
+            "missing_or_stale_enumeration_json",
+            "missing_or_stale_focused_result_bundle",
+            "selector_digest_mismatch",
+            "filename_selector_or_display_name_laundering",
+            "zero_executed_tests",
+            "unaccounted_pre_action_mutation",
+            "focused_proof_replaces_full_automated_checks",
+            "raw_note_prompt_model_byte_logging"
+          ],
+          "required_proof_surfaces": [
+            "rollback",
+            "run_event_log",
+            "answer_packet"
+          ],
+          "scheme_pre_action_title": "Patch MLX Metal Warning",
+          "scheme_pre_action_script": "scripts/patch_mlx_metal_warnings.sh",
+          "required_before_family": "graph_filter_visibility",
+          "required_after_family_status": "pending_fresh_proof",
+          "minimum_executed_test_count": 1,
+          "full_automated_check_row_still_required": true,
+          "focused_proof_replaces_full_automated_checks": false,
+          "metadata_only": true,
+          "xcode_command_executed": false,
+          "product_code_changed": false,
+          "selected_test_product_bytes_opened": 0,
+          "model_runtime_bytes_loaded": 0,
+          "app_runtime_bytes_loaded": 0,
+          "raw_note_prompt_model_bytes_logged": false,
+          "l2_green_claimed": false,
+          "l3_green_claimed": false,
+          "product_green_claimed": false,
+          "release_ready_claimed": false,
+          "live_dense_70b_claimed": false,
+          "ssd_as_ram_claimed": false,
+          "rollback_ref": "rollback:automated_checks_fresh_test_products_evidence_envelope",
+          "run_event_log_ref": "run_event_log:automated_checks_fresh_test_products_evidence_envelope",
+          "answer_packet_ref": "answer_packet:automated_checks_fresh_test_products_evidence_envelope",
+          "organ": "release_audit_evidence_envelope",
+          "status": "metadata_envelope_spec_only"
+        },
+        "metrics": {
+          "selected_test_product_kind_count": 2,
+          "required_digest_field_count": 8,
+          "required_rejection_policy_count": 14,
+          "required_proof_surface_count": 3,
+          "minimum_executed_test_count": 1,
+          "selected_test_product_bytes_opened": 0,
+          "model_runtime_bytes_loaded": 0,
+          "app_runtime_bytes_loaded": 0
+        },
+        "address": "sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad",
+        "metadata_only": true,
+        "no_product_promotion": true
+      },
+      "unit": "json"
+    },
+    "automated_checks_green_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_spec_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_proof_cannot_replace_full_row": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_automated_check_row_still_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_row_replacement_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "global_derived_data_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "minimum_executed_test_count": {
+      "value": 1,
+      "unit": "tests"
+    },
+    "minimum_nonzero_executed_tests_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_surface_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rejection_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_or_app_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_code_changed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_note_prompt_model_log_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_selected_test_product_bytes_opened": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_xcode_command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_code_change_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_root_prefix_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_note_prompt_model_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 20,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 20,
+      "unit": "fixtures"
+    },
+    "release_ready_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_digest_field_count": {
+      "value": 8,
+      "unit": "fields"
+    },
+    "required_digest_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_proof_surface_count": {
+      "value": 3,
+      "unit": "surfaces"
+    },
+    "required_proof_surfaces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_rejection_policy_count": {
+      "value": 14,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_pre_action_recorded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_test_product_bytes_opened_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_test_product_kind_count": {
+      "value": 2,
+      "unit": "kinds"
+    },
+    "selected_test_product_kinds_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_product_byte_open_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_next_bottleneck_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_top_failure_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_xcodebuild_test_red_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_failure_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_next_bottleneck_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_execution_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_green_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_executed_tests_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "automated_checks_fresh_test_products_envelope_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "automated_checks_fresh_test_products_evidence_envelope": {
+      "operator": "present",
+      "value": true,
+      "unit": "envelope"
+    },
+    "automated_checks_green_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_spec_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_proof_cannot_replace_full_row": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_automated_check_row_still_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_row_replacement_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "global_derived_data_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "minimum_executed_test_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "tests"
+    },
+    "minimum_nonzero_executed_tests_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_digest_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_proof_surface_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rejection_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_or_app_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_product_code_changed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_note_prompt_model_log_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_selected_test_product_bytes_opened": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_xcode_command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_code_change_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_root_prefix_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_note_prompt_model_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 20,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 20,
+      "unit": "fixtures"
+    },
+    "release_ready_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_digest_field_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "fields"
+    },
+    "required_digest_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_proof_surface_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "surfaces"
+    },
+    "required_proof_surfaces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scheme_pre_action_recorded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_test_product_bytes_opened_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_test_product_kind_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "kinds"
+    },
+    "selected_test_product_kinds_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_product_byte_open_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_next_bottleneck_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_top_failure_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_xcodebuild_test_red_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_failure_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_next_bottleneck_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_execution_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_green_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_executed_tests_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "app_runtime_bytes_loaded_total": true,
+    "automated_checks_fresh_test_products_envelope_address": true,
+    "automated_checks_fresh_test_products_evidence_envelope": true,
+    "automated_checks_green_rejected": true,
+    "command_spec_fail_rejected": true,
+    "focused_proof_cannot_replace_full_row": true,
+    "full_automated_check_row_still_required": true,
+    "full_row_replacement_rejected": true,
+    "global_derived_data_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "minimum_executed_test_count": true,
+    "minimum_nonzero_executed_tests_required": true,
+    "missing_digest_field_rejected": true,
+    "missing_proof_surface_rejected": true,
+    "missing_rejection_policy_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_l2_l3_product_release_green": true,
+    "no_live_dense_70b_or_ssd_ram_claim": true,
+    "no_model_or_app_runtime_bytes": true,
+    "no_product_code_changed": true,
+    "no_raw_note_prompt_model_log_bytes": true,
+    "no_selected_test_product_bytes_opened": true,
+    "no_xcode_command_executed": true,
+    "product_code_change_claim_rejected": true,
+    "proof_root_prefix_bound": true,
+    "raw_note_prompt_model_log_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_ready_claim_rejected": true,
+    "required_digest_field_count": true,
+    "required_digest_fields_bound": true,
+    "required_proof_surface_count": true,
+    "required_proof_surfaces_bound": true,
+    "required_rejection_policies_bound": true,
+    "required_rejection_policy_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "runtime_byte_leak_rejected": true,
+    "scheme_pre_action_recorded": true,
+    "selected_test_product_bytes_opened_total": true,
+    "selected_test_product_kind_count": true,
+    "selected_test_product_kinds_bound": true,
+    "ssd_as_ram_claim_rejected": true,
+    "test_product_byte_open_rejected": true,
+    "upstream_automated_checks_red_bound": true,
+    "upstream_automated_next_bottleneck_bound": true,
+    "upstream_command_spec_pass": true,
+    "upstream_top_failure_family_bound": true,
+    "upstream_xcodebuild_test_red_bound": true,
+    "wrong_failure_family_rejected": true,
+    "wrong_next_bottleneck_rejected": true,
+    "xcode_execution_claim_rejected": true,
+    "xcodebuild_test_green_rejected": true,
+    "zero_executed_tests_policy_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-AutomatedChecksFreshTestProductsEvidenceEnvelope: consumes the graph-filter test-products command spec and retained red automated-checks artifact, binds future proof-root digest requirements, nonzero executed-test proof, pre-action handling, rollback, RunEventLog, AnswerPacket, full automated-check-row preservation, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion."
+}

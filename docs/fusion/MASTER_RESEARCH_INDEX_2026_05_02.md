@@ -244,6 +244,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > the full automated-check row. This is T0 canon only: no Xcode command,
 > product source edit, runtime/model bytes, L1 cursor advance, L2/L3 green, or
 > large-model product claim.
+> `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` is now landed as a
+> metadata-only T1/L1 evidence-envelope witness at
+> `artifacts/falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json`.
+> It consumes the command-spec witness and retained red automated-checks
+> artifact, binds 8 digest fields, 14 rejection policies, 3 proof surfaces,
+> minimum executed-test policy `1`, 20 rejected red fixtures, zero selected
+> test-product/app/model/runtime bytes, deterministic address
+> `sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> Guard-owned product cursor remains automated checks; L2 and L3 remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4738,3 +4749,10 @@ that validates this evidence envelope without accepting stale DerivedData,
 filename selectors, enumeration-only output, zero executed tests, hidden
 pre-action mutation, focused-proof replacement of the full automated-check row,
 or any large-local-model/release-ready promotion.
+
+Promotion update: this pass is now implemented by
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope`, a metadata-only T1/L1
+Rust primitive and witness doc. It runs no Xcode command, changes no product
+source, opens zero selected test-product bytes, loads no app/model/runtime
+bytes, and does not promote L2/L3/T4. The next proof remains the actual fresh
+test-products proof root and the guard-owned automated-checks cursor.
