@@ -268,6 +268,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > hidden AnswerPacket caveats, MAS/Pro collapse, L2/L3/product green, live
 > dense 70B, provider calls, and byte leaks. Guard-owned product cursor remains
 > automated checks; L2 and L3 remain red.
+> Deep Research Pass 106 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
+> fresh large-local-model research into buildable backlog. It validates
+> Google's 2026-06-05 Gemma 4 QAT release as a model-source-card and
+> lane-tournament candidate, maps KIVI/vLLM APC/LMCache into KV/cache
+> compatibility and privacy-lineage gates, maps PowerInfer/KTransformers into
+> hot/cold ActiveAssembly and ColdStore placement motifs, and names
+> `F-BodyReadChecksum-ReleaseBlockerCard` as the safest immediate blocker
+> because runtime answers cannot be trusted without current body/read,
+> readable-block, graph/evidence, and AnswerPacket freshness proof. This
+> advances T0 canon/backlog only: no model/runtime/KV/cache bytes, no command
+> execution, no MLX/GGUF/LiteRT product claim, no L2/L3 promotion, no
+> user-facing large-model green claim, and no live dense 70B claim.
 > `F-DistributionProjectIntegrity-ReleaseBlockerCard` is now landed as a
 > metadata-only T1/L1 distribution/project source-card witness at
 > `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`.
