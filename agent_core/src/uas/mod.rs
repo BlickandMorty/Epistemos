@@ -111,6 +111,7 @@ pub mod small_model_runtime_harness_product_route_capability_recheck;
 pub mod small_model_runtime_harness_product_wrv_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod ssd_wear_budget;
+pub mod theme_presentation_release_blocker_card;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
 pub mod turbovec_crash_safe_persistent_index_plan;
@@ -947,6 +948,14 @@ pub use research_tool_catalog_no_hidden_authority::{
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_CURSOR,
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_ID,
     RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_NEXT_CURSOR, RESEARCH_TOOL_CATALOG_UPSTREAM_REF,
+};
+pub use theme_presentation_release_blocker_card::{
+    required_theme_presentation_invariants, required_theme_presentation_source_refs,
+    ThemePresentationOrgan, ThemePresentationReleaseBlockerCard,
+    ThemePresentationReleaseBlockerWitness, ThemePresentationStatus,
+    THEME_PRESENTATION_FAMILY_SOURCE_REF, THEME_PRESENTATION_RELEASE_BLOCKER_CARD_CURSOR,
+    THEME_PRESENTATION_RELEASE_BLOCKER_CARD_ID, THEME_PRESENTATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
+    THEME_PRESENTATION_UPSTREAM_REF,
 };
 pub use weight_block::{
     ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,

@@ -1,0 +1,708 @@
+{
+  "falsifier_id": "F-ThemePresentation-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_theme_presentation_release_blocker_card.sh",
+  "command_digest": "sha256:e274ebe04c7398103b5a2436d51c728baa5bf0c97770e0337b06f35cd84f1f77",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "78d644c53da67708bc2107b17cb4bfcc11770b39",
+  "fixture_id": "theme_presentation_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T17:02:34Z",
+  "result_digest": "sha256:977fd11fbad875f84d8997368de2b75dcd546fc4ae1db37ba65080f761a2aafd",
+  "measurements": {
+    "animation_stability_gates_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_hidden_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveats_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_presentation_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "epistemos_theme_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_cover_theme_presentation_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_tool_payload_visible_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_copy_overclaim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_visual_copy_honest": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_animation_gate_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_chat_presentation_tests_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_epistemos_theme_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reduce_motion_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_proof_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_window_occlusion_gate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "distribution_project_integrity_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_payload_visibility": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_presentation_as_capability_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_or_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_theme_tokens_as_runtime_route": {
+      "value": true,
+      "unit": "bool"
+    },
+    "presentation_capability_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "provider_call_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "repeat_forever_animation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_do_not_unlock_gated_capability": {
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_unlocks_gated_capability_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 12,
+      "unit": "refs"
+    },
+    "source_refs_cover_theme_presentation_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_pair_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_address": {
+      "value": "sha256:1c46e838765af87ad48a89304017ab086205c3bc64aa2f2732757b5194ed8077",
+      "unit": "sha256"
+    },
+    "theme_presentation_card": {
+      "value": {
+        "family_id": "theme_presentation",
+        "issue_count": 19,
+        "organ": "theme_presentation",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Theme/EpistemosTheme.swift",
+          "Epistemos/Theme/PlatinumTheme.swift",
+          "Epistemos/Theme/GlassModifiers.swift",
+          "Epistemos/Theme/NativeButtonStyles.swift",
+          "Epistemos/Theme/ToolbarGlass.swift",
+          "Epistemos/Theme/PhysicsModifiers.swift",
+          "Epistemos/Views/Shell/PageShell.swift",
+          "Epistemos/Views/MiniChat/MiniChatView.swift",
+          "Epistemos/Views/Landing/LiquidGreeting.swift",
+          "EpistemosTests/ThemePairTests.swift",
+          "EpistemosTests/ChatPresentationTests.swift",
+          "EpistemosTests/SettingsWindowPresentationTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/ThemePairTests",
+          "xcodebuild test -only-testing:EpistemosTests/ChatPresentationTests",
+          "xcodebuild test -only-testing:EpistemosTests/SettingsWindowPresentationTests",
+          "xcodebuild test -only-testing:EpistemosTests/MiniChatViewAuditTests"
+        ],
+        "required_invariants": [
+          "presentation_surfaces_are_visible_proof_only",
+          "theme_tokens_do_not_select_runtime_routes",
+          "answer_packet_caveats_remain_visible",
+          "mas_pro_copy_stays_honest_on_visual_surfaces",
+          "reduce_motion_and_window_occlusion_gate_animation",
+          "theme_switches_do_not_recreate_model_runtime_handles",
+          "settings_presentation_does_not_unlock_gated_capability",
+          "chat_presentation_does_not_expose_hidden_tool_payloads",
+          "contrast_and_readability_remain_release_blockers",
+          "theme_source_guards_must_match_shipping_intent",
+          "focused_tests_required_before_wrv_promotion",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "presentation_as_capability_proof": false,
+        "theme_tokens_select_runtime_route": false,
+        "answer_packet_caveat_hidden": false,
+        "mas_pro_copy_overclaims_capability": false,
+        "repeat_forever_animation_claimed": false,
+        "window_occlusion_gate_missing": false,
+        "reduce_motion_gate_missing": false,
+        "theme_switch_recreates_runtime_handles": false,
+        "settings_unlocks_gated_capability": false,
+        "hidden_tool_payload_visible": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "product_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:theme_presentation_release_blocker_card",
+        "run_event_log_ref": "run_event_log:theme_presentation_release_blocker_card",
+        "answer_packet_ref": "answer_packet:theme_presentation_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "theme_presentation_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "theme_presentation_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_issue_count": {
+      "value": 19,
+      "unit": "issues"
+    },
+    "theme_presentation_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_runtime_handle_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_runtime_route_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_switch_not_runtime_handle_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_theme_presentation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_research_tool_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "animation_stability_gates_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_hidden_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveats_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_presentation_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "epistemos_theme_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_cover_theme_presentation_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_cloud_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_tool_payload_visible_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_copy_overclaim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_visual_copy_honest": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_animation_gate_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_chat_presentation_tests_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_epistemos_theme_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_reduce_motion_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_proof_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_window_occlusion_gate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "distribution_project_integrity_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_or_cloud_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_payload_visibility": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_presentation_as_capability_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_bytes_or_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_theme_tokens_as_runtime_route": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "presentation_capability_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "provider_call_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "repeat_forever_animation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_do_not_unlock_gated_capability": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_unlocks_gated_capability_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "refs"
+    },
+    "source_refs_cover_theme_presentation_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_pair_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "theme_presentation_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "theme_presentation_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "theme_presentation_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_presentation_issue_count": {
+      "operator": "==",
+      "value": 19,
+      "unit": "issues"
+    },
+    "theme_presentation_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_runtime_handle_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_runtime_route_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "theme_switch_not_runtime_handle_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_theme_presentation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_research_tool_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "animation_stability_gates_required": true,
+    "answer_packet_caveat_hidden_rejected": true,
+    "answer_packet_caveats_visible": true,
+    "chat_presentation_tests_bound": true,
+    "epistemos_theme_source_bound": true,
+    "focused_command_count": true,
+    "focused_commands_cover_theme_presentation_tests": true,
+    "hidden_route_cloud_authority_rejected": true,
+    "hidden_tool_payload_visible_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_pro_copy_overclaim_rejected": true,
+    "mas_pro_visual_copy_honest": true,
+    "missing_animation_gate_invariant_rejected": true,
+    "missing_chat_presentation_tests_rejected": true,
+    "missing_epistemos_theme_source_rejected": true,
+    "missing_reduce_motion_gate_rejected": true,
+    "missing_visible_proof_invariant_rejected": true,
+    "missing_window_occlusion_gate_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_route_or_cloud_authority": true,
+    "no_hidden_tool_payload_visibility": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_presentation_as_capability_proof": true,
+    "no_runtime_bytes_or_provider_calls": true,
+    "no_theme_tokens_as_runtime_route": true,
+    "presentation_capability_proof_rejected": true,
+    "product_runtime_byte_leak_rejected": true,
+    "product_runtime_bytes_loaded_total": true,
+    "provider_call_leak_rejected": true,
+    "provider_calls_made_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "repeat_forever_animation_rejected": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "settings_do_not_unlock_gated_capability": true,
+    "settings_unlocks_gated_capability_rejected": true,
+    "source_ref_count": true,
+    "source_refs_cover_theme_presentation_surfaces": true,
+    "theme_pair_tests_bound": true,
+    "theme_presentation_address": true,
+    "theme_presentation_card": true,
+    "theme_presentation_family_bound": true,
+    "theme_presentation_invariant_count": true,
+    "theme_presentation_invariants_bound": true,
+    "theme_presentation_issue_count": true,
+    "theme_presentation_issue_count_retained": true,
+    "theme_runtime_handle_mutation_rejected": true,
+    "theme_runtime_route_rejected": true,
+    "theme_switch_not_runtime_handle_mutation": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_theme_presentation": true,
+    "upstream_research_tool_card_pass": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ThemePresentation-ReleaseBlockerCard: consumes the research-tool catalog blocker and release-audit family source card, binds theme_presentation issue count 19 to exact theme/chat/settings/landing source refs, and rejects visual presentation as route authority, capability proof, MAS/Pro overclaim, hidden tool payload visibility, unstable animation gates, L2/L3/product green, provider calls, and live dense-70B claims."
+}
