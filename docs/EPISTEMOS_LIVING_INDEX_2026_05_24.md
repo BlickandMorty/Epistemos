@@ -3483,6 +3483,20 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   product/command/benchmark bytes at zero, and advances L1 source-card boundary
   coverage only. L2 remains `vault_research_route_with_packetized_mitigation`;
   L3 user-facing large-local-model/runtime capability is not green.
+- Updated **2026-06-07** · Deep Research Pass 128 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` folds
+  current vLLM prefix-caching, LMCache local-storage/architecture, llama.cpp
+  slot prompt-cache save/restore, KTransformers heterogeneous cache/expert
+  scheduling, and KIVI asymmetric KV quantization research into
+  `F-KVCacheIdentitySaltAndOffloadProofPacket` backlog. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor,
+  Pro contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. This is T0 canon/backlog only: no server was started,
+  no command was armed, no model/KV/cache/runtime/product bytes were opened,
+  no SSD-as-RAM claim exists, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing
+  large-local-model/runtime capability is not green.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,
