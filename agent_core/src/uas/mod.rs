@@ -137,6 +137,7 @@ pub mod turbovec_real_adapter_source_pin_probe;
 pub mod turbovec_recall_quality_exact_baseline_plan;
 pub mod turbovec_runtime_shadow_benchmark_plan;
 pub mod turbovec_stable_external_id_registry_plan;
+pub mod ui_shell_source_guard_release_blocker_card;
 pub mod visible_output_sanitization_release_blocker_card;
 pub mod weight_block;
 pub mod witness;
@@ -454,6 +455,14 @@ pub use editor_epdoc_surface_release_blocker_card::{
     EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_CURSOR,
     EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_ID,
     EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR, EDITOR_EPDOC_SURFACE_UPSTREAM_REF,
+};
+pub use ui_shell_source_guard_release_blocker_card::{
+    required_ui_shell_source_guard_invariants, required_ui_shell_source_guard_source_refs,
+    UiShellSourceGuardError, UiShellSourceGuardMetrics, UiShellSourceGuardOrgan,
+    UiShellSourceGuardReleaseBlockerCard, UiShellSourceGuardReleaseBlockerWitness,
+    UiShellSourceGuardStatus, UI_SHELL_SOURCE_GUARD_FAMILY_SOURCE_REF,
+    UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_CURSOR, UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_ID,
+    UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_NEXT_CURSOR, UI_SHELL_SOURCE_GUARD_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,

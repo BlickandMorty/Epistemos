@@ -1,0 +1,708 @@
+{
+  "falsifier_id": "F-UiShellSourceGuard-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_ui_shell_source_guard_release_blocker_card.sh",
+  "command_digest": "sha256:7785cdd90409bee91607c45bb57ecb4ec46804a0bca57473ffeec05614287faf",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "62d795cba86104be08501bfa5afb37e9c0297d11",
+  "fixture_id": "ui_shell_source_guard_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T17:54:22Z",
+  "result_digest": "sha256:267ce7b6ea505601d21fb1ba840c22c4883242c6bb2cd98765273a2fa98a59d6",
+  "measurements": {
+    "answer_packet_caveat_hidden_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_drift_not_ignored": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_drift_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "combined_shell_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_ui_shell_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_agent_overlay_not_mounted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_agent_overlay_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundaries_not_collapsed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundary_collapse_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mini_chat_not_agent_route_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mini_chat_route_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_environment_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_environment_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_page_shell_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_truth_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "runtime_performance_policy_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_shell_model_bytes_or_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_shell_surface_as_capability_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_shell_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_route_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lanes_do_not_mutate_routes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_truth_settings_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_do_not_unlock_gated_capability": {
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_unlock_gated_capability_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "shell_surface_capability_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_ui_shell_source_guards": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "ui_shell_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_source_guard_address": {
+      "value": "sha256:ebebf96cb9d42f3ce3d3cf80765b177fff1ffa49bdff730db9bffed5ddf7a606",
+      "unit": "sha256"
+    },
+    "ui_shell_source_guard_card": {
+      "value": {
+        "family_id": "ui_shell_source_guard",
+        "issue_count": 14,
+        "organ": "ui_shell_source_guard",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/App/AppEnvironment.swift",
+          "Epistemos/App/AppBootstrap.swift",
+          "Epistemos/App/RootView.swift",
+          "Epistemos/App/UtilityWindowManager.swift",
+          "Epistemos/Views/Shell/PageShell.swift",
+          "Epistemos/Views/Shell/ToastOverlay.swift",
+          "Epistemos/Views/Settings/SettingsView.swift",
+          "Epistemos/Views/Settings/RuntimeLanesSection.swift",
+          "Epistemos/Views/Settings/RuntimeTruthHealthRow.swift",
+          "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
+          "Epistemos/Views/MiniChat/MiniChatView.swift",
+          "Epistemos/Views/MiniChat/MiniChatWindowController.swift",
+          "EpistemosTests/SettingsWindowPresentationTests.swift",
+          "EpistemosTests/SidebarShellValidationTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/SettingsWindowPresentationTests",
+          "xcodebuild test -only-testing:EpistemosTests/SidebarShellValidationTests",
+          "xcodebuild test -only-testing:EpistemosTests/SettingsTruthFloorTests",
+          "xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests",
+          "xcodebuild test -only-testing:EpistemosTests/CoreMASBoundarySourceGuardTests"
+        ],
+        "required_invariants": [
+          "app_environment_is_single_shell_injection_source",
+          "root_shell_does_not_mount_hidden_agent_overlay",
+          "settings_do_not_unlock_gated_runtime_capability",
+          "runtime_lanes_show_truth_without_route_mutation",
+          "mini_chat_is_not_agent_or_large_model_route_proof",
+          "answer_packet_health_row_remains_caveated",
+          "mas_pro_visibility_boundaries_remain_explicit",
+          "unsupported_modes_are_hidden_or_marked_gated",
+          "utility_windows_use_shared_app_environment",
+          "shell_toast_status_is_not_capability_proof",
+          "source_guard_tests_required_before_wrv_promotion",
+          "focused_tests_required_before_wrv_promotion"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "shell_surface_as_capability_proof": false,
+        "settings_unlocks_gated_capability": false,
+        "mini_chat_as_agent_route_proof": false,
+        "runtime_lanes_mutate_routes": false,
+        "answer_packet_caveat_hidden": false,
+        "mas_pro_boundary_collapsed": false,
+        "unsupported_mode_marked_live": false,
+        "app_environment_drift_ignored": false,
+        "hidden_agent_overlay_mounted": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "shell_bytes_loaded": 0,
+        "model_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:ui_shell_source_guard_release_blocker_card",
+        "run_event_log_ref": "run_event_log:ui_shell_source_guard_release_blocker_card",
+        "answer_packet_ref": "answer_packet:ui_shell_source_guard_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "ui_shell_source_guard_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_source_guard_issue_count": {
+      "value": 14,
+      "unit": "issues"
+    },
+    "ui_shell_source_guard_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_mode_live_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_modes_not_marked_live": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_editor_epdoc_surface_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_ui_shell_source_guard": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_caveat_hidden_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_caveat_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_drift_not_ignored": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_drift_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_environment_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "combined_shell_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_ui_shell_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_agent_overlay_not_mounted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_agent_overlay_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundaries_not_collapsed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_boundary_collapse_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mini_chat_not_agent_route_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mini_chat_route_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_environment_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_environment_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_page_shell_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_truth_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "runtime_performance_policy_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_shell_model_bytes_or_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_shell_surface_as_capability_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_shell_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lane_route_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_lanes_do_not_mutate_routes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_truth_settings_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_do_not_unlock_gated_capability": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "settings_unlock_gated_capability_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "shell_surface_capability_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_ui_shell_source_guards": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "ui_shell_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_source_guard_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "ui_shell_source_guard_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "ui_shell_source_guard_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ui_shell_source_guard_issue_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "issues"
+    },
+    "ui_shell_source_guard_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_mode_live_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unsupported_modes_not_marked_live": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_editor_epdoc_surface_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_ui_shell_source_guard": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_caveat_hidden_rejected": true,
+    "answer_packet_caveat_visible": true,
+    "app_environment_drift_not_ignored": true,
+    "app_environment_drift_rejected": true,
+    "app_environment_source_bound": true,
+    "combined_shell_authority_rejected": true,
+    "focused_command_count": true,
+    "focused_commands_cover_ui_shell_tests": true,
+    "hidden_agent_overlay_not_mounted": true,
+    "hidden_agent_overlay_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_pro_boundaries_not_collapsed": true,
+    "mas_pro_boundary_collapse_rejected": true,
+    "mini_chat_not_agent_route_proof": true,
+    "mini_chat_route_proof_rejected": true,
+    "missing_answer_packet_invariant_rejected": true,
+    "missing_app_environment_invariant_rejected": true,
+    "missing_app_environment_source_rejected": true,
+    "missing_page_shell_source_rejected": true,
+    "missing_runtime_truth_source_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_shell_model_bytes_or_provider_calls": true,
+    "no_shell_surface_as_capability_proof": true,
+    "page_shell_source_bound": true,
+    "provider_call_leak_rejected": true,
+    "provider_calls_made_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "runtime_lane_route_mutation_rejected": true,
+    "runtime_lanes_do_not_mutate_routes": true,
+    "runtime_truth_settings_source_bound": true,
+    "settings_do_not_unlock_gated_capability": true,
+    "settings_unlock_gated_capability_rejected": true,
+    "shell_byte_leak_rejected": true,
+    "shell_bytes_loaded_total": true,
+    "shell_surface_capability_proof_rejected": true,
+    "source_ref_count": true,
+    "source_refs_cover_ui_shell_source_guards": true,
+    "ui_shell_invariant_count": true,
+    "ui_shell_invariants_bound": true,
+    "ui_shell_source_guard_address": true,
+    "ui_shell_source_guard_card": true,
+    "ui_shell_source_guard_family_bound": true,
+    "ui_shell_source_guard_issue_count": true,
+    "ui_shell_source_guard_issue_count_retained": true,
+    "unsupported_mode_live_rejected": true,
+    "unsupported_modes_not_marked_live": true,
+    "upstream_editor_epdoc_surface_card_pass": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_ui_shell_source_guard": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-UiShellSourceGuard-ReleaseBlockerCard: consumes editor/EPDoc blocker and release-audit family source card, binds ui_shell_source_guard issue count 14 to AppEnvironment, AppBootstrap, RootView, UtilityWindowManager, PageShell, ToastOverlay, Settings runtime truth, AnswerPacket health, Mini Chat, and focused shell/settings/source-guard tests, and rejects shell surface capability proof, settings unlocking gated capability, Mini Chat route proof, runtime-lane route mutation, hidden AnswerPacket caveats, MAS/Pro collapse, unsupported modes marked live, AppEnvironment drift, hidden agent overlays, L2/L3/product green, provider calls, byte leaks, and live dense-70B claims."
+}
