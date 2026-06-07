@@ -281,6 +281,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > advances T0 canon/backlog only: no model/runtime/KV/cache bytes, no command
 > execution, no MLX/GGUF/LiteRT product claim, no L2/L3 promotion, no
 > user-facing large-model green claim, and no live dense 70B claim.
+> Deep Research Pass 107 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` narrows
+> the Gemma 4 QAT bridge into
+> `F-GemmaQAT-QualityAndLoaderParitySourceCard`: exact official E2B/E4B/12B
+> QAT GGUF model ids, source revisions, selected filenames, declared bytes,
+> LFS OIDs, E2B mobile compressed-tensor refs, loader caveats, command/API
+> envelopes, memory-envelope fields, and same-fixture quality replay
+> requirements. The current source-card conclusion is runtime-plural and
+> fail-closed: GGUF/llama.cpp is the most concrete near-term source-card lane,
+> LiteRT/mobile remains promising but needs platform/API/package proof, MLX
+> Swift Gemma 4 remains blocked by loader evidence, Python MLX is quarantine
+> research only, and none of these source facts promote L2/L3 or product green.
 > `F-DistributionProjectIntegrity-ReleaseBlockerCard` is now landed as a
 > metadata-only T1/L1 distribution/project source-card witness at
 > `artifacts/falsifiers/distribution_project_integrity_release_blocker_card/result.json`.
