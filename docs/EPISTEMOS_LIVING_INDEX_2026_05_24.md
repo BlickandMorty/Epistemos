@@ -250,6 +250,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
   L2 remains `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-model capability remains red.
+- Updated **2026-06-07** · Deep Research Pass 115 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines the
+  next same-fixture source/search/prompt freshness packet candidate. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the
+  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The proposed
+  `F-SameFixtureSourceSearchFreshnessPacket` binds managed body order, live
+  editor snapshot sequence, readable-block digest, graph/evidence digest,
+  FTS/RRF search digest, rank/recency/vault-scope fields, canonical prompt
+  digest, tokenizer/chat-template/tool-schema digest, cache salt/hash
+  algorithm, AnswerPacket freshness caveat, rollback, RunEventLog, and
+  no-runtime abstention before any GGUF/LiteRT/MLX lane can attempt a first
+  comparable token. It folds local SearchIndex/RRF/ReadableBlocks/PromptCache/
+  AnswerPacket source refs plus current vLLM, LMCache, Prompt Cache, KVSwap,
+  Gemma 4 QAT, Hugging Face, and MLX-LM tool-parser evidence into red fixtures.
+  This is T0 canon/build-plan only: no runtime/model/cache/search bytes were
+  loaded, no command was armed, L1 cursor did not advance, L2 remains red, and
+  L3 user-facing large-model capability remains red.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of

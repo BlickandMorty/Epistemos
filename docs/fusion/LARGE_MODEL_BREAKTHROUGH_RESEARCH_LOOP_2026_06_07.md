@@ -151,6 +151,21 @@ retention, hidden cache reuse, L2/L3/T4 promotion, MAS copy, live dense-70B,
 and SSD-as-RAM claims. This is architecture proof only: no runtime lane winner
 exists, no model/runtime/provider bytes were loaded, and L2/L3 remain red.
 
+2026-06-07 Pass 115 addendum: same-fixture research now has a buildable
+source/search/prompt freshness packet candidate. The next side-ladder falsifier
+is `F-SameFixtureSourceSearchFreshnessPacket`: bind managed body order, live
+editor snapshot sequence, readable-block digest, graph/evidence digest, FTS/RRF
+search digest, rank/recency/vault-scope fields, canonical prompt digest,
+tokenizer/chat-template/tool-schema digest, cache salt/hash algorithm,
+AnswerPacket freshness caveat, rollback, RunEventLog, and no-runtime
+abstention before any GGUF/LiteRT/MLX lane can attempt a first comparable
+token. Red-team stale editor sequence, RRF rank inversion, cross-vault search
+leak, raw query/body/prompt retention, missing cache salt, non-deterministic
+hash, hidden search fallback, parser drift, L2/L3/T4 promotion, live dense-70B,
+provider calls, and nonzero metadata-scope bytes. This is T0 canon/build-plan
+only: no runtime/model/cache/search bytes were loaded, no command was armed,
+and product capability did not advance.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:

@@ -356,6 +356,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > advances architecture proof only: no runtime/model/provider bytes were
 > loaded, no lane winner exists, L2 remains red, and L3 user-facing
 > large-model capability remains red.
+> Deep Research Pass 115 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+> the next buildable same-fixture bridge:
+> `F-SameFixtureSourceSearchFreshnessPacket`. It maps local body/read
+> freshness (`SDPage`, `NoteFileStorage`, `MappedNoteBody`, `NoteChatState`),
+> readable-block/search freshness (`ReadableBlocksIndex`,
+> `ReadableBlocksProjector`, `SearchIndexService`, `RRFFusionQuery`),
+> prompt/cache freshness (`PromptCache`, `PromptRenderer`,
+> `LocalAgentPromptBuilder`), and visible proof (`AnswerPacket`,
+> `AnswerPacketEmitter`) into one metadata-only packet before any GGUF,
+> LiteRT-LM, MLX Swift, or MLX-LM quarantine lane can attempt a first
+> comparable token. External evidence folds vLLM cache salt / `sha256_cbor`,
+> LMCache local storage, Prompt Cache modules, KVSwap, Gemma 4 QAT source
+> cards, and MLX-LM Gemma 4 tool-parser caveats into red fixtures. This is T0
+> canon/build-plan only: no runtime/model/cache/search bytes loaded, no command
+> armed, no product route promoted, and L2/L3 remain red.
 > Deep Research Pass 106 in
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
 > fresh large-local-model research into buildable backlog. It validates
