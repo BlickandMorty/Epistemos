@@ -11589,3 +11589,256 @@ Sources:
 - Local `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md`
 - Local `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md`
 - Local `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
+
+## Deep Research Pass 110 - Search Index Freshness Source Card
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-BodyReadChecksum-ReleaseBlockerCard` is now landed as L1/T1 metadata-only
+evidence. The next side-card unit named by that witness is
+`search_index_release_blocker_card`. This is not a cosmetic follow-up. Search
+freshness is the Eidos evidence supply line: if `page_search`, `block_search`,
+or `readable_blocks_fts` contains stale rows, wrong rowids, unscoped vault
+rows, parser-fallback leaks, or rank/fusion drift, then a large local model can
+produce a polished AnswerPacket from stale context.
+
+The breakthrough move is to make search evidence a proof-carrying retrieval
+packet before any Gemma QAT lane tournament, KV/cache replay, Eidos route
+prior, or local research/writing/coding agent claim can use it. Search must
+carry source freshness, projection freshness, trigger/rebuild integrity,
+query-grammar fallback, rank semantics, vault scope, privacy/deletion policy,
+rollback, RunEventLog, and AnswerPacket caveats.
+
+### Local Canon Map
+
+| Local source | Evidence | Research-to-build consequence |
+|---|---|---|
+| `docs/falsifiers/F-BodyReadChecksum-ReleaseBlockerCard_2026_06_07.md` | Next side-card unit is `search_index_release_blocker_card`; product cursor remains automated checks. | Search freshness must follow body freshness before large-model replay can trust retrieval. |
+| `agent_core/src/uas/release_audit_failure_family_source_card.rs` | Retained `search_index` family has issue count `1`, source refs `Epistemos/Graph` and `Epistemos/Sync`, backlog `F-SearchIndex-ReleaseBlockerCard`. | This is an existing release-audit family, not a new parallel authority. |
+| `artifacts/falsifiers/release_audit_failure_family_source_card/result.json` | `search_index` is a red retained log family with no L2/L3/product promotion. | The next card must bind the red family without laundering it into green capability. |
+| `Epistemos/Sync/SearchIndexService.swift` | Owns `page_search`, `block_search`, WAL/pragma profile, feature detection, FTS5 trigger install, rebuild, search, async search, fused search, provenance events, fallback, memory-pressure cache release. | Source-card refs must include schema, triggers, query paths, provenance, fallback, and memory-pressure behavior. |
+| `Epistemos/Sync/ReadableBlocksIndex.swift` | Owns canonical `readable_blocks` row store, external-content FTS5 table, delete/insert/update triggers, rebuild command, fallback substring search, and `.searchReadable` invalidation. | The card must bind external-content trigger parity and rebuild/fallback behavior. |
+| `Epistemos/Sync/RRFFusionQuery.swift` | Fuses `page_search`, `block_search`, and `readable_blocks_fts`; encodes BM25/RRF assumptions, recency boost, snippets, and query-plan constraints. | Rank semantics and cross-index consensus must be explicit proof fields. |
+| `Epistemos/Sync/VaultSyncService.swift` | Routes `searchIndex`, `searchFull`, `searchFullAsync`, trace recording, rebuildIndex, and diff-sync after vault changes. | Product retrieval paths must carry visible trace/caveat evidence before L2/L3. |
+| `EpistemosTests/SearchIndexServiceFusionTests.swift` | Real file-backed DB tests seed all three sources and already cover startup repair of missing `readable_blocks_fts`. | Focused tests exist and should become exact refs, not broad `EpistemosTests`. |
+| `EpistemosTests/RRFFusionQueryTests.swift` | Tests RRF K parity, BM25 sign, query-plan FTS use, recency half-life, and fixture execution. | The falsifier should require these test anchors before rank/fusion claims promote. |
+
+### External Research Map
+
+- SQLite FTS5 official docs confirm that external-content FTS5 tables require
+  explicit content synchronization, support the `rebuild` command, expose
+  `bm25`, `snippet`, and `highlight`, and assign better BM25 matches
+  numerically lower values before Epistemos negates or ranks them.
+- SQLite FTS5 official docs also note that sorting by the hidden `rank` column
+  can be faster than sorting directly by `bm25()`, especially when callers
+  abandon early or apply limits; this matters for local agent latency.
+- SQLite FTS5 secure-delete docs warn that old FTS index entries can otherwise
+  remain reconstructable until merges; Epistemos should treat FTS rows as
+  rebuildable derivative search cache but still privacy-sensitive cache.
+- The original RRF paper by Cormack, Clarke, and Buettcher reports reciprocal
+  rank fusion as a robust way to combine rankings from multiple IR systems;
+  Epistemos already mirrors the k=60 design in local tests, so the gate should
+  protect that assumption rather than inventing a hidden Eidos router.
+- Newer hybrid-retrieval analyses caution that RRF and weighted score fusion
+  have different failure modes; Epistemos should keep lexical/readable-block/
+  graph/source evidence visible and abstain when source consensus is weak.
+
+External source URLs:
+
+- SQLite FTS5 official documentation:
+  `https://www.sqlite.org/fts5.html`
+- Cormack, Clarke, Buettcher, "Reciprocal rank fusion outperforms Condorcet
+  and individual rank learning methods":
+  `https://dl.acm.org/doi/10.1145/1571941.1572114`
+- arXiv 2210.11934, "An Analysis of Fusion Functions for Hybrid Retrieval":
+  `https://arxiv.org/abs/2210.11934`
+
+### Breakthrough Candidate
+
+SearchFreshnessPacket: a metadata-only source card first, then a future runtime
+packet that binds every retrieval hit used by Eidos/System G to:
+
+- query digest and sanitized query grammar;
+- source lane: page, block, readable block, graph evidence, or future compressed
+  vector cache;
+- parent document ID, block ID, vault ID, updated-at lane, projection digest,
+  and body checksum lineage from `F-BodyReadChecksum-ReleaseBlockerCard`;
+- FTS feature availability and fallback lane;
+- trigger/rebuild integrity for external-content FTS;
+- BM25/RRF/rank convention and recency boost config;
+- source consensus / disagreement summary;
+- deletion/privacy policy and secure-delete caveat;
+- rollback, RunEventLog, AnswerPacket, and abstention.
+
+This makes retrieval a witnessed object instead of hidden context stuffing.
+
+### Proposed Falsifier
+
+`F-SearchIndex-ReleaseBlockerCard`
+
+Purpose:
+
+Prove the retained `search_index` release-audit family is bound to exact
+search/index/fusion/readable-block/graph evidence surfaces before Eidos,
+RuntimeRouter/System G, Gemma QAT replay, KV/cache reuse, local coding/research
+agents, or product UI can treat search output as fresh route evidence.
+
+Scope:
+
+- T0/T1 metadata-only source-card witness.
+- No product code edits.
+- No xcodebuild rerun unless explicitly promoted to a focused repair pass.
+- No user note body reads, no DB open, no model/runtime/cache bytes, no
+  provider calls.
+- No L2/L3/product green, live dense 70B, or hidden Eidos route authority.
+
+Recommended constants:
+
+- `SEARCH_INDEX_RELEASE_BLOCKER_CARD_ID =
+  "F-SearchIndex-ReleaseBlockerCard"`
+- `SEARCH_INDEX_RELEASE_BLOCKER_CARD_CURSOR =
+  "search_index_release_blocker_card"`
+- `SEARCH_INDEX_RELEASE_BLOCKER_CARD_NEXT_CURSOR =
+  "source_guard_drift_release_blocker_card"` unless regenerated family order
+  says otherwise.
+- `SEARCH_INDEX_UPSTREAM_REF =
+  "artifact:falsifiers/body_read_checksum_release_blocker_card/result.json#F-BodyReadChecksum-ReleaseBlockerCard"`
+- `SEARCH_INDEX_FAMILY_SOURCE_REF =
+  "artifact:falsifiers/release_audit_failure_family_source_card/result.json#search_index"`
+
+Required source refs:
+
+- `Epistemos/Sync/SearchIndexService.swift`
+- `Epistemos/Sync/RRFFusionQuery.swift`
+- `Epistemos/Sync/ReadableBlocksIndex.swift`
+- `Epistemos/Sync/ReadableBlocksProjector.swift`
+- `Epistemos/Sync/VaultSyncService.swift`
+- `Epistemos/Engine/QueryRuntime.swift`
+- `Epistemos/Models/QueryTypes.swift`
+- `Epistemos/Graph/GraphState.swift`
+- `Epistemos/Graph/GraphStore.swift`
+- `EpistemosTests/SearchIndexServiceFusionTests.swift`
+- `EpistemosTests/RRFFusionQueryTests.swift`
+- `EpistemosTests/QueryRuntimeTests.swift`
+- `docs/RRF_FUSION_DESIGN.md`
+- `docs/RRF_FUSION_PROMPT.md`
+
+Required invariants:
+
+- `body_read_checksum_upstream_required`
+- `search_index_family_retained_red`
+- `page_search_trigger_contract_bound`
+- `block_search_trigger_contract_bound`
+- `readable_blocks_external_content_trigger_contract_bound`
+- `readable_blocks_rebuild_path_bound`
+- `fts5_missing_module_fallback_bound`
+- `literal_query_parser_fallback_bound`
+- `rrf_k_parity_bound`
+- `bm25_sign_and_rank_order_bound`
+- `recency_half_life_bound`
+- `vault_id_scope_bound`
+- `query_runtime_dependency_search_readable_bound`
+- `graph_evidence_not_route_authority`
+- `search_result_requires_source_freshness_packet`
+- `no_hidden_eidos_route_authority`
+- `no_raw_query_body_or_snippet_in_artifact`
+- `no_l2_l3_product_green`
+- `zero_model_runtime_cache_provider_bytes`
+
+Required red fixtures:
+
+- wrong upstream or missing `F-BodyReadChecksum` proof;
+- wrong family or zero `search_index` issue count;
+- broad-only source refs with no exact search files;
+- missing page/block/readable trigger refs;
+- missing rebuild or missing FTS5 fallback;
+- missing query parser fallback;
+- missing RRF k parity or BM25 sign proof;
+- missing recency half-life / vault scope;
+- graph evidence promoted to route authority;
+- search result used as hidden Eidos route authority;
+- raw query/body/snippet retained in artifact;
+- false L2/L3/product green;
+- live dense 70B/search proof claim;
+- model/runtime/cache/provider byte leak.
+
+Artifact axes:
+
+- upstream body-read checksum card pass + next cursor;
+- release-audit `search_index` family binding;
+- exact source-ref coverage;
+- focused command coverage;
+- FTS table/trigger/rebuild/fallback coverage;
+- RRF/BM25/rank/recency coverage;
+- vault-scope and query-runtime dependency coverage;
+- graph/evidence no-hidden-authority coverage;
+- privacy/no raw query/body/snippet coverage;
+- rollback/RunEventLog/AnswerPacket coverage;
+- zero byte/provider scope;
+- red-fixture rejection count;
+- deterministic search-index address;
+- next cursor binding.
+
+### Architecture Fusion
+
+Intent -> UAS/OAS -> Eidos/SearchFreshnessPacket -> SCOPE-Rex/SovereignGate ->
+RuntimeRouter/System G -> AnswerPacket.
+
+Search does not become a hidden route selector. It becomes evidence with a
+visible freshness packet. RuntimeRouter/System G may use that evidence only
+after admission verifies:
+
+- the query was sanitized and digest-bound;
+- the evidence source has current body/readable-block lineage;
+- the index was known fresh or fallback/abstention was visible;
+- the source consensus is visible enough for the requested operation;
+- no retrieval cache or compressed vector cache skipped allowlist/privacy gates.
+
+### Model / Runtime Ladder Impact
+
+- Small-model product harness: search freshness must be visible before
+  note-context answers can claim L3 product trust.
+- Gemma 4 QAT same-fixture replay: retrieval fixtures must be source-fresh
+  before quality comparisons mean anything.
+- TurboVec/Eidos compressed cache: compressed retrieval may cache rankings or
+  vectors, but it cannot outrank allowlist/freshness/provenance proof.
+- KV/prompt cache reuse: search result digest + body/readable-block lineage
+  must feed cache salt. Otherwise KV reuse can replay stale context.
+- Large cold assembly: search freshness helps select smallest active assembly;
+  it does not prove live dense 70B or SSD-as-RAM.
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced in this pass: no; blueprint only.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: SearchFreshnessPacket as the visible bridge from
+body freshness to Eidos evidence freshness, preventing large models from using
+stale retrieval as persuasive context.
+
+Safest next falsifier: `F-SearchIndex-ReleaseBlockerCard`, because
+`F-BodyReadChecksum-ReleaseBlockerCard` now names
+`search_index_release_blocker_card` as the next side-card unit.
+
+Best near-term code unit: add metadata-only Rust UAS card, falsifier binary,
+shell wrapper, validator/schema/handbook rows, and S0 canon sync for
+`F-SearchIndex-ReleaseBlockerCard`.
+
+Biggest false-claim risk: saying search freshness proves model quality or
+product capability. It only proves retrieval evidence must be fresh and
+visible before runtime claims can use it.
+
+Biggest missing source: retained focused Swift log identifying the exact
+`search_index` failure case, beyond the family-level source card.
+
+Next research query: "Which `source_guard_drift` and `tool_execution_surface`
+release blockers should follow search freshness so large-model route evidence,
+tool evidence, and UI copy cannot drift after retrieval becomes source-carded?"
