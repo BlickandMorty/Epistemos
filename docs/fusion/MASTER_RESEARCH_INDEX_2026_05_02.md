@@ -167,6 +167,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > declares no runtime winner, speed, quality, MAS, L2/L3, or live dense 70B
 > claim. L2 and L3 remain unchanged; the next runtime-plural unit is
 > `runtime_plural_qat_lane_tournament_owner_approval_gate`.
+> Deep Research Pass 69 now folds the hardware-tiered model catalog and
+> KV/fork boundary into the large-local-model build ladder. It mines local
+> Downloads research (`/Users/jojo/Downloads/locals.md` and
+> `/Users/jojo/Downloads/locals2.md`), the existing
+> `F-KVRuntimeSourceCard` witness, current Hugging Face model metadata,
+> current GitHub repo/fork metadata, Transformers KV cache docs, vLLM prefix/
+> KV docs, LMCache docs, and Google TurboQuant/QAT docs. It does not import
+> runtimes, clone forks, open model files, start servers, run commands, or
+> promote product capability. The buildable backlog is now
+> `F-KVSourceCard-ForkAndDaemonBoundary`,
+> `F-HardwareTieredModelCatalog-SourceCard`,
+> `F-MoEActiveParamsMemoryTruth`, and
+> `F-ExoticQuantQuarantineRouteCard`. This is T0/T1 research-to-build canon
+> only: hardware-tiered model selection, KV/cache reuse, MoE active-parameter
+> claims, and exotic quant formats remain unpromoted until source-card,
+> memory/KV budget, owner approval, runtime proof, rollback, RunEventLog,
+> AnswerPacket, and WRV evidence land.
 
 ---
 
