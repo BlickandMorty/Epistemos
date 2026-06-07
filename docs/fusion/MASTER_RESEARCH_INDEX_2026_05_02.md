@@ -431,6 +431,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and no-SSD-as-RAM boundaries. The next large-local-model research-to-build
 > unit is `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
 >
+> `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` is now landed as a
+> metadata-only T1/L1 witness at
+> `artifacts/falsifiers/exotic_quant_owner_approved_dry_run_transcript_preflight_gate/result.json`.
+> It consumes `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, accepts five
+> owner-approved dry-run transcript preflight cards, records three Mac-candidate
+> owner-approval-pending rows, denies two server/GPU rows as Mac transcript
+> candidates, binds 65 transcript phase refs, rejects 47 red fixtures, executes
+> zero commands, observes zero first tokens, captures zero stdout/stderr/token
+> bytes, loads zero model/runtime/provider/network/source/benchmark/product
+> bytes, and preserves no-MAS, no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM
+> boundaries. The next large-local-model research-to-build unit is
+> `exotic_quant_redacted_first_token_probe_preflight_gate`.
+>
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
 > `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` before any

@@ -613,6 +613,27 @@ Silicon fit, product default, L2/L3 product capability, or live dense 70B. The
 next large-local-model research-to-build unit is
 `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
 
+2026-06-07 exotic quant owner-approved dry-run transcript preflight promotion note:
+`F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by binding
+owner-approved dry-run transcript templates after crash-safe command envelopes
+and before any command execution, first-token probe, model-path open, provider
+call, benchmark, or product-route claim can begin: three Mac-candidate rows are
+owner-approval-pending, two server/GPU rows are transcript-denied on Mac, 65
+transcript phase refs bind owner approval, SCOPE-Rex admission, serialized
+executor, synthetic prompt/redaction, stdout/stderr/credential redaction,
+memory sampling, timeout, cancellation, teardown, rollback, RunEventLog,
+AnswerPacket, and token-digest future-only policy, and 47 red fixtures reject
+approval leakage, prompt/output leaks, execution, byte loads, hidden authority,
+source import, benchmark laundering, live-70B, SSD-as-RAM, and promotion
+shortcuts. It executes zero commands, observes zero first tokens, captures zero
+stdout/stderr/token bytes, loads zero model/runtime/provider/network/source/
+product/benchmark bytes, and does not prove owner approval, local artifact
+availability, actual runtime safety, loader import, quality, Apple Silicon fit,
+product default, L2/L3 product capability, or live dense 70B. The next large-
+local-model research-to-build unit is
+`exotic_quant_redacted_first_token_probe_preflight_gate`.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

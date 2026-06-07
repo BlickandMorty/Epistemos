@@ -730,9 +730,10 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   quant quarantine, source-pin byte-budget, runtime owner-approval, loader/
   path, local artifact availability, owner path-manifest intake, owner
   path-canonicalization, owner path byte-envelope, and crash-safe command-
-  envelope units are now landed; the
+  envelope units are now landed; the owner-approved dry-run transcript
+  preflight unit is now landed; the
   next research-to-build unit is
-  `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`;
+  `exotic_quant_redacted_first_token_probe_preflight_gate`;
   the guard-owned
   product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
@@ -2907,9 +2908,10 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   large-local-model/runtime capability is not green. The downstream exotic
   quant quarantine, source-pin byte-budget, runtime owner-approval, loader/
   path, local artifact availability, and owner path-manifest intake units are
-  now landed; the downstream byte-envelope and crash-safe command-envelope
-  preflight units are now landed; the next research-to-build unit is
-  `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
+  now landed; the downstream byte-envelope, crash-safe command-envelope, and
+  owner-approved dry-run transcript preflight units are now landed; the next
+  research-to-build unit is
+  `exotic_quant_redacted_first_token_probe_preflight_gate`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-ExoticQuantQuarantineRouteCard` witness. It consumes
   `F-HardwareTieredModelCatalog-SourceCard` and
@@ -3054,8 +3056,23 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   bytes, and preserves rollback, RunEventLog, AnswerPacket, abstention,
   SovereignGate, no-hidden-authority, no-MAS, and no-L2/L3 boundaries. L2
   remains `vault_research_route_with_packetized_mitigation`; L3 user-facing
-  large-local-model/runtime capability is not green. The next research-to-build
-  unit is `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
+  large-local-model/runtime capability is not green. Its downstream owner-
+  approved dry-run transcript preflight gate is now landed; the next research-
+  to-build unit is `exotic_quant_redacted_first_token_probe_preflight_gate`.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` witness. It
+  consumes `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, accepts 5
+  owner-approved dry-run transcript preflight cards, records 3 Mac-candidate
+  owner-approval-pending rows, denies 2 server/GPU transcript rows on Mac,
+  binds 65 transcript phase refs, rejects 47 red fixtures, keeps owner
+  approval ungranted, executes zero commands, observes zero first tokens,
+  captures zero stdout/stderr/token bytes, loads zero model/runtime/provider/
+  network/source-tree/product/benchmark bytes, and preserves rollback,
+  RunEventLog, AnswerPacket, no-hidden-authority, no-MAS, and no-L2/L3
+  boundaries. L2 remains `vault_research_route_with_packetized_mitigation`;
+  L3 user-facing large-local-model/runtime capability is not green. The next
+  research-to-build unit is
+  `exotic_quant_redacted_first_token_probe_preflight_gate`.
 - 2026-06-07 research method upgrade: `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
   and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` now define
   the required deep-research loop for large local models. The atlas mines
