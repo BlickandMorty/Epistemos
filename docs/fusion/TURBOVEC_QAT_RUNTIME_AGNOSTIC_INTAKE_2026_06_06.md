@@ -102,7 +102,7 @@ Recommended first units, in order:
 Companion KV/runtime source-card gate: `F-KVRuntimeSourceCard`
   - Proves KV/page/offload/prompt-cache runtime motifs are source-carded before RuntimeRouter/System G, fork quarantine, daemon boundaries, or prompt-cache work can cite them.
   - Does not prove loadability, Apple Silicon support, quality, latency, memory fit, server/daemon safety, or product capability.
-  - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/kv_runtime_source_card/result.json`. It accepts 9 KV/runtime source cards, rejects 38 red fixtures, covers vLLM/LMCache/SGLang/KTransformers/FlexGen/PowerInfer/KIVI/Transformers/llama.cpp motifs, loads zero model/KV/index/runtime/provider/source-tree/product bytes, and preserves the no-L2/L3-promotion boundary. The next KV unit is `kv_source_card_fork_and_daemon_boundary`.
+  - 2026-06-06 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/kv_runtime_source_card/result.json`. It accepts 9 KV/runtime source cards, rejects 38 red fixtures, covers vLLM/LMCache/SGLang/KTransformers/FlexGen/PowerInfer/KIVI/Transformers/llama.cpp motifs, loads zero model/KV/index/runtime/provider/source-tree/product bytes, and preserves the no-L2/L3-promotion boundary. The downstream KV boundary is now built as `F-KVSourceCard-ForkAndDaemonBoundary`; the next research-to-build unit after that boundary is `hardware_tiered_model_catalog_source_card`.
 
 3. `F-GemmaQAT-LocalRuntimeCandidateCard`
    - Proves source-backed Gemma 4 QAT E2B/E4B/12B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, candidate bands, and claim boundaries.
@@ -768,8 +768,12 @@ The practical build backlog is:
 - `F-AsymmetricKV-SoftmaxStability`: KIVI-style key/value quantization policy,
   residual full-precision tokens, quality cliffs, context budget, and runtime
   compatibility.
-- `F-KVSourceCard-ForkAndDaemonBoundary`: hard boundary for daemon/server/
-  remote-cache projects before any product import or route influence.
+- `F-KVSourceCard-ForkAndDaemonBoundary`: landed 2026-06-07 as a metadata-only
+  hard boundary for daemon/server/remote-cache projects before any product
+  import or route influence. It classifies 9 KV/runtime motifs, rejects 33 red
+  fixtures, opens zero runtime/model/KV/source/command/benchmark bytes, and
+  advances L1 only. Next research-to-build unit:
+  `hardware_tiered_model_catalog_source_card`.
 
 This addendum is T0/T1 canon/backlog only. It adds no vLLM, LMCache,
 KTransformers, FlexLLMGen, PowerInfer, or KIVI product dependency; runs no

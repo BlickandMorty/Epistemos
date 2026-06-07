@@ -6508,6 +6508,120 @@ Biggest missing source: owner-approved same-fixture local logs for the first
 tiny GGUF harness lane and current source cards for the local Downloads model
 catalog candidates.
 
+Next research query: "Which local Downloads model-catalog candidates should be
+source-carded first into hardware tiers, and what current Hugging Face metadata
+invalidates or sharpens each local claim?"
+
+## 70. Pass 70 - KV Source-Card Fork and Daemon Boundary Build
+
+Built on 2026-06-07 as a metadata-only research-to-build witness. This pass
+turns the safest next falsifier from Pass 69 into code, artifact, schema, and
+canon surfaces without importing product runtime code, cloning forks, opening
+source-tree bytes, starting servers, arming commands, running benchmarks, or
+loading model/KV/runtime bytes.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Built surfaces:
+
+- Primitive:
+  `agent_core/src/uas/kv_source_card_fork_and_daemon_boundary.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_kv_source_card_fork_and_daemon_boundary.rs`
+- Script:
+  `Tools/falsifiers/f_kv_source_card_fork_and_daemon_boundary.sh`
+- Artifact:
+  `artifacts/falsifiers/kv_source_card_fork_and_daemon_boundary/result.json`
+- Witness page:
+  `docs/falsifiers/F-KVSourceCard-ForkAndDaemonBoundary_2026_06_07.md`
+
+What landed:
+
+`F-KVSourceCard-ForkAndDaemonBoundary` consumes the already-passed
+`F-KVRuntimeSourceCard` artifact and classifies the nine KV/runtime motifs
+before any can influence RuntimeRouter/System G:
+
+| Source-card motif | Boundary classification |
+|---|---|
+| vLLM paged attention | quarantine server/daemon |
+| LMCache reusable KV | quarantine server/daemon |
+| SGLang HiCache/RadixAttention | remote/distributed denied |
+| KTransformers heterogeneous placement | research-only |
+| FlexGen offload optimizer | research-only |
+| PowerInfer activation locality | research-only |
+| KIVI asymmetric KV | research-only |
+| Transformers quantized cache | research-only |
+| llama.cpp prompt-cache file | owner-approval-pending unarmed command |
+
+The artifact records 9 boundary decisions, 4 classification classes, 6
+runtime-shape classes, 33 rejected red fixtures, deterministic UAS address,
+rollback, RunEventLog, AnswerPacket, compatibility, privacy, MAS/Pro, and
+boundary refs. It opens zero model, KV, index, runtime, provider, source-tree,
+product-copy, command-execution, and benchmark bytes.
+
+Why it matters:
+
+This pass keeps large-local-model ambition intact while preventing the common
+false shortcut: treating server-first or daemon-first research as if it were an
+in-process MAS/product route. vLLM, LMCache, SGLang, KTransformers, FlexGen,
+PowerInfer, KIVI, Transformers KV cache, and llama.cpp prompt-cache ideas are
+still valuable, but they now have explicit route classes, owner approval
+requirements, byte-zero proof, rollback, and AnswerPacket visibility before
+future code may cite them.
+
+What this did not prove:
+
+- no runtime package import
+- no fork clone or source inspection
+- no model path readiness
+- no first token
+- no prompt-cache file compatibility
+- no KV quality/stability
+- no Apple Silicon memory fit
+- no MAS support
+- no L2 capability promotion
+- no L3 user-facing large-model route
+- no live dense 70B or SSD-as-RAM claim
+
+Buildable next unit:
+
+`F-HardwareTieredModelCatalog-SourceCard` should convert local Downloads model
+research and current model-card metadata into UAS-addressed hardware-tier cards
+with revision, license, format, runtime lane, weight/KV budget, role, false-
+claim blockers, rollback, RunEventLog, AnswerPacket refs, and explicit
+non-promotion language.
+
+Promotion truth:
+
+- T1/L1 advanced: yes, `F-KVSourceCard-ForkAndDaemonBoundary` landed.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. User-facing large-local-model capability remains red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: hardware-tiered model catalog, because the
+architecture now has source-card and fork/daemon boundaries and needs exact
+model rows before larger runtime work can safely choose candidates.
+
+Safest next falsifier: `F-HardwareTieredModelCatalog-SourceCard`, because it
+turns the local Downloads model research into current, source-carded,
+hardware-tiered, non-promotional model truth.
+
+Best near-term code unit: add `HardwareTieredModelCatalogSourceCard` and a
+metadata-only falsifier that rejects stale local model claims, missing HF
+revision/license/format, active-parameter-as-memory-fit claims, hidden cloud
+fallback, live dense 70B, and L2/L3 promotion.
+
+Biggest false-claim risk: calling any model "best" or "green" from catalog
+metadata before owner-approved same-fixture runtime, byte, cancellation,
+rollback, RunEventLog, AnswerPacket, and WRV evidence exists.
+
+Biggest missing source: current model-card metadata for each local Downloads
+candidate, especially Qwopus/Gemma REAP/Gemma 31B/MoE/exotic quant rows.
+
 Next research query: "Which local model catalog cards should Epistemos source
 first for 16-18 GB, 24-32 GB, and 48 GB+ hardware tiers, and how should their
 KV budget, runtime lane, and false-claim blockers feed the runtime-plural
