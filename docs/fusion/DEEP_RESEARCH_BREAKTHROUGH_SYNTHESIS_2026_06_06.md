@@ -10800,3 +10800,196 @@ Sources:
 - `EpistemosTests/ResourceRuntimeRegressionTests.swift`
 - `EpistemosTests/BackendRuntimeContractTests.swift`
 - `EpistemosTests/Benchmarks/R15BenchmarkEvidenceLedgerTests.swift`
+
+## Deep Research Pass 106 — Large-Model Breakthrough Build Bridge
+
+### Executive Synthesis
+
+This pass folds fresh large-model research into buildable canon without claiming
+runtime capability. The breakthrough is not a single "load bigger model" trick.
+It is a four-lane build bridge:
+
+1. QAT model ladder: use Gemma 4 QAT as the most promising current practical
+   local-weight lane, starting with E2B/E4B and treating 12B as Pro Gated until
+   byte, quality, loader, cancellation, and AnswerPacket proof exist.
+2. KV/cache lane: turn KIVI, vLLM APC, LMCache, and TurboQuant-like ideas into
+   source cards for reusable context, KV compatibility fences, privacy-aware
+   cache reuse, and exact held-out replay.
+3. Sparse hot/cold lane: treat PowerInfer and KTransformers as motifs for
+   ActiveAssembly/ColdStore placement, not as Mac-ready imports; hot compute,
+   cold capacity, and expert placement must be source-carded before runtime.
+4. Context freshness lane: the next app-facing bottleneck is body/read checksum
+   proof, because a local model output is not trustworthy if it used stale note
+   bytes, stale readable blocks, or mismatched graph/evidence context.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### External Validation Snapshot
+
+Google's June 5, 2026 Gemma 4 QAT post says QAT checkpoints are being released
+for Q4_0 and a mobile-specialized format, that QAT simulates quantization
+during training to reduce quality loss, and that Gemma 4 E2B can reach roughly
+1 GB in the mobile format with further text-only savings. This upgrades the
+near-term Epistemos ladder: QAT is a first-class model-source-card lane, but it
+still does not prove Swift MLX loading, GGUF quality, app cancellation, or L3
+product reachability.
+
+KIVI remains a strong KV source-card candidate because the paper and repo both
+center asymmetric 2-bit KV cache quantization, with per-channel keys,
+per-token values, a residual recent-token window, and long-context evaluation.
+For Epistemos this maps to `F-QuantizedKVCompressionSourceCard` and
+`F-KVCacheEnvelopeModelFitGate`, not to hidden cache authority.
+
+vLLM automatic prefix caching and LMCache both validate the same build
+pressure: repeated note/manual/tool-schema context should be reusable, but only
+through explicit compatibility, privacy, and lineage fences. vLLM APC is
+prefix-oriented; LMCache advertises reuse beyond strict prefix reuse. Epistemos
+must source-card both as motifs before any local RuntimeRouter lane can reuse
+KV state.
+
+PowerInfer and KTransformers validate the hot/cold placement thesis, but they
+are not direct Mac product proof. PowerInfer uses hot neuron locality and a
+GPU/CPU hybrid plan; KTransformers currently emphasizes heterogeneous MoE
+placement, expert methods, CPU/GPU split, and method-specific compatibility.
+These map cleanly to ActiveAssembly, ColdStore, and RuntimeRouter source cards,
+but not to MAS, L2, L3, or live dense 70B.
+
+### Research-To-Build Fusion
+
+| Mechanism | Epistemos organ | Build translation | Tier |
+|---|---|---|---|
+| Gemma 4 QAT Q4_0/mobile checkpoints | ModelVault, RuntimeRouter, SovereignGate | `F-GemmaQAT-QualityAndLoaderParitySourceCard`, then same-fixture GGUF/LiteRT/MLX lane tournament | T0/T1 only |
+| QAT text-only edge weights | MAS/Pro model ladder | Small harness candidate if package size, cancellation, privacy, and output quality pass | T0 until tested |
+| KIVI 2-bit asymmetric KV | ColdStore, RuntimeRouter, AnswerPacket | `F-QuantizedKVCompressionSourceCard` plus KV byte envelope and held-out replay | T0/T1 |
+| vLLM APC / LMCache reuse | Semantic Working Set, Eidos, RunEventLog | `F-KVPrefixReuseCompatibilityFence` and `F-ContextReusePrivacyLineageGate` | T0/T1 |
+| TurboQuant / PolarQuant / QJL motif | KV/cache and compressed retrieval | Research-only math motif until source-carded, license/provenance fenced, and quality replay exists | T0 |
+| PowerInfer hot/cold locality | ActiveAssembly, ColdStore, lattice controller | `F-HotColdPlacementSourceCard` before any local scheduling experiment | T0 |
+| KTransformers MoE placement | Pro Research server lane | `F-MoEExpertPlacementCompatibilityCard`; Mac denied unless hardware and method proof fit | T0/T1 |
+| Body/read checksum proof | Note context, Eidos, AnswerPacket | `F-BodyReadChecksum-ReleaseBlockerCard` before product WRV can trust runtime output | T1 target |
+
+### Red-Team Failures That Must Become Fixtures
+
+- QAT file name treated as QAT quality proof.
+- QAT memory footprint quoted without tokenizer, KV, runtime workspace, app
+  headroom, or modality-selection proof.
+- GGUF model loads but uses the wrong chat template or tokenizer.
+- MLX repo availability mistaken for Swift app loader support.
+- LiteRT-LM Swift package presence mistaken for Epistemos cancellation and
+  AnswerPacket proof.
+- KV reuse crosses notes/users/routes without allowlist-before-rank and lineage
+  proof.
+- Prefix-cache hits counted as reasoning quality or answer correctness.
+- TurboVec/TurboQuant compressed coordinates treated as durable truth.
+- MoE active parameter count treated as full resident memory proof.
+- PowerInfer/KTransformers server or CUDA evidence treated as Apple Silicon
+  proof.
+- Local model answer uses stale body bytes, stale readable-block projection, or
+  stale graph evidence.
+
+### Candidate Falsifier Backlog
+
+1. `F-BodyReadChecksum-ReleaseBlockerCard`
+   - Purpose: bind note body reads, mapped/unmapped body parity, readable block
+     projections, model-authored mutation expectations, dirty vault flags, and
+     AnswerPacket freshness caveats.
+   - Runtime proof: none at this rung; source-card and red-fixture proof only.
+   - User-visible proof required later: AnswerPacket must expose context
+     freshness or abstain.
+
+2. `F-GemmaQAT-QualityAndLoaderParitySourceCard`
+   - Purpose: compare QAT GGUF, LiteRT, MLX/MLX-Swift, and Transformers source
+     claims without loading bytes; require exact model revision, file list,
+     tokenizer/chat-template refs, conversion method, expected memory envelope,
+     quality caveats, and loader blockers.
+   - Runtime proof required later: one-token synthetic probe, then held-out
+     note/coding/writing replay.
+
+3. `F-KVPrefixReuseCompatibilityFence`
+   - Purpose: prohibit cache reuse unless prompt/body/source identity,
+     tokenizer, runtime lane, route policy, privacy class, and context digest
+     match.
+   - Runtime proof required later: repeated-context TTFT measurement with
+     identical output-quality replay and no cross-note leakage.
+
+4. `F-ContextReusePrivacyLineageGate`
+   - Purpose: make vLLM/LMCache-style reuse compatible with UAS identities,
+     SCOPE-Rex admission, RunEventLog, and AnswerPacket visibility.
+   - Runtime proof required later: replay showing cache hit, lineage match,
+     purge policy, and abstention on mismatch.
+
+5. `F-HotColdPlacementSourceCard`
+   - Purpose: translate PowerInfer/KTransformers motifs into Epistemos hot
+     resident lane, balanced local lane, cold assembly, and Pro Research server
+     lane without importing server-only assumptions.
+   - Runtime proof required later: small synthetic placement simulation before
+     any model bytes.
+
+### Model / Runtime Ladder Update
+
+Near-term build ladder:
+
+1. Repair the fresh small-model L3 release-audit bottleneck.
+2. Bind body/read checksum context freshness so runtime answers can be trusted.
+3. Source-card Gemma 4 QAT loader/quality parity across GGUF, LiteRT, MLX, and
+   Transformers.
+4. Run a tiny synthetic first-token probe only on owner-approved local small
+   models.
+5. Add held-out note/research/coding/writing replay before any 12B/26B/31B row
+   becomes user-facing.
+6. Keep 70B-class work in cold assembly, sparse placement, KV/cache, and
+   transport witnesses until live product evidence exists.
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no new falsifier landed in this pass.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: combine Gemma 4 QAT source-carding with KV/cache
+compatibility fences and body-read freshness proof, so Epistemos can safely
+move from "small model can emit a token" to "local model answered from current
+note/evidence state."
+
+Safest next falsifier: `F-BodyReadChecksum-ReleaseBlockerCard`, because L2/L3
+runtime evidence cannot become trustworthy until note body, readable-block,
+graph/evidence, and AnswerPacket context freshness are bound.
+
+Best near-term code unit: implement the body-read checksum release-blocker
+source card with red fixtures for stale body hash, mapped/unmapped divergence,
+dirty vault flag bypass, model mutation without expected hash, and missing
+AnswerPacket caveat.
+
+Biggest false-claim risk: repeating Google QAT memory numbers as Epistemos
+runtime proof before local file bytes, loader support, KV bytes, app headroom,
+quality replay, cancellation, rollback, RunEventLog, and AnswerPacket evidence
+exist.
+
+Biggest missing source: local fresh release-audit logs for the product runtime
+route after the small-model automated checks bottleneck is repaired.
+
+Next research query: "Which Gemma 4 QAT files, tokenizer/chat-template fields,
+KV/cache settings, and loader constraints must be source-carded before a
+same-fixture GGUF/LiteRT/MLX lane tournament can run without false promotion?"
+
+Sources:
+
+- Google Gemma 4 QAT official blog:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- KIVI repo: `https://github.com/jy-yuan/KIVI`
+- KIVI paper: `https://arxiv.org/abs/2402.02750`
+- PowerInfer paper: `https://arxiv.org/abs/2312.12456`
+- vLLM automatic prefix caching docs:
+  `https://docs.vllm.ai/en/v0.15.0/features/automatic_prefix_caching/`
+- LMCache docs: `https://docs.lmcache.ai/index.html`
+- KTransformers inference docs: `https://ktransformers.net/docs/inference`
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+- `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`
+- `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`
