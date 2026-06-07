@@ -5193,11 +5193,16 @@ availability, command safety, Apple Silicon fit, or first token.
 Former safest next falsifier, now landed by Pass 77:
 `F-ExoticQuantLoaderCompatibilityModelPathGate`.
 
-Best near-term code unit: add
+Former best near-term code unit, now landed by Pass 78: add
 `exotic_quant_local_artifact_availability_owner_gate` so any local file
 visibility must be owner-approved, manifest-bound, path-canonicalized,
 size-budgeted, rollbackable, RunEventLog/AnswerPacket visible, and unable to
 arm a command by itself.
+
+Current best near-term code unit: add
+`exotic_quant_owner_path_manifest_intake_gate` so the owner-approved local path
+manifest format is explicit before any path canonicalization, byte envelope,
+loader lane, command envelope, or runtime probe can begin.
 
 Biggest false-claim risk: treating pending owner approval as approval, or
 treating an unarmed command envelope as a runtime proof.
@@ -7415,18 +7420,24 @@ source-tree bytes, product bytes, and benchmark runs at zero.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: owner-approved local artifact availability for
-the three Mac-candidate exotic quant rows, because loader classes are now
-source-pinned but still cannot open a file or prove Apple Silicon fit.
+Former best breakthrough candidate, now landed by Pass 78: owner-approved
+local artifact availability for the three Mac-candidate exotic quant rows,
+because loader classes are now source-pinned but still cannot open a file or
+prove Apple Silicon fit.
 
-Safest next falsifier:
+Former safest next falsifier, now landed by Pass 78:
 `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`.
 
-Best near-term code unit: add
+Former best near-term code unit, now landed by Pass 78: add
 `exotic_quant_local_artifact_availability_owner_gate` so any local file
 visibility must be owner-approved, manifest-bound, path-canonicalized,
 size-budgeted, non-hashed unless explicitly allowed, rollbackable, and unable
 to arm a command by itself.
+
+Current best near-term code unit: add
+`exotic_quant_owner_path_manifest_intake_gate` so the owner-approved manifest
+shape is explicit before path canonicalization, byte-envelope checking, loader
+lane selection, crash-safe command envelopes, or runtime probes can begin.
 
 Biggest false-claim risk: saying "GGUF-compatible", "Transformers-compatible",
 or "file found in Downloads" means the model is runnable, high quality,
@@ -7448,6 +7459,106 @@ Sources:
 - `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`
 - `docs/falsifiers/F-ExoticQuantRuntimeLaneOwnerApprovalGate_2026_06_07.md`
 - `artifacts/falsifiers/exotic_quant_runtime_lane_owner_approval_gate/result.json`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
+## Pass 78 - Exotic Quant Local Artifact Availability Owner Gate Implementation
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 78 implements `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`. The point
+is to turn local artifact availability into an explicit owner-manifest proof
+problem instead of letting a local-looking filename, prior Downloads folklore,
+loader metadata, or a model card become hidden path/runtime authority.
+
+The gate consumes the loader/path witness, accepts five artifact-availability
+cards, rejects 66 red fixtures, keeps three Mac-candidate rows in owner path
+manifest required state with zero owner manifests present and zero local paths
+verified, denies two server/GPU rows for Mac artifact probes, and keeps owner-
+manifest bytes, path opens, stat calls, file hashes, symlink resolution,
+command executions, model bytes, runtime bytes, provider calls, source-tree
+bytes, product bytes, and benchmark runs at zero.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_local_artifact_availability_owner_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_local_artifact_availability_owner_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_local_artifact_availability_owner_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantLocalArtifactAvailabilityOwnerGate_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each exotic quant artifact-availability state has a deterministic address and cannot be replaced by a filesystem rumor or filename. |
+| ColdStore/AppColdStore | Candidate artifacts remain cold and unavailable until an owner-approved manifest explicitly binds them. |
+| ActiveAssembly | No active assembly can wake from "file probably exists" or loader metadata. |
+| Eidos | Artifact availability facts can become visible evidence and caveats, not hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects owner manifest leaks, path canonicalization shortcuts, local path verification without the later gate, symlink following, path opens, file stats, hashes, hidden authority, and promotion attempts. |
+| RuntimeRouter/System G | Runtime lanes stay unarmed until owner path manifest intake, byte-envelope checks, crash-safe command envelopes, rollback, and AnswerPacket evidence exist. |
+| RunEventLog/AnswerPacket | Future packets must expose owner manifest status, path availability, denial/abstention, and byte-zero boundaries before promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantLocalArtifactAvailabilityOwnerGate`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: owner path-manifest intake for the three
+Mac-candidate exotic quant rows, because the architecture now knows loader
+class and fail-closed availability state but still has no owner-approved local
+artifact manifest, byte envelope, path canonicalization proof, or crash-safe
+command envelope.
+
+Safest next falsifier:
+`F-ExoticQuantOwnerPathManifestIntakeGate`.
+
+Best near-term code unit: add
+`exotic_quant_owner_path_manifest_intake_gate` so every owner-provided path
+manifest must bind model ID, selected artifact path, expected byte envelope,
+runtime lane, rollback, RunEventLog, AnswerPacket, abstention, and explicit
+non-promotion before any path is canonicalized or command envelope is armed.
+
+Biggest false-claim risk: treating "owner has a file" as local runtime proof,
+or allowing path existence, hashes, symlinks, loader classes, or benchmark
+notes to promote L2/L3 without a visible packet and small-model runtime
+grounding.
+
+Biggest missing source: owner-approved local artifact manifests for
+`Qwopus3.5-27B-v3-TQ3_4S.gguf`, `model_int4.pt`, and
+`Qwopus-MoE-35B-A3B-APEX-I-Mini.gguf`, plus policy for whether any file hash
+is permitted before the runtime probe phase.
+
+Next research query: "What manifest schema lets Epistemos verify owner intent,
+path identity, byte envelope, loader lane, rollback, RunEventLog, AnswerPacket,
+and no-promotion boundaries without reading model bytes or letting path proof
+become runtime proof?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantLocalArtifactAvailabilityOwnerGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantLoaderCompatibilityModelPathGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json`
 - https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
 - https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
 - https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF

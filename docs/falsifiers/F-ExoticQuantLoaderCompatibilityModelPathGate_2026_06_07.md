@@ -47,7 +47,7 @@ Accepted rows:
 - Source tree bytes read: `0`
 - Product bytes copied: `0`
 - Benchmark runs: `0`
-- Next research-to-build cursor: `exotic_quant_local_artifact_availability_owner_gate`
+- Next research-to-build cursor: `exotic_quant_local_artifact_availability_owner_gate` (now landed downstream; downstream next is `exotic_quant_owner_path_manifest_intake_gate`)
 
 ## Non-Promotion Boundary
 
@@ -63,4 +63,6 @@ The red fixtures reject duplicate IDs, missing expected models, bad source-pin b
 
 The large-local-model track needs ambition without accidental promotion. Exotic quant rows are promising because QAT, TurboQuant-like formats, GGUF, HLWQ, APEX, NVFP4, and AutoRound may eventually shrink active or selected memory footprints. But Epistemos cannot let a plausible file name, a loader family, a Hugging Face card, or a benchmark become hidden runtime authority.
 
-This gate creates the next required proof object: an owner-approved local artifact availability gate. Only after that can crash-safe command envelopes and owner-approved probes be considered.
+The downstream `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` has landed as a metadata-only T1/L1 witness at `artifacts/falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json`.
+
+The next required proof object is `exotic_quant_owner_path_manifest_intake_gate`, which should define the owner-approved manifest shape before any crash-safe command envelope or runtime probe can be armed.

@@ -42,6 +42,7 @@ pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
+pub mod exotic_quant_local_artifact_availability_owner_gate;
 pub mod exotic_quant_quarantine_route_card;
 pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
@@ -198,6 +199,15 @@ pub use exotic_quant_loader_compatibility_model_path_gate::{
     ExoticQuantLoaderPathProofRefs, ExoticQuantModelPathState,
     EXOTIC_QUANT_LOADER_COMPATIBILITY_MODEL_PATH_GATE_CURSOR,
     EXOTIC_QUANT_LOADER_COMPATIBILITY_MODEL_PATH_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_local_artifact_availability_owner_gate::{
+    expected_artifact_availability_model_ids, ExoticQuantArtifactAvailabilityAction,
+    ExoticQuantArtifactAvailabilityByteLedger, ExoticQuantArtifactAvailabilityGateCard,
+    ExoticQuantArtifactAvailabilityGateError, ExoticQuantArtifactAvailabilityGateLedger,
+    ExoticQuantArtifactAvailabilityGateMetrics, ExoticQuantArtifactAvailabilityProofRefs,
+    ExoticQuantArtifactAvailabilityState,
+    EXOTIC_QUANT_LOCAL_ARTIFACT_AVAILABILITY_OWNER_GATE_CURSOR,
+    EXOTIC_QUANT_LOCAL_ARTIFACT_AVAILABILITY_OWNER_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,

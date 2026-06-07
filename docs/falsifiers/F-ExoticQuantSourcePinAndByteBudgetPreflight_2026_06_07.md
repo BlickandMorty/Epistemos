@@ -40,4 +40,4 @@ Correct phrasing: architecture source-pin and byte-budget preflight advanced; pr
 
 `F-ExoticQuantRuntimeLaneOwnerApprovalGate` is now landed as the metadata-only downstream witness. It records three Mac-candidate rows as pending owner approval, two server-only rows as denied for Mac runtime, unarmed command envelopes, unopened model paths, pending/denied loader compatibility, rollback, RunEventLog, AnswerPacket, abstention, and zero runtime/model/provider/source/product/benchmark bytes.
 
-The current research-to-build next unit is `exotic_quant_loader_compatibility_model_path_gate`. It should prove loader compatibility and model-path readiness before any owner-approved exotic quant runtime command can be armed.
+The downstream runtime owner-approval, loader/path, and local artifact availability owner gates are now landed. The current research-to-build next unit is `exotic_quant_owner_path_manifest_intake_gate`; it should define owner-approved path manifest intake before any exotic quant command envelope can be armed.
