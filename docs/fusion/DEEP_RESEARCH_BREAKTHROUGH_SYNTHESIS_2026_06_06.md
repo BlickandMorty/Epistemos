@@ -5118,6 +5118,92 @@ Sources:
 - `docs/falsifiers/F-ModelVaultCatalog-ReleaseBlockerCard_2026_06_07.md`
 - `artifacts/falsifiers/model_vault_catalog_release_blocker_card/result.json`
 
+## Pass 96 - Visible Output Sanitization Release Blocker (2026-06-07)
+
+Pass 96 implements `F-VisibleOutputSanitization-ReleaseBlockerCard`. This is
+where research-to-build pressure from large local models meets privacy and
+user-facing truth: bigger or more agentic models tend to emit reasoning,
+function-call, action, and tool JSON scaffolding unless the visible surface is
+explicitly guarded.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Mechanism
+
+The witness consumes:
+
+- `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`
+- The retained `visible_output_sanitization` row from
+  `F-ReleaseAuditFailureFamily-SourceCard`
+
+It binds retained `visible_output_sanitization` issue count `5` to 9 concrete
+output/privacy source refs, 12 invariants, 4 focused Swift commands, 17
+rejected red fixtures, and deterministic visible-output address
+`sha256:3fe36c7c3d24e809faad6c3efc84b6a8cc58b394c7d3fd4301c5aea58a1b8e53`.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/visible_output_sanitization_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_visible_output_sanitization_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_visible_output_sanitization_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/visible_output_sanitization_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-VisibleOutputSanitization-ReleaseBlockerCard_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UserFacingModelOutput | The sanitizer is now a release-blocker organ, not just a helper function. |
+| RuntimeRouter/System G | A route cannot promote if it can leak tool/control/reasoning payloads into visible output. |
+| RunEventLog/AnswerPacket | Visible output must be packet-caveated and replayable instead of inferred from raw provider text. |
+| SCOPE-Rex/SovereignGate | Admission rejects raw function/action/tool JSON visibility, hidden reasoning visibility, and missing packet caveats. |
+| MAS/Pro | MAS and Pro both inherit the visible-output blocker before any large-model or agentic route can be called product-ready. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-VisibleOutputSanitization-ReleaseBlockerCard`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: a replay-first visible-output compiler that can
+render large-model, tool, and verifier outputs from AnswerPacket/RunEventLog
+instead of trusting raw model text.
+
+Safest next falsifier:
+`F-GraphFilterVisibility-ReleaseBlockerCard`.
+
+Best near-term code unit: add `graph_filter_visibility_release_blocker_card`
+so the largest retained release-audit family is source-carded before graph
+filters, search surfaces, or route visibility become release evidence.
+
+Biggest false-claim risk: treating a passing sanitizer helper or focused
+`UserFacingModelOutputTests` subset as full app release readiness.
+
+Biggest missing source: focused repair evidence for the retained graph/filter
+visibility family and its Swift test surfaces.
+
+Next research query: "How should Epistemos bind graph/filter visibility,
+search-index visibility, and visible-output sanitization into one
+AnswerPacket/RunEventLog-backed release proof for large local model routes?"
+
+Sources:
+
+- `docs/falsifiers/F-VisibleOutputSanitization-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/visible_output_sanitization_release_blocker_card/result.json`
+- `Epistemos/Engine/Extensions.swift`
+- `EpistemosTests/UserFacingModelOutputTests.swift`
+
 ## Pass 93 - Release-Audit Failure-Family Source Cards
 
 Date: 2026-06-07
