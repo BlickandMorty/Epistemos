@@ -3069,6 +3069,21 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   artifact-format assumptions, MoE active-param overclaims, and uninspected
   fork/no-license import attempts. This advances T0 research/backlog only; no
   command is armed and L2/L3 large-local-model capability remains red.
+- 2026-06-07 app-mined keyword lattice expansion: Deep Research Pass 86 expands
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` with
+  app-derived query families from UAS/OAS, ColdStore/AppColdStore,
+  ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate, RuntimeRouter/System G,
+  RunEventLog/AnswerPacket, PatternBoost, lattice, and the current large-model
+  side ladder. The atlas now includes equivalent phrasing clusters,
+  source-specific GitHub/HF/arXiv/Downloads/code-search packs, red-team
+  mutations, blue-team repairs, and creative breakthrough combinations that
+  map terms directly to future falsifiers such as
+  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`,
+  `F-KVCacheEnvelopeModelFitGate`, `F-QATAccuracyShadowReplay`,
+  `F-TurboVec-EidosContextQualityReplayGate`, and
+  `F-ProofGuidedRouteRepairCard`. This advances T0 research/backlog only; no
+  command is armed, no model/runtime/provider bytes are loaded, and L2/L3
+  large-local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

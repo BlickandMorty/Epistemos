@@ -407,6 +407,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > AutoRound rows. This advances T0 research/backlog only; no command is armed,
 > no local artifact is opened, no model/runtime/provider bytes are loaded, and
 > no L1/L2/L3 product capability promotes.
+> Deep Research Pass 86 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` expands
+> `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` again from
+> app-mined terms. It cross-products UAS/OAS, ColdStore/AppColdStore,
+> ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate, RuntimeRouter/System G,
+> RunEventLog/AnswerPacket, PatternBoost, lattice, owner-path gates, byte
+> envelopes, command envelopes, KV/cache, QAT, TurboVec, EML/Lean, and Metal
+> safety into equivalent phrasing clusters, GitHub/HF/arXiv/Downloads/code
+> search packs, red-team mutations, blue-team repairs, and creative
+> breakthrough combinations. This advances T0 research/backlog only; no
+> falsifier landed, no command is armed, no model/runtime/provider bytes are
+> loaded, and L2/L3 large-local-model capability remains red.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and

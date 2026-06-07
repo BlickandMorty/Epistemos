@@ -833,6 +833,340 @@ These current source signals should feed the next large-model gate:
 - `turbovec_fork_delta_uninspected`
 - `no_license_fork_direct_import`
 
+## App-Mined Deep Query Expansion - 2026-06-07
+
+This pass expands keywords from the app architecture itself. The goal is not
+just more search terms; the goal is better search pressure against the exact
+bottlenecks Epistemos must solve before larger local models become user-facing.
+
+Use this grammar for every query:
+
+```text
+app organ + proof contract + runtime lane + model/artifact format +
+memory/cache mechanism + failure mutation + repair mutation + build output
+```
+
+Example:
+
+```text
+RuntimeRouter RuntimeCommandEnvelopeCard llama.cpp GGUF QAT KV cache
+Metal crash output limit rollback AnswerPacket falsifier
+```
+
+### Organ-To-Keyword Expansion
+
+Cross every Epistemos organ with the common research names below.
+
+| Epistemos organ | Search expansions |
+|---|---|
+| UAS/OAS | addressable object, source card, provenance digest, artifact identity, model manifest, file manifest, snapshot revision, LFS OID, Xet pointer, UAS address, deterministic address |
+| ColdStore/AppColdStore | cold bytes, dormant weights, local artifact vault, rebuildable cache, resident set, cold assembly, cache-only truth, source-of-truth separation |
+| ActiveAssembly | smallest waking set, hot support set, active params, active experts, sparse wake, route support, coactivation, prefetch, residency lease |
+| Eidos | compressed retrieval, citation closure, route priors, source refs, exact baseline recall, allowlist-before-rank, stable external ID, collision ledger |
+| SCOPE-Rex/SovereignGate | admission gate, no hidden authority, route abstention, fail-closed route, no provider fallback, no MAS promotion, Pro gated |
+| RuntimeRouter/System G | runtime lane, lane tournament, command envelope, first-token harness, local inference route, GGUF lane, MLX lane, LiteRT lane |
+| RunEventLog/AnswerPacket | visible proof, packetized mitigation, token digest, log correlation, rollback trace, non-promotion caveat, WRV proof |
+| PatternBoost/Lattice | offline discovery, held-out replay, route motif, lattice abstention, no live authority, proof-carrying route, route repair |
+
+### Equivalent Phrasing Clusters
+
+Run these as repeated query lines because the same mechanism appears under
+different names across papers, GitHub, issues, model cards, and local notes.
+
+Artifact identity:
+
+- `model artifact provenance GGUF source pin LFS OID selected file`
+- `model card file manifest snapshot revision selected artifact path`
+- `Hugging Face Xet pointer GGUF byte envelope local path manifest`
+- `git-lfs OID model revision tokenizer chat template conversion digest`
+- `rowid drift model inventory local artifact availability source card`
+- `owner path manifest allowed root symlink denial path canonicalization`
+- `selected GGUF wrong tokenizer stale snapshot benchmark screenshot`
+- `safetensors index GGUF conversion model.safetensors.index.json file list`
+
+Runtime fit:
+
+- `local LLM first token proof command envelope timeout rollback`
+- `llama.cpp Metal predict 1 ctx-size KV cache output limit`
+- `MLX Swift native API loader support memory pressure token digest`
+- `LiteRT-LM Swift Gemma QAT package binary target unsafe linker`
+- `Transformers quarantine trust_remote_code local path source card`
+- `Swift Subprocess stdout stderr byte limit teardown sequence LLM`
+- `Process Pipe deadlock local inference cancellation macOS sandbox`
+- `runtime command envelope hidden server sidecar provider fallback denial`
+
+Memory and byte envelopes:
+
+- `weights fit KV cache does not fit Apple Silicon unified memory`
+- `M2 Pro 16GB local LLM peak RSS KV activation scratch workspace`
+- `Gemma 4 12B QAT GGUF runtime memory context length KV bytes`
+- `MoE active parameters full weight bytes expert cache resident memory`
+- `Qwopus TQ3_4S file bytes UMA headroom first token denial`
+- `APEX GGUF MoE active params full weights KV cache Apple Silicon`
+- `NVFP4 Gemma 31B server only local Mac denial memory envelope`
+- `AutoRound int4 safetensors local lane mismatch memory proof`
+
+Quantization:
+
+- `Gemma 4 QAT q4_0 GGUF quality regression exact baseline`
+- `TurboQuant PolarQuant QJL implementation low bit quality drift`
+- `TQ3_4S Qwopus GGUF benchmark conversion source card`
+- `HLWQ int4 PyTorch local Mac quarantine source card`
+- `APEX GGUF MoE selected variant full weight caveat`
+- `NVFP4 MXFP4 FP4 FP8 Gemma local inference lane`
+- `AutoRound Gemma int4 Transformers quality source card`
+- `SpinQuant rotation low-bit quantization implementation`
+- `HIGGS HQQ AWQ GPTQ NF4 GGUF imatrix quality replay`
+- `BitNet ternary T-MAC Metal GEMV Apple Silicon low-bit kernel`
+
+KV, cache, and long context:
+
+- `KIVI 2-bit KV cache residual window quality regression`
+- `KVQuant long context KV cache quantization needle retrieval`
+- `LeanKV KV cache compression long context compatibility fence`
+- `InnerQ hardware aware KV quantization local inference`
+- `KVarN variance normalized KV cache quantization LLM`
+- `OSCAR attention aware 2-bit KV cache quantization`
+- `ARKV adaptive training-free KV cache quantization`
+- `ParisKV KV cache compression long context`
+- `SnapKV PyramidKV H2O cache eviction heavy hitters attention sink`
+- `vLLM PagedAttention block table memory fragmentation`
+- `SGLang RadixAttention prefix cache route compatibility`
+- `LMCache prefix cache remote cache laundering denial`
+- `prompt cache llama.cpp save load cache compatibility fence`
+
+Retrieval and compressed context:
+
+- `TurboVec compressed vector index stable external id collision ledger`
+- `TurboVec fork delta rowid drift tombstone recall quality`
+- `usearch HNSW compressed vector index Rust SIMD Apple Silicon`
+- `binary embeddings RAG quantized embeddings exact recall baseline`
+- `product quantization vector search allowlist before rank privacy`
+- `compressed retrieval Eidos AppColdStore closed citations`
+- `semantic working set compiler retrieval island active assembly`
+- `citation exact baseline source refs no hidden route authority`
+
+Proof, verifier, math, and EML:
+
+- `Lean 4 compiler feedback proof repair LLM route repair`
+- `OProver Lean agentic theorem proving library search memory`
+- `AxProver proof search feedback verifier guided routing`
+- `DeepSeek Prover Goedel Code Prover verified code generation`
+- `EML elementary mathematical language Primitive IR ULP oracle`
+- `softmax numerical stability Metal ULP interval proof`
+- `proof carrying route AnswerPacket verifier regret ledger`
+- `tool JSON drift quantization exact baseline verifier feedback`
+
+Crash and kernel-panic-class safety:
+
+- `Metal crash local LLM command buffer cancellation rollback`
+- `kernel panic class local model probe dry run witness`
+- `mmap mlock fit claim GGUF Apple Silicon denial`
+- `SSD as RAM false claim read amplification wear budget`
+- `subprocess hang local inference stdout stderr pipe deadlock`
+- `unsafe linker LiteRT Swift package no product admission`
+- `hidden cloud fallback server sidecar OpenAI compatible local server`
+- `first token redacted token digest RunEventLog AnswerPacket`
+
+### Source-Specific Query Packs
+
+Use the same idea with source-specific syntax.
+
+GitHub code search:
+
+- `repo:ggml-org/llama.cpp --predict --ctx-size --cache-ram --mmap --mlock`
+- `repo:ggml-org/llama.cpp "KV cache" "Metal" "memory"`
+- `repo:ml-explore/mlx-lm stream_generate prompt cache trust_remote_code`
+- `repo:ml-explore/mlx-swift-lm ChatSession Gemma tool call`
+- `repo:google-ai-edge/LiteRT-LM Swift Gemma MTP server`
+- `repo:swiftlang/swift-subprocess output limit teardown`
+- `repo:vllm-project/vllm PagedAttention block table KV cache`
+- `repo:LMCache/LMCache remote cache prefix cache control API`
+- `repo:kvcache-ai/ktransformers expert placement KV cache`
+- `repo:RyanCodrai/turbovec rowid external id compression`
+
+GitHub issue search:
+
+- `llama.cpp Metal crash KV cache memory pressure`
+- `llama.cpp server memory leak mmap mlock cache-ram`
+- `mlx-swift-lm Gemma 4 loader unsupported`
+- `mlx-swift-lm tool call parser Gemma`
+- `LiteRT-LM Swift package LFS unsafe linker`
+- `LiteRT-LM Gemma 4 QAT MTP support`
+- `vLLM prefix cache quality regression`
+- `LMCache remote cache consistency failure`
+- `KTransformers Mac Apple Silicon MoE expert placement`
+- `TurboVec fork license rowid benchmark`
+
+Hugging Face search:
+
+- `Gemma 4 QAT GGUF q4_0 file list revision`
+- `Gemma 4 E2B QAT GGUF mmproj selected file`
+- `Gemma 4 12B QAT LiteRT model card macOS`
+- `Qwopus TQ3_4S GGUF LFS OID`
+- `Qwopus HLWQ model_int4.pt local lane`
+- `Qwopus MoE A3B APEX GGUF selected variant`
+- `Gemma 31B NVFP4 safetensors server only`
+- `Gemma 31B AutoRound int4 sharded safetensors`
+- `Qwen3 Coder MLX Apple Silicon model card`
+- `Granite Micro MLX local coding research model card`
+
+arXiv and paper search:
+
+- `KV cache quantization residual window asymmetric 2-bit`
+- `variance normalized KV cache quantization LLM`
+- `attention aware 2-bit KV cache quantization`
+- `adaptive training-free KV cache quantization`
+- `prefix cache compression long context LLM`
+- `quantization aware training Gemma local inference`
+- `extreme compression LLM vector quantization code`
+- `low bit Metal kernel LLM ternary GEMV`
+- `compressed vector retrieval exact recall baseline RAG`
+- `agentic theorem proving compiler feedback route repair`
+
+Local Downloads search:
+
+- `rg -n "TurboQuant|PolarQuant|QJL|vector quant|lattice quant" /Users/jojo/Downloads`
+- `rg -n "KIVI|KVQuant|LeanKV|InnerQ|prefix cache|prompt cache" /Users/jojo/Downloads`
+- `rg -n "EML|Lean|OProver|AxProver|compiler feedback" /Users/jojo/Downloads`
+- `rg -n "Metal|Mamba|MLX|GGUF|LiteRT|llama.cpp|unified memory" /Users/jojo/Downloads`
+- `rg -n "rowid|LFS OID|Xet|manifest|source card|byte envelope" /Users/jojo/Downloads`
+
+Repo code search:
+
+- `rg -n "AnswerPacket|RunEventLog|Rollback|Abstention" agent_core/src Epistemos`
+- `rg -n "model_bytes|runtime_bytes|provider_calls|byte_envelope" agent_core/src`
+- `rg -n "source_card|source_pin|owner_path|canonicalization" agent_core/src`
+- `rg -n "KV|cache|prompt_cache|prefix_cache|runtime_lane" agent_core/src Epistemos`
+- `rg -n "Process|Pipe|Subprocess|Command|mmap|mlock|Metal" Epistemos agent_core/src`
+
+### Creative Breakthrough Combinations
+
+These are not claims. They are search prompts and falsifier seeds.
+
+- `Gemma 4 QAT GGUF + llama.cpp Metal + command envelope + token digest`
+  -> `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`
+- `Gemma 4 E2B QAT + owner approved first token + exact baseline replay`
+  -> `F-GGUF-QAT-BaselineCommandEquivalence`
+- `Gemma 4 12B QAT + 24-32 GB headroom + KV byte envelope`
+  -> `F-KVCacheEnvelopeModelFitGate`
+- `Qwopus TQ3_4S + selected GGUF + owner path manifest + runtime denial`
+  -> `F-LargeModelArtifactPullAccuracySourceCard`
+- `Qwopus MoE A3B APEX + full-weight bytes + active-param caveat`
+  -> `F-MoEActiveParamsMemoryTruth`
+- `NVFP4/AutoRound Gemma 31B + server-only metadata + Mac-denial packet`
+  -> `F-ExoticQuantServerOnlyDenialCard`
+- `KIVI/OSCAR/KVarN + held-out long-context replay + KV compatibility fence`
+  -> `F-QuantizedKVCompressionSourceCard`
+- `LMCache/vLLM/SGLang + prefix cache + no remote cache laundering`
+  -> `F-KVPrefixReuseCompatibilityFence`
+- `TurboVec + allowlist-before-rank + exact citation baseline`
+  -> `F-TurboVec-EidosContextQualityReplayGate`
+- `usearch/HNSW/PQ + stable external IDs + tombstone/collision ledger`
+  -> `F-CompressedIndexStableIdRecallReplay`
+- `Lean/OProver/AxProver + verifier regret + route repair`
+  -> `F-ProofGuidedRouteRepairCard`
+- `EML + Primitive IR + ULP oracle + Metal kernel numeric caveat`
+  -> `F-EMLPrimitiveIRSourceCard`
+- `T-MAC/BitNet/ternary GEMV + Metal no-link preflight + ULP tests`
+  -> `F-LowBitMetalKernelSourceCard`
+- `Mamba/S4/SSM local controller + semantic working set + small scout model`
+  -> `F-ControllerStateCompressionSourceCard`
+- `ColdStream + DispatchIO + read amplification + cancellation trace`
+  -> `F-ColdStreamTransportReadPlanPreflight`
+
+### Red-Team Same-Term Mutations
+
+For any good-looking search result, rerun it with every mutation below:
+
+- `wrong tokenizer`
+- `wrong chat template`
+- `selected file missing`
+- `revision not pinned`
+- `LFS pointer mismatch`
+- `Xet hash mismatch`
+- `rowid used as identity`
+- `local path symlink`
+- `tilde expansion`
+- `environment expansion`
+- `parent traversal`
+- `hidden download`
+- `trust_remote_code`
+- `HF token env`
+- `server sidecar`
+- `OpenAI compatible server default`
+- `mmap fit claim`
+- `mlock fit claim`
+- `cache RAM unbounded`
+- `predict default infinite`
+- `context default unbounded`
+- `stdout unbounded`
+- `stderr unbounded`
+- `teardown missing`
+- `cancellation missing`
+- `rollback missing`
+- `AnswerPacket missing`
+- `RunEventLog missing`
+- `MoE active params as resident memory`
+- `QAT quality assumed`
+- `benchmark screenshot promoted`
+- `fork delta uninspected`
+- `no-license direct import`
+- `product route green from metadata`
+
+### Blue-Team Same-Term Mutations
+
+Then rerun with the repair language:
+
+- `source card`
+- `source pin`
+- `selected file list`
+- `revision pinned`
+- `owner path manifest`
+- `allowed root`
+- `path canonicalization preflight`
+- `byte envelope`
+- `zero file open`
+- `zero model bytes`
+- `zero runtime bytes`
+- `command unarmed`
+- `args vectorized`
+- `shell string denied`
+- `remote download denied`
+- `output byte cap`
+- `timeout deadline`
+- `cancellation token`
+- `teardown sequence`
+- `dry-run transcript`
+- `redacted token digest`
+- `memory sample before start`
+- `memory sample after abort`
+- `exact baseline replay`
+- `held-out replay`
+- `abstention`
+- `rollback`
+- `RunEventLog`
+- `AnswerPacket`
+- `WRV`
+- `MAS denied`
+- `Pro gated`
+
+### Next Keywords To Turn Into Code
+
+These keyword families should be converted into code-backed gates before any
+larger local model runtime claim:
+
+1. `RuntimeCommandEnvelopeCard` + `args_vectorized` + `shell_string_denied`
+2. `OwnerApprovedDryRunTranscript` + `token_digest` + `output_limit`
+3. `ArtifactPullAccuracySourceCard` + `revision_pinned` + `selected_file`
+4. `KVCacheEnvelopeModelFitGate` + `runtime_workspace` + `app_headroom`
+5. `QATAccuracyShadowReplay` + `tool_json_drift` + `citation_drift`
+6. `CompressedRetrievalExactBaseline` + `stable_external_id` + `allowlist`
+7. `ProofGuidedRouteRepairCard` + `verifier_regret` + `repair_trace`
+8. `LowBitMetalKernelSourceCard` + `no_link_preflight` + `ULP_oracle`
+9. `DownloadsLocalResearchDedupeProvenanceCard` + `duplicate_source_map`
+10. `LargeModelLaneTournamentPlan` + `same_fixture` + `abstention`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

@@ -244,6 +244,16 @@ Current 2026-06-07 large-local-model research-to-build status:
   file, wrong artifact-format assumptions, MoE active-param overclaims,
   uninspected fork deltas, and no-license direct imports. Treat all of this as
   T0/T1 input until the falsifier lands.
+- Deep Research Pass 86 expands the keyword atlas from current app symbols.
+  Before any new large-model research pass, cross UAS/OAS,
+  ColdStore/AppColdStore, ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate,
+  RuntimeRouter/System G, RunEventLog/AnswerPacket, PatternBoost, lattice,
+  owner-path gates, byte envelopes, command envelopes, KV/cache, QAT,
+  TurboVec, EML/Lean, and Metal safety with source-specific GitHub/HF/arXiv/
+  Downloads/code-search packs, red-team mutations, blue-team repairs, and
+  creative buildable combinations. Treat this as T0 research/backlog pressure:
+  no falsifier landed from Pass 86, no command is armed, no model/runtime/
+  provider bytes are loaded, and no L2/L3 large-local-model capability is green.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3
