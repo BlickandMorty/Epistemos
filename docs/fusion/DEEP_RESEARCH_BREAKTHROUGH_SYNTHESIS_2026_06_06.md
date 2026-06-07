@@ -14288,3 +14288,227 @@ Next research query: "Which exact Epistemos `build-for-testing` command,
 DerivedData root, `.xctestrun`/`.xctestproducts` discovery rule, and
 `test-without-building` selector set should become the first crash-safe
 metadata falsifier for graph-filter release-audit closure?"
+
+## Deep Research Pass 124 - Epistemos Test Products Proof Command Spec
+
+### Executive Synthesis
+
+Pass 123 established that prebuilt test products are the right proof shape.
+Pass 124 makes that shape concrete enough to build as a metadata falsifier or
+to run manually when the owner accepts the Xcode cost. The key design move is
+to treat the Xcode test bundle as an addressable Verification-plane object:
+source commit, scheme pre-action, DerivedData root, generated `.xctestrun` or
+`.xctestproducts`, selected identifiers, result bundle, and release-audit row
+must all point to the same run. Anything less is not proof.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The local scheme anchor is `Epistemos.xcodeproj`, scheme `Epistemos`,
+configuration `Debug`, destination `platform=macOS`, with a real
+`EpistemosTests.xctest` testable. The scheme also has a BuildAction pre-action
+named `Patch MLX Metal Warning` that runs
+`scripts/patch_mlx_metal_warnings.sh`; therefore the proof card must record
+pre-action execution and working-tree policy. A build that silently mutates
+source files cannot be used as clean release-audit evidence unless the mutation
+is explicitly captured, reviewed, and either allowed by policy or rejected.
+
+### Exact Command Template
+
+Do not run this pass unattended. It is the command spec for the next proof
+unit, not evidence that the proof has already happened.
+
+```bash
+set -euo pipefail
+
+ROOT="/Users/jojo/Downloads/Epistemos"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+PROOF_ROOT="$ROOT/artifacts/xcode/graph-filter-visibility-test-products/$STAMP"
+DERIVED_DATA="$PROOF_ROOT/DerivedData"
+BUILD_RESULT="$PROOF_ROOT/build-for-testing.xcresult"
+ENUM_JSON="$PROOF_ROOT/enumerated-tests.json"
+FOCUSED_RESULT="$PROOF_ROOT/focused-graph-filter.xcresult"
+
+mkdir -p "$PROOF_ROOT"
+cd "$ROOT"
+
+git rev-parse HEAD > "$PROOF_ROOT/source_commit.txt"
+git status --short > "$PROOF_ROOT/pre_build_status.txt"
+
+xcodebuild build-for-testing \
+  -project Epistemos.xcodeproj \
+  -scheme Epistemos \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -derivedDataPath "$DERIVED_DATA" \
+  -resultBundlePath "$BUILD_RESULT"
+
+find "$DERIVED_DATA/Build/Products" \
+  \( -name '*.xctestrun' -o -name '*.xctestproducts' \) \
+  -print > "$PROOF_ROOT/test_product_candidates.txt"
+
+# Select exactly one candidate path from test_product_candidates.txt.
+# Prefer .xctestrun if both forms exist unless Xcode reports that
+# -testProductsPath is required for enumeration.
+XCTESTRUN="$(sed -n '1p' "$PROOF_ROOT/test_product_candidates.txt")"
+
+xcodebuild test-without-building \
+  -xctestrun "$XCTESTRUN" \
+  -destination 'platform=macOS' \
+  -enumerate-tests \
+  -test-enumeration-format json \
+  -test-enumeration-output-path "$ENUM_JSON"
+
+xcodebuild test-without-building \
+  -xctestrun "$XCTESTRUN" \
+  -destination 'platform=macOS' \
+  -only-testing:EpistemosTests/FilterEngineNodeVisibilityTests/isNodeVisibleForAllTypes \
+  -only-testing:EpistemosTests/FilterEngineTypeFilterSpecificTests/allSevenTypesCanBeToggled \
+  -only-testing:EpistemosTests/FilterEngineTypeFilterSpecificTests/visibilityForEachType \
+  -only-testing:EpistemosTests/FilterEngineComplexScenarioTests/realisticFilteringScenario \
+  -only-testing:EpistemosTests/ResourceEdgeCaseTests/filterAllTypesActive \
+  -only-testing:EpistemosTests/ConcurrencyFilterEngineTests/rapidTypeToggling \
+  -only-testing:EpistemosTests/ConcurrencyFilterEngineTests/allTypesVisibleByDefault \
+  -only-testing:EpistemosTests/VaultLifecycleResetTests/graphLifecycleResetClearsVisibleStoreAndQueues \
+  -resultBundlePath "$FOCUSED_RESULT"
+
+git status --short > "$PROOF_ROOT/post_test_status.txt"
+```
+
+### Selector Truth
+
+The seed selectors above are source-derived candidates, not proof by
+themselves. They are derived from these local anchors:
+
+- `EpistemosTests/FilterEngineComprehensiveTests.swift`
+  - `FilterEngineNodeVisibilityTests.isNodeVisibleForAllTypes`
+  - `FilterEngineTypeFilterSpecificTests.allSevenTypesCanBeToggled`
+  - `FilterEngineTypeFilterSpecificTests.visibilityForEachType`
+  - `FilterEngineComplexScenarioTests.realisticFilteringScenario`
+- `EpistemosTests/ResourceExhaustionTests.swift`
+  - `ResourceEdgeCaseTests.filterAllTypesActive`
+- `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
+  - `ConcurrencyFilterEngineTests.rapidTypeToggling`
+  - `ConcurrencyFilterEngineTests.allTypesVisibleByDefault`
+- `EpistemosTests/VaultLifecycleResetTests.swift`
+  - `VaultLifecycleResetTests.graphLifecycleResetClearsVisibleStoreAndQueues`
+
+The falsifier must reject the run if enumeration produces different canonical
+identifiers and the focused command is not updated to match the enumerated
+identifiers. It must also reject a run when a selector matches a display name
+but not an executable Swift Testing function identity.
+
+### Discovery And Digest Rules
+
+Accepted discovery:
+
+- `test_product_candidates.txt` contains exactly one selected `.xctestrun` or
+  `.xctestproducts` path after filtering to the current `PROOF_ROOT`;
+- selected product path exists and is newer than `source_commit.txt`;
+- selected product path is under `PROOF_ROOT` / `DERIVED_DATA`, not global
+  DerivedData;
+- SHA-256 digests are recorded for selected `.xctestrun`, enumeration JSON,
+  and focused `.xcresult` bundle manifest;
+- `pre_build_status.txt` and `post_test_status.txt` are both captured;
+- scheme pre-action name and script path are recorded;
+- any source change caused by the pre-action is either absent or explicitly
+  rejected for release-audit proof.
+
+Rejected discovery:
+
+- candidate path points to `~/Library/Developer/Xcode/DerivedData`;
+- candidate path is from a previous timestamp or different commit;
+- multiple candidates exist and the chosen one is not justified;
+- `.xctestproducts` is used without recording the Xcode version and local
+  `xcodebuild -help` support for `-testProductsPath`;
+- enumeration JSON is absent, empty, or cannot be parsed;
+- focused result bundle is absent, overwritten, or older than enumeration;
+- result parsing cannot prove nonzero executed tests.
+
+### Candidate Falsifier Backlog
+
+`F-GraphFilterVisibilityTestProductsCommandSpec`
+
+Accepted fields:
+
+- `proof_root`;
+- `source_commit_sha`;
+- `pre_build_status_digest`;
+- `post_test_status_digest`;
+- `scheme_path`;
+- `scheme_testable_name`;
+- `scheme_pre_action_title`;
+- `scheme_pre_action_script`;
+- `build_for_testing_command_digest`;
+- `build_result_bundle_path`;
+- `derived_data_path`;
+- `test_product_candidate_count`;
+- `selected_test_product_path`;
+- `selected_test_product_kind`;
+- `selected_test_product_digest`;
+- `enumeration_command_digest`;
+- `enumeration_json_path`;
+- `enumeration_json_digest`;
+- `seed_selector_count`;
+- `seed_selector_digest`;
+- `enumerated_selector_digest`;
+- `selector_mismatch_rejected`;
+- `focused_command_digest`;
+- `focused_result_bundle_path`;
+- `focused_result_bundle_digest`;
+- `executed_test_count`;
+- `zero_executed_tests_rejected`;
+- `pre_action_mutation_rejected`;
+- `full_xcodebuild_test_row_still_required`;
+- `runtime_bytes_loaded`;
+- `model_bytes_loaded`;
+- `rollback_ref`;
+- `run_event_log_ref`;
+- `answer_packet_ref`;
+- `blocked_l2_l3_t4_claims`.
+
+### Large-Model / Runtime Implication
+
+This command spec is not about graph filters in isolation. It is the quality
+gate that prevents a later local-model answer from being supported by stale
+graph/evidence UI behavior. Qwen3-4B MLX, Gemma 4 QAT GGUF, LiteRT-LM,
+TurboVec/Eidos compressed retrieval, KV reuse, and cold-assembly routing all
+need the same discipline: exact source identity, exact artifacts, fresh
+execution proof, visible caveats, and no stale or hidden route authority.
+
+The breakthrough is cultural and mechanical: Epistemos can make big local
+models practical only if small proof loops are cheap enough to repeat and hard
+enough to fake that they actually protect the architecture.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+`GraphFilterVisibilityTestProductsCommandSpec`.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityTestProductsCommandSpec`, because it can be built as a
+metadata-only primitive before running Xcode, then upgraded to consume real
+result-bundle evidence when the owner accepts the runtime cost.
+
+Best near-term code unit: implement a Rust metadata primitive that validates
+the command spec, selector seed list, scheme pre-action record, path policy,
+and red fixtures without running Xcode.
+
+Biggest false-claim risk: treating these seed selectors as exact executable
+identifiers before enumeration confirms them.
+
+Biggest missing artifact: a fresh `PROOF_ROOT` containing source status,
+prebuilt test product, enumeration JSON, focused result bundle, and parsed
+nonzero executed-test evidence.
+
+Next research query: "What Rust metadata primitive and invalid fixture matrix
+should validate `F-GraphFilterVisibilityTestProductsCommandSpec` before any
+actual Xcode build-for-testing run is attempted?"

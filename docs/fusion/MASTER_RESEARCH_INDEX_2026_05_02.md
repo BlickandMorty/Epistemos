@@ -4663,3 +4663,28 @@ a metadata-only proof-path primitive that rejects different-commit test
 products, stale result bundles, filename selectors, enumeration-only passes,
 zero executed tests, raw note/prompt/model log leakage, and any attempt to use
 focused repair evidence as a large-local-model or release-ready claim.
+
+### §28.15 Epistemos test-products command spec canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 124.
+
+Pass 124 defines `F-GraphFilterVisibilityTestProductsCommandSpec` as the exact
+Epistemos command/discovery source card before running the prebuilt-test proof.
+It binds the local scheme and testable (`Epistemos.xcodeproj`, scheme
+`Epistemos`, `EpistemosTests.xctest`), `Debug`, `platform=macOS`, explicit
+`PROOF_ROOT` / `DerivedData`, `build-for-testing`, `.xctestrun` or
+`.xctestproducts` discovery, prebuilt enumeration JSON, focused
+`test-without-building`, focused `.xcresult`, and source-derived seed selectors
+for the repaired graph-filter tests. It also records the scheme pre-action
+`Patch MLX Metal Warning` / `scripts/patch_mlx_metal_warnings.sh` as part of
+the proof boundary, because release-audit evidence must reject or explicitly
+account for source mutation.
+
+Promotion truth: this is T0 research-to-build canon only. It lands no
+falsifier, runs no Xcode command, changes no product source, loads no
+model/runtime bytes, and does not promote L2/L3/T4. The next buildable unit is
+a Rust metadata primitive that validates the command spec, selector seed list,
+pre-action record, path policy, stale-artifact rejection, nonzero-test
+requirement, rollback, RunEventLog, AnswerPacket, and no large-local-model or
+release-ready promotion.
