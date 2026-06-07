@@ -52,7 +52,7 @@ Accepted rows:
 - Source tree bytes read: `0`
 - Product bytes copied: `0`
 - Benchmark runs: `0`
-- Next research-to-build cursor: `exotic_quant_owner_path_byte_envelope_preflight_gate`
+- Next research-to-build cursor: `exotic_quant_owner_path_byte_envelope_preflight_gate` (now landed downstream as `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`)
 
 ## Non-Promotion Boundary
 
@@ -68,4 +68,4 @@ The red fixtures reject duplicate IDs, missing expected models, bad source-pin r
 
 The large-local-model track is now folding QAT, TurboVec-adjacent compression, TurboQuant-like formats, GGUF, HLWQ, APEX, NVFP4, and AutoRound into Epistemos as research-to-build architecture rather than product hype. This gate makes path policy fail-closed before the system can ever normalize owner-supplied paths, touch local files, or consider command envelopes.
 
-This gate creates the next required proof object: `exotic_quant_owner_path_byte_envelope_preflight_gate`. Only after byte-envelope preflight, crash-safe command envelopes, owner-approved probes, rollback, and visible packets exist can runtime experiments be considered.
+This gate now feeds the landed `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`; the next required proof object is `exotic_quant_crash_safe_command_envelope_preflight_gate`. Only after crash-safe command envelopes, owner-approved probes, rollback, and visible packets exist can runtime experiments be considered.

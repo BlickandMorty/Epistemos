@@ -5163,34 +5163,37 @@ bytes, product bytes, and benchmark runs at zero.
 | ActiveAssembly | No active assembly can wake from owner path intent; policy preflight is not residency or loadability. |
 | Eidos | Path requirements can be surfaced as visible caveats and future packet fields, not hidden route authority. |
 | SCOPE-Rex/SovereignGate | Admission rejects relative paths, tilde/env expansion, parent traversal, unicode control characters, NUL, symlinks, missing allowed roots, file access, hidden authority, and promotion attempts. |
-| RuntimeRouter/System G | Runtime lanes stay unarmed until byte-envelope preflight, crash-safe command envelopes, rollback, and AnswerPacket evidence exist. |
-| RunEventLog/AnswerPacket | Future packets must expose path-policy state, byte envelope, denial/abstention, and zero-byte boundaries before promotion. |
+| RuntimeRouter/System G | Runtime lanes stay unarmed until crash-safe command envelopes, rollback, and AnswerPacket evidence exist. |
+| RunEventLog/AnswerPacket | Future packets must expose path-policy state, byte envelope, command envelope, denial/abstention, and zero-byte boundaries before promotion. |
 
 ### Promotion Truth
 
-- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathCanonicalizationPreflightGate`
+- T1/L1 advanced: yes. `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`
   passes as metadata-only architecture evidence.
 - T2/L2 advanced: no. Product route remains
   `vault_research_route_with_packetized_mitigation`.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: byte-envelope preflight for the three Mac-candidate
-exotic quant rows, because the architecture now has manifest and path-policy
-contracts but still must prove selected bytes cannot exceed the allowed
-envelope or become runtime proof.
+Best breakthrough candidate: crash-safe command-envelope preflight for the
+three Mac-candidate exotic quant rows, because the architecture now has
+manifest, path-policy, and byte-envelope denial contracts but still must prove
+any future command is unarmed, dry-runable, rollbackable, and AnswerPacket-
+visible before runtime work.
 
 Safest next falsifier:
-`F-ExoticQuantOwnerPathByteEnvelopePreflightGate`.
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
 
 Best near-term code unit: add
-`exotic_quant_owner_path_byte_envelope_preflight_gate` so selected artifact
-bytes, owner path policy, app headroom, rollback, and abstention are checked
-before any crash-safe command envelope or runtime probe can be considered.
+`exotic_quant_crash_safe_command_envelope_preflight_gate` so owner path policy,
+byte-envelope denial, rollback, RunEventLog, AnswerPacket, abstention, and dry-
+run command visibility are checked before any owner-approved runtime probe can
+be considered.
 
 Biggest false-claim risk: treating fail-closed path policy as actual owner
 approval, local file existence, path canonicalization success, byte-envelope
-success, loader support, Apple Silicon fit, or first-token proof.
+success, command safety, loader support, Apple Silicon fit, or first-token
+proof.
 
 Biggest missing source: actual owner-approved manifests, allowed-root policy
 inputs, and local file byte envelopes for the three Mac-candidate rows.
@@ -5290,8 +5293,10 @@ Former current best near-term code unit, now landed by Pass 79: add
 manifest format is explicit before any path canonicalization, byte envelope,
 loader lane, command envelope, or runtime probe can begin. Former current best
 near-term code unit, now landed by Pass 80: add
-`exotic_quant_owner_path_canonicalization_preflight_gate`. Current best
-near-term code unit: add `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+`exotic_quant_owner_path_canonicalization_preflight_gate`. Former current best
+near-term code unit, now landed by this pass: add
+`exotic_quant_owner_path_byte_envelope_preflight_gate`. Current best near-term
+code unit: add `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 Biggest false-claim risk: treating pending owner approval as approval, or
 treating an unarmed command envelope as a runtime proof.
@@ -7623,7 +7628,7 @@ access and no runtime promotion.
 Safest next falsifier:
 `F-ExoticQuantOwnerPathManifestIntakeGate` (landed by Pass 79);
 `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` is now landed by Pass 80;
-current next is `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+current next is `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 Best near-term code unit: add
 `exotic_quant_owner_path_manifest_intake_gate` so every owner-provided path
@@ -7720,22 +7725,24 @@ provider calls, source-tree bytes, product bytes, and benchmark runs at zero.
 - T3/L3 advanced: no. No user-facing large-local-model capability is green.
 - T4/T5 green: no.
 
-Best breakthrough candidate: selected byte-envelope preflight for the three
-Mac-candidate exotic quant rows, because the architecture now has manifest and
-fail-closed path-policy contracts but still must prove byte envelopes without
-opening model bytes or making runtime claims.
+Best breakthrough candidate: crash-safe command-envelope preflight for the
+three Mac-candidate exotic quant rows, because the architecture now has
+manifest, fail-closed path-policy, and byte-envelope contracts but still must
+prove dry-run command visibility before opening model bytes or making runtime
+claims.
 
 Safest next falsifier:
-`F-ExoticQuantOwnerPathByteEnvelopePreflightGate`.
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
 
 Best near-term code unit: add
-`exotic_quant_owner_path_byte_envelope_preflight_gate` so selected artifact
-bytes can be checked against owner path policy, hardware headroom, rollback,
-and abstention before command envelopes, runtime probes, or L2/L3 promotion.
+`exotic_quant_crash_safe_command_envelope_preflight_gate` so byte-envelope
+denial can be carried into unarmed commands, dry-run witnesses, rollback,
+RunEventLog, AnswerPacket, and abstention before runtime probes or L2/L3
+promotion.
 
 Biggest false-claim risk: treating a manifest contract as owner approval, local
-file existence, path safety, loader support, Apple Silicon fit, or first-token
-proof.
+file existence, path safety, byte-envelope success, command safety, loader
+support, Apple Silicon fit, or first-token proof.
 
 Biggest missing source: actual owner-approved manifests and an exact policy for
 absolute-path canonicalization, symlink denial, sandbox boundaries, allowed

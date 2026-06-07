@@ -332,7 +332,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > source-tree/product/benchmark bytes at zero, and preserves no-hidden-authority,
 > no-MAS, no-L2/L3, no-live-dense-70B, and no-SSD-as-RAM boundaries. L2 and L3
 > remain unchanged; the next research-to-build unit is
-> `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+> `exotic_quant_crash_safe_command_envelope_preflight_gate` after landed
+> `F-ExoticQuantOwnerPathByteEnvelopePreflightGate` bound selected bytes,
+> current-hardware denial, and zero file/runtime bytes.
+>
+> **2026-06-07 breakthrough research method addendum:** read
+> `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
+> `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` before any
+> large-local-model research pass. The atlas expands Epistemos-native terms
+> into GitHub/fork/arXiv/Hugging Face/official-source queries and requires each
+> useful source to become a source card, falsifier, red fixture, blue-team
+> repair, UAS primitive, runtime harness, or WRV promotion requirement.
 
 ---
 

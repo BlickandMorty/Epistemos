@@ -67,4 +67,4 @@ The red fixtures reject duplicate IDs, missing expected models, bad expected pro
 
 The large-local-model track is now folding QAT, TurboVec-adjacent compression, TurboQuant-like formats, GGUF, HLWQ, APEX, NVFP4, and AutoRound into Epistemos as research-to-build architecture rather than product hype. This gate makes owner manifest intake a typed, byte-accounted, witness-bound contract before the system is allowed to touch a local path.
 
-The downstream `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` has now landed. This gate now feeds the next required proof object: `exotic_quant_owner_path_byte_envelope_preflight_gate`. Only after byte-envelope preflight, crash-safe command envelopes, and owner-approved probes can runtime experiments be considered.
+The downstream `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` and `F-ExoticQuantOwnerPathByteEnvelopePreflightGate` have now landed. This gate now feeds the next required proof object: `exotic_quant_crash_safe_command_envelope_preflight_gate`. Only after crash-safe command envelopes and owner-approved probes can runtime experiments be considered.
