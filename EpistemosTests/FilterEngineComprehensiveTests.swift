@@ -388,10 +388,16 @@ struct FilterEngineNodeVisibilityTests {
     func isNodeVisibleForAllTypes() {
         let engine = FilterEngine()
         
-        for type in GraphNodeType.visibleCases {
+        for type in GraphNodeType.defaultActiveCases {
             let node = FilterTestHelpers.makeNode(id: "test-\(type)", type: type)
             #expect(engine.isNodeVisible(node), "Node of type \(type) should be visible")
         }
+
+        let folderNode = FilterTestHelpers.makeNode(id: "test-folder", type: .folder)
+        #expect(!engine.isNodeVisible(folderNode), "Folder should be graph-visible but default-off")
+
+        engine.setType(.folder, isVisible: true)
+        #expect(engine.isNodeVisible(folderNode), "Folder should become visible after explicit opt-in")
     }
 }
 
@@ -452,8 +458,8 @@ struct FilterEngineCombinedFilterTests {
         let tagNode = FilterTestHelpers.makeNode(id: "tag1", type: .tag)
         let folderNode = FilterTestHelpers.makeNode(id: "folder1", type: .folder)
         
-        // Hide folders, focus on notes and tags
-        engine.toggleType(.folder)
+        // Folder is graph-visible but default-off unless the user opts in.
+        engine.setType(.folder, isVisible: false)
         engine.focusOn(nodeId: "note1", connectedSet: ["note1", "tag1"])
         
         // Note in connected set: visible
@@ -630,6 +636,7 @@ struct FilterEngineTypeFilterSpecificTests {
         // Test that each type can be individually filtered
         for typeToFilter in GraphNodeType.visibleCases {
             let engine = FilterEngine()
+            engine.setActiveNodeTypes(Set(GraphNodeType.visibleCases))
             engine.toggleType(typeToFilter)
             
             for type in GraphNodeType.visibleCases {
@@ -658,6 +665,8 @@ struct FilterEngineComplexScenarioTests {
         let ideaNode = FilterTestHelpers.makeNode(id: "idea-1", type: .idea, label: "Key Insight")
         let chatNode = FilterTestHelpers.makeNode(id: "chat-1", type: .chat, label: "Discussion")
         let quoteNode = FilterTestHelpers.makeNode(id: "quote-1", type: .quote, label: "Important Quote")
+
+        engine.setType(.folder, isVisible: true)
         
         // User wants to see only research-related content
         engine.toggleType(.chat)  // Hide chats
@@ -682,10 +691,13 @@ struct FilterEngineComplexScenarioTests {
         #expect(engine.isNodeVisible(noteNode))
         #expect(engine.isNodeVisible(tagNode))
         #expect(engine.isNodeVisible(sourceNode))
-        #expect(engine.isNodeVisible(folderNode))
+        #expect(!engine.isNodeVisible(folderNode))
         #expect(engine.isNodeVisible(ideaNode))
         #expect(engine.isNodeVisible(chatNode))
         #expect(engine.isNodeVisible(quoteNode))
+
+        engine.setType(.folder, isVisible: true)
+        #expect(engine.isNodeVisible(folderNode))
     }
 }
 
@@ -712,6 +724,8 @@ struct FilterEngineAdditionalTypeTests {
     @Test("hide all then show all")
     func hideAllThenShowAll() {
         let engine = FilterEngine()
+
+        engine.setActiveNodeTypes(Set(GraphNodeType.visibleCases))
         
         // Hide all types
         for type in GraphNodeType.visibleCases {
@@ -721,7 +735,8 @@ struct FilterEngineAdditionalTypeTests {
         
         // Show all
         engine.showAllTypes()
-        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
+        #expect(!engine.activeNodeTypes.contains(.folder))
     }
     
     @Test("specific type visibility - note")
@@ -773,8 +788,11 @@ struct FilterEngineAdditionalTypeTests {
         let engine = FilterEngine()
         let node = FilterTestHelpers.makeNode(id: "n1", type: .folder)
         
-        #expect(engine.isNodeVisible(node))
+        #expect(!engine.isNodeVisible(node))
         
+        engine.toggleType(.folder)
+        #expect(engine.isNodeVisible(node))
+
         engine.toggleType(.folder)
         #expect(!engine.isNodeVisible(node))
     }

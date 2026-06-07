@@ -3863,6 +3863,26 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   new falsifier landed, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing large-
   local-model capability remains red.
+- 2026-06-07 graph-filter visibility test patch checkpoint: Deep Research
+  Pass 121 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` records the
+  focused test repair after the Pass 120 packet. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor,
+  Pro contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. The patch touches only graph-filter tests:
+  `FilterEngineComprehensiveTests.swift`, `ResourceExhaustionTests.swift`, and
+  `ConcurrencyEdgeCaseTests.swift` now preserve the existing product contract
+  that `.folder` is graph-visible but default-off unless explicitly opted in.
+  No product source changed. `git diff --check`, doctrine lint, and the guard
+  passed; the capability kernel remains red with next bottleneck
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+  The first Xcode command built but executed zero tests due to a selector
+  mismatch, and the second suite-selector run was stopped after a long compile
+  before reliable test execution evidence existed. L1 cursor did not advance,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3/release
+  readiness remains red until a real focused graph-filter execution and then
+  the full automated-check row pass.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

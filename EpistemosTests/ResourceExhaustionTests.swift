@@ -728,8 +728,16 @@ struct ResourceEdgeCaseTests {
     func filterAllTypesActive() {
         let filter = FilterEngine()
         
-        #expect(filter.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+        #expect(filter.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
         
+        for type in GraphNodeType.defaultActiveCases {
+            #expect(filter.activeNodeTypes.contains(type))
+        }
+        #expect(!filter.activeNodeTypes.contains(.folder))
+
+        filter.setActiveNodeTypes(Set(GraphNodeType.visibleCases))
+        #expect(filter.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+
         for type in GraphNodeType.visibleCases {
             #expect(filter.activeNodeTypes.contains(type))
         }

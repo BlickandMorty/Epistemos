@@ -4599,3 +4599,24 @@ patch, opens no runtime/model bytes, and does not promote L2/L3/T4. The safe
 next build unit is a focused test repair that preserves folder opt-in semantics,
 then focused Swift test logs, then full `xcodebuild_test` rerun before release
 or model-route capability can move.
+
+### §28.12 Graph-filter visibility test patch checkpoint (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 121.
+
+Pass 121 records the first focused implementation checkpoint after the
+graph-filter visibility repair packet. The patch changes only test expectations
+in `FilterEngineComprehensiveTests.swift`, `ResourceExhaustionTests.swift`, and
+`ConcurrencyEdgeCaseTests.swift`: `folder` remains graph-visible but default-off
+unless explicitly opted in, and `defaultActiveCases` remains distinct from
+`visibleCases`.
+
+Promotion truth: this is a release-audit repair checkpoint, not an architecture
+cursor advance or product capability proof. `git diff --check`, doctrine lint,
+and the regenerated guard passed; the capability kernel remains red with
+`next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+The initial focused Xcode command built but executed zero tests because the
+selector targeted a filename, and the later suite-selector run was stopped
+before reliable execution evidence existed. L2/L3/T4 remain red until a real
+focused graph-filter test log and then the full automated-check row pass.
