@@ -11173,3 +11173,177 @@ Sources:
   `https://github.com/google-ai-edge/gallery/issues/692`
 - LiteRT-LM Gemma 4 E2B field report:
   `https://github.com/google-ai-edge/LiteRT-LM/issues/2202`
+
+## Deep Research Pass 108 - Body Read Freshness Envelope For Large-Model Replay
+
+### Executive Synthesis
+
+This pass answers the Pass 107 research query: the large-model lane cannot
+measure model quality against a note unless the prompt, body read,
+readable-block projection, graph/evidence bundle, and reusable KV/cache prefix
+all carry the same freshness envelope. Otherwise Gemma QAT, GGUF, LiteRT, MLX,
+TurboVec, vLLM/LMCache, or any future cold-assembly route can look good on a
+stale context and silently mutate the product story.
+
+The research-to-build conclusion is:
+`F-BodyReadChecksum-ReleaseBlockerCard` should become the freshness root for
+the later Gemma QAT lane tournament. It should not just say "body checksum
+exists." It should bind every model replay fixture to the exact note/body
+source-of-truth order, body bytes or text digest, readable-block projection
+digest, graph/evidence digest, editor snapshot sequence, prompt assembly digest,
+cache salt lineage, RunEventLog, AnswerPacket, rollback, and non-promotion
+flags. Cache reuse is only safe when the cache key includes the current
+Epistemos evidence identity, not merely the model tokens.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Local Canon And Code Anchors
+
+| Source | Current evidence | Build implication |
+|---|---|---|
+| `agent_core/src/uas/release_audit_failure_family_source_card.rs` | The release-audit family map already names `body_read_checksum` and routes it to `F-BodyReadChecksum-ReleaseBlockerCard`. | The next card is legitimate guard/backlog work, not a new parallel authority. |
+| `agent_core/src/uas/runtime_performance_policy_release_blocker_card.rs` | Runtime performance policy points its next source-card unit to `body_read_checksum_release_blocker_card`. | Freshness is the handoff between runtime stability and trustworthy answer quality. |
+| `Epistemos/Models/SDPage.swift` | `loadBodyAsyncFromPrimitives` preserves managed sidecar first, R.3 resource resolve/read second, inline body third, raw vault file fourth. | The source-of-truth order must be recorded in the witness so a runtime cannot compare outputs from a different body read path. |
+| `EpistemosTests/PhaseR3BodyReadParityTests.swift` | Existing tests prove gateway/file parity, multibyte UTF-8 parity, front-matter behavior, and independent sha256 matching. | The falsifier can reuse this evidence shape but must add release-audit/body-to-model replay bindings. |
+| `Epistemos/Engine/EpdocDocument.swift` | Successful EPDoc autosave projects readable blocks and graph state asynchronously; failures are logged and retried. | The witness must distinguish fresh body text from fresh searchable/readable/graph projection. |
+| `Epistemos/State/NoteChatState.swift` and `ProseEditorRepresentable2.swift` | Live note chat pulls current editor text through `noteBodyProvider`, builds a 4000-character snippet, indexes instant recall, and streams through triage/reasoning. | The live product path needs prompt assembly digest and editor snapshot sequence so tests know which note state the model saw. |
+| `Epistemos/Views/Notes/AIPartnerService.swift` | Partner context already reads through the managed-sidecar-first helper and builds weighted graph context. | A reusable freshness envelope can cover both note chat and partner context. |
+
+### External Research Signal
+
+vLLM automatic prefix caching uses hash-based KV block identity over block
+tokens and previous-prefix tokens; its stable docs also document request-level
+cache salting for privacy isolation. This maps cleanly to Epistemos:
+`cache_salt` should be derived from a private route/session/evidence salt plus
+the body/readable-block/graph/prompt digests, not from raw text.
+
+LMCache local storage treats CPU RAM and local disk as explicit KV offload
+stores, with token chunks, configured disk capacity, file-per-chunk storage,
+LRU eviction, asynchronous put, blocking get, and prefetch. This is useful for
+ColdStore/AppColdStore only if the chunk identity carries freshness and
+rollback; otherwise disk KV becomes a hidden stale route authority.
+
+Prompt Cache research makes reusable text segments schema-defined prompt
+modules with positional accuracy. Epistemos should treat readable blocks,
+Eidos citations, selected graph neighborhoods, system templates, and note
+snippets as named prompt modules with digests, not as an opaque string.
+
+### Required Freshness Envelope Fields
+
+`F-BodyReadChecksum-ReleaseBlockerCard` should require:
+
+- page id, artifact id, vault id, optional file path digest, and source lane:
+  managed sidecar, R.3 resource gateway, inline body, raw vault file, EPDoc,
+  editor snapshot, or test fixture;
+- body digest with algorithm label, body byte count, normalized text count,
+  multibyte/unicode fixture marker, front-matter policy, and empty/blank body
+  policy;
+- editor snapshot sequence or monotonic mutation counter where live editor text
+  is used instead of disk text;
+- readable-block projection digest, readable-block row count, projection
+  timestamp or sequence, and projection status: fresh, missing, stale, failed,
+  or retried;
+- graph/evidence digest, selected node/edge counts, Eidos citation digest,
+  instant-recall index digest, and graph projection status;
+- prompt assembly digest covering system template id, user query digest,
+  selected note snippet range, selected blocks, selected graph/evidence, model
+  lane id, tokenizer/template id, and truncation policy;
+- cache lineage: prefix/module digest, cache salt digest, KV reuse allowed bool,
+  reused-token count, invalidated-token count, cache storage class, and
+  eviction/prefetch status;
+- privacy surface: no raw prompt, no raw body, no raw model token, no hidden
+  chain, no provider call, no hidden route authority;
+- rollback, RunEventLog, AnswerPacket, abstention reason, and explicit T0/T1
+  non-promotion.
+
+### Red Fixtures To Add
+
+- `body_digest_missing`
+- `body_digest_algorithm_unlabeled`
+- `managed_sidecar_ignored`
+- `r3_gateway_drift_from_file_bytes`
+- `inline_body_used_when_sidecar_exists`
+- `blank_managed_body_overridden_by_inline_body`
+- `front_matter_policy_unrecorded`
+- `unicode_digest_drift`
+- `editor_snapshot_sequence_missing`
+- `note_body_provider_stale_after_edit`
+- `readable_block_projection_missing_but_claimed_fresh`
+- `readable_block_digest_mismatch`
+- `graph_projection_digest_missing`
+- `instant_recall_reindexed_without_body_digest`
+- `prompt_assembly_digest_missing`
+- `snippet_truncation_unrecorded`
+- `cache_salt_missing`
+- `kv_cache_reused_across_different_body_digest`
+- `kv_cache_reused_across_different_graph_digest`
+- `cache_hit_claim_without_reused_token_count`
+- `model_quality_fixture_without_body_freshness`
+- `answer_packet_missing_freshness_caveat`
+- `raw_body_or_prompt_leaked_in_artifact`
+
+### Architecture Fusion
+
+| Organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Every body read and replay fixture gets an addressable freshness identity, not just a page id. |
+| ColdStore/AppColdStore | Reusable prompt/KV/cache modules are cold material until their body/readable-block/graph digests match the current route. |
+| ActiveAssembly | The waking set includes only evidence modules whose freshness envelope matches the current editor/body state. |
+| Eidos | Citations and recall snippets become digest-bound evidence, not free text copied into the prompt. |
+| SCOPE-Rex/SovereignGate | Admission denies stale body, stale readable blocks, stale graph evidence, missing cache salt, and hidden prompt mutation. |
+| RuntimeRouter/System G | Gemma QAT/GGUF/LiteRT/MLX lane tournaments must replay identical freshness envelopes before comparing quality or speed. |
+| RunEventLog/AnswerPacket | The answer must expose freshness ids, caveats, selected source lane, cache reuse status, and rollback. |
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no new falsifier landed in this pass.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: treat prompt/cache reuse as a typed, digest-bound
+freshness graph. That lets Epistemos reuse large-model context aggressively
+without letting stale note text, stale graph evidence, or stale KV blocks become
+hidden authority.
+
+Safest next falsifier: `F-BodyReadChecksum-ReleaseBlockerCard`, because it is
+the release-audit blocker already named by local canon and it can make the
+later Gemma QAT source-card replay trustworthy.
+
+Best near-term code unit: implement a metadata-only body-read freshness card
+that consumes the release-audit family source card and runtime-performance
+blocker, enumerates the existing Swift source refs/tests above, and rejects
+the red fixtures without loading model/runtime bytes.
+
+Biggest false-claim risk: treating Phase R.3 body read parity as sufficient
+for model replay. It proves an important read path, but it does not prove the
+model saw the same editor snapshot, readable-block projection, graph evidence,
+prompt assembly, or KV/cache prefix.
+
+Biggest missing source: a single product RunEventLog/AnswerPacket schema that
+records body digest, prompt digest, graph/evidence digest, and cache reuse
+lineage for the small-model runtime harness.
+
+Next research query: "Which exact Rust primitive fields and invalid fixtures
+should implement `F-BodyReadChecksum-ReleaseBlockerCard` without touching
+product runtime or loading model bytes?"
+
+Sources:
+
+- Local `agent_core/src/uas/release_audit_failure_family_source_card.rs`
+- Local `agent_core/src/uas/runtime_performance_policy_release_blocker_card.rs`
+- Local `Epistemos/Models/SDPage.swift`
+- Local `EpistemosTests/PhaseR3BodyReadParityTests.swift`
+- Local `Epistemos/Engine/EpdocDocument.swift`
+- Local `Epistemos/State/NoteChatState.swift`
+- Local `Epistemos/Views/Notes/AIPartnerService.swift`
+- vLLM automatic prefix caching:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+- LMCache local storage:
+  `https://docs.lmcache.ai/kv_cache/local_storage.html`
+- Prompt Cache MLSys 2024 paper:
+  `https://proceedings.mlsys.org/paper_files/paper/2024/file/a66caa1703fe34705a4368c3014c1966-Paper-Conference.pdf`
