@@ -5226,6 +5226,143 @@ GGUF/llama.cpp, LiteRT-LM, MLX, and Transformers lanes while proving prompt
 privacy, output privacy, memory deltas, cancellation, rollback, no hidden route
 authority, and no product promotion?"
 
+## Pass 90 - Redacted First-Token Artifact Schema
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 90 converts the Pass 89 next query into a concrete artifact schema for
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate`. The goal is not to run a
+model. The goal is to define the exact evidence shape that would make a later
+owner-approved first-token attempt safe, private, abortable, memory-accounted,
+rollbackable, and visibly non-promoting across GGUF/llama.cpp, LiteRT-LM,
+MLX/MLX Swift, and Transformers-style lanes.
+
+Local canon already has the strongest precedent: the small-model runtime
+harness stores redacted token evidence as a digest such as `token_sha256:*`,
+then requires AnswerPacket and RunEventLog correlation before any L3-source or
+product-facing claim. The exotic-quant side ladder must reuse that discipline
+while remaining stricter because these candidates are larger, less proven, or
+server/GPU-only.
+
+External lane facts sharpen the schema. `llama-cli` has explicit model path,
+prompt, token count, context, GPU-layer, prompt-display, and log/timing flags;
+therefore the future GGUF envelope must deny hidden Hugging Face download
+flags, require `--predict 1`-style one-token budgets, suppress prompt display,
+and cap logs. `mlx-swift-lm` exposes a native `ChatSession`/model-container
+style path and integrates downloader/tokenizer packages, so the Swift lane
+needs local-only downloader/tokenizer proof and serialized executor/cancellation
+proof instead of subprocess assumptions. LiteRT cancellation APIs and Swift
+Subprocess output/teardown docs reinforce that cancellation, output byte limits,
+and graceful-to-forced teardown must be first-class artifact fields, not prose.
+
+### Required Artifact Fields
+
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate` should require at least
+these fields before any live first-token attempt is even considered:
+
+| Field group | Required fields | Rejection reason |
+|---|---|---|
+| Identity | falsifier id, source card id, model id, selected artifact id, revision, runtime lane, ProductBuild, ProStatus | prevents rowid, filename, or runtime-lane laundering |
+| Owner lease | owner approval id, approval timestamp, allowed root, path-manifest ref, byte-envelope ref, dry-run transcript ref | prevents surprise path opens or stale approval |
+| Prompt privacy | prompt template id, prompt digest, prompt byte count, no raw prompt text, no hidden chain text | prevents prompt leakage |
+| Token privacy | first token digest, token byte count, redaction marker, no raw token text, no stdout/stderr token copy | prevents output leakage |
+| Runtime bounds | predict/max-new-tokens = 1, context cap, batch cap, temperature/seed policy, timeout, cancellation token, teardown sequence | prevents unbounded generation |
+| Memory bounds | memory before/start/first-token/after-cancel samples, selected bytes, resident bytes, KV bytes, runtime workspace estimate | prevents "file size equals fit" |
+| Lane caveats | GGUF/llama.cpp flags, MLX native API plan, LiteRT API plan, Transformers quarantine plan, server/GPU denial where applicable | prevents lane-specific hidden authority |
+| Evidence refs | RunEventLog ref, AnswerPacket ref, rollback ref, abstention ref, compatibility fence ref, source refs | prevents invisible success |
+| Non-promotion | L1-only flag, L2 unchanged, L3 unchanged, MAS denial/default-off where applicable, no live dense 70B, no SSD-as-RAM | prevents false green claims |
+
+### Red Fixtures To Carry Into Code
+
+- raw prompt text present
+- raw first token present
+- stdout/stderr contains prompt or token text
+- first-token digest missing, malformed, or copied from prose
+- `predict` greater than 1 or unbounded generation
+- hidden `--hf-repo`, downloader, provider, server, or network flag
+- context, batch, cache, mmap, mlock, or GPU-layer setting over budget
+- memory sample missing before, during, or after cancellation
+- cancellation or teardown absent
+- AnswerPacket or RunEventLog missing
+- server/GPU-only row attempts a Mac first-token probe
+- owner approval stale, missing, or not bound to the dry-run transcript
+- token digest appears without rollback and abstention evidence
+- any L2/L3/product/user-facing promotion flag appears
+
+### Buildable Falsifier Shape
+
+Mechanism: consume
+`F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`, emit five first-token
+preflight cards, deny the two server/GPU-only rows, and keep all execution
+counts at zero. A PASS should mean the first-token artifact shape is safe to
+ask for later, not that a token has been generated.
+
+Epistemos organs:
+
+- UAS/OAS: deterministic first-token preflight address per model/lane.
+- ColdStore/AppColdStore: model bytes remain cold and non-resident.
+- ActiveAssembly: no assembly wakes from schema proof alone.
+- Eidos: source and lane caveats become visible evidence only.
+- SCOPE-Rex/SovereignGate: rejects privacy leaks, unbounded execution, hidden
+  authority, and promotion.
+- RuntimeRouter/System G: stays unarmed until owner-approved runtime work.
+- RunEventLog/AnswerPacket: future runtime evidence must be packet-visible and
+  log-correlated.
+
+### Promotion Truth
+
+- T1/L1 advanced: no new falsifier landed in Pass 90. This is T0 canon/backlog
+  pressure only.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: implement
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate` as metadata-only L1/T1,
+because it gives the large-model side ladder a safe bridge from dry-run
+transcripts to future owner-approved runtime proof.
+
+Safest next falsifier: `F-ExoticQuantRedactedFirstTokenProbePreflightGate`.
+
+Best near-term code unit: add the redacted first-token preflight primitive,
+falsifier binary, script, schema axes, validator id, witness doc, handbook row,
+Living Index row, lattice hook, and guard/kernel references while keeping
+runtime execution, model bytes, stdout/stderr capture, and product promotion at
+zero.
+
+Biggest false-claim risk: calling a first-token schema a first-token run, or
+calling a first-token digest product capability without same-fixture quality,
+memory, cancellation, AnswerPacket, RunEventLog, WRV, and build-green proof.
+
+Biggest missing source: owner-approved local manifests and one retained tiny
+first-token log packet that can be used as the exact redaction/correlation
+template for the exotic preflight without touching large model bytes.
+
+Next research query: "Which fields should the metadata-only
+`F-ExoticQuantRedactedFirstTokenProbePreflightGate` validate first so a later
+owner-approved first-token runtime probe cannot leak prompt/output text,
+overrun memory, hide a provider/server, or promote L2/L3?"
+
+Sources:
+
+- `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 83,
+  Pass 89, and small-model runtime references
+- `docs/falsifiers/F-SmallModelRuntimeHarnessFirstTokenRuntimeProbe_2026_06_05.md`
+- `docs/falsifiers/F-SmallModelRuntimeHarnessAnswerPacketRuntimeProbe_2026_06_05.md`
+- `docs/falsifiers/F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate_2026_06_07.md`
+- https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md
+- https://github.com/ml-explore/mlx-swift-lm
+- https://developers.google.com/edge/api/litert/c/classlitert/1-1-compiled-model
+- https://github.com/swiftlang/swift-subprocess
+
 Sources:
 
 - `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`

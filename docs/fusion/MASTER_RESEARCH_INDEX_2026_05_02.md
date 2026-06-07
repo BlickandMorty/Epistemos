@@ -117,6 +117,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `/Users/jojo/Downloads` research leads. This is T0 canon/backlog only: no
 > model/runtime/KV/index bytes, no SSD-as-RAM claim, no hidden route authority,
 > and no L2/L3 promotion.
+> Deep Research Pass 90 then specifies the metadata-only redacted first-token
+> artifact schema for `F-ExoticQuantRedactedFirstTokenProbePreflightGate`:
+> model/source identity, owner lease, prompt digest with no raw prompt, first
+> token digest with no raw token, one-token runtime bounds, memory samples,
+> lane caveats for GGUF/llama.cpp, MLX, LiteRT, and Transformers, RunEventLog,
+> AnswerPacket, rollback, abstention, and explicit non-promotion. This is T0
+> canon/backlog only; it does not run a model, capture a token, or advance
+> L2/L3.
 > Deep Research Pass 61 turns that cluster into an implementable
 > `F-KVRuntimeSourceCard` blueprint, and Pass 62 lands it as a T1/L1
 > metadata-only witness at
