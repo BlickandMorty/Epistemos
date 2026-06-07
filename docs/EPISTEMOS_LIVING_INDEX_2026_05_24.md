@@ -3921,6 +3921,24 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   executed, no L1 cursor advance, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3/release readiness
   remains red.
+- 2026-06-07 Epistemos test-products command spec canon: Deep Research Pass
+  124 in `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+  defines `F-GraphFilterVisibilityTestProductsCommandSpec` as the exact
+  command/discovery source card before any build-for-testing proof is run.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass binds
+  `Epistemos.xcodeproj`, scheme `Epistemos`, `EpistemosTests.xctest`,
+  destination `platform=macOS`, explicit `PROOF_ROOT` and `DerivedData`, the
+  scheme pre-action `Patch MLX Metal Warning`, source-derived seed selectors
+  for the repaired graph-filter tests, `.xctestrun`/`.xctestproducts`
+  discovery, enumeration JSON, focused `.xcresult`, nonzero executed-test
+  proof, source-status digests, and pre-action mutation rejection. This is T0
+  canon/research-to-build only: no product code changed, no Xcode build/test
+  run, no model/runtime bytes loaded, no L1 cursor advance, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3/release readiness
+  remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
