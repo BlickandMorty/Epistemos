@@ -203,6 +203,29 @@ Current 2026-06-07 large-local-model research-to-build status:
   artifact availability, runtime load, Apple Silicon fit, product default, or
   user-facing capability. The next large-local-model research-to-build unit is
   `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+- `F-ExoticQuantOwnerPathByteEnvelopePreflightGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json`.
+  It consumes the owner path-canonicalization preflight gate, accepts 5 byte-
+  envelope preflight cards, denies Jojo's current M2 Pro 16 GB hardware for all
+  five rows, marks 3 Mac-candidate rows as requiring 24-32 GB class headroom
+  before owner-approved probes, denies 2 server/GPU rows on Mac, rejects 61 red
+  fixtures, binds selected artifact bytes `96318502063` and maximum minimum UMA
+  bytes `39108307031`, keeps selected bytes non-resident, opens no paths or
+  files, makes no stat/hash/symlink calls, arms no commands, loads zero
+  model/runtime/provider/source-tree/product/benchmark bytes, and still does
+  not prove owner approval, local artifact availability, runtime load, Apple
+  Silicon fit, product default, or user-facing capability. The next large-local-
+  model research-to-build unit is
+  `exotic_quant_crash_safe_command_envelope_preflight_gate`.
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` are now part
+  of the large-model research gate. Future research passes must mine local
+  canon plus Downloads-folder research, then use GitHub/fork, Hugging Face,
+  arXiv, Google/Apple/official-source, red-team, and blue-team keyword families
+  to produce buildable outputs: source cards, falsifiers, red fixtures,
+  blue-team repairs, UAS primitives, runtime harnesses, or WRV promotion
+  requirements. Keyword research alone is not promotion evidence.
 - The guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 remains `vault_research_route_with_packetized_mitigation`; L3

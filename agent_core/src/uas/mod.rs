@@ -43,6 +43,7 @@ pub mod construction_card;
 pub mod copy_counter;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
+pub mod exotic_quant_owner_path_byte_envelope_preflight_gate;
 pub mod exotic_quant_owner_path_canonicalization_preflight_gate;
 pub mod exotic_quant_owner_path_manifest_intake_gate;
 pub mod exotic_quant_quarantine_route_card;
@@ -229,6 +230,15 @@ pub use exotic_quant_owner_path_canonicalization_preflight_gate::{
     OwnerPathCanonicalizationProofRefs, OwnerPathCanonicalizationState,
     EXOTIC_QUANT_OWNER_PATH_CANONICALIZATION_PREFLIGHT_GATE_CURSOR,
     EXOTIC_QUANT_OWNER_PATH_CANONICALIZATION_PREFLIGHT_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_owner_path_byte_envelope_preflight_gate::{
+    canonical_owner_path_byte_envelope_preflight_cards, OwnerPathByteEnvelopeAction,
+    OwnerPathByteEnvelopeLedgerBytes, OwnerPathByteEnvelopePolicy,
+    OwnerPathByteEnvelopePreflightCard, OwnerPathByteEnvelopePreflightError,
+    OwnerPathByteEnvelopePreflightLedger, OwnerPathByteEnvelopePreflightMetrics,
+    OwnerPathByteEnvelopeProofRefs, OwnerPathByteEnvelopeState,
+    EXOTIC_QUANT_OWNER_PATH_BYTE_ENVELOPE_PREFLIGHT_GATE_CURSOR,
+    EXOTIC_QUANT_OWNER_PATH_BYTE_ENVELOPE_PREFLIGHT_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,

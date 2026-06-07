@@ -47,6 +47,8 @@ Required current reads for that domain:
 - `docs/fusion/MMAP_REPLACEMENT_AND_HOTPATH_CURE_ATLAS_2026_06_01.md`
 - `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
 - `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
 
 The current lock is ambitious but falsifier-gated:
 - Model size is cold material, not a live-RAM promise. UAS makes model, KV,
@@ -118,8 +120,13 @@ Runtime policy:
   shape rejection, zero owner path bytes stored, zero file access, rollback,
   RunEventLog, AnswerPacket, and abstention. They do not prove model load,
   local artifact availability, owner path safety, Apple Silicon fit, product
-  default, or user-facing capability. The next research-to-build unit is
-  `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+  default, or user-facing capability.
+- The downstream `F-ExoticQuantOwnerPathByteEnvelopePreflightGate` is now
+  landed as metadata-only L1/T1: it recomputes selected byte envelopes, denies
+  Jojo's current 16 GB M2 Pro hardware for all five exotic rows, keeps selected
+  bytes non-resident, opens zero files, arms zero commands, and makes no MAS,
+  L2, L3, live dense 70B, or SSD-as-RAM claim. The next side-ladder unit is
+  `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

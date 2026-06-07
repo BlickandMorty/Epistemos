@@ -514,8 +514,7 @@ remain mandatory. It does not prove local artifact availability, loader import,
 first token, quality, Apple Silicon fit, product default, L2/L3 product
 capability, or live dense 70B. Its downstream local artifact availability and
 owner path-manifest intake and owner path-canonicalization preflight gates have
-landed; the next large-local-model research-to-build unit is now
-`exotic_quant_owner_path_byte_envelope_preflight_gate`.
+landed; the downstream byte-envelope preflight unit is now landed; the next large-local-model research-to-build unit is `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 2026-06-07 exotic quant local artifact availability promotion note:
 `F-ExoticQuantLocalArtifactAvailabilityOwnerGate` is T1/L1 only. It strengthens
@@ -529,9 +528,10 @@ AnswerPacket, abstention, and zero owner-manifest/model/runtime/provider/
 source-tree/product/benchmark bytes remain mandatory. It does not prove local
 artifact availability, owner approval, path safety, loader import, first token,
 quality, Apple Silicon fit, product default, L2/L3 product capability, or live
-dense 70B. Its downstream owner path-manifest intake and owner
-path-canonicalization preflight gates have landed; the next large-local-model
-research-to-build unit is `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+dense 70B. Its downstream owner path-manifest intake, owner
+path-canonicalization preflight, and owner path byte-envelope preflight gates
+have landed; the next large-local-model research-to-build unit is
+`exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 2026-06-07 exotic quant owner path-manifest intake promotion note:
 `F-ExoticQuantOwnerPathManifestIntakeGate` is T1/L1 only. It strengthens the
@@ -547,9 +547,9 @@ loaded; and rollback, RunEventLog, AnswerPacket, abstention, and no-hidden-
 authority proof remain mandatory. It does not prove local artifact
 availability, owner approval, path safety, loader import, first token, quality,
 Apple Silicon fit, product default, L2/L3 product capability, or live dense 70B.
-Its downstream owner path-canonicalization preflight gate has landed; the next
-large-local-model research-to-build unit is
-`exotic_quant_owner_path_byte_envelope_preflight_gate`.
+Its downstream owner path-canonicalization preflight and owner path byte-
+envelope preflight gates have landed; the next large-local-model research-to-
+build unit is `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 2026-06-07 exotic quant owner path-canonicalization preflight promotion note:
 `F-ExoticQuantOwnerPathCanonicalizationPreflightGate` is T1/L1 only. It
@@ -567,8 +567,26 @@ canonicalization, file access, commands, model/runtime/provider/source-tree/
 product, and benchmark bytes remain zero. It does not prove owner approval,
 local artifact availability, actual path safety, byte-envelope success, loader
 import, first token, quality, Apple Silicon fit, product default, L2/L3 product
-capability, or live dense 70B. The next large-local-model research-to-build unit
-is `exotic_quant_owner_path_byte_envelope_preflight_gate`.
+capability, or live dense 70B. Its downstream byte-envelope preflight gate has
+landed; the next large-local-model research-to-build unit is
+`exotic_quant_crash_safe_command_envelope_preflight_gate`.
+
+2026-06-07 exotic quant owner path byte-envelope preflight promotion note:
+`F-ExoticQuantOwnerPathByteEnvelopePreflightGate` is T1/L1 only. It
+strengthens the architecture in favor of larger local models by recomputing
+declared byte envelopes after fail-closed path policy and before owner path,
+file access, command envelopes, runtime probes, or product-route claims can
+begin: all five rows deny Jojo's current M2 Pro 16 GB hardware envelope, three
+Mac-candidate rows require 24-32 GB class headroom before owner-approved
+probes, two server/GPU rows are denied on Mac, selected artifact bytes
+`96318502063` and maximum minimum UMA bytes `39108307031` stay bound, and
+selected bytes cannot become resident/runtime proof. It opens no paths or
+files, makes no stat/hash/symlink calls, arms no commands, loads zero
+model/runtime/provider/source-tree/product/benchmark bytes, and does not prove
+owner approval, local artifact availability, crash-safe command safety, loader
+import, first token, quality, Apple Silicon fit, product default, L2/L3 product
+capability, or live dense 70B. The next large-local-model research-to-build
+unit is `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 
 ## Required Surface Updates
 
