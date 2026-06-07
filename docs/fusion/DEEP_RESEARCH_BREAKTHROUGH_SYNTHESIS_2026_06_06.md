@@ -11347,3 +11347,245 @@ Sources:
   `https://docs.lmcache.ai/kv_cache/local_storage.html`
 - Prompt Cache MLSys 2024 paper:
   `https://proceedings.mlsys.org/paper_files/paper/2024/file/a66caa1703fe34705a4368c3014c1966-Paper-Conference.pdf`
+
+## Deep Research Pass 109 - BodyReadChecksum Falsifier Implementation Blueprint
+
+### Executive Synthesis
+
+This pass turns the Pass 108 freshness envelope into a direct coding blueprint
+for `F-BodyReadChecksum-ReleaseBlockerCard`. The goal is a metadata-only L1/T1
+source-card witness that can be implemented without touching product runtime,
+loading model bytes, reading user note contents, or running a heavy Swift
+release suite. The witness should consume the already-landed
+`F-RuntimePerformancePolicy-ReleaseBlockerCard` artifact and the retained
+`body_read_checksum` release-audit family card, then bind exact Swift source
+refs, focused commands, invariants, red fixtures, and deterministic address
+inputs.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Files To Add Or Update In The Coding Pass
+
+| File | Required change |
+|---|---|
+| `agent_core/src/uas/body_read_checksum_release_blocker_card.rs` | New UAS primitive, card, metrics, witness, source-ref/invariant helpers, deterministic address, invalid-fixture tests. |
+| `agent_core/src/uas/mod.rs` | Export the new primitive and helpers. |
+| `agent_core/src/bin/falsify_body_read_checksum_release_blocker_card.rs` | New metadata-only falsifier binary that reads upstream artifacts, builds witness, emits axes, and writes result JSON. |
+| `agent_core/src/falsifier_artifacts/axes.rs` | Add `BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_AXES`. |
+| `agent_core/Cargo.toml` | Add the new binary target if this repo's binary discovery requires explicit listing. |
+| `Tools/falsifiers/f_body_read_checksum_release_blocker_card.sh` | New shell wrapper matching existing falsifier wrapper style. |
+| `docs/falsifiers/F-BodyReadChecksum-ReleaseBlockerCard_2026_06_07.md` | New witness page with L1/L2/L3 truth separation. |
+| `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` | Add command map, artifact root, and axis-contract row. |
+| `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md` | Add PASS row only after artifact exists and validates. |
+| `agent_core/src/bin/architecture_pending_work_guard.rs` and `capability_ceiling_evaluation_kernel.rs` | Add/advance side-card axis consumption only after the witness is emitted. |
+| `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`, `MASTER_RESEARCH_INDEX`, lattice HTML | Sync S0 surfaces in the same commit. |
+
+### Rust Primitive Shape
+
+Suggested core constants:
+
+- `BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_ID =
+  "F-BodyReadChecksum-ReleaseBlockerCard"`
+- `BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_CURSOR =
+  "body_read_checksum_release_blocker_card"`
+- `BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_NEXT_CURSOR =
+  "search_index_release_blocker_card"` or the guard-owned next family if the
+  regenerated source-card ladder says otherwise.
+- `BODY_READ_CHECKSUM_UPSTREAM_REF =
+  "artifact:falsifiers/runtime_performance_policy_release_blocker_card/result.json#F-RuntimePerformancePolicy-ReleaseBlockerCard"`
+- `BODY_READ_CHECKSUM_FAMILY_SOURCE_REF =
+  "artifact:falsifiers/release_audit_failure_family_source_card/result.json#body_read_checksum"`
+
+Required enums:
+
+- `BodyReadChecksumOrgan`: `BodyRead`, `ResourceGateway`, `ReadableBlocks`,
+  `EditorSnapshot`, `GraphEvidence`, `PromptAssembly`, `CacheLineage`.
+- `BodyReadChecksumStatus`: `RedReleaseBlocker`.
+- `BodyReadSourceLane`: `ManagedSidecar`, `R3ResourceGateway`, `InlineBody`,
+  `RawVaultFile`, `EpdocPackage`, `EditorSnapshot`, `TestFixture`.
+- `ProjectionFreshnessStatus`: `Fresh`, `Missing`, `Stale`, `Failed`,
+  `RetryScheduled`.
+- `CacheReusePolicy`: `Denied`, `AllowedWithMatchingSalt`,
+  `QuarantineResearchOnly`.
+
+Required card fields:
+
+- `family_id`, `issue_count`, `organ`, `status`, `source_refs`,
+  `focused_commands`, `required_invariants`;
+- `body_source_lanes`, `projection_statuses`, `cache_reuse_policy`;
+- `body_digest_required`, `body_digest_algorithm_label_required`,
+  `body_byte_count_required`, `normalized_text_count_required`;
+- `editor_snapshot_sequence_required`,
+  `readable_block_projection_digest_required`,
+  `graph_evidence_digest_required`, `prompt_assembly_digest_required`,
+  `cache_salt_digest_required`;
+- `managed_sidecar_first_required`, `r3_gateway_parity_required`,
+  `blank_managed_body_authoritative`, `front_matter_policy_required`,
+  `unicode_digest_fixture_required`;
+- `no_raw_body_in_artifact`, `no_raw_prompt_in_artifact`,
+  `no_raw_model_token_in_artifact`, `no_hidden_chain`,
+  `no_hidden_cache_authority`, `no_provider_call`;
+- `body_bytes_read`, `model_runtime_bytes_loaded`, `cache_bytes_reused`,
+  `provider_calls_made`;
+- `rollback_ref`, `run_event_log_ref`, `answer_packet_ref`;
+- `l2_green_claimed`, `l3_green_claimed`, `product_green_claimed`,
+  `live_dense_70b_claimed`.
+
+Required metrics:
+
+- `issue_count`
+- `source_ref_count`
+- `focused_command_count`
+- `invariant_count`
+- `source_lane_count`
+- `projection_status_count`
+- `red_fixture_rejection_count`
+- `body_bytes_read_total`
+- `model_runtime_bytes_loaded`
+- `cache_bytes_reused`
+- `provider_calls_made`
+
+### Required Source Refs
+
+The card should bind exact refs, not the broad family-source-card refs:
+
+- `Epistemos/Models/SDPage.swift`
+- `Epistemos/Sync/NoteFileStorage.swift`
+- `EpistemosTests/PhaseR3BodyReadParityTests.swift`
+- `Epistemos/Engine/EpdocDocument.swift`
+- `Epistemos/Sync/ReadableBlocksIndex.swift`
+- `Epistemos/State/NoteChatState.swift`
+- `Epistemos/Views/Notes/ProseEditorRepresentable2.swift`
+- `Epistemos/Views/Notes/AIPartnerService.swift`
+- `Epistemos/Bridge/StreamingDelegate.swift`
+- `EpistemosTests/NoteChatStateTests.swift`
+- `EpistemosTests/ResourceRuntimeRegressionTests.swift`
+- `EpistemosTests/RuntimeValidationTests.swift`
+
+### Required Invariants
+
+- `managed_sidecar_first_order_preserved`
+- `r3_resource_gateway_parity_preserved`
+- `blank_managed_body_is_authoritative`
+- `front_matter_policy_recorded`
+- `unicode_and_multibyte_digest_stable`
+- `editor_snapshot_sequence_required_for_live_editor_text`
+- `readable_block_projection_digest_required`
+- `graph_evidence_digest_required`
+- `prompt_assembly_digest_required`
+- `cache_salt_digest_required_before_kv_reuse`
+- `answer_packet_carries_freshness_caveat`
+- `no_raw_body_prompt_or_token_in_artifact`
+- `body_read_parity_is_not_model_quality_proof`
+- `no_l2_l3_product_green`
+- `no_model_runtime_cache_or_provider_bytes`
+
+### Red Fixtures
+
+The falsifier binary should mutate a valid card/witness and prove validation
+fails for at least these cases:
+
+- `wrong_upstream_cursor`
+- `wrong_family_id`
+- `zero_issue_count`
+- `missing_sdpage_source_ref`
+- `missing_note_file_storage_source_ref`
+- `missing_phase_r3_test_ref`
+- `missing_note_chat_ref`
+- `missing_readable_blocks_ref`
+- `source_refs_duplicate`
+- `invariant_missing`
+- `focused_command_too_broad_without_body_keyword`
+- `managed_sidecar_first_disabled`
+- `blank_managed_body_not_authoritative`
+- `r3_gateway_parity_disabled`
+- `front_matter_policy_missing`
+- `unicode_fixture_missing`
+- `editor_snapshot_sequence_missing`
+- `readable_block_digest_missing`
+- `graph_evidence_digest_missing`
+- `prompt_assembly_digest_missing`
+- `cache_salt_digest_missing`
+- `raw_body_artifact_allowed`
+- `raw_prompt_artifact_allowed`
+- `hidden_cache_authority_allowed`
+- `answer_packet_caveat_hidden`
+- `body_read_parity_as_model_quality_proof`
+- `body_bytes_read_nonzero`
+- `cache_bytes_reused_nonzero`
+- `model_runtime_bytes_loaded_nonzero`
+- `provider_calls_nonzero`
+- `l2_l3_product_green_claimed`
+- `live_dense_70b_claimed`
+
+### Artifact Axes
+
+Minimum axis families:
+
+- upstream runtime-performance card pass and next-cursor binding;
+- release-audit family binding for `body_read_checksum`;
+- exact source-ref set coverage;
+- focused command coverage;
+- invariant set coverage;
+- body source lane coverage;
+- freshness digest requirement coverage;
+- projection/cache lineage requirement coverage;
+- privacy/no-raw-content coverage;
+- rollback/RunEventLog/AnswerPacket proof-surface coverage;
+- no L2/L3/product/live-70B promotion;
+- zero body/model/cache/provider byte scope;
+- deterministic address;
+- red-fixture rejection count and each named red fixture;
+- next cursor binding.
+
+### Validation Notes
+
+The metadata-only witness should not hash or open user note files. It should
+only prove that the architecture requires a future runtime AnswerPacket to
+carry these freshness fields and that the current release-audit blocker has not
+been laundered into product capability. Product runtime freshness proof will be
+a later T2/T3 unit after the small-model runtime harness is repaired.
+
+### Promotion Truth
+
+- T0 research/canon advanced: yes.
+- T1/L1 architecture proof advanced: no new falsifier landed in this pass.
+- T2/L2 capability route advanced: no.
+- T3/L3 WRV advanced: no.
+- T4/T5 green: no.
+
+Best breakthrough candidate: force every future large-model quality and cache
+reuse claim through a body/evidence/prompt/cache freshness source card before
+runtime lanes compete.
+
+Safest next falsifier: implement `F-BodyReadChecksum-ReleaseBlockerCard` as
+metadata-only L1/T1 using the blueprint above.
+
+Best near-term code unit: add the Rust UAS primitive and falsifier binary, run
+`Tools/falsifiers/f_body_read_checksum_release_blocker_card.sh`,
+`falsifier_validator`, guard, capability kernel, doctrine lint, and focused
+Rust tests for invalid fixtures.
+
+Biggest false-claim risk: saying the body-read blocker makes model answers
+fresh. It only defines and verifies the metadata contract; product freshness
+requires later runtime logs and AnswerPacket evidence.
+
+Biggest missing source: actual runtime AnswerPacket logs carrying these fields
+from the small-model harness.
+
+Next research query: "Which search-index and readable-block release blockers
+must follow `F-BodyReadChecksum-ReleaseBlockerCard` so Eidos evidence freshness
+and local retrieval freshness are proven before Gemma QAT lane replay?"
+
+Sources:
+
+- Local `agent_core/src/uas/release_audit_failure_family_source_card.rs`
+- Local `agent_core/src/uas/runtime_performance_policy_release_blocker_card.rs`
+- Local `agent_core/src/bin/falsify_runtime_performance_policy_release_blocker_card.rs`
+- Local `docs/falsifiers/F-RuntimePerformancePolicy-ReleaseBlockerCard_2026_06_07.md`
+- Local `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md`
+- Local `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md`
+- Local `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
