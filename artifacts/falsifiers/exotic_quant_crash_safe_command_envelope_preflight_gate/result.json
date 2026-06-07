@@ -1,0 +1,1325 @@
+{
+  "falsifier_id": "F-ExoticQuantCrashSafeCommandEnvelopePreflightGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_exotic_quant_crash_safe_command_envelope_preflight_gate.sh",
+  "command_digest": "sha256:1c97e6fa3191cb52a4fde23518853108c93193e7f0c504f25608894277c997dc",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "cc99c499b6103e252b966cab604d4422a99aaf6c",
+  "fixture_id": "exotic_quant_crash_safe_command_envelope_preflight_gate_v1",
+  "timestamp_utc": "2026-06-07T10:13:29Z",
+  "result_digest": "sha256:29909f15046dc396d2d5bc7726abb7fbad69ce2848731fbfb4243e6f02a7ed3e",
+  "measurements": {
+    "accepted_crash_safe_command_envelope_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_default_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "args_vectorized_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "args_vectorized_shell_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_byte_envelope_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_cancellation_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_command_envelope_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_compatibility_fence_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_download_policy_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_env_policy_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_issue_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_revision_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_output_policy_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_surface": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_selected_file_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_source_pin_card": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_teardown_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_timeout_policy_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_as_fit_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs_total": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "cancellation_bound_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "cancellation_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution_count_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_template_bytes_serialized_total": {
+      "value": 680,
+      "unit": "bytes"
+    },
+    "crash_safe_command_envelope_preflight_gate_address": {
+      "value": "exotic_quant_crash_safe_command_envelope_preflight_gate:0eebe27881f066c0ea1bcbc05b31d59aae2715fcb60746265c336df9afa7c372@1779551000000",
+      "unit": "uas_address"
+    },
+    "deterministic_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_only_owner_approval_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_gate_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_model_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_pin_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_arg_count": {
+      "value": 85,
+      "unit": "args"
+    },
+    "forbidden_arg_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_env_count": {
+      "value": 45,
+      "unit": "env"
+    },
+    "gate_card_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "hf_token_env_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_token_env_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_token_env_denied_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "issue_failure_ref_count": {
+      "value": 22,
+      "unit": "refs"
+    },
+    "issue_failure_refs_red_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_and_cache_ram_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b": {
+      "value": true,
+      "unit": "bool"
+    },
+    "llama_cpp_gguf_cli_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "local_artifact_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mac_candidate_commands_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mac_candidate_unarmed_count": {
+      "value": 3,
+      "unit": "cards"
+    },
+    "mas_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_route_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_abstention": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expected_model": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_arg": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_env": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_llama_offline_flag": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_owner_approved_model_path": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mlock_fit_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_fit_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_mlock_fit_claims_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "network_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "network_and_server_sidecar_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "network_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "network_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "next_cursor": {
+      "value": "exotic_quant_owner_approved_dry_run_transcript_preflight_gate",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_source_import_or_benchmark_fit": {
+      "value": true,
+      "unit": "bool"
+    },
+    "one_token_context_batch_caps_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "output_limit_bound_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "output_timeout_cancellation_teardown_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "output_unbounded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_leaked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "patternboost_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_bytes_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_bytes_copied_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_route_enabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "value": 71,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 71,
+      "unit": "fixtures"
+    },
+    "remote_download_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_download_denied_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "remote_download_flags_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_abstention_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "route_policy_mutated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_not_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_probe_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_surface_classification_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_only_commands_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_only_denied_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "server_sidecar_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_string_denied_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "shell_string_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_import_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_model_revision_selected_file_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "ssd_as_ram": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdout_bytes_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stdout_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "teardown_bound_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "teardown_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "timeout_bound_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "timeout_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_bytes_captured": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "transformers_quarantine_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "upstream_byte_envelope_preflight_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_live_bytes_and_commands": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_crash_safe_command_envelope_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_default_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "args_vectorized_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "args_vectorized_shell_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_byte_envelope_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_cancellation_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_command_envelope_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_compatibility_fence_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_download_policy_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_env_policy_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_issue_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_model_revision_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_output_policy_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_runtime_surface": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_selected_file_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_source_pin_card": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_teardown_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_timeout_policy_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_as_fit_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "cancellation_bound_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "cancellation_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution_count_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_template_bytes_serialized_total": {
+      "operator": "==",
+      "value": 680,
+      "unit": "bytes"
+    },
+    "crash_safe_command_envelope_preflight_gate_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "uas_address"
+    },
+    "deterministic_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_only_owner_approval_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_gate_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_model_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_pin_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_arg_count": {
+      "operator": "==",
+      "value": 85,
+      "unit": "args"
+    },
+    "forbidden_arg_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forbidden_env_count": {
+      "operator": "==",
+      "value": 45,
+      "unit": "env"
+    },
+    "gate_card_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "hf_token_env_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_token_env_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hf_token_env_denied_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "issue_failure_ref_count": {
+      "operator": "==",
+      "value": 22,
+      "unit": "refs"
+    },
+    "issue_failure_refs_red_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_and_cache_ram_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "lattice_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "llama_cpp_gguf_cli_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "local_artifact_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mac_candidate_commands_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mac_candidate_unarmed_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "cards"
+    },
+    "mas_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_product_route_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_budget_exceeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_abstention": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expected_model": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_arg": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_forbidden_env": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_llama_offline_flag": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_owner_approved_model_path": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_run_event_log": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlock_fit_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_fit_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mmap_mlock_fit_claims_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "network_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "network_and_server_sidecar_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "network_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "network_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "exotic_quant_owner_approved_dry_run_transcript_preflight_gate",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_source_import_or_benchmark_fit": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "one_token_context_batch_caps_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "output_limit_bound_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "output_timeout_cancellation_teardown_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "output_unbounded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_leaked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "patternboost_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_bytes_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_bytes_copied_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "product_route_enabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 71,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 71,
+      "unit": "fixtures"
+    },
+    "remote_download_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "remote_download_denied_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "remote_download_flags_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_abstention_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "route_policy_mutated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_not_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_probe_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_surface_classification_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_only_commands_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_only_denied_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "server_sidecar_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shell_string_denied_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "shell_string_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_import_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_pin_model_revision_selected_file_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "ssd_as_ram": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdout_bytes_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stdout_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "teardown_bound_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "teardown_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "timeout_bound_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "timeout_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_bytes_captured": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "transformers_quarantine_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "upstream_byte_envelope_preflight_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_live_bytes_and_commands": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_crash_safe_command_envelope_pack_present": true,
+    "app_default_claim": true,
+    "args_vectorized_count": true,
+    "args_vectorized_shell_denied": true,
+    "bad_byte_envelope_ref": true,
+    "bad_cancellation_ref": true,
+    "bad_command_envelope_ref": true,
+    "bad_compatibility_fence_ref": true,
+    "bad_download_policy_ref": true,
+    "bad_env_policy_ref": true,
+    "bad_issue_ref": true,
+    "bad_model_revision_ref": true,
+    "bad_output_policy_ref": true,
+    "bad_runtime_surface": true,
+    "bad_selected_file_ref": true,
+    "bad_source_pin_card": true,
+    "bad_teardown_ref": true,
+    "bad_timeout_policy_ref": true,
+    "benchmark_as_fit_proof": true,
+    "benchmark_run": true,
+    "benchmark_runs_total": true,
+    "cancellation_bound_count": true,
+    "cancellation_missing": true,
+    "command_armed": true,
+    "command_executable": true,
+    "command_executed": true,
+    "command_execution_count_total": true,
+    "command_template_bytes_serialized_total": true,
+    "crash_safe_command_envelope_preflight_gate_address": true,
+    "deterministic_address": true,
+    "dry_run_only_owner_approval_required": true,
+    "duplicate_gate_id": true,
+    "duplicate_model_id": true,
+    "duplicate_source_pin_card_id": true,
+    "eidos_authority": true,
+    "forbidden_arg_count": true,
+    "forbidden_arg_present": true,
+    "forbidden_env_count": true,
+    "gate_card_count": true,
+    "hf_token_env_allowed": true,
+    "hf_token_env_denied": true,
+    "hf_token_env_denied_count": true,
+    "hidden_cloud_fallback": true,
+    "hidden_route_authority": true,
+    "issue_failure_ref_count": true,
+    "issue_failure_refs_red_only": true,
+    "kv_cache_and_cache_ram_policy_bound": true,
+    "l2_l3_promotion": true,
+    "lattice_authority": true,
+    "live_dense_70b": true,
+    "llama_cpp_gguf_cli_count": true,
+    "local_artifact_verified": true,
+    "mac_candidate_commands_unarmed": true,
+    "mac_candidate_unarmed_count": true,
+    "mas_allowed": true,
+    "mas_product_route_denied": true,
+    "metadata_budget_exceeded": true,
+    "missing_abstention": true,
+    "missing_answer_packet": true,
+    "missing_expected_model": true,
+    "missing_forbidden_arg": true,
+    "missing_forbidden_env": true,
+    "missing_llama_offline_flag": true,
+    "missing_owner_approved_model_path": true,
+    "missing_rollback": true,
+    "missing_run_event_log": true,
+    "mlock_fit_claim": true,
+    "mmap_fit_claim": true,
+    "mmap_mlock_fit_claims_denied": true,
+    "model_bytes_loaded": true,
+    "model_bytes_loaded_total": true,
+    "network_allowed": true,
+    "network_and_server_sidecar_denied": true,
+    "network_call_made": true,
+    "network_calls_made_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority": true,
+    "no_l2_l3_live70b_ssd": true,
+    "no_source_import_or_benchmark_fit": true,
+    "one_token_context_batch_caps_bound": true,
+    "output_limit_bound_count": true,
+    "output_timeout_cancellation_teardown_bound": true,
+    "output_unbounded": true,
+    "owner_approval_leaked": true,
+    "patternboost_authority": true,
+    "product_bytes_copied": true,
+    "product_bytes_copied_total": true,
+    "product_route_enabled": true,
+    "product_winner_claim": true,
+    "provider_call_made": true,
+    "provider_calls_made_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "remote_download_allowed": true,
+    "remote_download_denied_count": true,
+    "remote_download_flags_denied": true,
+    "rollback_run_event_answer_packet_abstention_required": true,
+    "rollback_run_event_answer_packet_count": true,
+    "route_policy_mutated": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_loaded_total": true,
+    "runtime_not_deferred": true,
+    "runtime_probe_allowed": true,
+    "runtime_surface_classification_bound": true,
+    "server_only_commands_denied": true,
+    "server_only_denied_count": true,
+    "server_sidecar_allowed": true,
+    "shell_string_denied_count": true,
+    "shell_string_present": true,
+    "source_import_allowed": true,
+    "source_pin_model_revision_selected_file_bound": true,
+    "source_tree_bytes_read": true,
+    "source_tree_bytes_read_total": true,
+    "ssd_as_ram": true,
+    "stderr_bytes_captured": true,
+    "stderr_bytes_captured_total": true,
+    "stdout_bytes_captured": true,
+    "stdout_bytes_captured_total": true,
+    "teardown_bound_count": true,
+    "teardown_missing": true,
+    "timeout_bound_count": true,
+    "timeout_missing": true,
+    "token_bytes_captured": true,
+    "token_bytes_captured_total": true,
+    "transformers_quarantine_count": true,
+    "upstream_byte_envelope_preflight_gate_pass": true,
+    "zero_live_bytes_and_commands": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ExoticQuantCrashSafeCommandEnvelopePreflightGate: serializes inert command/API envelopes for five exotic quant rows after byte-envelope denial, keeps all commands unarmed and dry-run-only, denies remote downloads, provider tokens, server sidecars, mmap/mlock fit claims, unbounded output, and missing timeout/cancellation/teardown, requires rollback, RunEventLog, AnswerPacket, abstention, and owner-approved dry-run proof before runtime. It loads zero model/runtime/provider bytes and makes no MAS/L2/L3/user-facing promotion."
+}

@@ -419,6 +419,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > breakthrough combinations. This advances T0 research/backlog only; no
 > falsifier landed, no command is armed, no model/runtime/provider bytes are
 > loaded, and L2/L3 large-local-model capability remains red.
+> `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` is now landed as a
+> metadata-only T1/L1 witness at
+> `artifacts/falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json`.
+> It consumes `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`, accepts five
+> crash-safe command-envelope cards, records three Mac-candidate unarmed owner-
+> approval-required command vectors, denies two server/GPU rows with empty
+> argv, rejects 71 red fixtures, executes zero commands, captures zero
+> stdout/stderr/token bytes, loads zero model/runtime/provider/source-tree/
+> product/benchmark bytes, and preserves no-MAS, no-L2/L3, no-live-dense-70B,
+> and no-SSD-as-RAM boundaries. The next large-local-model research-to-build
+> unit is `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and

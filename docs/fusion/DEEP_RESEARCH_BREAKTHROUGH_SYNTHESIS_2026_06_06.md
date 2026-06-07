@@ -5030,6 +5030,111 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Pass 87 - Exotic Quant Crash-Safe Command Envelope Preflight Gate
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 87 implements `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`. This
+is the first exotic-quant side-ladder gate that turns the byte-envelope result
+into visible command/API envelope metadata. It is deliberately not a runtime
+probe: it proves that command-shaped work stays unarmed, vectorized, bounded,
+abortable, rollbackable, logged, packet-visible, and non-promoting before any
+owner-approved dry run, first token, file open, provider call, or product-route
+claim can begin.
+
+The gate consumes `F-ExoticQuantOwnerPathByteEnvelopePreflightGate`, accepts
+five command-envelope cards, rejects 71 red fixtures, records three Mac-
+candidate unarmed owner-approval-required command vectors, denies two
+server/GPU rows with empty argv, binds GGUF/llama.cpp and Transformers
+quarantine surface classes, and keeps command execution, stdout/stderr/token
+capture, model bytes, runtime bytes, provider calls, network calls,
+source-tree bytes, product bytes, and benchmark runs at zero.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/exotic_quant_crash_safe_command_envelope_preflight_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_exotic_quant_crash_safe_command_envelope_preflight_gate.rs`
+- Script:
+  `Tools/falsifiers/f_exotic_quant_crash_safe_command_envelope_preflight_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json`
+- Witness page:
+  `docs/falsifiers/F-ExoticQuantCrashSafeCommandEnvelopePreflightGate_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | Each crash-safe command envelope has deterministic addressable metadata separate from owner path, byte envelope, and future dry-run transcript addresses. |
+| ColdStore/AppColdStore | Candidate artifact bytes stay cold and non-resident; command templates are metadata, not residency or runtime proof. |
+| ActiveAssembly | No active assembly can wake from command syntax alone; owner approval and dry-run transcript proof remain required. |
+| Eidos | Source, issue, model-card, and runtime-lane signals can inform red fixtures and visible caveats without becoming hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission now rejects shell strings, remote-download flags, credential env, network/server sidecars, mmap/mlock fit claims, unbounded output, missing timeout/cancellation/teardown, command arming, byte capture, hidden authority, source import, benchmark laundering, and promotion attempts. |
+| RuntimeRouter/System G | Runtime lanes remain unarmed; server-only rows are denied; no route can treat command metadata as runtime capability. |
+| RunEventLog/AnswerPacket | Future dry-run transcripts must expose owner approval, command vector, output limits, cancellation, teardown, rollback, abstention, and redacted packet proof. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes. `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`
+  passes as metadata-only architecture evidence.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: owner-approved dry-run transcript preflight,
+because the architecture now has source pins, owner-path policy, byte
+envelope, and crash-safe command metadata, but still needs owner approval,
+redacted transcript capture, abort proof, teardown proof, and AnswerPacket
+visibility before first-token experiments can be considered.
+
+Safest next falsifier:
+`F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`.
+
+Best near-term code unit: add
+`exotic_quant_owner_approved_dry_run_transcript_preflight_gate` so the unarmed
+command envelopes can be converted into owner-approved, dry-run-only transcript
+contracts with redacted outputs, memory samples, timeout/cancellation/teardown,
+rollback, RunEventLog, AnswerPacket, and no-promotion gates before any runtime
+probe is allowed.
+
+Biggest false-claim risk: treating inert command templates as proof that
+llama.cpp, Transformers, LiteRT, MLX, or a server-only exotic quant row can run
+locally on Jojo's current hardware.
+
+Biggest missing source: actual owner-approved local manifests and the exact
+dry-run transcript policy for command start/abort, redacted stdout/stderr,
+token digest handling, memory sampling, process teardown, and native API lease
+closure.
+
+Next research query: "What owner-approved dry-run transcript contract lets
+Epistemos start from inert command envelopes and prove approval, redaction,
+timeout, cancellation, teardown, rollback, RunEventLog, AnswerPacket, and
+zero-promotion boundaries before any first-token large-model probe?"
+
+Sources:
+
+- `docs/falsifiers/F-ExoticQuantCrashSafeCommandEnvelopePreflightGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json`
+- `docs/falsifiers/F-ExoticQuantOwnerPathByteEnvelopePreflightGate_2026_06_07.md`
+- `artifacts/falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json`
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+- https://huggingface.co/YTan2000/Qwopus3.5-27B-v3-TQ3_4S
+- https://huggingface.co/caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5
+- https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+- https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+- https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
+
 ## Deep Research Pass 86 - App-Mined Keyword Lattice Expansion
 
 Date: 2026-06-07

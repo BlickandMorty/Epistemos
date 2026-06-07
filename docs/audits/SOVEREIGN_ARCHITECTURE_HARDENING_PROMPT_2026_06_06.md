@@ -217,7 +217,24 @@ Current 2026-06-07 large-local-model research-to-build status:
   not prove owner approval, local artifact availability, runtime load, Apple
   Silicon fit, product default, or user-facing capability. The next large-local-
   model research-to-build unit is
-  `exotic_quant_crash_safe_command_envelope_preflight_gate`.
+  now landed as `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+- `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` has landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json`.
+  It consumes the owner path byte-envelope preflight gate, accepts 5 crash-safe
+  command-envelope cards, records 3 Mac-candidate unarmed owner-approval-
+  required command vectors, denies 2 server/GPU rows with empty argv, rejects
+  71 red fixtures, binds GGUF/llama.cpp and Transformers quarantine surface
+  classes, rejects shell strings, remote downloads, HF token env, network
+  calls, server sidecars, mmap/mlock fit claims, unbounded output, missing
+  timeout/cancellation/teardown, command arming/execution, byte capture,
+  hidden authority, source import, benchmark-as-fit, and MAS/L2/L3/live-dense-
+  70B/SSD-as-RAM shortcuts. It executes zero commands, captures zero stdout/
+  stderr/token bytes, loads zero model/runtime/provider/source-tree/product/
+  benchmark bytes, and still does not prove owner approval, local artifact
+  availability, runtime load, Apple Silicon fit, product default, or user-
+  facing capability. The next large-local-model research-to-build unit is
+  `exotic_quant_owner_approved_dry_run_transcript_preflight_gate`.
 - `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and
   `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` are now part
   of the large-model research gate. Future research passes must mine local
@@ -233,9 +250,9 @@ Current 2026-06-07 large-local-model research-to-build status:
   backlog item, command/byte/KV/retrieval/proof gate, AnswerPacket field,
   RunEventLog evidence, or WRV requirement. Treat this as T0 research method
   only until a falsifier lands.
-- Deep Research Pass 85 adds current source-backed red fixtures for the next
-  large-model gate. When implementing
-  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, carry forward the
+- Deep Research Pass 85 adds current source-backed red fixtures now consumed by
+  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`. When implementing
+  `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate`, carry forward the
   pass-85 denials for llama.cpp remote-download flags, HF token env, unbounded
   predict/context/cache RAM, KV/cache policy gaps, mmap/mlock fit claims,
   server sidecars, MLX Python hidden downloads/trust-remote-code, MLX Swift
@@ -243,7 +260,7 @@ Current 2026-06-07 large-local-model research-to-build status:
   Swift Subprocess output-limit/teardown gaps, missing HF revision/selected
   file, wrong artifact-format assumptions, MoE active-param overclaims,
   uninspected fork deltas, and no-license direct imports. Treat all of this as
-  T0/T1 input until the falsifier lands.
+  T0/T1 input until the dry-run transcript falsifier lands.
 - Deep Research Pass 86 expands the keyword atlas from current app symbols.
   Before any new large-model research pass, cross UAS/OAS,
   ColdStore/AppColdStore, ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate,
