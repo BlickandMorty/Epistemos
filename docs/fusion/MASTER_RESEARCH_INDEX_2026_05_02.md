@@ -140,6 +140,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > rejections while opening zero package/binary/runtime/model/provider/product
 > bytes. L2 and L3 remain unchanged; the next runtime-plural source-card unit is
 > `F-Gemma4-MTP-DrafterCompatibilityCard`.
+> Deep Research Pass 67 now lands that second unit as a built T1/L1
+> metadata-only witness at
+> `artifacts/falsifiers/gemma4_mtp_drafter_compatibility_card/result.json`.
+> It binds `google/gemma-4-12B-it` with
+> `google/gemma-4-12B-it-assistant` and `google/gemma-4-E2B-it` with
+> `google/gemma-4-E2B-it-assistant`, official Google MTP source material,
+> Hugging Face revisions/licenses, upstream LiteRT-LM admission, target-token
+> verification, accepted/rejected draft-token visibility, target-only final
+> output, hidden alternate text and hidden-chain rejection, quality/acceptance/
+> latency/extra-memory metrics, rollback, RunEventLog, AnswerPacket,
+> abstention, and 41 red-fixture rejections while opening zero target/drafter/
+> runtime/provider/product bytes. L2 and L3 remain unchanged; the next
+> runtime-plural source-card unit is `F-RuntimePlural-QATLaneTournamentPlan`.
 
 ---
 

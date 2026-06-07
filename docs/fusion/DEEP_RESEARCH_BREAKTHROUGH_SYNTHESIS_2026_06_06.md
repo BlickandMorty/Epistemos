@@ -6106,3 +6106,105 @@ tiny model. Those remain future L2/L3 evidence, not part of this pass.
 Next research query: "What exact MTP drafter compatibility axes let Epistemos
 measure Gemma 4 draft-token speedups without hidden alternate text, quality
 regression, excess memory, runtime-lane lock-in, or AnswerPacket suppression?"
+
+## 67. Pass 67 - Gemma 4 MTP Drafter Compatibility Build Result
+
+Observed on 2026-06-06 through local canon, the newly generated
+`F-Gemma4-MTP-DrafterCompatibilityCard` artifact, official Google Gemma 4 MTP
+source material, and Hugging Face model-card metadata. This pass converts the
+Pass 66 next unit into a real T1/L1 architecture gate without downloading
+target or drafter models, importing runtime dependencies, running LiteRT/GGUF/
+MLX/Transformers, starting a server, benchmarking MTP, or promoting L2/L3.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+Build result:
+
+- `Tools/falsifiers/f_gemma4_mtp_drafter_compatibility_card.sh` now emits and
+  validates
+  `artifacts/falsifiers/gemma4_mtp_drafter_compatibility_card/result.json`.
+- The accepted compatibility pack binds two target/drafter pairs:
+  `google/gemma-4-12B-it` -> `google/gemma-4-12B-it-assistant`, and
+  `google/gemma-4-E2B-it` -> `google/gemma-4-E2B-it-assistant`.
+- The artifact binds Hugging Face revisions, Apache-2.0 license metadata,
+  official Google MTP source material, upstream
+  `F-LiteRTLM-NativeSwiftAdmission`, target-token verification, accepted and
+  rejected draft-token visibility, target-only final output, hidden alternate
+  text rejection, hidden-chain rejection, quality metric, acceptance metric,
+  latency budget, extra-memory budget, rollback, RunEventLog, AnswerPacket,
+  and abstention requirements.
+- The artifact rejects 41 red fixtures for mismatched target/drafter pairs,
+  unsupported license, bad revision, non-HTTPS source, unsupported runtime
+  lane, MAS/Live/T2 promotion, unbounded speed claims, missing verification,
+  missing draft-token visibility, hidden alternate output, hidden chain,
+  missing quality/acceptance/latency/memory/abstention proof, missing proof
+  refs, nonzero target/drafter/runtime/provider/product bytes, first-token
+  claims, product speed claims, quality-improvement claims, MAS readiness,
+  live dense 70B, hidden route authority, and hidden cloud fallback.
+- Runtime proof remains zero-byte by design: target model bytes loaded `0`,
+  drafter model bytes loaded `0`, runtime bytes loaded `0`, provider calls
+  `0`, product files copied `0`.
+
+Architecture fusion:
+
+```text
+LiteRT-LM AdmissionCard
+  -> Gemma4MtpDrafterCompatibilityCard
+  -> RuntimePluralQATLaneTournamentPlan
+  -> same-fixture tiny proof
+  -> latency + quality + acceptance ledger
+  -> RunEventLog + AnswerPacket
+  -> only then L2/L3 consideration
+```
+
+Why this matters: MTP is now a governed compatibility surface instead of a
+marketing speed shortcut. The 12B target keeps the large-local-model ambition
+intact, while the E2B pair preserves a smaller harness lane. Both can feed a
+future runtime-plural tournament that compares LiteRT, GGUF/llama.cpp, MLX,
+and explicit local endpoints under identical prompt, byte, cancellation,
+quality, and visibility constraints.
+
+Why this may be wrong: the assistant model may not be supported in the native
+runtime lane Epistemos can safely use, target/drafter tokenization or
+activation-sharing details may differ across runtimes, the extra memory cost
+may exceed the 16 GB UMA floor, draft-token acceptance may be too low on
+Jojo's tasks, or visible target-only verification may erase the reported speed
+benefit.
+
+Promotion truth:
+
+- T1/L1 advanced: yes, metadata-only MTP compatibility proof exists.
+- T2/L2 advanced: no, product runtime remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no, user-facing Gemma/MTP route is not wired, reachable,
+  visible, or verified.
+- T4/T5 green: no.
+
+Best breakthrough candidate: runtime-plural QAT lane tournament, because
+LiteRT-LM admission and Gemma 4 MTP compatibility now both have metadata
+witnesses and can feed a same-fixture comparison without runtime lock-in.
+
+Safest next falsifier: `F-RuntimePlural-QATLaneTournamentPlan`, scoped as a
+metadata-only plan over LiteRT-LM, GGUF/llama.cpp, MLX, and explicit local
+endpoint candidates with byte, latency, cancellation, quality, acceptance,
+rollback, RunEventLog, AnswerPacket, and abstention axes.
+
+Best near-term code unit: add the runtime-plural QAT lane tournament primitive
+as metadata-only, consuming `F-LiteRTLM-NativeSwiftAdmission` and
+`F-Gemma4-MTP-DrafterCompatibilityCard`, with no runtime execution.
+
+Biggest false-claim risk: saying that a source-carded MTP pair proves Gemma 4
+12B is faster in Epistemos, MAS-safe, loaded locally, or user-facing.
+
+Biggest missing source: owner-approved same-fixture local logs for LiteRT/GGUF/
+MLX or endpoint candidates with retained prompt, byte ledger, cancellation,
+quality, acceptance, and AnswerPacket evidence. Those are future L2/L3 proof,
+not part of this pass.
+
+Next research query: "What is the smallest same-fixture runtime-plural QAT lane
+tournament that compares LiteRT-LM, GGUF/llama.cpp, MLX, and explicit local
+endpoints without loading 12B first, without hidden sidecars, and without
+turning MTP source cards into product speed claims?"
