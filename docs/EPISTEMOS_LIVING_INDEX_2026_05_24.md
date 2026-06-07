@@ -212,6 +212,24 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   live-70B promotion. This is T0 canon/build-plan only: no product code
   changed, no model/runtime/KV/cache/index bytes were loaded, no command was
   armed, L2/L3 remain red, and no user-facing large-model green claim exists.
+- Updated **2026-06-07** · Deep Research Pass 113 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` trims the
+  field-complete same-fixture packet into the minimal metadata-only build slice
+  for `F-SameFixtureRuntimeReplayEnvelope`. North-star sentence: Epistemos is
+  a local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The slice requires claim-boundary, fixture identity, source/search
+  freshness, prompt/tokenizer/template/tool boundary, runtime-lane, model
+  artifact, cache/byte, and proof-ref fields, with five lane cards:
+  `gguf_llama_cpp`, `litert_lm_swift`, `mlx_swift_candidate`,
+  `mlx_lm_python_research`, and `no_runtime_abstention`. It folds current
+  vLLM cache-salt/hash, MLX-LM Gemma 4 tool-parser, MLX Swift Gemma 4 loader,
+  LiteRT-LM Swift/Gemma 4, and official Gemma 4 QAT GGUF source facts into
+  red fixtures without making a runtime claim. This is T0 canon/build-plan
+  only: no product code changed, no model/runtime/KV/cache/index bytes were
+  loaded, no command was armed, L2/L3 remain red, and no user-facing
+  large-model green claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
