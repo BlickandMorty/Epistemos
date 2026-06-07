@@ -392,6 +392,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > red/blue/purple research loop. It advances T0 research method only: no new
 > falsifier landed, no runtime/model/provider bytes are loaded, no L2/L3
 > product capability changes, and no live dense 70B claim is allowed.
+> Deep Research Pass 85 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns
+> current source/fork/model-card/issue signals into red fixtures for
+> `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, the downstream dry-run
+> transcript, and the future redacted first-token probe. It source-cards
+> current repo metadata for llama.cpp, MLX LM, MLX Swift LM, LiteRT-LM, Swift
+> Subprocess, Transformers, KTransformers, vLLM, and LMCache; uses current
+> llama.cpp/MLX/LiteRT/Swift Subprocess docs to refine download, token, KV,
+> cache, output-limit, teardown, and server-lane denials; records current issue
+> failure leads for llama.cpp Metal/KV/server, MLX Swift Gemma 4 loader/tool-call
+> gaps, and LiteRT-LM Swift/SPM/QAT/MTP questions; and binds current Hugging
+> Face revisions/file lists for Gemma 4 QAT, Qwopus exotic rows, NVFP4, and
+> AutoRound rows. This advances T0 research/backlog only; no command is armed,
+> no local artifact is opened, no model/runtime/provider bytes are loaded, and
+> no L1/L2/L3 product capability promotes.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and

@@ -730,6 +730,109 @@ After any keyword sweep, force the best result through this filter:
 If no falsifier, source card, red fixture, or code unit can be named, the source
 is inspiration only and must not enter the architecture cursor.
 
+## Current Red-Fixture Leads - 2026-06-07
+
+These current source signals should feed the next large-model gate:
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+### Command / Runtime Leads
+
+- llama.cpp CLI exposes `--predict` defaulting to infinite, `--ctx-size`,
+  `--hf-repo`, `--hf-file`, `--model-url`, `--hf-token`, `--offline`,
+  `--cache-type-k`, `--cache-type-v`, `--cache-ram`, `--kv-offload`,
+  `--mlock`, `--mmap`, `--no-mmap`, `--simple-io`, `--single-turn`,
+  `--no-display-prompt`, and `--log-disable`.
+- MLX LM exposes Python `generate`, `chat`, `stream_generate`, Hugging Face
+  downloads/defaults, prompt caches, rotating KV cache, and tokenizer
+  `trust_remote_code` caveats.
+- MLX Swift LM exposes pluggable downloader/tokenizer integration and
+  Hugging Face convenience macros; native API plans must separate local-only
+  loaders from hidden downloads.
+- LiteRT-LM exposes Gemma 4 12B, CLI, OpenAI-compatible server, and Swift
+  package lanes; each lane needs a separate source card and admission path.
+- Swift Subprocess exposes byte-limited output collection, closure-scoped
+  execution handles, explicit environment/working-directory surfaces, and
+  teardown sequences.
+
+### Issue / Failure Leads
+
+- llama.cpp Metal and memory failures:
+  `https://github.com/ggml-org/llama.cpp/issues/16266`,
+  `https://github.com/ggml-org/llama.cpp/issues/18568`,
+  `https://github.com/ggml-org/llama.cpp/issues/23855`,
+  `https://github.com/ggml-org/llama.cpp/issues/24139`,
+  `https://github.com/ggml-org/llama.cpp/issues/23632`,
+  `https://github.com/ggml-org/llama.cpp/issues/23873`,
+  `https://github.com/ggml-org/llama.cpp/issues/24159`,
+  `https://github.com/ggml-org/llama.cpp/issues/24175`,
+  `https://github.com/ggml-org/llama.cpp/issues/23072`.
+- MLX Swift Gemma 4 loader/tool-call/MTP gaps:
+  `https://github.com/ml-explore/mlx-swift-lm/issues/177`,
+  `https://github.com/ml-explore/mlx-swift-lm/issues/292`,
+  `https://github.com/ml-explore/mlx-swift-lm/issues/219`,
+  `https://github.com/ml-explore/mlx-swift-lm/issues/259`,
+  `https://github.com/ml-explore/mlx-swift-lm/issues/279`,
+  `https://github.com/ml-explore/mlx-swift-lm/issues/282`.
+- LiteRT-LM Swift/SPM/QAT/MTP support questions:
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/1906`,
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/1959`,
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/2385`,
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/2407`,
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/2497`,
+  `https://github.com/google-ai-edge/LiteRT-LM/issues/2498`.
+
+### Model-Card Pull Leads
+
+- `google/gemma-4-E2B-it-qat-q4_0-gguf`:
+  revision `1894d1fc0a19d86697abd40483f5983c867df03f`, selected GGUF
+  `gemma-4-E2B_q4_0-it.gguf`, aux `gemma-4-E2B-it-mmproj.gguf`.
+- `google/gemma-4-12B-it-qat-q4_0-gguf`:
+  revision `f6e7774e6148da3b7f201e42ba37cf084c1db35f`, selected GGUF
+  `gemma-4-12b-it-qat-q4_0.gguf`, aux `mmproj-gemma-4-12b-it-qat-q4_0.gguf`.
+- `YTan2000/Qwopus3.5-27B-v3-TQ3_4S`:
+  revision `d1f4ed7d1c610cfac430c244d456af6aeac442ce`, selected GGUF
+  `Qwopus3.5-27B-v3-TQ3_4S.gguf`, aux `mmproj.gguf`.
+- `caiovicentino1/Qwopus3.5-27B-v3-HLWQ-Q5`:
+  revision `f744e234acfbf2a281eb916424bbaaf914e70329`, selected artifact
+  `model_int4.pt`; reject GGUF/llama.cpp assumptions unless a later conversion
+  is source-carded.
+- `mudler/Qwopus-MoE-35B-A3B-APEX-GGUF`:
+  revision `724281f1f6af99158ae89cba4196f39ccc4e039e`, multiple GGUF
+  variants; require selected variant and full-weight-vs-active-param caveat.
+- `nvidia/Gemma-4-31B-IT-NVFP4`:
+  revision `e5ef03afa233c35cb000323ff098d4291e1dd07c`, safetensors/config
+  row; keep Blackwell/server-class assumptions denied for Mac command envelope.
+- `Intel/gemma-4-31B-it-int4-AutoRound`:
+  revision `a428c96a57976947b0f12735f0cf5fcae69019ad`, sharded safetensors
+  row; keep as Transformers/quarantine unless a local lane is proven.
+
+### Red Fixture Names To Carry Forward
+
+- `llama_predict_default_infinite`
+- `llama_hf_repo_download`
+- `llama_hf_token_env`
+- `llama_cache_ram_unbounded`
+- `llama_kv_cache_type_unspecified`
+- `llama_mlock_as_fit_claim`
+- `llama_mmap_as_fit_claim`
+- `llama_server_sidecar`
+- `mlx_python_default_model_download`
+- `mlx_python_trust_remote_code`
+- `mlx_stream_generate_retains_raw_token`
+- `mlx_swift_huggingface_macro_hidden_download`
+- `mlx_swift_gemma4_loader_gap_ignored`
+- `litert_openai_server_default`
+- `litert_spm_lfs_failure_ignored`
+- `swift_subprocess_output_limit_missing`
+- `swift_subprocess_teardown_sequence_missing`
+- `hf_model_id_without_revision`
+- `hf_selected_file_missing`
+- `hf_mmproj_policy_missing`
+- `hf_safetensors_row_treated_as_gguf`
+- `moe_active_params_without_full_weight_bytes`
+- `turbovec_fork_delta_uninspected`
+- `no_license_fork_direct_import`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:
