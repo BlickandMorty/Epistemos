@@ -128,6 +128,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-KVRuntimeSourceCard",
     "F-KVSourceCard-ForkAndDaemonBoundary",
     "F-HardwareTieredModelCatalog-SourceCard",
+    "F-MoEActiveParamsMemoryTruth",
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
     "F-RuntimePlural-QATLaneTournamentPlan",

@@ -681,21 +681,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   provider/source-tree/product/command/benchmark bytes. This advances L1
   catalog coverage only. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
-  large-local-model/runtime capability is not green. The next
-  research-to-build unit is `moe_active_params_memory_truth`; the guard-owned
-  product cursor remains
+  large-local-model/runtime capability is not green. The former next
+  research-to-build unit, `moe_active_params_memory_truth`, is now covered by
+  `F-MoEActiveParamsMemoryTruth`; the guard-owned product cursor remains
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-07** · Deep Research Pass 72 folds
-  `moe_active_params_memory_truth` into canon as the next buildable
-  large-local-model falsifier blueprint. North-star sentence: Epistemos is a
+  `moe_active_params_memory_truth` into canon as a buildable large-local-model
+  falsifier blueprint, now implemented by `F-MoEActiveParamsMemoryTruth`.
+  North-star sentence: Epistemos is a
   local cognitive substrate where every meaningful object has an address,
   plane, budget, status, and witness; MAS ships the safe floor, Pro contains
   the gated/research/vault/omega ladder, and no claim promotes without visible
   proof. This pass did not edit product code, run runtimes, open model files,
   clone forks, start servers, arm commands, or promote any capability. It
   tightens the MoE rule: active parameters are compute evidence, not
-  resident-memory proof. Future `F-MoEActiveParamsMemoryTruth` work must
-  consume `F-HardwareTieredModelCatalog-SourceCard` and separately bind
+  resident-memory proof. The landed `F-MoEActiveParamsMemoryTruth` work consumes
+  `F-HardwareTieredModelCatalog-SourceCard` and separately binds
   full-weight bytes, active compute count, KV cache bytes, expert-residency
   lease, router/runtime workspace, app headroom, rollback, RunEventLog,
   AnswerPacket, abstention, and no-hidden-authority proof before Qwopus-MoE,
@@ -703,6 +704,32 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   RuntimeRouter/System G. L1 code did not advance in this pass; L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model capability is still not green.
+- Updated **2026-06-07** · `F-MoEActiveParamsMemoryTruth` is now built as the
+  research-to-build MoE memory-truth witness:
+  `agent_core/src/uas/moe_active_params_memory_truth.rs`, export surface
+  `agent_core/src/uas/mod.rs`, binary
+  `agent_core/src/bin/falsify_moe_active_params_memory_truth.rs`, script
+  `Tools/falsifiers/f_moe_active_params_memory_truth.sh`, witness page
+  `docs/falsifiers/F-MoEActiveParamsMemoryTruth_2026_06_07.md`,
+  schema/handbook coverage, and artifact
+  `artifacts/falsifiers/moe_active_params_memory_truth/result.json`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The witness consumes
+  `F-HardwareTieredModelCatalog-SourceCard`, accepts 2 Qwopus-MoE rows, rejects
+  35 red fixtures, binds declared full-weight artifact bytes `38000000000`, KV
+  cache budget bytes `4000000000`, app headroom bytes `8589934592`, expert
+  residency, router/runtime workspace, rollback, RunEventLog, AnswerPacket,
+  abstention, provenance, and no-hidden-authority proof, and keeps model/
+  runtime/provider/source-tree/product/command/benchmark bytes at zero. Active
+  parameters are compute evidence, not memory-fit proof. This advances L1
+  MoE-memory-truth coverage only. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next research-to-build
+  unit is `exotic_quant_quarantine_route_card`; the guard-owned product cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - Updated **2026-06-06** · `F-TurboVec-Eidos-CompressedIndex-Plan` is now
   built as the Eidos/AppColdStore compressed-index planning witness:
   `agent_core/src/uas/turbovec_eidos_compressed_index_plan.rs`, export surface
@@ -2835,6 +2862,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   rows are not Mac defaults. L2 remains
   `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green.
+- 2026-06-07 research-to-build large-local-model build now includes the new
+  L1/T1 `F-MoEActiveParamsMemoryTruth` witness. It consumes
+  `F-HardwareTieredModelCatalog-SourceCard`, accepts the two Qwopus-MoE 35B
+  A3B GGUF/APEX rows, rejects 35 red fixtures, and keeps all model/runtime/
+  provider/source-tree/product/command/benchmark bytes at zero. It proves active
+  parameters are compute evidence, not memory-fit proof, by separately binding
+  full-weight artifact bytes, KV cache bytes, expert residency, router/runtime
+  workspace, app headroom, rollback, RunEventLog, AnswerPacket, abstention,
+  provenance, and no-hidden-authority proof before any MoE row can influence
+  RuntimeRouter/System G. L2 remains
+  `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next
+  research-to-build unit is `exotic_quant_quarantine_route_card`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus

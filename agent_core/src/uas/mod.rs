@@ -53,6 +53,7 @@ pub mod lattice_state_controller;
 pub mod litertlm_native_swift_admission;
 pub mod metal_io_feature_gate;
 pub mod model_inventory_candidate;
+pub mod moe_active_params_memory_truth;
 pub mod pattern_boost;
 pub mod product_route_review;
 pub mod proof_carrying_residency_lease;
@@ -232,6 +233,12 @@ pub use metal_io_feature_gate::{
     MetalFeatureStatus, MetalIoFeatureDecision, MetalIoFeatureGateError, MetalIoFeatureGateMetrics,
     MetalIoFeatureGateWitness, MetalIoFeatureSurface, MetalIoLane, METAL_IO_FEATURE_GATE_CURSOR,
     METAL_IO_FEATURE_GATE_NEXT_CURSOR,
+};
+pub use moe_active_params_memory_truth::{
+    MoeActiveParamsMemoryTruthCard, MoeActiveParamsMemoryTruthError,
+    MoeActiveParamsMemoryTruthLedger, MoeActiveParamsMemoryTruthMetrics, MoeExpertResidencyPolicy,
+    MoeMemoryByteLedger, MoeMemoryProofRefs, MOE_ACTIVE_PARAMS_MEMORY_TRUTH_CURSOR,
+    MOE_ACTIVE_PARAMS_MEMORY_TRUTH_NEXT_CURSOR,
 };
 pub use model_inventory_candidate::{
     ModelInventoryByteScope, ModelInventoryCandidateCard, ModelInventoryCandidateSet,

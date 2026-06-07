@@ -445,6 +445,19 @@ capability green, or promote live dense 70B. The next retrieval/index
 research-to-build unit is
 `turbovec_quarantine_real_adapter_sandbox_layout_probe`.
 
+2026-06-07 MoE active-params memory truth promotion note:
+`F-MoEActiveParamsMemoryTruth` is T1/L1 only. It strengthens the architecture
+in favor of larger local models by proving active parameters are compute
+evidence, not memory-fit proof. It consumes the hardware-tiered model catalog,
+accepts the two Qwopus-MoE 35B A3B GGUF/APEX rows, rejects 35 red fixtures,
+separately binds full-weight bytes, KV bytes, expert-residency lease,
+router/runtime workspace, app headroom, rollback, RunEventLog, AnswerPacket,
+abstention, provenance, and no-hidden-authority proof, and keeps model/runtime/
+provider/source-tree/product/command/benchmark bytes at zero. It does not load
+models, run GGUF/APEX/MLX/LiteRT, prove Apple Silicon fit, choose a model,
+make L2/L3 product capability green, or promote live dense 70B. The next
+large-local-model research-to-build unit is `exotic_quant_quarantine_route_card`.
+
 ## Required Surface Updates
 
 When a claim changes tier, update all applicable S0 surfaces in the same commit:

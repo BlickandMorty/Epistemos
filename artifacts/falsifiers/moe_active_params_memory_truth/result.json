@@ -1,0 +1,685 @@
+{
+  "falsifier_id": "F-MoEActiveParamsMemoryTruth",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_moe_active_params_memory_truth.sh",
+  "command_digest": "sha256:89ed9317db192dbe145443410b4c2e945bc58d285ae612506b4b8be8d22057c9",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "4c1af84b8498c17953dc8ce32ac258f298554d3b",
+  "fixture_id": "moe_active_params_memory_truth_v1",
+  "timestamp_utc": "2026-06-07T03:29:28Z",
+  "result_digest": "sha256:c5f38e46ae46be76008136a5688612a39452ad1fda3d4b9e21de3eaa68a9e424",
+  "measurements": {
+    "abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_moe_rows_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_as_fit_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_compute_flag_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_compute_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_not_less_than_total": {
+      "value": true,
+      "unit": "bool"
+    },
+    "apex_provenance_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "apex_without_provenance": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bytes_sum": {
+      "value": 8589934592,
+      "unit": "bytes"
+    },
+    "bad_abstention_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_answer_packet_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_source_sha": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_upstream_ref": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_model_id": {
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_ledger": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expert_residency_lease_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_weight_artifact_bytes_declared_sum": {
+      "value": 38000000000,
+      "unit": "bytes"
+    },
+    "full_weight_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_budget_bytes_sum": {
+      "value": 4000000000,
+      "unit": "bytes"
+    },
+    "l2_l3_promotion": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mac16_moe_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_headroom": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expert_residency_lease": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_weight_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_kv_budget": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_router_workspace": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_workspace": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "moe_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "moe_memory_truth_address": {
+      "value": "moe_active_params_memory_truth:193285b796a26107534b4e39e4b50bbcb58a1493a524aeb71e9a18dbf15d1961@1779230000000",
+      "unit": "uas_address"
+    },
+    "next_cursor": {
+      "value": "exotic_quant_quarantine_route_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_16gb_moe_default": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_moe_row": {
+      "value": true,
+      "unit": "bool"
+    },
+    "only_moe_catalog_rows": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_default_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_enabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 35,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 35,
+      "unit": "fixtures"
+    },
+    "router_runtime_workspace_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_benchmark_as_local_fit": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_params_declared_sum": {
+      "value": 70000000000,
+      "unit": "params"
+    },
+    "total_params_gt_active_params": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_hardware_catalog_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_source_product_command_benchmark_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "accepted_moe_rows_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_as_fit_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_compute_flag_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_compute_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_params_not_less_than_total": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "apex_provenance_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "apex_without_provenance": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bytes_sum": {
+      "operator": ">=",
+      "value": 8589934592,
+      "unit": "bytes"
+    },
+    "bad_abstention_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_answer_packet_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_source_sha": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_upstream_ref": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_card_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_model_id": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "empty_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expert_residency_lease_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_weight_artifact_bytes_declared_sum": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "full_weight_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_budget_bytes_sum": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "l2_l3_promotion": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mac16_moe_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_app_headroom": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_expert_residency_lease": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_full_weight_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_kv_budget": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_router_workspace": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_runtime_workspace": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "moe_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "moe_memory_truth_address": {
+      "operator": "nonempty",
+      "value": "moe_active_params_memory_truth",
+      "unit": "uas_address"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "exotic_quant_quarantine_route_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_16gb_moe_default": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live70b_ssd": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_moe_row": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "only_moe_catalog_rows": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_default_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_file_copied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_route_enabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_winner_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": ">=",
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 35,
+      "unit": "fixtures"
+    },
+    "router_runtime_workspace_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_benchmark_as_local_fit": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_read": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_params_declared_sum": {
+      "operator": ">",
+      "value": 6000000000,
+      "unit": "params"
+    },
+    "total_params_gt_active_params": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_hardware_catalog_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_source_product_command_benchmark_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_bound": true,
+    "accepted_moe_rows_present": true,
+    "active_params_as_fit_claim": true,
+    "active_params_compute_flag_missing": true,
+    "active_params_compute_only": true,
+    "active_params_not_less_than_total": true,
+    "apex_provenance_gate_bound": true,
+    "apex_without_provenance": true,
+    "app_headroom_bound": true,
+    "app_headroom_bytes_sum": true,
+    "bad_abstention_ref": true,
+    "bad_answer_packet_ref": true,
+    "bad_source_sha": true,
+    "bad_upstream_ref": true,
+    "benchmark_run": true,
+    "command_executed": true,
+    "duplicate_card_id": true,
+    "duplicate_model_id": true,
+    "empty_ledger": true,
+    "expert_residency_lease_bound": true,
+    "full_weight_artifact_bytes_declared_sum": true,
+    "full_weight_bytes_bound": true,
+    "hidden_cloud_fallback": true,
+    "hidden_route_authority": true,
+    "kv_budget_bound": true,
+    "kv_cache_budget_bytes_sum": true,
+    "l2_l3_promotion": true,
+    "ledger_address_deterministic": true,
+    "live_dense_70b": true,
+    "mac16_moe_overclaim": true,
+    "missing_app_headroom": true,
+    "missing_expert_residency_lease": true,
+    "missing_full_weight_bytes": true,
+    "missing_kv_budget": true,
+    "missing_router_workspace": true,
+    "missing_runtime_workspace": true,
+    "model_bytes_loaded": true,
+    "moe_card_count": true,
+    "moe_memory_truth_address": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_16gb_moe_default": true,
+    "no_hidden_authority": true,
+    "no_l2_l3_live70b_ssd": true,
+    "non_moe_row": true,
+    "only_moe_catalog_rows": true,
+    "product_default_claim": true,
+    "product_file_copied": true,
+    "product_route_denied": true,
+    "product_route_enabled": true,
+    "product_winner_claim": true,
+    "proof_refs_bound": true,
+    "provider_call_made": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "router_runtime_workspace_bound": true,
+    "runtime_bytes_loaded": true,
+    "server_benchmark_as_local_fit": true,
+    "source_tree_bytes_read": true,
+    "ssd_as_ram": true,
+    "total_params_declared_sum": true,
+    "total_params_gt_active_params": true,
+    "upstream_hardware_catalog_pass": true,
+    "zero_model_runtime_provider_source_product_command_benchmark_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-MoEActiveParamsMemoryTruth from the hardware-tiered catalog. Active parameters are compute evidence only; full weights, KV, expert leases, router/runtime workspace, app headroom, rollback, RunEventLog, AnswerPacket, abstention, and no-hidden-authority proof are separate. Metadata-only: zero model/runtime/provider/source-tree/product/command/benchmark bytes and no L2/L3/live-70B/SSD-as-RAM claim."
+}
