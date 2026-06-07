@@ -41,6 +41,7 @@ pub mod compressed_model_source_card_intake;
 pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
+pub mod exotic_quant_crash_safe_command_envelope_preflight_gate;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
 pub mod exotic_quant_owner_path_byte_envelope_preflight_gate;
@@ -239,6 +240,14 @@ pub use exotic_quant_owner_path_byte_envelope_preflight_gate::{
     OwnerPathByteEnvelopeProofRefs, OwnerPathByteEnvelopeState,
     EXOTIC_QUANT_OWNER_PATH_BYTE_ENVELOPE_PREFLIGHT_GATE_CURSOR,
     EXOTIC_QUANT_OWNER_PATH_BYTE_ENVELOPE_PREFLIGHT_GATE_NEXT_CURSOR,
+};
+pub use exotic_quant_crash_safe_command_envelope_preflight_gate::{
+    canonical_crash_safe_command_envelope_cards, CrashSafeCommandByteLedger,
+    CrashSafeCommandEnvelopeCard, CrashSafeCommandEnvelopeError,
+    CrashSafeCommandEnvelopeLedger, CrashSafeCommandEnvelopeMetrics, CrashSafeCommandEnvelopeState,
+    CrashSafeCommandPolicy, CrashSafeCommandProofRefs, CrashSafeCommandSurface,
+    EXOTIC_QUANT_CRASH_SAFE_COMMAND_ENVELOPE_PREFLIGHT_GATE_CURSOR,
+    EXOTIC_QUANT_CRASH_SAFE_COMMAND_ENVELOPE_PREFLIGHT_GATE_NEXT_CURSOR,
 };
 pub use exotic_quant_runtime_lane_owner_approval_gate::{
     expected_model_ids, ExoticQuantRuntimeLoaderGate, ExoticQuantRuntimeOwnerAction,
