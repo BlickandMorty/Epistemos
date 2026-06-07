@@ -100,6 +100,19 @@ GitHub/HF/arXiv/Downloads/code-search packs and creative combinations that map
 directly to future falsifiers. This is T0 research/backlog pressure only; it
 does not arm commands, load model/runtime bytes, or promote L2/L3 capability.
 
+2026-06-07 Pass 111 addendum: runtime research must now force same-fixture
+comparability. Before recommending Gemma QAT, GGUF/llama.cpp, LiteRT-LM, MLX
+Swift, Python MLX, vLLM/LMCache, KTransformers, or custom Metal work, require a
+source/search freshness packet, tokenizer/chat-template digest, tool schema
+digest, prompt/KV cache salt, cancellation, rollback, RunEventLog,
+AnswerPacket, and abstention field list. Treat this as the blueprint for
+`F-SameFixtureRuntimeReplayEnvelope`, with supporting backlog gates
+`F-GemmaQAT-ToolJsonChatTemplateReplay`,
+`F-KVCacheLineageDeletionFence`,
+`F-CompressedDomainAttentionMetalQuarantineCard`, and
+`F-HotColdExpertPlacementLease`. This is research-to-build canon only; it does
+not prove a runtime lane, load model bytes, or advance L2/L3.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
@@ -124,6 +137,20 @@ Prioritize mechanisms that plausibly become code:
 - OProver agentic Lean proving paper: `https://arxiv.org/abs/2605.17283`
 - AxProver project and baseline repo: `https://prover.axiomatic-ai.com/`, `https://github.com/Axiomatic-AI/ax-prover-base`
 - Lean State Search: `https://premise-search.com/`
+- Official Hugging Face Gemma 4 E2B QAT GGUF card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- MLX Swift Gemma 4 loader issue:
+  `https://github.com/ml-explore/mlx-swift/issues/389`
+- MLX-LM Gemma 4 tool-call parser issue:
+  `https://github.com/ml-explore/mlx-lm/issues/1096`
+- Open-TQ-Metal Apple Silicon compressed-domain attention:
+  `https://arxiv.org/abs/2604.16957`
+- Agent Memory Below the Prompt persistent Q4 KV cache:
+  `https://arxiv.org/abs/2603.04428`
+- LMCache docs:
+  `https://docs.lmcache.ai/index.html`
+- KTransformers expert placement docs:
+  `https://ktransformers.net/docs/optimization-techniques/expert-placement`
 
 These are leads for falsifiers, not product claims.
 
@@ -149,6 +176,27 @@ These are leads for falsifiers, not product claims.
 5. `proof_guided_route_repair_card`
    - Source-card Lean/AxProver/OProver-style compiler/verifier feedback as route repair motifs.
    - Keep as Pro Research until local verifier traces and rollback exist.
+
+6. `same_fixture_runtime_replay_envelope`
+   - Consume body/search freshness, exact model/source card, tokenizer/chat
+     template, tool schema, runtime lane, KV/cache salt, cancellation,
+     rollback, RunEventLog, AnswerPacket, and abstention.
+   - Red-team mismatched prompts per lane, stale search packets, wrong
+     tokenizer, hidden cache reuse, tool-call parser drift, server sidecar
+     defaults, MAS/Pro collapse, and product-green overclaims.
+
+7. `gemma_qat_tool_json_chat_template_replay`
+   - Bind Gemma 4 QAT chat-template/tool-call parser risks before agentic
+     coding/research/writing claims.
+   - Red-team escaped strings, bare booleans/numbers, multiple tool calls,
+     refusal/citation drift, and hidden-chain exposure.
+
+8. `kv_cache_lineage_deletion_fence`
+   - Bind LMCache/vLLM/Agent-Memory-style reuse to source/search freshness,
+     deletion/tombstone policy, compatibility fence, byte budget, and
+     AnswerPacket caveats.
+   - Red-team deleted-note leakage, stale retrieval cache hits, hidden remote
+     cache, cache salt collision, and KV bytes treated as free memory.
 
 ## Promotion Rule
 

@@ -1166,6 +1166,58 @@ larger local model runtime claim:
 8. `LowBitMetalKernelSourceCard` + `no_link_preflight` + `ULP_oracle`
 9. `DownloadsLocalResearchDedupeProvenanceCard` + `duplicate_source_map`
 10. `LargeModelLaneTournamentPlan` + `same_fixture` + `abstention`
+11. `SameFixtureRuntimeReplayEnvelope` + `source_search_freshness` + `tool_json`
+12. `GemmaQATToolJsonChatTemplateReplay` + `escaped_args` + `parser_drift`
+13. `KVCacheLineageDeletionFence` + `cache_salt` + `tombstone_purge`
+14. `CompressedDomainAttentionMetalQuarantineCard` + `dry_run` + `token_oracle`
+15. `HotColdExpertPlacementLease` + `full_weight_bytes` + `dynamic_expert_visibility`
+
+## Pass 111 Same-Fixture Query Packs
+
+Use these when researching Gemma QAT, runtime-plural lanes, KV/cache reuse, and
+Apple Silicon breakthroughs. The goal is not to pick a favorite runtime; the
+goal is to force every candidate lane through the same proof packet.
+
+### Same-Fixture Runtime Proof
+
+- `same fixture runtime replay LLM tokenizer drift tool calls`
+- `GGUF MLX LiteRT same prompt benchmark tokenizer chat template`
+- `local LLM lane tournament same fixture cancellation rollback`
+- `Gemma 4 QAT same fixture tool JSON coding benchmark`
+- `llama.cpp MLX Swift LiteRT same fixture AnswerPacket`
+- `runtime comparison stale retrieval prompt cache hidden cache reuse`
+
+### Gemma QAT Tool / Template Accuracy
+
+- `Gemma 4 QAT tool call parser escaped string boolean multiple calls`
+- `Gemma 4 chat template tool_calls parser GitHub issue`
+- `Gemma 4 QAT GGUF tokenizer chat template mismatch llama.cpp`
+- `Gemma 4 MLX Swift loader unsupported gemma4 registry`
+- `Gemma 4 QAT coding agent tool JSON benchmark`
+
+### KV Cache Lineage And Deletion
+
+- `LMCache non prefix KV cache deletion stale context privacy`
+- `persistent Q4 KV cache agent memory prompt salt`
+- `vLLM prefix cache hash prompt cache privacy deletion`
+- `KV cache reuse RAG stale document tombstone`
+- `local LLM prompt cache source freshness AnswerPacket`
+
+### Apple Silicon Compressed Attention
+
+- `Open-TQ-Metal compressed domain attention Apple Silicon Gemma 4 31B`
+- `int4 KV cache Metal attention no dequantization token equivalence`
+- `Apple Silicon 128K context KV cache compression Metal kernel`
+- `custom Metal LLM attention crash safe dry run memory pressure`
+- `compressed attention kernel proof top 1 token parity`
+
+### Hot / Cold Expert Placement
+
+- `KTransformers expert placement dynamic update MoE CPU GPU`
+- `MoE active parameters full weights memory proof expert placement`
+- `PowerInfer activation locality hot neurons cold weights`
+- `MoE expert cache runtime lease no hidden router`
+- `heterogeneous expert placement rollback AnswerPacket`
 
 ## Recursive Red/Blue/Purple Research Loop
 
