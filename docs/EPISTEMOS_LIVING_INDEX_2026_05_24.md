@@ -3903,6 +3903,24 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   no model/runtime bytes loaded, no tests executed, no L1 cursor advance, L2
   remains `vault_research_route_with_packetized_mitigation`, and L3/release
   readiness remains red.
+- 2026-06-07 test-without-building proof path canon: Deep Research Pass 123 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+  `F-GraphFilterVisibilityTestWithoutBuildingProofPath` as the lower-cost
+  research-to-build bridge after the focused identifier proof. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. Apple TN2339 and local `xcodebuild -help`
+  support the build-for-testing -> test-without-building shape with explicit
+  derived data, `.xctestrun` or test-products paths, exact `-only-testing`
+  identifiers, enumeration, and fresh result bundles. The canon now rejects
+  stale `.xcresult` reuse, different-commit test products, filename selectors,
+  enumeration-only passes, and zero-test "success" before any focused
+  graph-filter repair evidence can count. This is T0 canon/research-to-build
+  only: no product code changed, no model/runtime bytes loaded, no tests
+  executed, no L1 cursor advance, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3/release readiness
+  remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps
