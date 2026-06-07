@@ -234,6 +234,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > mutation, automated-check replacement, L2/L3/product/release green, live
 > dense 70B, and byte leaks. Guard-owned product cursor remains automated
 > checks; L2 and L3 remain red.
+> Pass 126 defines
+> `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` as the next
+> research-to-build bridge: consume the landed command-spec witness plus the
+> retained red automated-checks artifact, then require future proof-root source
+> commit, pre/post status digests, selected test-product digest, enumeration
+> JSON digest, focused `.xcresult` digest, nonzero executed-test proof,
+> pre-action handling, rollback, RunEventLog, AnswerPacket, and preservation of
+> the full automated-check row. This is T0 canon only: no Xcode command,
+> product source edit, runtime/model bytes, L1 cursor advance, L2/L3 green, or
+> large-model product claim.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4705,3 +4715,26 @@ opens zero selected test-product bytes, loads no app/model/runtime bytes, and
 does not promote L2/L3/T4. The next proof remains the actual fresh
 build-for-testing / test-without-building evidence and the guard-owned
 automated-checks cursor.
+
+### §28.16 Automated-checks fresh test-products evidence envelope (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 126.
+
+Pass 126 defines `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` as the
+metadata bridge that should come before any future Xcode proof is treated as
+release-audit evidence. It consumes the landed
+`F-GraphFilterVisibilityTestProductsCommandSpec` witness and the retained red
+automated-checks artifact, then requires a future proof root to bind source
+commit, pre/post source-status digests, selected `.xctestrun` or
+`.xctestproducts` digest, enumeration JSON digest, focused `.xcresult` digest,
+nonzero executed-test evidence, scheme pre-action handling, rollback,
+RunEventLog, AnswerPacket, and the full automated-check row.
+
+Promotion truth: this is T0 research-to-build canon only. It runs no Xcode
+command, changes no product source, loads no app/model/runtime bytes, and does
+not promote L1/L2/L3/T4. The next buildable unit is a Rust metadata primitive
+that validates this evidence envelope without accepting stale DerivedData,
+filename selectors, enumeration-only output, zero executed tests, hidden
+pre-action mutation, focused-proof replacement of the full automated-check row,
+or any large-local-model/release-ready promotion.
