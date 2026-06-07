@@ -106,6 +106,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-KVSourceCard-ForkAndDaemonBoundary`. This is T0/T1 canon/backlog only:
 > no server, daemon, remote cache, offload benchmark, model/KV byte load,
 > hidden cache authority, SSD-as-RAM claim, or L2/L3 promotion.
+> Deep Research Pass 89 in the same file turns the 2026-06-07 QAT/KV/local-
+> Downloads refresh into three build tracks: redacted first-token preflight for
+> Gemma/QAT/GGUF/LiteRT/MLX/Transformers lanes,
+> `F-QuantizedKVCompressionSourceCard` / `F-KVCacheEnvelopeModelFitGate` for
+> KIVI/Transformers/TurboQuant-style KV cache work, and
+> `F-LocalDownloadsLargeModelMotifSourceCard` for local low-memory,
+> vector-quant, and MoLoRA/SGMM research notes. It cites current Google Gemma 4
+> QAT, LiteRT-LM, TurboVec, Transformers KV-cache, and KIVI sources plus
+> `/Users/jojo/Downloads` research leads. This is T0 canon/backlog only: no
+> model/runtime/KV/index bytes, no SSD-as-RAM claim, no hidden route authority,
+> and no L2/L3 promotion.
 > Deep Research Pass 61 turns that cluster into an implementable
 > `F-KVRuntimeSourceCard` blueprint, and Pass 62 lands it as a T1/L1
 > metadata-only witness at

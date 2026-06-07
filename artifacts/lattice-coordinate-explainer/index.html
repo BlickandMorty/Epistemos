@@ -1530,6 +1530,21 @@
 </div>
 
 <div class="canon-hook">
+  <strong>2026-06-07 deep-research Pass 89 folded.</strong>
+  The current large-model research-to-build pass turns Gemma 4 QAT,
+  LiteRT-LM, TurboVec, Transformers QuantizedCache, KIVI, and local Downloads
+  low-memory/vector-quant/MoLoRA notes into build tracks instead of loose
+  reading: <code>F-ExoticQuantRedactedFirstTokenProbePreflightGate</code>,
+  <code>F-QuantizedKVCompressionSourceCard</code>,
+  <code>F-KVCacheEnvelopeModelFitGate</code>, and
+  <code>F-LocalDownloadsLargeModelMotifSourceCard</code>. It keeps Gemma 4 12B
+  QAT as a Pro Gated target, KV compression as a separate source-card lane,
+  and local offload/Metal adapter ideas as quarantined motifs. This is T0
+  canon/backlog only; no model/runtime/KV/index bytes are loaded, no SSD-as-RAM
+  or hidden route-authority claim is made, and L2/L3 remain red.
+</div>
+
+<div class="canon-hook">
   <strong>2026-06-06 Google Gemma / LiteRT / MTP reconciliation.</strong>
   Deep Research Pass 65 keeps the large-local-model ladder ambitious but
   proof-split: <code>google-ai-edge/LiteRT-LM</code> Swift/macOS package

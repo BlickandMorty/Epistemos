@@ -5110,6 +5110,136 @@ Epistemos prove one safe first-token attempt while preserving owner approval,
 abortability, memory accounting, stdout/stderr privacy, no hidden route
 authority, and no L2/L3 promotion?"
 
+## Pass 89 - QAT, KV, And Local-Downloads Research Become Build Tracks
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 89 answers the owner's "research to build" requirement by turning the
+latest QAT, TurboVec, LiteRT-LM, KV-cache, and local Downloads evidence into
+three buildable falsifier tracks instead of a broader reading list.
+
+External validation strengthened the same conclusion from the June 6 canon:
+Gemma 4 QAT is a serious local-model ladder candidate, but it must enter
+Epistemos through exact source pins, runtime-lane byte envelopes, first-token
+redaction, quality replay, and visible AnswerPackets. Google's QAT post says
+QAT checkpoints target Q4_0 and a mobile format, with the mobile format
+reducing Gemma 4 E2B to a 1GB memory footprint; the LiteRT-LM model card for
+Gemma 4 12B says the `.litertlm` artifact is intended for macOS/Linux and
+benchmarks use 1024 prefill tokens, 256 decode tokens, 2048 context, initialized
+caches, and file-on-disk model size. Those are strong source-card inputs, not
+product proof.
+
+KV/cache research is now a separate large-model unlock track. Hugging Face
+Transformers documents `QuantizedCache` with `hqq` and `quanto` backends and
+explicitly warns that KV quantization can hurt latency on short contexts when
+memory is sufficient. KIVI's paper gives the core asymmetry Epistemos should
+source-card: key cache per-channel, value cache per-token, 2-bit KV, and
+memory/throughput claims that require local compatibility and quality fixtures
+before route use.
+
+Local Downloads research adds useful but risky pressure. The low-memory
+TurboQuant guide in `/Users/jojo/Downloads/Epistemos  Low-Memory Model Expansion + TurboQuant Implementation Guide for Claude Code.md`
+argues for GGUF/llama.cpp, TurboQuant KV, and SSD/offload ideas on the owner's
+M2 Pro 16 GB machine; `vector quant.md` argues for learned rotations,
+mixed-precision KV, Metal-friendly uniform bit packing, and segment-level
+re-encoding; `old research/On-Device MoLoRA with MLX_Metal.md` argues for
+decide-once token routing and Metal SGMM-style adapter execution. These are
+valuable motifs, but any SSD/offload, TurboQuant, MoLoRA, or Metal kernel claim
+must be quarantined until Epistemos proves memory, crash safety, cancellation,
+quality, rollback, and product visibility.
+
+### Build-Forcing Fusions
+
+| Track | Mechanism | Epistemos organ | Tier | MAS/Pro status | Required falsifier |
+|---|---|---|---|---|---|
+| QAT first-token ladder | Gemma 4 E2B/E4B small harness, then 12B QAT Pro Gated | RuntimeRouter/System G, RunEventLog, AnswerPacket | T0/T1 now | Pro Gated / MAS candidate only after WRV | `F-ExoticQuantRedactedFirstTokenProbePreflightGate` plus later `F-QAT-SameFixtureQualityReplay` |
+| KV compression lane | KIVI/Transformers/TurboQuant motifs as source cards, not hidden cache authority | KVByteBudgetCard, KVCompatibilityFence, ColdStream | T0/T1 backlog | Pro ResearchCandidate | `F-QuantizedKVCompressionSourceCard` and `F-KVCacheEnvelopeModelFitGate` |
+| Local Downloads motif intake | Low-memory guide, vector-quant research, MoLoRA/SGMM notes | Eidos, ActiveAssembly, RuntimeRouter, provenance | T0 now | Pro Research / quarantine | `F-LocalDownloadsLargeModelMotifSourceCard` |
+
+### Red-Team Additions
+
+- reject QAT model-card availability as loader proof
+- reject `.litertlm`, GGUF, MLX, or Transformers examples as product route proof
+- reject file-on-disk model size as resident-memory proof
+- reject cache-initialized benchmark numbers as cold-start proof
+- reject KV quantization when context is short or exact baseline wins
+- reject SSD/offload language as "SSD-as-RAM" product copy
+- reject local Downloads guides as authority unless converted into source cards
+- reject MoLoRA/SGMM adapter motifs until Metal kernels, cancellation, and
+  route visibility are separately proven
+
+### Blue-Team Repair Rules
+
+- every QAT candidate needs model ID, revision, selected files, declared bytes,
+  local bytes when owner-approved, tokenizer/template, runtime lane, and
+  rollback
+- every first-token probe must redact token text, store only a digest/length
+  witness, capture memory deltas, and attach AnswerPacket/RunEventLog refs
+- every KV compression claim needs context length, residual window, bit width,
+  key/value axes, baseline quality, latency, and abstention policy
+- every local Downloads motif needs `direct_import`, `adapter_wrap`,
+  `quarantine_reference`, `clean_room_rewrite`, or `research_only` provenance
+- every Metal/MLX/llama.cpp/LiteRT lane must remain a route candidate, not the
+  architecture itself
+
+### Promotion Truth
+
+- T1/L1 advanced: no new falsifier landed in Pass 89. This is T0 canon/backlog
+  pressure only.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: the redacted first-token preflight, because it is
+the first place QAT/GGUF/LiteRT/Transformers ideas can become bounded runtime
+evidence without leaking prompt/output text or promoting product capability.
+
+Safest next falsifier: `F-ExoticQuantRedactedFirstTokenProbePreflightGate`,
+with `F-QuantizedKVCompressionSourceCard` as the next parallel research-to-code
+track after first-token policy is pinned.
+
+Best near-term code unit: add a redacted first-token preflight primitive that
+consumes the dry-run transcript gate and rejects unredacted stdout/stderr,
+token text capture, model-byte loading beyond owner-approved scope, hidden
+provider fallback, missing memory deltas, missing cancellation, missing
+AnswerPacket, and L2/L3 promotion.
+
+Biggest false-claim risk: saying Gemma 4 QAT, LiteRT-LM Swift support,
+Transformers QuantizedCache, KIVI, TurboQuant, llama.cpp, or local Downloads
+offload notes prove large models are already runnable, good, stable, or
+user-facing on the owner's Mac.
+
+Biggest missing source: owner-approved same-fixture local logs for one tiny
+model and one QAT candidate showing first-token redaction, memory deltas,
+cancel/teardown, quality baseline, RunEventLog, and AnswerPacket correlation.
+
+Next research query: "What exact redacted first-token artifact schema can unify
+GGUF/llama.cpp, LiteRT-LM, MLX, and Transformers lanes while proving prompt
+privacy, output privacy, memory deltas, cancellation, rollback, no hidden route
+authority, and no product promotion?"
+
+Sources:
+
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+- `/Users/jojo/Downloads/Epistemos  Low-Memory Model Expansion + TurboQuant Implementation Guide for Claude Code.md`
+- `/Users/jojo/Downloads/vector quant.md`
+- `/Users/jojo/Downloads/old research/On-Device MoLoRA with MLX_Metal.md`
+- https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/
+- https://github.com/RyanCodrai/turbovec
+- https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm/blob/main/README.md
+- https://developers.googleblog.com/blazing-fast-on-device-genai-with-litert-lm/
+- https://huggingface.co/docs/transformers/kv_cache
+- https://arxiv.org/abs/2402.02750
+
 ### Executive Synthesis
 
 Pass 87 implements `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`. This
