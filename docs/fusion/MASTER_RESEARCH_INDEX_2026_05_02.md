@@ -4506,3 +4506,26 @@ calls, lands no L1 witness, and does not change L2/L3. Speed mechanisms such
 as MTP, n-gram speculation, prefix cache, and session restore remain Pro
 Gated/Research until a falsifier, owner-approved runtime harness, quality
 replay, release audit, and user-visible AnswerPacket evidence prove them.
+
+### §28.8 L3 runtime log-evidence canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 117 plus `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+and `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+
+Pass 117 defines the guard-owned next bridge
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`.
+It consumes the automated release-audit checks witness and converts the next
+product-runtime proof into a redacted log-correlation packet: OSLog
+subsystem/category predicates, log time window, xcodebuild and optional
+`.xcresult` refs, user action refs, route decision refs, AnswerPacket id,
+RunEventLog id, visible row id, unsupported-mode hidden/gated assertions,
+blocked promotion fields, rollback, and no-runtime-byte metadata scope.
+
+Promotion truth: this is T0 research-to-build canon only. It does not claim
+runtime proof, manual release-audit proof, distribution/compliance proof, L2,
+L3, T4, live dense 70B, 128K shard, Omega/autogenous, or user-facing product
+capability. Apple unified logging, OSLog, xcodebuild result bundles, and
+xcresulttool are source-carded as evidence mechanisms; they do not promote a
+claim unless the Epistemos falsifier and release-audit workflow bind them to
+visible AnswerPacket/RunEventLog evidence.

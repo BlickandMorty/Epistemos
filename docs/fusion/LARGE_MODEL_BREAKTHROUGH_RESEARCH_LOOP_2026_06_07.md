@@ -182,6 +182,23 @@ JSON drift, parser drift, hidden sidecar slots, L2/L3/T4 promotion, live dense
 canon/build-plan only: no runtime/model/cache/session bytes were loaded, no
 command was armed, and product capability did not advance.
 
+2026-06-07 Pass 117 addendum: the guard-owned L2/L3 bottleneck now has a
+buildable log-evidence bridge. The next guard-owned falsifier after automated
+release-audit checks is
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`:
+consume the automated-checks witness, bind OSLog subsystem/category predicates,
+log time window, xcodebuild and optional `.xcresult` refs, user action refs,
+route decision refs, AnswerPacket id, RunEventLog id, visible row id,
+unsupported-mode hidden/gated assertions, blocked promotion fields, rollback,
+and no-runtime-byte metadata scope. Red-team stale log windows, wrong process,
+unredacted prompt/answer artifacts, UI rows without AnswerPacket, AnswerPacket
+without log correlation, hidden provider fallback, sidecar defaults,
+unsupported Agent/LiveAgent visibility for local modes, Omega/autogenous/70B/
+128K overclaims, L2/L3/T4 promotion, and model/runtime bytes in metadata
+scope. This is T0 canon/build-plan only: no runtime proof is claimed, no
+manual/distribution release audit is complete, and product capability did not
+advance.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
@@ -199,6 +216,9 @@ Prioritize mechanisms that plausibly become code:
   cache-lineage, session-restore, and held-out quality packets before MTP,
   n-gram speculation, prefix cache, or LiteRT/MLX session restore can accelerate
   a product route.
+- L3 log-evidence lane: OSLog/xcodebuild/xcresult evidence must correlate with
+  AnswerPacket, RunEventLog, visible row ids, hidden-mode assertions, and
+  blocked promotion truth before any small-model runtime claim can become WRV.
 - Proof-guided route lane: Lean/AxProver/OProver-style compiler feedback, verifier traces, and repair loops for route correctness and code-generation confidence.
 - EML/Primitive IR lane: elementary-function charts are internal primitive maps, not substrate-wide proof; source-card EML/math repos as motifs before implementation.
 
@@ -232,6 +252,14 @@ Prioritize mechanisms that plausibly become code:
   `https://github.com/google-ai-edge/LiteRT-LM`
 - Google LiteRT-LM MTP/session-management post:
   `https://developers.googleblog.com/en/blazing-fast-on-device-genai-with-litert-lm/`
+- Apple Logging:
+  `https://developer.apple.com/documentation/os/logging`
+- Apple OSLog:
+  `https://developer.apple.com/documentation/OSLog`
+- Apple Xcode test results:
+  `https://developer.apple.com/documentation/xcode/running-tests-and-interpreting-results`
+- Apple Testing in Xcode / xcresulttool:
+  `https://developer.apple.com/videos/play/wwdc2019/413/`
 
 These are leads for falsifiers, not product claims.
 
@@ -291,6 +319,14 @@ These are leads for falsifiers, not product claims.
    - Red-team draft leakage, shared n-gram caches, stale session restore,
      speed-only promotion, tool JSON drift, hidden sidecars, and cache hits
      treated as quality proof.
+
+10. `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe`
+   - Consume the automated-checks witness and bind runtime log predicates,
+     AnswerPacket ids, RunEventLog ids, visible row ids, route decisions,
+     unsupported-mode hidden/gated assertions, and release-audit blockers.
+   - Red-team UI-only success, stale logs, wrong process, raw prompt leakage,
+     hidden provider fallback, unsupported Agent visibility, and false L2/L3
+     promotion.
 
 ## Promotion Rule
 
