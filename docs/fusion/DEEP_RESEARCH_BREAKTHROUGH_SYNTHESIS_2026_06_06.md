@@ -13761,3 +13761,122 @@ requirement, and blocked promotion truth.
 Next research query: "Which graph_filter_visibility failing exemplars map to
 the smallest source patch and focused Swift test subset without weakening graph
 filter visibility, source-guard honesty, or large-model route gating?"
+
+## Deep Research Pass 120 - Graph Filter Visibility Focused Repair Packet
+
+This pass drills into the top retained release-audit family,
+`graph_filter_visibility`, and turns it from a broad red family into a precise
+focused repair packet. The current source truth is that `folder` nodes are
+opt-in by default; several retained failures and current test anchors still
+treat `GraphNodeType.visibleCases` as the default-active set.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Create a metadata-first
+`F-GraphFilterVisibilityFocusedRepairPacket` that consumes
+`F-ReleaseAuditAutomatedChecksClosureMatrix` and binds exact source/test
+anchors before any Swift patch:
+
+- source invariant: `GraphNodeType.visibleCases` is every graph-visible type
+  except `.block`, while `GraphNodeType.defaultActiveCases` is
+  `visibleCases` minus `.folder`;
+- runtime invariant: `FilterEngine` initializes, resets, `showAllTypes()`, and
+  `resetForVaultLifecycle()` to `defaultActiveCases`, not literal
+  `visibleCases`;
+- UI invariant: folder nodes stay reachable through explicit opt-in
+  `setType(.folder, isVisible: true)` or `toggleType(.folder)`;
+- repair invariant: update stale tests to assert the default-active contract
+  and add explicit all-visible opt-in baselines where the test truly wants all
+  types.
+
+This is a build-direction packet, not the patch itself. It names the smallest
+safe patch shape so future work does not "fix" the app by re-enabling folder
+clutter or "fix" the tests by weakening graph visibility.
+
+### Local Failure Evidence
+
+| Retained failure | Current anchor | Repair shape |
+|---|---|---|
+| `FilterEngineComprehensiveTests.swift:393` expected every `visibleCases` node visible by default | `FilterEngineComprehensiveTests.swift` `isNodeVisibleForAllTypes` | Iterate `defaultActiveCases`, assert `.folder` hidden by default, then opt in `.folder` and assert visibility. |
+| `FilterEngineComprehensiveTests.swift:621/624` toggled every visible type and expected off/on symmetry from default state | `allSevenTypesCanBeToggled` | Normalize each type to visible with `setType(type, isVisible: true)` before off/on checks, or split default-off `.folder`. |
+| `FilterEngineComprehensiveTests.swift:638` compared every type from a default baseline | `visibilityForEachType` | Set `activeNodeTypes` to `Set(GraphNodeType.visibleCases)` before the per-type filtering loop. |
+| `FilterEngineComprehensiveTests.swift:673/685` expected folder visible in a realistic default/reset scenario | `realisticFilteringScenario` | Explicitly opt in `.folder` before expecting visible; after `showAllTypes()` assert folder is hidden unless opted in again. |
+| `ResourceExhaustionTests.swift:731/734` expected all visible cases active by default | `filterAllTypesActive` | Rename or split: default-active count equals `defaultActiveCases`; an explicit all-visible baseline uses `setActiveNodeTypes(Set(visibleCases))`. |
+| `ConcurrencyEdgeCaseTests.swift:624/662` used `allCases`/`visibleCases` as default bounds | `rapidTypeToggling`, `allTypesVisibleByDefault` | Use `visibleCases` for active-count upper bound and `defaultActiveCases` for default count. |
+| `VaultLifecycleResetTests.swift:61` retained failure claimed reset remained filtered | `resetForVaultLifecycle()` source resets default-active, clears focus/search/model filters | Keep as a focused verification target after stale default-visible tests are repaired. |
+
+### Source Truth
+
+- `Epistemos/Models/GraphTypes.swift`
+  - `visibleCases = allCases.filter { $0 != .block } + appLevelCases`.
+  - `defaultActiveCases = visibleCases.filter { $0 != .folder }`.
+- `Epistemos/Graph/FilterEngine.swift`
+  - `activeNodeTypes` starts as `Set(GraphNodeType.defaultActiveCases)`.
+  - `isFiltered` compares against `defaultActiveCases`.
+  - `showAllTypes()` restores `defaultActiveCases`.
+  - `resetForVaultLifecycle()` restores `defaultActiveCases` and clears focus,
+    search, and model filters.
+
+### Candidate Falsifier Backlog
+
+1. `F-GraphFilterVisibilityFocusedRepairPacket`
+   - Accepted fields: upstream closure-matrix ref, retained family count,
+     source refs, test refs, failing line refs, default-active invariant,
+     all-visible opt-in invariant, focused commands, patch checklist,
+     expected family issue-count delta, rollback, RunEventLog, AnswerPacket,
+     and blocked L2/L3/T4 fields.
+   - Red fixtures: source changed to make folder default-on, tests weakened to
+     skip folder visibility, visibleCases/defaultActiveCases conflated,
+     focused test success treated as full release pass, graph filter repair
+     used to promote local-model capability, and retained log ignored.
+
+2. `F-GraphFilterVisibilityFocusedRepairProof`
+   - Accepted fields: patch digest, exact changed test lines, focused command
+     logs for `FilterEngineComprehensiveTests`, `ResourceExhaustionTests`,
+     `ConcurrencyEdgeCaseTests`, and `VaultLifecycleResetTests`, family count
+     reduction or clean focused rerun, no product-code mutation if tests alone
+     were stale, and full-rerun blocker preserved.
+   - Red fixtures: product source mutated without failing source proof,
+     `showAllTypes()` changed to literal all-visible, folder opt-in removed,
+     focused commands omitted, stale logs reused as pass, and full
+     `xcodebuild_test` treated as complete without rerun.
+
+### Model / Runtime Ladder Implication
+
+Graph visibility is a large-model prerequisite because Eidos, graph-context
+selection, note evidence, AnswerPacket visibility, and model-route surfaces
+depend on honest graph filtering. A Qwen3-4B or Gemma QAT answer cannot be
+called user-facing reliable if graph/filter tests are red or if "show all" and
+"default active" are conflated.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `GraphFilterVisibilityFocusedRepairPacket`.
+
+Safest next falsifier: `F-GraphFilterVisibilityFocusedRepairPacket`, then
+`F-GraphFilterVisibilityFocusedRepairProof` after the focused test patch.
+
+Best near-term code unit: patch the stale graph-filter tests only, preserving
+`FilterEngine` and `GraphNodeType.defaultActiveCases`, then run focused
+`xcodebuild -only-testing` commands before the full release-audit rerun.
+
+Biggest false-claim risk: treating folder opt-in as a product bug and
+reverting the intentional default-active contract.
+
+Biggest missing artifact: a focused proof that the graph/filter family is
+repaired without changing product semantics or claiming L2/L3.
+
+Next research query: "Which retained graph_filter_visibility failures remain
+after the folder opt-in test repair, and do any require product-source changes
+rather than stale test expectation updates?"

@@ -1454,6 +1454,34 @@ Red-team variants:
 - `manual runtime check replaces full automated check`
 - `three zero fail passes claimed after code change`
 
+## Pass 120 Graph Filter Visibility Repair Keywords
+
+Search for graph/filter repair and test-drift evidence with:
+
+- `GraphNodeType visibleCases defaultActiveCases folder opt in`
+- `FilterEngine showAllTypes defaultActiveCases folder disabled by default`
+- `Swift Testing FilterEngineComprehensiveTests folder visible by default`
+- `ResourceExhaustionTests Filter with all types active defaultActiveCases`
+- `ConcurrencyEdgeCaseTests rapid type toggling GraphNodeType visibleCases`
+- `VaultLifecycleResetTests resetForVaultLifecycle filter isFiltered`
+- `graph filter visibility retained xcodebuild_test family folder opt-in`
+- `large model evidence graph filter visibility Eidos AnswerPacket`
+- `default active cases not visible cases Swift graph tests`
+- `folder nodes graph clutter opt-in default test repair`
+
+Red-team variants:
+
+- `folder re-enabled by default to satisfy stale tests`
+- `defaultActiveCases conflated with visibleCases`
+- `showAllTypes changed to literal all visible`
+- `folder visibility assertion removed instead of opt-in tested`
+- `focused graph tests treated as release audit green`
+- `graph filter repair promotes local model L3`
+- `retained xcodebuild log ignored`
+- `GraphState reset remains filtered stale source`
+- `allCases used as activeNodeTypes upper bound`
+- `visible graph test skips appLevelCases`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

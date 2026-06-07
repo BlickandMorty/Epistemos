@@ -3840,6 +3840,29 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   were loaded, no new falsifier landed, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing large-
   local-model capability remains red.
+- 2026-06-07 graph-filter visibility focused repair research-to-build canon:
+  Deep Research Pass 120 is now folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`,
+  `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`, and
+  `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder,
+  and no claim promotes without visible proof. The pass defines
+  `F-GraphFilterVisibilityFocusedRepairPacket` as the T0 map for the top
+  retained release-audit family. Source truth is now explicit:
+  `GraphNodeType.visibleCases` means all graph-visible types except `.block`,
+  while `GraphNodeType.defaultActiveCases` means the default-active set and
+  intentionally excludes `.folder`; `FilterEngine` initializes, resets,
+  `showAllTypes()`, and `resetForVaultLifecycle()` to `defaultActiveCases`.
+  Current repair anchors include `FilterEngineComprehensiveTests.swift`,
+  `ResourceExhaustionTests.swift`, `ConcurrencyEdgeCaseTests.swift`, and
+  `VaultLifecycleResetTests.swift`; the safe patch is focused test repair, not
+  product-source mutation that re-enables folder by default. No product code
+  was changed, no Swift tests were run, no model/runtime bytes were loaded, no
+  new falsifier landed, L2 remains
+  `vault_research_route_with_packetized_mitigation`, and L3 user-facing large-
+  local-model capability remains red.
 - 2026-06-07 deep-research Pass 81 now folds a build-forcing large-model
   source/fork/keyword sweep into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. It maps

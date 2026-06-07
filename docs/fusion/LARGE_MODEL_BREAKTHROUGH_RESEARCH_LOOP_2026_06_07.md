@@ -356,6 +356,19 @@ These are leads for falsifiers, not product claims.
      treated as repair, stale retained logs, hidden L2/L3 green, and Gemma/70B
      product promotion before the full command row passes.
 
+13. `graph_filter_visibility_focused_repair_packet`
+   - Consume the closure matrix and bind the exact folder opt-in test drift:
+     `visibleCases` means graph-visible; `defaultActiveCases` means default
+     active and excludes `.folder`.
+   - Source anchors: `GraphTypes.swift` defaultActiveCases, `FilterEngine.swift`
+     initialization/reset/showAllTypes/isFiltered.
+   - Test anchors: `FilterEngineComprehensiveTests.swift`,
+     `ResourceExhaustionTests.swift`, `ConcurrencyEdgeCaseTests.swift`,
+     `VaultLifecycleResetTests.swift`.
+   - Red-team re-enabling folder by default to satisfy stale tests, weakening
+     folder visibility assertions, focused test pass treated as full release
+     pass, and graph repair used to promote local-model capability.
+
 ## Promotion Rule
 
 Research can be brilliant and still be T0. It reaches T1 only when a falsifier exists. It reaches T2 only when the capability kernel admits a product route. It reaches T3 only when WRV proves a user-visible surface. It reaches T4 only when MAS/Pro build and logs agree. It reaches T5 only when the whole substrate segment has no unmapped gaps.
