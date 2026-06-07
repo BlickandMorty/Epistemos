@@ -349,6 +349,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-DownloadsLocalResearchDedupeProvenanceCard`. It advances T0 research and
 > backlog canon only; no runtime import, model bytes, KV bytes, command
 > execution, MAS/L2/L3 promotion, live dense 70B, or SSD-as-RAM claim.
+> Deep Research Pass 82 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now turns
+> the next research query into a concrete runtime-agnostic command-envelope
+> schema. It source-cards local subprocess hardening, small compressed model
+> command cards, TurboVec native dry-run cards, Semantic Working Set,
+> ColdStream, and PatternBoost, then validates current primary runtime sources
+> for llama.cpp, MLX LM, MLX Swift LM, LiteRT-LM, Transformers, Swift
+> Subprocess, Tokio, Rust `Command`, Apple `Process`, and Metal command-buffer
+> planning. The new canon primitive is `RuntimeCommandEnvelopeCard`; it maps
+> GGUF/llama.cpp, MLX Python quarantine, MLX Swift native API, LiteRT-LM,
+> Transformers quarantine, custom Metal, server-only denial, cwd/env/download/
+> network/cache/KV/timeout/cancellation/rollback/AnswerPacket policy, and the
+> red-fixture families for `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+> It advances T0 research/backlog canon only; no command is armed, no runtime
+> or model bytes are loaded, no provider call is made, and no MAS/L2/L3, live
+> dense 70B, or SSD-as-RAM claim is allowed.
 >
 > **2026-06-07 breakthrough research method addendum:** read
 > `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` and

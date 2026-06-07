@@ -3054,6 +3054,20 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   `F-EMLPrimitiveIRSourceCard`, and
   `F-DownloadsLocalResearchDedupeProvenanceCard`; this is T0 research/backlog
   canon only, not L2/L3 large-model runtime proof.
+- 2026-06-07 deep-research Pass 82 now adds the runtime-agnostic crash-safe
+  command-envelope schema for large-local-model research-to-build work. It
+  folds local subprocess hardening, small compressed model command cards,
+  TurboVec native dry-run cards, Semantic Working Set, ColdStream, and
+  PatternBoost into a `RuntimeCommandEnvelopeCard` primitive and validates
+  current primary source signals for llama.cpp, MLX LM, MLX Swift LM,
+  LiteRT-LM, Transformers, Swift Subprocess, Tokio, Rust `Command`, Apple
+  `Process`, and Metal command-buffer planning. The next buildable gate remains
+  `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`, with red fixtures for
+  shell strings, unsafe cwd/env, provider/hub tokens, remote downloads,
+  server sidecars, unbounded tokens/context, hidden route authority, missing
+  rollback/RunEventLog/AnswerPacket, and false MAS/L2/L3/live-70B claims. This
+  is T0 research/backlog canon only: no command is armed or executed, no
+  model/runtime/provider bytes are loaded, and no L2/L3 product proof exists.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus
