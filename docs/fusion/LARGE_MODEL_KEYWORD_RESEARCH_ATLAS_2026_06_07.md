@@ -1219,6 +1219,47 @@ goal is to force every candidate lane through the same proof packet.
 - `MoE expert cache runtime lease no hidden router`
 - `heterogeneous expert placement rollback AnswerPacket`
 
+## Pass 112 Packet Field Query Packs
+
+Use these when converting same-fixture research into a buildable
+`F-SameFixtureRuntimeReplayEnvelope`. The goal is to find exact packet fields,
+not another high-level runtime preference.
+
+### Packet Identity And Source Freshness
+
+- `same fixture runtime replay packet source freshness digest`
+- `local LLM benchmark same document revision search index freshness`
+- `RAG answer packet source tombstone replay cache invalidation`
+- `LLM runtime replay body checksum readable block digest graph evidence`
+
+### Cache Salt And KV Visibility
+
+- `vLLM prefix caching cache salt hash algorithm security deterministic`
+- `LMCache KV cache salt tenant isolation deletion tombstone`
+- `llama.cpp prompt cache slot n_past n_tokens KV eviction logs`
+- `local LLM prompt cache hidden reuse privacy AnswerPacket`
+
+### Runtime Lane Packet Fields
+
+- `GGUF CLI server sidecar distinction command envelope`
+- `LiteRT LM Swift Gemma 4 issue package release tag model support`
+- `MLX Swift Gemma 4 loader tokenizer chat template issue`
+- `runtime lane comparison direct CLI in process sidecar denied`
+
+### Model Artifact And Tool JSON Proof
+
+- `Gemma 4 QAT tokenizer chat template selected file digest GGUF`
+- `LLM tool JSON parser escaped string multiple calls benchmark`
+- `Gemma QAT tool call parser chat template drift`
+- `same fixture tool schema digest output digest AnswerPacket`
+
+### Privacy And Promotion Guards
+
+- `local LLM same fixture no raw prompt token digest privacy`
+- `runtime replay zero bytes metadata only no model load`
+- `LLM AnswerPacket rollback cancellation output digest`
+- `metadata source card product overclaim runtime proof red fixture`
+
 ## Recursive Red/Blue/Purple Research Loop
 
 Run this loop for every promising bottleneck:

@@ -316,6 +316,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-HotColdExpertPlacementLease`. This is T0 canon/build-plan only: no
 > command was armed, no model/runtime/KV/cache/index bytes were loaded, no
 > product route promoted, and L2/L3 remain red.
+> Deep Research Pass 112 in
+> `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` converts
+> that bridge into a field-level `F-SameFixtureRuntimeReplayEnvelope` packet
+> specification. Field groups are identity/tier, source freshness, prompt/tool,
+> model artifact, runtime lane, memory/cache, execution proof, quality, and
+> visibility/promotion. It binds current vLLM cache-salt/hash evidence,
+> llama.cpp slot/prompt-cache visibility requirements, LiteRT-LM Swift/Gemma
+> caveats, Gemma QAT tokenizer/chat-template/source identity, direct CLI versus
+> sidecar separation, owner approval, command envelope, rollback, RunEventLog,
+> AnswerPacket, abstention, and zero-byte metadata scope. Proposed code shape:
+> `agent_core/src/uas/same_fixture_runtime_replay_envelope.rs`,
+> `agent_core/src/bin/falsify_same_fixture_runtime_replay_envelope.rs`, and
+> `Tools/falsifiers/f_same_fixture_runtime_replay_envelope.sh`. This is T0
+> canon/build-plan only: no runtime bytes loaded, no product route promoted,
+> and L2/L3 remain red.
 > Deep Research Pass 106 in
 > `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now folds
 > fresh large-local-model research into buildable backlog. It validates

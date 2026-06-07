@@ -113,6 +113,19 @@ AnswerPacket, and abstention field list. Treat this as the blueprint for
 `F-HotColdExpertPlacementLease`. This is research-to-build canon only; it does
 not prove a runtime lane, load model bytes, or advance L2/L3.
 
+2026-06-07 Pass 112 addendum: same-fixture research must now be
+field-complete before it can influence runtime planning. The packet must bind
+identity/tier, source freshness, prompt/tool, model artifact, runtime lane,
+memory/cache, execution proof, quality, and visibility/promotion fields.
+Research on vLLM/LMCache, llama.cpp/GGUF, LiteRT-LM, MLX/MLX Swift, Gemma QAT,
+KTransformers, or custom Metal must explicitly answer cache salt/hash policy,
+slot/prompt-cache visibility, tokenizer/chat-template digest, selected-file
+digests, direct CLI versus sidecar separation, owner approval, command
+envelope, rollback, RunEventLog, AnswerPacket, abstention, and zero-byte
+metadata scope. Treat this as the field blueprint for
+`F-SameFixtureRuntimeReplayEnvelope`; it is still T0 canon/build-plan only and
+does not prove a runtime lane, load model bytes, or advance L2/L3.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
@@ -124,6 +137,7 @@ Prioritize mechanisms that plausibly become code:
 - TurboVec/TurboQuant lane: Eidos/AppColdStore compressed retrieval cache only, with UAS-stable external IDs and allowlist-before-rank.
 - KV compression lane: KIVI/LeanKV/InnerQ/TurboQuant-style ideas as source-carded motifs before runtime authority.
 - MoE/sparse lane: active params are compute evidence only; full-weight bytes and KV bytes still bind.
+- Same-fixture replay lane: field-complete packet proof before any runtime-lane tournament.
 - Proof-guided route lane: Lean/AxProver/OProver-style compiler feedback, verifier traces, and repair loops for route correctness and code-generation confidence.
 - EML/Primitive IR lane: elementary-function charts are internal primitive maps, not substrate-wide proof; source-card EML/math repos as motifs before implementation.
 

@@ -195,6 +195,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   product code changed, no model/runtime/KV/cache/index bytes were loaded, no
   command was armed, L2/L3 remain red, and no user-facing large-model green
   claim exists.
+- Updated **2026-06-07** · Deep Research Pass 112 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns the
+  same-fixture bridge into a field-level `F-SameFixtureRuntimeReplayEnvelope`
+  blueprint. North-star sentence: Epistemos is a local cognitive substrate
+  where every meaningful object has an address, plane, budget, status, and
+  witness; MAS ships the safe floor, Pro contains the gated/research/vault/
+  omega ladder, and no claim promotes without visible proof. The packet groups
+  identity/tier, source freshness, prompt/tool, model artifact, runtime lane,
+  memory/cache, execution proof, quality, and visibility/promotion fields.
+  It consumes local `RuntimePluralQatLaneTournamentPlan` evidence and current
+  vLLM/llama.cpp/LiteRT-LM/Gemma QAT source caveats to require cache-salt/hash
+  policy, slot/prompt-cache visibility, direct CLI versus sidecar separation,
+  tokenizer/chat-template digest, owner approval, rollback, RunEventLog,
+  AnswerPacket, abstention, zero-byte metadata scope, and no L2/L3/product/
+  live-70B promotion. This is T0 canon/build-plan only: no product code
+  changed, no model/runtime/KV/cache/index bytes were loaded, no command was
+  armed, L2/L3 remain red, and no user-facing large-model green claim exists.
 - Updated **2026-06-01** · Verifier-calibrated sparse route compiler added:
   `docs/fusion/VERIFIER_CALIBRATED_SPARSE_ROUTE_COMPILER_2026_06_01.md`.
   X bookmark intake of the Axiom/Axplorer thread plus primary validation of
