@@ -139,6 +139,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > capability, user-facing green, live dense 70B, or SSD-as-RAM claim exists.
 > The next large-local-model side-ladder unit is
 > `exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate`.
+> Deep Research Pass 92 folds the retained
+> `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+> RED artifact into buildable release-readiness backlog. The regenerated
+> metadata artifact at commit `adcad6616791954020b51897860db816560229e6`
+> records `xcodebuild_test` still failing with 161 issues across 84 unique
+> tests; top families include `graph_filter_visibility`, `agent_route_policy`,
+> `theme_presentation`, `distribution_project_integrity`,
+> `research_tool_catalog`, `editor_epdoc_surface`, `ui_shell_source_guard`, and
+> `model_vault_catalog`. Candidate build pressure is
+> `F-ReleaseAuditFailureFamily-SourceCard`,
+> `F-ModelVaultCatalog-ReleaseBlockerCard`, and
+> `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`. This is canon/backlog only:
+> the guard cursor remains on automated checks, L2 remains
+> `vault_research_route_with_packetized_mitigation`, and L3/release readiness
+> remain red.
 > Deep Research Pass 61 turns that cluster into an implementable
 > `F-KVRuntimeSourceCard` blueprint, and Pass 62 lands it as a T1/L1
 > metadata-only witness at

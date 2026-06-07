@@ -295,6 +295,31 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing/product capability plus release readiness remain unchanged until
   the Swift test suite is repaired and the log/manual/distribution/three-pass
   release-audit gates land.
+- Updated **2026-06-07** · Deep Research Pass 92 folds the retained
+  automated-check RED ledger into buildable architecture backlog instead of
+  treating it as generic test noise. North-star sentence: Epistemos is a local
+  cognitive substrate where every meaningful object has an address, plane,
+  budget, status, and witness; MAS ships the safe floor, Pro contains the
+  gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The metadata artifact at
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
+  was regenerated from retained logs at commit
+  `adcad6616791954020b51897860db816560229e6` without rerunning heavy
+  `xcodebuild`; it remains RED with `overall_pass=false`,
+  `failed_check_count=1`, `xcodebuild_test_issue_count=161`, and
+  `xcodebuild_test_unique_failure_count=84`. Top families are
+  `graph_filter_visibility` (34), `agent_route_policy` (21),
+  `theme_presentation` (19), `distribution_project_integrity` (18),
+  `research_tool_catalog` (16), `editor_epdoc_surface` (14),
+  `ui_shell_source_guard` (14), and `model_vault_catalog` (9). Pass 92 maps
+  these to candidate repair/source-card gates such as
+  `F-ReleaseAuditFailureFamily-SourceCard`,
+  `F-ModelVaultCatalog-ReleaseBlockerCard`, and
+  `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`. This advances canon/backlog
+  only: the guard cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every

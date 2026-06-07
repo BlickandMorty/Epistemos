@@ -5030,6 +5030,133 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Pass 92 - Automated Release-Check Failure Synthesis
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 92 consumes the retained
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+red artifact as research-to-build evidence. This is not large-model research in
+the narrow sense of a quant paper or model card; it is the reliability barrier
+that decides whether any Gemma/QAT/GGUF/LiteRT/MLX/TurboVec lane can become
+user-facing without collapsing the app surface.
+
+The artifact was regenerated from retained logs at commit
+`adcad6616791954020b51897860db816560229e6` without rerunning heavy
+`xcodebuild`. It remains RED:
+
+- `overall_pass=false`
+- `failed_check_count=1`
+- `xcodebuild_test_issue_count=161`
+- `xcodebuild_test_unique_failure_count=84`
+- top family: `graph_filter_visibility`
+
+The important breakthrough move is to treat the red ledger as a routing map for
+build work, not as an embarrassment to hide. Large local models become practical
+only when the app can keep route policy, model catalogs, research tools,
+visible output, graph filtering, distribution integrity, and runtime performance
+under release-audit proof.
+
+### Failure Families To Build Against
+
+| Failure family | Count | Architecture meaning | Buildable next pressure |
+|---|---:|---|---|
+| `graph_filter_visibility` | 34 | Graph/Eidos visibility is still too brittle for large-model evidence navigation. | Focused graph filter repair before model-catalog evidence becomes user-facing. |
+| `agent_route_policy` | 21 | RuntimeRouter/System G authority and tool selection still fail source guards. | Harden persisted authority, local-only route policy, and no hidden tool authority. |
+| `theme_presentation` | 19 | User-facing proof surfaces still have presentation drift. | Keep L3 WRV red until visible packet surfaces render cleanly. |
+| `distribution_project_integrity` | 18 | MAS/Pro/project signing boundaries are still release blockers. | Preserve two-build truth before any local-model marketing or runtime lane ships. |
+| `research_tool_catalog` | 16 | Research tools are not yet cataloged safely enough for agentic large-model work. | Source-card every tool lane and deny hidden live authority. |
+| `editor_epdoc_surface` | 14 | The editor/document surface still has source-guard drift. | Large-model writing/research assistance stays gated until editor proof is stable. |
+| `ui_shell_source_guard` | 14 | Shell/UI source guard drift blocks trustworthy user-facing routes. | Fix shell guard drift before any model route is visible as product capability. |
+| `model_vault_catalog` | 9 | Model inventory/catalog truth is still not stable enough for local-model lanes. | Build catalog source cards for local model candidates before runtime route claims. |
+| `visible_output_sanitization` | 5 | Output sanitization still blocks safe model-visible proof. | Keep AnswerPacket/redacted-output gates ahead of runtime promotion. |
+| `runtime_performance_policy` | 3 | Performance policy is still a release blocker. | Require memory/latency/cancellation envelopes before large-model route wins. |
+
+### Architecture Fusion
+
+| Epistemos organ | Fusion from the red ledger |
+|---|---|
+| UAS/OAS | Treat each failure family as an addressable blocker, not prose. |
+| ColdStore/AppColdStore | Model bytes remain cold until catalog truth and release-proof surfaces stop failing. |
+| ActiveAssembly | No large-model assembly wakes from research/source-card evidence alone. |
+| Eidos | Evidence navigation depends on graph/filter visibility repairs before user-facing promotion. |
+| SCOPE-Rex/SovereignGate | Route policy, research-tool authority, visible output, and distribution integrity remain admission blockers. |
+| RuntimeRouter/System G | Large-model runtime lanes cannot route around red automated checks. |
+| RunEventLog/AnswerPacket | Future runtime packets must expose failure-family caveats and cannot suppress red release evidence. |
+
+### Candidate Falsifier Backlog
+
+- `F-ReleaseAuditFailureFamily-SourceCard`
+  - Mechanism: turn each retained xcode failure family into typed blocker cards
+    with source anchors, repair command, owner surface, and promotion risk.
+  - Tier: T0/T1.
+  - MAS/Pro status: Pro Gated for agentic/runtime surfaces; MAS-safe only after
+    distribution integrity passes.
+  - Runtime proof: none; consumes retained logs.
+  - User-visible proof: blocked until focused repair tests pass.
+  - Rollback: keep guard cursor on automated checks.
+
+- `F-ModelVaultCatalog-ReleaseBlockerCard`
+  - Mechanism: bind model-vault/catalog failures to the large-model inventory
+    ladder so Gemma/QAT/GGUF/LiteRT/MLX rows cannot become product choices from
+    stale catalog state.
+  - Tier: T0/T1.
+  - MAS/Pro status: Pro Gated.
+  - Breakthrough upside: prevents model availability, path, loader, and memory
+    proof from being mixed into one false green.
+  - Why it might be wrong: catalog failures may be ordinary Swift test drift,
+    not architecture truth, until focused repair proves causality.
+
+- `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`
+  - Mechanism: reuse the 21 route-policy failures as red fixtures for local
+    model routing, research-tool selection, and no hidden provider/server/tool
+    fallback.
+  - Tier: T0/T1.
+  - MAS/Pro status: MAS floor plus Pro Gated lanes.
+  - Runtime proof: later same-fixture route replay only.
+  - Privacy/stability risk: high if skipped, because route policy drift can
+    launder hidden tools or providers into "local model" behavior.
+
+### Promotion Truth
+
+- T1/L1 advanced: no. The automated-checks artifact remains RED and the guard
+  cursor stays on
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing local-model capability is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `F-ReleaseAuditFailureFamily-SourceCard`, because
+it turns the current red release-audit log into typed architecture backlog that
+large-model runtime work must respect.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+repair remains the guard-owned unit; side-ladder research can add
+`F-ReleaseAuditFailureFamily-SourceCard` without claiming a pass.
+
+Best near-term code unit: focused repair of the top failure family,
+`graph_filter_visibility`, or a source-card gate that maps all 15 failure
+families to source anchors and exact focused commands.
+
+Biggest false-claim risk: treating passed build/Rust checks as release
+readiness while `xcodebuild_test` is red.
+
+Biggest missing source: focused per-family test repair notes that identify
+which failures are stale source guards versus real product regressions.
+
+Next research query: "Which retained xcode failure families are genuine
+architecture blockers for local-agent/large-model capability, and which are
+stale source guards that should be repaired or retired with focused evidence?"
+
 ## Pass 87 - Exotic Quant Crash-Safe Command Envelope Preflight Gate
 
 Date: 2026-06-07
