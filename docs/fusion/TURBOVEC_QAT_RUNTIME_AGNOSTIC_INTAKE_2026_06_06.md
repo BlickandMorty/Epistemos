@@ -109,6 +109,11 @@ Companion hardware-tiered model catalog: `F-HardwareTieredModelCatalog-SourceCar
   - Does not prove runtime load, model-path readiness, first token, quality, speed, Apple Silicon memory fit, MAS support, product default, or user-facing capability.
   - 2026-06-07 status: PASS as a metadata-only T1/L1 witness at `artifacts/falsifiers/hardware_tiered_model_catalog_source_card/result.json`. It accepts 9 catalog cards, rejects 37 red fixtures, keeps Gemma 4 E2B as small-harness-only, Gemma 4 12B QAT as Pro Gated only, Qwopus 27B as headroom-caveated, MoE rows as active-params/full-weight-memory-truth-gated, exotic quant rows as provenance-gated/runtime-deferred, GPU-only rows as not Mac defaults, loads zero model/runtime/provider/source-tree/product/command/benchmark bytes, and preserves the no-L2/L3-promotion boundary.
 
+Companion MoE memory truth blueprint: `F-MoEActiveParamsMemoryTruth`
+  - Proves active-parameter counts are compute evidence, not resident-memory proof, before any MoE/A3B/A4B catalog row can influence RuntimeRouter/System G.
+  - Must consume `F-HardwareTieredModelCatalog-SourceCard`, select the MoE rows, and separately bind full-weight bytes, active compute count, KV cache bytes, expert-residency lease, router/runtime workspace, app headroom, rollback, RunEventLog, AnswerPacket, abstention, and no-hidden-authority proof.
+  - 2026-06-07 status: T0/T1 research-to-build blueprint in `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 72. No model files, runtime packages, source trees, commands, benchmarks, provider calls, MAS/L2/L3 promotion, live dense 70B claim, or SSD-as-RAM claim.
+
 3. `F-GemmaQAT-LocalRuntimeCandidateCard`
    - Proves source-backed Gemma 4 QAT E2B/E4B/12B/31B IDs, licenses, file sizes, formats, runtime lanes, ProductBuild, ProStatus, candidate bands, and claim boundaries.
    - Does not prove runtime load, Swift MLX support, MTP speedup, MAS readiness, or product capability.
