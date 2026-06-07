@@ -5121,6 +5121,99 @@ Sources:
 - `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
 - `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
 
+## Pass 94 - Model-Vault Catalog Release Blocker Card
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 94 implements `F-ModelVaultCatalog-ReleaseBlockerCard`. This is the
+large-local-model trust bridge from the retained release-audit ledger into
+model catalog work: the catalog must be able to say which local models are
+installable, which are release-selectable, which are awaiting loader support,
+and which are merely research/source-card candidates before any runtime route
+or user-facing model-vault surface can promote.
+
+The witness consumes `F-ReleaseAuditFailureFamily-SourceCard`, binds retained
+family `model_vault_catalog` with issue count `9`, records 8 source refs, 10
+catalog honesty invariants, 3 focused test commands, 12 rejected red fixtures,
+zero model/runtime/product bytes, and a deterministic blocker address. It does
+not edit Swift product code, rerun `xcodebuild`, check local model paths, load
+model bytes, prove runtime availability, or turn any MAS/Pro/L2/L3 claim green.
+
+### Landed Architecture
+
+- Primitive:
+  `agent_core/src/uas/model_vault_catalog_release_blocker_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_model_vault_catalog_release_blocker_card.rs`
+- Script:
+  `Tools/falsifiers/f_model_vault_catalog_release_blocker_card.sh`
+- Artifact:
+  `artifacts/falsifiers/model_vault_catalog_release_blocker_card/result.json`
+- Witness page:
+  `docs/falsifiers/F-ModelVaultCatalog-ReleaseBlockerCard_2026_06_07.md`
+
+### Architecture Fusion
+
+| Epistemos organ | New buildable meaning |
+|---|---|
+| UAS/OAS | The model-vault/catalog release blocker has a deterministic source-card address. |
+| ColdStore/AppColdStore | Catalog rows remain cold metadata until installability, loader, byte-envelope, and runtime proof exist. |
+| ActiveAssembly | No active assembly can wake from catalog membership alone. |
+| Eidos | Model catalog caveats can become visible evidence and route priors, never hidden route authority. |
+| SCOPE-Rex/SovereignGate | Admission rejects catalog-as-runtime-proof, hidden cloud fallback, hidden route authority, live dense-70B claims, and green-promotion claims. |
+| RuntimeRouter/System G | Model-vault selection must respect release-selectable installed IDs, loader support, runtime directory resolution, and MAS/Pro status before route use. |
+| RunEventLog/AnswerPacket | Future packets must expose unavailable-model caveats and catalog/runtime distinction before promotion. |
+
+### Promotion Truth
+
+- T1/L1 advanced: yes, as a source-card side bridge.
+- Guard-owned L1 product cursor advanced: no; it remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. Release readiness and user-facing large-model capability remain red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: agent route policy large-model no-hidden-authority,
+because after catalog trust is source-carded, the next risk is letting routing
+use model-vault/candidate rows as hidden authority or fallback.
+
+Safest next falsifier: `F-AgentRoutePolicy-LargeModelNoHiddenAuthority`.
+
+Best near-term code unit: prove RuntimeRouter/System G and agent policy cannot
+promote model-vault catalog candidates into live route authority without
+release-selectable install state, loader support, byte/runtime proof, rollback,
+RunEventLog, AnswerPacket, and MAS/Pro visibility.
+
+Biggest false-claim risk: treating a model-vault catalog row, installable
+artifact, or Gemma/QAT research target as runtime availability or product green.
+
+Biggest missing source: current full Swift failure log after the next repair;
+this pass intentionally uses retained failure-family evidence and does not
+rerun the release suite.
+
+Next research query: "How should Epistemos separate model catalog truth,
+installability, loader support, byte fit, runtime proof, and user-facing route
+eligibility so large-model rows can be ambitious without becoming false claims?"
+
+Sources:
+
+- `docs/falsifiers/F-ModelVaultCatalog-ReleaseBlockerCard_2026_06_07.md`
+- `artifacts/falsifiers/model_vault_catalog_release_blocker_card/result.json`
+- `artifacts/falsifiers/release_audit_failure_family_source_card/result.json`
+- `Epistemos/State/InferenceState.swift`
+- `Epistemos/Engine/TriageService.swift`
+- `Epistemos/Engine/MLXInferenceService.swift`
+- `Epistemos/Engine/ModelDownloadManager.swift`
+- `EpistemosTests/TriageServiceTests.swift`
+
 ## Pass 92 - Automated Release-Check Failure Synthesis
 
 Date: 2026-06-07

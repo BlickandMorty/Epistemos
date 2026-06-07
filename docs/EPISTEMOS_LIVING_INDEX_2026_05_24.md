@@ -340,6 +340,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red until the Swift suite is repaired and
   log/manual/distribution/three-pass release-audit proof exists.
+- Updated **2026-06-07** · `F-ModelVaultCatalog-ReleaseBlockerCard` landed:
+  `Tools/falsifiers/f_model_vault_catalog_release_blocker_card.sh` emits and
+  validates
+  `artifacts/falsifiers/model_vault_catalog_release_blocker_card/result.json`
+  as a metadata-only L1/T1 release-blocker source-card witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The witness consumes
+  `F-ReleaseAuditFailureFamily-SourceCard`, binds retained family
+  `model_vault_catalog` with issue count `9`, records 8 source refs, 10 catalog
+  honesty invariants, 3 focused test commands, 12 rejected red fixtures, zero
+  model/runtime/product bytes, and deterministic blocker address
+  `sha256:776e7a5f6226b4ce1198203548ddaf71223fd1b62b3c5d058bbcd01ecb4e765d`.
+  It makes catalog trust buildable without claiming model availability,
+  runtime fit, MAS/Pro green, L2/L3 green, live dense 70B, or release
+  readiness. Guard-owned cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+  L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
+  capability/release readiness remain red. Next source-card unit:
+  `agent_route_policy_large_model_no_hidden_authority`.
 - Updated **2026-06-06** · automated-check red-ledger hardening now parses the retained
   `xcodebuild_test` log into durable failure families without rerunning the heavy release
   command set. North-star sentence: Epistemos is a local cognitive substrate where every
