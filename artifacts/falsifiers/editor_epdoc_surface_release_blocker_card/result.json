@@ -1,0 +1,658 @@
+{
+  "falsifier_id": "F-EditorEpdocSurface-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_editor_epdoc_surface_release_blocker_card.sh",
+  "command_digest": "sha256:5ec50fa410763df69385276b628206d36b05a90d65334b1dc2adca3def7ea14e",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "552e99f197c1ae821f220ed82832c3cfd86bca81",
+  "fixture_id": "editor_epdoc_surface_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T17:34:53Z",
+  "result_digest": "sha256:a376688f24d7e3f078eab3ebab9420571ee27c6be73b2a6986f94874eeab24e7",
+  "measurements": {
+    "copilot_freeform_agent_claim_not_made": {
+      "value": true,
+      "unit": "bool"
+    },
+    "copilot_freeform_agent_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "editor_epdoc_invariant_count": {
+      "value": 12,
+      "unit": "invariants"
+    },
+    "editor_epdoc_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_epdoc_surface_address": {
+      "value": "sha256:75372b802e624f61af91c34c5d8c6d04e8388325d7ac30a68f7cdd400e0037a5",
+      "unit": "sha256"
+    },
+    "editor_epdoc_surface_card": {
+      "value": {
+        "family_id": "editor_epdoc_surface",
+        "issue_count": 14,
+        "organ": "editor_surface",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Views/Notes/ProseEditorView.swift",
+          "Epistemos/Views/Notes/ProseEditorRepresentable2.swift",
+          "Epistemos/Views/Notes/ProseTextView2.swift",
+          "Epistemos/Views/Notes/MarkdownContentStorage.swift",
+          "Epistemos/Views/Epdoc/EpdocEditorChromeView.swift",
+          "Epistemos/Views/Epdoc/EpdocCopilotDockView.swift",
+          "js-editor/src/bridge/inbound.ts",
+          "Epistemos/Engine/EpdocDocument.swift",
+          "Epistemos/Engine/EpdocEditorBridge.swift",
+          "Epistemos/Sync/ReadableBlocksProjector.swift",
+          "Epistemos/Sync/ReadableBlocksIndex.swift",
+          "EpistemosTests/EpdocDocumentTests.swift",
+          "EpistemosTests/EpdocCopilotSurfaceTests.swift",
+          "EpistemosTests/ProseTextView2AppearanceTests.swift"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/EpdocDocumentTests",
+          "xcodebuild test -only-testing:EpistemosTests/EpdocCopilotSurfaceTests",
+          "xcodebuild test -only-testing:EpistemosTests/ProseTextView2AppearanceTests",
+          "xcodebuild test -only-testing:EpistemosTests/ReadableBlocksProjectorTests",
+          "xcodebuild test -only-testing:EpistemosTests/EpdocEditorBridgeTests"
+        ],
+        "required_invariants": [
+          "prose_textkit_mutations_remain_undo_safe",
+          "epdoc_package_is_not_runtime_proof",
+          "epdoc_bridge_commands_require_visible_actions",
+          "readable_blocks_projection_is_not_hidden_route_authority",
+          "copilot_surface_does_not_claim_freeform_agent_loop",
+          "model_suggestions_do_not_mutate_without_acceptance",
+          "editor_indices_require_staleness_and_checksum_guards",
+          "hidden_chain_and_tool_payloads_never_render_as_editor_content",
+          "epdoc_graph_projection_requires_source_bound_caveats",
+          "large_model_editor_claims_require_answer_packet",
+          "focused_tests_required_before_wrv_promotion",
+          "release_audit_family_remains_red_until_focused_tests_pass"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "editor_surface_as_runtime_proof": false,
+        "epdoc_package_as_runtime_proof": false,
+        "readable_blocks_as_route_authority": false,
+        "model_mutation_without_acceptance": false,
+        "hidden_chain_rendered_as_editor_content": false,
+        "hidden_tool_payload_rendered_as_editor_content": false,
+        "stale_projection_ignored": false,
+        "checksum_guard_missing": false,
+        "copilot_freeform_agent_claimed": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "editor_bytes_loaded": 0,
+        "model_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:editor_epdoc_surface_release_blocker_card",
+        "run_event_log_ref": "run_event_log:editor_epdoc_surface_release_blocker_card",
+        "answer_packet_ref": "answer_packet:editor_epdoc_surface_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "editor_epdoc_surface_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_epdoc_surface_issue_count": {
+      "value": 14,
+      "unit": "issues"
+    },
+    "editor_epdoc_surface_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_surface_runtime_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "epdoc_bridge_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "epdoc_package_runtime_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_editor_epdoc_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_tool_editor_content_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_tool_payload_not_editor_content": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_epdoc_bridge_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prose_textview_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_readable_blocks_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_undo_safe_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_mutation_without_acceptance_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_mutations_require_acceptance": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "ui_shell_source_guard_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_editor_model_bytes_or_provider_calls": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_editor_surface_as_runtime_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_epdoc_package_as_runtime_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_staleness_and_checksum_guarded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prose_textkit_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "readable_blocks_not_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "readable_blocks_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "readable_blocks_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_editor_epdoc_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_projection_checksum_bypass_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_project_integrity_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_editor_epdoc_surface": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "copilot_freeform_agent_claim_not_made": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "copilot_freeform_agent_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "editor_epdoc_invariant_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "invariants"
+    },
+    "editor_epdoc_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_epdoc_surface_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "editor_epdoc_surface_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "editor_epdoc_surface_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_epdoc_surface_issue_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "issues"
+    },
+    "editor_epdoc_surface_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "editor_surface_runtime_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "epdoc_bridge_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "epdoc_package_runtime_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "commands"
+    },
+    "focused_commands_cover_editor_epdoc_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_tool_editor_content_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_chain_tool_payload_not_editor_content": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_epdoc_bridge_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prose_textview_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_readable_blocks_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_undo_safe_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_mutation_without_acceptance_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_mutations_require_acceptance": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "ui_shell_source_guard_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_editor_model_bytes_or_provider_calls": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_editor_surface_as_runtime_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_epdoc_package_as_runtime_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_staleness_and_checksum_guarded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prose_textkit_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "readable_blocks_not_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "readable_blocks_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "readable_blocks_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "refs"
+    },
+    "source_refs_cover_editor_epdoc_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stale_projection_checksum_bypass_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_project_integrity_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_editor_epdoc_surface": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "copilot_freeform_agent_claim_not_made": true,
+    "copilot_freeform_agent_claim_rejected": true,
+    "editor_byte_leak_rejected": true,
+    "editor_bytes_loaded_total": true,
+    "editor_epdoc_invariant_count": true,
+    "editor_epdoc_invariants_bound": true,
+    "editor_epdoc_surface_address": true,
+    "editor_epdoc_surface_card": true,
+    "editor_epdoc_surface_family_bound": true,
+    "editor_epdoc_surface_issue_count": true,
+    "editor_epdoc_surface_issue_count_retained": true,
+    "editor_surface_runtime_proof_rejected": true,
+    "epdoc_bridge_sources_bound": true,
+    "epdoc_package_runtime_proof_rejected": true,
+    "focused_command_count": true,
+    "focused_commands_cover_editor_epdoc_tests": true,
+    "hidden_chain_tool_editor_content_rejected": true,
+    "hidden_chain_tool_payload_not_editor_content": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_answer_packet_invariant_rejected": true,
+    "missing_epdoc_bridge_source_rejected": true,
+    "missing_prose_textview_source_rejected": true,
+    "missing_readable_blocks_source_rejected": true,
+    "missing_undo_safe_invariant_rejected": true,
+    "model_mutation_without_acceptance_rejected": true,
+    "model_mutations_require_acceptance": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_editor_model_bytes_or_provider_calls": true,
+    "no_editor_surface_as_runtime_proof": true,
+    "no_epdoc_package_as_runtime_proof": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "projection_staleness_and_checksum_guarded": true,
+    "prose_textkit_sources_bound": true,
+    "provider_call_leak_rejected": true,
+    "provider_calls_made_total": true,
+    "readable_blocks_not_route_authority": true,
+    "readable_blocks_route_authority_rejected": true,
+    "readable_blocks_sources_bound": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "source_ref_count": true,
+    "source_refs_cover_editor_epdoc_surfaces": true,
+    "stale_projection_checksum_bypass_rejected": true,
+    "upstream_distribution_project_integrity_card_pass": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_editor_epdoc_surface": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-EditorEpdocSurface-ReleaseBlockerCard: consumes distribution integrity blocker and release-audit family source card, binds editor_epdoc_surface issue count 14 to Prose/TextKit, EPDoc chrome/bridge, readable-block projection/index, js bridge, and focused tests, and rejects editor/package/readable-block runtime proof, hidden route authority, unsafe model mutation, hidden chain/tool editor content, stale projection/checksum bypass, copilot freeform-agent overclaim, L2/L3/product green, provider calls, byte leaks, and live dense-70B claims."
+}

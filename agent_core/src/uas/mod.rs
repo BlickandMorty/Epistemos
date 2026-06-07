@@ -43,6 +43,7 @@ pub mod compressed_route_answer_packet_dry_run;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod distribution_project_integrity_release_blocker_card;
+pub mod editor_epdoc_surface_release_blocker_card;
 pub mod exotic_quant_crash_safe_command_envelope_preflight_gate;
 pub mod exotic_quant_loader_compatibility_model_path_gate;
 pub mod exotic_quant_local_artifact_availability_owner_gate;
@@ -444,6 +445,15 @@ pub use release_audit_failure_family_source_card::{
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_CURSOR,
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_ID,
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_NEXT_CURSOR,
+};
+pub use editor_epdoc_surface_release_blocker_card::{
+    required_editor_epdoc_surface_invariants, required_editor_epdoc_surface_source_refs,
+    EditorEpdocSurfaceError, EditorEpdocSurfaceMetrics, EditorEpdocSurfaceOrgan,
+    EditorEpdocSurfaceReleaseBlockerCard, EditorEpdocSurfaceReleaseBlockerWitness,
+    EditorEpdocSurfaceStatus, EDITOR_EPDOC_SURFACE_FAMILY_SOURCE_REF,
+    EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_CURSOR,
+    EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_ID,
+    EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR, EDITOR_EPDOC_SURFACE_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,
