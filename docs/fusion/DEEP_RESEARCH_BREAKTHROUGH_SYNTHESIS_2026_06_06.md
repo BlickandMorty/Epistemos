@@ -13949,3 +13949,168 @@ Next research query: "What exact Swift Testing selector form runs the repaired
 FilterEngine graph-filter tests without rebuilding the whole release-audit
 surface, and which retained graph_filter_visibility failures remain after that
 real execution?"
+
+## Deep Research Pass 122 - Focused Swift Testing Identifier Proof Packet
+
+This pass turns the post-patch uncertainty from Pass 121 into a buildable proof
+packet. The next graph-filter repair proof must discover and witness exact
+Swift Testing identifiers before any focused pass can count. A filename-shaped
+selector is not proof, and in this project `xcodebuild -enumerate-tests` is
+not free: the attempted enumeration walked the package graph, ran build
+pre-actions, invoked SwiftLint plug-ins for dependencies, and began the normal
+build graph before it was stopped.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Mechanism
+
+Define `F-GraphFilterVisibilityFocusedIdentifierProof` as the preflight before
+`F-GraphFilterVisibilityFocusedRepairProof`.
+
+It must bind:
+
+- exact test target: `EpistemosTests`;
+- exact Swift Testing suite/type names from source, including
+  `FilterEngineNodeVisibilityTests`, `FilterEngineCombinedFilterTests`,
+  `FilterEngineTypeFilterSpecificTests`, `FilterEngineComplexScenarioTests`,
+  `FilterEngineAdditionalTypeTests`, `ResourceEdgeCaseTests`,
+  `ConcurrencyFilterEngineTests`, and `VaultLifecycleResetTests`;
+- exact function identifiers for the repaired tests, not file paths;
+- enumeration command, if used, with stdout/stderr log, start/end timestamp,
+  exit status, and whether it completed;
+- build-cost evidence: package-resolution, plug-in, pre-action, and compile
+  phases observed before enumeration output;
+- focused test command candidates with `-resultBundlePath` and no stale
+  `.xcresult` reuse;
+- redaction policy for logs so no user note/model/prompt bytes are captured;
+- rollback, RunEventLog, AnswerPacket, and blocked L2/L3/T4 promotion fields.
+
+### Local Evidence
+
+Local source inspection found the relevant Swift Testing suites with `@Suite`
+and `@Test` declarations in:
+
+- `EpistemosTests/FilterEngineComprehensiveTests.swift`;
+- `EpistemosTests/ResourceExhaustionTests.swift`;
+- `EpistemosTests/ConcurrencyEdgeCaseTests.swift`;
+- `EpistemosTests/VaultLifecycleResetTests.swift`.
+
+The attempted command was:
+
+```bash
+xcodebuild test \
+  -project Epistemos.xcodeproj \
+  -scheme Epistemos \
+  -destination 'platform=macOS' \
+  -only-testing:EpistemosTests/FilterEngineNodeVisibilityTests \
+  -enumerate-tests \
+  -test-enumeration-format json \
+  -test-enumeration-output-path -
+```
+
+It did not produce trustworthy enumeration evidence in this pass. It resolved
+packages, ran scheme pre-actions, invoked dependency SwiftLint plug-ins, began
+the build target graph, and was stopped for cost before test identifiers or
+executed-test evidence were obtained. Lingering Swift frontend workers from
+that canceled build were cleaned up. No model/runtime bytes were loaded and no
+tests were executed by this pass.
+
+### External / Primary Source Validation
+
+- Apple "Running tests and interpreting results" says a terminal
+  `xcodebuild` single-test run uses a test function identifier passed to
+  `-only-testing`; the identifier shape is test target, test type, and test
+  function.
+- Apple "Adding tests to your Xcode project" says Swift Testing and XCTest can
+  coexist in the same test bundle and Swift Testing uses `@Test` functions
+  grouped by optional suite types.
+- Apple "Swift Testing" says suites, tags, and descriptive test names are part
+  of the framework's organization model and that Swift Testing integrates with
+  Xcode workflows.
+- Local `xcodebuild -help` on this machine exposes
+  `-enumerate-tests`, `-test-enumeration-format`, and
+  `-test-enumeration-output-path`, plus `-resultBundlePath`. These are current
+  local tool facts, not product proof.
+
+### Candidate Falsifier
+
+`F-GraphFilterVisibilityFocusedIdentifierProof`
+
+Accepted fields:
+
+- `test_target`;
+- `suite_identifiers`;
+- `function_identifiers`;
+- `source_refs`;
+- `enumeration_command`;
+- `enumeration_completed`;
+- `enumerated_test_count`;
+- `enumerated_identifier_digest`;
+- `build_cost_phases_observed`;
+- `focused_command_candidates`;
+- `result_bundle_policy`;
+- `zero_executed_tests_rejected`;
+- `stale_xcresult_rejected`;
+- `filename_selector_rejected`;
+- `raw_user_note_bytes_logged`;
+- `runtime_bytes_loaded`;
+- `model_bytes_loaded`;
+- `rollback_ref`;
+- `run_event_log_ref`;
+- `answer_packet_ref`;
+- `blocked_l2_l3_t4_claims`.
+
+Red fixtures:
+
+- selector is a filename or file path;
+- zero tests execute but the run is treated as pass;
+- enumeration is incomplete but used as identifier proof;
+- a stale `.xcresult` is reused;
+- dependency SwiftLint/build phases are ignored when estimating command cost;
+- logs include raw user note, prompt, model output, or hidden chain bytes;
+- focused pass is used to replace the full automated-check row;
+- graph-filter repair is used to promote local-model or large-model
+  capability.
+
+### Large-Model Implication
+
+This is not "just testing." The large-local-model route depends on trustworthy
+Eidos graph context, note evidence, visible AnswerPacket caveats, and release
+audit closure. If a graph-filter failure family is repaired only by a guessed
+selector or a zero-test pass, the later Qwen3-4B, Gemma 4 QAT, GGUF, LiteRT,
+MLX, or TurboVec route can inherit false evidence. The breakthrough is a
+smaller, deterministic proof loop: exact identifiers -> focused `.xcresult`
+-> retained family delta -> full automated-check row -> runtime log evidence.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `GraphFilterVisibilityFocusedIdentifierProof`.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityFocusedIdentifierProof`, because it prevents another
+zero-test "success" from becoming proof.
+
+Best near-term code unit: implement a metadata-only source-card/identifier
+proof primitive that records exact Swift Testing suite/function identifiers and
+requires `-resultBundlePath` evidence before focused repair proof.
+
+Biggest false-claim risk: treating `-enumerate-tests` as cheap or complete in
+this repo without a completed JSON enumeration artifact.
+
+Biggest missing artifact: a current, completed enumeration or focused
+`.xcresult` proving exact graph-filter Swift Testing identifiers and nonzero
+executed tests.
+
+Next research query: "Can a prebuilt `test-without-building` or
+`-testProductsPath` flow enumerate and run the repaired graph-filter Swift
+Testing identifiers with lower cost than `xcodebuild test`, while preserving
+fresh result-bundle proof and no stale evidence?"

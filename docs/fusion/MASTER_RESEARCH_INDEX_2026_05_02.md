@@ -4620,3 +4620,24 @@ The initial focused Xcode command built but executed zero tests because the
 selector targeted a filename, and the later suite-selector run was stopped
 before reliable execution evidence existed. L2/L3/T4 remain red until a real
 focused graph-filter test log and then the full automated-check row pass.
+
+### §28.13 Focused Swift Testing identifier proof canon (added 2026-06-07)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 122.
+
+Pass 122 defines `F-GraphFilterVisibilityFocusedIdentifierProof` as the
+preflight before a focused graph-filter repair proof. The local lesson is that
+Swift Testing selectors must be exact test identifiers, not filenames, and that
+`xcodebuild -enumerate-tests` is not cost-free in this project: the attempted
+enumeration resolved packages, ran scheme pre-actions, invoked dependency
+SwiftLint plug-ins, entered the build graph, and was stopped before completed
+JSON enumeration or executed-test evidence existed.
+
+Promotion truth: this is T0 research-to-build canon only. It lands no
+falsifier, executes no tests, changes no product source, loads no
+model/runtime bytes, and does not promote L2/L3/T4. The next buildable unit is
+a metadata-only identifier/source-card proof that records exact Swift Testing
+suite/function identifiers, rejects filename selectors and zero-test passes,
+and requires fresh `-resultBundlePath` evidence before focused repair proof can
+advance.
