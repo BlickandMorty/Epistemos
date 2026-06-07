@@ -131,6 +131,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-EditorEpdocSurface-ReleaseBlockerCard",
     "F-UiShellSourceGuard-ReleaseBlockerCard",
     "F-RuntimePerformancePolicy-ReleaseBlockerCard",
+    "F-BodyReadChecksum-ReleaseBlockerCard",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-ModelInventory-ZeroByteCandidateCards",
