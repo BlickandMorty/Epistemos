@@ -5030,6 +5030,112 @@ Sources:
 - https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
 - https://huggingface.co/Intel/gemma-4-31B-it-int4-AutoRound
 
+## Deep Research Pass 86 - App-Mined Keyword Lattice Expansion
+
+Date: 2026-06-07
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 86 answers the owner's request to mine as many useful keywords as possible
+from the app itself, then combine them creatively and rigorously for far-wide
+research. The result is a larger keyword lattice in
+`docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` that turns
+Epistemos organs, UAS/falsifier symbols, runtime lanes, local Downloads
+research, current external source leads, failure modes, and repair terms into
+repeatable query packs.
+
+This pass is intentionally research-to-build. It does not stop at "search
+this." Each keyword family now points at the gate or primitive it should feed:
+command envelopes, owner-approved dry-run transcripts, artifact pull accuracy,
+KV/cache memory fit, QAT accuracy replay, TurboVec/Eidos exact-baseline recall,
+proof-guided route repair, low-bit Metal source cards, and source-dedupe
+provenance.
+
+### Local Inputs Mined
+
+| Local surface | Keywords extracted |
+|---|---|
+| `agent_core/src/uas/` | `AnswerPacket`, `RunEventLog`, `rollback`, `byte envelope`, `source card`, `owner path`, `path canonicalization`, `command envelope`, `abstention`, `model_bytes`, `runtime_bytes`, `provider_calls`, `hidden authority`, `MAS promotion`, `Pro gated` |
+| `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md` | bottleneck term banks, ultra-dense query lines, GitHub/fork/HF/arXiv recipes, red/blue/purple research loop |
+| `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md` | source intake ladder, artifact-pull accuracy record, red-team/blue-team loop, immediate codeable backlog |
+| `/Users/jojo/Downloads` research | TurboQuant/PolarQuant/QJL, vector quant, KV prefix caching, EML, Lean, Metal Mamba/Mamba-2, MLX constrained decoding, on-device MoLoRA, low-memory model expansion |
+| lattice HTML and Living Index | L1/L2/L3 separation, `exotic_quant_crash_safe_command_envelope_preflight_gate`, large-model non-promotion, MAS/Pro honesty |
+
+### New Atlas Structure
+
+The atlas now adds:
+
+- organ-to-keyword expansion for UAS/OAS, ColdStore/AppColdStore,
+  ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate, RuntimeRouter/System G,
+  RunEventLog/AnswerPacket, PatternBoost, and lattice.
+- equivalent phrasing clusters for artifact identity, runtime fit, memory
+  envelopes, quantization, KV/cache/long context, retrieval, proof/math, and
+  crash safety.
+- source-specific query packs for GitHub code search, GitHub issue search,
+  Hugging Face model-card search, arXiv/paper search, local Downloads search,
+  and repo code search.
+- creative breakthrough combinations that map promising terms directly to
+  buildable falsifier names.
+- red-team same-term mutations and blue-team same-term repairs so every
+  promising source is pressure-tested before it becomes canon.
+
+### Current Keyword Families Added
+
+| Family | Example terms | Build target |
+|---|---|---|
+| Artifact pull accuracy | `selected file`, `revision pinned`, `LFS OID`, `Xet pointer`, `owner path manifest`, `path canonicalization`, `byte envelope` | `F-LargeModelArtifactPullAccuracySourceCard` |
+| Crash-safe runtime | `RuntimeCommandEnvelopeCard`, `args vectorized`, `shell string denied`, `output byte cap`, `timeout`, `cancellation`, `teardown`, `token digest` | `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate` |
+| Dry-run transcript | `OwnerApprovedDryRunTranscript`, `memory sample before start`, `redacted first token`, `RunEventLog`, `AnswerPacket`, `rollback` | `F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate` |
+| KV/cache fit | `KIVI`, `KVQuant`, `LeanKV`, `InnerQ`, `KVarN`, `OSCAR`, `ARKV`, `ParisKV`, `LMCache`, `PagedAttention`, `RadixAttention` | `F-QuantizedKVCompressionSourceCard`, `F-KVCacheEnvelopeModelFitGate` |
+| QAT/exotic quant | `Gemma 4 QAT`, `TurboQuant`, `TQ3_4S`, `HLWQ`, `APEX`, `NVFP4`, `AutoRound`, `SpinQuant`, `HQQ`, `HIGGS`, `BitNet`, `T-MAC` | `F-QATAccuracyShadowReplay`, `F-LowBitMetalKernelSourceCard` |
+| Retrieval compression | `TurboVec`, `usearch`, `HNSW`, `binary embeddings`, `product quantization`, `allowlist-before-rank`, `stable external id` | `F-TurboVec-EidosContextQualityReplayGate` |
+| Proof/math | `Lean`, `OProver`, `AxProver`, `DeepSeek Prover`, `Goedel Code Prover`, `EML`, `ULP oracle`, `proof-carrying route` | `F-ProofGuidedRouteRepairCard`, `F-EMLPrimitiveIRSourceCard` |
+
+### Promotion Truth
+
+- T0 research advanced: yes. The keyword atlas is stronger and more tied to
+  app symbols and buildable units.
+- T1/L1 advanced: no. No falsifier landed in Pass 86.
+- T2/L2 advanced: no. Product route remains
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 advanced: no. No user-facing large-local-model runtime is green.
+- T4/T5 green: no.
+
+Best breakthrough candidate: `RuntimeCommandEnvelopeCard` plus
+`OwnerApprovedDryRunTranscript`, because those are the immediate bridge between
+promising large-model metadata and crash-safe owner-visible runtime evidence.
+
+Safest next falsifier: still
+`F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`.
+
+Best near-term code unit:
+`agent_core/src/uas/exotic_quant_crash_safe_command_envelope_preflight_gate.rs`.
+
+Biggest false-claim risk: treating a larger keyword surface, exciting paper,
+fork, or quantized model card as evidence that a large local model already
+works. Pass 86 is search/canon/backlog only.
+
+Biggest missing source: owner-approved local artifact manifests and
+owner-approved dry-run constraints for the exact local files that will be used.
+
+Next research query: "Which app-mined keyword family yields the smallest
+crash-safe falsifier improvement for `F-ExoticQuantCrashSafeCommandEnvelopePreflightGate`
+without opening model bytes, arming a command, or claiming L2/L3 capability?"
+
+Sources:
+
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+- `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `agent_core/src/uas/`
+- `artifacts/lattice-coordinate-explainer/index.html`
+
 ## Pass 75 - Exotic Quant Source-Pin Byte-Budget Preflight Implementation
 
 Date: 2026-06-07

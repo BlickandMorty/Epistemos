@@ -89,6 +89,17 @@ query-expansion companion for every pass. It contains Epistemos-native keyword
 families, GitHub/arXiv/Hugging Face search recipes, red-team mutations, blue-
 team repair mutations, and build-track translations.
 
+2026-06-07 Pass 86 addendum: before searching externally, mine current app
+symbols and active gates into equivalent phrasing clusters. Cross UAS/OAS,
+ColdStore/AppColdStore, ActiveAssembly, Eidos, SCOPE-Rex/SovereignGate,
+RuntimeRouter/System G, RunEventLog/AnswerPacket, PatternBoost, lattice,
+owner-path manifests, path canonicalization, byte envelopes, command
+envelopes, KV/cache, QAT, TurboVec, EML/Lean, and Metal safety with red-team
+failures and blue-team repairs. The keyword atlas now has source-specific
+GitHub/HF/arXiv/Downloads/code-search packs and creative combinations that map
+directly to future falsifiers. This is T0 research/backlog pressure only; it
+does not arm commands, load model/runtime bytes, or promote L2/L3 capability.
+
 ## Breakthrough Targets
 
 Prioritize mechanisms that plausibly become code:
