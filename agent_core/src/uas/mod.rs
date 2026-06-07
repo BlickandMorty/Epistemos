@@ -64,6 +64,7 @@ pub mod lattice_state_controller;
 pub mod litertlm_native_swift_admission;
 pub mod metal_io_feature_gate;
 pub mod model_inventory_candidate;
+pub mod model_vault_catalog_release_blocker_card;
 pub mod moe_active_params_memory_truth;
 pub mod pattern_boost;
 pub mod product_route_review;
@@ -361,6 +362,14 @@ pub use model_inventory_candidate::{
     ModelInventorySidecarPolicy, ModelInventoryValidationError,
     MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_CURSOR,
     MODEL_INVENTORY_ZERO_BYTE_CANDIDATE_CARDS_NEXT_CURSOR,
+};
+pub use model_vault_catalog_release_blocker_card::{
+    required_model_vault_catalog_invariants, required_model_vault_catalog_source_refs,
+    ModelVaultCatalogBlockerOrgan, ModelVaultCatalogBlockerStatus,
+    ModelVaultCatalogReleaseBlockerCard, ModelVaultCatalogReleaseBlockerError,
+    ModelVaultCatalogReleaseBlockerMetrics, ModelVaultCatalogReleaseBlockerWitness,
+    MODEL_VAULT_CATALOG_RELEASE_BLOCKER_CARD_CURSOR, MODEL_VAULT_CATALOG_RELEASE_BLOCKER_CARD_ID,
+    MODEL_VAULT_CATALOG_RELEASE_BLOCKER_CARD_NEXT_CURSOR, MODEL_VAULT_CATALOG_UPSTREAM_REF,
 };
 pub use pattern_boost::{
     AssemblyPageRun, ColdRoutePolicyPatch, ColdRoutePolicyPatchError, UasAssemblyGenome,

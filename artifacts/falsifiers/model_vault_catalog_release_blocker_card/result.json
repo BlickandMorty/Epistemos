@@ -1,0 +1,500 @@
+{
+  "falsifier_id": "F-ModelVaultCatalog-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_model_vault_catalog_release_blocker_card.sh",
+  "command_digest": "sha256:a080b2c3f9d391accf195ff3c045bc5ab4c28adeceb2613abd4556497f610290",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "98847380455402f38815d6a65ff3fe3796641dd0",
+  "fixture_id": "model_vault_catalog_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-07T15:31:54Z",
+  "result_digest": "sha256:6125d91e187bc0364bbd6ff016c906e9e93c062cf148108c8d65e62ea7e981b9",
+  "measurements": {
+    "catalog_runtime_proof_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "checksum_validation_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_release_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma4_loader_blocked_invariant_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_gemma4_loader_invariant_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_inference_state_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_catalog_card": {
+      "value": {
+        "family_id": "model_vault_catalog",
+        "issue_count": 9,
+        "organ": "runtime_router",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/State/InferenceState.swift",
+          "Epistemos/Engine/TriageService.swift",
+          "Epistemos/Engine/MLXInferenceService.swift",
+          "Epistemos/Engine/ModelDownloadManager.swift",
+          "Epistemos/Views/Settings/ModelVaultsSettingsView.swift",
+          "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+          "EpistemosTests/TriageServiceTests.swift",
+          "docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/TriageServiceTests/gemma4TiersHiddenFromPicker",
+          "xcodebuild test -only-testing:EpistemosTests/TriageServiceTests/modelVaultSettingsUseSharedReleaseTierFiltering",
+          "xcodebuild test -only-testing:EpistemosTests/TriageServiceTests/triageRefreshesLocalModelStateBeforeLocalOnlyRequests"
+        ],
+        "required_invariants": [
+          "release_selectable_installed_models_only",
+          "interactive_chat_validated_models_only",
+          "gemma4_loader_blocked_from_picker",
+          "shared_model_vault_targets_builder",
+          "runtime_directory_must_resolve_before_request",
+          "model_download_checksum_validation_bound",
+          "mas_pro_status_visible_before_route",
+          "no_provider_or_cloud_fallback_from_catalog",
+          "no_catalog_entry_counts_as_runtime_proof",
+          "answer_packet_caveat_required_for_unavailable_models"
+        ],
+        "mas_status": "red_release_blocker",
+        "pro_status": "gated_release_blocker",
+        "catalog_entry_runtime_proof": false,
+        "hidden_route_authority": false,
+        "hidden_cloud_fallback": false,
+        "live_dense_70b_claimed": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "model_runtime_bytes_loaded": 0,
+        "rollback_ref": "rollback:model_vault_catalog_release_blocker",
+        "run_event_log_ref": "run_event_log:model_vault_catalog_release_blocker",
+        "answer_packet_ref": "answer_packet:model_vault_catalog_release_blocker"
+      },
+      "unit": "card"
+    },
+    "model_vault_catalog_issue_count": {
+      "value": 9,
+      "unit": "issues"
+    },
+    "model_vault_catalog_release_blocker_address": {
+      "value": "sha256:776e7a5f6226b4ce1198203548ddaf71223fd1b62b3c5d058bbcd01ecb4e765d",
+      "unit": "sha256"
+    },
+    "model_vault_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_vault_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "agent_route_policy_large_model_no_hidden_authority",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_catalog_entry_runtime_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 12,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 12,
+      "unit": "fixtures"
+    },
+    "release_invariant_count": {
+      "value": 10,
+      "unit": "invariants"
+    },
+    "release_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_directory_resolution_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shared_model_vault_targets_builder_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 8,
+      "unit": "refs"
+    },
+    "source_refs_cover_catalog_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_family_source_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_model_vault": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "catalog_runtime_proof_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "checksum_validation_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
+    "focused_commands_cover_release_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma4_loader_blocked_invariant_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_gemma4_loader_invariant_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_inference_state_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_vault_catalog_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "model_vault_catalog_issue_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "issues"
+    },
+    "model_vault_catalog_release_blocker_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "model_vault_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_vault_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "agent_route_policy_large_model_no_hidden_authority",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_catalog_entry_runtime_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "fixtures"
+    },
+    "release_invariant_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "invariants"
+    },
+    "release_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_directory_resolution_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shared_model_vault_targets_builder_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "refs"
+    },
+    "source_refs_cover_catalog_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_family_source_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_model_vault": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "catalog_runtime_proof_claim_rejected": true,
+    "checksum_validation_source_bound": true,
+    "focused_command_count": true,
+    "focused_commands_cover_release_tests": true,
+    "gemma4_loader_blocked_invariant_bound": true,
+    "hidden_cloud_fallback_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_gemma4_loader_invariant_rejected": true,
+    "missing_inference_state_source_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "model_vault_catalog_card": true,
+    "model_vault_catalog_issue_count": true,
+    "model_vault_catalog_release_blocker_address": true,
+    "model_vault_family_bound": true,
+    "model_vault_issue_count_retained": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_catalog_entry_runtime_proof": true,
+    "no_hidden_cloud_fallback": true,
+    "no_hidden_route_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_model_runtime_bytes": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_invariant_count": true,
+    "release_invariants_bound": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "runtime_directory_resolution_bound": true,
+    "shared_model_vault_targets_builder_bound": true,
+    "source_ref_count": true,
+    "source_refs_cover_catalog_surfaces": true,
+    "upstream_fail_rejected": true,
+    "upstream_family_source_card_pass": true,
+    "upstream_next_cursor_model_vault": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ModelVaultCatalog-ReleaseBlockerCard: consumes the release-audit failure-family source-card witness, binds model-vault/catalog release blockers to exact source refs, focused tests, catalog honesty invariants, MAS/Pro caveats, rollback, RunEventLog, AnswerPacket, and no-promotion boundaries; opens zero model/runtime/product bytes and makes no L2/L3/product/live-70B claim."
+}
