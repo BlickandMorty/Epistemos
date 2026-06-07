@@ -126,6 +126,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-VisibleOutputSanitization-ReleaseBlockerCard",
     "F-GraphFilterVisibility-ReleaseBlockerCard",
     "F-GraphFilterVisibilityTestProductsCommandSpec",
+    "F-AutomatedChecksFreshTestProductsEvidenceEnvelope",
     "F-ResearchToolCatalog-NoHiddenAuthority",
     "F-ThemePresentation-ReleaseBlockerCard",
     "F-DistributionProjectIntegrity-ReleaseBlockerCard",

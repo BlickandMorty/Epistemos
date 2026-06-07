@@ -14784,3 +14784,106 @@ status digests.
 Next research query: "What exact metadata primitive should validate the fresh
 test-products evidence envelope while keeping the full automated-checks row red
 until it is rerun?"
+
+## Deep Research Pass 127 - Fresh Test-Products Evidence Envelope Landed
+
+### Executive Synthesis
+
+Pass 127 converts Pass 126 from T0 research-to-build canon into a landed
+metadata-only T1/L1 witness:
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The mechanism is the missing evidence envelope between the command-spec proof
+and the red guard-owned automated-checks probe. It consumes the landed
+`F-GraphFilterVisibilityTestProductsCommandSpec` artifact plus the retained red
+automated-checks artifact, binds the current capability bottleneck and top
+failure family, and validates the future proof-root contract without running
+Xcode, opening test products, or touching model/runtime bytes.
+
+### Landed Artifact
+
+- Falsifier: `F-AutomatedChecksFreshTestProductsEvidenceEnvelope`
+- Command:
+  `Tools/falsifiers/f_automated_checks_fresh_test_products_evidence_envelope.sh`
+- Artifact:
+  `artifacts/falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json`
+- Witness doc:
+  `docs/falsifiers/F-AutomatedChecksFreshTestProductsEvidenceEnvelope_2026_06_07.md`
+- Rust primitive:
+  `agent_core/src/uas/automated_checks_fresh_test_products_evidence_envelope.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_automated_checks_fresh_test_products_evidence_envelope.rs`
+- Deterministic address:
+  `sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only evidence-envelope proof.
+- Required digest fields: 8.
+- Required rejection policies: 14.
+- Required proof surfaces: 3.
+- Minimum executed-test policy: 1.
+- Red fixtures rejected: 20.
+- Selected test-product bytes opened: 0.
+- App/model/runtime bytes loaded: 0.
+- Xcode commands executed: 0.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Fresh Xcode proof root: not produced.
+- Full automated-checks row: still required.
+- Large local model runtime: not promoted.
+
+### Architecture Fusion
+
+The evidence envelope is reusable proof infrastructure for large local models.
+Gemma 4 QAT GGUF/LiteRT/MLX lanes, TurboVec/Eidos cache candidates, KV reuse,
+and cold-assembly routing all need the same shape before they influence
+RuntimeRouter/System G: exact source identity, exact artifact identity, digest
+coverage, nonzero execution proof when execution is claimed, visible caveats,
+rollback, RunEventLog, and AnswerPacket.
+
+This pass keeps the next expensive Xcode proof bounded. It does not pretend the
+app is release-ready. It makes the later proof harder to fake.
+
+### Promotion Truth
+
+- T0 research/canon: superseded by landed T1 envelope witness.
+- T1/L1 architecture proof: advanced for evidence-envelope metadata only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+evidence envelopes as reusable proof infrastructure for release audit and
+large-local-model lane promotion.
+
+Safest next falsifier:
+the guard-owned
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+or a fresh proof-root parser that consumes real Xcode test-products evidence
+only after the owner accepts the Xcode cost.
+
+Best near-term code unit: extend the automated-checks proof to consume a real
+future proof root, parse nonzero executed-test evidence, and still preserve the
+full automated-check row requirement.
+
+Biggest false-claim risk: treating this envelope as executed Swift test
+evidence.
+
+Biggest missing artifact: a fresh proof root with selected test product,
+enumeration JSON, focused `.xcresult`, parsed executed-test count, source
+status digests, and full automated-check-row correlation.
+
+Next research query: "How should the fresh proof-root parser represent
+enumerated Swift Testing identifiers, executed-test counts, and `.xcresult`
+digests without leaking raw app, note, prompt, or model bytes?"

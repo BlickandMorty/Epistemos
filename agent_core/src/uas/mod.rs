@@ -30,6 +30,7 @@ pub mod address;
 pub mod agent_route_policy_large_model_no_hidden_authority;
 pub mod anchor_registry;
 pub mod app_cold_store;
+pub mod automated_checks_fresh_test_products_evidence_envelope;
 pub mod body_read_checksum_release_blocker_card;
 pub mod cache_policy_pollution;
 pub mod coactivation_tile;
@@ -1003,6 +1004,18 @@ pub use graph_filter_visibility_test_products_command_spec::{
     GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_REF,
+};
+pub use automated_checks_fresh_test_products_evidence_envelope::{
+    required_automated_checks_fresh_test_products_digest_fields,
+    required_automated_checks_fresh_test_products_proof_surfaces,
+    required_automated_checks_fresh_test_products_rejection_policies,
+    AutomatedChecksFreshTestProductsEvidenceEnvelope,
+    AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness,
+    AutomatedChecksFreshTestProductsMetrics, AutomatedChecksFreshTestProductsOrgan,
+    AutomatedChecksFreshTestProductsStatus,
+    AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_CURSOR,
+    AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_ID,
+    AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
 };
 pub use research_tool_catalog_no_hidden_authority::{
     required_research_tool_catalog_invariants, required_research_tool_catalog_source_refs,
