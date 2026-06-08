@@ -6677,6 +6677,39 @@ Layer truth:
 Correct phrasing: "Gemma-first is now the build-order lock for large local
 models; Gemma is not yet the live main app model."
 
+### 2026-06-08 - Deep Research Pass 201 release-audit bottleneck folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 201 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` reframes the
+current release-audit automated-check failure as the immediate Gemma runtime
+unblocker. The guard-owned cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+because the retained automated-check artifact is red: `xcodebuild_test` failed
+while the other four required checks passed. The artifact records 161 issues,
+84 unique failing tests, and top family `graph_filter_visibility` with 34
+issues.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research-to-build canon advanced with a concrete
+  "clear the release rail before Gemma product promotion" build order; no new
+  falsifier landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no full xcodebuild rerun, no
+  runtime log evidence, no manual verification, no distribution/compliance
+  review, no three-pass release audit, no product code change, no model bytes,
+  and no user-facing Gemma capability promoted.
+
+Correct phrasing: "The red release-audit automated-check ledger is now the
+named product-route blocker for making Gemma real later; it is not cleared."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
