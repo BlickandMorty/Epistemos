@@ -7033,6 +7033,40 @@ Layer truth:
 Correct phrasing: "Gemma now has a locked fixture/scorer target for future
 runtime proof; Gemma is still not live, default, L2/L3, or user-facing."
 
+### 2026-06-08 — Gemma Direct Harness Admission Rail (Pass 211, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 211 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+`F-GemmaDirectHarnessAdmissionRail` as the first owner-approved live-probe
+shape for Gemma. The initial proof should use local-only E2B/E4B QAT GGUF
+through bounded `llama-cli` single-turn execution, not `-hf` remote download,
+`llama-server`, an OpenAI-compatible sidecar, MLX, LiteRT-LM, or a fork winner.
+The rail must bind selected model/source-card digest, owner path digest,
+`llama-cli` binary/version digest, command-template digest, prompt digest,
+seed, context/predict caps, grammar/JSON option digest when needed,
+timeout/cancel, termination reason, stderr redaction, timing/memory plan,
+rollback, RunEventLog, AnswerPacket, abstention, MAS/Pro caveat, and no
+route/default/settings mutation.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness, process,
+  runtime, model bytes, route priority, settings row, first token, or product
+  capability was activated.
+
+Correct phrasing: "Gemma now has a direct CLI harness rail for future
+owner-approved proof; Gemma is still not live, default, L2/L3, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

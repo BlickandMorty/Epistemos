@@ -26378,3 +26378,148 @@ owner-approved redacted real workflows, it may overfit to toy tasks and miss
 the real note/research/coding behavior the app needs. The falsifier must
 therefore require both synthetic safety now and an explicit path to future
 owner-approved held-out workflows.
+
+## Pass 211 - Gemma Direct Harness Admission Rail
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make the first Gemma runtime proof boring, direct, and reviewable. The first
+owner-approved live probe should be an E2B/E4B QAT GGUF `llama-cli` single-turn
+rail, not a server, not a hidden OpenAI-compatible sidecar, not MLX, not
+LiteRT-LM, and not a fork winner. `F-GemmaDirectHarnessAdmissionRail` should
+bind the command envelope that future runtime probes must obey before any
+Gemma output can feed the replay fixture pack.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessAdmissionRail`. It should be metadata-only first and bind
+the selected Gemma source card, owner-approved local model path digest,
+`llama-cli` binary digest, version/output digest, local-only `-m` command
+template, fixed seed, bounded `--predict`, bounded context, prompt-file digest,
+grammar/JSON option digest for structured tasks, timeout/cancel policy,
+stdout/stderr redaction, timing capture, process termination result, rollback,
+RunEventLog, AnswerPacket, abstention, and no route/default/settings mutation.
+
+Best near-term code unit:
+add a Rust UAS direct-harness rail primitive that rejects:
+
+```text
+remote -hf downloads
+llama-server as first proof
+OpenAI-compatible endpoint as authority
+unbounded token generation
+missing seed
+missing prompt digest
+missing binary/version digest
+missing timeout/termination
+missing stderr redaction
+missing timing/memory counters
+missing rollback or AnswerPacket
+MAS production subprocess route
+Gemma default promotion
+```
+
+The first accepted rail should permit only a future owner-approved Pro
+ResearchCandidate dry run. MAS stays off this path because production
+subprocess spawn is forbidden there. After the direct CLI rail produces a
+reviewable artifact, a later server/tool-call rail can cite llama-server's
+`response_format`, `parse_tool_calls`, timings, model status, unload/sleep, and
+error surfaces.
+
+Biggest false-claim risk:
+starting with `llama-server` because it looks app-like. The server is useful
+later, especially for JSON/tool-call and timings, but using it first creates
+sidecar, lifecycle, port, API-compatibility, privacy, and MAS/Pro ambiguity. A
+single-turn `llama-cli` rail is less glamorous and much safer: one process, one
+prompt, one bounded output, one termination path, one artifact.
+
+Biggest missing source:
+an owner-approved local E2B/E4B QAT GGUF path manifest and a local `llama-cli`
+binary/version digest. Until those exist, this remains a T0/T1 harness rail,
+not a runtime proof.
+
+Next research query: "What exact metadata-only fields should
+`F-GemmaDirectHarnessAdmissionRail` require so the next owner-approved Gemma E2B
+one-token probe can run through a bounded `llama-cli` process, emit
+RunEventLog/AnswerPacket evidence, and still make no Gemma default or L2/L3
+claim?"
+
+### Current External Evidence
+
+- `llama-cli` documents local `-m` GGUF loading, Hugging Face `-hf` loading,
+  prompt files, bounded prediction via `--predict`, context sizing, chat
+  templates including Gemma, seed control, GPU layer controls, grammar/JSON
+  constrained output, single-turn generation, log files, and timings. Canon
+  effect: allow local `-m` and bounded deterministic flags; deny `-hf` remote
+  download in the first Epistemos proof.
+- `llama-server` documents OpenAI-compatible chat/completions, schema-constrained
+  `response_format`, `parse_tool_calls`, timings, `/v1/models`, model
+  load/unload status, sleeping/unload behavior, and OpenAI-shaped errors. Canon
+  effect: strong later server/tool-call rail, not the first runtime proof.
+- Apple's `Process` documentation states a subprocess has separate memory,
+  configurable executable/arguments/environment/stdout/stderr, termination
+  handler, termination status, termination reason, and `terminate()`. Canon
+  effect: Pro harnesses can be bounded and killed, but MAS production routes
+  must still reject subprocess-based runtime.
+- Apple's termination guidance calls out abnormal exits, memory pressure,
+  bad access, illegal instruction, and watchdog/background task timeouts as
+  termination classes. Canon effect: the harness must classify crash/panic-like
+  exits as evidence, not hide them behind a successful route card.
+
+### Architecture Fusion
+
+```text
+Gemma source card + owner path digest
+  -> llama-cli binary/version digest
+  -> local-only command envelope
+  -> bounded single-turn prompt fixture
+  -> process timeout + termination witness
+  -> stdout/stderr redaction + timing/memory counters
+  -> RunEventLog + AnswerPacket
+  -> replay fixture pack only after artifact review
+```
+
+This makes the fastest path concrete: E2B QAT GGUF proves the harness first,
+E4B repeats the exact rail, 12B stays Pro Gated for LiteRT-LM/GGUF after the
+small rail is trustworthy, MLX waits for Swift Gemma 4 loader proof, and
+70B-class work remains cold assembly/residency/transport.
+
+### Required Harness Fields
+
+- selected model UAS address and source-card digest
+- owner path manifest digest and selected local file digest
+- `llama-cli` binary digest, version digest, build/source digest
+- denied remote flags: `-hf`, server URL, provider URL, download, port bind
+- command template digest, prompt-file digest, seed, context, predict cap
+- structured-output option digest for JSON/tool fixtures
+- timeout, cancel, process termination status/reason, stderr redaction
+- timing counters and memory counter plan
+- artifact review status before replay-pack admission
+- rollback, RunEventLog, AnswerPacket, abstention, MAS/Pro caveat
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; direct-harness falsifier
+  backlog clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It reduces the first real Gemma probe to the smallest auditable runtime shape.
+That is how to make progress feel fast again without losing the architecture:
+the model is added only through exact bytes, exact command, exact prompt,
+bounded process, visible output, and rollback.
+
+### Why It May Be Wrong
+
+`llama-cli` is not the final app runtime shape. It may hide server/tool-call
+issues, Swift packaging problems, long-running lifecycle problems, and
+structured-output differences that only appear in `llama-server` or native
+LiteRT-LM. The rail must therefore be first proof only, not final product
+architecture.
