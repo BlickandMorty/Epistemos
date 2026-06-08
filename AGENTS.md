@@ -107,6 +107,13 @@ Runtime policy:
   the point where Gemma-class models become too large for ordinary runtime
   proof or no longer suffice. This is a build-order policy only: it does not
   make Gemma live, default, quality-proven, user-facing, or System G admitted.
+- 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
+  is landed as metadata-only L1/T1. It binds the future owner path manifest by
+  digest, selected E2B source revision, filename, expected bytes, rollback,
+  RunEventLog, AnswerPacket, and abstention while storing zero raw/canonical
+  path bytes, reading zero owner-manifest/model/runtime/provider bytes, and
+  performing zero canonicalization/stat/hash/symlink actions. Next Gemma unit:
+  `gemma_qat_e2b_model_file_and_llama_cpp_digest_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and

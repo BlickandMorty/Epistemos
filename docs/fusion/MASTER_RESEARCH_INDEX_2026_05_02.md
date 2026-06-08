@@ -316,6 +316,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Gemma-default claim. Artifact:
 > `artifacts/falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_gate/result.json`.
 > Next Gemma unit: `gemma_qat_e2b_owner_path_manifest_digest_gate`.
+> Current addendum: Deep Research Pass 191 lands
+> `F-GemmaQATE2BOwnerPathManifestDigestGate` as the metadata-only T1/L1
+> digest contract for a future owner-approved local Gemma E2B GGUF path
+> manifest. It consumes `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`,
+> locks the E2B model id, source revision
+> `1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+> `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, 26 manifest digest
+> fields, 37 rejection policies, owner approval phrase digest, owner manifest
+> digest, canonical path digest, path policy, rollback, RunEventLog,
+> AnswerPacket, abstention, non-promotion, and 46 red-fixture rejections. It
+> reads zero owner-manifest bytes, stores zero raw/canonical path bytes,
+> performs zero canonicalization/stat/hash/symlink actions, opens zero files,
+> arms zero commands, executes zero commands, loads zero model/runtime/provider
+> bytes, and makes no MAS/L2/L3/T4/live-main-model, quality, benchmark-fit,
+> live-70B, E4B/12B bypass, or Gemma-default claim. Artifact:
+> `artifacts/falsifiers/gemma_qat_e2b_owner_path_manifest_digest_gate/result.json`.
+> Next Gemma unit: `gemma_qat_e2b_model_file_and_llama_cpp_digest_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

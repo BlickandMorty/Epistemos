@@ -62,6 +62,7 @@ pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
+pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
 pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gemma_qat_owner_approved_runtime_replay_execution_probe;
@@ -395,6 +396,17 @@ pub use gemma_qat_e2b_first_token_runtime_artifact_review_gate::{
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_ID,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_owner_path_manifest_digest_gate::{
+    required_gemma_qat_e2b_owner_path_manifest_digest_fields,
+    required_gemma_qat_e2b_owner_path_manifest_rejection_policies,
+    GemmaQatE2bOwnerPathManifestDigestGate, GemmaQatE2bOwnerPathManifestDigestGateError,
+    GemmaQatE2bOwnerPathManifestDigestGateMetrics,
+    GemmaQatE2bOwnerPathManifestDigestGateStatus,
+    GEMMA_QAT_E2B_EXPECTED_FILE_BYTES, GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_CURSOR,
+    GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_ID,
+    GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_UPSTREAM_REF, GEMMA_QAT_E2B_SOURCE_REVISION,
 };
 pub use gemma_qat_held_out_quality_replay_packet::{
     canonical_gemma_qat_held_out_quality_replay_cards,

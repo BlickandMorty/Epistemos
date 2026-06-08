@@ -6169,6 +6169,56 @@ metadata-proofed; no Gemma model, path, runtime command, token, output,
 quality result, System G route, product default, or user-facing capability has
 been opened, executed, observed, compared, admitted, or promoted."
 
+### 2026-06-08 - F-GemmaQATE2BOwnerPathManifestDigestGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+`F-GemmaQATE2BOwnerPathManifestDigestGate` is now implemented as a
+metadata-only T1/L1 digest gate for the future owner-approved local Gemma E2B
+GGUF path manifest. It adds
+`agent_core/src/uas/gemma_qat_e2b_owner_path_manifest_digest_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_owner_path_manifest_digest_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_owner_path_manifest_digest_gate.sh`, the
+artifact
+`artifacts/falsifiers/gemma_qat_e2b_owner_path_manifest_digest_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATE2BOwnerPathManifestDigestGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`, binds
+the selected E2B model id `google/gemma-4-E2B-it-qat-q4_0-gguf`, source
+revision `1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+`gemma-4-E2B_q4_0-it.gguf`, expected file bytes `3349514112`, 26 manifest
+digest fields, 37 rejection policies, owner approval phrase digest, owner
+manifest digest, canonical path digest, path policy, rollback, RunEventLog,
+AnswerPacket, abstention, and non-promotion. It rejects 46 red fixtures, reads
+zero owner-manifest bytes, stores zero raw/canonical path bytes, performs zero
+canonicalization/stat/hash/symlink actions, opens zero model files, arms zero
+commands, executes zero commands, loads zero model/runtime/provider bytes, and
+makes no Gemma default-model, quality, benchmark, MAS, L2, L3, T4, live-70B,
+or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATE2BOwnerPathManifestDigestGate` advances
+  the Gemma E2B GGUF side-ladder to T1/L1 metadata-only owner-path manifest
+  digest-contract proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, hashed, loaded, run, token-observed, scored,
+  settings-surfaced, admitted into RuntimeRouter/System G, or made the app
+  default.
+
+Correct phrasing: "Gemma E2B owner-path manifest digest policy is L1
+metadata-proofed; no local path, model file, llama.cpp binary, runtime command,
+token, quality result, System G route, product default, or user-facing
+capability has been opened, hashed, executed, observed, admitted, or
+promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
