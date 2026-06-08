@@ -19192,3 +19192,216 @@ Next research query: "Which exact redaction profiles and synthetic-safe summary
 labels should the six fixture templates use so materialized fixtures can remain
 human-auditable without storing raw private prompts, note text, or model
 outputs?"
+
+## Pass 160 - Fixture Redaction Profiles And Synthetic-Safe Labels
+
+### Executive Synthesis
+
+Pass 160 answers the Pass 159 handoff by defining the redaction profiles and
+synthetic-safe label dictionary that the six v0 fixtures must use before any
+fixture file or replay artifact can exist. The breakthrough is to make
+human-auditable fixture evidence possible without storing raw private prompts,
+note text, model output, raw token text, provider payloads, local paths, note
+titles, chain-of-thought, or benchmark prompt copies.
+
+```text
+MinimalSyntheticFixturePackV0
+  -> redaction profile id + profile digest
+  -> synthetic-safe labels from a closed dictionary
+  -> byte/token buckets + source class + digest refs
+  -> no raw private text, no hidden judge, no runtime proof
+```
+
+This is research-to-build canon only. It creates no fixture files, opens no
+model/runtime/cache/index/provider bytes, runs no eval, and does not promote
+large-local-model capability. It exists so the future small-model runtime
+harness and same-fixture replay can use auditable fixture descriptors without
+leaking the user's vault or laundering runtime claims.
+
+### Local Source Facts
+
+- `Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift` already redacts
+  emails, phone numbers, SSNs, and credit-card-like patterns before feedback is
+  stored.
+- `EpistemosTests/PrivacyTest.swift` verifies email, phone, SSN, credit-card,
+  multiple-PII, non-PII preservation, and exported KTO JSONL redaction cases.
+- `EpistemosTests/HarnessSubsystemTests.swift` verifies sanitized child
+  environments: provider/API credentials are stripped before subprocess launch.
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` requires provider
+  receipt redaction and keeps raw prompts/provider payloads out of witness JSON.
+- Prior Pass 157-159 canon already requires `redaction_profile_digest`,
+  `source_allowlist_digest`, `tombstone_policy_digest`, no raw private text, no
+  copied public benchmark prompts, RunEventLog, AnswerPacket, and
+  metadata-only non-promotion.
+
+### Current External Source Facts
+
+- NIST SP 800-122 says PII should be protected from inappropriate access, use,
+  and disclosure, and recommends context-based identification and protection of
+  PII. Source: `https://csrc.nist.gov/pubs/sp/800/122/final`
+- NIST's Privacy Framework is a voluntary enterprise risk-management tool for
+  improving privacy while building products and services. Source:
+  `https://www.nist.gov/privacy-framework`
+- NIST SP 800-188 treats de-identification as removing the association between
+  identifying data and the subject, warns that masking alone is insufficient,
+  and includes synthetic data and re-identification risk review as governance
+  motifs. Source: `https://csrc.nist.gov/pubs/sp/800/188/final`
+- NIST's Collaborative Research Cycle frames de-identification research as an
+  iterative red-team/blue-team cycle rather than a one-shot masking task.
+  Source: `https://pages.nist.gov/privacy_collaborative_research_cycle/`
+
+### Candidate Falsifier
+
+`F-FixtureRedactionProfileSyntheticLabelSchema`
+
+Required planned schema pack:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/schemas/
+  redaction_profile_schema_v0.json
+  synthetic_safe_label_dictionary_v0.json
+  privacy_review_profile_v0.json
+```
+
+Closed redaction profile IDs:
+
+| Profile ID | Allowed payload | Forbidden payload | Use |
+|---|---|---|---|
+| `rp_inline_synthetic_v0` | invented synthetic text only | real user/vault/provider text | ordinary synthetic cases |
+| `rp_digest_redacted_private_v0` | digest refs, buckets, privacy class | raw private text, exact path/title | future private-derived descriptors |
+| `rp_public_source_digest_only_v0` | source card IDs, URLs, hashes | copied benchmark prompts or long excerpts | citation/source fixtures |
+| `rp_cache_tombstone_digest_only_v0` | tombstone ID, deletion reason enum, digest | deleted content text | cache deletion/reuse |
+| `rp_tool_schema_digest_only_v0` | allowed tool enum, schema digest, MAS/Pro caveat | private tool args, tool output | structured tool JSON |
+| `rp_latency_prompt_class_v0` | prompt class, byte/token bucket, timeout caveat | prompt text, speed result | small-lane latency fixture |
+
+Required per-case profile mapping:
+
+| Fixture ID | Required profiles | Synthetic-safe labels |
+|---|---|---|
+| `msfp_v0_note_synthesis_001` | `rp_inline_synthetic_v0` | `note_synthesis_outline`, `three_synthetic_note_cards`, `evidence_id_allowlist`, `no_private_note_text` |
+| `msfp_v0_citation_research_001` | `rp_inline_synthetic_v0`, `rp_public_source_digest_only_v0` | `citation_grounding`, `four_synthetic_source_cards`, `one_distractor`, `missing_source_trap` |
+| `msfp_v0_structured_tool_json_001` | `rp_tool_schema_digest_only_v0` | `allowed_tool_or_abstain`, `tool_schema_digest_only`, `pro_tool_denied_under_mas` |
+| `msfp_v0_cache_deletion_001` | `rp_cache_tombstone_digest_only_v0` | `cache_tombstone`, `two_context_cards_one_tombstoned`, `deleted_fact_digest_only`, `surviving_source_only` |
+| `msfp_v0_abstention_001` | `rp_inline_synthetic_v0` | `abstention_missing_evidence`, `unavailable_tool`, `unsafe_mutation_denied`, `no_false_answer` |
+| `msfp_v0_latency_small_lane_001` | `rp_latency_prompt_class_v0` | `latency_small_lane`, `tiny_local_prompt_class`, `byte_bucket_only`, `no_speed_claim` |
+
+Required descriptor fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `redaction_profile_id` | one of the closed profile IDs | no ad hoc privacy modes |
+| `redaction_profile_digest` | `sha256:<64 hex>` over canonical profile JSON | stable privacy contract |
+| `synthetic_safe_labels` | closed dictionary terms only | human audit without raw text |
+| `input_payload_mode` | `inline_synthetic` or `digest_redacted_reference` | separates synthetic from private-derived |
+| `privacy_class` | `synthetic`, `private_digest`, `public_digest`, `tombstone_digest`, `tool_schema_digest`, `latency_class` | review routing |
+| `source_kind` | `invented_fixture`, `public_source_card`, `vault_digest_ref`, `cache_tombstone`, `tool_schema`, `prompt_class` | source lineage |
+| `byte_count_bucket` | bucket enum, not exact private length | avoids fingerprinting |
+| `token_count_bucket` | bucket enum, not exact private token count | avoids prompt leakage |
+| `forbidden_raw_classes` | prompt, note text, model output, token, provider payload, path, title, credentials, CoT | hard deny list |
+| `label_dictionary_digest` | `sha256:<64 hex>` | prevents label drift |
+| `source_allowlist_digest` | required for source/citation cases | filter-before-rank privacy |
+| `tombstone_policy_digest` | required for cache/deletion cases | deletion lineage |
+| `mas_pro_caveat_digest` | required for every case | no build-boundary collapse |
+| `metadata_only_non_promotion` | `true` | no L2/L3/T4 claim |
+
+Forbidden labels and fields:
+
+- real names, emails, phone numbers, SSNs, credit-card-like strings, account
+  IDs, API keys, secret-bearing environment variables, local path fragments,
+  note titles, vault folder names, provider payload excerpts, raw model output,
+  raw token text, chain-of-thought, `reasoning_content`, thinking tags, exact
+  private byte counts, exact private token counts, benchmark prompt names used
+  as hidden copies, row IDs, path/title/mtime identity, and any label that
+  implies runtime success, speed, quality, MAS readiness, L2, L3, T4, live
+  dense 70B, or live sparse 70B.
+
+Required red fixtures:
+
+- raw email, phone, SSN, credit-card-like text, API key, or credential appears
+  in a descriptor or label
+- real vault note title, folder name, absolute path, or provider payload appears
+- raw prompt, raw note text, raw model answer, raw token, hidden reasoning, or
+  chain-of-thought appears
+- public benchmark prompt is copied or benchmark name is used as a hidden prompt
+  alias
+- private-derived descriptor stores exact byte count or exact token count
+  instead of bucket
+- digest is present without `redaction_profile_id`, `redaction_profile_digest`,
+  `label_dictionary_digest`, and source/tombstone caveats
+- source fixture lacks `source_allowlist_digest`
+- cache fixture retains deleted text instead of tombstone digest
+- tool fixture stores private tool args or tool output
+- latency fixture stores prompt text, speed result, or route-success claim
+- label dictionary is open-ended or accepts unknown labels
+- metadata-only descriptor promotes L2/L3/T4, product green, MAS readiness, or
+  large-local-model user-facing capability
+
+### Architecture Fusion
+
+| Epistemos organ | Redaction role | Build implication |
+|---|---|---|
+| UAS/OAS | profile and label IDs become address facets | fixtures can be compared without row/path authority |
+| ColdStore/AppColdStore | source and tombstone digests bind dormant evidence | deleted/private material stays out of fixture files |
+| ActiveAssembly | labels describe support-set shape | runtime can assemble from descriptors, not raw private text |
+| Eidos | source allowlist digest precedes ranking | citation fixtures cannot rank forbidden sources |
+| SCOPE-Rex/SovereignGate | profile caveats gate tool/source/runtime claims | unsafe descriptors abstain visibly |
+| RuntimeRouter/System G | no runtime success/speed fields in labels | redaction descriptors cannot steer live routes |
+| RunEventLog | only descriptor digests and label IDs logged | replay stays audit-friendly |
+| AnswerPacket | visible caveat labels only | user-facing proof cannot expose raw payloads |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive
+   `fixture_redaction_profile_synthetic_label_schema`.
+2. Implement `falsify_fixture_redaction_profile_synthetic_label_schema`.
+3. Add red fixtures for PII, credentials, raw prompt/note/model/token output,
+   hidden reasoning, path/title/mtime authority, copied benchmark prompts,
+   exact private byte/token counts, unknown labels, missing profile digests,
+   missing source/tombstone/MAS-Pro caveats, and metadata promotion.
+4. Only after that, materialize the six v0 fixture descriptors with synthetic
+   or digest-redacted payload modes.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-FixtureRedactionProfileSyntheticLabelSchema`, because it turns privacy from
+a loose promise into a closed, digest-bound fixture contract that can be
+implemented before same-fixture replay.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-FixtureRedactionProfileSyntheticLabelSchema` after
+`F-NoRuntimeAnswerPacketRunEventTemplate`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`fixture_redaction_profile_synthetic_label_schema`, with closed profile/label
+enums and invalid fixtures for PII, private text, raw output, hidden reasoning,
+exact private length leaks, benchmark prompt copies, source/tombstone gaps,
+unknown labels, MAS/Pro caveat gaps, and metadata promotion.
+
+Biggest false-claim risk:
+treating synthetic-safe labels as proof that runtime output is safe. They only
+describe fixture inputs; actual model output still needs AnswerPacket,
+RunEventLog, visible-output sanitization, release-audit, and L2/L3 gates.
+
+Biggest missing artifact:
+a metadata-only witness that validates the closed redaction profile and label
+dictionary before any fixture descriptor can be materialized.
+
+Next research query: "What is the smallest deterministic fixture-descriptor
+file set that can exercise these redaction profiles while staying synthetic,
+digest-bound, source-allowlisted, tombstone-aware, MAS/Pro caveated, and useful
+for the small-model runtime harness?"

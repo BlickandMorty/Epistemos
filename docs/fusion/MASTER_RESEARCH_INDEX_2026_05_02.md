@@ -224,6 +224,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > sidecars, imports no eval framework, opens no fixture/model/cache/runtime
 > bytes, arms no command, and does not advance L2/L3 or user-facing
 > large-local-model claims.
+> Current addendum: Deep Research Pass 160 in the same file maps
+> `F-FixtureRedactionProfileSyntheticLabelSchema`, the closed redaction profile
+> and synthetic-safe label dictionary required before the six v0 fixture
+> descriptors materialize. It defines `rp_inline_synthetic_v0`,
+> `rp_digest_redacted_private_v0`, `rp_public_source_digest_only_v0`,
+> `rp_cache_tombstone_digest_only_v0`, `rp_tool_schema_digest_only_v0`, and
+> `rp_latency_prompt_class_v0`; binds profile, label dictionary, source
+> allowlist, tombstone, MAS/Pro caveat, rollback, RunEventLog, and AnswerPacket
+> digests; and maps exact allowed labels for note synthesis, citation research,
+> structured tool JSON, cache deletion, abstention, and latency-small-lane
+> cases. It rejects PII, credentials, raw prompt/note/model/token/provider
+> payloads, hidden reasoning, local paths, note titles, exact private
+> byte/token counts, copied benchmark prompts, unknown labels, open-ended
+> schemas, and metadata-only promotion. It creates no fixture files, imports no
+> eval framework, opens no fixture/model/cache/runtime/index/provider bytes,
+> arms no command, and does not advance L2/L3 or user-facing large-local-model
+> claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

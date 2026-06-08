@@ -271,6 +271,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   AnswerPacket sidecar, RunEventLog sidecar, eval, benchmark, model, runtime,
   cache, index, or provider bytes were opened; no command was armed; L2/L3
   stay red; and no large-local-model user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 160 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  fixture redaction profile and synthetic-safe label schema. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The pass creates the buildable side-ladder
+  candidate `F-FixtureRedactionProfileSyntheticLabelSchema`: closed redaction
+  profiles for inline synthetic, digest-redacted private descriptors, public
+  source digests, cache tombstone digests, tool-schema digests, and latency
+  prompt classes, plus a closed synthetic-safe label dictionary for the six v0
+  fixture cases. It binds profile, label dictionary, source allowlist,
+  tombstone, MAS/Pro caveat, rollback, RunEventLog, and AnswerPacket digests,
+  and rejects PII, credentials, raw prompts, note text, model output, token
+  text, provider payloads, hidden reasoning, local paths, note titles, exact
+  private byte/token counts, copied benchmark prompts, unknown labels, and
+  metadata-only promotion. This is T0 canon/build pressure only: no fixture,
+  eval, benchmark, model, runtime, cache, index, or provider bytes were opened;
+  no command was armed; L2/L3 stay red; and no large-local-model user-facing
+  capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
