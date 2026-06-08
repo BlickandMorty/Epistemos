@@ -206,6 +206,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SmallCompressedModel-RuntimeProbeProofEnvelope",
     "F-SyntheticMaterializerPrimitiveBlueprintV0",
     "F-SyntheticPayloadMaterializationGateV0",
+    "F-JcsCanonicalJsonWriterParityGate",
     "F-TaskWorkingSetQuery-Determinism",
     "F-SemanticWorkingSetPlan-Budget",
     "F-ResidencyPageTable-Addressability",
