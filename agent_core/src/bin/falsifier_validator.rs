@@ -181,6 +181,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaQATSameFixtureRuntimeReplay",
     "F-GemmaQATHeldOutQualityReplayPacket",
     "F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate",
+    "F-GemmaQATOwnerApprovedRuntimeReplayProbe",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",
     "F-TurboVec-Eidos-CompressedIndex-Plan",

@@ -5985,6 +5985,52 @@ metadata-proofed; no Gemma model, runtime command, prompt, output, scorer,
 quality result, product route, or main-model default has been opened, executed,
 captured, compared, or promoted."
 
+### 2026-06-08 - F-GemmaQATOwnerApprovedRuntimeReplayProbe landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATOwnerApprovedRuntimeReplayProbe` is now implemented as a
+metadata-only T1/L1 side-ladder witness for the smallest Gemma 4 E2B QAT
+GGUF/llama.cpp replay-probe envelope. It adds
+`agent_core/src/uas/gemma_qat_owner_approved_runtime_replay_probe.rs`,
+`agent_core/src/bin/falsify_gemma_qat_owner_approved_runtime_replay_probe.rs`,
+`Tools/falsifiers/f_gemma_qat_owner_approved_runtime_replay_probe.sh`, the
+artifact
+`artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_probe/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATOwnerApprovedRuntimeReplayProbe_2026_06_08.md`.
+
+The witness consumes the runtime transcript gate, accepts exactly one E2B GGUF
+probe envelope, and rejects 45 red fixtures. It binds the selected transcript
+card, offline one-token llama.cpp command template, forbidden download/server/
+mmap args, owner-approval-pending state, model-path-pending state, synthetic
+prompt digest, redacted output digest, fresh memory samples, cancellation,
+rollback, RunEventLog, AnswerPacket, abstention, and non-promotion. It opens
+zero files, executes zero commands, observes zero tokens, captures zero raw
+prompt/output/stdout/stderr bytes, loads zero model/runtime/provider bytes,
+and makes no Gemma default-model, quality, benchmark, MAS, L2, L3, live-70B,
+or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATOwnerApprovedRuntimeReplayProbe` advances
+  the Gemma E2B GGUF side-ladder to T1/L1 metadata-only replay-probe envelope
+  proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, token-observed, scored, settings-surfaced, or
+  made the app default, and no RuntimeRouter/System G admission was promoted.
+
+Correct phrasing: "Gemma E2B GGUF runtime replay probe envelope is L1
+metadata-proofed; no Gemma model, runtime command, token, output, scorer,
+quality result, product route, or main-model default has been opened, executed,
+observed, captured, compared, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
