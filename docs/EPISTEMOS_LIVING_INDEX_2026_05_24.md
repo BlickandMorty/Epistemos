@@ -6865,6 +6865,43 @@ Layer truth:
 Correct phrasing: "Gemma E2B product capability was rechecked as still blocked;
 no product capability was promoted."
 
+### 2026-06-08 — Gemma Runtime Lane Split Canon (Pass 206, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 206 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` upgrades the
+large-local-model strategy from "pick the best runtime" to "prove separate
+runtime lanes for separate claims." E2B QAT GGUF/direct `llama.cpp` remains the
+smallest owner-approved one-token harness. Gemma 4 12B now gets a separate Pro
+Gated LiteRT-LM native admission track because current Google AI Edge and
+LiteRT-LM sources describe Gemma 4 12B support, OpenAI-compatible local
+serving, and Swift package support for macOS/iOS.
+
+New backlog candidates:
+
+- `F-GemmaRuntimeLaneSplit-SourceCard`
+- `F-LiteRTLMGemma12BNativeAdmissionSourceCard`
+- `F-GemmaMTPAccelerationPacket`
+- `F-GGUFQATForkDeltaQuarantineCard`
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no LiteRT-LM package, local
+  endpoint, sidecar, settings row, runtime route, model bytes, first token, or
+  user-facing Gemma capability was activated.
+
+Correct phrasing: "The Gemma runtime plan now has an E2B llama.cpp harness lane
+and a 12B LiteRT-LM Pro admission lane; neither lane is product-live."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

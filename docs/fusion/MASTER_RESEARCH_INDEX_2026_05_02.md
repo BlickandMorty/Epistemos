@@ -499,6 +499,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > with route status `vault_research_route_with_packetized_mitigation`. It
 > rejects 62 red fixtures, runs zero Xcode/model/runtime/provider actions, and
 > does not advance L2/L3.
+> Current addendum: Deep Research Pass 206 upgrades the Gemma runtime strategy
+> into a lane split: E2B QAT GGUF/direct `llama.cpp` remains the smallest
+> owner-approved one-token harness, while Gemma 4 12B gets a separate Pro
+> Gated LiteRT-LM native admission track because current Google AI
+> Edge/LiteRT-LM sources now make 12B local serving and Swift macOS/iOS
+> packaging plausible enough to source-card. This is T0 canon only: no
+> LiteRT-LM package, endpoint, model bytes, route, sidecar, settings row, or
+> product capability is proven. New backlog candidates:
+> `F-GemmaRuntimeLaneSplit-SourceCard`,
+> `F-LiteRTLMGemma12BNativeAdmissionSourceCard`,
+> `F-GemmaMTPAccelerationPacket`, and
+> `F-GGUFQATForkDeltaQuarantineCard`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
