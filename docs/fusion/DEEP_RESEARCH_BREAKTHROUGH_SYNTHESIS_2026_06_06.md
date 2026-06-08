@@ -22050,3 +22050,164 @@ Next research query: "How should Epistemos bind Gemma 4 QAT, LiteRT-LM,
 GGUF/llama.cpp, MLX Swift, and TurboVec lane candidates to the same retained
 small-model L3 release-audit evidence so that a future runtime tournament
 cannot promote without build/test/log/AnswerPacket proof?"
+
+## Deep Research Pass 176 - Runtime Lane Admission Matrix For QAT, LiteRT, GGUF, and MLX
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 176 turns the previous runtime-proof bridge into a lane admission matrix.
+The point is to stop every large-local-model lane from making its own private
+argument. GGUF/llama.cpp, LiteRT-LM Swift, MLX Swift, MLX Python quarantine,
+TurboVec/Eidos recall, and future Gemma 4 QAT lanes must all answer the same
+questions before RuntimeRouter/System G can cite them:
+
+- What exact model, runtime, tokenizer, chat template, tool schema, prompt
+  fixture, cache salt, and source-search freshness packet was used?
+- What byte envelope is selected, resident, loaded, mapped, cached, or still
+  unopened?
+- What owner approval, MAS/Pro status, rollback, cancellation, RunEventLog,
+  AnswerPacket, and abstention evidence exists?
+- What red release-audit row does it consume, and what proof would move it from
+  T0/T1 into L2/L3?
+
+The admission matrix is deliberately boring. That is the breakthrough. It makes
+large-model ambition measurable by the same product harness that already blocks
+release claims. A lane can be exciting only after it can survive this matrix.
+
+### Local Evidence Pulled Into The Matrix
+
+| Local anchor | Build meaning | Admission consequence |
+|---|---|---|
+| `Epistemos/Engine/LocalGGUFClient.swift` | A real local GGUF client path exists with model lookup, serialized controller boundaries, profiling snapshots, streaming, cancellation, and runtime availability errors. | GGUF is not just research, but it still needs owner path manifest, model byte envelope, tokenizer/template/tool-schema digest, first-token proof, logs, and release-audit correlation before L2/L3 promotion. |
+| `LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift` | The in-process bridge loads a GGUF file through the pinned llama binary target, uses mmap/mlock capability checks, GPU offload when supported, a bounded context, streaming, and cancellation checks. | The next proof must not treat mmap, mlock support, or GPU offload as memory-fit proof. It must record actual selected model bytes, context/KV envelope, app headroom, teardown, cancellation, and AnswerPacket evidence. |
+| `LocalPackages/GGUFRuntimeBridge/Package.swift` | The bridge pins llama.cpp release `b6871` through a binary XCFramework checksum. | GGUF lane admission must bind the exact llama release, checksum, and MAS/direct-distribution status before any runtime claim. |
+| `Epistemos/Views/Settings/RuntimeLanesSection.swift` | Runtime lanes are already visible to users as honest toggles, with MLX framed as one lane among several. | The user-visible surface exists, but it is not enough. L3 still requires log-correlated proof that a lane choice, escalation, or abstention actually happened. |
+| `docs/falsifiers/F-LiteRTLM-NativeSwiftAdmission_2026_06_06.md` | LiteRT-LM Swift/macOS is already source-carded as T1/L1 metadata-only with binary target, checksum, unsafe linker, and MAS denial caveats. | LiteRT-LM should remain Pro Gated until package resolution, binary review, model file selection, cancellation, tool-schema, logs, and AnswerPacket proof exist. |
+| `docs/falsifiers/F-GemmaQAT-LocalRuntimeCandidateCard_2026_06_06.md` | Gemma 4 QAT cards are already source-backed and non-promoting. | Gemma 4 12B QAT can be the flagship Pro Gated target only after same-fixture runtime replay; E2B/E4B are better harness warmups. |
+| `docs/falsifiers/F-LlamaCppSlotPromptCacheCommandCard_2026_06_08.md` | llama.cpp slot prompt-cache save/restore/erase command shape is source-carded. | Prompt cache reuse is an optimization hint only. It cannot prove quality, freshness, memory fit, or route authority. |
+| `LocalPackages/mlx-swift-lm` | MLX Swift has ModelContainer, ChatSession, KV cache, wired-memory helpers, Gemma/Gemma2/Gemma3 factories, tool-call format code, and concurrency notes. | MLX remains a native Apple lane, but Gemma 4 still needs loader architecture proof, tokenizer/template/tool parser parity, serialized executor proof, and memory witnesses. |
+
+### Current External Source Signals
+
+- Google LiteRT-LM repository currently advertises LiteRT-LM as an open-source
+  edge inference framework, with v0.13 support for Gemma 4 12B, an
+  OpenAI-compatible CLI server, and Swift package support for macOS and iOS.
+- The official LiteRT-LM Swift guide says the Swift API integrates language
+  models natively into iOS and macOS apps, with multimodality, tool use, and
+  Metal GPU acceleration. It also shows `EngineConfig`, `Engine`, and
+  conversation-level message flow.
+- The current LiteRT-LM `Package.swift` source uses prebuilt binary targets
+  `CLiteRTLM` and `CLiteRTLM_mac`, versioned `v0.13.1` download URLs,
+  checksums, and an unsafe linker flag `-all_load`.
+- The public MLX Swift issue `#389` remains open and says `MLXLLM` does not
+  recognize the `gemma4` architecture. It names Gemma 4 features such as
+  per-layer embeddings, shared KV cache, dual RoPE, and a MoE variant as the
+  missing Swift-side work.
+- The Hugging Face `google/gemma-4-12B` card describes the family as including
+  dense and MoE variants, 128K/256K context windows by size, on-device
+  smaller-model deployment, coding/agentic improvements, native system role,
+  hybrid local/global attention, unified K/V for global layers, and
+  proportional RoPE. Epistemos treats all of that as source-card material, not
+  runtime proof.
+
+### Admission Matrix
+
+| Lane | Organ | Tier now | MAS/Pro status | Minimum next proof | Red-team failure |
+|---|---|---|---|---|---|
+| GGUF / llama.cpp in-process bridge | RuntimeRouter/System G, LocalGGUFClient, GGUFRuntimeBridge | T1/T2 candidate, not green | Pro Gated; MAS only after binary/sandbox review | `F-GGUFInProcessRuntimeAdmissionPacket`: source pin, model path manifest, byte/KV/app-headroom envelope, tokenizer/chat-template/tool digest, cancellation, rollback, RunEventLog, AnswerPacket, first-token redaction | Treating a found `.gguf`, mmap support, or GPU offload support as memory-fit/product proof |
+| LiteRT-LM Swift | RuntimeRouter/System G, SovereignGate | T1/L1 metadata-only | Pro ResearchCandidate; MAS denied until binary review | `F-LiteRTLMRuntimeAdmissionPacket`: SPM resolution, binary target review, unsafe linker review, selected `.litertlm` model card, no hidden server, cancellation, tool API, logs, AnswerPacket | Treating CLI server or Google demo docs as hidden app route authority |
+| Gemma 4 QAT GGUF/LiteRT | ActiveAssembly, RuntimeRouter, model ladder | T1/L1 source-carded | E2B/E4B Pro Gated warmup; 12B flagship Pro Gated; 31B/26B vault/server-only until byte proof | `F-GemmaQATSameFixtureRuntimeReplay`: same prompt/source freshness across GGUF and LiteRT, quality ledger, memory envelope, first-token, structured JSON/tool proof | Treating QAT compression, context-window size, or model card claims as Jojo's Mac fit proof |
+| MLX Swift | MLX lane under RuntimeRouter | T0/T1 lane source, Gemma 4 blocked | MAS/Pro by model only after loader proof | `F-MLXSwiftGemma4LoaderParityCard`: architecture registry support, PLE/shared-KV/dual-RoPE/MoE compatibility, tokenizer/template/tool parser, serialized executor, wired-memory policy, first-token proof | Treating Python MLX support or MLX weights as Swift app proof |
+| MLX Python / mlx-lm | Quarantine research lane | T0 only | Pro Research quarantine | Source-card motifs, parser behavior, model architecture notes, no product import | Letting a Python script become a hidden sidecar or fallback |
+| TurboVec compressed recall | Eidos/AppColdStore | T1 branch, T2 missing | Pro ResearchCandidate | `F-TurboVecRecallQualityExactBaseline`: allowlist-before-rank, exact baseline replay, citation freshness, cache rebuild, rollback, AnswerPacket | Treating compressed vector hits as truth, citation proof, or route authority |
+| Abstention lane | SCOPE-Rex/SovereignGate, AnswerPacket | Required invariant | MAS and Pro | Every lane tournament must include a no-route decision when any proof is stale, missing, over-budget, or red | Choosing the least-bad lane instead of abstaining |
+
+### Build Fusion
+
+The next implementation-shaped chain should be:
+
+```text
+retained L3 automated-check red ledger
+  -> same-fixture runtime evidence envelope
+  -> runtime lane admission matrix
+  -> owner path and byte envelope per lane
+  -> small approved first-token proof
+  -> Gemma QAT warmup replay
+  -> RuntimeRouter/System G admitted route
+  -> visible AnswerPacket / RunEventLog / release-audit row
+```
+
+This chain lets the project continue toward large models without lying. It also
+keeps the 70B-class thesis intact: the win is not "load one dense checkpoint";
+the win is route admission, byte envelopes, cold assembly, verified working
+sets, cache lineage, and witnessable active support sets.
+
+### Candidate Falsifier Backlog
+
+1. `F-GGUFInProcessRuntimeAdmissionPacket`
+   - consumes `LocalGGUFClient`, `GGUFSessionBridge`, `GGUFRuntimeBridge`
+     package pin, owner path manifest gates, and retained release-audit proof.
+   - rejects unbounded context, hidden download, path traversal, app-store
+     unsafe import, missing checksum, raw prompt logging, and mmap-as-fit.
+2. `F-RuntimeLaneAdmissionMatrix-QATLiteRTGGUFMLX`
+   - normalizes lane cards across GGUF, LiteRT, MLX Swift, MLX Python
+     quarantine, TurboVec recall, and abstention.
+   - rejects any lane that lacks source pin, byte envelope, owner approval,
+     rollback, RunEventLog, AnswerPacket, and non-promotion text.
+3. `F-GemmaQATSameFixtureRuntimeReplay`
+   - compares E2B/E4B/12B QAT candidates only after one small model harness
+     proof exists.
+   - rejects model-card quality claims and context-window laundering.
+4. `F-MLXSwiftGemma4LoaderParityCard`
+   - waits for or implements Swift loader parity, then proves Gemma 4
+     architecture features and tool parser behavior with red fixtures.
+5. `F-LiteRTLMRuntimeAdmissionPacket`
+   - upgrades native Swift admission from package metadata to an owner-approved,
+     unhidden, cancellable, logged app runtime envelope.
+
+### Promotion Truth
+
+- T0 research/canon: advanced by mapping current local runtime organs and
+  current primary sources into one admission matrix.
+- T1/L1 architecture proof: unchanged in this pass; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-RuntimeLaneAdmissionMatrix-QATLiteRTGGUFMLX`, because it makes every
+runtime lane prove the same identity, byte, route, rollback, and witness
+fields before RuntimeRouter/System G can prefer it.
+
+Safest next falsifier:
+`F-GGUFInProcessRuntimeAdmissionPacket`, because GGUF already has the most
+concrete local code anchor and can be hardened without running a model.
+
+Best near-term code unit:
+add the metadata-only GGUF in-process runtime admission packet, then make the
+lane matrix consume it together with LiteRT, Gemma QAT, llama.cpp prompt-cache,
+MLX Swift, TurboVec, and abstention source cards.
+
+Biggest false-claim risk:
+treating existing local GGUF code, LiteRT Swift docs, MLX Python support, or
+Gemma 4 QAT model cards as a green product runtime path before the small-model
+L3 release-audit bottleneck is cleared.
+
+Biggest missing source:
+fresh owner-approved first-token evidence from a small local model plus a
+Swift-side Gemma 4 loader proof for MLX.
+
+Next research query: "What exact fields should
+F-GGUFInProcessRuntimeAdmissionPacket require so an existing in-process
+GGUF lane can become owner-approved, byte-budgeted, cancellable, logged,
+rollbackable, and AnswerPacket-visible without loading model bytes during the
+metadata gate?"

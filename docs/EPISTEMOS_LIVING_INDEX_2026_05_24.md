@@ -5505,6 +5505,56 @@ Layer truth:
 Correct phrasing: "Large-model research was folded into the runtime-proof
 bridge; product capability / user surface did not advance."
 
+### 2026-06-08 - Deep Research Pass 176 runtime-lane admission matrix folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 176 was folded into
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and indexed in
+the Master Research Index as the runtime-lane admission matrix for QAT,
+LiteRT-LM, GGUF/llama.cpp, MLX Swift, MLX Python quarantine, TurboVec recall,
+and abstention.
+
+The pass pulls current local build anchors into one product-proof rule:
+`Epistemos/Engine/LocalGGUFClient.swift`,
+`LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift`,
+`LocalPackages/GGUFRuntimeBridge/Package.swift`,
+`Epistemos/Views/Settings/RuntimeLanesSection.swift`,
+`docs/falsifiers/F-LiteRTLM-NativeSwiftAdmission_2026_06_06.md`,
+`docs/falsifiers/F-GemmaQAT-LocalRuntimeCandidateCard_2026_06_06.md`,
+`docs/falsifiers/F-LlamaCppSlotPromptCacheCommandCard_2026_06_08.md`, and
+`LocalPackages/mlx-swift-lm` are all lane evidence, not green product routes.
+Before RuntimeRouter/System G may prefer any lane, the lane must prove source
+pin, owner path manifest, selected byte envelope, tokenizer/chat-template/tool
+schema digest, cancellation, rollback, RunEventLog, AnswerPacket, abstention,
+and retained release-audit correlation.
+
+Current web validation is folded conservatively: LiteRT-LM now has a documented
+Swift/iOS/macOS path and Gemma 4 12B claims, but its package still uses
+prebuilt binary targets and unsafe linker flags that keep MAS denied until
+review; Hugging Face Gemma 4 12B is useful source-card material for dense/MoE,
+context, system-role, coding/agentic, hybrid attention, unified K/V, and
+p-RoPE claims; and the open MLX Swift Gemma 4 issue keeps Swift MLX Gemma 4
+blocked until loader proof exists.
+
+Layer truth:
+
+- L1 architecture/canon: Deep Research Pass 176 advanced T0
+  research-to-build canon only; no new falsifier landed and no architecture
+  cursor moved.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime
+  lane, model bytes, provider bytes, index bytes, command execution, or
+  user-facing large-local-model capability promoted.
+
+Correct phrasing: "Runtime-lane admission research was folded into canon;
+product capability / user surface did not advance."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

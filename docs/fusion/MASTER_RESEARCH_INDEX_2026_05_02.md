@@ -5602,3 +5602,37 @@ fail closed, and cache hits remain optimization hints rather than quality,
 model-fit, or route-authority proof. The next side-ladder cursor is
 `same_fixture_runtime_replay_envelope`; the guard-owned product cursor remains
 the automated-checks probe.
+
+### §28.22 Runtime lane admission matrix for QAT, LiteRT, GGUF, and MLX (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 176.
+
+Pass 176 turns the runtime-proof bridge into a buildable admission matrix for
+large-local-model lanes. It binds the current local GGUF path
+(`Epistemos/Engine/LocalGGUFClient.swift`,
+`LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift`,
+and `LocalPackages/GGUFRuntimeBridge/Package.swift`), the user-visible
+`RuntimeLanesSection`, the LiteRT-LM Native Swift Admission witness, the Gemma
+QAT Local Runtime Candidate Card, the llama.cpp slot prompt-cache command card,
+and the local `mlx-swift-lm` package into one rule: RuntimeRouter/System G may
+not prefer a runtime lane until the lane has source pin, owner path manifest,
+selected byte envelope, tokenizer/chat-template/tool-schema digest,
+cancellation, rollback, RunEventLog, AnswerPacket, abstention, and retained
+release-audit correlation.
+
+The external validation pass records current primary-source facts: LiteRT-LM
+advertises Gemma 4 12B, macOS/iOS Swift package support, tool use, Metal/GPU
+support, and an OpenAI-compatible CLI server; its `Package.swift` still uses
+prebuilt binary targets and `-all_load`; Hugging Face Gemma 4 12B is source
+card material for dense/MoE, context, system-role, coding/agentic, local/global
+attention, unified K/V, and p-RoPE claims; and the MLX Swift Gemma 4 issue is
+still an open blocker for native Swift loader proof.
+
+Promotion truth: this is T0 research-to-build canon only. It edits no product
+code, loads no model/runtime/cache/index/provider bytes, starts no server, arms
+no command, and does not promote MAS, L2/L3, T4/T5, live dense 70B,
+SSD-as-RAM, or user-facing large-local-model capability. The safest side-ladder
+falsifier is `F-GGUFInProcessRuntimeAdmissionPacket`; the guard-owned product
+cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
