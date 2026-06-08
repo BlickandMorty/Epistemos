@@ -17246,3 +17246,114 @@ runtime logs.
 Next research query: "Which tool execution surfaces must be source-carded
 before local model agent routes can safely call tools without hidden authority,
 MAS leakage, stale policy, or unpacketized output?"
+
+## Pass 149 - Tool Execution Surface Source Card Landed
+
+### Executive Synthesis
+
+Pass 149 converts the tool-execution surface bridge into a landed
+metadata-only architecture witness:
+
+`F-ToolExecutionSurface-ReleaseBlockerCard`
+
+This is research-to-build hardening for local agentic large models. Tool calls
+are one of the fastest ways a local runtime lane can become unsafe: the model
+may emit a native tool-call format, the runtime may translate it into
+OpenAI-compatible JSON, a framework may auto-execute tools, or a parser bug may
+leak raw tool text into visible output. Epistemos now requires a tool-surface
+source card before RuntimeRouter/System G, Eidos, PatternBoost, lattice
+signals, Gemma/QAT lanes, GGUF/llama.cpp lanes, MLX lanes, or LiteRT-LM lanes
+can inherit tool authority.
+
+### Architecture Fusion
+
+The source card binds:
+
+- upstream `F-SourceGuardDrift-ReleaseBlockerCard`
+- retained release-audit family `tool_execution_surface`
+- issue count `2`
+- 12 source refs across Swift local-agent loop, command dispatcher, tool
+  grammar, RuntimeRouter, command center, TriageService, Rust tool registry,
+  Rust subprocess hardening, local-tool-use witness, runtime-router source
+  guard, MAS/Pro source guard, and Deep Research synthesis
+- 17 invariants for tool schema digest, SovereignGate admission,
+  MAS-forbidden-tool denial, Pro owner approval, mutating-tool confirmation,
+  subprocess hardening, output sanitization, RunEventLog, AnswerPacket,
+  rollback/abstention, no hidden RuntimeRouter tool authority, no
+  Eidos/PatternBoost/lattice tool authority, no hidden cloud/provider
+  fallback, no false green, and zero tool/model/provider bytes
+- 30 rejected red fixtures
+- zero tool execution bytes opened
+- zero tool commands executed
+- zero model/runtime/provider bytes
+- deterministic address
+  `sha256:8a7fe657fef47258c086fe5ef1fb975f91ef8e78511c4c21a47457059ed5c888`
+- next side-card cursor `xpc_trust_configuration_release_blocker_card`
+
+### External Tool-Call Facts Folded In
+
+- `llama.cpp` documents OpenAI-style function calling through
+  `llama-server --jinja`, native and generic handlers, and optional parallel
+  tool calls. Source:
+  https://github.com/ggml-org/llama.cpp/blob/master/docs/function-calling.md
+- Google LiteRT-LM Kotlin docs say model-generated tool calls are
+  automatically executed by LiteRT-LM by default unless automatic tool calling
+  is disabled. Source:
+  https://github.com/google-ai-edge/LiteRT-LM/blob/main/docs/api/kotlin/getting_started.md
+- MLX-LM Gemma 4 tool parsing has had recent parser-specific failures where
+  native Gemma 4 tool-call text did not populate OpenAI-compatible
+  `tool_calls`, plus follow-on parser issues for Gemma 4 26B. Sources:
+  https://github.com/ml-explore/mlx-lm/issues/1096 and
+  https://github.com/ml-explore/mlx-lm/issues/1125
+
+### Why This Helps Large Local Models
+
+Larger local models become useful for coding, research, notes, and writing when
+they can call tools safely. But tool execution changes the threat model:
+retrieval can become mutation, parser output can become authority, a local
+runtime can inherit cloud-shaped tool semantics, and a tool result can appear
+as answer proof without admission or rollback. This pass makes tool authority a
+separate source-carded surface before runtime experiments become product
+claims.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: landed for tool-execution source-card evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Tool commands executed: zero.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+an admitted tool-call packet that separates parser output, tool schema digest,
+SovereignGate verdict, user confirmation, execution result, sanitizer result,
+rollback, RunEventLog, and AnswerPacket caveat so local models can use tools
+without hidden authority.
+
+Safest next falsifier:
+`F-XPCTrustConfiguration-ReleaseBlockerCard`, because tool execution and
+future Pro runtime-plural lanes need trust-bound process/boundary evidence
+before any external, XPC, endpoint, or side-channel surface can promote.
+
+Best near-term code unit:
+bind XPC/trust configuration as a metadata-only release-blocker card, then
+return to the guard-owned small-model runtime L3 automated-checks bottleneck.
+
+Biggest false-claim risk:
+calling this source-card evidence real tool-use capability, repaired agentic
+runtime, product green, MAS tool support, or proof that Gemma/QAT/llama.cpp/
+LiteRT/MLX tool calling is safe in Epistemos.
+
+Biggest missing artifact:
+a focused L2/T2 admitted tool-call runtime packet proving one local tool call
+through parser, admission, user confirmation, execution/sanitization, rollback,
+RunEventLog, and AnswerPacket without hidden route authority.
+
+Next research query: "What is the smallest admitted local tool-call packet that
+can prove parser correctness, user consent, mutation safety, sanitizer output,
+rollback, RunEventLog, and AnswerPacket visibility across MLX, GGUF/llama.cpp,
+and LiteRT-LM without promoting hidden tool authority?"

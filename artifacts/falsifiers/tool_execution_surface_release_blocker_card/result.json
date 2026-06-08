@@ -1,0 +1,769 @@
+{
+  "falsifier_id": "F-ToolExecutionSurface-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_tool_execution_surface_release_blocker_card.sh",
+  "command_digest": "sha256:101a6e45f7bc0fd774cdd4df34022efd7f7e16ef6a17dbae0ee6bb332d5ec0cd",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "10cc12cc78866f212f783765f5719d0869a5a8cc",
+  "fixture_id": "tool_execution_surface_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-08T08:09:02Z",
+  "result_digest": "sha256:6298c09be819992a2f8c99d1cc5cf75d3c3f21ec2ecd65077c8f626b5fe9a2e6",
+  "measurements": {
+    "answer_packet_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 6,
+      "unit": "commands"
+    },
+    "focused_command_too_broad_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_cover_tool_execution_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_lattice_eidos_patternboost_tool_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_runtime_tool_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invariant_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tool_denial_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_source_guard_doc_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_tool_policy_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mas_pro_doc_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rust_tool_registry_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_grammar_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutating_confirmation_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "xpc_trust_configuration_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_calls_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "rollback_or_abstention_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_or_abstention_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_tool_registry_and_security_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 12,
+      "unit": "refs"
+    },
+    "source_refs_cover_tool_execution_surfaces": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_duplicate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_admission_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_hardening_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_output_and_visibility_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_tool_surfaces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_commands_executed_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_commands_executed_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "tool_execution_bytes_opened_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_bytes_opened_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_execution_invariant_count": {
+      "value": 17,
+      "unit": "invariants"
+    },
+    "tool_execution_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_surface_address": {
+      "value": "sha256:8a7fe657fef47258c086fe5ef1fb975f91ef8e78511c4c21a47457059ed5c888",
+      "unit": "sha256"
+    },
+    "tool_execution_surface_card": {
+      "value": {
+        "family_id": "tool_execution_surface",
+        "issue_count": 2,
+        "organ": "tool_execution_surface",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/LocalAgent/LocalAgentLoop.swift",
+          "Epistemos/LocalAgent/LocalAgentCommandDispatcher.swift",
+          "Epistemos/LocalAgent/LocalToolGrammar.swift",
+          "Epistemos/LocalAgent/RuntimeRouter.swift",
+          "Epistemos/State/AgentCommandCenterState.swift",
+          "Epistemos/Engine/TriageService.swift",
+          "agent_core/src/tools/registry.rs",
+          "agent_core/src/security.rs",
+          "agent_core/src/bin/falsify_local_tool_use.rs",
+          "agent_core/tests/runtime_router_policy_order_source_guard.rs",
+          "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md",
+          "docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/FLocalToolUseTests",
+          "xcodebuild test -only-testing:EpistemosTests/RuntimeRouterTests",
+          "xcodebuild test -only-testing:EpistemosTests/CoreMASBoundarySourceGuardTests",
+          "xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests",
+          "cargo test --manifest-path agent_core/Cargo.toml runtime_router_policy_order_source_guard",
+          "cargo test --manifest-path agent_core/Cargo.toml --bin falsify_local_tool_use"
+        ],
+        "required_invariants": [
+          "upstream_source_guard_drift_bound",
+          "tool_surface_source_refs_bound",
+          "tool_schema_digest_required",
+          "tool_policy_admission_required",
+          "mas_forbidden_tool_denial_required",
+          "pro_tool_owner_approval_required",
+          "mutating_tool_confirmation_required",
+          "subprocess_hardening_required",
+          "tool_output_sanitization_required",
+          "run_event_log_required",
+          "answer_packet_required",
+          "rollback_or_abstention_required",
+          "runtime_router_no_hidden_tool_authority",
+          "eidos_patternboost_lattice_no_tool_authority",
+          "no_hidden_cloud_or_provider_fallback",
+          "no_product_green_from_tool_surface",
+          "zero_tool_model_runtime_provider_bytes"
+        ],
+        "surfaces": [
+          "swift_local_agent_loop",
+          "swift_command_dispatcher",
+          "swift_tool_grammar",
+          "swift_runtime_router",
+          "swift_command_center",
+          "rust_tool_registry",
+          "rust_security_hardening",
+          "local_tool_use_witness",
+          "mas_pro_canon",
+          "deep_research_canon"
+        ],
+        "upstream_source_guard_drift_required": true,
+        "tool_schema_digest_required": true,
+        "sovereign_admission_required": true,
+        "mas_forbidden_tool_denial_required": true,
+        "pro_tool_owner_approval_required": true,
+        "mutating_tool_confirmation_required": true,
+        "subprocess_hardening_required": true,
+        "tool_output_sanitization_required": true,
+        "run_event_log_required": true,
+        "answer_packet_required": true,
+        "rollback_or_abstention_required": true,
+        "runtime_router_hidden_tool_authority_allowed": false,
+        "eidos_patternboost_lattice_tool_authority_allowed": false,
+        "hidden_cloud_or_provider_fallback_allowed": false,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "ssd_as_ram_claimed": false,
+        "tool_execution_bytes_opened": 0,
+        "tool_commands_executed": 0,
+        "model_runtime_bytes_loaded": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:tool_execution_surface_release_blocker_card",
+        "run_event_log_ref": "run_event_log:tool_execution_surface_release_blocker_card",
+        "answer_packet_ref": "answer_packet:tool_execution_surface_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "tool_execution_surface_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_surface_issue_count": {
+      "value": 2,
+      "unit": "issues"
+    },
+    "tool_execution_surface_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_output_sanitization_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_schema_and_admission_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_schema_digest_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_surface_count": {
+      "value": 10,
+      "unit": "surfaces"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_tool_execution_surface": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_source_guard_drift_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_tool_model_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "commands"
+    },
+    "focused_command_too_broad_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_cover_tool_execution_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cloud_fallback_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_lattice_eidos_patternboost_tool_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_runtime_tool_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invariant_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_forbidden_tool_denial_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_source_guard_doc_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_pro_tool_policy_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_mas_pro_doc_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rust_tool_registry_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_grammar_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutating_confirmation_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "xpc_trust_configuration_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_tool_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_calls_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "fixtures"
+    },
+    "rollback_or_abstention_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_or_abstention_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "run_event_log_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_tool_registry_and_security_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "refs"
+    },
+    "source_refs_cover_tool_execution_surfaces": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_duplicate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sovereign_admission_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_hardening_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "subprocess_output_and_visibility_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_tool_surfaces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_commands_executed_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_commands_executed_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "tool_execution_bytes_opened_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_bytes_opened_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_execution_invariant_count": {
+      "operator": "==",
+      "value": 17,
+      "unit": "invariants"
+    },
+    "tool_execution_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_surface_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "tool_execution_surface_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "tool_execution_surface_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_execution_surface_issue_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "issues"
+    },
+    "tool_execution_surface_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_output_sanitization_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_schema_and_admission_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_schema_digest_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tool_surface_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "surfaces"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_tool_execution_surface": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_source_guard_drift_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_tool_model_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_missing_rejected": true,
+    "focused_command_count": true,
+    "focused_command_too_broad_rejected": true,
+    "focused_commands_cover_tool_execution_tests": true,
+    "hidden_cloud_fallback_allowed_rejected": true,
+    "hidden_lattice_eidos_patternboost_tool_authority_rejected": true,
+    "hidden_runtime_tool_authority_rejected": true,
+    "invariant_missing_rejected": true,
+    "l2_l3_product_green_claimed_rejected": true,
+    "live_dense_70b_claimed_rejected": true,
+    "mas_forbidden_tool_denial_missing_rejected": true,
+    "mas_pro_source_guard_doc_bound": true,
+    "mas_pro_tool_policy_required": true,
+    "missing_mas_pro_doc_ref_rejected": true,
+    "missing_rust_tool_registry_ref_rejected": true,
+    "missing_tool_grammar_ref_rejected": true,
+    "model_runtime_bytes_loaded_nonzero_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "mutating_confirmation_missing_rejected": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_tool_route_authority": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_or_ssd_as_ram_claim": true,
+    "owner_approval_missing_rejected": true,
+    "provider_calls_made_total": true,
+    "provider_calls_nonzero_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "rollback_or_abstention_missing_rejected": true,
+    "rollback_or_abstention_required": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "run_event_log_missing_rejected": true,
+    "rust_tool_registry_and_security_bound": true,
+    "source_ref_count": true,
+    "source_refs_cover_tool_execution_surfaces": true,
+    "source_refs_duplicate_rejected": true,
+    "sovereign_admission_missing_rejected": true,
+    "ssd_as_ram_claimed_rejected": true,
+    "subprocess_hardening_missing_rejected": true,
+    "subprocess_output_and_visibility_required": true,
+    "swift_tool_surfaces_bound": true,
+    "tool_commands_executed_nonzero_rejected": true,
+    "tool_commands_executed_total": true,
+    "tool_execution_bytes_opened_nonzero_rejected": true,
+    "tool_execution_bytes_opened_total": true,
+    "tool_execution_invariant_count": true,
+    "tool_execution_invariants_bound": true,
+    "tool_execution_surface_address": true,
+    "tool_execution_surface_card": true,
+    "tool_execution_surface_family_bound": true,
+    "tool_execution_surface_issue_count": true,
+    "tool_execution_surface_issue_count_retained": true,
+    "tool_output_sanitization_missing_rejected": true,
+    "tool_schema_and_admission_required": true,
+    "tool_schema_digest_missing_rejected": true,
+    "tool_surface_count": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_tool_execution_surface": true,
+    "upstream_source_guard_drift_card_pass": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true,
+    "zero_tool_model_provider_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ToolExecutionSurface-ReleaseBlockerCard: consumes source-guard drift and release-audit tool_execution_surface family, binds local agent/tool registry/security/canon refs, rejects hidden tool authority, MAS/Pro leakage, unconfirmed mutation, missing AnswerPacket/RunEventLog, false product green, live dense 70B, SSD-as-RAM, and byte/provider/tool execution leaks; no tools are executed and no model/runtime/provider bytes are opened."
+}
