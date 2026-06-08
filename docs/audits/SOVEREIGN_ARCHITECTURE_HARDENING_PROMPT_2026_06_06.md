@@ -870,6 +870,25 @@ has three source-card gates landed:
   model/runtime/provider/command/benchmark bytes, no winner, no speed claim,
   no MAS/L2/L3 promotion.
 
+As of the 2026-06-08 Gemma-main build sequence, the Google/Gemma/QAT side
+ladder also has three metadata-only T1/L1 gates landed:
+
+- `F-GemmaMainFamilyPolicySourceCard`: Gemma is the preferred Google
+  model-family strategy, not a hardcoded live default; E2B/E4B are warmup
+  lanes, 12B QAT GGUF/LiteRT is the Pro Gated flagship target, 26B-A4B/31B
+  remain Vault/Research, and MLX Swift remains loader-blocked.
+- `F-GemmaQATSmallLaneOwnerPathManifest`: E2B/E4B owner path-manifest contract
+  with exact model IDs and GGUF filenames, zero owner path bytes, zero file
+  opens, zero commands, and no product promotion.
+- `F-GemmaQATByteKVAppEnvelopePreflight`: E2B/E4B selected artifact bytes
+  `12091583309`, KV floor bytes `1342177280`, runtime workspace bytes
+  `1879048192`, app headroom bytes `8589934592`, total planned envelope bytes
+  `24104069965`, owner-approval/fresh-memory/redacted-first-token
+  requirements, zero KV/runtime/app allocations, zero first-token attempts,
+  zero model/runtime/provider bytes, and no L2/L3/user-facing Gemma claim.
+
+The current Gemma side-ladder next unit is `gemma_qat_redacted_first_token_probe`.
+
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned
 product cursor remains
