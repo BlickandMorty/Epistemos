@@ -6637,6 +6637,46 @@ Correct phrasing: "Gemma E2B settings/diagnostics WRV requirements are L1
 metadata-proofed; no settings UI, diagnostics UI, model load, or user-facing
 Gemma capability was activated."
 
+### 2026-06-08 - Deep Research Pass 200 Gemma-first runtime architecture lock
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 200 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` locks the
+near-term large-local-model work to a Gemma-first build order. The practical
+runtime ladder is now E2B QAT GGUF through direct llama.cpp as the first real
+harness lane, E4B QAT as the next scale lane, and 12B QAT GGUF/LiteRT as the
+Pro flagship target. MLX Swift remains a candidate only after Gemma 4 loader
+parity and Swift integration witnesses; LiteRT-LM remains Pro Gated until app
+embedding and package/cancellation proof; 70B-class/custom cold assembly stays
+preserved for the point where Gemma-class runtime proof is exhausted or no
+longer enough.
+
+The pass validates the decision against current primary sources: Google's
+2026-06-05 Gemma 4 QAT release frames QAT as a local memory-efficiency path;
+the official Hugging Face E2B QAT GGUF card exposes Apache-2.0 licensing,
+GGUF, and llama.cpp direct-run examples; TurboVec remains Eidos/AppColdStore
+compressed retrieval research, not live route authority.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research-to-build canon advanced with a sharper
+  Gemma-first runtime architecture and a concrete product-capability recheck
+  path after `F-GemmaQATE2BReleaseAuditSurfaceGate`; no new falsifier landed in
+  this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, model bytes,
+  runtime bytes, provider bytes, command execution, first token, quality proof,
+  settings/diagnostics UI, or user-facing Gemma capability promoted.
+
+Correct phrasing: "Gemma-first is now the build-order lock for large local
+models; Gemma is not yet the live main app model."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

@@ -24938,3 +24938,151 @@ user-visible AnswerPacket, run route visibility, execute llama.cpp, inspect a
 local model path, prove quality, prove memory fit, or make Gemma live. The
 release-audit surface gate may show that a separate manual/log pass is needed
 before any UI-facing copy can be trusted.
+
+## Pass 200 - Gemma-First Best Runtime Architecture Lock
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turning the Gemma work from a broad model-research cloud into a single
+buildable runtime ladder: E2B QAT GGUF through direct llama.cpp first, E4B QAT
+as the next scale lane, 12B QAT GGUF/LiteRT as the Pro flagship target, and
+larger Gemma or 70B-class systems only after the small ladder proves the
+harness, quality, memory, rollback, RunEventLog, AnswerPacket, and release
+audit path.
+
+Safest next falsifier:
+`F-GemmaQATE2BReleaseAuditSurfaceGate`, followed by a product capability
+recheck that can decide whether the E2B path is ready to leave metadata-only
+proof and enter a real owner-approved runtime probe.
+
+Best near-term code unit:
+finish the release-audit surface gate, then build a narrow Gemma runtime
+readiness bridge that consumes the existing E2B owner-path, model-file,
+first-token, reconciliation, same-fixture quality, RuntimeRouter admission,
+System G dry-run, AnswerPacket visibility, and settings/diagnostics gates
+without opening model bytes until explicit owner approval.
+
+Biggest false-claim risk:
+assuming that because Google and Hugging Face expose QAT GGUF models with
+llama.cpp examples, Epistemos already has a local product route. The official
+source availability makes the lane plausible; it does not prove Jojo's local
+file, llama.cpp binary, memory headroom, cancellation, quality, logs,
+settings, diagnostics, or release readiness.
+
+Biggest missing source:
+the exact local owner manifest for the E2B GGUF file and llama.cpp binary that
+will be used for the first real runtime proof, plus a log-correlated manual
+release-audit transcript once product surfaces become reachable.
+
+Next research query: "What is the smallest owner-approved Gemma E2B
+GGUF/llama.cpp runtime proof that can produce one redacted token, memory
+samples, cancellation/teardown evidence, RunEventLog, AnswerPacket, and
+release-audit surface evidence without promoting Gemma as default or bypassing
+E4B/12B proof?"
+
+### External Validation
+
+- Google announced Gemma 4 QAT checkpoints on 2026-06-05 and explicitly framed
+  them as memory-reduction and local edge-device efficiency work:
+  <https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/>.
+- The official Hugging Face E2B QAT GGUF model card lists Apache-2.0 licensing,
+  GGUF format, and llama.cpp direct-run examples for
+  `google/gemma-4-E2B-it-qat-q4_0-gguf`:
+  <https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf>.
+- TurboVec remains useful as Eidos/AppColdStore compressed retrieval research,
+  not as live route authority; the public repo describes Rust/Python bindings,
+  online ingest, allowlist-filtered search, and TurboQuant-derived compression:
+  <https://github.com/RyanCodrai/turbovec>.
+
+### Runtime Architecture Decision
+
+The best current implementation shape is:
+
+```text
+Gemma E2B QAT GGUF + direct llama.cpp
+  -> owner path manifest
+  -> exact file and binary digests
+  -> one-token owner-approved probe
+  -> artifact reconciliation
+  -> same-fixture replay
+  -> held-out quality packet
+  -> RuntimeRouter/System G admission packet
+  -> System G dry-run route
+  -> AnswerPacket visibility
+  -> settings/diagnostics WRV
+  -> release-audit surface
+  -> product capability recheck
+  -> only then consider live product route
+```
+
+Then repeat the same ladder for:
+
+- Gemma E4B QAT GGUF/LiteRT: next scale lane, not default until E2B proves the
+  harness and E4B passes fresh memory and quality evidence.
+- Gemma 12B QAT GGUF/LiteRT: Pro flagship target, not MAS default and not
+  owner-visible until E2B/E4B prove the harness and 12B has its own byte,
+  cancellation, quality, rollback, RunEventLog, AnswerPacket, and release-audit
+  evidence.
+- MLX Swift: keep as an Apple Silicon candidate only after Gemma 4 loader
+  parity, package-size, cancellation, structured-output, and Swift integration
+  witnesses land. MLX repo availability alone is not Epistemos Swift runtime
+  proof.
+- LiteRT-LM: keep as a Pro Gated embedding candidate for Gemma QAT only after
+  package, API, cancellation, privacy, and direct-app integration witnesses.
+- Custom Metal or cold assembly: preserve for larger-than-Gemma or 70B-class
+  work after the Gemma ladder stops being enough.
+
+### Architecture Fusion
+
+Epistemos should treat Gemma models as addressable UAS objects, not opaque app
+preferences:
+
+- UAS/OAS: stable model identity, file digest, runtime binary digest, tokenizer
+  or chat-template digest, tool-schema digest, owner-manifest digest, and
+  redacted output digest.
+- ColdStore/AppColdStore: dormant local model artifacts and replay packets
+  remain non-resident until owner-approved leases exist.
+- ActiveAssembly: wake only the smallest sufficient support set: model file,
+  runtime binary, tokenizer/template, prompt fixture, memory sampler, cancel
+  handle, RunEventLog, and AnswerPacket.
+- Eidos: use TurboVec-style compressed retrieval only as rebuildable cache
+  evidence with allowlist-before-rank privacy and no route authority.
+- SCOPE-Rex/SovereignGate: deny hidden provider fallback, server sidecars,
+  raw-path leakage, mmap stress, unbounded context, unsupported MAS claims, and
+  Gemma default mutation.
+- RuntimeRouter/System G: select Gemma only from admitted packets, not because
+  a model exists on disk or a HF page exposes a command.
+- RunEventLog/AnswerPacket: every route must show model identity, runtime lane,
+  budgets, caveats, fallback, abstention, cancellation, rollback, and proof
+  refs.
+
+### Promotion Truth
+
+- T0 research/canon: advanced. The build order is now Gemma-exclusive for the
+  near-term large-local-model loop.
+- T1/L1 architecture proof: existing metadata-only Gemma gates remain the
+  current evidence. This pass itself lands no new falsifier.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/provider bytes loaded: zero.
+- Commands armed/executed: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It converts "I want the best local model" into a route architecture that can
+actually ship: smallest Gemma first, exact bytes, exact runtime, one-token
+proof, same-fixture replay, held-out quality, System G admission, and visible
+release-audit truth. That keeps the ambition high while making each step small
+enough to debug on Apple Silicon.
+
+### Why It May Be Wrong
+
+E2B may be too small for the owner's real coding/research/writing standard;
+E4B may fit but fail quality; 12B may need a different lane than GGUF/LiteRT on
+this Mac; or Swift product integration may expose cancellation/logging/UI
+gaps. The ladder is designed to find those failures early without pretending a
+downloadable model is already a product capability.

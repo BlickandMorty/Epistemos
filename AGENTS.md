@@ -107,6 +107,17 @@ Runtime policy:
   the point where Gemma-class models become too large for ordinary runtime
   proof or no longer suffice. This is a build-order policy only: it does not
   make Gemma live, default, quality-proven, user-facing, or System G admitted.
+- 2026-06-08 best-runtime lock: for Gemma work, optimize for the smallest
+  evidence-producing runtime first, not the prettiest model-picker row. The
+  current preferred implementation sequence is E2B QAT GGUF via direct
+  llama.cpp with exact owner manifest, file digest, runtime digest, redacted
+  one-token proof, memory samples, cancellation/teardown, RunEventLog, and
+  AnswerPacket; then E4B repeats the same harness; then 12B QAT GGUF/LiteRT
+  can become the Pro flagship only after its own byte, quality, release-audit,
+  and product-capability recheck evidence. MLX Swift and LiteRT-LM remain
+  candidate lanes until loader/package/cancellation/product integration proof
+  lands. A downloadable model or HF command example is source evidence, not an
+  Epistemos product route.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

@@ -437,6 +437,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > zero AnswerPackets, and makes no MAS/L2/L3/T4, Gemma-default, quality,
 > benchmark-fit, live-70B, or SSD-as-RAM claim. Next Gemma unit:
 > `gemma_qat_e2b_release_audit_surface_gate`.
+> Current addendum: Deep Research Pass 200 locks the near-term
+> large-local-model build order to Gemma-first runtime proof: E2B QAT GGUF
+> through direct llama.cpp as the first harness lane, E4B QAT as the next scale
+> lane, and 12B QAT GGUF/LiteRT as the Pro flagship target. It validates this
+> with Google's 2026-06-05 Gemma 4 QAT source, the official Hugging Face E2B
+> QAT GGUF model card, and the existing TurboVec intake. The implementation
+> path is owner manifest -> file/runtime digests -> owner-approved one-token
+> probe -> artifact reconciliation -> same-fixture replay -> held-out quality
+> packet -> RuntimeRouter/System G admission -> dry-run route -> AnswerPacket
+> visibility -> settings/diagnostics WRV -> release-audit surface -> product
+> capability recheck. No falsifier lands in Pass 200; no product code changed,
+> no model/runtime/provider bytes were opened, no command was armed, and L2/L3
+> remain red.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
