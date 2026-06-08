@@ -178,6 +178,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaQATSmallLaneOwnerPathManifest",
     "F-GemmaQATByteKVAppEnvelopePreflight",
     "F-GemmaQATRedactedFirstTokenProbe",
+    "F-GemmaQATSameFixtureRuntimeReplay",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",
     "F-TurboVec-Eidos-CompressedIndex-Plan",

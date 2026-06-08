@@ -23158,3 +23158,124 @@ Next research query: "What same-fixture replay packet should
 F-GemmaQATSameFixtureRuntimeReplay require so Gemma E2B/E4B GGUF and LiteRT
 lanes can be compared without raw prompt/token capture, hidden route authority,
 or product promotion?"
+
+## Deep Research Pass 184 - Gemma Same-Fixture Runtime Replay Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 184 implements the answer to Pass 183's next query:
+`F-GemmaQATSameFixtureRuntimeReplay` is now a metadata-only T1/L1 witness that
+forces Gemma E2B/E4B GGUF and LiteRT lanes to share one replay fixture before
+any runtime lane comparison, quality claim, cache reuse, or product route can
+matter.
+
+This is still not a live Gemma route. It is a comparability contract. A future
+runtime token or quality score cannot promote unless it cites the same body,
+source/search freshness, prompt digest, tokenizer digest, chat-template digest,
+tool-schema digest, memory sample, cancellation, rollback, RunEventLog,
+AnswerPacket, and abstention surface.
+
+### Code And Artifact Anchors
+
+| Surface | Path |
+|---|---|
+| Primitive | `agent_core/src/uas/gemma_qat_same_fixture_runtime_replay.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gemma_qat_same_fixture_runtime_replay.rs` |
+| Falsifier script | `Tools/falsifiers/f_gemma_qat_same_fixture_runtime_replay.sh` |
+| Artifact | `artifacts/falsifiers/gemma_qat_same_fixture_runtime_replay/result.json` |
+| Witness doc | `docs/falsifiers/F-GemmaQATSameFixtureRuntimeReplay_2026_06_08.md` |
+| Schema axes | `agent_core/src/falsifier_artifacts/axes.rs::GEMMA_QAT_SAME_FIXTURE_RUNTIME_REPLAY_AXES` |
+
+### Mechanism
+
+The witness consumes `F-GemmaQATRedactedFirstTokenProbe` and accepts four replay
+cards:
+
+- E2B QAT GGUF / llama.cpp same-fixture replay.
+- E2B QAT LiteRT-LM same-fixture replay.
+- E4B QAT GGUF / llama.cpp same-fixture replay.
+- E4B QAT LiteRT-LM same-fixture replay.
+
+Each card binds the same fixture id and digest, source/search/body freshness,
+redacted prompt digest, tokenizer digest, chat-template digest, tool-schema
+digest, memory sample, one-token replay bounds, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, cache-reuse denial until lineage proof,
+hidden-chain denial, and non-promotion.
+
+### What It Rejects
+
+The artifact rejects 45 red fixtures, including 12B insertion, duplicate
+model/lane pairs, bad runtime lane, fixture digest drift, canonical digest
+drift, missing source/search/body freshness, missing prompt/tokenizer/chat/
+tool/memory/one-token/cancellation/rollback/log/packet/abstention proof, raw
+prompt/token permission, hidden chain, cache reuse before lineage, runtime
+replay enablement, quality comparison enablement, model/runtime/provider/
+command/benchmark/local-file/cache bytes, route mutation, hidden authority,
+hidden cloud fallback, MAS/L2/L3/product/live-70B/SSD-as-RAM/quality/
+benchmark-fit claims, bad proof refs, metadata overflow, bad upstream ref, and
+wrong next cursor.
+
+### Why This May Be A Breakthrough
+
+Large local models often look promising because one lane gets a friendlier
+prompt, cache state, tokenizer template, memory condition, or task. This gate
+removes that escape hatch. It makes Gemma local-model work comparable before it
+is impressive, which is exactly what Epistemos needs before RuntimeRouter/System
+G can trust a Gemma route.
+
+### Why It May Be Wrong
+
+The gate may be too conservative. It does not prove tokenizer correctness,
+runtime packaging, first-token success, quality, or memory fit. It also does
+not yet encode enough held-out task families for coding, research, writing,
+note synthesis, tool use, refusal, and cache behavior. That belongs in the next
+quality replay packet.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma QAT preferred-family research remains active.
+- T1/L1 architecture proof: `F-GemmaQATSameFixtureRuntimeReplay` is landed when
+  its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes read: zero.
+- File open/stat/hash/symlink attempts: zero.
+- Raw prompt/token/tool/cache bytes captured: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Benchmark runs: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+same-fixture replay as the bridge from safe Gemma runtime-entry contracts to
+future evidence that can be compared without hidden prompt/cache/runtime drift.
+
+Safest next falsifier:
+`F-GemmaQATHeldOutQualityReplayPacket`, still metadata-only until owner
+approval and runtime evidence exist, but with explicit task families, scorer
+digests, final-output digest policy, failure taxonomy, rollback, RunEventLog,
+AnswerPacket, abstention, and no-hidden-authority proof.
+
+Best near-term code unit:
+build the held-out quality replay packet so Gemma quality claims require a
+stable fixture pack and scorer/version manifest before any runtime lane can be
+called better.
+
+Biggest false-claim risk:
+treating same-fixture metadata as actual replay output or as evidence that
+E2B/E4B runs locally with acceptable quality.
+
+Biggest missing source:
+owner-approved local path manifests, fresh memory samples, and actual
+owner-approved runtime transcripts for E2B/E4B under GGUF or LiteRT.
+
+Next research query: "What held-out task families, scorer digests,
+final-output digest policy, refusal/tool/cache failure taxonomy, and
+AnswerPacket fields should F-GemmaQATHeldOutQualityReplayPacket require before
+any Gemma quality or route-improvement claim can matter?"

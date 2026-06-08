@@ -63,6 +63,7 @@ pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gemma_qat_redacted_first_token_probe;
+pub mod gemma_qat_same_fixture_runtime_replay;
 pub mod gemma_qat_small_lane_owner_path_manifest;
 pub mod gguf_in_process_runtime_admission_packet;
 pub mod graph_filter_visibility_focused_identifier_proof;
@@ -385,6 +386,16 @@ pub use gemma_qat_redacted_first_token_probe::{
     GemmaQatRedactedFirstTokenMetrics, GEMMA_FIRST_TOKEN_MEMORY_SAMPLE_SLOT_COUNT,
     GEMMA_QAT_REDACTED_FIRST_TOKEN_PROBE_CURSOR, GEMMA_QAT_REDACTED_FIRST_TOKEN_PROBE_ID,
     GEMMA_QAT_REDACTED_FIRST_TOKEN_PROBE_NEXT_CURSOR,
+};
+pub use gemma_qat_same_fixture_runtime_replay::{
+    canonical_gemma_qat_same_fixture_replay_cards, GemmaQatReplayState,
+    GemmaQatSameFixtureReplayByteLedger, GemmaQatSameFixtureReplayCard,
+    GemmaQatSameFixtureReplayError, GemmaQatSameFixtureReplayLedger,
+    GemmaQatSameFixtureReplayMetrics, GemmaQatSameFixtureReplayProofRefs,
+    GEMMA_QAT_CANONICAL_REPLAY_DIGEST, GEMMA_QAT_SAME_FIXTURE_DIGEST,
+    GEMMA_QAT_SAME_FIXTURE_ID, GEMMA_QAT_SAME_FIXTURE_RUNTIME_REPLAY_CURSOR,
+    GEMMA_QAT_SAME_FIXTURE_RUNTIME_REPLAY_ID,
+    GEMMA_QAT_SAME_FIXTURE_RUNTIME_REPLAY_NEXT_CURSOR,
 };
 pub use gguf_in_process_runtime_admission_packet::{
     canonical_gguf_in_process_runtime_admission_packet, GgufAdmissionByteEnvelope,

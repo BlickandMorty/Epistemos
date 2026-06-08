@@ -1,0 +1,475 @@
+{
+  "falsifier_id": "F-GemmaQATSameFixtureRuntimeReplay",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_same_fixture_runtime_replay.sh",
+  "command_digest": "sha256:8dddde131e91608787f5a601a50d9617911cd614bdda0ce81ff7b19002dc688a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "89b81c4439ebbfb23da92bc0a860e4703bb4f70a",
+  "fixture_id": "gemma_qat_same_fixture_runtime_replay_v1",
+  "timestamp_utc": "2026-06-08T15:57:30Z",
+  "result_digest": "sha256:f46ba4abc62e670afb7854d12446d0c87b9c6b0bb4fa6787b4ed2102a821fcf3",
+  "measurements": {
+    "accepted_same_fixture_replay_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs_total": {
+      "value": 0,
+      "unit": "runs"
+    },
+    "cache_bytes_reused_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cancellation_rollback_log_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_template_digest_bound_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "command_execution_count_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "e2b_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "e2b_e4b_gguf_litert_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "e4b_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "fixture_count": {
+      "value": 1,
+      "unit": "fixture"
+    },
+    "gemma_same_fixture_replay_address": {
+      "value": "gemma_qat_same_fixture_runtime_replay:86adf3822104a087f90e81ab6f87af2d0b1cd725285a265a7c15cff3ee93ad49@1779213600000",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_file_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "memory_sample_and_one_token_replay_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_sample_bound_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "metadata_bytes_read_total": {
+      "value": 193920,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_held_out_quality_replay_packet",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_cache_and_hidden_chain_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_digest_bound_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "prompt_tokenizer_chat_tool_boundary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_comparison_deferred_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "raw_prompt_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "runtime_and_quality_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_deferred_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "same_fixture_identity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "same_fixture_ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "same_fixture_replay_card_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "source_search_and_body_freshness_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_digest_bound_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "tool_json_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_schema_digest_bound_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "upstream_gemma_first_token_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_raw_prompt_token_tool_cache_file_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_model_provider_command_benchmark_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_same_fixture_replay_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "benchmark_runs_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runs"
+    },
+    "cache_bytes_reused_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cancellation_rollback_log_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "chat_template_digest_bound_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "command_execution_count_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "e2b_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "e2b_e4b_gguf_litert_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "e4b_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "fixture_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "fixture"
+    },
+    "gemma_same_fixture_replay_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_file_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "memory_sample_and_one_token_replay_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_sample_bound_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "metadata_bytes_read_total": {
+      "operator": "<=",
+      "value": 409600,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_held_out_quality_replay_packet",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_cache_and_hidden_chain_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_digest_bound_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "prompt_tokenizer_chat_tool_boundary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_comparison_deferred_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "raw_prompt_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 36,
+      "unit": "fixtures"
+    },
+    "runtime_and_quality_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_deferred_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "same_fixture_identity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "same_fixture_ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "same_fixture_replay_card_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "source_search_and_body_freshness_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tokenizer_digest_bound_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "tool_json_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "tool_schema_digest_bound_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "upstream_gemma_first_token_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_raw_prompt_token_tool_cache_file_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_model_provider_command_benchmark_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_same_fixture_replay_pack_present": true,
+    "benchmark_runs_total": true,
+    "cache_bytes_reused_total": true,
+    "cancellation_rollback_log_packet_bound": true,
+    "chat_template_digest_bound_count": true,
+    "command_execution_count_total": true,
+    "e2b_card_count": true,
+    "e2b_e4b_gguf_litert_coverage_bound": true,
+    "e4b_card_count": true,
+    "fixture_count": true,
+    "gemma_same_fixture_replay_address": true,
+    "gguf_lane_count": true,
+    "litert_lane_count": true,
+    "local_file_bytes_read_total": true,
+    "memory_sample_and_one_token_replay_bound": true,
+    "memory_sample_bound_count": true,
+    "metadata_bytes_read_total": true,
+    "model_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_mas_l2_l3_product_or_70b_claim": true,
+    "no_route_mutation_or_hidden_authority": true,
+    "privacy_cache_and_hidden_chain_bound": true,
+    "prompt_digest_bound_count": true,
+    "prompt_tokenizer_chat_tool_boundary_bound": true,
+    "provider_calls_made_total": true,
+    "quality_comparison_deferred_count": true,
+    "raw_prompt_bytes_captured_total": true,
+    "raw_token_bytes_captured_total": true,
+    "red_fixture_rejection_count": true,
+    "runtime_and_quality_deferred": true,
+    "runtime_bytes_loaded_total": true,
+    "runtime_replay_deferred_count": true,
+    "same_fixture_identity_bound": true,
+    "same_fixture_ledger_address_deterministic": true,
+    "same_fixture_replay_card_count": true,
+    "source_search_and_body_freshness_bound": true,
+    "tokenizer_digest_bound_count": true,
+    "tool_json_bytes_captured_total": true,
+    "tool_schema_digest_bound_count": true,
+    "upstream_gemma_first_token_probe_pass": true,
+    "zero_raw_prompt_token_tool_cache_file_bytes": true,
+    "zero_runtime_model_provider_command_benchmark_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATSameFixtureRuntimeReplay: consumes the Gemma redacted first-token preflight and binds E2B/E4B GGUF/LiteRT cards to one replay fixture, source/search/body freshness, prompt/tokenizer/chat-template/tool-schema boundaries, memory sampling, cancellation, rollback, RunEventLog, AnswerPacket, abstention, no cache reuse, and non-promotion. It opens zero paths/files, executes zero commands, captures zero raw prompt/token/tool bytes, loads zero model/runtime/provider bytes, runs zero benchmarks, and makes no MAS/L2/L3/user-facing, quality, benchmark-fit, or live-70B claim."
+}
