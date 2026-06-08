@@ -21216,3 +21216,195 @@ Next research query: "What is the smallest owner-approved synthetic fixture
 materialization witness that writes files only into staging, proves canonical
 digests and privacy/provenance scans, and still refuses all L2/L3/runtime
 promotion?"
+
+---
+
+## Deep Research Pass 169 - Staging-Only Synthetic Fixture Materialization Runbook
+
+Candidate falsifier:
+`F-SyntheticPayloadMaterializationGateV0`
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+The next large-model breakthrough unit is not another model download. It is the
+first safe same-fixture materialization runbook: a staged, owner-approved,
+canonical, synthetic-only fixture pack that can later be replayed across
+Qwen/MLX, Gemma QAT GGUF/LiteRT, llama.cpp, MLX Swift candidates, TurboVec
+retrieval, and no-runtime abstention lanes.
+
+This pass refines `synthetic_payload_materialization_gate_v0` into a buildable
+contract that still refuses runtime promotion. The first implemented witness
+should remain metadata-only unless the owner explicitly provides the approval
+phrase. The owner-approved materializer can write only to a unique staging root,
+hash every planned byte, run privacy/provenance/benchmark-contamination scans,
+write a rollback receipt, and promote into the final fixture root only after
+the staged digest map matches the expected inventory.
+
+### Why This Matters For Large Local Models
+
+Large local models become practical only when routes can be compared on the
+same work, same evidence, same prompt/tool schema, same cache policy, same
+rollback, and same visible AnswerPacket. Without a materialized same-fixture
+pack, Gemma QAT, GGUF, MLX, LiteRT, TurboVec, KV/cache, and cold-assembly claims
+remain anecdotes.
+
+The synthetic fixture pack is deliberately small: six Epistemos-owned cases
+cover note synthesis, citation-grounded research, structured tool JSON,
+cache deletion/reuse, refusal/abstention, and latency-bounded small-lane proof.
+That is enough to make the first lane tournament falsifiable without touching
+private notes or loading large model bytes.
+
+### Local Evidence
+
+| Local source | Relevant mechanism |
+| --- | --- |
+| `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs` | landed L1 blueprint: approval phrase, path policy, inventory, proof refs, zero-byte ledger |
+| `artifacts/falsifiers/synthetic_materializer_primitive_blueprint/result.json` | current witness address and 18 red-fixture rejections |
+| `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` | HarnessLab already has task suites, EvaluationRunner, promotion pipeline, and trace materialization history |
+| `EpistemosTests/HarnessSubsystemTests.swift` | EvaluationRunner tests cover pass/fail commands, file existence, score persistence, and failure isolation |
+| `agent_core/src/falsifier_artifacts/mod.rs` | existing artifact digest path uses sorted maps for stable measurement/pass-axis digesting |
+| `agent_core/schemas/README.md` | local schema doctrine already requires Draft 2020-12, `additionalProperties: false`, schema rev discipline, and structured rejection |
+| `agent_core/src/uas/same_fixture_runtime_replay_envelope.rs` | downstream same-fixture packet already binds lane cards, tokenizer/template/tool/cache proof, byte boundaries, rollback, RunEventLog, AnswerPacket, and abstention |
+
+### External Validation
+
+| Source | Build implication |
+| --- | --- |
+| RFC 8785 / JCS | canonical fixture digests need strict I-JSON inputs, no duplicate object keys, stable Unicode/string handling, deterministic recursive object-property sorting, UTF-8 output, and termination on invalid Unicode/NaN/Infinity; `serde_json::to_string` alone is not full JCS proof. |
+| JSON Schema specification | Draft 2020-12 is the current JSON Schema version; Epistemos fixture schemas should compile against the current meta-schema and keep closed-object behavior through `additionalProperties: false` or equivalent unevaluated-property policy. |
+| Hugging Face Lighteval | multi-backend evaluation and sample-by-sample output are useful motifs, but Epistemos should keep external eval frameworks quarantine/reference-only until local fixture identity, privacy, AnswerPacket, and rollback are bound. |
+| EleutherAI lm-evaluation-harness | metric lists, filters, decontamination flags, and custom metrics show how mature harnesses separate task formatting from scoring; Epistemos should make scorer/verifier digests first-class fields. |
+| Terminal-Bench | task instructions plus verification scripts and versioned task collections prove agent capability better than final-message impressions; Epistemos should carry explicit verifier scripts/cards for coding and terminal-shaped local-model work. |
+| BFCL | function relevance detection is as important as function execution; Epistemos tool fixtures must score correct abstention when no MAS/Pro-safe tool is suitable. |
+
+Sources:
+- https://www.rfc-editor.org/rfc/rfc8785
+- https://json-schema.org/specification
+- https://huggingface.co/docs/lighteval/index
+- https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/task_guide.md
+- https://www.tbench.ai/
+- https://sky.cs.berkeley.edu/project/berkeley-function-calling-leaderboard/
+
+### Required Materialization Phases
+
+1. Owner approval: require exact phrase
+   `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`; absent approval must produce
+   a clean refusal witness.
+2. Staging root: create a unique repo-relative staging directory under
+   `fixtures/.staging/minimal_synthetic_fixture_pack_v0.<nonce>/`; reject
+   absolute paths, `..`, hidden segments beyond the declared staging prefix,
+   symlinks, hardlinks, case-folding collisions, pre-existing final files, and
+   cross-device promotion shortcuts.
+3. Payload creation: write only the six planned synthetic payload family files
+   plus manifest, schema, policy, template, verifier, scorer, and review cards.
+4. Validation: parse every file, validate Draft 2020-12 schemas, enforce closed
+   fields, run privacy/provenance/benchmark-contamination scans, and deny raw
+   private/user/vault/provider/model/token text.
+5. Canonical digest: compute JCS-compatible UTF-8 canonical bytes and SHA-256
+   for every file; reject duplicate keys, invalid Unicode, NaN/Infinity, and
+   noncanonical digest drift.
+6. Receipt: write rollback receipt, RunEventLog stub, AnswerPacket stub, exact
+   inventory digest map, and no-runtime promotion caveat.
+7. Final promotion: only after staged validation passes, rename/persist into the
+   final fixture root; final promotion must remain fixture/eval support, not
+   L2/L3/product/runtime proof.
+
+### Red Fixtures
+
+The future falsifier must reject at least:
+
+- missing approval
+- wrong approval phrase
+- approval present in a metadata-only refusal witness
+- final-root direct write
+- absolute fixture root
+- parent-segment escape
+- undeclared hidden segment
+- symlink in staging
+- hardlink in staging
+- case collision
+- pre-existing final file collision
+- duplicate JSON object keys
+- invalid Unicode / lone surrogate
+- NaN or Infinity number
+- non-JCS canonical digest
+- schema missing `$schema` or wrong draft
+- schema allows unknown fields
+- missing descriptor/payload/verifier/scorer/template/policy/review join
+- raw note, path, provider, model output, token, benchmark prompt, PII, or credential text
+- missing privacy/provenance/benchmark scan
+- missing rollback, RunEventLog, or AnswerPacket
+- runtime/model/provider/cache/index byte open
+- armed runtime command
+- L1/L2/L3/T4/T5/product/release/live-70B/SSD-as-RAM promotion
+
+### Architecture Fusion
+
+| Organ | Fusion |
+| --- | --- |
+| UAS/OAS | every fixture file gets stable address, family, digest, plane, budget, status, and witness |
+| ColdStore/AppColdStore | materialized fixture bytes remain cold replay support, not route authority |
+| ActiveAssembly | future lane replay wakes only the exact synthetic support set |
+| Eidos | citation/retrieval fixtures become visible evidence constraints, not hidden rankers |
+| SCOPE-Rex/SovereignGate | owner approval, MAS/Pro caveats, and tool-abstention policy become admission facts |
+| RuntimeRouter/System G | runtime lanes can compare only after same-fixture packet and no-hidden-authority proof |
+| RunEventLog | materialization, refusal, rollback, and future replay all emit visible event refs |
+| AnswerPacket | every materialized fixture and later lane result must carry human-visible proof/caveats |
+
+### Ranked Breakthrough Candidates
+
+| Rank | Candidate | Tier now | Why it matters |
+| --- | --- | --- | --- |
+| 1 | `F-SyntheticPayloadMaterializationGateV0` | T0 -> next T1 | unlocks same-fixture replay without private data or runtime bytes |
+| 2 | `F-SameFixtureHeldOutQualityReplayPacket` | T0 | converts model/runtime comparisons into held-out quality evidence |
+| 3 | `F-GemmaQAT-QualityAndLoaderParitySourceCard` | T0/T1 backlog | makes Gemma QAT lanes source-bound before runtime selection |
+| 4 | `F-ToolJsonAbstentionAndRelevanceFixture` | T0 new backlog | prevents small/large local models from winning by calling unsafe or irrelevant tools |
+| 5 | `F-JcsCanonicalJsonWriterParityGate` | T0 new backlog | prevents digest drift and false fixture identity from noncanonical JSON |
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-SyntheticPayloadMaterializationGateV0`, because it converts the synthetic
+same-fixture ladder from planned text into a safe artifact boundary that future
+Gemma/Qwen/GGUF/MLX/LiteRT/TurboVec routes can share.
+
+Safest next falsifier:
+a metadata-only `F-SyntheticPayloadMaterializationGateV0` refusal witness that
+proves absent approval writes zero files, then an owner-approved staging run
+only if the exact phrase is provided.
+
+Best near-term code unit:
+implement a Rust gate primitive that consumes
+`F-SyntheticMaterializerPrimitiveBlueprintV0`, validates approval/staging/JCS/
+schema/privacy/provenance/rollback/AnswerPacket requirements, and emits a
+metadata-only refusal artifact by default.
+
+Biggest false-claim risk:
+letting materialized synthetic fixtures count as eval wins, runtime proof, or
+user-facing large-model capability.
+
+Biggest missing source:
+an Epistemos-owned JCS-compatible canonical JSON writer parity test suite with
+duplicate-key, invalid-Unicode, number-serialization, and sorted-property red
+fixtures.
+
+Next research query: "What exact Rust data model and red-fixture matrix should
+F-SyntheticPayloadMaterializationGateV0 use so absent approval writes zero
+files, owner-approved staging is atomic and rollbackable, and final fixtures
+cannot become hidden route authority?"
