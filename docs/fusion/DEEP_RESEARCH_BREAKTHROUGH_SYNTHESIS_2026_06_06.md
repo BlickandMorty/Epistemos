@@ -17983,3 +17983,196 @@ Next research query: "Which Epistemos-owned held-out fixture pack best covers
 local coding edits, note synthesis, citation-grounded research, structured tool
 JSON, writing edits, cache deletion, latency, and abstention without leaking
 raw note text, benchmark examples, hidden judges, or stale cache state?"
+
+## Pass 154 - Epistemos-Owned Held-Out Fixture Pack Compiler
+
+### Executive Synthesis
+
+Pass 154 converts the Pass 153 quality replay packet into a concrete fixture
+compiler. The breakthrough is that Epistemos should not wait for public
+benchmarks to tell it whether a local model is useful. It should compile its
+own privacy-safe, app-shaped, held-out fixture packs from synthetic vault
+tasks, source-carded repo tasks, redacted trace motifs, and deterministic
+verification scripts, while never storing raw private notes, raw prompts, raw
+cache tokens, or hidden reasoning.
+
+```text
+Local canon + synthetic app tasks + source-carded public motifs
+  -> FixturePackManifest
+  -> Search/held-out split with leakage fence
+  -> task-family scorer bundle
+  -> sandbox/thermal/cancellation policy
+  -> result digest and failure taxonomy
+  -> SameFixtureHeldOutQualityReplayPacket
+  -> RuntimeRouter/System G promotion pressure only after repeated wins
+```
+
+This pass is T0 research-to-build canon. It imports no benchmark package,
+runs no eval, opens no model/runtime/cache/provider bytes, and does not
+advance L1/L2/L3. It defines the artifact shape that would let future Gemma 4
+QAT, GGUF/LiteRT, MLX, TurboVec/Eidos, cache-reuse, and cold-assembly lanes
+prove usefulness on Epistemos-shaped work instead of borrowing a leaderboard.
+
+### Local Source Facts
+
+- `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` already records a HarnessLab
+  line with JSON task definitions loaded from `search/` and `held_out/`,
+  `EvalVerification` types, held-out separation tests, sequential evaluation,
+  per-task timeout, failure isolation, score persistence, a promotion pipeline,
+  human review, sanitized environments, volatile project roots, sandbox
+  profiles, thermal backpressure, cancellation, and foreground yielding.
+- `EpistemosTests/HarnessSubsystemTests.swift` includes tests for held-out
+  task separation, cross-set lookup, command-exit verification, file-existence
+  verification, score persistence, failure isolation, and promotion review
+  artifacts.
+- This older HarnessLab substrate is useful, but it is not large-model
+  promotion proof by itself. It needs a new UAS packet that binds privacy,
+  model/runtime lane identity, scorer digests, cache salt, target verification,
+  AnswerPacket, and non-promotion boundaries before RuntimeRouter/System G can
+  consume it.
+
+### Current External Source Facts
+
+- Inspect AI datasets expose `Sample` objects with IDs and sandbox file maps;
+  its scorer docs allow scorers to inspect sandbox contents and rescore logs.
+  Epistemos should preserve explicit sample IDs, per-sample files, and scorer
+  version digests rather than depending on hidden row order. Sources:
+  `https://inspect.aisi.org.uk/datasets.html`,
+  `https://inspect.aisi.org.uk/scorers.html`
+- Terminal-Bench task docs say a task is validated by `test_outputs.py`, and
+  the only required file in a task directory is that verifier. Epistemos
+  should prefer deterministic verifier scripts for terminal/tool families
+  before LLM judges. Source: `https://www.tbench.ai/docs/task-overview`
+- LiveBench argues for contamination resistance through frequently refreshed
+  questions, recent sources, and objective ground-truth answers without LLM
+  judges. Epistemos should mirror the pattern with local release timestamps,
+  source-card freshness, and objective validators where possible. Source:
+  `https://github.com/livebench/livebench`
+- Terminal-Bench's public description emphasizes sandboxed terminal work,
+  observed actions/files/command outcomes, and verifier scripts that check the
+  final state. This maps to Pro tool/terminal fixture families, not MAS default
+  routes. Source: `https://terminalbench.lol/`
+
+### Candidate Falsifier
+
+`F-EpistemosOwnedHeldOutFixturePackCompiler`
+
+Required accepted fields:
+
+- fixture_pack_id, version, created_at, source_commit_sha, compiler_version
+- pack_purpose: local_model_quality_replay, retrieval_quality, tool_json,
+  note_synthesis, writing_editing, cache_deletion, refusal_safety, latency
+- search_set_count, held_out_set_count, calibration_set_count
+- task_family_counts for coding_edit, terminal_agent, citation_research,
+  note_synthesis, writing_editing, retrieval_grounded_answer, tool_json,
+  cache_deletion_reuse, refusal_safety, latency_cost
+- sample_id_policy: stable explicit IDs required; no rowid authority
+- source_origin: synthetic_epistemos, redacted_trace_motif,
+  source_card_public_repo, benchmark_motif_quarantine, owner_authored
+- raw_private_text_policy: denied
+- prompt_digest_policy and context_digest_policy
+- redaction_profile_digest and privacy_review_digest
+- contamination_fence: no exact public benchmark prompt, delayed release,
+  source-card freshness, duplicate detector, and train-leak caveat
+- verifier_bundle_digest with deterministic validators before judge models
+- scorer_bundle_digest and scorer_version_digest
+- judge_model_digest when a judge is unavoidable
+- sandbox_policy_digest, network_policy, timeout, thermal_policy,
+  cancellation_policy
+- cache_salt_policy, tombstone_policy, deletion_ref_policy
+- baseline_lane_refs and candidate_lane_refs
+- AnswerPacket template digest, RunEventLog template digest, rollback plan
+- non_promotion_caveat: fixture pack creation is not model quality proof
+
+Required red fixtures:
+
+- raw user note, raw prompt, raw cache, raw model output, or hidden reasoning
+  stored inside fixture files
+- row-number, filesystem order, or mutable title used as sample authority
+- public benchmark prompt copied exactly into held-out set
+- search task leaked into held-out set
+- held-out task used in proposer/search loop
+- benchmark score, fixture-pack existence, or scorer availability treated as
+  product capability
+- LLM judge used without rubric digest, source refs, and judge-model digest
+- judge model provider hidden or cloud fallback hidden
+- terminal/tool fixture allowed on MAS default path
+- network enabled by default
+- cache reuse allowed without salt, tombstone, and trust-group proof
+- cache deletion fixture passes when deleted source still influences output
+- quality replay packet promoted without AnswerPacket/RunEventLog/rollback
+- live dense 70B, SSD-as-RAM, or no-runtime metadata promotion claim
+
+### Architecture Fusion
+
+| Mechanism | Epistemos organ | Tier now | Promotion requirement |
+|---|---|---|---|
+| HarnessLab search/held-out split | UAS/OAS, Capability kernel | T0/T1 local substrate | explicit fixture-pack manifest and privacy fence |
+| Deterministic verifier scripts | SCOPE-Rex/SovereignGate, RunEventLog | T0 | verifier digest, sandbox policy, nonzero execution |
+| Redacted trace motifs | Eidos, AppColdStore, PatternBoost offline | T0 | no raw note/prompt/cache bytes, duplicate detection |
+| Source-carded public motifs | Provenance gate, clean-room path | T0 | quarantine classification and rewrite/import decision |
+| Fixture-pack scorer bundle | Same-fixture quality replay | T0 | scorer version digest and baseline/candidate replay |
+| Cache deletion fixture family | KV/cache lineage | T0 | salt, tombstone, deletion ref, stale-cache rejection |
+
+### Build Path
+
+1. Metadata-only UAS primitive:
+   `epistemos_owned_held_out_fixture_pack_compiler`.
+2. Falsifier binary:
+   `falsify_epistemos_owned_held_out_fixture_pack_compiler`.
+3. Artifact fields:
+   manifest schema, redaction profile, sample-id policy, family counts,
+   search/held-out split, deterministic verifier refs, scorer digests,
+   cache-deletion policy, rollback, RunEventLog, AnswerPacket, abstention.
+4. Edge cases:
+   empty pack, zero held-out tasks, duplicate sample IDs, mutable row IDs,
+   leaked search task, raw private text, copied public benchmark prompt,
+   missing verifier digest, hidden judge, network default-on, stale cache,
+   no rollback, no AnswerPacket, and metadata-only promotion.
+5. Later runtime:
+   run only owner-approved small fixture subset on the existing small local
+   lane before Gemma 4 QAT/GGUF/LiteRT/MLX/TurboVec/cache lanes are compared.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Benchmark/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-EpistemosOwnedHeldOutFixturePackCompiler`, because it converts "do evals"
+into an app-native, privacy-safe fixture compiler that future large-model lanes
+must satisfy before claiming quality.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-EpistemosOwnedHeldOutFixturePackCompiler` before the actual
+`F-SameFixtureHeldOutQualityReplayPacket` runtime comparison.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`epistemos_owned_held_out_fixture_pack_compiler`, consuming the older
+HarnessLab search/held-out doctrine and emitting zero runtime/model bytes.
+
+Biggest false-claim risk:
+calling a fixture pack a quality result. The pack only defines the arena; model
+quality still requires same-fixture replay, target verification, scorer
+digests, AnswerPacket, and held-out wins.
+
+Biggest missing artifact:
+a landed fixture-pack compiler witness that rejects raw private data, rowid
+authority, benchmark laundering, hidden judges, network default-on, stale cache
+reuse, and metadata-only promotion.
+
+Next research query: "Which exact synthetic Epistemos task families and
+deterministic verifier scripts should seed the first owner-approved fixture
+pack so small local models, Gemma 4 QAT, GGUF/LiteRT, MLX, TurboVec/Eidos, and
+cache-reuse lanes can be compared without private-data leakage?"

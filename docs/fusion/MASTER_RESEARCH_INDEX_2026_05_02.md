@@ -149,6 +149,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > evidence. It imports no eval framework, opens no model/cache/runtime bytes,
 > arms no command, and does not advance L2/L3 or user-facing large-local-model
 > claims.
+> Current addendum: Deep Research Pass 154 in the same file maps
+> `F-EpistemosOwnedHeldOutFixturePackCompiler`, binding the older HarnessLab
+> search/held-out split, EvaluationRunner, sandboxing, thermal backpressure,
+> and promotion review to Inspect AI sample/scorer motifs, Terminal-Bench
+> verifier-task shape, LiveBench contamination controls, and Epistemos privacy
+> gates. The packet is a buildable T0 side-ladder candidate: require stable
+> fixture IDs, source origins, family counts, redaction profiles, no raw
+> private text, no-rowid authority, deterministic verifier/scorer digests,
+> cache-salt/deletion policy, rollback, RunEventLog, AnswerPacket, and
+> non-promotion caveats before same-fixture quality replay can run. It imports
+> no eval framework, opens no fixture/model/cache/runtime bytes, arms no
+> command, and does not advance L2/L3 or user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
