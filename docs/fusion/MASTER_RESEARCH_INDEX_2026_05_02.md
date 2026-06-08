@@ -208,6 +208,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > files, imports no eval framework, opens no fixture/model/cache/runtime bytes,
 > arms no command, and does not advance L2/L3 or user-facing
 > large-local-model claims.
+> Current addendum: Deep Research Pass 159 in the same file maps
+> `F-NoRuntimeAnswerPacketRunEventTemplate`, the proof-template layer for the
+> six v0 fixtures. It defines planned `answer_packet_template_v0.json`,
+> `run_event_log_template_v0.json`, and `replay_correlation_template_v0.json`
+> schemas that bind fixture/run/packet/correlation IDs, digest refs, neutral
+> residency, plausible/blocked UI labels, unavailable attention/interrupt
+> defaults, static-fallback acknowledgement rules, dense append-only log
+> ordinals, terminal packet joins, rollback, redaction, source allowlist,
+> tombstone, MAS/Pro caveat, and metadata-only non-promotion. It rejects raw
+> prompts, note text, model output, token text, provider payloads, runtime
+> events, sealed mutations, hidden judges, missing terminal joins,
+> dynamic-attention overclaims, verified UI overclaims, and L2/L3/T4
+> promotion. It creates no fixture files, AnswerPacket sidecars, RunEventLog
+> sidecars, imports no eval framework, opens no fixture/model/cache/runtime
+> bytes, arms no command, and does not advance L2/L3 or user-facing
+> large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
