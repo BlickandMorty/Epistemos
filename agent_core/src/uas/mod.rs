@@ -131,6 +131,7 @@ pub mod small_model_runtime_harness_product_answer_packet_live_probe;
 pub mod small_model_runtime_harness_product_route_capability_recheck;
 pub mod small_model_runtime_harness_product_wrv_probe;
 pub mod small_model_runtime_harness_safety_plan;
+pub mod source_guard_drift_release_blocker_card;
 pub mod ssd_wear_budget;
 pub mod theme_presentation_release_blocker_card;
 pub mod transport_cancellation;
@@ -563,6 +564,14 @@ pub use search_index_release_blocker_card::{
     SEARCH_INDEX_FAMILY_SOURCE_REF, SEARCH_INDEX_RELEASE_BLOCKER_CARD_CURSOR,
     SEARCH_INDEX_RELEASE_BLOCKER_CARD_ID, SEARCH_INDEX_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
     SEARCH_INDEX_UPSTREAM_REF,
+};
+pub use source_guard_drift_release_blocker_card::{
+    required_source_guard_drift_invariants, required_source_guard_drift_source_refs,
+    SourceGuardDriftError, SourceGuardDriftMetrics, SourceGuardDriftOrgan,
+    SourceGuardDriftReleaseBlockerCard, SourceGuardDriftReleaseBlockerWitness,
+    SourceGuardDriftStatus, SourceGuardDriftSurface, SOURCE_GUARD_DRIFT_FAMILY_SOURCE_REF,
+    SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_CURSOR, SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_ID,
+    SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_NEXT_CURSOR, SOURCE_GUARD_DRIFT_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,

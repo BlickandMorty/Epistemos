@@ -4803,6 +4803,43 @@ Layer truth:
 Correct phrasing: "L1 search-index freshness source-card advanced; product
 capability / user surface did not."
 
+### 2026-06-08 - Source Guard Drift Release Blocker Source Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-SourceGuardDrift-ReleaseBlockerCard` now passes at
+`artifacts/falsifiers/source_guard_drift_release_blocker_card/result.json` as a
+metadata-only T1/L1 source-card witness. It consumes
+`F-SearchIndex-ReleaseBlockerCard` and the release-audit family source card,
+binds retained `source_guard_drift` issue count `3`, records 14 Swift/Rust
+source-guard and canon source refs, 16 invariants, 6 focused commands, 27
+rejected red fixtures, zero source/model/runtime/provider bytes, and
+deterministic source-guard drift address
+`sha256:341c11bc85fb4b47d0c785d460312005b04e86cce1c1076c673432629745877f`.
+
+This protects the large-model path from stale docs, source/canon drift,
+MAS/Pro boundary drift, runtime route-policy drift, and hidden route/cloud
+authority after search freshness became source-carded. It does not prove a
+runtime route, UI surface, or product repair.
+
+Layer truth:
+
+- L1 architecture side-card: `F-SourceGuardDrift-ReleaseBlockerCard` advanced
+  as metadata-only source-card evidence; next side-card cursor is
+  `tool_execution_surface_release_blocker_card`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no source files, model bytes,
+  runtime bytes, or provider calls were opened, and no product capability
+  promoted.
+
+Correct phrasing: "L1 source-guard drift source-card advanced; product
+capability / user surface did not."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

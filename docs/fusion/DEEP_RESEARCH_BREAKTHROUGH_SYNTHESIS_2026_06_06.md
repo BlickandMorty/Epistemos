@@ -17156,3 +17156,93 @@ Next research query: "Which source-guard drift signatures can prove
 SearchIndex/RRF/ReadableBlocks/QueryRuntime code identity stayed stable between
 source-card evidence, focused Swift tests, and future same-fixture runtime
 replay?"
+
+## Pass 148 - Source Guard Drift Source Card Landed
+
+### Executive Synthesis
+
+Pass 148 converts the source-guard drift bridge into a landed metadata-only
+architecture witness:
+
+`F-SourceGuardDrift-ReleaseBlockerCard`
+
+This is research-to-build hardening for the large-local-model path. Before
+Gemma QAT, TurboVec compressed recall, Eidos priors, RuntimeRouter/System G,
+local model catalog rows, or 70B-class cold-assembly AnswerPackets can trust
+source/canon claims, Epistemos now requires a current source-guard drift card
+with exact source refs, parity invariants, red fixtures, and false-promotion
+denials.
+
+### Architecture Fusion
+
+The source card binds:
+
+- upstream `F-SearchIndex-ReleaseBlockerCard`
+- retained release-audit family `source_guard_drift`
+- issue count `3`
+- 14 source/canon refs across Swift source-guard tests, Rust runtime-router
+  source-guard tests, MAS/Pro source guard, Living Index, Master Research
+  Index, Deep Research synthesis, and source-guard drift canon surfaces
+- 16 invariants for current-sha source refs, docs/code parity, MAS/Pro
+  boundary no-drift, runtime route-policy no-drift, large-model claim-copy
+  no-drift, model-catalog source-card proof, Eidos/search identity,
+  TurboVec/QAT canon identity, AnswerPacket visibility, no stale docs as
+  authority, no hidden cloud/provider fallback, no hidden route authority, no
+  false green, and zero source/model/provider bytes
+- 27 rejected red fixtures
+- zero source/model/runtime/provider bytes
+- deterministic address
+  `sha256:341c11bc85fb4b47d0c785d460312005b04e86cce1c1076c673432629745877f`
+- next side-card cursor `tool_execution_surface_release_blocker_card`
+
+### Why This Helps Large Local Models
+
+Large local models need evidence packets that survive source drift. A runtime
+lane can look impressive while quietly relying on stale source-guard tests,
+outdated MAS/Pro copy, a previous RuntimeRouter policy, or old TurboVec/QAT
+canon. This pass makes source/canon identity part of the packet boundary
+before model comparison, retrieval replay, cache reuse, or route admission can
+promote.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: landed for source-guard drift source-card
+  evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+tool execution surface cards that bind every tool-capable route to explicit
+admission, source identity, MAS/Pro boundaries, rollback, RunEventLog,
+AnswerPacket visibility, and no hidden authority before agentic large-model
+routes can move.
+
+Safest next falsifier:
+`F-ToolExecutionSurface-ReleaseBlockerCard`, because the next retained release
+blocker must prove tool surfaces cannot become hidden authority under
+RuntimeRouter/System G, Eidos, PatternBoost, TurboVec, or local model catalog
+pressure.
+
+Best near-term code unit:
+bind the tool-execution release blocker as a metadata-only UAS primitive with
+source refs, command refs, red fixtures, byte denials, MAS/Pro denials, and
+false-promotion denials.
+
+Biggest false-claim risk:
+calling source-guard drift evidence a fixed product bug, a live runtime route,
+a tool-use capability, L2/L3 green, or proof that larger local models are
+already user-facing.
+
+Biggest missing artifact:
+focused release-audit repair evidence that turns retained source-guard drift
+issues into passing Swift/Rust tests and then correlates those tests with
+runtime logs.
+
+Next research query: "Which tool execution surfaces must be source-carded
+before local model agent routes can safely call tools without hidden authority,
+MAS leakage, stale policy, or unpacketized output?"
