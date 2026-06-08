@@ -167,6 +167,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > This is L1 metadata only: zero model/runtime/provider bytes, zero command
 > execution, no MAS/L2/L3 promotion, no hidden cloud or route authority, no
 > live dense 70B claim, and no "Gemma is live main app model" claim.
+> Current addendum: Deep Research Pass 181 lands
+> `F-GemmaQATSmallLaneOwnerPathManifest` as the metadata-only T1/L1 bridge from
+> Gemma preferred-family policy into exact owner-path manifest contracts for
+> the E2B/E4B QAT warmup lanes. It binds
+> `google/gemma-4-E2B-it-qat-q4_0-gguf` and
+> `google/gemma-4-E4B-it-qat-q4_0-gguf`, current GGUF filenames
+> `gemma-4-E2B_q4_0-it.gguf` and `gemma-4-E4B_q4_0-it.gguf`, source revisions,
+> declared source-card bytes, GGUF/LiteRT lane intent, manifest schema, path
+> policy, byte-plan refs, command envelope refs, rollback, RunEventLog,
+> AnswerPacket, abstention, and compatibility fences. Artifact:
+> `artifacts/falsifiers/gemma_qat_small_lane_owner_path_manifest/result.json`.
+> It reads zero owner manifest bytes, stores zero raw/canonical path bytes,
+> opens/hashes zero files, executes zero commands, loads zero model/runtime/
+> provider bytes, and makes no MAS/L2/L3/live-main-model claim. Next Gemma unit:
+> `F-GemmaQATByteKVAppEnvelopePreflight`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

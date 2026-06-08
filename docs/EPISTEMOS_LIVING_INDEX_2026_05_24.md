@@ -5725,6 +5725,47 @@ Layer truth:
 Correct phrasing: "Gemma preferred-family policy is L1 metadata-proofed;
 Gemma is not yet the live main app model."
 
+### 2026-06-08 - F-GemmaQATSmallLaneOwnerPathManifest landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATSmallLaneOwnerPathManifest` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup lanes. It adds
+`agent_core/src/uas/gemma_qat_small_lane_owner_path_manifest.rs`,
+`agent_core/src/bin/falsify_gemma_qat_small_lane_owner_path_manifest.rs`,
+`Tools/falsifiers/f_gemma_qat_small_lane_owner_path_manifest.sh`, the artifact
+`artifacts/falsifiers/gemma_qat_small_lane_owner_path_manifest/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATSmallLaneOwnerPathManifest_2026_06_08.md`.
+
+The witness accepts 2 manifest cards and rejects 29 red fixtures. It binds the
+E2B/E4B Hugging Face model IDs, source revisions, current GGUF filenames,
+declared source-card bytes, GGUF/LiteRT lane intent, owner manifest schema,
+path policy, byte-plan refs, command envelope refs, rollback, RunEventLog,
+AnswerPacket, abstention, and compatibility fences. It reads zero owner
+manifest bytes, stores zero raw/canonical path bytes, performs zero path
+canonicalization/open/stat/hash/symlink attempts, executes zero commands, and
+loads zero model/runtime/provider bytes.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATSmallLaneOwnerPathManifest` advances the
+  Gemma E2B/E4B side-ladder to T1/L1 metadata-only proof when its artifact
+  validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, canonicalized, opened, hashed, loaded, or user-surfaced, and no
+  first-token, quality, Swift MLX loader, LiteRT embedding, or live-main-model
+  claim promoted.
+
+Correct phrasing: "Gemma E2B/E4B owner-path manifest contract is L1
+metadata-proofed; no Gemma path or runtime has been approved or opened."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
