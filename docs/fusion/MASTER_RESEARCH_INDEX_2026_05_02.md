@@ -4846,3 +4846,34 @@ low-bit KV quality or memory fit, and does not promote MAS, L2/L3, T4/T5,
 live dense 70B, SSD-as-RAM, or user-facing large-local-model capability. The
 next KV/cache side-ladder unit is `kv_offload_tier_budget_envelope`; the
 guard-owned product cursor remains the automated-checks probe.
+
+Promotion update: this pass is now implemented by
+`F-KVOffloadTierBudgetEnvelope`, a metadata-only T1/L1 Rust primitive and
+witness doc. It consumes `F-KIVIAsymmetricKVStabilitySourceCard`, binds 6
+source refs and 4 tier classes, declares hot resident, CPU cache, local disk,
+runtime workspace, and app-headroom budgets, denies remote cache bytes, rejects
+47 red fixtures, opens zero KV/cache/model/runtime/source-tree/benchmark/
+product/provider bytes, starts no server, arms no command, and does not promote
+L2/L3/T4. The next KV/cache side-ladder unit is
+`kv_cache_lineage_deletion_fence`; the guard-owned product cursor remains the
+automated-checks probe.
+
+### §28.20 KV offload tier budget envelope (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 133.
+
+Pass 133 lands `F-KVOffloadTierBudgetEnvelope` as a metadata-only T1/L1
+source-card witness. It consumes `F-KIVIAsymmetricKVStabilitySourceCard`, binds
+LMCache local storage/architecture, vLLM offloading connector/PagedAttention,
+KIVI, and KVSwap source refs, separates hot resident UMA, CPU cache, local disk
+cache, and remote-denied tiers, and declares hot, CPU, local-disk,
+runtime-workspace, app-headroom, and zero-remote byte fields before any KV/cache
+offload lane can influence RuntimeRouter/System G.
+
+Promotion truth: this source-card opens zero KV/cache/model/runtime/source-tree/
+benchmark/product/provider bytes, proves no local offload runtime, proves no
+large-model fit, and does not promote MAS, L2/L3, T4/T5, live dense 70B,
+SSD-as-RAM, or user-facing large-local-model capability. The next KV/cache
+side-ladder unit is `kv_cache_lineage_deletion_fence`; the guard-owned product
+cursor remains the automated-checks probe.

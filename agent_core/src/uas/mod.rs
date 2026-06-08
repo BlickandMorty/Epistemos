@@ -66,6 +66,7 @@ pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
 pub mod kivi_asymmetric_kv_stability_source_card;
 pub mod kv_cache_identity_salt_offload_proof_packet;
+pub mod kv_offload_tier_budget_envelope;
 pub mod kv_runtime_source_card;
 pub mod kv_source_card_fork_and_daemon_boundary;
 pub mod large_model_deferral;
@@ -358,6 +359,14 @@ pub use kv_cache_identity_salt_offload_proof_packet::{
     KvCacheIdentitySource, KvOffloadTier, KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_CURSOR,
     KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_ID,
     KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_NEXT_CURSOR,
+};
+pub use kv_offload_tier_budget_envelope::{
+    canonical_kv_offload_tier_budget_plan, KvOffloadBudgetByteLedger,
+    KvOffloadBudgetProofRefs, KvOffloadBudgetSource, KvOffloadBudgetTier,
+    KvOffloadRuntimeLane, KvOffloadTierBudgetEnvelope, KvOffloadTierBudgetError,
+    KvOffloadTierBudgetMetrics, KvOffloadTierBudgetPlan,
+    KV_OFFLOAD_TIER_BUDGET_ENVELOPE_CURSOR, KV_OFFLOAD_TIER_BUDGET_ENVELOPE_ID,
+    KV_OFFLOAD_TIER_BUDGET_ENVELOPE_NEXT_CURSOR,
 };
 pub use kv_runtime_source_card::{
     KvAppleSiliconStatus, KvDefaultDeploymentShape, KvMasStatus, KvRuntimeByteScope,

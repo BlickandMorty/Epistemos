@@ -15604,3 +15604,107 @@ memory samples, backend lane, quality replay, teardown, and AnswerPacket.
 Next research query: "What exact local KV/cache offload byte envelope should
 Epistemos require before llama.cpp, LMCache, KIVI, or future Metal KV paths can
 claim a safe large-local-model lane?"
+
+## Deep Research Pass 133 - KV Offload Tier Budget Envelope Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Pass 133 converts the KV/cache offload byte-envelope query into a landed
+metadata-only T1/L1 witness:
+`F-KVOffloadTierBudgetEnvelope`.
+
+### Landed Artifact
+
+- Falsifier: `F-KVOffloadTierBudgetEnvelope`
+- Command: `Tools/falsifiers/f_kv_offload_tier_budget_envelope.sh`
+- Artifact:
+  `artifacts/falsifiers/kv_offload_tier_budget_envelope/result.json`
+- Witness doc:
+  `docs/falsifiers/F-KVOffloadTierBudgetEnvelope_2026_06_08.md`
+- Rust primitive:
+  `agent_core/src/uas/kv_offload_tier_budget_envelope.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_kv_offload_tier_budget_envelope.rs`
+- Deterministic offload envelope address:
+  `kv_offload_tier_budget_envelope:b3c55fdab037ecb741744753053428a2def9d1c370547b230160da73248dea7e@1779244800000`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only KV offload tier-budget evidence.
+- Upstream card: `F-KIVIAsymmetricKVStabilitySourceCard`.
+- Source refs bound: 6.
+- Tier classes bound: hot resident UMA, CPU cache, local disk cache,
+  remote-denied.
+- Declared hot resident bytes: `2147483648`.
+- Declared CPU cache bytes: `4294967296`.
+- Declared local disk cache bytes: `8589934592`.
+- Declared app headroom bytes: `4294967296`.
+- Declared remote cache bytes: `0`.
+- Red fixtures rejected: 47.
+- KV bytes loaded: 0.
+- Cache bytes opened: 0.
+- Runtime bytes loaded: 0.
+- Model/source/benchmark/product/provider bytes: 0.
+- Next side-ladder cursor: `kv_cache_lineage_deletion_fence`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Local KV offload runtime: not proven.
+- Large-model fit: not proven.
+- First token, quality, latency, and throughput: not proven.
+- Live dense 70B: rejected.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+The envelope converts offload from a vague "put KV somewhere colder" idea into
+an explicit AppColdStore/ColdStore budget object. Hot resident UMA, CPU cache,
+local disk cache, and remote-denied tiers are now separate fields, each with
+budget and proof implications. Local disk can be a cache tier only when it has
+bounded bytes, cache-miss behavior, cleanup, teardown, rollback, RunEventLog,
+AnswerPacket, and abstention. Remote cache is denied for the local product
+route. Cache hits, disk files, or source docs cannot become model-fit or
+quality proof.
+
+Correct phrasing: "L1 KV offload tier-budget architecture proof advanced;
+product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this envelope by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only budget proof.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+KV/cache offload as a strict budgeted ColdStore object, not hidden memory.
+
+Safest next falsifier:
+`F-KVCacheLineageDeletionFence`, because offloaded/persisted cache state must
+prove source lineage, deletion/tombstone, purge, and stale-cache rejection
+before any owner-approved runtime probe can reuse it.
+
+Best near-term code unit:
+implement the KV cache lineage/deletion fence as a metadata-only witness that
+consumes the offload envelope and rejects stale prompt/source/tool schema,
+missing tombstone, missing purge proof, and cross-note/privacy leakage.
+
+Biggest false-claim risk:
+calling local disk cache capacity "available memory" or treating a cache-hit
+metadata packet as proof that a large model fits or answers well.
+
+Biggest missing artifact:
+an owner-approved small-model KV/cache runtime probe with redacted prompts,
+cache-hit/miss logs, memory samples, teardown, and AnswerPacket evidence.
+
+Next research query: "What exact cache lineage, deletion, tombstone, and purge
+fields should Epistemos require before any offloaded KV/cache block can be
+reused across note, route, model, tokenizer, or tool-schema boundaries?"

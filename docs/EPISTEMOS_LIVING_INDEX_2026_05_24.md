@@ -3551,6 +3551,20 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   live dense 70B, SSD-as-RAM, low-bit KV quality, memory-fit, Apple Silicon
   runtime, or user-facing large-local-model claim. The next KV/cache
   side-ladder unit is `kv_offload_tier_budget_envelope`.
+- Updated **2026-06-08** · `F-KVOffloadTierBudgetEnvelope` is now landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/kv_offload_tier_budget_envelope/result.json`. It
+  consumes `F-KIVIAsymmetricKVStabilitySourceCard`, binds 6 LMCache/vLLM/
+  KIVI/KVSwap source refs, separates hot resident UMA, CPU cache, local disk
+  cache, and remote-denied tiers, declares hot resident bytes `2147483648`,
+  CPU cache bytes `4294967296`, local disk cache bytes `8589934592`, app
+  headroom bytes `4294967296`, remote bytes `0`, cleanup, teardown,
+  cache-miss, compatibility, rollback, RunEventLog, AnswerPacket, abstention,
+  deterministic offload envelope address, and 47 rejected red fixtures. It
+  opens zero KV/cache/model/runtime/source-tree/benchmark/product/provider
+  bytes and makes no MAS, L2, L3, live dense 70B, SSD-as-RAM, model-fit,
+  local-offload-runtime, or user-facing large-local-model claim. The next
+  KV/cache side-ladder unit is `kv_cache_lineage_deletion_fence`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,
