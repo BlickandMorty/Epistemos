@@ -24679,3 +24679,133 @@ llama.cpp, inspect a local model path, prove quality, prove memory fit, or
 make Gemma live. The next visibility gate may reveal that the route explanation
 is too weak, too technical, or not yet wired to the surfaces a user would
 actually see.
+
+## Pass 198 - Gemma E2B Route AnswerPacket Visibility Gate
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+forcing Gemma E2B route evidence to become visibly explainable, caveated, and
+rollbackable before it can approach settings, diagnostics, WRV, or user-facing
+AnswerPacket surfaces.
+
+Safest next falsifier:
+`F-GemmaQATE2BSettingsDiagnosticsWRVGate`.
+
+Best near-term code unit:
+build the settings/diagnostics WRV gate that proves the route visibility
+contract can be mapped into honest product copy without making Gemma the
+default model or hiding fallback/abstention.
+
+Biggest false-claim risk:
+treating a visibility packet contract as if a user-visible AnswerPacket was
+emitted, as if System G actually ran, or as if Gemma E2B is now the main app
+model.
+
+Biggest missing source:
+the future settings/diagnostics surface binding that shows the exact copy,
+source path, log correlation, route explanation, rejected candidate summary,
+user action, and no-promotion caveats that a user would actually see.
+
+Next research query: "How should
+F-GemmaQATE2BSettingsDiagnosticsWRVGate wire Gemma E2B route visibility into
+settings and diagnostics while preserving MAS/Pro boundaries, user consent,
+route abstention, cancellation, rollback, no hidden route authority, and no
+default-model promotion?"
+
+### Synthesis
+
+`F-GemmaQATE2BRouteAnswerPacketVisibilityGate` is now landed as the
+metadata-only T1/L1 bridge between System G dry-run route evidence and future
+settings/diagnostics/AnswerPacket visibility.
+
+This is the point where the Gemma-first runtime ladder starts to look like a
+real app architecture instead of a stack of model probes. The gate requires the
+future route to carry visible model identity, runtime lane, status, caveat,
+budget summary, memory headroom, KV budget, latency budget, privacy class,
+MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback, abstention,
+cancellation, rollback, RunEventLog, no-default-model-mutation proof, hidden
+authority denial, non-promotion, settings copy, diagnostics copy, route
+explanation, rejected candidate summary, user-action requirement, and explicit
+no-quality/no-live-default/no-large-model-bypass claims.
+
+For best-runtime architecture, this keeps the E2B lane honest while leaving the
+upgrade path open: E4B and 12B QAT can reuse the same visibility discipline
+once their source cards, byte envelopes, owner approvals, runtime artifacts,
+quality replay packets, and admission packets exist.
+
+### Architecture Fusion
+
+The current Gemma-first build path is now:
+
+```text
+Gemma4QAT/E2B/GGUF/llama.cpp
+  -> owner approval phrase digest
+  -> owner manifest digest
+  -> canonical path digest
+  -> model file digest and llama.cpp digest
+  -> owner-approved first-token runtime probe
+  -> first-token artifact reconciliation
+  -> same-fixture quality replay packet gate
+  -> RuntimeRouter/System G admission packet gate
+  -> System G dry-run route packet gate
+  -> route AnswerPacket visibility gate
+  -> settings/diagnostics WRV gate
+  -> release-audit surface
+```
+
+The landed gate binds:
+
+- model id: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- filename: `gemma-4-E2B_q4_0-it.gguf`
+- expected file bytes: `3349514112`
+- direct lane: `/opt/homebrew/bin/llama-cli`
+- 30 visibility fields
+- 63 rejection policies
+- 77 red fixtures
+
+It reads zero visibility packet bytes, emits zero user-visible AnswerPackets,
+performs zero System G dry-run actions, performs zero admissions, mutates zero
+route priority, mutates zero RuntimeRouter/System G/default-model state, arms
+zero commands, executes zero commands, performs zero runtime replay, captures
+zero raw prompt/output bytes, loads zero model/runtime/provider bytes,
+suppresses zero AnswerPackets, and rejects hidden Eidos/lattice/PatternBoost/
+cloud authority, route laundering, larger-model bypass, live dense 70B, and
+SSD-as-RAM claims.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first runtime-plural ladder stays active.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BRouteAnswerPacketVisibilityGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Visibility packet bytes read: zero.
+- User-visible AnswerPacket emitted: zero.
+- System G dry-run performed: zero.
+- Admission performed: zero.
+- RuntimeRouter/System G/default-model mutation: zero.
+- Commands armed/executed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It makes "Gemma as the main model" depend on honest route visibility, not just
+model availability. That is the best long-term architecture shape: a strong
+model becomes usable only when it can carry proof, caveats, fallback,
+abstention, budgets, rollback, and AnswerPacket evidence through the same
+substrate as every other meaningful object.
+
+### Why It May Be Wrong
+
+It still does not emit a real user-visible AnswerPacket, run a dry-run route,
+read an actual visibility packet, execute llama.cpp, inspect a local model
+path, prove quality, prove memory fit, or make Gemma live. The next WRV gate
+may show that settings and diagnostics need additional surface-level copy,
+log-correlation, or release-audit checks before a user can safely act on the
+route.
