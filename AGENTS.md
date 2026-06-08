@@ -134,6 +134,14 @@ Runtime policy:
   `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
   Do not treat command-card/parser PASS as executed Swift tests, full
   automated-check PASS, release readiness, or Gemma product capability.
+- 2026-06-08 Gemma fast-add distinction: a model-picker/settings row can be
+  added quickly only as honest gated visibility. Gemma as the main app model is
+  a separate runtime admission claim requiring owner path, selected byte
+  envelope, runtime digest, cancellation, rollback, RunEventLog, AnswerPacket,
+  release-audit evidence, and user-visible caveats. Do not let a visible row
+  mutate RuntimeRouter/System G/default-model state, skip the release-audit
+  bottleneck, or imply live E2B/E4B/12B capability. The next Gemma side-ladder
+  unit remains `gemma_qat_e2b_release_audit_surface_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

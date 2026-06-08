@@ -6741,6 +6741,46 @@ Layer truth:
 Correct phrasing: "Graph-filter proof-root metadata is ready for an
 owner-approved focused Xcode run; the run has not happened."
 
+### 2026-06-08 - Deep Research Pass 203 Gemma fast-add versus main-model runtime bridge
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 203 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` answers the
+"why did adding a model used to take minutes?" concern by separating a fast
+visible model-picker row from a main-model runtime capability. A Gemma row can
+be made honest quickly only if it is explicitly gated and does not mutate
+RuntimeRouter/System G/default-model state. Making Gemma the real main local
+model still requires owner path, selected byte envelope, runtime digest,
+cancellation, rollback, RunEventLog, AnswerPacket, release-audit evidence, and
+user-visible caveats.
+
+The pass validates the build order against current external source evidence:
+Google's Gemma 4 QAT release, official Hugging Face E2B and 12B QAT GGUF cards,
+and llama.cpp support for GGUF workflows. It keeps E2B QAT GGUF / llama.cpp as
+the first buildable harness lane, E4B as the repeat scale lane, 12B QAT
+GGUF/LiteRT as the Pro flagship, and larger/custom/70B cold assembly as the
+later architecture track once Gemma-class lanes are exhausted.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research-to-build canon advanced with a fast-row
+  versus live-route bridge and `F-GemmaQATE2BReleaseAuditSurfaceGate` named as
+  the next Gemma side-ladder falsifier; no new falsifier landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no settings row was wired, no
+  model bytes were opened, no llama.cpp command was armed, no Xcode command ran,
+  and no Gemma default/main-model capability was promoted.
+
+Correct phrasing: "A Gemma settings row can be added quickly only as honest
+gated visibility; Gemma as the main app model still needs the runtime and
+release proof rail."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
