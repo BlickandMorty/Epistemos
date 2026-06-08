@@ -652,6 +652,10 @@ name = "falsify_synthetic_materializer_primitive_blueprint"
 path = "src/bin/falsify_synthetic_materializer_primitive_blueprint.rs"
 
 [[bin]]
+name = "falsify_synthetic_payload_materialization_gate"
+path = "src/bin/falsify_synthetic_payload_materialization_gate.rs"
+
+[[bin]]
 name = "capability_ceiling_evaluation_kernel"
 path = "src/bin/capability_ceiling_evaluation_kernel.rs"
 

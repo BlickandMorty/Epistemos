@@ -109,7 +109,6 @@ pub mod small_compressed_model_local_runtime_command_card;
 pub mod small_compressed_model_model_path_readiness_card;
 pub mod small_compressed_model_owner_approval_runtime_gate;
 pub mod small_compressed_model_runtime_probe_proof_envelope;
-pub mod synthetic_materializer_primitive_blueprint;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
@@ -134,6 +133,8 @@ pub mod small_model_runtime_harness_product_wrv_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod source_guard_drift_release_blocker_card;
 pub mod ssd_wear_budget;
+pub mod synthetic_materializer_primitive_blueprint;
+pub mod synthetic_payload_materialization_gate;
 pub mod theme_presentation_release_blocker_card;
 pub mod tool_execution_surface_release_blocker_card;
 pub mod transport_cancellation;
@@ -1074,6 +1075,16 @@ pub use synthetic_materializer_primitive_blueprint::{
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_CURSOR,
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID,
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_NEXT_CURSOR,
+};
+pub use synthetic_payload_materialization_gate::{
+    synthetic_payload_materialization_gate_address, SyntheticPayloadGateApproval,
+    SyntheticPayloadGateByteLedger, SyntheticPayloadGateInventoryPlan,
+    SyntheticPayloadGateMetrics, SyntheticPayloadGatePathPolicy,
+    SyntheticPayloadGateValidationPlan, SyntheticPayloadMaterializationGate,
+    SyntheticPayloadMaterializationGateError, SyntheticPayloadMaterializationGateWitness,
+    SyntheticPayloadMaterializationStatus, SYNTHETIC_PAYLOAD_MATERIALIZATION_GATE_CURSOR,
+    SYNTHETIC_PAYLOAD_MATERIALIZATION_GATE_ID,
+    SYNTHETIC_PAYLOAD_MATERIALIZATION_GATE_NEXT_CURSOR,
 };
 pub use turbovec_runtime_shadow_benchmark_plan::{
     TurboVecRuntimeShadowBenchmarkPlan, TurboVecRuntimeShadowBenchmarkPlanSet,
