@@ -140,8 +140,20 @@ Runtime policy:
   envelope, runtime digest, cancellation, rollback, RunEventLog, AnswerPacket,
   release-audit evidence, and user-visible caveats. Do not let a visible row
   mutate RuntimeRouter/System G/default-model state, skip the release-audit
-  bottleneck, or imply live E2B/E4B/12B capability. The next Gemma side-ladder
-  unit remains `gemma_qat_e2b_release_audit_surface_gate`.
+  bottleneck, or imply live E2B/E4B/12B capability.
+- 2026-06-08 Gemma E2B release-audit surface status:
+  `F-GemmaQATE2BReleaseAuditSurfaceGate` is landed as metadata-only L1/T1. It
+  consumes the settings/diagnostics WRV gate and binds the release-audit skill,
+  red automated-check blocker, graph-filter proof-root command card,
+  execution-artifact parser gate, owner-approval runbook, log/manual/
+  distribution/repeated-zero-fail requirements, settings/diagnostics copy,
+  AnswerPacket, RunEventLog, rollback, abstention, SCOPE-Rex, SovereignGate,
+  cancellation, non-promotion, fast-row gated visibility, owner action, and
+  product-capability recheck deferral. It wires zero settings rows, runs zero
+  Xcode commands, loads zero model/runtime/provider bytes, and does not make
+  Gemma live/default/user-facing. Next Gemma side-ladder unit:
+  `gemma_qat_e2b_product_capability_recheck_gate`, still blocked by the
+  guard-owned release-audit automated-check cursor for product truth.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

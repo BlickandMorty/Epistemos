@@ -6781,6 +6781,51 @@ Correct phrasing: "A Gemma settings row can be added quickly only as honest
 gated visibility; Gemma as the main app model still needs the runtime and
 release proof rail."
 
+### 2026-06-08 - F-GemmaQATE2BReleaseAuditSurfaceGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATE2BReleaseAuditSurfaceGate` is now implemented as a metadata-only
+T1/L1 Gemma side-ladder witness at
+`agent_core/src/uas/gemma_qat_e2b_release_audit_surface_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_release_audit_surface_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_release_audit_surface_gate.sh`,
+`artifacts/falsifiers/gemma_qat_e2b_release_audit_surface_gate/result.json`,
+and `docs/falsifiers/F-GemmaQATE2BReleaseAuditSurfaceGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BSettingsDiagnosticsWRVGate`, binds the E2B
+QAT GGUF / llama.cpp lane, release-audit skill, red automated-check blocker,
+graph-filter proof-root command card, execution-artifact parser gate,
+owner-approval runbook, 40 release-surface fields, 72 rejection policies,
+log/manual/distribution/repeated-zero-fail evidence requirements, visible
+settings and diagnostics copy, AnswerPacket template, RunEventLog, rollback,
+abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion, fast-row
+gated visibility, owner action, and product-capability recheck deferral. It
+rejects 85 red fixtures, reads zero release packet bytes, wires zero settings
+rows, wires zero diagnostics UI, emits zero user-visible AnswerPackets, runs
+zero Xcode commands, mutates zero RuntimeRouter/System G/default-model state,
+arms or executes zero model commands, loads zero model/runtime/provider bytes,
+captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/live-Gemma
+default/live-70B/SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: the Gemma E2B side-ladder advanced to a metadata-only
+  release-audit surface contract.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Swift settings row,
+  diagnostics UI, Xcode proof, runtime log, manual verification, model load,
+  first token, or user-facing Gemma capability was activated.
+
+Correct phrasing: "Gemma E2B release-audit surface requirements are L1
+metadata-proofed; no settings row, release proof, model load, or user-facing
+Gemma capability was activated."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
