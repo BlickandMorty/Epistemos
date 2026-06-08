@@ -468,6 +468,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and next side-ladder `synthetic_fixture_staging_manifest_preflight_gate`.
 > This advances only canonical fixture-writer L1 evidence; materialization
 > remains blocked and L2/L3 remain red.
+> Current addendum: `F-SyntheticFixtureStagingManifestPreflightGate` is now
+> landed as a metadata-only L1/T1 side-ladder witness at
+> `artifacts/falsifiers/synthetic_fixture_staging_manifest_preflight_gate/result.json`.
+> It consumes `F-JcsFixtureWriterFailClosedDryRun`, binds upstream address
+> `sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb`,
+> 16 required manifest fields, repo-relative staging/final roots,
+> absolute/parent/hidden/symlink/hardlink/direct-final/cross-device/collision
+> denials, JCS canonical SHA-256 digest policy, duplicate path/digest
+> rejection, exact owner approval phrase, rollback, RunEventLog, AnswerPacket,
+> privacy/provenance/benchmark scans, product route authority denial, 33
+> rejected red fixtures, zero manifest/staging/final/model/runtime/provider/
+> cache/index bytes, zero filesystem stat calls, zero armed commands,
+> deterministic address
+> `sha256:066e9509f28f034208a983446697f8f88b8a578931cd7d05ab210d6d51f2c6b2`,
+> and next side-ladder `synthetic_fixture_owner_approval_write_gate`. This
+> advances only synthetic fixture staging-manifest L1 evidence;
+> materialization remains blocked and L2/L3 remain red.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

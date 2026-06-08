@@ -136,6 +136,7 @@ pub mod small_model_runtime_harness_product_wrv_probe;
 pub mod small_model_runtime_harness_safety_plan;
 pub mod source_guard_drift_release_blocker_card;
 pub mod ssd_wear_budget;
+pub mod synthetic_fixture_staging_manifest_preflight_gate;
 pub mod synthetic_materializer_primitive_blueprint;
 pub mod synthetic_payload_materialization_gate;
 pub mod theme_presentation_release_blocker_card;
@@ -1078,6 +1079,15 @@ pub use synthetic_materializer_primitive_blueprint::{
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_CURSOR,
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID,
     SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_NEXT_CURSOR,
+};
+pub use synthetic_fixture_staging_manifest_preflight_gate::{
+    synthetic_fixture_staging_manifest_preflight_address,
+    SyntheticFixtureStagingManifestError, SyntheticFixtureStagingManifestField,
+    SyntheticFixtureStagingManifestMetrics, SyntheticFixtureStagingManifestPreflightGate,
+    SyntheticFixtureStagingManifestPreflightWitness, SyntheticFixtureStagingManifestStatus,
+    SYNTHETIC_FIXTURE_STAGING_MANIFEST_PREFLIGHT_GATE_CURSOR,
+    SYNTHETIC_FIXTURE_STAGING_MANIFEST_PREFLIGHT_GATE_ID,
+    SYNTHETIC_FIXTURE_STAGING_MANIFEST_PREFLIGHT_GATE_NEXT_CURSOR,
 };
 pub use synthetic_payload_materialization_gate::{
     synthetic_payload_materialization_gate_address, SyntheticPayloadGateApproval,
