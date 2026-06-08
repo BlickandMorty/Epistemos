@@ -16356,3 +16356,112 @@ Next research query: "What is the smallest Xcode proof-root parser that can
 verify selected test product, enumeration JSON, focused xcresult, nonzero
 executed tests, source status, and no full-row replacement without running a
 full release marathon?"
+
+## Pass 140 - Focused Proof-Root Manifest Gate (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-GraphFilterVisibilityFocusedProofRootManifestGate` is now a landed T1/L1
+metadata-only witness. It consumes the fresh test-products evidence envelope
+and binds the exact manifest/parser contract that a future focused graph-filter
+proof root must satisfy before any selected test product, enumeration JSON, or
+focused `.xcresult` can count.
+
+- UAS primitive:
+  `agent_core/src/uas/graph_filter_visibility_focused_proof_root_manifest_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_focused_proof_root_manifest_gate.rs`
+- Axis contract:
+  `agent_core/src/falsifier_artifacts/axes.rs::GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_AXES`
+- Shell witness:
+  `Tools/falsifiers/f_graph_filter_visibility_focused_proof_root_manifest_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_manifest_gate/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityFocusedProofRootManifestGate_2026_06_08.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only proof-root manifest-gate evidence.
+- Upstream evidence-envelope address:
+  `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`.
+- Required manifest fields: 13.
+- Selected test-product kinds: 2.
+- Required rejection policies: 12.
+- Minimum executed-test policy: 1.
+- Rejected red fixtures: 23.
+- Selected test-product/app/model/runtime bytes: 0.
+- Deterministic manifest-gate address:
+  `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Swift test execution: not attempted.
+- Product source: unchanged by this witness.
+- Full automated-check row: still red.
+- Runtime log/manual/distribution evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+This pass converts the previous "future proof-root contract" into a concrete
+Rust manifest gate. Future focused graph-filter proof can no longer count
+unless it supplies source-status digests, selected test-product path/kind/
+digest, enumeration digest, seed and enumerated selector digests, focused
+result-bundle digest, nonzero executed-test count, scheme pre-action
+accounting, full automated-check row status, rollback, RunEventLog, and
+AnswerPacket. That matters for large-local-model work because the small-model
+harness is the route floor: larger Gemma/QAT/GGUF/LiteRT/MLX lanes should not
+inherit release confidence from stale products, zero-test passes, or focused
+proof that silently replaces the full automated-check row.
+
+Correct phrasing: "L1 manifest-gate bridge advanced; product capability / user
+surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this manifest gate by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only manifest gate.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+run a focused proof-root execution only after owner approval, then parse the
+manifest with this gate before treating any `.xcresult` as evidence.
+
+Safest next falsifier:
+the owner-approved focused proof-root execution artifact, because the manifest
+gate now defines the required parser fields and rejection policy without
+running Xcode today.
+
+Best near-term code unit:
+build the focused proof-root runner/parser that writes
+`focused-proof-root-manifest.json` with source-status digests, selected
+test-product digest, enumeration digest, focused `.xcresult` digest,
+executed-test count, full-row-not-replaced status, rollback, RunEventLog, and
+AnswerPacket.
+
+Biggest false-claim risk:
+treating this manifest gate as executed Swift test evidence, release readiness,
+L2 green, or large-local-model product capability.
+
+Biggest missing artifact:
+a real owner-approved focused proof-root run with nonzero executed-test
+evidence for the exact graph-filter identifiers.
+
+Next research query: "How should the owner-approved focused proof-root runner
+write source-status, selected test-product, enumeration, focused xcresult, and
+executed-test evidence so it can be parsed without leaking raw user/model
+bytes or replacing the full automated-check row?"

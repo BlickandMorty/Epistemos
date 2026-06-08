@@ -43,6 +43,10 @@ It proves:
 
 The future proof root must bind source commit, pre/post source-status digests, selected `.xctestrun` or `.xctestproducts` digest, enumeration JSON digest, seed/enumerated selector digests, focused `.xcresult` digest, nonzero executed-test proof, scheme pre-action handling, rollback, RunEventLog, AnswerPacket, and full automated-check row preservation.
 
+2026-06-08 follow-on: `F-GraphFilterVisibilityFocusedProofRootManifestGate`
+now implements the metadata-only parser gate for this contract. It still runs
+no Xcode command and does not promote L2/L3/release readiness.
+
 ## Rejected Claims
 
 The witness rejects failed command-spec input, green automated-check laundering, wrong capability bottleneck, wrong failure family, xcodebuild-test green laundering, global DerivedData, missing digest fields, missing rejection policy, missing proof surfaces, zero executed tests, full-row replacement by focused proof, Xcode execution claims, product-code change claims, selected test-product byte opens, runtime byte leaks, raw note/prompt/model byte logging, L2/L3/product green claims, release-ready claims, live dense-70B claims, and SSD-as-RAM claims.
