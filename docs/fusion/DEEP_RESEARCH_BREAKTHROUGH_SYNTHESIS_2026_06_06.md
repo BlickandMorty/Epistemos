@@ -21608,3 +21608,105 @@ Next research query: "Which pinned number and UTF-16 property-order samples
 should F-JcsNumberAndUtf16SortOracleProbe use so Epistemos can distinguish a
 safe fixture identity writer from ordinary serde_json or TriFusion canonical
 helpers?"
+
+## Deep Research Pass 172 - JCS Number And UTF-16 Sort Oracle Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-JcsNumberAndUtf16SortOracleProbe` is now a real metadata-only L1/T1
+side-ladder witness. It consumes the JCS parity gate and pins the two exact
+oracle families that were blocking a future Epistemos-owned canonical JSON
+writer dry-run: RFC 8785 Appendix B number serialization and Section 3.2.3
+UTF-16 code-unit property sorting.
+
+This pass still does not write fixture files or claim a completed writer. It
+shrinks the unsafe unknown: future synthetic fixtures now have a pinned number
+and Unicode sort oracle to consume before any owner-approved materialization.
+
+### Landed Code And Artifact
+
+| Surface | Path |
+| --- | --- |
+| UAS primitive | `agent_core/src/uas/jcs_number_and_utf16_sort_oracle_probe.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_jcs_number_and_utf16_sort_oracle_probe.rs` |
+| Shell wrapper | `Tools/falsifiers/f_jcs_number_and_utf16_sort_oracle_probe.sh` |
+| Artifact | `artifacts/falsifiers/jcs_number_and_utf16_sort_oracle_probe/result.json` |
+| Witness doc | `docs/falsifiers/F-JcsNumberAndUtf16SortOracleProbe_2026_06_08.md` |
+
+Artifact facts:
+
+- upstream JCS parity gate:
+  `sha256:2b7f5aa4ec88740c94d97b8d2d87e606e9d7c09391eb57ccb647eca2e230c5eb`
+- witness address:
+  `sha256:036721ee1d6f3291de7c723759928401681ee7c6a44ccdfc80aa278dfb71412a`
+- number samples: 26
+- finite number samples: 24
+- rejected number samples: 2
+- UTF-16 sort matches: 7
+- red fixtures rejected: 30
+- next side-ladder: `jcs_fixture_writer_fail_closed_dry_run`
+- guard-owned product cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Source Truth
+
+RFC 8785 requires ECMAScript JSON serialization for primitive values and raw
+UTF-16 code-unit ordering for object properties. The witness records Appendix B
+number rows, including minus-zero normalization, exponent threshold behavior,
+and NaN/Infinity rejection, plus the property order that distinguishes UTF-16
+sorting from UTF-8 or locale sorting.
+
+Local refs:
+
+- `agent_core/src/uas/jcs_canonical_json_writer_parity_gate.rs`
+- `agent_core/src/tri_fusion/mod.rs:1251`
+- `agent_core/src/falsifier_artifacts/mod.rs:256`
+
+External refs:
+
+- https://www.rfc-editor.org/rfc/rfc8785
+
+### Promotion Truth
+
+- T0 research/canon: advanced into landed T1 evidence.
+- T1/L1 architecture proof: advanced for canonical fixture identity safety.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`jcs_fixture_writer_fail_closed_dry_run`, because the pinned oracles can now
+drive a writer dry-run that still refuses file materialization until owner
+approval and staging safety exist.
+
+Safest next falsifier:
+metadata-only `F-JcsFixtureWriterFailClosedDryRun` that consumes the number and
+UTF-16 oracles, rejects ordinary `serde_json`/TriFusion authority, and proves
+all write/runtime counters remain zero.
+
+Best near-term code unit:
+add a dry-run writer contract that accepts only in-memory synthetic candidate
+values, computes canonical byte plans against the pinned oracles, and aborts
+before writing files.
+
+Biggest false-claim risk:
+calling the oracle proof a completed canonical JSON writer or treating it as
+same-fixture replay evidence.
+
+Biggest missing source:
+an Epistemos-owned writer implementation that can prove byte parity against the
+pinned oracles without using a hidden Node/JavaScript runtime path.
+
+Next research query: "How should F-JcsFixtureWriterFailClosedDryRun prove an
+Epistemos-owned canonical JSON byte plan against the pinned RFC 8785 oracles
+while keeping all file writes, runtime bytes, and product claims blocked?"

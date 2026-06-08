@@ -660,6 +660,10 @@ name = "falsify_jcs_canonical_json_writer_parity_gate"
 path = "src/bin/falsify_jcs_canonical_json_writer_parity_gate.rs"
 
 [[bin]]
+name = "falsify_jcs_number_and_utf16_sort_oracle_probe"
+path = "src/bin/falsify_jcs_number_and_utf16_sort_oracle_probe.rs"
+
+[[bin]]
 name = "capability_ceiling_evaluation_kernel"
 path = "src/bin/capability_ceiling_evaluation_kernel.rs"
 
