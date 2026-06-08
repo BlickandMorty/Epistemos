@@ -20062,3 +20062,267 @@ Next research query: "What is the minimum materialized synthetic fixture file
 set that can feed these deterministic predicates while preserving no raw
 private text, no benchmark copying, no hidden judge, and no model-quality
 promotion before replay?"
+
+## Pass 164 - Minimal Synthetic Fixture Materialization Plan V0
+
+### Executive Synthesis
+
+Pass 164 defines the minimum materialized fixture file set that can later feed
+the deterministic predicates from Pass 163. This pass still does not create the
+fixture directory, write payload files, run replay, or compare models. It
+specifies exactly what future files must exist, how they are canonicalized, how
+they join descriptors, payloads, verifiers, scorers, templates, policies, and
+reviews, and what must fail closed before model output can be admitted.
+
+The materialization law is:
+
+```text
+file set plan != fixture bytes
+fixture bytes != runtime replay
+runtime replay != product green
+canonical digest != hidden authority
+```
+
+The reason this matters for large local models is practical: QAT, GGUF, MLX,
+LiteRT, no-runtime abstention, TurboVec retrieval, KV/cache reuse, and future
+70B-class cold-assembly lanes need the same tiny, owned, deterministic arena
+before any quality, latency, cache, or route comparison can be trusted.
+
+### Local Source Facts
+
+- Pass 158 already defined a materialized artifact schema. Pass 164 is narrower
+  and more build-facing: it defines the minimum file topology, join rules, byte
+  ceilings, review files, and red fixtures needed before actual fixture bytes
+  can be safely committed.
+- Passes 159-163 now supply no-runtime AnswerPacket/RunEventLog templates,
+  redaction profiles, descriptor shape, payload shape, and deterministic
+  verifier predicate shape. The materialization plan must consume all five.
+- `EpistemosTests/PrivacyTest.swift` and
+  `Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift` make privacy
+  storage boundaries concrete: future materialized v0 fixture files may contain
+  invented synthetic text, but not raw user/vault/provider/model/token text.
+- The small-model runtime harness sidecars show the later replay join shape:
+  synthetic non-user prompt digest, redacted token digest, rollback,
+  RunEventLog, AnswerPacket, admission, and no false L2/L3 promotion.
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` requires stable
+  fixture identity and artifact lineage, so materialized fixture files need
+  content-addressed digests and cannot rely on row id, path, title, or mtime.
+
+### Current External Source Facts
+
+- RFC 8785 JSON Canonicalization Scheme exists to make hashing/signing of JSON
+  repeatable by using invariant JSON representation, strict JSON primitive
+  serialization, I-JSON constraints, deterministic property sorting, and UTF-8
+  output. Source: `https://www.rfc-editor.org/info/rfc8785/`
+- JSON Schema Draft 2020-12 provides the schema dialect and metaschema for
+  deterministic validation of the planned manifest, case, verifier, scorer,
+  policy, and template files. Source: `https://json-schema.org/draft/2020-12`
+- NIST SP 800-122 frames PII confidentiality as protection against
+  inappropriate access, use, and disclosure. Pass 164 uses that as a hard
+  reason to keep private corpus text out of v0 fixture materialization. Source:
+  `https://csrc.nist.gov/pubs/sp/800/122/final`
+- NIST SP 800-218 SSDF recommends secure development practices integrated into
+  the SDLC to reduce vulnerabilities and mitigate impact. Pass 164 translates
+  that into provenance, review, red-fixture, and rollback files before replay.
+  Source: `https://csrc.nist.gov/pubs/sp/800/218/final`
+
+### Candidate Falsifier
+
+`F-MinimalSyntheticFixtureMaterializationPlanV0`
+
+Required future file topology, not created by this pass:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/
+  manifest.json
+  README.md
+  REVIEW.md
+  schemas/
+    manifest.schema.json
+    descriptor.schema.json
+    payload.schema.json
+    verifier.schema.json
+    scorer.schema.json
+    answer_packet_template.schema.json
+    run_event_log_template.schema.json
+    policy.schema.json
+  policies/
+    redaction_profiles_v0.json
+    synthetic_safe_label_dictionary_v0.json
+    source_allowlist_policy_v0.json
+    tombstone_policy_v0.json
+    mas_pro_caveat_policy_v0.json
+    no_runtime_non_promotion_policy_v0.json
+  templates/
+    answer_packet_template_v0.json
+    run_event_log_template_v0.json
+    replay_correlation_template_v0.json
+  cases/
+    msfp_v0_note_synthesis_001.descriptor.json
+    msfp_v0_citation_research_001.descriptor.json
+    msfp_v0_structured_tool_json_001.descriptor.json
+    msfp_v0_cache_deletion_001.descriptor.json
+    msfp_v0_abstention_001.descriptor.json
+    msfp_v0_latency_small_lane_001.descriptor.json
+  payloads/
+    msfp_v0_note_synthesis_001.payload.json
+    msfp_v0_citation_research_001.payload.json
+    msfp_v0_structured_tool_json_001.payload.json
+    msfp_v0_cache_deletion_001.payload.json
+    msfp_v0_abstention_001.payload.json
+    msfp_v0_latency_small_lane_001.payload.json
+  verifiers/
+    msfp_v0_note_synthesis_001.verifier.json
+    msfp_v0_citation_research_001.verifier.json
+    msfp_v0_structured_tool_json_001.verifier.json
+    msfp_v0_cache_deletion_001.verifier.json
+    msfp_v0_abstention_001.verifier.json
+    msfp_v0_latency_small_lane_001.verifier.json
+  scorers/
+    deterministic_scorer_v0.json
+  reviews/
+    privacy_review_v0.json
+    provenance_review_v0.json
+    benchmark_contamination_review_v0.json
+    promotion_boundary_review_v0.json
+```
+
+Minimum manifest requirements:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `fixture_pack_id` | `minimal_synthetic_fixture_pack_v0` | stable pack identity |
+| `pack_scope` | `synthetic_materialization_no_runtime` | no runtime laundering |
+| `canonicalization` | `rfc8785_jcs_utf8_sha256` | digest determinism |
+| `schema_dialect` | `https://json-schema.org/draft/2020-12/schema` | schema determinism |
+| `case_ids` | exact six Pass 156 IDs | no missing/extra cases |
+| `file_inventory` | exact relative paths and digests | no hidden files |
+| `join_matrix` | descriptor -> payload -> verifier -> scorer -> templates -> policies -> reviews | no orphan artifact |
+| `privacy_boundary` | synthetic-only or digest-redacted; raw private text forbidden | privacy gate |
+| `benchmark_boundary` | no copied prompt/task/oracle text | contamination gate |
+| `runtime_boundary` | model/runtime/cache/index/provider bytes `0` | no product proof |
+| `promotion_boundary` | T0 only, no L1/L2/L3/T4/T5 | no green laundering |
+| `rollback_ref` | `rollback:minimal_synthetic_fixture_pack_v0:no_runtime` | visible reversal |
+
+Byte ceilings:
+
+| File class | Ceiling |
+|---|---|
+| `manifest.json` | `<= 8192` bytes |
+| each schema/policy/template/review file | `<= 8192` bytes |
+| each descriptor file | `<= 4096` bytes |
+| each payload file | `<= 4096` bytes |
+| each verifier file | `<= 4096` bytes |
+| shared scorer file | `<= 4096` bytes |
+| full fixture pack v0 | `<= 131072` bytes |
+| runtime/model/provider/cache/index bytes | `0` |
+
+Required materialization invariants:
+
+| Invariant | Failure mode prevented |
+|---|---|
+| exactly six descriptors, six payloads, six verifiers, one scorer | partial fixture pack |
+| every file path is relative and under the fixture root | path escape |
+| every JSON file declares schema or is listed under a schema-bound class | schema drift |
+| every JSON file canonicalizes to stable SHA-256 digest | row/order/mtime authority |
+| every descriptor joins exactly one payload and verifier | orphan payload or predicate |
+| every payload joins one descriptor and uses allowed labels/profiles | privacy drift |
+| every verifier joins one payload and shared scorer | hidden judge |
+| scorer emits pass/fail or bounded points only | model-quality overclaim |
+| policies include source, tombstone, MAS/Pro, non-promotion, and redaction | missing safety fence |
+| reviews include privacy, provenance, benchmark contamination, and promotion | missing human-audit surface |
+| AnswerPacket/RunEventLog templates remain no-runtime placeholders | fake runtime proof |
+
+Required red fixtures:
+
+- file inventory has missing, extra, duplicate, absolute, parent-segment, symlink,
+  generated-cache, or hidden-dotfile entries
+- manifest path order changes digest, row id becomes authority, path/title/mtime
+  becomes identity, or canonicalization is absent
+- payload contains raw user/vault/provider/model/token text, PII, credentials,
+  hidden reasoning, local file path, deleted content, or exact private
+  byte/token count
+- any file copies IFEval, BFCL, Terminal-Bench, LiveBench, SWE-bench, or other
+  public benchmark prompt/task/oracle text
+- descriptor, payload, verifier, scorer, template, policy, or review digests do
+  not join exactly
+- source allowlist, tombstone, MAS/Pro caveat, redaction, or non-promotion
+  policy is missing
+- verifier uses LLM judge, prose scoring, semantic similarity, hidden rubric,
+  provider call, or network by default
+- AnswerPacket or RunEventLog template stores runtime event, raw output, raw
+  token, or model/provider response
+- materialization claims L1/L2/L3/T4/T5, release readiness, model quality, route
+  authority, live dense 70B, live sparse 70B, or SSD-as-RAM
+
+### Architecture Fusion
+
+| Epistemos organ | Materialization role | Build implication |
+|---|---|---|
+| UAS/OAS | file inventory and join matrix become addressable objects | no anonymous fixture bytes |
+| ColdStore/AppColdStore | synthetic source/tombstone policies define dormant truth | deleted/stale facts fail closed |
+| ActiveAssembly | six small cases define minimal support sets | later lanes wake only bounded evidence |
+| Eidos | source allowlists and citation IDs are file-bound | retrieval cannot score forbidden IDs |
+| SCOPE-Rex/SovereignGate | MAS/Pro, privacy, and promotion policies are explicit | unsafe fixture use is refused |
+| RuntimeRouter/System G | runtime boundary is `0` bytes and no lane win | materialization cannot steer routes |
+| RunEventLog | no-runtime templates define future log joins | replay can be correlated later |
+| AnswerPacket | template and promotion boundary are visible | user-facing claims stay caveated |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive
+   `minimal_synthetic_fixture_materialization_plan_v0`.
+2. Implement `falsify_minimal_synthetic_fixture_materialization_plan_v0`.
+3. Add accepted file-topology cards for manifest, schemas, policies,
+   templates, cases, payloads, verifiers, scorer, and reviews.
+4. Add red fixtures for missing/extra/duplicate files, path escape, symlink,
+   canonicalization drift, raw private text, benchmark copying, orphan joins,
+   hidden judges, runtime bytes, and promotion laundering.
+5. Only after this metadata witness should a separate owner-approved fixture
+   materialization gate create the actual directory and bytes.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Fixture files created: no.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-MinimalSyntheticFixtureMaterializationPlanV0`, because it turns the fixture
+research chain into an exact file-topology contract without yet creating bytes
+or letting models score against it.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-MinimalSyntheticFixtureMaterializationPlanV0` after
+`F-DeterministicFixtureVerifierPredicateSetV0`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`minimal_synthetic_fixture_materialization_plan_v0`, with accepted file-topology
+cards and red fixtures for path escape, digest drift, privacy leakage,
+benchmark contamination, orphan joins, hidden judges, runtime bytes, and
+promotion laundering.
+
+Biggest false-claim risk:
+treating a materialized fixture directory as an evaluation result. It is only
+the arena; model quality starts later with owner-approved replay, runtime lane
+identity, logs, AnswerPackets, capability kernel evidence, and L3 WRV.
+
+Biggest missing artifact:
+a metadata-only witness validating the materialization plan before any fixture
+bytes are written.
+
+Next research query: "Which exact first materialized synthetic payload values
+should v0 use so the six fixtures are useful for note, citation, tool, cache,
+abstention, and latency-lane checks without leaking private data or copying
+public benchmarks?"
