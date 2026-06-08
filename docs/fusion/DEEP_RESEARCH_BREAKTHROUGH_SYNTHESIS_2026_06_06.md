@@ -23279,3 +23279,106 @@ Next research query: "What held-out task families, scorer digests,
 final-output digest policy, refusal/tool/cache failure taxonomy, and
 AnswerPacket fields should F-GemmaQATHeldOutQualityReplayPacket require before
 any Gemma quality or route-improvement claim can matter?"
+
+## Pass 185 - Gemma Held-Out Quality Replay Packet Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass lands `F-GemmaQATHeldOutQualityReplayPacket` as the metadata-only
+T1/L1 bridge from Gemma same-fixture replay into held-out quality replay
+contracts. It is designed for the owner's "make Gemma the main model family"
+direction while preventing a model card, benchmark headline, first-token
+preflight, or self-graded output from promoting the app default.
+
+### Local Build Result
+
+- UAS primitive:
+  `agent_core/src/uas/gemma_qat_held_out_quality_replay_packet.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_gemma_qat_held_out_quality_replay_packet.rs`
+- Script:
+  `Tools/falsifiers/f_gemma_qat_held_out_quality_replay_packet.sh`
+- Artifact:
+  `artifacts/falsifiers/gemma_qat_held_out_quality_replay_packet/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GemmaQATHeldOutQualityReplayPacket_2026_06_08.md`
+
+The artifact accepts 4 E2B/E4B GGUF/LiteRT held-out quality cards, binds one
+fixture pack, one scorer bundle, seven task families, held-out split,
+synthetic-safe fixture policy, verifier/scorer/final-output/failure-taxonomy
+digests, model-graded-primary denial, hidden-judge denial, raw prompt/output
+denial, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion. It
+rejects 46 red fixtures.
+
+### External Motifs Folded In
+
+Google's Gemma 4 12B launch and developer guide make 12B QAT a credible Pro
+Gated flagship target for laptops and Apple Silicon, but not an Epistemos
+default without local proof. Inspect AI standard scorers, Hugging Face
+LightEval, EleutherAI lm-evaluation-harness, and Terminal-Bench-style task
+tests reinforce the need for task/scorer/config/test binding and
+sample-level/debuggable results before quality claims influence routing.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma 4 12B QAT remains the flagship Pro Gated target.
+- T1/L1 architecture proof: `F-GemmaQATHeldOutQualityReplayPacket` is landed
+  when its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes read: zero.
+- Fixture payload bytes opened: zero.
+- Raw prompt/output/judge bytes captured: zero.
+- Scorer executions: zero.
+- Benchmark runs: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It gives Epistemos a concrete bridge between "Gemma lanes are comparable" and
+"Gemma lanes can later be judged on the work the app actually needs": note
+synthesis, citation-grounded research, structured tool JSON, cache deletion and
+reuse, writing edits, coding patches, and refusal/abstention. That is the right
+shape for making Gemma 12B QAT a main candidate without sacrificing privacy,
+stability, or truth layering.
+
+### Why It May Be Wrong
+
+The packet still does not run a model, execute a scorer, prove LiteRT embedding
+inside the app, prove Swift MLX loader parity, prove memory fit, or prove that
+Gemma quality is good enough for the app. It only makes the next runtime replay
+harder to fake.
+
+Best breakthrough candidate:
+owner-approved Gemma runtime replay transcript gate that can run the smallest
+safe E2B/E4B lane first, emit redacted proof, and preserve the exact held-out
+quality packet boundaries.
+
+Safest next falsifier:
+`F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate`.
+
+Best near-term code unit:
+create the owner-approved runtime replay transcript contract with unarmed
+command envelopes, memory-sample requirements, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, no raw prompt/output retention, and no
+Gemma-default promotion.
+
+Biggest false-claim risk:
+calling Gemma 12B QAT "the main app model" before E2B/E4B prove local
+execution, quality packet replay, product settings visibility, RuntimeRouter/
+System G admission, and release-audit evidence.
+
+Biggest missing source:
+owner-approved local Gemma model paths and real, redacted runtime transcripts.
+
+Next research query: "How should F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate
+bind owner approval, exact command/runtime lane, memory samples, redacted
+prompt/output digests, cancellation, rollback, RunEventLog, AnswerPacket,
+abstention, and held-out quality replay references before any Gemma runtime
+evidence can influence the main-model ladder?"

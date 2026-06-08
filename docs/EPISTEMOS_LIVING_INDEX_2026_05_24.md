@@ -5894,6 +5894,50 @@ Correct phrasing: "Gemma E2B/E4B same-fixture replay is L1 metadata-proofed;
 no Gemma model, prompt, token, cache, benchmark, runtime, quality result, or
 product route has been opened, captured, loaded, compared, or promoted."
 
+### 2026-06-08 - F-GemmaQATHeldOutQualityReplayPacket landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATHeldOutQualityReplayPacket` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup lanes. It adds
+`agent_core/src/uas/gemma_qat_held_out_quality_replay_packet.rs`,
+`agent_core/src/bin/falsify_gemma_qat_held_out_quality_replay_packet.rs`,
+`Tools/falsifiers/f_gemma_qat_held_out_quality_replay_packet.sh`, the artifact
+`artifacts/falsifiers/gemma_qat_held_out_quality_replay_packet/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATHeldOutQualityReplayPacket_2026_06_08.md`.
+
+The witness accepts 4 held-out quality replay cards across E2B/E4B and
+GGUF/LiteRT lanes and rejects 46 red fixtures. It binds one fixture pack, one
+scorer bundle, 7 task families, held-out split, synthetic-safe fixture policy,
+verifier/scorer/final-output/failure-taxonomy digests, model-graded-primary
+denial, hidden-judge denial, raw prompt/output denial, rollback, RunEventLog,
+AnswerPacket, abstention, and non-promotion. It opens zero fixture/model/
+runtime files, captures zero raw prompt/output/judge bytes, runs zero scorers
+or benchmarks, loads zero model/runtime/provider bytes, and does not claim
+quality, benchmark fit, or live Gemma default status.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATHeldOutQualityReplayPacket` advances the
+  Gemma E2B/E4B side-ladder to T1/L1 metadata-only held-out quality replay
+  contract proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, scored, compared, or user-surfaced, and no
+  quality, Swift MLX loader, LiteRT embedding, RuntimeRouter/System G
+  admission, settings default, or live-main-model claim promoted.
+
+Correct phrasing: "Gemma E2B/E4B held-out quality replay is L1
+metadata-proofed; no Gemma model, prompt, output, judge, scorer, benchmark,
+runtime, quality result, or product route has been opened, captured, run,
+compared, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
