@@ -224,6 +224,26 @@ Runtime policy:
   and makes no MAS/L2/L3/T4/user-facing, Gemma-default, E4B/12B/70B bypass,
   quality, benchmark-fit, live dense 70B, or SSD-as-RAM claim. Next Gemma unit:
   `gemma_qat_e2b_settings_diagnostics_wrv_gate`.
+- 2026-06-08 Gemma E2B settings/diagnostics WRV status:
+  `F-GemmaQATE2BSettingsDiagnosticsWRVGate` is landed as metadata-only L1/T1.
+  It consumes the route AnswerPacket visibility gate and binds future
+  settings, diagnostics, release-audit, or WRV surface claims to 34 WRV fields,
+  69 rejection policies, settings source marker, diagnostics source marker,
+  WRV test marker, manual check plan, release-audit link, AnswerPacket
+  template, settings/diagnostics copy, visible model identity/runtime lane/
+  route status/caveat/budgets/privacy/MAS-Pro boundary, SCOPE-Rex,
+  SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog,
+  route explanation, rejected-candidate summary, user-action requirement,
+  no-toggle-unlock proof, and explicit no-quality/no-live-default/
+  no-large-model-bypass/no-L2-L3-T4 claims. It rejects 87 red fixtures, reads
+  zero visibility packet bytes, emits zero user-visible AnswerPackets,
+  performs zero route visibility or admission actions, mutates zero
+  RuntimeRouter/System G/default-model state, arms/executes zero commands,
+  loads zero model/runtime/provider bytes, captures zero raw prompt/output
+  bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing,
+  Gemma-default, E4B/12B/70B bypass, quality, benchmark-fit, live dense 70B, or
+  SSD-as-RAM claim. Next Gemma unit:
+  `gemma_qat_e2b_release_audit_surface_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and

@@ -24809,3 +24809,132 @@ path, prove quality, prove memory fit, or make Gemma live. The next WRV gate
 may show that settings and diagnostics need additional surface-level copy,
 log-correlation, or release-audit checks before a user can safely act on the
 route.
+
+## Pass 199 - Gemma E2B Settings Diagnostics WRV Gate
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turning future Gemma E2B route visibility into a settings/diagnostics WRV
+contract before any product surface can imply model readiness, default-model
+status, or release-audit progress.
+
+Safest next falsifier:
+`F-GemmaQATE2BReleaseAuditSurfaceGate`.
+
+Best near-term code unit:
+build the release-audit surface gate that proves Gemma route copy can enter the
+release-audit story only with exact source/test/manual evidence, no live route
+claim, no toggle unlock, no default mutation, and no L2/L3/T4 promotion.
+
+Biggest false-claim risk:
+treating settings/diagnostics WRV metadata as if Swift settings were actually
+wired, as if a diagnostics row changed, or as if Gemma E2B is selectable as the
+main app model.
+
+Biggest missing source:
+the future release-audit surface binding that names the exact settings copy,
+diagnostics copy, manual verification steps, logs, route caveats, rejected
+candidates, and non-promotion language that a user or release auditor sees.
+
+Next research query: "How should
+F-GemmaQATE2BReleaseAuditSurfaceGate carry Gemma E2B settings/diagnostics WRV
+into release-audit evidence while preserving no live route, no model load, no
+default mutation, no hidden authority, rollback, RunEventLog, AnswerPacket, and
+MAS/Pro honesty?"
+
+### Synthesis
+
+`F-GemmaQATE2BSettingsDiagnosticsWRVGate` is now landed as the metadata-only
+T1/L1 bridge between route AnswerPacket visibility and future settings,
+diagnostics, WRV, and release-audit surfaces.
+
+The breakthrough is not that Gemma is live. The breakthrough is that the app
+cannot make Gemma feel live through UI copy before the route is ready. The gate
+forces future settings and diagnostics work to carry source markers, test
+markers, manual-check plans, release-audit links, exact copy, visible caveats,
+fallback, abstention, rollback, RunEventLog, AnswerPacket, and explicit
+non-claims.
+
+For best-runtime architecture, this lets Epistemos pursue the most ambitious
+Gemma path without confusing route architecture with product truth. E2B remains
+the smallest harness lane, E4B remains the next scale lane, 12B QAT remains the
+Pro flagship target, and the larger 70B/custom cold-assembly track remains
+preserved for the point where Gemma-class models stop being enough.
+
+### Architecture Fusion
+
+The current Gemma-first build path is now:
+
+```text
+Gemma4QAT/E2B/GGUF/llama.cpp
+  -> owner approval phrase digest
+  -> owner manifest digest
+  -> canonical path digest
+  -> model file digest and llama.cpp digest
+  -> owner-approved first-token runtime probe
+  -> first-token artifact reconciliation
+  -> same-fixture quality replay packet gate
+  -> RuntimeRouter/System G admission packet gate
+  -> System G dry-run route packet gate
+  -> route AnswerPacket visibility gate
+  -> settings/diagnostics WRV gate
+  -> release-audit surface gate
+```
+
+The landed gate binds:
+
+- model id: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- filename: `gemma-4-E2B_q4_0-it.gguf`
+- expected file bytes: `3349514112`
+- direct lane: `/opt/homebrew/bin/llama-cli`
+- 34 WRV fields
+- 69 rejection policies
+- 87 red fixtures
+
+It reads zero visibility packet bytes, emits zero user-visible AnswerPackets,
+performs zero route visibility actions, performs zero admissions, mutates zero
+route priority, mutates zero RuntimeRouter/System G/default-model state, arms
+zero commands, executes zero commands, performs zero runtime replay, captures
+zero raw prompt/output bytes, loads zero model/runtime/provider bytes,
+suppresses zero AnswerPackets, and rejects hidden Eidos/lattice/PatternBoost/
+cloud authority, route laundering, UI toggle unlocks, diagnostics live-route
+claims, model-picker default mutation, larger-model bypass, live dense 70B, and
+SSD-as-RAM claims.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first runtime-plural ladder stays active.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BSettingsDiagnosticsWRVGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Swift settings wired: no.
+- Diagnostics UI changed: no.
+- Visibility packet bytes read: zero.
+- User-visible AnswerPacket emitted: zero.
+- Route visibility performed: zero.
+- Admission performed: zero.
+- RuntimeRouter/System G/default-model mutation: zero.
+- Commands armed/executed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It makes the future "Gemma is the main app model" path depend on visible,
+auditable product truth instead of hidden route enthusiasm. A strong local
+model only becomes app capability when settings, diagnostics, release audit,
+RunEventLog, and AnswerPacket tell the same bounded story.
+
+### Why It May Be Wrong
+
+It still does not wire Swift settings, change diagnostics UI, emit a
+user-visible AnswerPacket, run route visibility, execute llama.cpp, inspect a
+local model path, prove quality, prove memory fit, or make Gemma live. The
+release-audit surface gate may show that a separate manual/log pass is needed
+before any UI-facing copy can be trusted.

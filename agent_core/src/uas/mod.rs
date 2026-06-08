@@ -69,6 +69,7 @@ pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
 pub mod gemma_qat_e2b_route_answer_packet_visibility_gate;
 pub mod gemma_qat_e2b_runtime_router_admission_packet_gate;
 pub mod gemma_qat_e2b_same_fixture_quality_replay_packet_gate;
+pub mod gemma_qat_e2b_settings_diagnostics_wrv_gate;
 pub mod gemma_qat_e2b_system_g_dry_run_route_packet_gate;
 pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
@@ -463,6 +464,16 @@ pub use gemma_qat_e2b_route_answer_packet_visibility_gate::{
     GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_ID,
     GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_settings_diagnostics_wrv_gate::{
+    required_gemma_qat_e2b_settings_diagnostics_wrv_fields,
+    required_gemma_qat_e2b_settings_diagnostics_wrv_rejection_policies,
+    GemmaQatE2bSettingsDiagnosticsWrvGate, GemmaQatE2bSettingsDiagnosticsWrvGateError,
+    GemmaQatE2bSettingsDiagnosticsWrvGateMetrics, GemmaQatE2bSettingsDiagnosticsWrvGateStatus,
+    GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_CURSOR,
+    GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_ID,
+    GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_model_file_and_llama_cpp_digest_gate::{
     required_gemma_qat_e2b_model_file_and_llama_cpp_digest_fields,
