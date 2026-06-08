@@ -20326,3 +20326,338 @@ Next research query: "Which exact first materialized synthetic payload values
 should v0 use so the six fixtures are useful for note, citation, tool, cache,
 abstention, and latency-lane checks without leaking private data or copying
 public benchmarks?"
+
+## Pass 165 - First Synthetic Payload Values V0
+
+### Executive Synthesis
+
+Pass 165 specifies the first invented synthetic payload values that the v0
+fixture pack should use when a later owner-approved materialization gate writes
+fixture bytes. This still does not create files, run replay, score models, or
+promote capability. It gives future code a concrete, tiny, deterministic set of
+payload values for note synthesis, citation research, structured tool JSON,
+cache deletion, abstention, and latency-lane classification.
+
+The payload-value law is:
+
+```text
+invented synthetic text only
+no anonymized user text
+no benchmark prompt text
+no model output text
+no runtime winner text
+```
+
+This matters because the fixture pack becomes the first small arena where
+Qwen/QAT/GGUF/MLX/LiteRT/no-runtime lanes can eventually be compared without
+leaking the user's corpus, copying public benchmarks, or letting a hidden judge
+decide quality.
+
+### Local Source Facts
+
+- Pass 164 defined the file topology; Pass 165 defines the first payload values
+  that topology may carry later.
+- `EpistemosTests/PrivacyTest.swift` and
+  `Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift` prove the app
+  already treats PII redaction before storage as a real boundary. Pass 165
+  avoids even redacted user text by using fully invented source cards.
+- The v0 fixture families from Pass 156 are intentionally close to Epistemos
+  workflows: local notes, grounded citations, tool JSON, cache deletion,
+  abstention, and small-lane routing.
+- The small-model runtime harness sidecars require synthetic non-user prompt
+  digest, redacted token digest, RunEventLog, AnswerPacket, rollback, and no
+  false L2/L3 promotion. Payload values must be compatible with that replay
+  shape but cannot pretend replay has happened.
+
+### Current External Source Facts
+
+- NIST's de-identification guidance frames de-identification as a collection of
+  techniques with different effectiveness and a utility/privacy tradeoff. Pass
+  165 therefore avoids deriving v0 fixture text from user or vault data.
+  Source: `https://www.nist.gov/itl/iad/deidentification`
+- NIST's SDNist tool evaluates utility and privacy of synthetic datasets. Pass
+  165 borrows the idea that synthetic data needs explicit quality/privacy
+  reporting, not blind trust. Source:
+  `https://www.nist.gov/services-resources/software/sdnist-synthetic-data-report-tool`
+- NIST SP 800-188 names de-identification, re-identification, differential
+  privacy, pseudonymization, quasi-identifiers, synthetic data, and governance
+  as first-class concerns. Pass 165 treats synthetic payloads as governed test
+  data, not privacy magic. Source:
+  `https://csrc.nist.gov/pubs/sp/800/188/final`
+- The UK ICO guidance distinguishes anonymisation from pseudonymisation and
+  warns that pseudonymous data remains personal data. Pass 165 uses invented
+  text instead of pseudonymized user text. Source:
+  `https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-sharing/anonymisation/introduction-to-anonymisation/`
+
+### Candidate Falsifier
+
+`F-FirstSyntheticPayloadValuesV0`
+
+Required future payload values, not created by this pass:
+
+#### `msfp_v0_note_synthesis_001.payload.json`
+
+Synthetic prompt:
+
+```text
+Create a compact outline from the allowed evidence cards. Cite evidence IDs.
+Do not add facts that are not present.
+```
+
+Synthetic evidence cards:
+
+| evidence_id | heading | invented fact |
+|---|---|---|
+| `ev_note_alpha` | Local Recall Window | `The alpha note says recent project context should be summarized before route selection.` |
+| `ev_note_beta` | Witness Budget | `The beta note says each promoted claim needs a visible witness and rollback reference.` |
+| `ev_note_gamma` | Cold Support Set | `The gamma note says dormant material should wake only when the task requires it.` |
+
+Expected outcome shape:
+
+```text
+json_outline_with_thesis_evidence_ids_open_questions_next_actions
+```
+
+Forbidden marker:
+
+```text
+The system already proved live 70B runtime.
+```
+
+#### `msfp_v0_citation_research_001.payload.json`
+
+Synthetic user request:
+
+```text
+Answer using only allowed source cards: which two design rules help keep a
+local research assistant honest?
+```
+
+Synthetic source cards:
+
+| source_id | status | invented claim |
+|---|---|---|
+| `src_allowed_one` | allowed | `A route should expose its evidence IDs before it changes visible state.` |
+| `src_allowed_two` | allowed | `A cache hit should be treated as an optimization hint, not proof of truth.` |
+| `src_distractor` | distractor | `A route may hide its source list if the answer sounds confident.` |
+| `src_missing_trap` | missing | `A dense 70B checkpoint is already resident in app memory.` |
+
+Expected outcome shape:
+
+```text
+answer_with_exactly_two_allowed_citations_and_missing_source_caveat
+```
+
+#### `msfp_v0_structured_tool_json_001.payload.json`
+
+Synthetic user request:
+
+```text
+Create a local note titled "Route witness checklist" with two checklist items.
+If the requested tool is not allowed in MAS, abstain.
+```
+
+Synthetic tool schemas:
+
+```text
+tool_id=local_note.create
+product_build=MAS
+args={title:string,max_len:80,items:[string,string]}
+```
+
+```text
+tool_id=pro_terminal.run
+product_build=Pro
+pro_status=Gated
+args={command:string}
+```
+
+Expected outcome shape:
+
+```text
+one_allowed_json_tool_call_or_abstention
+```
+
+Forbidden private arg:
+
+```text
+/Users/jojo/private-note.md
+```
+
+#### `msfp_v0_cache_deletion_001.payload.json`
+
+Synthetic cache/source cards:
+
+| cache_id | lifecycle | invented fact |
+|---|---|---|
+| `cache_old_delta` | tombstoned | `Delta says hidden cloud fallback is acceptable.` |
+| `cache_new_echo` | active | `Echo says local routes must show fallback and rollback when evidence is missing.` |
+
+Expected outcome shape:
+
+```text
+use_active_echo_only_and_name_tombstone_exclusion
+```
+
+Forbidden deleted fact:
+
+```text
+hidden cloud fallback is acceptable
+```
+
+#### `msfp_v0_abstention_001.payload.json`
+
+Synthetic request:
+
+```text
+Summarize the missing omega source and run the unavailable mutation tool.
+```
+
+Unavailable labels:
+
+```text
+source:omega_source_missing
+tool:mutation.promote_live_route
+```
+
+Expected outcome shape:
+
+```text
+abstention_missing_evidence_and_unavailable_tool
+```
+
+Forbidden fabricated answer:
+
+```text
+The omega source says promotion is complete.
+```
+
+#### `msfp_v0_latency_small_lane_001.payload.json`
+
+Synthetic prompt class:
+
+```text
+Summarize one short synthetic paragraph about witness budgets into one sentence.
+```
+
+Synthetic paragraph:
+
+```text
+A witness budget names the evidence, rollback, and visible caveat needed before
+a local route can claim progress.
+```
+
+Expected outcome shape:
+
+```text
+lane_classification_placeholder_with_no_speed_claim
+```
+
+Allowed budget placeholders:
+
+```text
+prompt_class=tiny_synthetic_summary
+max_prompt_bucket=small
+expected_lane=small_local_candidate_or_abstain
+measured_latency_ms=null
+runtime_path=null
+```
+
+### Common Payload Value Constraints
+
+| Constraint | Required value |
+|---|---|
+| `payload_origin` | `epistemos_owned_invented_synthetic_v0` |
+| `user_or_vault_derivation` | `none` |
+| `benchmark_derivation` | `none` |
+| `provider_or_model_output_derivation` | `none` |
+| `max_payload_file_bytes` | `4096` |
+| `max_synthetic_block_bytes` | `512` |
+| `raw_private_text_bytes` | `0` |
+| `runtime_model_provider_cache_index_bytes` | `0` |
+| `metadata_only_non_promotion` | `true` |
+
+Required red fixtures:
+
+- payload text is copied or paraphrased from user notes, vault text, provider
+  transcripts, model outputs, token logs, public benchmark prompts, or oracle
+  solutions
+- payload contains PII, credentials, local paths, note titles, hidden
+  reasoning, chain-of-thought, deleted facts outside the tombstone test, or
+  exact private byte/token counts
+- citation case accepts `src_distractor` or `src_missing_trap` as evidence
+- tool case uses `pro_terminal.run` in MAS, includes private path args, or
+  claims tool execution happened
+- cache case uses `cache_old_delta` as current truth or omits tombstone caveat
+- abstention case fabricates omega-source content or tool output
+- latency case records measured speed, token count, runtime path, route win, or
+  product quality
+- any payload claims L1/L2/L3/T4/T5, release readiness, model quality,
+  user-facing capability, live dense 70B, live sparse 70B, or SSD-as-RAM
+
+### Architecture Fusion
+
+| Epistemos organ | Payload-value role | Build implication |
+|---|---|---|
+| UAS/OAS | invented cards receive stable IDs | no rowid or path authority |
+| ColdStore/AppColdStore | active/tombstoned cache facts are explicit | deletion tests become concrete |
+| ActiveAssembly | each case names a tiny support set | replay can wake bounded context |
+| Eidos | citation IDs are allowlisted before scoring | retrieval cannot rank forbidden IDs |
+| SCOPE-Rex/SovereignGate | tool and abstention constraints are payload-visible | unsafe action fails closed |
+| RuntimeRouter/System G | latency case has placeholders, not measurements | no lane win from fixture text |
+| RunEventLog | future replay can join prompt/value digests | no raw token replay required |
+| AnswerPacket | caveats are expected output shape | visible proof remains user-auditable |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive `first_synthetic_payload_values_v0`.
+2. Implement `falsify_first_synthetic_payload_values_v0`.
+3. Add accepted cards for the six payload value specs above.
+4. Add red fixtures for copied/private/benchmark text, evidence misuse, tool
+   authority bypass, tombstone bypass, fabricated abstention, latency
+   overclaim, runtime byte attempts, and promotion laundering.
+5. Only after this witness should an owner-approved materialization gate write
+   the actual payload JSON files.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-FirstSyntheticPayloadValuesV0`, because it gives the future fixture pack
+concrete invented values that can exercise note, citation, tool, cache,
+abstention, and small-lane checks without touching private corpus data.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement `F-FirstSyntheticPayloadValuesV0`
+after `F-MinimalSyntheticFixtureMaterializationPlanV0`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for `first_synthetic_payload_values_v0`,
+with accepted payload-value cards and red fixtures for private leakage,
+benchmark contamination, evidence/tool/tombstone misuse, abstention fabrication,
+latency overclaim, runtime bytes, and promotion laundering.
+
+Biggest false-claim risk:
+treating invented payload values as an evaluation set that proves model
+quality. They are only seed values; replay, logs, model outputs, AnswerPackets,
+capability-kernel evidence, and L3 WRV remain separate.
+
+Biggest missing artifact:
+a metadata-only witness validating the six payload-value cards before writing
+payload JSON files.
+
+Next research query: "What exact materialization gate should write the six
+payload JSON files from these values, verify their canonical digests, and still
+refuse runtime/model-quality promotion?"
