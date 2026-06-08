@@ -1,0 +1,872 @@
+{
+  "falsifier_id": "F-SearchIndex-ReleaseBlockerCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_search_index_release_blocker_card.sh",
+  "command_digest": "sha256:4ba471355ad45be6cc6c7a4c44e12ddbc043abad98a8b38528abb1ca90d54485",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0dbe11fd259ac7de95f90404e8c202682609a52b",
+  "fixture_id": "search_index_release_blocker_card_v1",
+  "timestamp_utc": "2026-06-08T07:33:25Z",
+  "result_digest": "sha256:a66000982f6fbe35367ed7a3e2e511f724f85f7b6c85d967774db264af79a61f",
+  "measurements": {
+    "authority_policy_evidence_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bm25_rank_convention_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "body_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cache_bytes_reused_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "db_bytes_opened_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "db_bytes_opened_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "focused_command_count": {
+      "value": 6,
+      "unit": "commands"
+    },
+    "focused_command_too_broad_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_cover_search_tests": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fts_trigger_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fts_trigger_rebuild_and_parser_fallback_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_qat_search_freshness_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_evidence_digest_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_evidence_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_eidos_authority_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_turbovec_authority_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invariant_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_lineage_salt_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_replay_dependencies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_query_runtime_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rrf_source_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_search_index_service_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "source_guard_drift_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain_search_eidos_turbovec": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_query_body_or_snippet": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_calls_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_parser_fallback_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "query_runtime_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rank_policies_cover_rrf_bm25_recency_scope": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rank_policy_count": {
+      "value": 5,
+      "unit": "policies"
+    },
+    "raw_query_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_snippet_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "retrieval_lane_count": {
+      "value": 7,
+      "unit": "lanes"
+    },
+    "retrieval_lanes_cover_search_eidos_turbovec": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_bm25_recency_and_vault_scope_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_design_doc_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_fusion_query_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_k_parity_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_address": {
+      "value": "sha256:f2af00d85533c3ff52b6f39302873fe481008a3433a58ae184da86a6153ad842",
+      "unit": "sha256"
+    },
+    "search_index_card": {
+      "value": {
+        "family_id": "search_index",
+        "issue_count": 1,
+        "organ": "search_index",
+        "status": "red_release_blocker",
+        "source_refs": [
+          "Epistemos/Sync/SearchIndexService.swift",
+          "Epistemos/Sync/RRFFusionQuery.swift",
+          "Epistemos/Sync/ReadableBlocksIndex.swift",
+          "Epistemos/Sync/ReadableBlocksProjector.swift",
+          "Epistemos/Sync/VaultSyncService.swift",
+          "Epistemos/Engine/QueryRuntime.swift",
+          "Epistemos/Engine/QueryTypes.swift",
+          "Epistemos/Graph/GraphState.swift",
+          "Epistemos/Graph/GraphStore.swift",
+          "EpistemosTests/SearchIndexTests.swift",
+          "EpistemosTests/RRFFusionQueryTests.swift",
+          "EpistemosTests/QueryRuntimeTests.swift",
+          "docs/RRF_FUSION_DESIGN.md"
+        ],
+        "focused_commands": [
+          "xcodebuild test -only-testing:EpistemosTests/SearchIndexTests",
+          "xcodebuild test -only-testing:EpistemosTests/SearchIndexServiceIntegrationTests",
+          "xcodebuild test -only-testing:EpistemosTests/RRFFusionQueryTests",
+          "xcodebuild test -only-testing:EpistemosTests/ReadableBlocksIndexTests",
+          "xcodebuild test -only-testing:EpistemosTests/ReadableBlocksProjectorTests",
+          "xcodebuild test -only-testing:EpistemosTests/QueryRuntimeTests"
+        ],
+        "required_invariants": [
+          "upstream_body_read_freshness_bound",
+          "external_content_fts_trigger_required",
+          "external_content_rebuild_fallback_required",
+          "query_parser_fallback_required",
+          "rrf_k_parity_required",
+          "bm25_rank_convention_required",
+          "recency_half_life_policy_required",
+          "vault_scope_filter_required",
+          "graph_evidence_digest_required",
+          "search_output_is_evidence_not_route_authority",
+          "turbovec_allowlist_before_rank_required",
+          "gemma_qat_replay_requires_search_freshness_ref",
+          "kv_cache_reuse_requires_search_lineage_salt",
+          "no_raw_query_body_or_snippet_in_artifact",
+          "rollback_run_event_log_answer_packet_required",
+          "no_l2_l3_product_green_or_live_dense_70b"
+        ],
+        "retrieval_lanes": [
+          "page_fts",
+          "readable_block_fts",
+          "rrf_fusion",
+          "graph_evidence",
+          "eidos_prior",
+          "turbovec_cache",
+          "query_runtime_fixture"
+        ],
+        "rank_policies": [
+          "bm25",
+          "rrf_k",
+          "recency_half_life",
+          "vault_scope_filter",
+          "abstain_on_stale_index"
+        ],
+        "authority_policy": "evidence_only",
+        "upstream_body_read_freshness_required": true,
+        "external_content_fts_trigger_required": true,
+        "external_content_rebuild_fallback_required": true,
+        "query_parser_fallback_required": true,
+        "rrf_k_parity_required": true,
+        "bm25_rank_convention_required": true,
+        "recency_half_life_policy_required": true,
+        "vault_scope_filter_required": true,
+        "graph_evidence_digest_required": true,
+        "turbovec_allowlist_before_rank_required": true,
+        "gemma_qat_replay_search_freshness_required": true,
+        "kv_cache_lineage_salt_required": true,
+        "no_raw_query_in_artifact": true,
+        "no_raw_body_in_artifact": true,
+        "no_raw_snippet_in_artifact": true,
+        "no_hidden_chain": true,
+        "no_hidden_search_authority": true,
+        "no_hidden_eidos_authority": true,
+        "no_hidden_turbovec_authority": true,
+        "no_provider_call": true,
+        "l2_green_claimed": false,
+        "l3_green_claimed": false,
+        "product_green_claimed": false,
+        "live_dense_70b_claimed": false,
+        "ssd_as_ram_claimed": false,
+        "db_bytes_opened": 0,
+        "body_bytes_read": 0,
+        "snippet_bytes_embedded": 0,
+        "model_runtime_bytes_loaded": 0,
+        "cache_bytes_reused": 0,
+        "provider_calls_made": 0,
+        "rollback_ref": "rollback:search_index_release_blocker_card",
+        "run_event_log_ref": "run_event_log:search_index_release_blocker_card",
+        "answer_packet_ref": "answer_packet:search_index_release_blocker_card"
+      },
+      "unit": "card"
+    },
+    "search_index_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_issue_count": {
+      "value": 1,
+      "unit": "issues"
+    },
+    "search_index_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_service_source_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "search_invariant_count": {
+      "value": 16,
+      "unit": "invariants"
+    },
+    "search_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "snippet_bytes_embedded_nonzero_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "snippet_bytes_embedded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "source_ref_count": {
+      "value": 13,
+      "unit": "refs"
+    },
+    "source_refs_cover_search_stack": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_duplicate_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claimed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_allowlist_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_body_read_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_search_index": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_scope_filter_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_db_body_snippet_model_cache_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "authority_policy_evidence_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bm25_rank_convention_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "body_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cache_bytes_reused_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "db_bytes_opened_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "db_bytes_opened_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "commands"
+    },
+    "focused_command_too_broad_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_commands_cover_search_tests": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fts_trigger_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fts_trigger_rebuild_and_parser_fallback_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_qat_search_freshness_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_evidence_digest_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_evidence_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_eidos_authority_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_turbovec_authority_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invariant_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_lineage_salt_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_replay_dependencies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_query_runtime_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rrf_source_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_search_index_service_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "source_guard_drift_release_blocker_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_chain_search_eidos_turbovec": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_query_body_or_snippet": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "provider_calls_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_parser_fallback_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "query_runtime_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rank_policies_cover_rrf_bm25_recency_scope": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rank_policy_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "policies"
+    },
+    "raw_query_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_snippet_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "retrieval_lane_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "lanes"
+    },
+    "retrieval_lanes_cover_search_eidos_turbovec": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_bm25_recency_and_vault_scope_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_design_doc_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_fusion_query_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rrf_k_parity_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "search_index_card": {
+      "operator": "present",
+      "value": true,
+      "unit": "card"
+    },
+    "search_index_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_issue_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "issues"
+    },
+    "search_index_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_index_service_source_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "search_invariant_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "invariants"
+    },
+    "search_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "snippet_bytes_embedded_nonzero_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "snippet_bytes_embedded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 13,
+      "unit": "refs"
+    },
+    "source_refs_cover_search_stack": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_refs_duplicate_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claimed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "turbovec_allowlist_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_body_read_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_search_index": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_scope_filter_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_db_body_snippet_model_cache_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "authority_policy_evidence_only": true,
+    "bm25_rank_convention_missing_rejected": true,
+    "body_bytes_read_total": true,
+    "cache_bytes_reused_total": true,
+    "db_bytes_opened_nonzero_rejected": true,
+    "db_bytes_opened_total": true,
+    "focused_command_count": true,
+    "focused_command_too_broad_rejected": true,
+    "focused_commands_cover_search_tests": true,
+    "fts_trigger_missing_rejected": true,
+    "fts_trigger_rebuild_and_parser_fallback_required": true,
+    "gemma_qat_search_freshness_missing_rejected": true,
+    "graph_evidence_digest_required": true,
+    "graph_evidence_sources_bound": true,
+    "hidden_eidos_authority_allowed_rejected": true,
+    "hidden_turbovec_authority_allowed_rejected": true,
+    "invariant_missing_rejected": true,
+    "kv_cache_lineage_salt_missing_rejected": true,
+    "l2_l3_product_green_claimed_rejected": true,
+    "large_model_replay_dependencies_bound": true,
+    "live_dense_70b_claimed_rejected": true,
+    "missing_query_runtime_ref_rejected": true,
+    "missing_rrf_source_ref_rejected": true,
+    "missing_search_index_service_ref_rejected": true,
+    "model_runtime_bytes_loaded_nonzero_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_chain_search_eidos_turbovec": true,
+    "no_l2_l3_product_green": true,
+    "no_live_dense_70b_or_ssd_as_ram_claim": true,
+    "no_provider_call": true,
+    "no_raw_query_body_or_snippet": true,
+    "provider_calls_made_total": true,
+    "provider_calls_nonzero_rejected": true,
+    "query_parser_fallback_missing_rejected": true,
+    "query_runtime_source_bound": true,
+    "rank_policies_cover_rrf_bm25_recency_scope": true,
+    "rank_policy_count": true,
+    "raw_query_allowed_rejected": true,
+    "raw_snippet_allowed_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "retrieval_lane_count": true,
+    "retrieval_lanes_cover_search_eidos_turbovec": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "rrf_bm25_recency_and_vault_scope_required": true,
+    "rrf_design_doc_bound": true,
+    "rrf_fusion_query_source_bound": true,
+    "rrf_k_parity_missing_rejected": true,
+    "search_index_address": true,
+    "search_index_card": true,
+    "search_index_family_bound": true,
+    "search_index_issue_count": true,
+    "search_index_issue_count_retained": true,
+    "search_index_service_source_bound": true,
+    "search_invariant_count": true,
+    "search_invariants_bound": true,
+    "snippet_bytes_embedded_nonzero_rejected": true,
+    "snippet_bytes_embedded_total": true,
+    "source_ref_count": true,
+    "source_refs_cover_search_stack": true,
+    "source_refs_duplicate_rejected": true,
+    "ssd_as_ram_claimed_rejected": true,
+    "turbovec_allowlist_missing_rejected": true,
+    "upstream_body_read_card_pass": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_search_index": true,
+    "vault_scope_filter_missing_rejected": true,
+    "wrong_family_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_db_body_snippet_model_cache_provider_bytes": true,
+    "zero_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-SearchIndex-ReleaseBlockerCard: consumes body-read checksum freshness and release-audit search_index family, binds exact SearchIndex/RRF/readable-block/query-runtime/graph source refs, rejects stale search/rank/privacy/promotion/byte fixtures, opens zero DB/body/snippet/model/cache/provider bytes, and makes no L2/L3/product claim."
+}
