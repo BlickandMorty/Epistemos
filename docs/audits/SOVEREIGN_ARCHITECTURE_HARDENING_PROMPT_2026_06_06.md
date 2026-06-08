@@ -992,9 +992,22 @@ ladder also has three metadata-only T1/L1 gates landed:
   provider bytes or actions, no raw path/prompt/output/stdout/stderr/token
   retention, no hidden authority, no E4B/12B bypass, no quality/benchmark
   laundering, and no L2/L3/T4/user-facing Gemma claim.
+- `F-GemmaQATE2BSameFixtureQualityReplayPacketGate`: future E2B GGUF/llama.cpp
+  same-fixture quality packet contract, selected model id, source revision,
+  filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, direct
+  `/opt/homebrew/bin/llama-cli` lane, 35 packet fields, 48 rejection policies,
+  same-fixture pack, deterministic scorer bundle, seven task families,
+  owner approval/manifest/path/model-file/llama.cpp digest requirements,
+  prompt/context/tool/final-output digest policy, failure taxonomy,
+  contamination check, cache salt/deletion, timeout/cancel, rollback,
+  RunEventLog, AnswerPacket, abstention, zero quality packet, fixture payload,
+  runtime artifact, scorer, benchmark, command, model, runtime, provider, or
+  cache bytes/actions, no raw prompt/context/output/judge retention, no hidden
+  authority, no E4B/12B/70B bypass, no quality/benchmark laundering, and no
+  L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_same_fixture_quality_replay_packet_gate`.
+`gemma_qat_e2b_runtime_router_admission_packet_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,
