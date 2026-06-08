@@ -62,6 +62,7 @@ pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
+pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
 pub mod gemma_qat_e2b_model_file_and_llama_cpp_digest_gate;
 pub mod gemma_qat_e2b_owner_approved_first_token_runtime_probe;
 pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
@@ -398,6 +399,18 @@ pub use gemma_qat_e2b_first_token_runtime_artifact_review_gate::{
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_ID,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate::{
+    required_gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_fields,
+    required_gemma_qat_e2b_first_token_runtime_artifact_review_rejection_policies,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewReconciliationGate,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewReconciliationGateError,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewReconciliationGateMetrics,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewReconciliationGateStatus,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_CURSOR,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_ID,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_model_file_and_llama_cpp_digest_gate::{
     required_gemma_qat_e2b_model_file_and_llama_cpp_digest_fields,
