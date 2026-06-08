@@ -17357,3 +17357,109 @@ Next research query: "What is the smallest admitted local tool-call packet that
 can prove parser correctness, user consent, mutation safety, sanitizer output,
 rollback, RunEventLog, and AnswerPacket visibility across MLX, GGUF/llama.cpp,
 and LiteRT-LM without promoting hidden tool authority?"
+
+## Pass 150 - XPC Trust Configuration Source Card Landed
+
+### Executive Synthesis
+
+Pass 150 converts the XPC trust configuration bridge into a landed
+metadata-only architecture witness:
+
+`F-XpcTrustConfiguration-ReleaseBlockerCard`
+
+This is research-to-build hardening for local model runtime routes. As
+Epistemos grows toward runtime-plural local models, XPC and provider surfaces
+must not become hidden authority, hidden cloud/provider fallback, or a way to
+launder tool execution through a trusted-looking local process. The XPC trust
+card binds the peer-trust assumptions before the runtime harness can promote
+any XPC-backed or provider-adjacent route.
+
+### Architecture Fusion
+
+The source card binds:
+
+- upstream `F-ToolExecutionSurface-ReleaseBlockerCard`
+- retained release-audit family `xpc_trust_configuration`
+- issue count `1`
+- 12 source refs across `XPCTrust.swift`, agent/provider service protocols,
+  agent/provider clients, XPC service entrypoints, XPC smoke tests, capability
+  bridge tests, and XPC canon docs
+- 18 invariants for App Group service names, code-signing requirement before
+  resume, anchor apple generic, service identifier, team OU, development-team
+  drift guard, client trust wiring, thin service delegates, capability-bridge
+  subject split, no process-identifier trust, no unwhitelisted payload claim,
+  no cloud/tool promotion, no hidden provider/XPC fallback, no false green,
+  zero XPC/tool/model/provider bytes, rollback, RunEventLog, and AnswerPacket
+- 32 rejected red fixtures
+- zero XPC connections opened
+- zero XPC services launched
+- zero tool commands executed
+- zero model/runtime/provider bytes
+- deterministic address
+  `sha256:c31f39a6a7ce6bf47839acf9aa80e34adf9a793c794f51698a4ffb044ef1d19f`
+- next cursor
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Official XPC Facts Folded In
+
+- Apple documents `NSXPCConnection.setCodeSigningRequirement(_:)` as enforcing
+  a code-signing requirement on the peer process of an XPC connection and says
+  to call it before `resume()`. Source:
+  https://developer.apple.com/documentation/foundation/nsxpcconnection/3943309-setcodesigningrequirement
+- Apple documents listener-side `setConnectionCodeSigningRequirement(_:)` for
+  incoming XPC connections. Source:
+  https://developer.apple.com/documentation/foundation/nsxpclistener/setconnectioncodesigningrequirement%28_%3A%29
+
+### Why This Helps Large Local Models
+
+Large local models become useful only when they can interact with local
+services safely: tool execution, provider isolation, research helpers, model
+catalog lanes, and diagnostics all need process boundaries that are visible,
+admitted, rollbackable, and non-authoritative. This card prevents XPC from
+silently turning into a trusted side channel. The RuntimeRouter/System G path
+still needs the small-model L3 release-audit bottleneck, but the process trust
+floor is now source-carded and falsifier-bound.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: landed for XPC trust source-card evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- XPC services launched: zero.
+- Tool commands executed: zero.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+a trust-bound local runtime service envelope where XPC identity, service role,
+tool grammar, provider access, model artifact path, owner approval, rollback,
+RunEventLog, and AnswerPacket are all part of the same route-admission packet.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`,
+because the side-card chain now returns to the actual guard-owned product
+bottleneck.
+
+Best near-term code unit:
+repair or close the retained automated-checks release-audit row with focused
+test evidence, then correlate the small-model runtime proof with logs and
+manual runtime verification without promoting 70B/Gemma/GGUF lanes prematurely.
+
+Biggest false-claim risk:
+calling XPC trust source-card evidence a repaired XPC runtime, product-safe
+provider bridge, MAS agent route, tool-execution capability, or proof that a
+large local model can safely execute actions.
+
+Biggest missing artifact:
+an L2/T2 admitted local service packet proving one trust-bound route through
+RuntimeRouter/System G, XPC/service identity, tool/provider denial or
+admission, rollback, RunEventLog, and AnswerPacket.
+
+Next research query: "What is the minimal trust-bound local runtime service
+packet that can prove XPC peer identity, MAS/Pro role separation, provider
+denial/admission, tool denial/admission, rollback, RunEventLog, and
+AnswerPacket visibility before local model routes can use any process or
+provider boundary?"

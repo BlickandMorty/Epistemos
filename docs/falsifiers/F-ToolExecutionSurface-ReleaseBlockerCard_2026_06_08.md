@@ -27,7 +27,10 @@ It records:
 - zero tool commands executed
 - zero model/runtime/provider bytes
 - zero provider calls
-- next side-card cursor `xpc_trust_configuration_release_blocker_card`
+- next side-card cursor at landing was
+  `xpc_trust_configuration_release_blocker_card`; downstream
+  `F-XpcTrustConfiguration-ReleaseBlockerCard` now passes and returns to the
+  guard-owned small-model release-audit bottleneck
 
 ## What It Rejects
 

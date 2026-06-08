@@ -4870,8 +4870,9 @@ bytes, or repair the product route.
 Layer truth:
 
 - L1 architecture side-card: `F-ToolExecutionSurface-ReleaseBlockerCard`
-  advanced as metadata-only source-card evidence; next side-card cursor is
-  `xpc_trust_configuration_release_blocker_card`.
+  advanced as metadata-only source-card evidence; downstream XPC trust
+  source-card now passes separately and returns the side-card chain to the
+  guard-owned product bottleneck.
 - L1 guard-owned product cursor: still
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 - L2 capability route: still `vault_research_route_with_packetized_mitigation`.
@@ -4881,6 +4882,48 @@ Layer truth:
 
 Correct phrasing: "L1 tool-execution source-card advanced; product capability
 / user surface did not."
+
+### 2026-06-08 - XPC trust configuration source-card landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-XpcTrustConfiguration-ReleaseBlockerCard` is now a metadata-only L1/T1
+source-card witness. It consumes `F-ToolExecutionSurface-ReleaseBlockerCard`
+and the release-audit family source card, binds retained
+`xpc_trust_configuration` issue count `1`, records 12 XPC/client/service/test/
+canon refs, 18 invariants, 5 focused commands, 32 rejected red fixtures, zero
+XPC connections opened, zero XPC services launched, zero tool commands
+executed, zero model/runtime/provider bytes, zero provider calls, and
+deterministic XPC trust address
+`sha256:c31f39a6a7ce6bf47839acf9aa80e34adf9a793c794f51698a4ffb044ef1d19f`.
+
+This protects larger local-model and runtime-plural lanes from treating XPC
+services, provider bridges, process identifiers, or tool surfaces as hidden
+authority. It binds App Group service names, Apple's before-resume
+code-signing requirement semantics, anchor apple generic, service identifier,
+team OU, development-team drift guard, agent/provider client trust wiring,
+thin service delegates, capability-bridge subject split, RunEventLog,
+AnswerPacket, rollback, and abstention before XPC-backed runtime claims can
+promote. It does not launch XPC services, execute tools, run models, open
+runtime bytes, or repair the product route.
+
+Layer truth:
+
+- L1 architecture side-card: `F-XpcTrustConfiguration-ReleaseBlockerCard`
+  advanced as metadata-only source-card evidence; side-card chain returns to
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no XPC service, tool command,
+  model bytes, runtime bytes, or provider calls were opened, and no product
+  capability promoted.
+
+Correct phrasing: "L1 XPC trust source-card advanced; product capability /
+user surface did not."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 
