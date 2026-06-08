@@ -21813,3 +21813,86 @@ Next research query: "What manifest fields, path policies, digest policies,
 rollback receipts, RunEventLog rows, and AnswerPacket fields should
 F-SyntheticFixtureStagingManifestPreflightGate require before any synthetic
 fixture materialization writes bytes?"
+
+## Deep Research Pass 174 - Synthetic Fixture Staging Manifest Preflight Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-SyntheticFixtureStagingManifestPreflightGate` is now a real metadata-only
+L1/T1 side-ladder witness. It consumes the fail-closed JCS writer dry-run and
+binds the staging manifest contract that future same-fixture replay needs:
+required fields, staging and final roots, unsafe path denials, digest policy,
+rollback, RunEventLog, AnswerPacket, privacy/provenance/benchmark scans, and
+product-route non-authority.
+
+This is still not materialization. It writes no manifest or fixture file. The
+important architecture movement is that future large-model comparisons can no
+longer skip straight from "we planned bytes" to "we wrote eval fixtures." The
+manifest proof boundary is now explicit and falsifier-backed.
+
+### Landed Code And Artifact
+
+| Surface | Path |
+| --- | --- |
+| UAS primitive | `agent_core/src/uas/synthetic_fixture_staging_manifest_preflight_gate.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_synthetic_fixture_staging_manifest_preflight_gate.rs` |
+| Shell wrapper | `Tools/falsifiers/f_synthetic_fixture_staging_manifest_preflight_gate.sh` |
+| Artifact | `artifacts/falsifiers/synthetic_fixture_staging_manifest_preflight_gate/result.json` |
+| Witness doc | `docs/falsifiers/F-SyntheticFixtureStagingManifestPreflightGate_2026_06_08.md` |
+
+Artifact facts:
+
+- upstream writer dry-run:
+  `sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb`
+- witness address:
+  `sha256:066e9509f28f034208a983446697f8f88b8a578931cd7d05ab210d6d51f2c6b2`
+- manifest fields: 16
+- red fixtures rejected: 33
+- next side-ladder: `synthetic_fixture_owner_approval_write_gate`
+- guard-owned product cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Promotion Truth
+
+- T0 research/canon: advanced into landed T1 evidence.
+- T1/L1 architecture proof: advanced for synthetic fixture staging manifest
+  preflight.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`synthetic_fixture_owner_approval_write_gate`, because all manifest proof
+requirements are now named but explicit consent is still absent.
+
+Safest next falsifier:
+metadata-only `F-SyntheticFixtureOwnerApprovalWriteGate` that consumes the
+manifest preflight, preserves the exact approval phrase, and proves owner
+approval is still absent unless explicitly provided.
+
+Best near-term code unit:
+add the owner-approval write gate that keeps filesystem counters at zero until
+the exact phrase is present and all upstream addresses match.
+
+Biggest false-claim risk:
+calling a manifest preflight a materialized fixture or using it as runtime eval
+evidence.
+
+Biggest missing source:
+explicit owner consent plus a later staging write witness that actually writes
+only into the approved staging root and records rollback evidence.
+
+Next research query: "What exact consent, address-lock, staging-root,
+rollback, and AnswerPacket checks should F-SyntheticFixtureOwnerApprovalWriteGate
+require before synthetic fixture materialization can move from metadata-only to
+owner-approved staging?"

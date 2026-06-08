@@ -1,0 +1,205 @@
+{
+  "falsifier_id": "F-SyntheticFixtureStagingManifestPreflightGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_synthetic_fixture_staging_manifest_preflight_gate.sh",
+  "command_digest": "sha256:76097e45526c3d5d38cf694a14628153a799223dc79f9c5723a4fb4221eaac8a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8e6d569e71c54191cae9e516838bb112646c8f54",
+  "fixture_id": "synthetic_fixture_staging_manifest_preflight_gate_v1",
+  "timestamp_utc": "2026-06-08T12:17:05Z",
+  "result_digest": "sha256:55f216ca6fd422e026a9b33a726c8f2b4ed62aef4dfeae5ec3cf957ccf5515fa",
+  "measurements": {
+    "digest_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "string"
+    },
+    "manifest_field_contract_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_field_count": {
+      "value": 16,
+      "unit": "fields"
+    },
+    "manifest_files_written": {
+      "value": 0,
+      "unit": "files"
+    },
+    "next_research_to_build_unit": {
+      "value": "synthetic_fixture_owner_approval_write_gate",
+      "unit": "string"
+    },
+    "path_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "source_card_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_writer_dry_run_address": {
+      "value": "sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb",
+      "unit": "string"
+    },
+    "upstream_writer_dry_run_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "value": "sha256:066e9509f28f034208a983446697f8f88b8a578931cd7d05ab210d6d51f2c6b2",
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "digest_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "manifest_field_contract_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_field_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "fields"
+    },
+    "manifest_files_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "next_research_to_build_unit": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "path_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 28,
+      "unit": "fixtures"
+    },
+    "source_card_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_writer_dry_run_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "upstream_writer_dry_run_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "digest_policy_bound": true,
+    "guard_owned_product_cursor_preserved": true,
+    "manifest_field_contract_bound": true,
+    "manifest_field_count": true,
+    "manifest_files_written": true,
+    "next_research_to_build_unit": true,
+    "path_policy_bound": true,
+    "promotion_boundary_preserved": true,
+    "proof_policy_bound": true,
+    "red_fixture_rejection_count": true,
+    "source_card_fail_closed": true,
+    "upstream_writer_dry_run_address": true,
+    "upstream_writer_dry_run_bound": true,
+    "witness_address": true,
+    "witness_header_bound": true,
+    "zero_byte_and_command_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Metadata-only T1/L1 side-ladder witness for the synthetic fixture staging manifest preflight gate. It consumes the JCS writer dry-run, binds manifest fields, staging/final path policy, digest policy, rollback, RunEventLog, AnswerPacket, privacy/provenance/benchmark scans, writes zero files, opens zero model/runtime/provider/cache/index bytes, arms zero commands, preserves the guard-owned small-model product cursor, and makes no L2/L3/T4/T5 or large-local-model capability claim."
+}

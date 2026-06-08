@@ -595,6 +595,31 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing large-local-model capability remains red; no fixture
   materialization, eval, model load, product route, release readiness, live
   dense 70B, SSD-as-RAM, or hidden route authority claim is promoted.
+- Updated **2026-06-08** · `F-SyntheticFixtureStagingManifestPreflightGate`
+  landed as a real metadata-only L1/T1 side-ladder witness. North-star
+  sentence: Epistemos is a local cognitive substrate where every meaningful
+  object has an address, plane, budget, status, and witness; MAS ships the safe
+  floor, Pro contains the gated/research/vault/omega ladder, and no claim
+  promotes without visible proof. The preflight consumes
+  `F-JcsFixtureWriterFailClosedDryRun` at upstream address
+  `sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb`,
+  binds 16 required manifest fields, repo-relative staging/final roots,
+  absolute/parent/hidden/symlink/hardlink/direct-final/cross-device/collision
+  denials, JCS canonical SHA-256 digest policy, duplicate path/digest
+  rejection, exact owner approval phrase, rollback, RunEventLog, AnswerPacket,
+  privacy/provenance/benchmark scans, product route authority denial, 33
+  rejected red fixtures, zero manifest/staging/final/model/runtime/provider/
+  cache/index bytes, zero filesystem stat calls, zero armed commands,
+  deterministic witness address
+  `sha256:066e9509f28f034208a983446697f8f88b8a578931cd7d05ab210d6d51f2c6b2`,
+  and next side-ladder `synthetic_fixture_owner_approval_write_gate`. This
+  advances only synthetic fixture staging-manifest L1 evidence. The
+  guard-owned product cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3
+  user-facing large-local-model capability remains red; no fixture
+  materialization, eval, model load, product route, release readiness, live
+  dense 70B, SSD-as-RAM, or hidden route authority claim is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

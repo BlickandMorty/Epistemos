@@ -668,6 +668,10 @@ name = "falsify_jcs_fixture_writer_fail_closed_dry_run"
 path = "src/bin/falsify_jcs_fixture_writer_fail_closed_dry_run.rs"
 
 [[bin]]
+name = "falsify_synthetic_fixture_staging_manifest_preflight_gate"
+path = "src/bin/falsify_synthetic_fixture_staging_manifest_preflight_gate.rs"
+
+[[bin]]
 name = "capability_ceiling_evaluation_kernel"
 path = "src/bin/capability_ceiling_evaluation_kernel.rs"
 
