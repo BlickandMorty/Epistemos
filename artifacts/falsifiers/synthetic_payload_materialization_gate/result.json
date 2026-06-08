@@ -1,0 +1,215 @@
+{
+  "falsifier_id": "F-SyntheticPayloadMaterializationGateV0",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_synthetic_payload_materialization_gate.sh",
+  "command_digest": "sha256:461a5290e7d3d389625c018942334216f0f2838becf1f23b0681d0c7aeac5257",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "c98bacab5ef8f268640add18f4fdd54cdf49e3eb",
+  "fixture_id": "synthetic_payload_materialization_gate_v1",
+  "timestamp_utc": "2026-06-08T10:55:34Z",
+  "result_digest": "sha256:0233d7549513d5bfc89213e84f110e6c5c01c7e7fc5d4248f75764262be1da01",
+  "measurements": {
+    "approval_absent_refusal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "string"
+    },
+    "next_research_to_build_unit": {
+      "value": "jcs_canonical_json_writer_parity_gate",
+      "unit": "string"
+    },
+    "planned_inventory_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_payload_count": {
+      "value": 6,
+      "unit": "files"
+    },
+    "privacy_provenance_benchmark_scans_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 39,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "schema_and_jcs_requirements_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "staging_path_policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_blueprint_address": {
+      "value": "sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083",
+      "unit": "string"
+    },
+    "upstream_blueprint_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "value": "sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d",
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "approval_absent_refusal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "next_research_to_build_unit": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "planned_inventory_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_payload_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "files"
+    },
+    "privacy_provenance_benchmark_scans_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 27,
+      "unit": "fixtures"
+    },
+    "rollback_run_event_answer_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "schema_and_jcs_requirements_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "staging_path_policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_blueprint_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "upstream_blueprint_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "approval_absent_refusal_bound": true,
+    "fixture_files_written": true,
+    "guard_owned_product_cursor_preserved": true,
+    "next_research_to_build_unit": true,
+    "planned_inventory_bound": true,
+    "planned_payload_count": true,
+    "privacy_provenance_benchmark_scans_bound": true,
+    "promotion_boundary_preserved": true,
+    "red_fixture_rejection_count": true,
+    "rollback_run_event_answer_packet_bound": true,
+    "schema_and_jcs_requirements_bound": true,
+    "staging_path_policy_fail_closed": true,
+    "upstream_blueprint_address": true,
+    "upstream_blueprint_bound": true,
+    "witness_address": true,
+    "witness_header_bound": true,
+    "zero_byte_and_command_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Metadata-only T1/L1 side-ladder witness for the synthetic payload materialization gate. It binds the upstream synthetic materializer blueprint, refuses owner-approval-absent materialization, requires staging path policy plus schema/JCS/privacy/provenance/benchmark/rollback/RunEventLog/AnswerPacket proof surfaces, writes zero fixture files, opens zero model/runtime/provider/cache/index bytes, arms zero commands, preserves the guard-owned small-model product cursor, and makes no L2/L3/T4/T5 or large-local-model capability claim."
+}

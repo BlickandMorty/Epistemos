@@ -21408,3 +21408,100 @@ Next research query: "What exact Rust data model and red-fixture matrix should
 F-SyntheticPayloadMaterializationGateV0 use so absent approval writes zero
 files, owner-approved staging is atomic and rollbackable, and final fixtures
 cannot become hidden route authority?"
+
+## Deep Research Pass 170 - Synthetic Payload Materialization Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-SyntheticPayloadMaterializationGateV0` is now a real metadata-only L1/T1
+side-ladder witness. It answers the Pass 169 implementation question by adding
+an owner-approval-absent refusal gate that consumes the landed synthetic
+materializer blueprint, binds the upstream witness address, requires staging
+path policy plus Draft 2020-12/JCS/privacy/provenance/benchmark/rollback/
+RunEventLog/AnswerPacket proof surfaces, and keeps all fixture/runtime/model/
+provider/cache/index byte counters at zero.
+
+This is research-to-build, not product runtime. It makes the same-fixture
+ladder safer for future large-local-model comparisons because synthetic
+fixtures can no longer be treated as ambient docs, hidden route authority, or
+eval wins before canonical JSON parity and owner-approved staging are proven.
+
+### Landed Code And Artifact
+
+| Surface | Path |
+| --- | --- |
+| UAS primitive | `agent_core/src/uas/synthetic_payload_materialization_gate.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_synthetic_payload_materialization_gate.rs` |
+| Shell wrapper | `Tools/falsifiers/f_synthetic_payload_materialization_gate.sh` |
+| Artifact | `artifacts/falsifiers/synthetic_payload_materialization_gate/result.json` |
+| Witness doc | `docs/falsifiers/F-SyntheticPayloadMaterializationGateV0_2026_06_08.md` |
+
+Artifact facts:
+
+- upstream blueprint:
+  `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083`
+- witness address:
+  `sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d`
+- red fixtures rejected: 39
+- next side-ladder: `jcs_canonical_json_writer_parity_gate`
+- guard-owned product cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Hardening Added
+
+The gate rejects upstream-address drift, approval smuggling, wrong phrase,
+approved-write-root smuggling, direct final writes, absolute paths, parent
+escape, undeclared hidden path segments, symlinks, hardlinks, missing
+case-collision denial, cross-device rename shortcuts, pre-existing final
+collisions, payload/inventory drift, wrong JSON Schema draft, open fields,
+duplicate-key acceptance, invalid-Unicode acceptance, NaN/Infinity acceptance,
+non-JCS digest acceptance, missing privacy/provenance/benchmark scans, missing
+rollback/RunEventLog/AnswerPacket, staging/final/payload writes, fixture/
+runtime/model/provider/cache/index byte leaks, command arming, L1/L2/product
+green claims, and hidden route authority.
+
+### Promotion Truth
+
+- T0 research/canon: advanced into landed T1 evidence.
+- T1/L1 architecture proof: advanced for the synthetic materializer side-ladder.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`jcs_canonical_json_writer_parity_gate`, because fixture identity cannot safely
+materialize until Epistemos proves canonical JSON equivalence across duplicate
+keys, invalid Unicode, NaN/Infinity, UTF-8 output, number formatting, and sorted
+object properties.
+
+Safest next falsifier:
+metadata-only `F-JcsCanonicalJsonWriterParityGate` that proves Epistemos-owned
+canonical JSON bytes and digest maps before any owner-approved fixture write.
+
+Best near-term code unit:
+add a Rust JCS parity primitive and falsifier with red fixtures for duplicate
+keys, invalid Unicode, NaN/Infinity, number rendering, sorted object keys,
+closed fields, and deterministic SHA-256 digest maps.
+
+Biggest false-claim risk:
+counting this gate as a materialized fixture pack, eval win, runtime proof, or
+large-local-model product capability.
+
+Biggest missing source:
+the repo still lacks an Epistemos-owned JCS-compatible canonical JSON writer
+parity suite bound to fixture-materializer paths.
+
+Next research query: "What minimal Epistemos-owned canonical JSON writer and
+parity fixture set should F-JcsCanonicalJsonWriterParityGate use so same-fixture
+payload identity cannot drift across serde_json, JCS, schema, Unicode, and
+number edge cases?"

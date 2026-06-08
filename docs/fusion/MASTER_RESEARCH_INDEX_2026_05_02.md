@@ -404,6 +404,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Terminal-Bench, and BFCL. This is T0 canon/build pressure only: no fixture
 > files, eval, model/runtime bytes, commands, L1/L2/L3, release-ready, live
 > dense 70B, or SSD-as-RAM claim is promoted.
+> Current addendum: `F-SyntheticPayloadMaterializationGateV0` is now landed as
+> a metadata-only L1/T1 side-ladder witness at
+> `artifacts/falsifiers/synthetic_payload_materialization_gate/result.json`.
+> It consumes `F-SyntheticMaterializerPrimitiveBlueprintV0`, binds upstream
+> address
+> `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083`,
+> exact owner phrase `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, owner
+> approval absent, zero approved write roots, repo-relative fixture/staging
+> roots, final/direct-final write denial, unsafe path/collision rejection, six
+> planned payloads, Draft 2020-12 closed-schema and JCS/duplicate-key/
+> invalid-Unicode/NaN-Infinity requirements, privacy/provenance/benchmark
+> scans, rollback, RunEventLog, AnswerPacket, 39 rejected red fixtures, zero
+> staging/final/payload files, zero fixture/model/runtime/provider/cache/index
+> bytes, zero armed commands, deterministic address
+> `sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d`,
+> and next side-ladder `jcs_canonical_json_writer_parity_gate`. This advances
+> only the synthetic materializer L1 side-ladder; the guard-owned product
+> cursor, L2 red route, and L3 user-facing large-model red status remain
+> unchanged.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

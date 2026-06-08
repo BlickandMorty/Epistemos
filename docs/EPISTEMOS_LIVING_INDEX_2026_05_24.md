@@ -498,6 +498,32 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   Terminal-Bench, and BFCL. This is T0 canon/build pressure only: no fixture
   files, eval, model/runtime/cache/index/provider bytes, commands, L1/L2/L3,
   release-ready, live dense 70B, or SSD-as-RAM claim is promoted.
+- Updated **2026-06-08** · `F-SyntheticPayloadMaterializationGateV0` landed
+  as a real metadata-only L1/T1 side-ladder witness. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The gate consumes `F-SyntheticMaterializerPrimitiveBlueprintV0`
+  at upstream address
+  `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083`,
+  binds exact owner phrase `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`,
+  records owner approval absent, zero approved write roots, repo-relative
+  fixture/staging roots, final/direct-final write denial, unsafe path and
+  collision rejection, six planned payloads, Draft 2020-12 closed-schema and
+  JCS/duplicate-key/invalid-Unicode/NaN-Infinity requirements, privacy/
+  provenance/benchmark scans, rollback, RunEventLog, AnswerPacket, 39 rejected
+  red fixtures, zero staging/final/payload files, zero fixture/model/runtime/
+  provider/cache/index bytes, zero armed commands, deterministic witness
+  address
+  `sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d`,
+  and next side-ladder `jcs_canonical_json_writer_parity_gate`. This advances
+  only the synthetic materializer L1 side-ladder. The guard-owned product
+  cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3
+  user-facing large-local-model capability remains red; no fixture
+  materialization, eval, model load, product route, release readiness, live
+  dense 70B, SSD-as-RAM, or hidden route authority claim is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
