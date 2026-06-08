@@ -23977,3 +23977,126 @@ Next research query: "How should
 F-GemmaQATE2BModelFileAndLlamaCppDigestGate verify owner-approved model-file
 and llama.cpp digests while preserving path privacy, rollback, no command
 execution, and no Gemma default promotion?"
+
+## Pass 192 - Gemma E2B Model File And Llama.cpp Digest Gate
+
+### Synthesis
+
+`F-GemmaQATE2BModelFileAndLlamaCppDigestGate` is now landed as the
+metadata-only T1/L1 digest-requirement contract between the owner-path
+manifest digest gate and the first future owner-approved Gemma E2B
+GGUF/llama.cpp runtime probe.
+
+This pass makes the Gemma-first loop more buildable without pretending a model
+has run. It requires the next runtime step to bind local model-file sha256,
+llama.cpp binary sha256, llama.cpp version digest, visible offline command
+template, memory probe plan, timeout/cancel, rollback, RunEventLog,
+AnswerPacket, and abstention before any command can be armed.
+
+### Architecture Fusion
+
+System G still sees Gemma as a preferred family with explicit route-card proof:
+
+```text
+Gemma4QAT/E2B/GGUF/llama.cpp
+  -> owner approval phrase digest
+  -> owner manifest digest
+  -> canonical path digest
+  -> model file digest and llama.cpp digest
+  -> owner-approved first-token runtime probe
+  -> first-token runtime artifact review
+  -> same-fixture quality replay
+  -> RuntimeRouter/System G admission
+  -> WRV/release-audit surface
+```
+
+The landed gate binds:
+
+- model id: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- filename: `gemma-4-E2B_q4_0-it.gguf`
+- expected file bytes: `3349514112`
+- direct lane: `/opt/homebrew/bin/llama-cli`
+- 24 digest fields
+- 40 rejection policies
+- 14 required command-template tokens
+- 11 forbidden command/runtime surfaces
+- 59 red fixtures
+
+Source facts rechecked on 2026-06-08:
+
+- Google/Hugging Face model card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- Google/Hugging Face file listing:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/tree/main`
+- llama.cpp upstream repository:
+  `https://github.com/ggml-org/llama.cpp`
+
+The source pages support the remote model identity, revision/file listing, and
+llama.cpp lane existence. They do not prove Jojo's laptop has the file, the
+right digest, the right llama.cpp binary, enough memory headroom, or acceptable
+quality.
+
+It stores zero raw path bytes, stores zero canonical path bytes, performs zero
+canonicalization/stat/hash/open/version-exec actions, opens zero model files,
+opens zero llama.cpp binaries, arms zero commands, executes zero commands, and
+loads zero model/runtime/provider bytes.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first near-term model ladder stays explicit.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BModelFileAndLlamaCppDigestGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Local model file opened/hashed: zero.
+- llama.cpp binary opened/version-executed: zero.
+- Commands armed/executed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It converts the fuzzy "get Gemma working" desire into a strict local runtime
+preflight: exact local artifact digest, exact runtime binary digest, exact
+version digest, exact command template, and explicit proof surfaces before the
+first token. This is the right scale unit for later lifting from E2B to E4B
+and 12B without hidden route authority or false fit claims.
+
+### Why It May Be Wrong
+
+It still does not prove the E2B file exists locally, does not hash the model,
+does not prove llama.cpp is installed, does not run inference, and does not
+prove memory fit or quality. The next probe may still fail on local artifact
+availability, binary drift, version mismatch, command incompatibility, timeout,
+memory pressure, or poor output.
+
+Best breakthrough candidate:
+digest-first runtime lane proof for Gemma E2B, then scale the same packet to
+E4B and 12B only after the smallest lane proves memory, cancellation,
+redaction, and AnswerPacket evidence.
+
+Safest next falsifier:
+`F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe`.
+
+Best near-term code unit:
+build the owner-approved first-token runtime probe contract that consumes the
+model-file/llama.cpp digest gate and remains cancellable, redacted,
+memory-sampled, rollback-bound, and AnswerPacket-visible.
+
+Biggest false-claim risk:
+saying the E2B file is present, llama.cpp is installed, or Gemma is runnable
+from this digest-requirement gate.
+
+Biggest missing source:
+owner-approved local file digest plus exact local llama.cpp binary/version
+digest.
+
+Next research query: "How should
+F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe consume the E2B model-file
+and llama.cpp digest gate to run exactly one owner-approved redacted token with
+memory samples, timeout/cancel, rollback, RunEventLog, AnswerPacket, and no
+Gemma default promotion?"

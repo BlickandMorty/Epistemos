@@ -114,6 +114,18 @@ Runtime policy:
   path bytes, reading zero owner-manifest/model/runtime/provider bytes, and
   performing zero canonicalization/stat/hash/symlink actions. Next Gemma unit:
   `gemma_qat_e2b_model_file_and_llama_cpp_digest_gate`.
+- 2026-06-08 Gemma E2B model/runtime digest status:
+  `F-GemmaQATE2BModelFileAndLlamaCppDigestGate` is landed as metadata-only
+  L1/T1. It consumes the owner-path manifest digest gate and requires future
+  owner-approved model-file sha256, llama.cpp binary sha256, llama.cpp version
+  digest, visible offline command-template digest, memory probe plan,
+  timeout/cancel, rollback, RunEventLog, AnswerPacket, and abstention before
+  any first-token run can proceed. It opens zero model files, opens zero
+  llama.cpp binaries, executes zero version checks, arms zero commands,
+  executes zero commands, loads zero model/runtime/provider bytes, rejects HF
+  download/server/mmap/provider shortcuts, and makes no MAS/L2/L3/T4/user-
+  facing Gemma claim. Next Gemma unit:
+  `gemma_qat_e2b_owner_approved_first_token_runtime_probe`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
@@ -208,8 +220,8 @@ Runtime policy:
   model/runtime/provider bytes, and do not prove local availability, path
   safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
   product default, L2, L3, live dense 70B, or user-facing Gemma capability.
-  The next Gemma side-ladder unit is
-  `gemma_qat_e2b_first_token_runtime_artifact_review_gate`.
+  The current Gemma side-ladder unit after the landed digest gates is
+  `gemma_qat_e2b_owner_approved_first_token_runtime_probe`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

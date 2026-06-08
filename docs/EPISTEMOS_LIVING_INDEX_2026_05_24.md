@@ -6219,6 +6219,56 @@ token, quality result, System G route, product default, or user-facing
 capability has been opened, hashed, executed, observed, admitted, or
 promoted."
 
+### 2026-06-08 - F-GemmaQATE2BModelFileAndLlamaCppDigestGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+`F-GemmaQATE2BModelFileAndLlamaCppDigestGate` is now implemented as a
+metadata-only T1/L1 digest-requirement gate for the future owner-approved Gemma
+E2B GGUF model-file and llama.cpp lane. It adds
+`agent_core/src/uas/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_model_file_and_llama_cpp_digest_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_model_file_and_llama_cpp_digest_gate.sh`,
+the artifact
+`artifacts/falsifiers/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATE2BModelFileAndLlamaCppDigestGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BOwnerPathManifestDigestGate`, binds the
+selected E2B model id `google/gemma-4-E2B-it-qat-q4_0-gguf`, source revision
+`1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+`gemma-4-E2B_q4_0-it.gguf`, expected file bytes `3349514112`, direct
+`/opt/homebrew/bin/llama-cli` lane, 24 digest fields, 40 rejection policies, 14
+required command-template tokens, 11 forbidden command/runtime surfaces,
+memory probe plan, timeout/cancel, rollback, RunEventLog, AnswerPacket,
+abstention, and non-promotion. It rejects 59 red fixtures, stores zero raw or
+canonical path bytes, performs zero canonicalization/stat/hash/open/version-
+exec actions, opens zero model files, opens zero llama.cpp binaries, arms zero
+commands, executes zero commands, loads zero model/runtime/provider bytes, and
+makes no Gemma default-model, quality, benchmark, MAS, L2, L3, T4, live-70B,
+or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATE2BModelFileAndLlamaCppDigestGate`
+  advances the Gemma E2B GGUF side-ladder to T1/L1 metadata-only model-file
+  and llama.cpp digest-requirement proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma model file was
+  opened or hashed, no llama.cpp binary was inspected, no command was armed or
+  run, no token was observed, no route was admitted into RuntimeRouter/System
+  G, and Gemma is not the app default.
+
+Correct phrasing: "Gemma E2B model-file and llama.cpp digest requirements are
+L1 metadata-proofed; no local file was hashed or opened, no llama.cpp binary
+was inspected, no command was armed or run, no token was observed, and no
+Gemma product capability was promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
