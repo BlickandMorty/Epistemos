@@ -127,6 +127,13 @@ Runtime policy:
   then rerun the full automated-check gate, then log/manual/distribution/
   repeated-zero-fail evidence. Only after that can a Gemma E2B product
   capability recheck be meaningful.
+- 2026-06-08 focused proof-root boundary: graph-filter command-card and
+  execution-artifact parser gates validate as metadata-only evidence on current
+  HEAD, but the actual focused Xcode proof-root run requires explicit owner
+  approval per
+  `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+  Do not treat command-card/parser PASS as executed Swift tests, full
+  automated-check PASS, release readiness, or Gemma product capability.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

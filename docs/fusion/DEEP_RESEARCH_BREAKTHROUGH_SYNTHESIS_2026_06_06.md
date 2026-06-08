@@ -25204,3 +25204,113 @@ local edits, or graph-filter visibility may no longer be the top failure after
 focused repairs. The next session must not rely on this pass alone; it must
 inspect current source diffs, run the focused proof-root checks, and regenerate
 the artifact before claiming progress.
+
+## Pass 202 - Graph-Filter Proof-Root Ready, Awaiting Owner Xcode Approval
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+separate "ready to run focused Xcode proof" from "the proof ran." The graph
+filter release-audit family now has current-HEAD metadata proof-root readiness:
+the command-card gate and execution-artifact parser gate both validate on
+HEAD `bb1bc167905cc3c78ce2cf82728daaca280a7617`, while the actual focused
+Xcode run remains explicitly owner-gated.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+still remains the guard-owned bottleneck. The next practical action is not a
+new model gate; it is owner-approved focused graph-filter Xcode execution using
+the existing proof-root command card and execution-artifact parser, followed by
+the full automated-check gate only if the focused proof is real and nonzero.
+
+Best near-term code unit:
+after explicit owner approval, run the focused proof-root sequence from
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`, capture
+the selected test-product digest, enumeration digest, focused `.xcresult`
+digest/status, nonzero executed-test count, pre/post source-status digests,
+RunEventLog, AnswerPacket, and rollback digest, then feed it through
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`.
+
+Biggest false-claim risk:
+mistaking metadata proof-root readiness for test evidence. The command card
+and parser prove the shape of a safe run; they do not run Xcode, do not execute
+Swift tests, do not clear `xcodebuild_test`, and do not make Gemma product
+capability real.
+
+Biggest missing source:
+the owner-approved focused proof-root execution artifact on current HEAD.
+
+Next research query: "After explicit owner approval, which focused selector
+from the command card produces nonzero graph-filter test execution with the
+least release-audit blast radius, and does that proof still preserve the full
+automated-check row as required?"
+
+### Current Evidence
+
+- `F-GraphFilterVisibilityFocusedProofRootCommandCard` validates on current
+  HEAD with three unarmed command templates and 32 rejected red fixtures.
+- `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate` validates on
+  current HEAD with 18 required execution-manifest fields and 29 rejected red
+  fixtures.
+- `F-GraphFilterVisibilityFocusedProofRootManifestGate` and
+  `F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate` exist as
+  metadata-only proof-root boundary witnesses.
+- Source/test inspection found no current dirty diff in the focused source and
+  test anchors:
+  `Epistemos/Graph/FilterEngine.swift`,
+  `Epistemos/Models/GraphTypes.swift`,
+  `Epistemos/Graph/GraphState.swift`,
+  `EpistemosTests/FilterEngineComprehensiveTests.swift`,
+  `EpistemosTests/ResourceExhaustionTests.swift`, and
+  `EpistemosTests/ConcurrencyEdgeCaseTests.swift`.
+- No focused Xcode command was run in this pass because the runbook requires
+  explicit owner approval before focused proof-root execution.
+
+### Architecture Fusion
+
+This is the bridge from research-to-build into actual build work:
+
+```text
+red automated-check ledger
+  -> graph-filter proof-root command card PASS
+  -> execution-artifact parser gate PASS
+  -> owner approval required
+  -> focused Xcode execution artifact
+  -> full automated-check rerun
+  -> log/manual/distribution/repeated-zero-fail evidence
+  -> Gemma E2B product capability recheck can matter
+```
+
+The point for large local models is direct: Gemma's runtime route should not
+become a product default until the app can safely run and prove focused product
+checks without stale selectors, zero-test laundering, raw-path leakage, or
+release-green overclaim.
+
+### Promotion Truth
+
+- T0 research/canon: advanced. The next owner-approved execution boundary is
+  now explicit.
+- T1/L1 architecture proof: metadata proof-root readiness validated; the
+  guard-owned automated-check cursor did not advance.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Focused Xcode command executed: no.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It prevents the architecture from oscillating between abstract research and
+unsafe product jumps. The next move is now crisp: get owner approval for one
+bounded focused proof-root Xcode run, prove it executed real tests, then use
+that evidence to attack the red automated-check ledger.
+
+### Why It May Be Wrong
+
+The focused run may still fail, enumerate zero tests, produce stale `.xcresult`
+evidence, reveal unrelated scheme pre-action drift, or show that the retained
+top family has changed. The parser gate is designed to reject those cases; the
+next session must treat a failed or zero-test focused run as evidence, not as
+permission to promote.

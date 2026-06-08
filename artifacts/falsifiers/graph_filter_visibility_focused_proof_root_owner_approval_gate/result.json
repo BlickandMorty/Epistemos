@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d643a412a9313d83a06f0f7cddfa386313b84862",
+  "commit_sha": "bb1bc167905cc3c78ce2cf82728daaca280a7617",
   "fixture_id": "graph_filter_visibility_focused_proof_root_owner_approval_gate_v1",
-  "timestamp_utc": "2026-06-08T06:22:42Z",
+  "timestamp_utc": "2026-06-08T21:54:43Z",
   "result_digest": "sha256:61e6a3cc1de3b580647d8496aa4575baadebffb94af85371308810d64188a7d1",
   "measurements": {
     "approval_phrase_scope_bound": {
