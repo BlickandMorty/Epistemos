@@ -177,6 +177,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaMainFamilyPolicySourceCard",
     "F-GemmaQATSmallLaneOwnerPathManifest",
     "F-GemmaQATByteKVAppEnvelopePreflight",
+    "F-GemmaQATRedactedFirstTokenProbe",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",
     "F-TurboVec-Eidos-CompressedIndex-Plan",

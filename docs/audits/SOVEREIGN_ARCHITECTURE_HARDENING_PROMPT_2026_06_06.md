@@ -886,8 +886,15 @@ ladder also has three metadata-only T1/L1 gates landed:
   `24104069965`, owner-approval/fresh-memory/redacted-first-token
   requirements, zero KV/runtime/app allocations, zero first-token attempts,
   zero model/runtime/provider bytes, and no L2/L3/user-facing Gemma claim.
+- `F-GemmaQATRedactedFirstTokenProbe`: four E2B/E4B GGUF/LiteRT redacted
+  first-token preflight cards, owner approval still pending, synthetic prompt
+  descriptor visible, prompt digest policy, future token digest policy,
+  one-token/context/batch bounds, 16 memory sample slots, cancellation,
+  teardown, rollback, RunEventLog, AnswerPacket, zero raw prompt/token/stdout/
+  stderr bytes, zero model/runtime/provider bytes, and no L2/L3/user-facing
+  Gemma claim.
 
-The current Gemma side-ladder next unit is `gemma_qat_redacted_first_token_probe`.
+The current Gemma side-ladder next unit is `gemma_qat_same_fixture_runtime_replay`.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned

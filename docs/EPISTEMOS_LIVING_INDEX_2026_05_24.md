@@ -5809,6 +5809,49 @@ Correct phrasing: "Gemma E2B/E4B byte/KV/app envelopes are L1
 metadata-proofed; no Gemma file or runtime has been opened, loaded, or
 promoted."
 
+### 2026-06-08 - F-GemmaQATRedactedFirstTokenProbe landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATRedactedFirstTokenProbe` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup lanes. It adds
+`agent_core/src/uas/gemma_qat_redacted_first_token_probe.rs`,
+`agent_core/src/bin/falsify_gemma_qat_redacted_first_token_probe.rs`,
+`Tools/falsifiers/f_gemma_qat_redacted_first_token_probe.sh`, the artifact
+`artifacts/falsifiers/gemma_qat_redacted_first_token_probe/result.json`, and
+the witness doc
+`docs/falsifiers/F-GemmaQATRedactedFirstTokenProbe_2026_06_08.md`.
+
+The witness accepts 4 redacted first-token preflight cards across E2B/E4B and
+GGUF/LiteRT lanes and rejects 48 red fixtures. It binds owner approval pending,
+fresh memory sample requirements, synthetic prompt descriptors, prompt digest
+policy, future token digest policy, one-token/context/batch bounds, 16 memory
+sample slots, cancellation, teardown, rollback, RunEventLog, AnswerPacket, lane
+caveats, and non-promotion. It captures zero raw prompt, raw user prompt, raw
+token, stdout, or stderr bytes; opens zero paths/files; executes zero commands;
+loads zero model/runtime/provider bytes; and does not claim quality or
+benchmark fit.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATRedactedFirstTokenProbe` advances the
+  Gemma E2B/E4B side-ladder to T1/L1 metadata-only first-token preflight
+  contract proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, canonicalized, opened, hashed, loaded, or user-surfaced, and no
+  first token, same-fixture replay, quality, Swift MLX loader, LiteRT embedding,
+  or live-main-model claim promoted.
+
+Correct phrasing: "Gemma E2B/E4B redacted first-token preflight is L1
+metadata-proofed; no Gemma prompt, token, model file, runtime, or product route
+has been opened, captured, loaded, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

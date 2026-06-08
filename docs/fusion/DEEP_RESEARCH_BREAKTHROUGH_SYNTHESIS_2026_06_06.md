@@ -23042,3 +23042,119 @@ Next research query: "What exact redacted prompt digest, command envelope,
 memory sampling cadence, cancellation timeout, teardown proof, RunEventLog, and
 AnswerPacket fields should F-GemmaQATRedactedFirstTokenProbe require for the
 first Gemma E2B/E4B local runtime token?"
+
+## Deep Research Pass 183 - Gemma Redacted First-Token Probe Contract Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 183 implements the answer to Pass 182's next query:
+`F-GemmaQATRedactedFirstTokenProbe` is now a metadata-only T1/L1 witness for
+the first safe Gemma runtime-entry contract. It does not run Gemma. It defines
+what a future owner-approved one-token probe must prove before any prompt,
+token, stdout, stderr, local path, command, model byte, or runtime byte can
+count.
+
+### Code And Artifact Anchors
+
+| Surface | Path |
+|---|---|
+| Primitive | `agent_core/src/uas/gemma_qat_redacted_first_token_probe.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gemma_qat_redacted_first_token_probe.rs` |
+| Falsifier script | `Tools/falsifiers/f_gemma_qat_redacted_first_token_probe.sh` |
+| Artifact | `artifacts/falsifiers/gemma_qat_redacted_first_token_probe/result.json` |
+| Witness doc | `docs/falsifiers/F-GemmaQATRedactedFirstTokenProbe_2026_06_08.md` |
+| Schema axes | `agent_core/src/falsifier_artifacts/axes.rs::GEMMA_QAT_REDACTED_FIRST_TOKEN_PROBE_AXES` |
+
+### Mechanism
+
+The witness consumes `F-GemmaQATByteKVAppEnvelopePreflight` and accepts four
+preflight cards:
+
+- E2B QAT GGUF / llama.cpp redacted first-token preflight.
+- E2B QAT LiteRT-LM redacted first-token preflight.
+- E4B QAT GGUF / llama.cpp redacted first-token preflight.
+- E4B QAT LiteRT-LM redacted first-token preflight.
+
+Each card binds owner approval pending, fresh memory sampling, a synthetic
+prompt descriptor, prompt digest policy, future first-token digest policy,
+one-token/context/batch bounds, four memory sample slots, cancellation,
+teardown, rollback, RunEventLog, AnswerPacket, lane caveat, and non-promotion.
+
+### What It Rejects
+
+The artifact rejects 48 red fixtures, including 12B insertion, duplicate
+model/lane pairs, bad runtime lane, owner-approval laundering, missing fresh
+memory sample, raw prompt/user prompt capture, raw token capture, first-token
+observation, first-token digest presence, stdout/stderr capture, token/context/
+batch overrun, missing or duplicate memory sample slots, missing cancellation/
+teardown/rollback/log/AnswerPacket, command arming, runtime probe allowance,
+model path open, local artifact verification, model/runtime/provider byte
+leaks, route mutation, hidden authority, hidden cloud fallback, MAS/L2/L3/
+product/live-70B/SSD-as-RAM/quality/benchmark-fit claims, bad proof refs,
+metadata overflow, bad upstream ref, and wrong next cursor.
+
+### Why This May Be A Breakthrough
+
+The risky moment for "Gemma as the main model family" is the first runtime
+token. Without a hard preflight, the app could accidentally capture user prompt
+text, raw token output, stdout/stderr, or route state and then overclaim a
+single token as a usable product model. This gate turns that moment into a
+contract: redacted, one-token, cancellable, rollback-bound, memory-sampled,
+RunEventLog-backed, AnswerPacket-visible, and non-promoting.
+
+### Why It May Be Wrong
+
+The witness is intentionally not runtime proof. It does not prove local
+artifact availability, path safety, tokenizer/chat-template correctness,
+LiteRT packaging, Swift MLX support, first-token success, quality, or memory
+fit. It also does not choose whether GGUF/llama.cpp, LiteRT-LM, or a later
+Swift MLX loader should become the winning lane.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma QAT preferred-family research remains active.
+- T1/L1 architecture proof: `F-GemmaQATRedactedFirstTokenProbe` is landed when
+  its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes read: zero.
+- File open/stat/hash/symlink attempts: zero.
+- Raw prompt/token/stdout/stderr bytes captured: zero.
+- Model/runtime/provider bytes loaded: zero.
+- First-token attempts: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+redacted first-token contracts as the privacy/stability hinge between metadata
+Gemma planning and real local runtime evidence.
+
+Safest next falsifier:
+`F-GemmaQATSameFixtureRuntimeReplay`, still owner-approved, same-fixture,
+redacted, cancellable, rollback-bound, RunEventLog-backed, AnswerPacket-visible,
+and non-promoting.
+
+Best near-term code unit:
+build the same-fixture replay envelope that forces E2B/E4B GGUF/LiteRT lanes to
+share source/search freshness, prompt digest, tokenizer/chat-template policy,
+tool schema, memory sample, cancellation, rollback, RunEventLog, AnswerPacket,
+and abstention before any lane comparison can matter.
+
+Biggest false-claim risk:
+treating the redacted first-token contract as if a first token happened, or as
+if Gemma is now the live app model.
+
+Biggest missing source:
+owner-approved local path manifests and fresh memory samples for E2B/E4B under
+the selected GGUF or LiteRT lane.
+
+Next research query: "What same-fixture replay packet should
+F-GemmaQATSameFixtureRuntimeReplay require so Gemma E2B/E4B GGUF and LiteRT
+lanes can be compared without raw prompt/token capture, hidden route authority,
+or product promotion?"

@@ -1,0 +1,405 @@
+{
+  "falsifier_id": "F-GemmaQATRedactedFirstTokenProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_redacted_first_token_probe.sh",
+  "command_digest": "sha256:25088d100152f8828405c8dde0e232a72e8b75ee13bfa4177145384d7be0f103",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "55bf61a15e4d9ddd556e6dbd76ebc1cc309f1f8b",
+  "fixture_id": "gemma_qat_redacted_first_token_probe_v1",
+  "timestamp_utc": "2026-06-08T15:40:17Z",
+  "result_digest": "sha256:285832f23d9adff30c039021b7f219b41ee12705922d4274dcbb65a80ccb2069",
+  "measurements": {
+    "accepted_redacted_first_token_preflight_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_teardown_rollback_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution_count_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "e2b_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "e4b_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "first_token_ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_memory_sample_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_redacted_first_token_address": {
+      "value": "gemma_qat_redacted_first_token_probe:2c853c2fcf1c945100603880cebc9344d8305fb2fe9398cd963b186c8b0ee8c6@1779212800000",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "memory_sample_slot_total_count": {
+      "value": 16,
+      "unit": "slots"
+    },
+    "memory_sampling_slots_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "value": 169728,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_same_fixture_runtime_replay",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "one_token_context_batch_bounds": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending": {
+      "value": true,
+      "unit": "bool"
+    },
+    "path_runtime_probe_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_digest_policy_bound_no_raw_prompt": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_prompt_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "redacted_first_token_card_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "run_event_log_answer_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_coverage_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdout_bytes_captured_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "synthetic_prompt_descriptor_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "token_digest_policy_bound_no_raw_token": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_byte_envelope_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_live_bytes_commands_and_outputs": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_redacted_first_token_preflight_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cancellation_teardown_rollback_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_execution_count_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "e2b_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "e4b_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "first_token_ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fresh_memory_sample_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_redacted_first_token_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "memory_sample_slot_total_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "slots"
+    },
+    "memory_sampling_slots_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "operator": "<=",
+      "value": 409600,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_same_fixture_runtime_replay",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "one_token_context_batch_bounds": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "path_runtime_probe_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_digest_policy_bound_no_raw_prompt": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_prompt_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 34,
+      "unit": "fixtures"
+    },
+    "redacted_first_token_card_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "run_event_log_answer_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_coverage_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stderr_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdout_bytes_captured_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "synthetic_prompt_descriptor_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "token_digest_policy_bound_no_raw_token": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_byte_envelope_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_live_bytes_commands_and_outputs": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_redacted_first_token_preflight_pack_present": true,
+    "cancellation_teardown_rollback_bound": true,
+    "command_execution_count_total": true,
+    "e2b_card_count": true,
+    "e4b_card_count": true,
+    "first_token_ledger_address_deterministic": true,
+    "fresh_memory_sample_bound": true,
+    "gemma_redacted_first_token_address": true,
+    "gguf_lane_count": true,
+    "litert_lane_count": true,
+    "memory_sample_slot_total_count": true,
+    "memory_sampling_slots_bound": true,
+    "metadata_bytes_read_total": true,
+    "model_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_mas_l2_l3_product_or_70b_claim": true,
+    "no_route_mutation_or_hidden_authority": true,
+    "one_token_context_batch_bounds": true,
+    "owner_approval_pending": true,
+    "path_runtime_probe_blocked": true,
+    "prompt_digest_policy_bound_no_raw_prompt": true,
+    "provider_calls_made_total": true,
+    "raw_prompt_bytes_captured_total": true,
+    "raw_token_bytes_captured_total": true,
+    "red_fixture_rejection_count": true,
+    "redacted_first_token_card_count": true,
+    "run_event_log_answer_packet_bound": true,
+    "runtime_bytes_loaded_total": true,
+    "runtime_lane_coverage_bound": true,
+    "stderr_bytes_captured_total": true,
+    "stdout_bytes_captured_total": true,
+    "synthetic_prompt_descriptor_visible": true,
+    "token_digest_policy_bound_no_raw_token": true,
+    "upstream_gemma_byte_envelope_pass": true,
+    "zero_live_bytes_commands_and_outputs": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATRedactedFirstTokenProbe: consumes the Gemma byte/KV/app envelope and defines the redacted, owner-approved, one-token first-token probe contract for E2B/E4B GGUF and LiteRT lanes. It binds prompt-template descriptors, prompt digest policy, future token digest policy, one-token/context/batch bounds, memory sampling, cancellation, teardown, rollback, RunEventLog, AnswerPacket, lane caveats, and non-promotion. It captures zero raw prompt/token/stdout/stderr bytes, executes zero commands, opens zero paths/files, loads zero model/runtime/provider bytes, and makes no MAS/L2/L3/user-facing, quality, benchmark-fit, or live-70B claim."
+}
