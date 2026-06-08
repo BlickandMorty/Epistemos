@@ -15916,3 +15916,112 @@ semantic drift.
 Next research query: "What exact graph-filter Swift Testing identifiers and
 test-product command sequence can prove folder default-off semantics without
 rerunning the whole suite first or producing another zero-test false pass?"
+
+## Pass 136 - Graph Filter Visibility Focused Repair Packet Landed (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-GraphFilterVisibilityFocusedRepairPacket` is now a real T1/L1 metadata-only
+witness, not only Pass 120 research-to-build canon.
+
+- UAS primitive:
+  `agent_core/src/uas/graph_filter_visibility_focused_repair_packet.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_focused_repair_packet.rs`
+- Shell witness:
+  `Tools/falsifiers/f_graph_filter_visibility_focused_repair_packet.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_focused_repair_packet/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityFocusedRepairPacket_2026_06_08.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only focused repair-packet evidence.
+- Upstream: `F-ReleaseAuditAutomatedChecksClosureMatrix`.
+- Family: `graph_filter_visibility`.
+- Retained issue count: 34.
+- Repair rank: 1.
+- Source refs: 4.
+- Test refs: 4.
+- Focused command templates: 4.
+- Repair anchors: 7.
+- Required invariants: 10.
+- Source truth markers: 7.
+- Source text bytes read: 28305.
+- Red fixtures rejected: 29.
+- Swift tests executed: 0.
+- Model/runtime/graph-runtime/command bytes: 0.
+- Next cursor: `graph_filter_visibility_focused_identifier_proof`.
+- Deterministic packet address:
+  `sha256:fe09fbc5253aaffaeaea88097245ca865a2d0eeea349e0e20cc9727516e06ed8`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product source: unchanged by this witness.
+- Swift focused identifier proof: not claimed.
+- Swift focused repair proof: not claimed.
+- Full `xcodebuild_test`: not rerun by this witness.
+- Runtime log evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+The repair packet protects the release floor needed for larger local models:
+graph visibility controls what evidence, notes, citations, and AnswerPacket
+surfaces users can inspect. A model lane cannot be called reliable if the graph
+surface confuses graph-visible types with default-active types or if folder
+opt-in semantics are accidentally overwritten by stale tests.
+
+The witness therefore freezes the intended source truth: `visibleCases` is the
+graph-visible set, `defaultActiveCases` is the default-active set and excludes
+folder, and folder remains explicit opt-in. Future focused Swift execution must
+prove exact identifiers and nonzero executed-test evidence before any repair or
+release-audit claim can move.
+
+Correct phrasing: "L1 graph-filter focused repair packet architecture proof
+advanced; product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this packet by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only focused repair mapping.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+turn retained release-audit families into source-truth-preserving repair
+packets before running costly Swift commands.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityFocusedIdentifierProof`, because filenames and zero-test
+Xcode runs must be rejected before focused repair proof can count.
+
+Best near-term code unit:
+bind exact Swift Testing identifiers for the graph-filter repair set, then run
+focused `test-without-building` or equivalent focused commands with nonzero
+executed-test evidence.
+
+Biggest false-claim risk:
+treating this packet as a test pass or changing product semantics to satisfy
+stale folder-default expectations.
+
+Biggest missing artifact:
+a focused identifier proof with valid Swift Testing identifiers, selected-test
+digest, nonzero executed-test count, result bundle digest, and no product
+promotion.
+
+Next research query: "Which exact Swift Testing identifiers for the graph
+filter repair set produce nonzero focused execution evidence while preserving
+folder default-off source truth?"

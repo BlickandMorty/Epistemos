@@ -4406,6 +4406,44 @@ Layer truth:
 Correct phrasing: "L1 release-audit closure-matrix architecture proof advanced;
 product capability / user surface did not."
 
+### 2026-06-08 - Graph Filter Visibility Focused Repair Packet Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`Tools/falsifiers/f_graph_filter_visibility_focused_repair_packet.sh` now emits
+and validates
+`artifacts/falsifiers/graph_filter_visibility_focused_repair_packet/result.json`
+as metadata-only T1/L1 focused repair-packet evidence. The witness consumes
+`F-ReleaseAuditAutomatedChecksClosureMatrix`, binds retained family
+`graph_filter_visibility`, retained issue count 34, repair rank 1, source truth
+from `GraphTypes.swift` and `FilterEngine.swift`, four test refs, four focused
+command templates, seven repair anchors, ten invariants, seven source-truth
+markers, 28305 source text bytes read, 29 rejected red fixtures, zero Swift
+tests executed, zero model/runtime/graph-runtime/command bytes, and
+deterministic packet address
+`sha256:fe09fbc5253aaffaeaea88097245ca865a2d0eeea349e0e20cc9727516e06ed8`.
+
+Layer truth:
+
+- L1 architecture cursor / side-card:
+  `F-GraphFilterVisibilityFocusedRepairPacket` advanced as metadata-only proof;
+  it points to `graph_filter_visibility_focused_identifier_proof`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`;
+  product capability did not promote.
+- L3 user-facing / release readiness: still red; valid Swift Testing
+  identifiers, nonzero focused execution evidence, full `xcodebuild_test`, all
+  five automated checks, log evidence, manual/runtime verification,
+  distribution/compliance, and repeated zero-fail audit evidence remain
+  required.
+
+Correct phrasing: "L1 graph-filter focused repair packet architecture proof
+advanced; product capability / user surface did not."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

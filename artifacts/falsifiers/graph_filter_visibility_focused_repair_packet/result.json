@@ -1,0 +1,807 @@
+{
+  "falsifier_id": "F-GraphFilterVisibilityFocusedRepairPacket",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_graph_filter_visibility_focused_repair_packet.sh",
+  "command_digest": "sha256:6b35f935814fbbf9735a8781b3d5e11154561e428073e451d603e46b125fc48d",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "56aeafea50971ea8f1aeff5e763ea887d429ac11",
+  "fixture_id": "graph_filter_visibility_focused_repair_packet_v1",
+  "timestamp_utc": "2026-06-08T03:36:01Z",
+  "result_digest": "sha256:695c5346673f17ae281b0a086c8a36d9b749a2f8a9b277d1a753bea134d04e6e",
+  "measurements": {
+    "command_bytes_executed_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_execution_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_default_active_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_init_default_active_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_do_not_replace_full_rerun": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_replace_full_rerun_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_default_on_source_truth_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_explicit_opt_in_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_opt_in_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_xcodebuild_pass_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_family_rank_one_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_focused_repair_packet_address": {
+      "value": "sha256:fe09fbc5253aaffaeaea88097245ca865a2d0eeea349e0e20cc9727516e06ed8",
+      "unit": "sha256"
+    },
+    "graph_filter_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "identifier_proof_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "identifier_proof_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_repair_anchor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "graph_filter_visibility_focused_identifier_proof",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_source_patch_required_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "repair_anchor_count": {
+      "value": 7,
+      "unit": "anchors"
+    },
+    "repair_anchors": {
+      "value": [
+        {
+          "anchor_id": "filter_engine_comprehensive_is_node_visible_for_all_types",
+          "test_ref": "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "repair_shape": "iterate defaultActiveCases, assert folder hidden by default, then opt in folder",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "filter_engine_comprehensive_all_seven_types_toggle",
+          "test_ref": "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "repair_shape": "normalize each visible type to visible before off/on symmetry checks",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "filter_engine_comprehensive_visibility_for_each_type",
+          "test_ref": "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "repair_shape": "use explicit Set(GraphNodeType.visibleCases) before per-type all-visible baseline",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "filter_engine_comprehensive_realistic_filtering",
+          "test_ref": "EpistemosTests/FilterEngineComprehensiveTests.swift",
+          "repair_shape": "explicitly opt in folder before expecting folder visible",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "resource_exhaustion_filter_all_types_active",
+          "test_ref": "EpistemosTests/ResourceExhaustionTests.swift",
+          "repair_shape": "separate default-active count from explicit all-visible baseline",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "concurrency_rapid_type_toggling",
+          "test_ref": "EpistemosTests/ConcurrencyEdgeCaseTests.swift",
+          "repair_shape": "use visibleCases for upper bound and defaultActiveCases for default count",
+          "product_source_patch_required": false
+        },
+        {
+          "anchor_id": "vault_lifecycle_reset",
+          "test_ref": "EpistemosTests/VaultLifecycleResetTests.swift",
+          "repair_shape": "verify resetForVaultLifecycle restores defaultActiveCases and clears filters",
+          "product_source_patch_required": false
+        }
+      ],
+      "unit": "anchors"
+    },
+    "repair_anchors_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "repair_invariant_count": {
+      "value": 10,
+      "unit": "invariants"
+    },
+    "repair_invariants_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reset_default_active_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_issue_count": {
+      "value": 34,
+      "unit": "issues"
+    },
+    "retained_issue_count_34_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "show_all_default_active_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_as_repair_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_not_repair_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_patch_not_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 4,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_text_bytes_read": {
+      "value": 28305,
+      "unit": "bytes"
+    },
+    "source_truth": {
+      "value": {
+        "visible_cases_excludes_block": true,
+        "default_active_cases_excludes_folder": true,
+        "filter_engine_initializes_default_active": true,
+        "is_filtered_compares_default_active": true,
+        "show_all_types_restores_default_active": true,
+        "reset_for_vault_lifecycle_restores_default_active": true,
+        "folder_opt_in_methods_present": true,
+        "source_text_bytes_read": 28305
+      },
+      "unit": "source_truth"
+    },
+    "source_truth_marker_count": {
+      "value": 7,
+      "unit": "markers"
+    },
+    "source_truth_visible_cases_not_default_active": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_test_execution_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_tests_executed_count": {
+      "value": 0,
+      "unit": "tests"
+    },
+    "swift_tests_not_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_ref_count": {
+      "value": 4,
+      "unit": "refs"
+    },
+    "test_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_closure_matrix_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_focused_repair_packet": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_cases_default_active_conflation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_repair_rank_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_graph_command_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "command_bytes_executed_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_execution_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_default_active_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filter_engine_init_default_active_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_command_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "commands"
+    },
+    "focused_commands_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_do_not_replace_full_rerun": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_replace_full_rerun_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_default_on_source_truth_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_explicit_opt_in_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "folder_opt_in_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_xcodebuild_pass_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_family_rank_one_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_focused_repair_packet_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "graph_filter_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "identifier_proof_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "identifier_proof_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_repair_anchor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_test_ref_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "graph_filter_visibility_focused_identifier_proof",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_source_patch_required_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "repair_anchor_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "anchors"
+    },
+    "repair_anchors": {
+      "operator": "present",
+      "value": true,
+      "unit": "anchors"
+    },
+    "repair_anchors_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "repair_invariant_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "invariants"
+    },
+    "repair_invariants_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "reset_default_active_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_issue_count": {
+      "operator": "==",
+      "value": 34,
+      "unit": "issues"
+    },
+    "retained_issue_count_34_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "show_all_default_active_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_as_repair_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_not_repair_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_patch_not_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_text_bytes_read": {
+      "operator": "==",
+      "value": 28305,
+      "unit": "bytes"
+    },
+    "source_truth": {
+      "operator": "present",
+      "value": true,
+      "unit": "source_truth"
+    },
+    "source_truth_marker_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "markers"
+    },
+    "source_truth_visible_cases_not_default_active": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_test_execution_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_tests_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "tests"
+    },
+    "swift_tests_not_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_ref_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "refs"
+    },
+    "test_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_closure_matrix_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_focused_repair_packet": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_cases_default_active_conflation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_repair_rank_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_graph_command_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "command_bytes_executed_total": true,
+    "command_execution_byte_leak_rejected": true,
+    "filter_engine_default_active_bound": true,
+    "filter_engine_init_default_active_missing_rejected": true,
+    "focused_command_count": true,
+    "focused_commands_bound": true,
+    "focused_repair_proof_claim_rejected": true,
+    "focused_repair_proof_not_claimed": true,
+    "focused_tests_do_not_replace_full_rerun": true,
+    "focused_tests_replace_full_rerun_rejected": true,
+    "folder_default_on_source_truth_rejected": true,
+    "folder_explicit_opt_in_bound": true,
+    "folder_opt_in_missing_rejected": true,
+    "full_xcodebuild_pass_claim_rejected": true,
+    "graph_filter_family_rank_one_bound": true,
+    "graph_filter_focused_repair_packet_address": true,
+    "graph_filter_route_authority_rejected": true,
+    "graph_runtime_byte_leak_rejected": true,
+    "graph_runtime_bytes_loaded_total": true,
+    "hidden_authority_rejected": true,
+    "identifier_proof_claim_rejected": true,
+    "identifier_proof_not_claimed": true,
+    "l2_l3_product_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_repair_anchor_rejected": true,
+    "missing_source_ref_rejected": true,
+    "missing_test_ref_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_route_mutation": true,
+    "no_l2_l3_t4_product_green": true,
+    "no_live_dense_70b_claim": true,
+    "product_source_patch_required_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "repair_anchor_count": true,
+    "repair_anchors": true,
+    "repair_anchors_bound": true,
+    "repair_invariant_count": true,
+    "repair_invariants_bound": true,
+    "reset_default_active_missing_rejected": true,
+    "retained_issue_count": true,
+    "retained_issue_count_34_bound": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "route_mutation_rejected": true,
+    "show_all_default_active_missing_rejected": true,
+    "source_card_as_repair_proof_rejected": true,
+    "source_card_not_repair_proof": true,
+    "source_patch_not_required": true,
+    "source_ref_count": true,
+    "source_refs_bound": true,
+    "source_text_bytes_read": true,
+    "source_truth": true,
+    "source_truth_marker_count": true,
+    "source_truth_visible_cases_not_default_active": true,
+    "swift_test_execution_claim_rejected": true,
+    "swift_tests_executed_count": true,
+    "swift_tests_not_executed": true,
+    "test_ref_count": true,
+    "test_refs_bound": true,
+    "upstream_closure_matrix_pass": true,
+    "upstream_fail_rejected": true,
+    "upstream_next_cursor_focused_repair_packet": true,
+    "visible_cases_default_active_conflation_rejected": true,
+    "wrong_family_rejected": true,
+    "wrong_repair_rank_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "zero_issue_count_rejected": true,
+    "zero_model_graph_command_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GraphFilterVisibilityFocusedRepairPacket: consumes the release-audit closure matrix, binds graph_filter_visibility issue count 34, records current GraphNodeType/FilterEngine source truth, maps seven focused repair anchors, requires valid focused test identifiers before proof, executes zero Swift tests, mutates zero product source, loads zero model/runtime bytes, and makes no L2/L3/T4/release/large-model claim."
+}
