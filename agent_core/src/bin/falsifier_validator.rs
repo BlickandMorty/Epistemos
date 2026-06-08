@@ -183,6 +183,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate",
     "F-GemmaQATOwnerApprovedRuntimeReplayProbe",
     "F-GemmaQATRuntimeReplayExecutionArtifactGate",
+    "F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",
     "F-TurboVec-Eidos-CompressedIndex-Plan",
