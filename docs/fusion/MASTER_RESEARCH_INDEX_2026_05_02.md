@@ -292,6 +292,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > predicate files, imports no eval framework, opens no fixture/model/cache/
 > runtime/index/provider bytes, arms no command, and does not advance L2/L3 or
 > user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 164 in the same file maps
+> `F-MinimalSyntheticFixtureMaterializationPlanV0`, the file-topology contract
+> required after deterministic verifier predicates and before any fixture bytes
+> are written. It defines the exact future
+> `fixtures/minimal_synthetic_fixture_pack_v0/` layout: manifest, README,
+> REVIEW, schemas, policies, no-runtime templates, six descriptors, six
+> payloads, six verifiers, one scorer, and privacy/provenance/benchmark-
+> contamination/promotion reviews. The plan binds RFC 8785 canonical JSON,
+> JSON Schema Draft 2020-12, relative file inventory digests, descriptor ->
+> payload -> verifier -> scorer -> template -> policy -> review joins, byte
+> ceilings, privacy boundaries, benchmark-copy denial, runtime-byte zero,
+> rollback, RunEventLog, AnswerPacket, and T0-only promotion boundaries. It
+> rejects missing/extra/duplicate files, path escape, symlinks, row/path/title/
+> mtime authority, raw private/provider/model/token text, PII, credentials,
+> hidden reasoning, copied benchmark prompts/oracles, orphan joins, hidden
+> judges, runtime bytes, route authority, and product/L1/L2/L3/T4/T5/large-
+> model promotion. It creates no fixture files, imports no eval framework,
+> opens no fixture/model/cache/runtime/index/provider bytes, arms no command,
+> and does not advance L2/L3 or user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
