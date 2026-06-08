@@ -6483,6 +6483,56 @@ Correct phrasing: "Gemma E2B RuntimeRouter admission packet requirements are
 L1 metadata-proofed; no admission, route mutation, System G execution, model
 load, or user-facing Gemma capability was activated."
 
+### 2026-06-08 - F-GemmaQATE2BSystemGDryRunRoutePacketGate landed
+
+North-star: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
+`F-GemmaQATE2BSystemGDryRunRoutePacketGate` is now implemented as a
+metadata-only T1/L1 Gemma side-ladder witness at
+`agent_core/src/uas/gemma_qat_e2b_system_g_dry_run_route_packet_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_system_g_dry_run_route_packet_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_system_g_dry_run_route_packet_gate.sh`,
+`artifacts/falsifiers/gemma_qat_e2b_system_g_dry_run_route_packet_gate/result.json`,
+and `docs/falsifiers/F-GemmaQATE2BSystemGDryRunRoutePacketGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BRuntimeRouterAdmissionPacketGate`, binds
+the selected E2B model id, source revision
+`1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+`gemma-4-E2B_q4_0-it.gguf`, expected file bytes `3349514112`, direct
+`/opt/homebrew/bin/llama-cli` lane, 29 route fields, 56 rejection policies,
+System G dry-run envelope, RuntimeRouter policy digest, route-priority
+snapshot, no-priority-mutation proof, budget vector, memory headroom, KV
+budget, latency budget, privacy class, MAS/Pro boundary, SCOPE-Rex verdict,
+SovereignGate verdict, fallback, abstention, cancellation, rollback,
+RunEventLog, AnswerPacket, visible caveats, settings/diagnostic visibility,
+route explanation, hidden-authority denial, and non-promotion. It rejects 70
+red fixtures, reads zero route packet bytes, performs zero dry-run or admission
+actions, mutates zero route priorities, mutates zero RuntimeRouter/System G/
+default-model state, arms zero commands, executes zero commands, performs zero
+runtime replay, captures zero raw prompt/output bytes, loads zero
+model/runtime/provider bytes, suppresses zero AnswerPackets, and makes no
+Gemma default-model, quality, benchmark, MAS, L2, L3, T4, live-70B, or
+SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaQATE2BSystemGDryRunRoutePacketGate` advances the Gemma E2B GGUF
+  side-ladder to T1/L1 metadata-only System G dry-run route packet contract
+  proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no route packet was read, no
+  System G dry-run ran, no RuntimeRouter/System G state changed, no local
+  Gemma model file was opened or hashed, no llama.cpp binary was inspected or
+  executed, no command was armed or run, no quality replay ran, and Gemma is
+  not the app default.
+
+Correct phrasing: "Gemma E2B System G dry-run route packet requirements are L1
+metadata-proofed; no dry-run route, route mutation, model load, or user-facing
+Gemma capability was activated."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

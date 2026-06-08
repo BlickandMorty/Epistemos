@@ -190,6 +190,22 @@ Runtime policy:
   Gemma-default, E4B/12B/70B bypass, quality, benchmark-fit, live dense 70B, or
   SSD-as-RAM claim. Next Gemma unit:
   `gemma_qat_e2b_system_g_dry_run_route_packet_gate`.
+- 2026-06-08 Gemma E2B System G dry-run route packet status:
+  `F-GemmaQATE2BSystemGDryRunRoutePacketGate` is landed as metadata-only
+  L1/T1. It consumes the RuntimeRouter admission packet gate and binds future
+  System G dry-run route evidence to 29 route fields, 56 rejection policies,
+  System G dry-run envelope, RuntimeRouter policy digest, route-priority
+  snapshot, no-priority-mutation proof, budgets, privacy, MAS/Pro boundary,
+  SCOPE-Rex, SovereignGate, fallback, abstention, cancellation, rollback,
+  RunEventLog, AnswerPacket, visible caveats, settings/diagnostic visibility,
+  route explanation, hidden-authority denial, and non-promotion. It rejects 70
+  red fixtures, reads zero route packet bytes, performs zero dry-run or
+  admission actions, mutates zero RuntimeRouter/System G/default-model state,
+  arms/executes zero commands, loads zero model/runtime/provider bytes,
+  captures zero raw prompt/output bytes, suppresses zero AnswerPackets, and
+  makes no MAS/L2/L3/T4/user-facing, Gemma-default, E4B/12B/70B bypass,
+  quality, benchmark-fit, live dense 70B, or SSD-as-RAM claim. Next Gemma unit:
+  `gemma_qat_e2b_route_answer_packet_visibility_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
