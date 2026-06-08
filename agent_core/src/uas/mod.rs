@@ -66,6 +66,7 @@ pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
 pub mod kivi_asymmetric_kv_stability_source_card;
 pub mod kv_cache_identity_salt_offload_proof_packet;
+pub mod kv_cache_lineage_deletion_fence;
 pub mod kv_offload_tier_budget_envelope;
 pub mod kv_runtime_source_card;
 pub mod kv_source_card_fork_and_daemon_boundary;
@@ -359,6 +360,13 @@ pub use kv_cache_identity_salt_offload_proof_packet::{
     KvCacheIdentitySource, KvOffloadTier, KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_CURSOR,
     KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_ID,
     KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_NEXT_CURSOR,
+};
+pub use kv_cache_lineage_deletion_fence::{
+    canonical_kv_cache_lineage_deletion_plan, KvCacheLineageBoundary,
+    KvCacheLineageByteLedger, KvCacheLineageDeletionError, KvCacheLineageDeletionFence,
+    KvCacheLineageDeletionMetrics, KvCacheLineageDeletionPlan, KvCacheLineageLifecycle,
+    KvCacheLineageProofRefs, KvCacheLineageSource, KV_CACHE_LINEAGE_DELETION_FENCE_CURSOR,
+    KV_CACHE_LINEAGE_DELETION_FENCE_ID, KV_CACHE_LINEAGE_DELETION_FENCE_NEXT_CURSOR,
 };
 pub use kv_offload_tier_budget_envelope::{
     canonical_kv_offload_tier_budget_plan, KvOffloadBudgetByteLedger,

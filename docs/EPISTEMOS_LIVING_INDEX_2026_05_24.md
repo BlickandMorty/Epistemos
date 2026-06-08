@@ -3565,6 +3565,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   bytes and makes no MAS, L2, L3, live dense 70B, SSD-as-RAM, model-fit,
   local-offload-runtime, or user-facing large-local-model claim. The next
   KV/cache side-ladder unit is `kv_cache_lineage_deletion_fence`.
+- Updated **2026-06-08** · `F-KVCacheLineageDeletionFence` is now landed as a
+  metadata-only T1/L1 witness at
+  `artifacts/falsifiers/kv_cache_lineage_deletion_fence/result.json`. It
+  consumes `F-KVOffloadTierBudgetEnvelope`, binds 6 vLLM/LMCache/llama.cpp/
+  prompt-cache/Agent Memory/body-read freshness source refs, 10 lineage
+  boundaries, 3 lifecycle states, rollback, RunEventLog, AnswerPacket,
+  abstention, tombstone, purge, visible deletion, deterministic lineage fence
+  address, and 63 rejected red fixtures. It opens zero KV/cache/model/runtime/
+  source-tree/benchmark/product/provider bytes and makes no MAS, L2, L3, live
+  dense 70B, SSD-as-RAM, cache-reuse-runtime, model-fit, cache-hit-quality, or
+  user-facing large-local-model claim. Cache state is now canonical only as a
+  lineage-checked, deletion-aware optimization hint until runtime and WRV proof
+  exist; the guard-owned product cursor remains the automated-checks probe.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,

@@ -4877,3 +4877,26 @@ large-model fit, and does not promote MAS, L2/L3, T4/T5, live dense 70B,
 SSD-as-RAM, or user-facing large-local-model capability. The next KV/cache
 side-ladder unit is `kv_cache_lineage_deletion_fence`; the guard-owned product
 cursor remains the automated-checks probe.
+
+### §28.21 KV cache lineage deletion fence (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 134.
+
+Pass 134 lands `F-KVCacheLineageDeletionFence` as a metadata-only T1/L1
+source-card witness. It consumes `F-KVOffloadTierBudgetEnvelope`, binds vLLM
+prefix-cache, LMCache local storage, llama.cpp slot prompt-cache, prompt-cache,
+Agent Memory, and Epistemos body-read freshness source refs, and requires
+source body, search result, prompt, tokenizer, chat template, tool schema, model
+revision, adapter, cache salt, and privacy scope boundaries before any
+persistent KV/cache state can influence RuntimeRouter/System G.
+
+Promotion truth: this fence opens zero KV/cache/model/runtime/source-tree/
+benchmark/product/provider bytes, proves no local cache reuse, proves no
+large-model fit, and does not promote MAS, L2/L3, T4/T5, live dense 70B,
+SSD-as-RAM, or user-facing large-local-model capability. Active, tombstoned,
+and purged lifecycle states are explicit, stale-source and identity-drift reuse
+fail closed, and cache hits remain optimization hints rather than quality,
+model-fit, or route-authority proof. The next side-ladder cursor is
+`same_fixture_runtime_replay_envelope`; the guard-owned product cursor remains
+the automated-checks probe.
