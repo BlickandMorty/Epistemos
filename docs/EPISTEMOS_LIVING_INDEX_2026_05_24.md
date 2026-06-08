@@ -145,6 +145,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`.
   It runs no Xcode, opens no test-result bytes, and does not advance
   L2/L3/product/release/large-model capability.
+- Updated **2026-06-08** · Deep Research Pass 144 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and added
+  `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The runbook binds the owner-approval
+  boundary for the future focused graph-filter proof-root Xcode run, names the
+  18-field execution manifest, keeps proof-root-scoped DerivedData and
+  source-status/pre-action accounting mandatory, and preserves full
+  automated-check-row requirements. It runs no Xcode, opens zero selected
+  test-product/`.xcresult`/model/runtime bytes, and does not advance
+  L1/L2/L3/product/release/large-model capability.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -4652,6 +4665,33 @@ Layer truth:
 
 Correct phrasing: "L1 graph-filter focused proof-root execution-artifact
 parser proof advanced; product capability / user surface did not."
+
+### 2026-06-08 - Focused Proof-Root Owner Approval Runbook Added
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md` now
+defines the approval boundary for the first focused graph-filter proof-root
+execution. It connects the landed command-card witness, the landed
+execution-artifact parser witness, and the current guard-owned bottleneck
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+Layer truth:
+
+- L1 architecture cursor: unchanged by this runbook; prior command/parser
+  witnesses remain metadata-only L1 evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Xcode command was run, no
+  selected test product or `.xcresult` was opened, and no product capability
+  promoted.
+
+Correct phrasing: "The focused proof-root owner-approval runbook was added;
+product capability / user surface did not advance."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 
