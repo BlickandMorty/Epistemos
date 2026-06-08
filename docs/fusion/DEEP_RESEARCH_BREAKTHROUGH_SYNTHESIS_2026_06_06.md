@@ -23880,3 +23880,100 @@ Next research query: "How should
 F-GemmaQATE2BOwnerPathManifestDigestGate bind owner-approved local E2B model
 paths, canonical-path digests, file digests, llama.cpp digests, and privacy
 redaction without opening model bytes or promoting Gemma?"
+
+## Pass 191 - Gemma E2B Owner Path Manifest Digest Gate
+
+### Synthesis
+
+`F-GemmaQATE2BOwnerPathManifestDigestGate` is now landed as the metadata-only
+T1/L1 digest contract for the future owner-approved local Gemma E2B GGUF path
+manifest.
+
+This pass keeps the Gemma-first ladder narrow and buildable. It does not ask
+the app to run Gemma yet. It forces the next runtime step to prove a path
+manifest by digest, not by raw path text, file access, or informal terminal
+state.
+
+### Architecture Fusion
+
+System G still sees Gemma as a preferred family with explicit route-card proof:
+
+```text
+Gemma4QAT/E2B/GGUF/llama.cpp
+  -> owner approval phrase digest
+  -> owner manifest digest
+  -> canonical path digest
+  -> model file digest and llama.cpp digest
+  -> first-token runtime artifact
+  -> same-fixture quality replay
+  -> RuntimeRouter/System G admission
+  -> WRV/release-audit surface
+```
+
+The landed gate binds:
+
+- model id: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- filename: `gemma-4-E2B_q4_0-it.gguf`
+- expected file bytes: `3349514112`
+- 26 digest fields
+- 37 rejection policies
+- 46 red fixtures
+
+It reads zero owner-manifest bytes, stores zero raw path bytes, stores zero
+canonical path bytes, performs zero canonicalization/stat/hash/symlink actions,
+opens zero files, arms zero commands, executes zero commands, and loads zero
+model/runtime/provider bytes.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first near-term model ladder stays explicit.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BOwnerPathManifestDigestGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner manifest bytes read: zero.
+- Raw/canonical path bytes stored: zero.
+- File stat/hash/open attempts: zero.
+- Commands armed/executed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It puts the privacy boundary exactly where it needs to be before local model
+files enter the story. The app can move toward real E2B execution without ever
+letting raw local paths become durable truth, without treating a path as file
+availability proof, and without giving System G a hidden model route.
+
+### Why It May Be Wrong
+
+It still does not prove the file exists, does not hash the file, does not prove
+llama.cpp is installed, does not prove memory fit, does not run inference, and
+does not prove quality. The next gate may still fail on missing local model
+files, binary/version drift, owner manifest mismatch, or hardware headroom.
+
+Best breakthrough candidate:
+digest-only owner path manifest as the privacy-preserving bridge from Gemma
+metadata into real local artifact verification.
+
+Safest next falsifier:
+`F-GemmaQATE2BModelFileAndLlamaCppDigestGate`.
+
+Best near-term code unit:
+bind the owner-approved model file digest and llama.cpp binary/version digest
+after explicit owner path approval, still without running inference.
+
+Biggest false-claim risk:
+saying the E2B file is present or Gemma is runnable from this digest contract.
+
+Biggest missing source:
+owner-provided path manifest and local llama.cpp binary/version digest.
+
+Next research query: "How should
+F-GemmaQATE2BModelFileAndLlamaCppDigestGate verify owner-approved model-file
+and llama.cpp digests while preserving path privacy, rollback, no command
+execution, and no Gemma default promotion?"

@@ -1,0 +1,445 @@
+{
+  "falsifier_id": "F-GemmaQATE2BOwnerPathManifestDigestGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_e2b_owner_path_manifest_digest_gate.sh",
+  "command_digest": "sha256:cfe89793ac79425c1c75fd0673a88e6c716607a05d3bd22c1efa7a2e6c6ed582",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "8af0d625dd40cf8aa43a67c0ee61d7268bd90919",
+  "fixture_id": "gemma_qat_e2b_owner_path_manifest_digest_gate_v1",
+  "timestamp_utc": "2026-06-08T18:39:39Z",
+  "result_digest": "sha256:667c7a6034f8303fcb6cb59a1492dec5ea87f59e63fb820b0efee9998a48ca49",
+  "measurements": {
+    "canonical_path_bytes_stored": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "e4b_12b_and_larger_models_blocked_until_repreflight": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_file_size_bytes": {
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "file_hash_attempts": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "file_stat_attempts": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_e2b_owner_path_manifest_digest_gate_address": {
+      "value": "gemma_qat_e2b_owner_path_manifest_digest_gate:61d7ffb3584a1f4364d880fc93d2e4e7d3fa29ab74da0cf793af38d870d98334@1779395000000",
+      "unit": "text"
+    },
+    "gemma_e2b_owner_path_manifest_digest_gate_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "llama_cpp_digest_deferred_to_next_gate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_digest_fields_and_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_file_opened_count": {
+      "value": 0,
+      "unit": "files"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_e2b_model_file_and_llama_cpp_digest_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_gemma_default_or_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_or_system_g_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "owner_approval_phrase_digest_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "owner_manifest_present_count": {
+      "value": 0,
+      "unit": "manifests"
+    },
+    "owner_manifest_required_but_absent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "path_canonicalization_attempts": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "path_file_and_symlink_actions_zero": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_and_canonical_path_bytes_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_path_bytes_stored": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 46,
+      "unit": "fixtures"
+    },
+    "required_manifest_digest_field_count": {
+      "value": 26,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "value": 37,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_e2b_source_file_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "symlink_resolution_attempts": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "upstream_first_token_review_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_review_gate_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_model_runtime_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "canonical_path_bytes_stored": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "e4b_12b_and_larger_models_blocked_until_repreflight": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_file_size_bytes": {
+      "operator": "==",
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "file_hash_attempts": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "file_stat_attempts": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_e2b_owner_path_manifest_digest_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_e2b_owner_path_manifest_digest_gate_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "llama_cpp_digest_deferred_to_next_gate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_digest_fields_and_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_file_opened_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_e2b_model_file_and_llama_cpp_digest_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_gemma_default_or_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_or_system_g_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "owner_approval_phrase_digest_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "owner_manifest_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "manifests"
+    },
+    "owner_manifest_required_but_absent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "path_canonicalization_attempts": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "path_file_and_symlink_actions_zero": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_and_canonical_path_bytes_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_path_bytes_stored": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "required_manifest_digest_field_count": {
+      "operator": "==",
+      "value": 26,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 37,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "selected_e2b_source_file_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "symlink_resolution_attempts": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "upstream_first_token_review_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_review_gate_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_model_runtime_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "canonical_path_bytes_stored": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "e4b_12b_and_larger_models_blocked_until_repreflight": true,
+    "expected_file_size_bytes": true,
+    "file_hash_attempts": true,
+    "file_stat_attempts": true,
+    "gemma_e2b_owner_path_manifest_digest_gate_address": true,
+    "gemma_e2b_owner_path_manifest_digest_gate_address_deterministic": true,
+    "hidden_authority_count": true,
+    "llama_cpp_digest_deferred_to_next_gate": true,
+    "manifest_digest_fields_and_rejection_policies_bound": true,
+    "model_bytes_loaded": true,
+    "model_file_opened_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_mas_l2_l3_product_gemma_default_or_70b_claim": true,
+    "no_route_or_system_g_mutation": true,
+    "owner_approval_granted_count": true,
+    "owner_approval_phrase_digest_required": true,
+    "owner_manifest_bytes_read": true,
+    "owner_manifest_present_count": true,
+    "owner_manifest_required_but_absent": true,
+    "path_canonicalization_attempts": true,
+    "path_file_and_symlink_actions_zero": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_and_canonical_path_bytes_denied": true,
+    "raw_path_bytes_stored": true,
+    "red_fixture_rejection_count": true,
+    "required_manifest_digest_field_count": true,
+    "required_rejection_policy_count": true,
+    "rollback_log_packet_abstention_bound": true,
+    "runtime_bytes_loaded": true,
+    "selected_e2b_source_file_bytes_bound": true,
+    "symlink_resolution_attempts": true,
+    "upstream_first_token_review_gate_pass": true,
+    "upstream_review_gate_ref_bound": true,
+    "zero_command_model_runtime_provider_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATE2BOwnerPathManifestDigestGate: consumes the E2B first-token artifact review gate and binds the future owner-approved local path manifest to digest-only proof. It locks the selected E2B GGUF model id, source revision, required filename, expected file bytes, owner approval phrase digest, owner manifest digest, canonical path digest, path policy, rollback, RunEventLog, AnswerPacket, and abstention while keeping owner approval pending. It stores zero raw path bytes, zero canonical path bytes, reads zero owner-manifest/model/runtime/provider bytes, performs zero canonicalization/stat/hash/symlink actions, arms zero commands, executes zero commands, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, E4B/12B bypass, live-70B, or SSD-as-RAM claim."
+}

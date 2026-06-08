@@ -947,9 +947,17 @@ ladder also has three metadata-only T1/L1 gates landed:
   runtime-artifact read, zero command/model/runtime/provider bytes or actions,
   no first-token quality laundering, no System G mutation, and no
   L2/L3/T4/user-facing Gemma claim.
+- `F-GemmaQATE2BOwnerPathManifestDigestGate`: future owner-approved local E2B
+  GGUF path-manifest digest contract, selected model id, source revision,
+  filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, owner
+  approval phrase digest, owner manifest digest, canonical path digest, path
+  policy, rollback, RunEventLog, AnswerPacket, abstention, zero owner-manifest
+  bytes, zero raw/canonical path bytes, zero canonicalization/stat/hash/symlink
+  actions, zero command/model/runtime/provider bytes or actions, no E4B/12B
+  bypass, and no L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_owner_path_manifest_digest_gate`.
+`gemma_qat_e2b_model_file_and_llama_cpp_digest_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,
