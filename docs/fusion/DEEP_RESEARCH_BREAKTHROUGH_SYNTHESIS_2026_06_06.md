@@ -15399,3 +15399,104 @@ Next research query: "What pinned llama.cpp source files implement slot
 prompt-cache save, restore, and erase, and what exact JSON/status/error shapes
 should Epistemos source-card before any owner-approved small-model runtime
 probe?"
+
+## Deep Research Pass 131 - Llama.cpp Slot Prompt Cache Command Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Pass 131 converts Pass 130 from T0 research-to-build canon into a landed
+metadata-only T1/L1 witness:
+`F-LlamaCppSlotPromptCacheCommandCard`.
+
+### Landed Artifact
+
+- Falsifier: `F-LlamaCppSlotPromptCacheCommandCard`
+- Command: `Tools/falsifiers/f_llama_cpp_slot_prompt_cache_command_card.sh`
+- Artifact:
+  `artifacts/falsifiers/llama_cpp_slot_prompt_cache_command_card/result.json`
+- Witness doc:
+  `docs/falsifiers/F-LlamaCppSlotPromptCacheCommandCard_2026_06_08.md`
+- Rust primitive:
+  `agent_core/src/uas/llama_cpp_slot_prompt_cache_command_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_llama_cpp_slot_prompt_cache_command_card.rs`
+- Deterministic command-card address:
+  `llama_cpp_slot_prompt_cache_command_card:3f3182846bc930483a6534cd708beef0482b625f66cf2a2f8d1dc5f1dd710a2b@1779158400000`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only command-card evidence.
+- Parent packet: `F-KVCacheIdentitySaltAndOffloadProofPacket`.
+- Endpoint actions bound: 3.
+- Expected response fields bound: 9.
+- Red fixtures rejected: 33.
+- Prompt-cache file bytes opened: 0.
+- Model bytes loaded: 0.
+- KV bytes loaded: 0.
+- Runtime bytes loaded: 0.
+- Provider calls made: 0.
+- Servers started: 0.
+- Commands armed: 0.
+- Next KV/cache side-ladder cursor:
+  `kivi_asymmetric_kv_stability_source_card`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Live prompt-cache reuse: not proven.
+- Local model runtime: not proven.
+- Large-model fit: not proven.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+Llama.cpp slot prompt-cache is now represented as an addressed, owner-approval
+pending, unarmed AppColdStore command card rather than a hidden runtime trick.
+Future GGUF/llama.cpp runtime work can cite the card only after cache identity,
+path scope, proof refs, deletion policy, rollback, RunEventLog, AnswerPacket,
+and abstention remain visible. It cannot use `n_saved`, `n_restored`, file
+presence, or cache restore metadata as quality, memory-fit, or user-facing
+runtime proof.
+
+Correct phrasing: "L1 command-card architecture proof advanced; product
+capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this card by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only command-card proof.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+explicit prompt-cache command cards as purgeable, salted, rollbackable
+AppColdStore cache artifacts.
+
+Safest next falsifier:
+`F-KIVIAsymmetricKVStabilitySourceCard`, if continuing the KV/cache side
+ladder; otherwise the guard-owned automated-checks probe.
+
+Best near-term code unit:
+source-card KIVI asymmetric KV stability requirements and reject any low-bit KV
+route that lacks softmax/quality/rollback/AnswerPacket proof.
+
+Biggest false-claim risk:
+calling a prompt-cache command card "cache reuse" or "large model local
+runtime" before a small owner-approved runtime probe proves restored-token
+usefulness without privacy leakage.
+
+Biggest missing artifact:
+an owner-approved small-model GGUF/llama.cpp cache harness with redacted
+save/restore/erase logs, cache-miss fallback, memory samples, teardown, and
+AnswerPacket evidence.
+
+Next research query: "What exact KIVI and asymmetric KV quantization stability
+fields should Epistemos source-card before any low-bit KV route can influence a
+large-local-model runtime lane?"

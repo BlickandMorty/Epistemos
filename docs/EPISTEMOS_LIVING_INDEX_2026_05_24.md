@@ -3525,6 +3525,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   prompt-cache/model/KV/runtime/provider/product bytes were opened, no L1
   witness landed for this card yet, L2 remains red, and L3 user-facing
   large-local-model/runtime capability is not green.
+- Updated **2026-06-08** · Pass 130 is now landed as
+  `F-LlamaCppSlotPromptCacheCommandCard`, a metadata-only T1/L1 witness at
+  `artifacts/falsifiers/llama_cpp_slot_prompt_cache_command_card/result.json`.
+  It consumes `F-KVCacheIdentitySaltAndOffloadProofPacket`, binds the official
+  llama.cpp slot prompt-cache save/restore/erase endpoint shape, 3 actions,
+  9 expected response fields, basename-only `.bin` filename policy,
+  `cache_root:artifacts/kv-cache/llama-cpp-slot` path scope, cache identity
+  digests, owner approval pending, an unarmed command envelope, denied server
+  start, rollback, RunEventLog, AnswerPacket, abstention, deletion policy, and
+  33 rejected red fixtures. It opens zero prompt-cache/model/KV/runtime/
+  provider/source-tree/product bytes and makes no MAS, L2, L3, live dense 70B,
+  SSD-as-RAM, cache-reuse, model-fit, or user-facing runtime claim. The next
+  KV/cache side-ladder unit is `kivi_asymmetric_kv_stability_source_card`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,

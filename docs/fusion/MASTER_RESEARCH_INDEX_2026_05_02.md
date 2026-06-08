@@ -4815,3 +4815,13 @@ promotion, hidden route authority, and product green claims. The next
 large-model side-ladder implementation remains
 `F-LlamaCppSlotPromptCacheCommandCard`; the guard-owned product cursor remains
 the automated-checks probe.
+
+Promotion update: this pass is now implemented by
+`F-LlamaCppSlotPromptCacheCommandCard`, a metadata-only T1/L1 Rust primitive
+and witness doc. It accepts the official llama.cpp slot prompt-cache
+save/restore/erase endpoint shape, binds 3 actions and 9 expected response
+fields, rejects 33 red fixtures, opens zero prompt-cache/model/KV/runtime/
+provider/source-tree/product bytes, starts no server, arms no command, and
+does not promote L2/L3/T4. The next KV/cache side-ladder unit is
+`kivi_asymmetric_kv_stability_source_card`; the guard-owned product cursor
+remains the automated-checks probe.
