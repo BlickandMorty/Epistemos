@@ -17072,3 +17072,87 @@ distribution/compliance review state.
 Next research query: "What exact runtime OSLog predicates, AnswerPacket ids,
 and visible product rows should manual small-model runtime verification bind
 without exposing raw prompts, raw answers, or hidden route authority?"
+
+---
+
+## Pass 147 - Search Freshness Source Card Landed
+
+### Executive Synthesis
+
+Pass 147 converts the prior search-index freshness blueprint into a landed
+metadata-only architecture witness:
+
+`F-SearchIndex-ReleaseBlockerCard`
+
+This is research-to-build, not research-only. The pass hardens the evidence
+supply line required before any larger local model, Gemma QAT lane, TurboVec
+compressed recall cache, KV/cache reuse path, Eidos prior, or local
+research/coding/writing route can cite search output as fresh evidence.
+
+### Architecture Fusion
+
+The source card binds:
+
+- upstream `F-BodyReadChecksum-ReleaseBlockerCard`
+- retained release-audit family `search_index`
+- issue count `1`
+- 13 source refs across SearchIndex, RRF, readable-block projection,
+  `VaultSyncService`, `QueryRuntime`, `QueryTypes`, graph state/store, focused
+  tests, and RRF design
+- 16 invariants for FTS triggers, rebuild/fallback, parser fallback, RRF k,
+  BM25/rank conventions, recency, vault scope, graph/evidence digests,
+  TurboVec allowlist-before-rank, Gemma QAT search freshness, KV/cache lineage
+  salts, rollback, RunEventLog, AnswerPacket, and no false green
+- 29 rejected red fixtures
+- zero DB/body/snippet/model/runtime/cache/provider bytes
+- deterministic address
+  `sha256:f2af00d85533c3ff52b6f39302873fe481008a3433a58ae184da86a6153ad842`
+- next side-card cursor `source_guard_drift_release_blocker_card`
+
+### Why This Helps Large Local Models
+
+Large local models fail quietly when retrieval is stale, rank math drifts, the
+graph/evidence projection is old, or cache reuse skips source lineage. A 12B
+QAT model, a future MoE/exotic-quant lane, or a cold-assembly 70B-class route
+cannot be judged fairly if the evidence packet is stale. This pass makes
+search freshness an addressable UAS proof requirement before the runtime
+ladder compares Gemma/QAT/GGUF/LiteRT/MLX/TurboVec/KV candidates.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: landed for search freshness source-card evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+same-fixture runtime replay that requires both body-read and search-index
+freshness refs before comparing Gemma QAT, GGUF, LiteRT, MLX, TurboVec, or
+KV/cache lanes.
+
+Safest next falsifier:
+`F-SourceGuardDrift-ReleaseBlockerCard`, because search freshness now depends
+on source identity staying stable between source-card evidence and future
+focused Swift/runtime tests.
+
+Best near-term code unit:
+bind source-guard drift as the next metadata-only release-blocker card, then
+resume the guard-owned automated-checks bottleneck.
+
+Biggest false-claim risk:
+calling search freshness source-card evidence a live Eidos/TurboVec route,
+Gemma QAT quality proof, product search fix, L2/L3 green, or large-model
+runtime capability.
+
+Biggest missing artifact:
+focused Swift search freshness evidence that proves the exact FTS/RRF/query
+runtime behavior under current app code without stale DB/index/body leakage.
+
+Next research query: "Which source-guard drift signatures can prove
+SearchIndex/RRF/ReadableBlocks/QueryRuntime code identity stayed stable between
+source-card evidence, focused Swift tests, and future same-fixture runtime
+replay?"

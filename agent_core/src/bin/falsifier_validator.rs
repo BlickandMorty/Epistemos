@@ -142,6 +142,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-UiShellSourceGuard-ReleaseBlockerCard",
     "F-RuntimePerformancePolicy-ReleaseBlockerCard",
     "F-BodyReadChecksum-ReleaseBlockerCard",
+    "F-SearchIndex-ReleaseBlockerCard",
     "F-AppColdStore-Layout",
     "F-SourceSignalGraph-Intake",
     "F-ModelInventory-ZeroByteCandidateCards",

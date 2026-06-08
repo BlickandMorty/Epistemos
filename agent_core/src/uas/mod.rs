@@ -101,6 +101,7 @@ pub mod residency_tier;
 pub mod runtime_performance_policy_release_blocker_card;
 pub mod runtime_plural_qat_lane_tournament_plan;
 pub mod same_fixture_runtime_replay_envelope;
+pub mod search_index_release_blocker_card;
 pub mod semantic_working_set;
 pub mod slab_arena_copy_count;
 pub mod small_compressed_model_live_harness_preflight;
@@ -554,6 +555,14 @@ pub use body_read_checksum_release_blocker_card::{
     BODY_READ_CHECKSUM_FAMILY_SOURCE_REF, BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_CURSOR,
     BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_ID, BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
     BODY_READ_CHECKSUM_UPSTREAM_REF,
+};
+pub use search_index_release_blocker_card::{
+    required_search_index_invariants, required_search_index_source_refs, SearchAuthorityPolicy,
+    SearchIndexError, SearchIndexMetrics, SearchIndexOrgan, SearchIndexReleaseBlockerCard,
+    SearchIndexReleaseBlockerWitness, SearchIndexStatus, SearchRankPolicy, SearchRetrievalLane,
+    SEARCH_INDEX_FAMILY_SOURCE_REF, SEARCH_INDEX_RELEASE_BLOCKER_CARD_CURSOR,
+    SEARCH_INDEX_RELEASE_BLOCKER_CARD_ID, SEARCH_INDEX_RELEASE_BLOCKER_CARD_NEXT_CURSOR,
+    SEARCH_INDEX_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,

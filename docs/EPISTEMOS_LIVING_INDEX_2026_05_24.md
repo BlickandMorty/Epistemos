@@ -897,20 +897,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   L2 remains `vault_research_route_with_packetized_mitigation`, and L3 product
   capability/release readiness remain red. Next source-card unit:
   `search_index_release_blocker_card`.
-- Updated **2026-06-07** · Deep Research Pass 110 is now folded into the
-  current-state large-model research-to-build path. It converts
-  `search_index_release_blocker_card` into a buildable
-  `F-SearchIndex-ReleaseBlockerCard` blueprint after the landed body-read
-  checksum witness: exact refs must bind `SearchIndexService`,
-  `RRFFusionQuery`, `ReadableBlocksIndex`, `ReadableBlocksProjector`,
-  `VaultSyncService`, `QueryRuntime`, `QueryTypes`, graph state/store, RRF
-  fusion tests, search-index fusion tests, and query-runtime tests. North-star
-  sentence: Epistemos is a local cognitive substrate where every meaningful
-  object has an address, plane, budget, status, and witness; MAS ships the
-  safe floor, Pro contains the gated/research/vault/omega ladder, and no claim
-  promotes without visible proof. This is T0 canon/build-plan only: search is
-  not Eidos route authority, no product code changed, no DB/user-body/model/
-  runtime/cache bytes were opened, L2 remains
+- Updated **2026-06-08** · Deep Research Pass 147 and
+  `F-SearchIndex-ReleaseBlockerCard` landed the Pass 110 blueprint as
+  metadata-only T1/L1 source-card evidence. The artifact at
+  `artifacts/falsifiers/search_index_release_blocker_card/result.json` binds
+  retained `search_index` issue count `1`, exact SearchIndex/RRF/readable-block/
+  query-runtime/graph refs, 16 invariants, 29 rejected red fixtures, zero DB/
+  user-body/snippet/model/runtime/cache/provider bytes, deterministic address
+  `sha256:f2af00d85533c3ff52b6f39302873fe481008a3433a58ae184da86a6153ad842`,
+  and next side-card cursor `source_guard_drift_release_blocker_card`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. Search is still evidence, not hidden
+  Eidos/TurboVec route authority; no product code changed, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3 product capability
   and release readiness remain red.
 - Updated **2026-06-07** · Deep Research Pass 106 is now folded into the
@@ -4764,6 +4764,43 @@ Layer truth:
   promoted.
 
 Correct phrasing: "L1 focused proof-root owner-approval gate advanced; product
+capability / user surface did not."
+
+### 2026-06-08 - Search Index Release Blocker Source Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-SearchIndex-ReleaseBlockerCard` now passes at
+`artifacts/falsifiers/search_index_release_blocker_card/result.json` as a
+metadata-only T1/L1 source-card witness. It consumes
+`F-BodyReadChecksum-ReleaseBlockerCard` and the release-audit family source
+card, binds retained `search_index` issue count `1`, records 13
+SearchIndex/RRF/readable-block/query-runtime/graph source refs, 16 invariants,
+6 focused commands, 29 rejected red fixtures, zero DB/body/snippet/model/cache/
+provider bytes, and deterministic search-index address
+`sha256:f2af00d85533c3ff52b6f39302873fe481008a3433a58ae184da86a6153ad842`.
+
+This is now the search freshness root for Eidos evidence, TurboVec compressed
+recall, Gemma QAT same-fixture replay, KV/cache lineage salts, local
+research/coding/writing routes, and future larger-local-model AnswerPacket
+evidence. It is not a runtime proof and it does not make search output live
+route authority.
+
+Layer truth:
+
+- L1 architecture side-card: `F-SearchIndex-ReleaseBlockerCard` advanced as
+  metadata-only source-card evidence; next side-card cursor is
+  `source_guard_drift_release_blocker_card`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no DB/index/body/model bytes
+  were opened, no runtime probe ran, and no product capability promoted.
+
+Correct phrasing: "L1 search-index freshness source-card advanced; product
 capability / user surface did not."
 
 ## 11 · Cross-references (only descend when you need specific detail)
