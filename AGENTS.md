@@ -247,6 +247,19 @@ Runtime policy:
   memory/timing evidence, and any RuntimeRouter/System G/default mutation.
   This is T0 research-to-build canon only: it does not prove Gemma works, does
   not run a model, and does not promote Gemma to live/default/L2/L3/T4.
+- 2026-06-08 Gemma direct harness receipt-map status:
+  `F-GemmaDirectHarnessArtifactReceiptMap` is now landed as metadata-only
+  L1/T1. It consumes the existing Gemma execution artifact, owner-approved
+  execution probe, and first-token review gate artifacts, binds 7 receipt
+  sections, 26 receipt fields, 37 rejection policies, process exit/
+  termination/timeout/cancel/teardown proof, redaction/timing/memory proof,
+  RunEventLog, AnswerPacket, rollback, abstention, non-promotion, and 45
+  red-fixture rejections. It reads zero receipt/model/runtime/provider bytes,
+  arms or executes zero commands, captures zero raw prompt/output/stdout/
+  stderr/token/path bytes, mutates zero RuntimeRouter/System G/settings/
+  default state, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
+  Next side-ladder unit:
+  `gemma_direct_harness_owner_approved_receipt_emitter_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

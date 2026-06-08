@@ -581,6 +581,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > exit/termination/timeout/cancel/teardown/redaction/memory/timing evidence,
 > route/default/settings mutation, and any L2/L3/product claim. T0 only; no
 > runtime/model bytes or product capability.
+> Current addendum: `F-GemmaDirectHarnessArtifactReceiptMap` is now landed as
+> metadata-only T1/L1 evidence. Artifact:
+> `artifacts/falsifiers/gemma_direct_harness_artifact_receipt_map/result.json`.
+> It consumes the existing Gemma execution artifact, owner-approved execution
+> probe, and first-token review gate artifacts, binds 7 receipt sections, 26
+> receipt fields, 37 rejection policies, process exit/termination/timeout/
+> cancel/teardown proof, redaction/timing/memory proof, RunEventLog,
+> AnswerPacket, rollback, abstention, non-promotion, and 45 red-fixture
+> rejections. It reads zero receipt/model/runtime/provider bytes, arms or
+> executes zero commands, captures zero raw prompt/output/stdout/stderr/token/
+> path bytes, mutates zero RuntimeRouter/System G/settings/default state, and
+> makes no Gemma live/default/L2/L3/T4/user-facing claim. Next side-ladder unit:
+> `gemma_direct_harness_owner_approved_receipt_emitter_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

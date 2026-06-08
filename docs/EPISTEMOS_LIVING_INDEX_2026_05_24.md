@@ -7102,6 +7102,49 @@ Layer truth:
 Correct phrasing: "Gemma now has a digest-only receipt map for future direct
 harness artifacts; Gemma is still not live, default, L2/L3, or user-facing."
 
+### 2026-06-08 - F-GemmaDirectHarnessArtifactReceiptMap landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessArtifactReceiptMap` is now implemented as a metadata-only
+T1/L1 primary witness:
+
+- Source: `agent_core/src/uas/gemma_direct_harness_artifact_receipt_map.rs`.
+- Falsifier: `agent_core/src/bin/falsify_gemma_direct_harness_artifact_receipt_map.rs`.
+- Script: `Tools/falsifiers/f_gemma_direct_harness_artifact_receipt_map.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessArtifactReceiptMap_2026_06_08.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_artifact_receipt_map/result.json`.
+
+The witness consumes the existing Gemma execution artifact, owner-approved
+execution probe, and first-token review gate artifacts, then binds 7 receipt
+sections, 26 receipt fields, 37 rejection policies, process exit/termination/
+timeout/cancel/teardown proof, redaction/timing/memory proof, RunEventLog,
+AnswerPacket, rollback, abstention, non-promotion, and 45 red-fixture
+rejections. It reads zero receipt/model/runtime/provider bytes, arms or
+executes zero commands, captures zero raw prompt/output/stdout/stderr/token/
+path bytes, mutates zero RuntimeRouter/System G/settings/default state, and
+does not make Gemma live/default/L2/L3/T4/user-facing.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaDirectHarnessArtifactReceiptMap` advances as
+  metadata-only T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, first token, or product
+  capability was activated.
+
+Correct phrasing: "Gemma now has a landed digest-only receipt-map witness for
+future direct harness artifacts; Gemma is still not live, default, L2/L3, or
+user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
