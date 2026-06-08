@@ -298,6 +298,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `test-without-building`, `.xctestrun`, `-only-testing`, and `.xcresult`.
 > This is T0 canon only: no Xcode command ran, no artifact parser was promoted,
 > and L1/L2/L3/product/release capability did not move.
+> `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate` is now landed
+> as a metadata-only T1/L1 execution-artifact parser witness at
+> `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_execution_artifact_gate/result.json`.
+> It consumes the focused proof-root command card, binds upstream address
+> `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`,
+> 18 required post-run manifest fields, 14 rejection policies, selected
+> product/result/source/pre-action/RunEventLog/AnswerPacket/rollback digest
+> requirements, 29 rejected red fixtures, zero selected test-product/
+> `.xcresult`/app/model/runtime/provider bytes, deterministic address
+> `sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> Guard-owned product cursor remains automated checks; L2 and L3 remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4911,6 +4924,29 @@ no app/model/runtime bytes, and does not promote L1/L2/L3/T4. The next buildable
 unit is a metadata-only execution-artifact gate that validates the future
 post-run manifest, selected product digest, `.xcresult` digest, nonzero
 executed-test count, source-status digests, and full-row-not-replaced status.
+
+### §28.17C Focused proof-root execution artifact gate (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 143.
+
+Pass 143 implements
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate` as the
+metadata-only parser contract for a future owner-approved focused proof-root
+Xcode run. It consumes `F-GraphFilterVisibilityFocusedProofRootCommandCard`,
+then requires the future post-run manifest to bind source commit, pre-build and
+post-test source-status digests, scheme pre-action ledger digest, selected
+test-product path/kind/digest/commit, enumeration JSON digest, focused selector
+digest, focused result-bundle path/digest/status, nonzero executed-test count,
+full automated-check row status, RunEventLog digest, AnswerPacket digest, and
+rollback digest.
+
+Promotion truth: this is implemented as a metadata-only T1/L1 Rust primitive
+and witness doc. It runs no Xcode command, arms no command, changes no product
+source, opens zero selected test-product or `.xcresult` bytes, loads no
+app/model/runtime/provider bytes, and does not promote L2/L3/T4. The next proof
+remains an owner-approved focused proof-root run, then the full
+`xcodebuild_test` row, then the five-row automated-check closure.
 
 ### §28.18 KV cache identity, salt, and offload proof packet (added 2026-06-07)
 

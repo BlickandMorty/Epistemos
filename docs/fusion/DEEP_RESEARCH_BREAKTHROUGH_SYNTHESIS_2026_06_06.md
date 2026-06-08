@@ -16696,3 +16696,102 @@ Next research query: "What exact manifest schema should
 F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate validate so an
 owner-approved Xcode proof-root run can be replayed without leaking raw
 user/model bytes or claiming release readiness?"
+
+## Pass 143 - Focused Proof-Root Execution Artifact Gate (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+The official-source proof-root plan is now fused into a buildable, landed L1/T1
+parser gate:
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`. This is not an
+Xcode run. It is the fail-closed contract a future owner-approved focused run
+must satisfy before any selected test product, focused `.xcresult`, or
+executed-test count can count as release/runtime evidence.
+
+### Architecture Fusion
+
+The gate consumes `F-GraphFilterVisibilityFocusedProofRootCommandCard` and
+requires the future post-run manifest to bind:
+
+- source commit
+- pre-build and post-test source-status digests
+- scheme pre-action ledger digest
+- selected test-product path, kind, digest, and commit
+- enumeration JSON digest
+- focused selector digest
+- focused result-bundle path, digest, and status
+- nonzero executed-test count
+- full automated-check row status
+- RunEventLog digest
+- AnswerPacket digest
+- rollback digest
+
+This turns the proof-root runner into a replayable evidence producer instead of
+terminal output. For large-local-model work, that matters because Gemma QAT,
+GGUF/LiteRT/MLX lanes, TurboVec/Eidos caches, KV reuse, and sparse residency
+must never inherit confidence from stale products, zero-test passes, or focused
+runs that silently replace full release checks.
+
+### Witness
+
+- Falsifier: `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_execution_artifact_gate/result.json`
+- Command:
+  `Tools/falsifiers/f_graph_filter_visibility_focused_proof_root_execution_artifact_gate.sh`
+- Upstream command-card address:
+  `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`
+- Execution-artifact gate address:
+  `sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`
+- Required manifest fields: `18`
+- Required rejection policies: `14`
+- Red fixtures rejected: `29/29`
+- Selected test-product bytes opened: `0`
+- Xcode result bytes opened: `0`
+- App/model/runtime/provider bytes or calls: `0`
+- Next cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: advanced for the parser gate only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Model/runtime bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+an owner-approved focused proof-root execution that produces a digest-bound
+manifest and `.xcresult`, then feeds full automated-check closure without
+laundering focused evidence into release green.
+
+Safest next falsifier:
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+because the guard-owned cursor still points there and product capability
+remains red.
+
+Best near-term code unit:
+convert the now-bound execution-artifact contract into an owner-approved run
+plan only when the user explicitly permits Xcode execution; otherwise continue
+guard-owned small-model runtime harness closure.
+
+Biggest false-claim risk:
+treating the parser gate as proof that Xcode ran, graph-filter failures were
+fixed, release checks passed, or large-local-model runtime became user-facing.
+
+Biggest missing artifact:
+the actual owner-approved focused proof-root run with selected product digest,
+focused `.xcresult` digest, nonzero executed-test count, source-status digests,
+scheme pre-action ledger, and full-row-not-replaced status.
+
+Next research query: "How should the owner-approved focused proof-root runner
+turn the execution-artifact parser contract into a replayable RunEventLog and
+AnswerPacket without replacing full release-audit automated checks?"
