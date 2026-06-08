@@ -18738,3 +18738,234 @@ before materialized fixture files or runtime replay.
 Next research query: "What exact JSON artifact schema should materialize the
 six `msfp_v0_*` fixtures while storing only synthetic or digest-redacted
 content and preserving no-runtime non-promotion?"
+
+## Pass 158 - Materialized Synthetic Fixture Artifact Schema
+
+### Executive Synthesis
+
+Pass 158 turns the Pass 157 digest contract into a file-level artifact schema
+for materializing the six `msfp_v0_*` fixtures later. The key move is to make
+fixture files behave like local evidence capsules rather than benchmark rows:
+each case has a stable UAS address, a canonical JSON payload, a per-case
+digest, fixture-lineage metadata, verifier/scorer digest refs, redaction
+policy, source allowlist, MAS/Pro caveat, rollback, RunEventLog template,
+AnswerPacket template, and an explicit no-runtime/non-promotion fence.
+
+```text
+FixtureVerifierScorerDigestSchema
+  -> MaterializedSyntheticFixtureArtifactSchema
+  -> manifest.json + cases/<fixture_id>.json + schemas/*.json
+  -> synthetic-only or digest-redacted payloads
+  -> no raw private text, no row order, no hidden judge, no runtime result
+```
+
+This is still T0 research-to-build canon. It creates no fixture directory, no
+fixture files, no eval run, no model output, and no cache/runtime bytes. It
+defines the schema a future metadata-only falsifier can validate before the
+small-model runtime harness or any Gemma/QAT/GGUF/LiteRT/MLX/TurboVec lane can
+consume fixture files.
+
+### Local Source Facts
+
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` already defines a
+  replay-safe `fixture_id`, optional `fixture_lineage`, canonical
+  `result_digest`, JSONL `manifest.json` separation, provider receipt
+  redaction, and replay-ineligibility rules for stale commands, short SHAs, raw
+  prompts, noncanonical digests, and missing lineage.
+- The same schema says object-artifact digests are computed over canonical JSON
+  after removing only `result_digest`, sorting object keys, preserving array
+  order, rejecting non-finite numbers, using LF line endings, and appending a
+  final LF.
+- `EpistemosTests/HarnessSubsystemTests.swift` gives the existing task-family
+  surface for research, terminal, note-synthesis, and coding objectives plus
+  EvaluationRunner verification shapes.
+- `CloudKnowledgeDistillationTests` uses synthetic note bodies and structured
+  outputs, which makes synthetic fixture content plausible without touching
+  Jojo's private vault text.
+- `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` remains the source for
+  MAS-allowed versus Pro-only tool caveats inside tool fixtures.
+
+### Current External Source Facts
+
+- RFC 8785 remains the canonical JSON reference for deterministic JSON bytes
+  before digesting. Source: `https://www.rfc-editor.org/rfc/rfc8785`
+- NIST FIPS 180-4 remains the SHA-256 reference. Source:
+  `https://csrc.nist.gov/pubs/fips/180-4/upd1/final`
+- JSON Schema 2020-12 remains the schema-validation target. Source:
+  `https://json-schema.org/specification`
+- NIST SP 800-218 SSDF frames integrity and provenance data as retained
+  release/support evidence; Epistemos uses that motif locally for fixture
+  lineage and digest-addressed replay, not as a compliance claim. Source:
+  `https://csrc.nist.gov/pubs/sp/800/218/final`
+
+### Candidate Falsifier
+
+`F-MaterializedSyntheticFixtureArtifactSchema`
+
+Required artifact layout:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/
+  manifest.json
+  cases/
+    msfp_v0_note_synthesis_001.json
+    msfp_v0_citation_research_001.json
+    msfp_v0_structured_tool_json_001.json
+    msfp_v0_cache_deletion_001.json
+    msfp_v0_abstention_001.json
+    msfp_v0_latency_small_lane_001.json
+  schemas/
+    fixture_verifier_scorer_digest_schema_v0.json
+    answer_packet_template_v0.json
+    run_event_log_template_v0.json
+```
+
+The future falsifier may validate this planned layout without creating files in
+the product bundle. Until owner-approved materialization exists, every path is
+a planned relative path only.
+
+Required `manifest.json` fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `artifact_schema_id` | `materialized_synthetic_fixture_artifact_schema_v0` | stable file-set contract |
+| `fixture_pack_id` | `minimal_synthetic_fixture_pack_v0` | binds Pass 156 |
+| `upstream_digest_schema_ref` | `F-FixtureVerifierScorerDigestSchema` | binds Pass 157 |
+| `schema_version` | versioned string | migration fence |
+| `canonicalization` | `rfc8785_jcs_json` or Epistemos canonical profile | digest stability |
+| `digest_algorithm` | `sha256` | portable digest baseline |
+| `case_count` | `6` | rejects missing/extra cases |
+| `case_ids` | exact six `msfp_v0_*` IDs | no row order authority |
+| `case_manifest_digest` | `sha256:<64 hex>` | binds case list |
+| `fixture_lineage` | generator id, seed, synthetic-only flag, source refs | replay and provenance |
+| `redaction_profile_digest` | required | no raw private text |
+| `public_benchmark_copy_denied` | true | no benchmark laundering |
+| `network_default_denied` | true | no hidden web/provider path |
+| `runtime_result_fields_denied` | true | no model-output/result laundering |
+| `metadata_only_non_promotion` | true | no L2/L3/T4 from files |
+
+Required per-case fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `fixture_id` | exact `msfp_v0_*` slug | stable address |
+| `fixture_family` | Pass 155 family enum | stable family |
+| `case_version` | version string | migration fence |
+| `input_payload_mode` | `inline_synthetic` or `digest_redacted_reference` | synthetic allowed, private text denied |
+| `synthetic_payload` | allowed only when `input_payload_mode=inline_synthetic` | v0 can be self-contained |
+| `redacted_input_digest` | required when `digest_redacted_reference` | private/user-derived future path |
+| `source_cards` | synthetic source IDs plus digests, no private raw text | citation/retrieval proof |
+| `expected_output_contract_ref` | schema/enum/diff/citation/cache/latency contract | deterministic verifier path |
+| `verifier_digest_ref` | Pass 157 verifier digest | no hidden verifier |
+| `scorer_digest_ref` | Pass 157 scorer digest | no hidden scorer |
+| `mas_pro_caveat_ref` | digest-bound caveat | no build-boundary leakage |
+| `rollback_ref` | digest-bound rollback | no route mutation without revert |
+| `run_event_log_template_ref` | digest-bound template | future proof surface |
+| `answer_packet_template_ref` | digest-bound template | visible proof surface |
+| `non_promotion_caveat` | explicit T0-only text | no false product claim |
+
+Required case payload rules:
+
+- `inline_synthetic` content may exist only for invented v0 synthetic notes,
+  source cards, tool requests, cache cards, abstention prompts, and latency
+  prompts.
+- `digest_redacted_reference` content may store only digest, byte count,
+  redaction profile, and synthetic-safe summary labels; no raw private note,
+  prompt, cache text, or model output.
+- Case order in `manifest.json` is display order only; identity is the set of
+  exact `fixture_id` values plus per-case digests.
+- Every JSON file must be UTF-8, no BOM, LF line endings, final LF, finite
+  numbers only, and canonicalizable under the selected profile.
+- No absolute paths, symlinks, dot segments, home-directory expansion, network
+  URLs as fixture authority, or file modification time authority.
+
+Required red fixtures:
+
+- `manifest.json` missing one of the six required cases or containing extras
+- duplicate case ID or case ID derived from array index
+- per-case digest mismatch after canonicalization
+- CRLF, missing final LF, BOM, non-UTF-8, non-finite number, or noncanonical
+  digest input
+- raw private note/prompt/cache/model-output text in any file
+- copied public benchmark prompt in any file
+- hidden model/cloud judge or provider fallback field
+- runtime result, latency measurement, token digest, cache hit, or model
+  quality score stored in fixture files
+- absolute path, `..`, symlink, mutable title, mtime, row number, or filesystem
+  order used as identity
+- citation fixture without source-card allowlist
+- cache-deletion fixture without tombstone policy
+- tool fixture referencing Pro-only tool under MAS caveat
+- AnswerPacket or RunEventLog template missing
+- materialized fixture existence promoted to L1/L2/L3/T4, product quality, or
+  user-facing large-local-model capability
+
+### Architecture Fusion
+
+| Epistemos organ | Materialized schema role | Build implication |
+|---|---|---|
+| UAS/OAS | per-case address and digest | fixture identity is stable and comparable |
+| ColdStore/AppColdStore | source-card and cache-card digest refs | future replay can test retrieval/cache truth |
+| ActiveAssembly | exact case set and working-set refs | smallest support set can be measured later |
+| Eidos | citation/source allowlist files | evidence ranking cannot fabricate sources |
+| SCOPE-Rex/SovereignGate | MAS/Pro caveats, hidden-judge denial | fixtures cannot smuggle tools or providers |
+| RuntimeRouter/System G | no runtime result fields plus later lane refs | route comparison starts only after proof |
+| RunEventLog | template refs | future runtime replay can log what happened |
+| AnswerPacket | template refs | future user-visible proof is pre-shaped |
+
+### Build Path
+
+1. Implement metadata-only `materialized_synthetic_fixture_artifact_schema`
+   UAS primitive.
+2. Implement `falsify_materialized_synthetic_fixture_artifact_schema`.
+3. Add invalid fixtures for missing cases, duplicate IDs, extra IDs, raw
+   private text, copied benchmark prompt, digest mismatch, CRLF/BOM,
+   noncanonical JSON, absolute path, symlink/dot segment, hidden judge,
+   provider fallback, runtime result fields, missing tombstone, missing
+   source allowlist, MAS/Pro leakage, and metadata promotion.
+4. Later, owner-approved materialization can create the planned directory and
+   run the same falsifier over real files before any small-lane runtime check.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-MaterializedSyntheticFixtureArtifactSchema`, because it makes the future
+fixture files themselves auditable before any local-model tournament begins.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-MaterializedSyntheticFixtureArtifactSchema` after
+`F-FixtureVerifierScorerDigestSchema`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`materialized_synthetic_fixture_artifact_schema` with red fixtures for missing
+case IDs, duplicate IDs, digest mismatch, raw private text, benchmark-copy
+laundering, hidden judge, provider fallback, runtime result fields, path
+authority, missing proof templates, and metadata-only promotion.
+
+Biggest false-claim risk:
+calling materialized fixture files a benchmark result. They are only the
+auditable inputs; quality requires owner-approved runtime replay, target
+verification, scorer execution, RunEventLog, AnswerPacket, and promotion gates.
+
+Biggest missing artifact:
+a metadata-only schema witness that proves the six planned fixture files can be
+materialized without privacy leakage, benchmark laundering, or route authority.
+
+Next research query: "What should the first no-runtime AnswerPacket and
+RunEventLog templates look like for the six materialized fixtures so future
+small-model replay can attach visible proof without exposing raw prompts or
+model output?"

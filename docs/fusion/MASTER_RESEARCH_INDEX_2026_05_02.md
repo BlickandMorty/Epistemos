@@ -195,6 +195,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > imports no eval framework, opens no fixture/model/cache/runtime bytes, arms
 > no command, and does not advance L2/L3 or user-facing large-local-model
 > claims.
+> Current addendum: Deep Research Pass 158 in the same file maps
+> `F-MaterializedSyntheticFixtureArtifactSchema`, the file-level schema for the
+> future v0 fixture directory. It defines a planned `manifest.json`, six exact
+> `cases/msfp_v0_*.json` files, and schema/template refs; every case must be
+> canonicalized, digest-bound, synthetic-only or digest-redacted,
+> fixture-lineage backed, MAS/Pro caveated, rollbackable, and linked to
+> RunEventLog/AnswerPacket templates. It rejects raw private text, copied public
+> benchmark prompts, row/path/title/mtime authority, hidden judges, provider
+> fallback, runtime result fields, stale cache proof, missing source/tombstone
+> policies, MAS/Pro leakage, and metadata-only promotion. It creates no fixture
+> files, imports no eval framework, opens no fixture/model/cache/runtime bytes,
+> arms no command, and does not advance L2/L3 or user-facing
+> large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
