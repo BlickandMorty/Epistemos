@@ -544,6 +544,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > llama.cpp, LiteRT-LM, LightEval, and lm-evaluation-harness are source-card
 > and replay-motif evidence only. T0 only; no runtime/model bytes or product
 > capability.
+> Current addendum: Deep Research Pass 210 defines
+> `F-GemmaReplayFixtureScorerPackLock` as the Gemma-first fixture/scorer pack
+> that E2B, E4B, 12B, official QAT, forked GGUF, LiteRT-LM, MLX, and future
+> clean-room runtime lanes must reuse before route admission. It locks seven
+> families: note synthesis, research citation grounding, coding patch planning,
+> writing style transform, structured tool JSON, refusal/privacy boundary, and
+> latency/abstention. Each family must bind descriptor digest, redacted prompt
+> digest, allowed-source digest, deterministic scorer digest, failure taxonomy,
+> AnswerPacket fields, RunEventLog join, rollback, MAS/Pro caveat, and no route
+> or default mutation. Inspect AI, LightEval, lm-evaluation-harness, and
+> llama.cpp grammar/JSON support are motifs only; Epistemos owns the
+> fixture/scorer proof. T0 only; no runtime/model bytes or product capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

@@ -7000,6 +7000,39 @@ Layer truth:
 Correct phrasing: "Fork deltas now have a same-fixture replay schema; Gemma is
 still not live, default, L2/L3, or user-facing."
 
+### 2026-06-08 — Gemma Replay Fixture And Scorer Pack Lock (Pass 210, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 210 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+`F-GemmaReplayFixtureScorerPackLock` as the Gemma-first fixture/scorer pack that
+E2B, E4B, 12B, official QAT, forked GGUF, LiteRT-LM, MLX, and future clean-room
+runtime lanes must reuse. The seven locked task families are note synthesis,
+research citation grounding, coding patch planning, writing style transform,
+structured tool JSON, refusal/privacy boundary, and latency/abstention. Each
+family must bind descriptor digest, redacted prompt digest, allowed-source
+digest, deterministic scorer digest, failure taxonomy, AnswerPacket fields,
+RunEventLog join, rollback, MAS/Pro caveat, and no route/default/settings
+mutation.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no fixture file, scorer
+  bundle, runtime, model bytes, route priority, settings row, first token, or
+  product capability was activated.
+
+Correct phrasing: "Gemma now has a locked fixture/scorer target for future
+runtime proof; Gemma is still not live, default, L2/L3, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

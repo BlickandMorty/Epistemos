@@ -213,6 +213,18 @@ Runtime policy:
   llama.cpp, LiteRT-LM, LightEval, and lm-evaluation-harness is source-card
   material only; it does not prove Epistemos Gemma runtime, L2/L3, or product
   capability.
+- 2026-06-08 Gemma replay fixture/scorer lock research: Deep Research Pass 210
+  defines `F-GemmaReplayFixtureScorerPackLock` as the Gemma-first fixture pack
+  that E2B, E4B, 12B, official QAT, forked GGUF, LiteRT-LM, MLX, and future
+  clean-room runtime lanes must reuse. The seven required task families are
+  note synthesis, research citation grounding, coding patch planning, writing
+  style transform, structured tool JSON, refusal/privacy boundary, and
+  latency/abstention. Each family must bind descriptor digest, redacted prompt
+  digest, allowed-source digest, deterministic scorer digest, failure taxonomy,
+  AnswerPacket fields, RunEventLog join, rollback, MAS/Pro caveat, and no
+  route/default/settings mutation. Inspect AI, LightEval, lm-evaluation-harness,
+  and llama.cpp grammar/JSON support are motifs only; Epistemos owns the
+  fixture/scorer proof.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
