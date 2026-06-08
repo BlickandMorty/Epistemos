@@ -388,6 +388,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > user-facing large-local-model capability remains red; no fixture files,
 > eval, model/runtime bytes, product route, release readiness, live dense 70B,
 > or SSD-as-RAM claim is promoted.
+> Current addendum: Deep Research Pass 169 in the same file refines
+> `F-SyntheticPayloadMaterializationGateV0` into the staging-only materializer
+> runbook for the next research-to-build unit. It requires exact owner phrase
+> `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, unique repo-relative staging
+> root, no final-root direct writes, unsafe path rejection, six synthetic
+> payload families, Draft 2020-12 schema validation, closed fields,
+> JCS-compatible canonical UTF-8 SHA-256 digest maps, privacy/provenance/
+> benchmark-contamination scans, rollback receipt, RunEventLog stub,
+> AnswerPacket stub, and non-promotion caveats. Local refs are the landed
+> synthetic materializer blueprint, HarnessLab/EvaluationRunner, trace
+> materializer, falsifier artifact digest discipline, schema README, and
+> SameFixtureRuntimeReplayEnvelope. External refs are RFC 8785, JSON Schema
+> 2020-12, Hugging Face Lighteval, EleutherAI lm-evaluation-harness,
+> Terminal-Bench, and BFCL. This is T0 canon/build pressure only: no fixture
+> files, eval, model/runtime bytes, commands, L1/L2/L3, release-ready, live
+> dense 70B, or SSD-as-RAM claim is promoted.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
