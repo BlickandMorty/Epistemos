@@ -1053,9 +1053,27 @@ ladder also has three metadata-only T1/L1 gates landed:
   commands, loads zero model/runtime/provider bytes, captures zero raw prompt/
   output bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-
   facing Gemma claim.
+- `F-GemmaQATE2BSettingsDiagnosticsWRVGate`: future E2B GGUF/llama.cpp
+  settings/diagnostics WRV contract, selected model id, source revision,
+  filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, direct
+  `/opt/homebrew/bin/llama-cli` lane, 34 WRV fields, 69 rejection policies,
+  settings source marker, diagnostics source marker, WRV test marker, manual
+  check plan, release-audit link, AnswerPacket template, settings and
+  diagnostics copy, visible model identity, runtime lane, route status, route
+  caveat, budget summary, memory headroom, KV budget, latency budget, privacy
+  class, MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback, abstention,
+  cancellation, rollback, RunEventLog, route explanation, rejected-candidate
+  summary, user-action requirement, no-toggle-unlock proof, and no-quality/
+  no-live-default/no-large-model-bypass/no-L2-L3-T4 claims. It rejects 87 red
+  fixtures, reads zero visibility packet bytes, emits zero user-visible
+  AnswerPackets, performs zero route visibility or admission actions, mutates
+  zero route priorities, RuntimeRouter/System G/default-model state, arms or
+  executes zero commands, loads zero model/runtime/provider bytes, captures
+  zero raw prompt/output bytes, suppresses zero AnswerPackets, and makes no
+  MAS/L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_settings_diagnostics_wrv_gate`.
+`gemma_qat_e2b_release_audit_surface_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,
