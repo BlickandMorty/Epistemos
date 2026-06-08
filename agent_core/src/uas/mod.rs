@@ -64,6 +64,7 @@ pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
+pub mod kivi_asymmetric_kv_stability_source_card;
 pub mod kv_cache_identity_salt_offload_proof_packet;
 pub mod kv_runtime_source_card;
 pub mod kv_source_card_fork_and_daemon_boundary;
@@ -341,6 +342,15 @@ pub use hardware_tiered_model_catalog_source_card::{
     HARDWARE_TIERED_MODEL_CATALOG_SOURCE_CARD_NEXT_CURSOR,
 };
 pub use kind::UasKind;
+pub use kivi_asymmetric_kv_stability_source_card::{
+    canonical_kivi_asymmetric_kv_stability_source_card,
+    KiviAsymmetricKvStabilityError, KiviAsymmetricKvStabilityMetrics,
+    KiviAsymmetricKvStabilitySourceCard, KiviAsymmetricKvStabilitySourceCardSet,
+    KiviBackendLane, KiviKvAxisPolicy, KiviStabilityByteLedger, KiviStabilityProofRefs,
+    KiviStabilityProofSlot, KIVI_ASYMMETRIC_KV_STABILITY_SOURCE_CARD_CURSOR,
+    KIVI_ASYMMETRIC_KV_STABILITY_SOURCE_CARD_ID,
+    KIVI_ASYMMETRIC_KV_STABILITY_SOURCE_CARD_NEXT_CURSOR,
+};
 pub use kv_cache_identity_salt_offload_proof_packet::{
     canonical_kv_cache_identity_cards, KvCacheIdentityByteLedger, KvCacheIdentityCard,
     KvCacheIdentityError, KvCacheIdentityMetrics, KvCacheIdentityProofRefs,

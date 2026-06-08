@@ -15500,3 +15500,107 @@ AnswerPacket evidence.
 Next research query: "What exact KIVI and asymmetric KV quantization stability
 fields should Epistemos source-card before any low-bit KV route can influence a
 large-local-model runtime lane?"
+
+## Deep Research Pass 132 - KIVI Asymmetric KV Stability Source Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Pass 132 converts the open KIVI/asymmetric KV question into a landed
+metadata-only T1/L1 witness:
+`F-KIVIAsymmetricKVStabilitySourceCard`.
+
+### Landed Artifact
+
+- Falsifier: `F-KIVIAsymmetricKVStabilitySourceCard`
+- Command: `Tools/falsifiers/f_kivi_asymmetric_kv_stability_source_card.sh`
+- Artifact:
+  `artifacts/falsifiers/kivi_asymmetric_kv_stability_source_card/result.json`
+- Witness doc:
+  `docs/falsifiers/F-KIVIAsymmetricKVStabilitySourceCard_2026_06_08.md`
+- Rust primitive:
+  `agent_core/src/uas/kivi_asymmetric_kv_stability_source_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_kivi_asymmetric_kv_stability_source_card.rs`
+- Deterministic KIVI stability address:
+  `kivi_asymmetric_kv_stability_source_card:716e314fc2ccbc2a81bd9d77d54ca926e9f2835eab704d604f9a924b6c677674@1779158400000`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only KIVI stability source-card evidence.
+- Upstream card: `F-LlamaCppSlotPromptCacheCommandCard`.
+- Primary sources bound:
+  `https://arxiv.org/abs/2402.02750` and
+  `https://github.com/jy-yuan/KIVI`.
+- Backend lanes bound: 4.
+- KV axis policies bound: key cache per-channel, value cache per-token.
+- Stability proof slots bound: 8.
+- Red fixtures rejected: 37.
+- KV bytes loaded: 0.
+- Model bytes loaded: 0.
+- Runtime bytes loaded: 0.
+- Source-tree bytes opened: 0.
+- Benchmark bytes opened: 0.
+- Product bytes opened: 0.
+- Next side-ladder cursor: `kv_offload_tier_budget_envelope`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Apple Silicon KIVI runtime: not proven.
+- Low-bit KV quality or memory fit: not proven.
+- Local large-model runtime: not proven.
+- Live dense 70B: rejected.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+KIVI is now represented as a Pro ResearchCandidate source-card requirement,
+not as a hidden cache route. Any future low-bit KV path must name separate K
+and V quantization axes, group size, residual fp policy, backend support,
+softmax/outlier/recall/reasoning/coding/latency stability evidence, rollback
+replay, RunEventLog, and AnswerPacket proof before RuntimeRouter/System G can
+cite it. The card preserves the breakthrough value of asymmetric KV
+compression while preventing paper/repo availability from becoming quality,
+fit, or user-facing proof.
+
+Correct phrasing: "L1 KIVI stability source-card architecture proof advanced;
+product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this card by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only source-card proof.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+asymmetric K/V-specific stability cards for low-bit KV, paired with later
+small-model replay and byte envelopes.
+
+Safest next falsifier:
+`F-KVOffloadTierBudgetEnvelope`, because KIVI/compressed KV cannot be trusted
+until KV/cache bytes, offload tiers, app headroom, cleanup, rollback, and
+AnswerPacket caveats are explicitly budgeted.
+
+Best near-term code unit:
+implement the KV offload tier budget envelope as a metadata-only card that
+consumes the KIVI source card and rejects local-disk/UMA/server-tier laundering.
+
+Biggest false-claim risk:
+calling 2-bit KV a working local large-model solution before backend support,
+held-out quality, memory, latency, and rollback replay exist.
+
+Biggest missing artifact:
+an owner-approved small-model KV/cache runtime probe with redacted prompts,
+memory samples, backend lane, quality replay, teardown, and AnswerPacket.
+
+Next research query: "What exact local KV/cache offload byte envelope should
+Epistemos require before llama.cpp, LMCache, KIVI, or future Metal KV paths can
+claim a safe large-local-model lane?"

@@ -4825,3 +4825,24 @@ provider/source-tree/product bytes, starts no server, arms no command, and
 does not promote L2/L3/T4. The next KV/cache side-ladder unit is
 `kivi_asymmetric_kv_stability_source_card`; the guard-owned product cursor
 remains the automated-checks probe.
+
+### §28.19 KIVI asymmetric KV stability source card (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 132.
+
+Pass 132 lands `F-KIVIAsymmetricKVStabilitySourceCard` as a metadata-only
+T1/L1 source-card witness. It consumes
+`F-LlamaCppSlotPromptCacheCommandCard`, binds the KIVI arXiv paper and GitHub
+repo, separates key-cache per-channel and value-cache per-token policy,
+requires 2-bit K/V policy, group size, residual length, fp16 residual policy,
+4 backend caveat lanes, 8 stability proof slots, clean-room rewrite posture,
+rollback, RunEventLog, AnswerPacket, abstention, deterministic address, and 37
+red fixtures.
+
+Promotion truth: this source-card opens zero model/KV/runtime/source-tree/
+benchmark/product bytes, proves no Apple Silicon runtime support, proves no
+low-bit KV quality or memory fit, and does not promote MAS, L2/L3, T4/T5,
+live dense 70B, SSD-as-RAM, or user-facing large-local-model capability. The
+next KV/cache side-ladder unit is `kv_offload_tier_budget_envelope`; the
+guard-owned product cursor remains the automated-checks probe.

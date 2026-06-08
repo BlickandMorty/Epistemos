@@ -3538,6 +3538,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   provider/source-tree/product bytes and makes no MAS, L2, L3, live dense 70B,
   SSD-as-RAM, cache-reuse, model-fit, or user-facing runtime claim. The next
   KV/cache side-ladder unit is `kivi_asymmetric_kv_stability_source_card`.
+- Updated **2026-06-08** · `F-KIVIAsymmetricKVStabilitySourceCard` is now
+  landed as a metadata-only T1/L1 witness at
+  `artifacts/falsifiers/kivi_asymmetric_kv_stability_source_card/result.json`.
+  It consumes `F-LlamaCppSlotPromptCacheCommandCard`, binds KIVI arXiv/GitHub
+  source refs, separates key-cache per-channel and value-cache per-token
+  policy, requires 2-bit K/V, group size, residual length, fp16 residual
+  policy, 4 backend caveat lanes, 8 stability proof slots, rollback,
+  RunEventLog, AnswerPacket, abstention, clean-room posture, deterministic
+  KIVI stability address, and 37 rejected red fixtures. It opens zero model/
+  KV/runtime/source-tree/benchmark/product bytes and makes no MAS, L2, L3,
+  live dense 70B, SSD-as-RAM, low-bit KV quality, memory-fit, Apple Silicon
+  runtime, or user-facing large-local-model claim. The next KV/cache
+  side-ladder unit is `kv_offload_tier_budget_envelope`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,

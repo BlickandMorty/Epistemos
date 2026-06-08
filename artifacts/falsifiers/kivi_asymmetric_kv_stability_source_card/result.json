@@ -1,0 +1,655 @@
+{
+  "falsifier_id": "F-KIVIAsymmetricKVStabilitySourceCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kivi_asymmetric_kv_stability_source_card.sh",
+  "command_digest": "sha256:8156b7c4ca8a9e794040ce6c231f48c429f2db1cb6016c771b05f1fd0e7562b3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "61ce59fcf89fc0e7514cb3327aea64f86a24487a",
+  "fixture_id": "kivi_asymmetric_kv_stability_source_card_v1",
+  "timestamp_utc": "2026-06-08T01:52:51Z",
+  "result_digest": "sha256:f5e8d314a52dc2e85135d0f3bd918a4fe3ec339f7ffa8f9cb37bca579f6a04f2",
+  "measurements": {
+    "asymmetric_kv_axis_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "backend_caveats_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "backend_lane_count": {
+      "value": 4,
+      "unit": "lanes"
+    },
+    "benchmark_bytes_opened_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "clean_room_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_import_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kivi_stability_address": {
+      "value": "kivi_asymmetric_kv_stability_source_card:716e314fc2ccbc2a81bd9d77d54ca926e9f2835eab704d604f9a924b6c677674@1779158400000",
+      "unit": "uas_address"
+    },
+    "kivi_stability_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_axis_policy_count": {
+      "value": 2,
+      "unit": "policies"
+    },
+    "kv_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "kv_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "low_bit_kv_live_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_claim_uncaveated_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_fit_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_apple_silicon_caveat_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_arxiv_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_backend_lane_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_github_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_group_size_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_key_per_channel_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_residual_fp_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_residual_length_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stability_proof_slot_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_value_per_token_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "kv_offload_tier_budget_envelope",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_import_route_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_logs_live_low_bit_or_quality_laundering": {
+      "value": true,
+      "unit": "bool"
+    },
+    "primary_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_slot_count": {
+      "value": 8,
+      "unit": "slots"
+    },
+    "quality_claim_uncaveated_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 37,
+      "unit": "fixtures"
+    },
+    "residual_fp_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_claims_caveated": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_opened_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stability_proof_slots_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "throughput_claim_uncaveated_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_llama_cpp_slot_card_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_k_bits_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_license_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_v_bits_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_or_opened_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "asymmetric_kv_axis_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "backend_caveats_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "backend_lane_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "lanes"
+    },
+    "benchmark_bytes_opened_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "clean_room_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "direct_import_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kivi_stability_address": {
+      "operator": "starts_with",
+      "value": "kivi_asymmetric_kv_stability_source_card:",
+      "unit": "uas_address"
+    },
+    "kivi_stability_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_axis_policy_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "policies"
+    },
+    "kv_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "kv_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "low_bit_kv_live_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_claim_uncaveated_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "memory_fit_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_apple_silicon_caveat_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_arxiv_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_backend_lane_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_github_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_group_size_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_key_per_channel_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_residual_fp_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_residual_length_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_stability_proof_slot_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_upstream_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_value_per_token_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "kv_offload_tier_budget_envelope",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_import_route_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_logs_live_low_bit_or_quality_laundering": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "primary_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_slot_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "slots"
+    },
+    "quality_claim_uncaveated_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 37,
+      "unit": "fixtures"
+    },
+    "residual_fp_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_claims_caveated": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_tree_bytes_opened_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stability_proof_slots_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "throughput_claim_uncaveated_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_llama_cpp_slot_card_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_k_bits_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_license_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_v_bits_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_or_opened_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "asymmetric_kv_axis_policy_bound": true,
+    "backend_caveats_bound": true,
+    "backend_lane_count": true,
+    "benchmark_bytes_opened_rejected": true,
+    "card_count": true,
+    "clean_room_missing_rejected": true,
+    "direct_import_rejected": true,
+    "hidden_cache_authority_rejected": true,
+    "kivi_stability_address": true,
+    "kivi_stability_address_deterministic": true,
+    "kv_axis_policy_count": true,
+    "kv_bytes_loaded": true,
+    "kv_bytes_loaded_rejected": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "low_bit_kv_live_claim_rejected": true,
+    "mas_promotion_rejected": true,
+    "memory_claim_uncaveated_rejected": true,
+    "memory_fit_claim_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_apple_silicon_caveat_rejected": true,
+    "missing_arxiv_source_rejected": true,
+    "missing_backend_lane_rejected": true,
+    "missing_github_source_rejected": true,
+    "missing_group_size_rejected": true,
+    "missing_key_per_channel_rejected": true,
+    "missing_residual_fp_rejected": true,
+    "missing_residual_length_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_stability_proof_slot_rejected": true,
+    "missing_upstream_rejected": true,
+    "missing_value_per_token_rejected": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_import_route_or_hidden_authority": true,
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": true,
+    "no_raw_logs_live_low_bit_or_quality_laundering": true,
+    "primary_sources_bound": true,
+    "proof_refs_bound": true,
+    "proof_slot_count": true,
+    "quality_claim_uncaveated_rejected": true,
+    "quality_green_claim_rejected": true,
+    "raw_prompt_log_rejected": true,
+    "raw_token_log_rejected": true,
+    "red_fixture_rejection_count": true,
+    "residual_fp_policy_bound": true,
+    "route_authority_rejected": true,
+    "runtime_bytes_loaded": true,
+    "runtime_bytes_loaded_rejected": true,
+    "source_claims_caveated": true,
+    "source_tree_bytes_opened_rejected": true,
+    "ssd_as_ram_claim_rejected": true,
+    "stability_proof_slots_bound": true,
+    "throughput_claim_uncaveated_rejected": true,
+    "upstream_llama_cpp_slot_card_passed": true,
+    "wrong_k_bits_rejected": true,
+    "wrong_license_rejected": true,
+    "wrong_v_bits_rejected": true,
+    "zero_loaded_or_opened_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-KIVIAsymmetricKVStabilitySourceCard as a metadata-only Pass 132 source-card witness. Scope is T1/L1 only: KIVI arXiv/GitHub source facts, key per-channel and value per-token 2-bit policy, residual full-precision policy, backend caveats, required stability proof slots, rollback, RunEventLog, AnswerPacket, abstention, zero model/KV/runtime/source/benchmark/product bytes, no import, no route authority, no L2/L3/product/live-70B/SSD-as-RAM claim."
+}
