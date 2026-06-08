@@ -469,6 +469,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > because the owner-approval runbook requires explicit approval before
 > proof-root execution. The guard-owned automated-check cursor remains red and
 > unchanged.
+> Current addendum: Deep Research Pass 203 resolves the model-addition speed
+> confusion as a canon rule: adding an honest gated Gemma settings row is a
+> fast visibility move, but making Gemma the main app model is a runtime
+> admission move. The first path must not mutate RuntimeRouter/System G or the
+> default model. The second path still requires owner path, selected bytes,
+> runtime digest, cancellation, rollback, RunEventLog, AnswerPacket,
+> release-audit evidence, and user-visible caveats. Current primary-source
+> evidence from Google Gemma 4 QAT, official Hugging Face E2B/12B QAT GGUF
+> cards, and llama.cpp supports the E2B GGUF/llama.cpp first lane, E4B repeat
+> lane, and 12B QAT GGUF/LiteRT Pro flagship target, but does not promote L2/L3
+> product capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

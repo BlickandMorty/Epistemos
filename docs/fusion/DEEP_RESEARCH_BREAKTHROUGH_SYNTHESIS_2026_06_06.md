@@ -25314,3 +25314,115 @@ evidence, reveal unrelated scheme pre-action drift, or show that the retained
 top family has changed. The parser gate is designed to reject those cases; the
 next session must treat a failed or zero-test focused run as evidence, not as
 permission to promote.
+
+## Pass 203 - Gemma Fast-Add Versus Main-Model Runtime Bridge
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+split the owner's "why did adding a model used to take minutes?" frustration
+into two explicit engineering motions. A model-picker row is a fast visible
+surface. A main local model is a RuntimeRouter/System G admitted capability
+with owner path, byte envelope, runtime digest, cancellation, rollback,
+RunEventLog, AnswerPacket, release-audit evidence, and user-visible caveats.
+Epistemos should allow the former only as an honest gated surface and require
+the latter before Gemma becomes the app's default or preferred live route.
+
+Safest next falsifier:
+`F-GemmaQATE2BReleaseAuditSurfaceGate`. It should consume
+`F-GemmaQATE2BSettingsDiagnosticsWRVGate` and bind the exact release-audit
+surface that the first Gemma E2B GGUF / llama.cpp lane must inherit:
+automated-check blocker ref, focused proof-root ref, log evidence, manual
+runtime evidence, distribution/compliance review, repeated-zero-fail release
+rule, rollback, RunEventLog, AnswerPacket, abstention, and explicit
+non-promotion. It must not run Xcode, open model bytes, arm llama.cpp, mutate
+settings/default-model state, or claim L2/L3/T4.
+
+Best near-term code unit:
+land the metadata-only `F-GemmaQATE2BReleaseAuditSurfaceGate`, then use it as
+the clean handoff between the Gemma side-ladder and the guard-owned red product
+cursor. After that, owner-approved focused graph-filter proof-root execution is
+the fastest route to actual Gemma product progress because it clears the
+release rail Gemma must reuse.
+
+Biggest false-claim risk:
+shipping a quick Gemma dropdown or "main model" copy before the product route
+has release-audit proof. That would feel fast, but it would create the exact
+kind of unstable capability claim the architecture was built to prevent.
+
+Biggest missing source:
+a current-HEAD, owner-approved, nonzero focused Xcode proof-root artifact and a
+current-HEAD full automated-check artifact whose `xcodebuild_test_passed` axis
+is true.
+
+Next research query: "Which exact fields in
+`F-GemmaQATE2BReleaseAuditSurfaceGate` let a future settings row be honest
+without becoming a route unlock, and which fields become mandatory before a
+Gemma E2B product capability recheck may run?"
+
+### Current External Evidence
+
+- Google says the 2026-06-05 Gemma 4 QAT release provides memory-efficient QAT
+  checkpoints and GGUF formats ready for llama.cpp workflows:
+  https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/
+- The official Hugging Face E2B QAT GGUF card lists Apache-2.0 licensing,
+  QAT/GGUF availability, E2B/E4B/12B/26B A4B/31B family shape, long-context
+  claims, coding/agentic claims, native system role, tool-use claims, and
+  llama.cpp-oriented examples:
+  https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
+- The official Hugging Face 12B QAT GGUF card frames 12B as a workstation /
+  consumer-GPU target with stronger coding, reasoning, and agentic benchmark
+  profile than E2B/E4B:
+  https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
+- llama.cpp remains the most buildable immediate Epistemos lane because the app
+  already has a local GGUF bridge and the upstream project supports direct
+  Hugging Face GGUF execution patterns:
+  https://github.com/ggml-org/llama.cpp
+
+### Architecture Fusion
+
+```text
+fast row
+  -> honest gated Gemma settings copy
+  -> no route/default mutation
+  -> release-audit surface gate
+  -> owner-approved focused product proof
+  -> full automated-check pass
+  -> Gemma E2B product capability recheck
+  -> E4B repeat
+  -> 12B QAT GGUF/LiteRT Pro flagship proof
+  -> larger/custom/70B cold assembly when Gemma-class lanes are exhausted
+```
+
+This preserves speed without lying. The UI can explain that Gemma is the
+preferred upcoming local-model family, but the route stays gated until the
+runtime and release evidence exists.
+
+### Promotion Truth
+
+- T0 research/canon: advanced. The "minutes to add a model" distinction is now
+  explicit canon.
+- T1/L1 architecture proof: unchanged in this pass; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Xcode command executed: no.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It stops the architecture from treating speed and safety as enemies. Epistemos
+can move fast by adding honest gated surfaces and metadata gates, while the
+actual live route advances only through the proof rail. That lets Gemma become
+the main family without importing the old failure mode of quick settings rows
+that do not survive runtime, logs, release audit, or rollback.
+
+### Why It May Be Wrong
+
+The split may still feel too slow if the owner only wants a visible model
+selector today. If that becomes the explicit priority, the correct move is an
+honest "coming soon / gated" Gemma row with no route mutation, not a fake live
+default. The live default still depends on the red release-audit automated
+checks and owner-approved runtime evidence.
