@@ -20879,3 +20879,255 @@ Next research query: "What minimal Rust materializer primitive can enforce the
 approval phrase, staging-root policy, canonical JSON digest map, privacy scans,
 rollback receipt, and no-runtime AnswerPacket while still writing zero payload
 files in its first metadata-only witness?"
+
+---
+
+## Deep Research Pass 167 - Synthetic Materializer Primitive Blueprint V0
+
+Candidate falsifier:
+`F-SyntheticMaterializerPrimitiveBlueprintV0`
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 166 defined the materialization gate. This pass turns that gate into a
+specific Rust implementation blueprint without editing product code or writing
+fixture files. The future primitive should be a normal UAS card/set/witness
+module, not a loose script:
+
+- `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs`
+- `agent_core/src/bin/falsify_synthetic_materializer_primitive_blueprint.rs`
+- `Tools/falsifiers/f_synthetic_materializer_primitive_blueprint.sh`
+- `artifacts/falsifiers/synthetic_materializer_primitive_blueprint/result.json`
+
+The first witness remains metadata-only: it validates the approval boundary,
+path policy, planned inventory, planned digest map, privacy scan vocabulary,
+rollback refs, RunEventLog refs, AnswerPacket refs, and zero-byte ledger. It
+must write zero payload files.
+
+### Local Code Fit
+
+The repo already has the implementation ingredients. The future primitive can
+follow the owner-approval and parser-contract shape in
+`agent_core/src/uas/graph_filter_visibility_focused_proof_root_owner_approval_gate.rs`
+and
+`agent_core/src/uas/graph_filter_visibility_focused_proof_root_execution_artifact_gate.rs`.
+It can reuse the metadata-only byte-boundary posture from
+`agent_core/src/uas/same_fixture_runtime_replay_envelope.rs` and the
+crash-safe persistence vocabulary from
+`agent_core/src/uas/turbovec_crash_safe_persistent_index_plan.rs`.
+
+Available dependencies already include:
+
+| Dependency | Current use for future primitive |
+| --- | --- |
+| `serde_json` | deterministic JSON parse/write boundary; future canonical writer must not rely on insertion-order maps |
+| `jsonschema` | Draft 2020-12 schema validation for generated documents |
+| `sha2` | SHA-256 digest map for canonical JSON bytes |
+| `tempfile` | staging/temp persistence motifs for later owner-approved writes |
+| `walkdir` | exact inventory walk with deny-by-default file discovery |
+
+### External Validation
+
+- Rust `Path` exposes path-component inspection, `starts_with`,
+  `strip_prefix`, `is_absolute`, `is_symlink`, and `symlink_metadata` helpers.
+  The future primitive should use explicit path checks and error-preserving
+  metadata calls rather than convenience methods that collapse errors.
+  Source: https://doc.rust-lang.org/std/path/struct.Path.html
+- Rust `OpenOptions` supports write-mode construction, including create modes
+  that should be specified explicitly in any later writer.
+  Source: https://doc.rust-lang.org/std/fs/struct.OpenOptions.html
+- `sha2` provides SHA-2 hash implementations and reexports the digest trait
+  pattern used for SHA-256 byte hashing.
+  Source: https://docs.rs/sha2/latest/sha2/
+- `serde_json::to_writer` serializes a value to an `io::Write`, but canonical
+  JSON still needs an Epistemos-owned deterministic writer or canonicalization
+  layer; default serialization alone must not be treated as RFC 8785 proof.
+  Source: https://docs.rs/serde_json/latest/serde_json/fn.to_writer.html
+
+### Primitive Shape
+
+The future module should define:
+
+```rust
+pub const SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID: &str =
+    "F-SyntheticMaterializerPrimitiveBlueprintV0";
+pub const SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_CURSOR: &str =
+    "synthetic_materializer_primitive_blueprint";
+pub const SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_NEXT_CURSOR: &str =
+    "synthetic_payload_materialization_gate_v0";
+
+pub enum SyntheticMaterializerStatus {
+    BlueprintOnly,
+    BlockedUntilOwnerApproval,
+}
+
+pub struct SyntheticMaterializerPathPolicy {
+    pub fixture_root: String,
+    pub staging_root: String,
+    pub final_root_write_allowed: bool,
+    pub absolute_paths_allowed: bool,
+    pub parent_segments_allowed: bool,
+    pub hidden_segments_allowed: bool,
+    pub symlinks_allowed: bool,
+    pub hardlinks_allowed: bool,
+    pub case_collision_denied: bool,
+}
+
+pub struct SyntheticMaterializerInventoryPlan {
+    pub planned_descriptor_count: u64,
+    pub planned_payload_count: u64,
+    pub planned_verifier_count: u64,
+    pub planned_scorer_count: u64,
+    pub planned_schema_count: u64,
+    pub planned_policy_count: u64,
+    pub planned_template_count: u64,
+    pub planned_review_count: u64,
+    pub exact_inventory_digest: String,
+}
+
+pub struct SyntheticMaterializerByteLedger {
+    pub payload_files_written: u64,
+    pub fixture_bytes_written: u64,
+    pub model_runtime_bytes_loaded: u64,
+    pub provider_calls_made: u64,
+    pub cache_index_bytes_opened: u64,
+    pub commands_armed: u64,
+}
+
+pub struct SyntheticMaterializerPrimitiveBlueprint {
+    pub approval_phrase: String,
+    pub owner_approval_required: bool,
+    pub owner_approval_present: bool,
+    pub schema_validation_required: bool,
+    pub canonical_digest_required: bool,
+    pub privacy_scan_required: bool,
+    pub provenance_scan_required: bool,
+    pub rollback_required: bool,
+    pub run_event_log_required: bool,
+    pub answer_packet_required: bool,
+    pub promotion_boundary: String,
+    pub path_policy: SyntheticMaterializerPathPolicy,
+    pub inventory_plan: SyntheticMaterializerInventoryPlan,
+    pub byte_ledger: SyntheticMaterializerByteLedger,
+    pub status: SyntheticMaterializerStatus,
+}
+```
+
+### Required Validation Rules
+
+`validate()` must fail if:
+
+- approval phrase differs from `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`
+- owner approval is present in the metadata-only witness
+- final-root writes are allowed
+- absolute paths, parent segments, hidden segments, symlinks, hardlinks, or
+  case collisions are allowed
+- planned payload count is not exactly six
+- any required schema/policy/template/review count is zero
+- digest strings lack a valid `sha256:` prefix and 64 hex characters
+- schema validation, canonical digest, privacy scan, provenance scan, rollback,
+  RunEventLog, or AnswerPacket is disabled
+- payload files, fixture bytes, runtime/model/provider/cache/index bytes, or
+  armed commands are nonzero
+- promotion boundary is anything except `T0_only`
+- any L1/L2/L3/T4/T5/product/release/live-70B/SSD-as-RAM claim appears
+
+### Red Fixture Matrix
+
+The future falsifier should include at least these synthetic invalid cases:
+
+| Red fixture | Expected rejection |
+| --- | --- |
+| `approval_present_in_blueprint` | metadata-only witness cannot smuggle approval |
+| `wrong_approval_phrase` | phrase must be exact |
+| `absolute_fixture_root` | no absolute materializer target |
+| `parent_segment_escape` | no `..` route |
+| `hidden_staging_segment_bypass` | only the declared staging root is allowed |
+| `symlink_allowed` | symlink policy must deny |
+| `hardlink_allowed` | hardlink policy must deny |
+| `case_collision_not_denied` | case-folding collision must be red |
+| `payload_count_not_six` | exact v0 inventory only |
+| `digest_prefix_missing` | no weak digest refs |
+| `schema_validation_disabled` | no schema-less materialization |
+| `canonical_digest_disabled` | no noncanonical hash map |
+| `privacy_scan_disabled` | no private-byte leak path |
+| `provenance_scan_disabled` | no source-contamination path |
+| `payload_files_written_nonzero` | first witness writes zero files |
+| `runtime_bytes_nonzero` | no runtime/model/provider/cache/index bytes |
+| `command_armed` | no command envelope |
+| `promotion_boundary_l2` | no capability laundering |
+
+### Architecture Fusion
+
+| Organ | Fusion |
+| --- | --- |
+| UAS/OAS | planned fixture files become addressable before bytes exist |
+| ColdStore/AppColdStore | fixture bytes remain cold inert replay support |
+| ActiveAssembly | future replay wakes a bounded synthetic support set only |
+| Eidos | evidence cards and distractors remain inspectable |
+| SCOPE-Rex/SovereignGate | owner approval and MAS/Pro caveats become admission fields |
+| RuntimeRouter/System G | cannot observe the fixture pack until later runtime proof |
+| RunEventLog | materializer refusal and future writes become visible events |
+| AnswerPacket | user/agent can see exactly what was refused or planned |
+
+### Why It Could Be A Breakthrough
+
+Large-model progress depends on trustworthy local replay. This primitive is the
+smallest buildable hinge between research and runtime: it turns synthetic
+fixture canon into a fail-closed Rust contract that can later support
+same-fixture comparisons across Qwen, Gemma QAT, GGUF/llama.cpp, LiteRT-LM,
+MLX, TurboVec retrieval, and cold-assembly lanes.
+
+### Why It Might Be Wrong
+
+The blueprint can still overfit to synthetic fixtures. It may validate file
+discipline without validating answer quality, loader stability, cancellation,
+thermal behavior, or user-facing WRV. It also assumes a future canonical JSON
+writer is implemented correctly; default serde serialization alone is not
+enough to prove RFC 8785/JCS semantics.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-SyntheticMaterializerPrimitiveBlueprintV0`, because it is the first exact
+code-shaped bridge from synthetic replay research to a future Rust witness that
+still writes zero files and refuses promotion.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement the metadata-only primitive
+blueprint before any owner-approved fixture materialization.
+
+Best near-term code unit:
+add `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs`, a
+`falsify_synthetic_materializer_primitive_blueprint` binary, shell wrapper,
+validator artifact wiring, and unit tests for the red fixture matrix above.
+
+Biggest false-claim risk:
+mistaking a blueprint witness for actual materialized fixtures or model replay.
+It only proves the future Rust contract shape.
+
+Biggest missing artifact:
+the metadata-only Rust witness and result JSON for
+`synthetic_materializer_primitive_blueprint`.
+
+Next research query: "What exact falsifier schema axes and architecture guard
+cursor entries should promote SyntheticMaterializerPrimitiveBlueprintV0 from T0
+canon to T1/L1 metadata proof without reopening product runtime claims?"

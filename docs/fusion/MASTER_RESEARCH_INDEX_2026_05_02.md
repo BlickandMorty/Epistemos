@@ -351,6 +351,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > promotion. It creates no fixture files, opens no fixture/model/cache/runtime/
 > index/provider bytes, arms no command, and does not advance L2/L3 or
 > user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 167 in the same file maps
+> `F-SyntheticMaterializerPrimitiveBlueprintV0`, the code-shaped side-ladder
+> candidate for a future metadata-only Rust primitive at
+> `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs` plus
+> falsifier binary, shell wrapper, validator artifact, and tests. It binds the
+> exact approval phrase, owner-approval absence, repo-root/staging path policy,
+> exact v0 inventory, planned canonical digest map, schema/canonical-digest/
+> privacy/provenance scan requirements, rollback, RunEventLog, AnswerPacket,
+> zero-byte ledger, and T0-only promotion boundary. It rejects approval
+> smuggling, wrong phrase, absolute paths, parent-segment escape, hidden segment
+> bypass, symlinks, hardlinks, case-collision gaps, non-six payload counts,
+> weak digest refs, disabled schema/canonical/privacy/provenance scans, payload
+> writes, runtime/model/provider/cache/index byte access, armed commands, and
+> product/L1/L2/L3/T4/T5/large-model promotion. It changes no product code,
+> creates no primitive or fixture files, opens no fixture/model/cache/runtime/
+> index/provider bytes, arms no command, and does not advance L2/L3 or
+> user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
