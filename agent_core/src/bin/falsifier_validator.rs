@@ -121,6 +121,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe",
     "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
     "F-ReleaseAuditFailureFamily-SourceCard",
+    "F-ReleaseAuditAutomatedChecksClosureMatrix",
     "F-ModelVaultCatalog-ReleaseBlockerCard",
     "F-AgentRoutePolicy-LargeModelNoHiddenAuthority",
     "F-VisibleOutputSanitization-ReleaseBlockerCard",

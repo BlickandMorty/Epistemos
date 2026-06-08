@@ -4369,6 +4369,43 @@ Full register: `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`. One-liners:
 
 **That's the entire protocol.** No further indirection.
 
+### 2026-06-08 — Release Audit Automated Checks Closure Matrix Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`Tools/falsifiers/f_release_audit_automated_checks_closure_matrix.sh` now emits
+and validates
+`artifacts/falsifiers/release_audit_automated_checks_closure_matrix/result.json`
+as metadata-only T1/L1 release-audit closure evidence. The witness consumes the
+retained RED automated-checks artifact plus `F-ReleaseAuditFailureFamily-
+SourceCard`, preserves five command rows, one failed command
+`xcodebuild_test`, four retained passing commands, 161 retained issues, 84
+unique retained failures, 15 failure-family rows, top family
+`graph_filter_visibility` with 34 issues, six closure steps, rollback,
+RunEventLog, AnswerPacket refs, 22 rejected red fixtures, zero
+model/runtime/product/provider/command bytes, and deterministic closure-matrix
+address `sha256:a0dd9fa5643ece03c1a70b0a312855eb01aeb259edd3931ca0ecde354fbd69cd`.
+
+Layer truth:
+
+- L1 architecture cursor / side-card: `F-ReleaseAuditAutomatedChecksClosureMatrix`
+  advanced as metadata-only proof; it points to
+  `graph_filter_visibility_focused_repair_packet`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`;
+  product capability did not promote.
+- L3 user-facing / release readiness: still red; focused repair, full
+  `xcodebuild_test`, all five automated checks, log evidence, manual/runtime,
+  distribution/compliance, and repeated zero-fail audit evidence remain
+  required.
+
+Correct phrasing: "L1 release-audit closure-matrix architecture proof advanced;
+product capability / user surface did not."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

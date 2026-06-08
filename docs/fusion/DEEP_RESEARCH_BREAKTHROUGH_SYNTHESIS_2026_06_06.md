@@ -15809,3 +15809,110 @@ Next research query: "How should the same-fixture runtime replay envelope bind
 cache lineage, source freshness, tool-schema identity, runtime lane, and
 redacted first-token evidence so GGUF/LiteRT/MLX comparisons become meaningful
 without promoting product capability too early?"
+
+## Pass 135 — Release Audit Automated Checks Closure Matrix Landed (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-ReleaseAuditAutomatedChecksClosureMatrix` is now a real T1/L1 metadata-only
+witness, not only Pass 119 research canon.
+
+- UAS primitive:
+  `agent_core/src/uas/release_audit_automated_checks_closure_matrix.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_release_audit_automated_checks_closure_matrix.rs`
+- Shell witness:
+  `Tools/falsifiers/f_release_audit_automated_checks_closure_matrix.sh`
+- Artifact:
+  `artifacts/falsifiers/release_audit_automated_checks_closure_matrix/result.json`
+- Witness doc:
+  `docs/falsifiers/F-ReleaseAuditAutomatedChecksClosureMatrix_2026_06_08.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only release-audit closure evidence.
+- Retained command rows: 5.
+- Failed command: `xcodebuild_test`.
+- Passing retained commands: 4.
+- Retained issues: 161.
+- Unique retained failures: 84.
+- Failure family rows: 15.
+- Top family: `graph_filter_visibility`.
+- Top family issues: 34.
+- Closure steps bound: 6.
+- Red fixtures rejected: 22.
+- Model/runtime/product/provider/command bytes: 0.
+- Next repair cursor: `graph_filter_visibility_focused_repair_packet`.
+- Deterministic closure matrix address:
+  `sha256:a0dd9fa5643ece03c1a70b0a312855eb01aeb259edd3931ca0ecde354fbd69cd`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Swift failures: not repaired by this witness.
+- Full `xcodebuild_test`: not rerun by this witness.
+- Runtime log evidence: not attempted.
+- Manual/runtime and distribution/compliance evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+This bridge is not a large-model mechanism by itself; it is the release floor
+that large-model mechanisms must stand on. The retained red Swift suite is now
+addressed as a closure matrix instead of opaque test noise: every family has a
+source-card row, the top family is ranked first, source cards cannot count as
+repair proof, focused tests cannot replace the full `xcodebuild_test` rerun,
+and no log/manual/distribution evidence may promote until the automated row
+closes.
+
+That matters for Gemma QAT, GGUF/LiteRT/MLX lane comparisons, TurboVec/Eidos
+retrieval, KV/cache replay, and future 70B-class cold assembly because all of
+them eventually need product evidence that is stable, release-audit honest,
+visible, rollbackable, and AnswerPacket-bound.
+
+Correct phrasing: "L1 release-audit closure-matrix architecture proof advanced;
+product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this bridge by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only closure ordering.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+turn release-audit red logs into typed closure matrices so runtime ambition is
+blocked by exact repair packets rather than vague "tests are failing" noise.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityFocusedRepairPacket`, because it is the top retained
+family and the new closure matrix points there.
+
+Best near-term code unit:
+bind graph-filter focused repair proof to exact Swift Testing identifiers and
+then execute the focused graph-filter repair checks before rerunning full
+`xcodebuild_test`.
+
+Biggest false-claim risk:
+treating the closure matrix, source cards, or focused tests as release/audit
+green before the full automated row and zero-fail release audit pass.
+
+Biggest missing artifact:
+a focused graph-filter execution artifact with nonzero executed-test evidence,
+valid Swift Testing identifiers, retained log refs, and no product-source
+semantic drift.
+
+Next research query: "What exact graph-filter Swift Testing identifiers and
+test-product command sequence can prove folder default-off semantics without
+rerunning the whole suite first or producing another zero-test false pass?"
