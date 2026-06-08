@@ -20661,3 +20661,221 @@ payload JSON files.
 Next research query: "What exact materialization gate should write the six
 payload JSON files from these values, verify their canonical digests, and still
 refuse runtime/model-quality promotion?"
+
+---
+
+## Deep Research Pass 166 - Synthetic Payload Materialization Gate V0
+
+Candidate falsifier:
+`F-SyntheticPayloadMaterializationGateV0`
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 165 gave the v0 fixture pack exact invented payload values. This pass
+defines the next safe build step: an owner-approved, metadata-first
+materialization gate that will eventually write the six payload JSON files,
+verify canonical digests, and still refuse runtime, model-quality, L2, L3, T4,
+T5, release, live dense 70B, live sparse 70B, or SSD-as-RAM promotion.
+
+This pass creates no fixture files and opens no fixture/model/runtime/cache/
+index/provider bytes. It is a T0 research-to-build contract for a future
+falsifier and code unit.
+
+### Why This Matters
+
+The large-model path needs small, deterministic replay artifacts before it can
+honestly compare local runtime lanes. A fixture pack with private leakage,
+benchmark contamination, hidden route authority, ambiguous file identity, or
+unstable digests would make every later runtime result suspect. The materializer
+therefore becomes a provenance and stability organ, not an eval shortcut.
+
+The breakthrough is not "six tiny JSON files." The breakthrough is a file-write
+discipline that can later scale to model cards, byte envelopes, local artifact
+manifests, cache snapshots, AnswerPacket refs, and rollback receipts without
+losing truth-layer separation.
+
+### External Validation
+
+- Rust `std::fs::rename` documents same-filesystem rename behavior, target
+  replacement, and platform differences. The future gate must not claim
+  cross-filesystem atomicity.
+  Source: https://doc.rust-lang.org/std/fs/fn.rename.html
+- Rust `File::sync_all` attempts to synchronize file content and metadata to
+  disk, while `sync_data` can avoid metadata when it is not required. The future
+  gate should explicitly choose durability semantics instead of relying on drop.
+  Source: https://doc.rust-lang.org/std/fs/struct.File.html#method.sync_all
+- `tempfile::NamedTempFile::persist` can atomically replace a target but warns
+  that file contents and containing directory are not synchronized by that call.
+  Source: https://docs.rs/tempfile/latest/tempfile/struct.NamedTempFile.html#method.persist
+- RFC 8785 defines JCS as a deterministic canonical JSON representation useful
+  for repeatable hashing/signing.
+  Source: https://www.rfc-editor.org/rfc/rfc8785
+- JSON Schema Draft 2020-12 is the schema target already used in the v0 fixture
+  plan.
+  Source: https://json-schema.org/draft/2020-12
+
+### Gate Contract
+
+`F-SyntheticPayloadMaterializationGateV0` should accept only an unarmed
+materialization plan with these inputs:
+
+| Input | Required evidence |
+| --- | --- |
+| fixture topology | `F-MinimalSyntheticFixtureMaterializationPlanV0` |
+| payload values | `F-FirstSyntheticPayloadValuesV0` |
+| verifier predicates | `F-DeterministicFixtureVerifierPredicateSetV0` |
+| redaction labels | `F-FixtureRedactionProfileSyntheticLabelSchema` |
+| no-runtime sidecars | Pass 159 RunEventLog/AnswerPacket templates |
+| source/tombstone/policy refs | descriptor joins from Pass 161-164 |
+
+Required status fields:
+
+| Field | Value |
+| --- | --- |
+| `owner_approval_required` | `true` |
+| `owner_approval_phrase` | `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0` |
+| `materialization_gate_status` | `planned_unarmed` |
+| `payload_files_planned` | `6` |
+| `payload_files_written` | `0` |
+| `runtime_model_provider_cache_index_bytes` | `0` |
+| `commands_armed` | `0` |
+| `promotion_boundary` | `T0_only` |
+| `metadata_only_non_promotion` | `true` |
+
+### Future Materialization Algorithm
+
+When the owner explicitly approves a later implementation, the materializer
+should run these phases in order:
+
+1. Verify branch/worktree truth: main only, one Epistemos worktree, clean scoped
+   materializer inputs, and no sibling-project edits.
+2. Require the exact approval phrase. A missing, partial, stale, or different
+   phrase fails closed.
+3. Canonicalize the root under
+   `fixtures/minimal_synthetic_fixture_pack_v0/`; reject absolute paths,
+   parent segments, hidden path segments, symlinks, hardlink surprises,
+   non-repo roots, and case-folding collisions.
+4. Create a nonce staging directory under a repo-owned staging root, for
+   example `fixtures/.staging/minimal_synthetic_fixture_pack_v0.<nonce>/`.
+5. Generate canonical JSON only from Pass 165 values. Do not read user notes,
+   vault data, model outputs, provider payloads, benchmark prompts, cache
+   values, or runtime logs.
+6. Validate every JSON document against the planned JSON Schema Draft 2020-12
+   schema before hashing.
+7. Produce RFC 8785/JCS-style canonical UTF-8 bytes and SHA-256 digests for
+   each file and for the inventory manifest.
+8. Enforce exact inventory: six descriptors, six payloads, six verifiers, one
+   scorer, schemas, policies, templates, reviews, and manifest. No extra,
+   missing, duplicate, or generated-outside-list file may pass.
+9. Run privacy/provenance scanners before promotion from staging: deny PII,
+   credentials, local paths, note titles, raw private bytes, copied benchmark
+   text, provider/model-output text, hidden chain-of-thought, model-speed
+   claims, live 70B claims, SSD-as-RAM claims, or route-win claims.
+10. Verify joins: descriptor -> payload -> verifier -> scorer -> templates ->
+    policies -> reviews -> RunEventLog/AnswerPacket sidecar refs.
+11. Sync staged file contents and required metadata according to the chosen
+    platform path. Do not rely on file drop for durability evidence.
+12. Promote from staging to the final fixture root only after all checks pass.
+    The future implementation may use same-filesystem rename/persist semantics,
+    but must record platform caveats and must not claim stronger durability than
+    the underlying operation proves.
+13. If any red fixture fires, delete or quarantine staging, leave the final
+    root unchanged, emit a rollback receipt, and write a no-runtime AnswerPacket
+    that says materialization was refused.
+
+### Red Fixture Set
+
+The future falsifier should reject:
+
+- no owner approval, wrong approval phrase, stale approval phrase, or approval
+  carried through an untrusted file
+- path escape, absolute path, `..`, hidden segment, symlink, unexpected hardlink,
+  non-repo root, case-folding collision, or existing final-root overwrite
+- direct write to the final fixture root without staging
+- schema-invalid JSON, non-canonical JSON, digest drift, duplicate keys, extra
+  whitespace in canonical bytes, missing manifest, or manifest not matching
+  actual inventory
+- extra, missing, duplicate, or orphan descriptor/payload/verifier/scorer/
+  template/policy/review files
+- copied benchmark prompt, copied benchmark oracle, raw user/vault text, raw
+  provider payload, model output text, token text, PII, credentials, local path,
+  note title, hidden chain-of-thought, or private-byte count
+- MAS-denied Pro tool allowed in a MAS case
+- cache tombstone omitted, deleted cache text resurrected, or tombstone bypass
+- runtime/model/provider/cache/index bytes opened or command envelope armed
+- RunEventLog or AnswerPacket claiming runtime, model quality, route admission,
+  L1 cursor advance, L2 capability, L3 WRV, T4/T5 green, release readiness,
+  live dense 70B, live sparse 70B, or SSD-as-RAM
+
+### Epistemos Fusion
+
+| Organ | Fusion |
+| --- | --- |
+| UAS/OAS | every future fixture file gets a stable address and digest before use |
+| ColdStore/AppColdStore | payloads are cold inert support material, not live route state |
+| ActiveAssembly | later runtime replay may wake only the minimal fixture support set |
+| Eidos | evidence allowlists and distractors become inspectable, not hidden priors |
+| SCOPE-Rex/SovereignGate | MAS/Pro caveats and owner approval are admission gates |
+| RuntimeRouter/System G | remains uninfluenced until runtime proofs exist |
+| RunEventLog | records materialization/refusal without raw private bytes |
+| AnswerPacket | visible proof says what was written or why writing was refused |
+
+### Model and Runtime Implication
+
+This gate is upstream of larger local model work. It lets Qwen, Gemma QAT,
+GGUF/LiteRT, MLX, TurboVec-assisted retrieval, and later cold-assembly lanes
+share a deterministic local replay substrate. It does not prove any model can
+run, fit, answer well, or become user-facing. It prevents the first small
+fixture pack from becoming a hidden benchmark, hidden router, or false green
+badge.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-SyntheticPayloadMaterializationGateV0`, because it defines the fail-closed
+bridge between invented fixture values and actual local fixture bytes without
+laundering research into runtime capability.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-SyntheticPayloadMaterializationGateV0` after the payload-value witness.
+
+Best near-term code unit:
+a metadata-only UAS primitive and falsifier for
+`synthetic_payload_materialization_gate_v0`, with red fixtures for approval
+absence, path escape, staging bypass, schema failure, digest drift, inventory
+drift, privacy leakage, benchmark copying, MAS/Pro violation, runtime-byte
+access, and promotion laundering.
+
+Biggest false-claim risk:
+treating materialized synthetic files as model quality evidence. They only
+prove controlled fixture bytes; runtime logs, model outputs, capability-kernel
+evidence, release-audit checks, and L3 WRV remain separate.
+
+Biggest missing artifact:
+the actual metadata-only witness for the materialization gate. No fixture bytes
+should be written until that witness exists and the owner explicitly approves
+the materialization action.
+
+Next research query: "What minimal Rust materializer primitive can enforce the
+approval phrase, staging-root policy, canonical JSON digest map, privacy scans,
+rollback receipt, and no-runtime AnswerPacket while still writing zero payload
+files in its first metadata-only witness?"

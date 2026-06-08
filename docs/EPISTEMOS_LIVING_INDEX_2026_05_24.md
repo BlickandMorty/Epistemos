@@ -402,6 +402,30 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   canon/build pressure only: no fixture files, payload JSON, eval, model,
   runtime, cache, index, or provider bytes were opened; no command was armed;
   L2/L3 stay red; and no large-local-model user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 166 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as
+  synthetic payload materialization gate v0. North-star sentence: Epistemos is
+  a local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The pass creates the buildable side-ladder candidate
+  `F-SyntheticPayloadMaterializationGateV0`: an owner-approved, staged,
+  schema-validated, RFC 8785/JCS-style canonical-digest materialization gate
+  for the six invented synthetic payload JSON files. It requires the explicit
+  approval phrase `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, repo-root
+  path policy, staging-before-final promotion, exact file inventory, JSON
+  Schema Draft 2020-12 validation, canonical SHA-256 digest maps, privacy and
+  provenance scans, descriptor/payload/verifier/scorer/template/policy/review
+  joins, rollback receipt, RunEventLog, AnswerPacket, and T0-only
+  non-promotion. It rejects missing approval, path escape, symlinks, final-root
+  direct writes, schema failure, digest drift, extra/missing/duplicate files,
+  private/user/vault/provider/model/benchmark text, PII, credentials, hidden
+  reasoning, MAS-denied Pro tool use, tombstone bypass, runtime/model/provider/
+  cache/index byte access, armed commands, and product/L1/L2/L3/T4/T5/
+  large-model promotion. This is T0 canon/build pressure only: no fixture files,
+  payload JSON, eval, model, runtime, cache, index, or provider bytes were
+  opened; no command was armed; L2/L3 stay red; and no large-local-model
+  user-facing capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
