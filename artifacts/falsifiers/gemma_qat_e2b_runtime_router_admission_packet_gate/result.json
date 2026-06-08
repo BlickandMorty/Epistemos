@@ -1,0 +1,405 @@
+{
+  "falsifier_id": "F-GemmaQATE2BRuntimeRouterAdmissionPacketGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_e2b_runtime_router_admission_packet_gate.sh",
+  "command_digest": "sha256:e29b7d90539951482e994bb4304c6cdcb57d26fa28daae8e3eeb050e5c2ca0e0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "1b3bfbba7bd0d1356eee847b61c212e46e6a80cd",
+  "fixture_id": "gemma_qat_e2b_runtime_router_admission_packet_gate_v1",
+  "timestamp_utc": "2026-06-08T20:38:55Z",
+  "result_digest": "sha256:0a0ad7da33dd1236e9ceab73a74a7af633f2a1aed9a79f9db4a875fadea72b61",
+  "measurements": {
+    "admission_fields_and_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_packet_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_performed_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "answer_packet_suppressed_count": {
+      "value": 0,
+      "unit": "suppressed"
+    },
+    "budget_privacy_and_build_boundary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "expected_file_size_bytes": {
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "future_admission_packet_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_admission_packet_present_count": {
+      "value": 0,
+      "unit": "packets"
+    },
+    "gemma_e2b_runtime_router_admission_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_e2b_runtime_router_admission_gate_address": {
+      "value": "gemma_qat_e2b_runtime_router_admission_packet_gate:36b841fc783a7c911d8545d820ef276f260bff542f43071616c2de299b3ebbb3@1779409200000",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_e2b_system_g_dry_run_route_packet_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_and_answer_packet_visibility_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_packet_and_summary_requirements_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_output_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 61,
+      "unit": "fixtures"
+    },
+    "required_admission_field_count": {
+      "value": 31,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "value": 48,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_visibility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_priority_mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_performed_count": {
+      "value": 0,
+      "unit": "replays"
+    },
+    "scope_rex_sovereign_gate_and_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "single_e2b_gguf_llama_cpp_admission_lane_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quality_packet_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quality_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_route_mutation_command_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_fields_and_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_packet_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "admission_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "answer_packet_suppressed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "suppressed"
+    },
+    "budget_privacy_and_build_boundary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "expected_file_size_bytes": {
+      "operator": "==",
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "future_admission_packet_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_admission_packet_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "packets"
+    },
+    "gemma_e2b_runtime_router_admission_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_e2b_runtime_router_admission_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_e2b_system_g_dry_run_route_packet_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_and_answer_packet_visibility_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "quality_packet_and_summary_requirements_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_output_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 60,
+      "unit": "fixtures"
+    },
+    "required_admission_field_count": {
+      "operator": "==",
+      "value": 31,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 48,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_visibility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_priority_mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "replays"
+    },
+    "scope_rex_sovereign_gate_and_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "single_e2b_gguf_llama_cpp_admission_lane_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quality_packet_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_quality_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_route_mutation_command_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "admission_fields_and_rejection_policies_bound": true,
+    "admission_packet_deferred": true,
+    "admission_performed_count": true,
+    "answer_packet_suppressed_count": true,
+    "budget_privacy_and_build_boundary_bound": true,
+    "command_executed_count": true,
+    "expected_file_size_bytes": true,
+    "future_admission_packet_bytes_read": true,
+    "future_admission_packet_present_count": true,
+    "gemma_e2b_runtime_router_admission_address_deterministic": true,
+    "gemma_e2b_runtime_router_admission_gate_address": true,
+    "hidden_authority_count": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": true,
+    "privacy_and_answer_packet_visibility_preserved": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "quality_packet_and_summary_requirements_bound": true,
+    "raw_output_bytes_captured": true,
+    "raw_prompt_bytes_captured": true,
+    "red_fixture_rejection_count": true,
+    "required_admission_field_count": true,
+    "required_rejection_policy_count": true,
+    "rollback_run_event_answer_packet_visibility_bound": true,
+    "route_priority_mutation_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_replay_performed_count": true,
+    "scope_rex_sovereign_gate_and_abstention_bound": true,
+    "single_e2b_gguf_llama_cpp_admission_lane_bound": true,
+    "upstream_quality_packet_gate_pass": true,
+    "upstream_quality_packet_ref_bound": true,
+    "zero_route_mutation_command_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATE2BRuntimeRouterAdmissionPacketGate: consumes the E2B same-fixture quality packet gate and defines the fail-closed RuntimeRouter/System G admission packet before Gemma E2B can influence route choice. It binds quality summary, failure taxonomy, budget vector, memory/KV/latency budgets, privacy class, MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog, AnswerPacket, settings/diagnostic visibility, and non-promotion. It reads zero admission packet bytes, performs zero admission, mutates zero routes, arms or executes zero commands, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim."
+}

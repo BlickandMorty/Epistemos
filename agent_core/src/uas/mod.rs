@@ -66,6 +66,7 @@ pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
 pub mod gemma_qat_e2b_model_file_and_llama_cpp_digest_gate;
 pub mod gemma_qat_e2b_owner_approved_first_token_runtime_probe;
 pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
+pub mod gemma_qat_e2b_runtime_router_admission_packet_gate;
 pub mod gemma_qat_e2b_same_fixture_quality_replay_packet_gate;
 pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
@@ -424,6 +425,18 @@ pub use gemma_qat_e2b_same_fixture_quality_replay_packet_gate::{
     GEMMA_QAT_E2B_SAME_FIXTURE_QUALITY_REPLAY_PACKET_GATE_ID,
     GEMMA_QAT_E2B_SAME_FIXTURE_QUALITY_REPLAY_PACKET_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_SAME_FIXTURE_QUALITY_REPLAY_PACKET_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_runtime_router_admission_packet_gate::{
+    required_gemma_qat_e2b_runtime_router_admission_fields,
+    required_gemma_qat_e2b_runtime_router_rejection_policies,
+    GemmaQatE2bRuntimeRouterAdmissionPacketGate,
+    GemmaQatE2bRuntimeRouterAdmissionPacketGateError,
+    GemmaQatE2bRuntimeRouterAdmissionPacketGateMetrics,
+    GemmaQatE2bRuntimeRouterAdmissionPacketGateStatus,
+    GEMMA_QAT_E2B_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_CURSOR,
+    GEMMA_QAT_E2B_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_ID,
+    GEMMA_QAT_E2B_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_model_file_and_llama_cpp_digest_gate::{
     required_gemma_qat_e2b_model_file_and_llama_cpp_digest_fields,
