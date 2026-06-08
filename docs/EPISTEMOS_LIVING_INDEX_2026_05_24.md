@@ -5643,6 +5643,48 @@ Layer truth:
 Correct phrasing: "GGUF in-process admission is L1 metadata-proofed; product
 capability / user surface did not advance."
 
+### 2026-06-08 - Deep Research Pass 179 Gemma preferred-family policy folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 179 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` answers the
+Gemma-main-model question without false promotion. Gemma is now folded as the
+preferred Google local-model family strategy, not as a hardcoded live default:
+Gemma 4 E2B/E4B QAT are the safest warmup lanes, Gemma 4 12B QAT GGUF/LiteRT is
+the flagship Pro Gated candidate, Gemma 4 26B-A4B and 31B stay Pro Vault /
+ResearchCandidate, and MLX Swift Gemma 4 remains blocked until a loader witness
+exists.
+
+The pass proposes buildable gates:
+`F-GemmaMainFamilyPolicySourceCard`,
+`F-GemmaQATSmallLaneOwnerPathManifest`,
+`F-GemmaQATByteKVAppEnvelopePreflight`,
+`F-GemmaQATRedactedFirstTokenProbe`,
+`F-GemmaQATSameFixtureRuntimeReplay`,
+`F-MLXSwiftGemma4LoaderParityCard`, and
+`F-LiteRTLMRuntimeAdmissionPacket`. The policy rule is smallest verified Gemma
+lane first, abstain when proof is missing, E2B/E4B before 12B runtime probes,
+12B only after same-fixture quality/memory/cancellation proof, larger Gemmas
+Vault-only until cold assembly and byte leases are proven.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research-to-build canon advanced with a sharper
+  Gemma-family proof ladder; no falsifier landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime lane,
+  model bytes, provider bytes, index bytes, command execution, first token,
+  quality proof, or user-facing Gemma capability promoted.
+
+Correct phrasing: "Gemma is now the preferred family strategy in canon; Gemma
+is not yet the live main app model."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

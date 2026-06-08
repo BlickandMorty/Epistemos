@@ -22509,3 +22509,216 @@ Next research query: "What minimal owner-approved GGUF path-manifest and
 redacted first-token preflight would let Epistemos prove one safe GGUF token
 without exposing raw paths, prompts, or outputs and without bypassing the
 small-model L3 release-audit bottleneck?"
+
+## Deep Research Pass 179 - Gemma As Preferred Model Family Without False Promotion
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+The owner asked whether Gemma 4 QAT and the 12B model can become the main model
+family for Epistemos. The answer is yes as a preferred model-family strategy,
+but no as a direct product flip today.
+
+Gemma should enter canon as the preferred Google local-model ladder:
+
+```text
+small proven runtime harness
+  -> Gemma 4 E2B/E4B QAT GGUF or LiteRT warmup lane
+  -> Gemma 4 12B QAT GGUF/LiteRT Pro flagship lane
+  -> Gemma 4 26B-A4B / 31B / larger MoE Vault lanes
+  -> cold assembly, route cards, byte leases, quality replay
+  -> RuntimeRouter/System G admission
+  -> RunEventLog + AnswerPacket + L3 release-audit proof
+```
+
+This keeps the ambition intact while protecting the app from the exact false
+promotion that causes instability: a QAT label, a model card, a local-looking
+GGUF path, a LiteRT demo, a Python MLX conversion, or a "runs on laptop" claim
+cannot become the main app model by itself.
+
+### Current Source Signals Validated On 2026-06-08
+
+- Google's Gemma 4 QAT announcement says QAT checkpoints were released to
+  reduce memory requirements and preserve quality better than ordinary
+  post-training quantization, with Q4_0 and mobile-oriented formats for Gemma 4
+  sizes.
+- The official Hugging Face Gemma 4 QAT cards list Apache-2.0 licensing,
+  QAT/GGUF/mobile/compressed-tensor variants, E2B, E4B, 12B, 26B-A4B, and 31B
+  size bands, 128K or 256K context claims by size, multimodal support, and
+  native function-calling/source-card claims.
+- The official Gemma 4 12B developer guide frames 12B as a local agentic target
+  and shows LiteRT-LM / local API serving as an available developer path.
+- The `google-ai-edge/LiteRT-LM` repository presents LiteRT-LM as a
+  cross-platform edge LLM framework with macOS CPU/GPU support, but its README
+  still marks Swift as in development / coming soon. Therefore LiteRT-LM is a
+  serious Pro Gated lane, not an automatic MAS or hidden sidecar path.
+- The open `ml-explore/mlx-swift` Gemma 4 issue still says Swift `MLXLLM` does
+  not recognize the `gemma4` architecture. Python MLX or community converted
+  cards remain useful research signals but cannot prove Epistemos Swift runtime
+  support.
+- The Hugging Face Google model listing now shows the QAT family being actively
+  updated and used. That improves source-card confidence, not runtime proof.
+
+### Gemma Family Product Ladder
+
+| Band | Intended role | Runtime lanes to source-card first | MAS/Pro truth | Required proof before route use |
+|---|---|---|---|---|
+| Gemma 4 E2B QAT | safest Google QAT warmup lane | GGUF/llama.cpp, LiteRT-LM, later MLX Swift if loader proven | Pro Gated first; MAS only after package/memory/release audit | owner path manifest, byte/KV/app envelope, first token, cancellation, structured output, RunEventLog, AnswerPacket |
+| Gemma 4 E4B QAT | stronger warmup / possible balanced lane | GGUF/llama.cpp, LiteRT-LM | Pro Gated; possible MAS candidate only after E2B-style proof | same as E2B plus held-out quality replay |
+| Gemma 4 12B QAT | flagship Pro local model candidate | GGUF/llama.cpp and LiteRT-LM first; MLX Swift blocked until loader witness | Pro Gated target, not Live | same-fixture replay for notes, coding, research, writing, tool JSON, citation grounding, refusal/abstention, memory pressure |
+| Gemma 4 26B-A4B | Vault/Research large-local lane | source cards and cold assembly only | Pro Vault / ResearchCandidate | MoE full-weight bytes, expert lease, KV bytes, owner approval, first-token only after smaller lane proof |
+| Gemma 4 31B | Vault/server/cold assembly lane | source cards and cold assembly only | Pro Vault / ResearchCandidate | same as 26B plus stronger byte-denial and rollback evidence |
+| Gemma 4 MTP/drafter heads | acceleration candidate | source-card only until target verification | Pro Research | accepted/rejected draft token counts, target-only final output, held-out quality floor |
+
+### Build Fusion For "Gemma Main Model"
+
+Gemma can become the main family only through a new model-family policy, not a
+single default-model switch:
+
+```text
+F-GemmaMainFamilyPolicySourceCard
+  -> F-GemmaQATSameFixtureRuntimeReplay
+  -> F-GemmaQATToolJsonChatTemplateReplay
+  -> F-GemmaQATMemoryPressureAndCancellationProbe
+  -> RuntimeRouter/System G model-family preference
+  -> settings-visible installed/gated/blocked state
+  -> AnswerPacket route explanation
+```
+
+The policy should encode this rule:
+
+- prefer the smallest verified Gemma lane that satisfies the task;
+- abstain or stay on the existing small local lane when Gemma proof is missing;
+- use E2B/E4B before 12B for warmup and first-token probes;
+- let 12B become the Pro flagship only after same-fixture quality and memory
+  proof;
+- keep 26B/31B/MoE lanes out of product defaults until Vault/Pro Research gates
+  prove byte envelopes and rollback;
+- never let MLX Python support promote Swift MLX product claims;
+- never let LiteRT-LM server/CLI demos become hidden sidecars;
+- never let GGUF file discovery become owner approval.
+
+### Proposed Falsifier Backlog
+
+1. `F-GemmaMainFamilyPolicySourceCard`
+   - Binds Gemma as preferred family policy, exact Google/HF source cards,
+     MAS/Pro statuses, and non-promotion caveats.
+   - Rejects "Gemma is default/live" wording without runtime evidence.
+   - Product claim allowed: none.
+
+2. `F-GemmaQATSmallLaneOwnerPathManifest`
+   - Consumes the GGUF in-process admission packet and a small Gemma E2B/E4B
+     source card.
+   - Proves owner-approved local path-manifest shape without raw path storage or
+     file opens.
+   - Product claim allowed: none.
+
+3. `F-GemmaQATByteKVAppEnvelopePreflight`
+   - Separates selected file bytes, resident weight bytes, KV cache, runtime
+     workspace, app headroom, context cap, batch cap, and package bytes.
+   - Rejects "QAT fits" and "GGUF bytes fit" as runtime proof.
+   - Product claim allowed: none.
+
+4. `F-GemmaQATRedactedFirstTokenProbe`
+   - Owner-approved one-token probe for E2B or E4B first, not 12B first.
+   - Captures token digest, timing, memory samples, cancellation, teardown,
+     rollback, RunEventLog, and AnswerPacket without raw prompt/output storage.
+   - Product claim allowed: only the measured probe, not a user route.
+
+5. `F-GemmaQATSameFixtureRuntimeReplay`
+   - Compares Gemma E2B/E4B/12B GGUF and LiteRT candidates on the same retained
+     fixture pack after the small-model release-audit floor is repaired.
+   - Measures coding, research, note synthesis, writing, citation grounding,
+     structured tool JSON, refusal/abstention, cache deletion, and latency.
+   - Product claim allowed: Pro Gated route candidate only if L2 proof passes.
+
+6. `F-MLXSwiftGemma4LoaderParityCard`
+   - Blocks MLX Swift Gemma 4 promotion until architecture registry, tokenizer,
+     chat template, tool parser, PLE/shared-KV/dual-RoPE/MoE caveats, serialized
+     executor, wired-memory policy, and first-token behavior are proven.
+   - Product claim allowed: none until loader proof exists.
+
+7. `F-LiteRTLMRuntimeAdmissionPacket`
+   - Separates LiteRT-LM CLI/server demos from app-embeddable Swift/macOS proof.
+   - Requires binary target review, unsafe linker review, model file selection,
+     no-hidden-sidecar proof, cancellation, RunEventLog, AnswerPacket, and
+     rollback.
+   - Product claim allowed: Pro Gated only after proof.
+
+### Red-Team Fixtures
+
+- Gemma QAT model card treated as model load.
+- Google "local laptop" language treated as Jojo's app headroom proof.
+- E2B/E4B small-lane success treated as 12B success.
+- 12B one-token success treated as coding/research quality proof.
+- QAT Q4_0 treated as no quality loss.
+- Native function-calling claim treated as Epistemos tool JSON reliability.
+- 256K context claim treated as KV/app memory proof.
+- LiteRT-LM OpenAI-compatible server treated as MAS-safe hidden sidecar.
+- LiteRT-LM Swift "in dev" treated as stable app integration.
+- Python MLX / `mlx-lm` support treated as Swift MLX support.
+- MLX Gemma 4 conversion license metadata gap ignored.
+- GGUF local filename or Hugging Face `-hf` argument treated as owner-approved
+  artifact path.
+- MTP/drafter availability treated as final-output quality proof.
+- Gemma 26B/31B source-card availability treated as 16 GB local fit.
+
+### Blue-Team Repairs
+
+- Make "main model" mean model-family preference under RuntimeRouter/System G,
+  not a hardcoded default.
+- Add explicit `model_family_policy_status` values:
+  `preferred_source_family`, `small_lane_probe_pending`,
+  `pro_flagship_replay_pending`, `vault_only`, `blocked_loader`,
+  `runtime_live`.
+- Add settings copy that shows installed / source-carded / gated / blocked
+  status separately.
+- Require AnswerPacket to name the chosen family, model, runtime lane, proof
+  tier, fallback/abstention reason, and missing witness.
+- Require quality replay before any "best model" claim for coding, research,
+  notes, writing, tool use, or citation tasks.
+
+### Promotion Truth
+
+- T0 research/canon: advanced by making Gemma the preferred model-family
+  strategy with a buildable proof ladder.
+- T1/L1 architecture proof: unchanged in this pass; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+Gemma as a preferred model family under RuntimeRouter/System G, because it
+lets E2B/E4B, 12B, LiteRT, GGUF, and future MLX Swift compete without turning
+one source card into a product promise.
+
+Safest next falsifier:
+`F-GemmaMainFamilyPolicySourceCard`, or if continuing runtime side-ladder,
+`F-GemmaQATSmallLaneOwnerPathManifest` consuming the landed GGUF admission
+packet.
+
+Best near-term code unit:
+after the guard-owned release-audit bottleneck, implement the Gemma main-family
+policy source card and E2B/E4B owner path-manifest preflight before any Gemma
+runtime probe.
+
+Biggest false-claim risk:
+saying "Gemma 4 12B QAT is the main model" before E2B/E4B/12B same-fixture
+quality, memory, cancellation, and AnswerPacket proof exists.
+
+Biggest missing source:
+Epistemos-owned first-token and same-fixture replay logs for Gemma 4 E2B/E4B
+QAT under GGUF and LiteRT, plus a Swift MLX Gemma 4 loader witness.
+
+Next research query: "What owner-approved Gemma E2B/E4B local artifact path,
+byte envelope, and redacted first-token proof would be safest to use as the
+first Google QAT runtime step before attempting Gemma 4 12B QAT as the Pro
+flagship?"
