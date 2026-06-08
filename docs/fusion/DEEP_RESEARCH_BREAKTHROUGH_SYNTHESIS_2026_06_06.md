@@ -23382,3 +23382,95 @@ bind owner approval, exact command/runtime lane, memory samples, redacted
 prompt/output digests, cancellation, rollback, RunEventLog, AnswerPacket,
 abstention, and held-out quality replay references before any Gemma runtime
 evidence can influence the main-model ladder?"
+
+## Pass 186 - Gemma Owner-Approved Runtime Replay Transcript Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass lands `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate` as the
+metadata-only T1/L1 bridge from Gemma held-out quality replay contracts into
+owner-approved runtime replay transcript evidence. It is the next hardening
+step for making Gemma the main model family without confusing "ready to run a
+small approved probe" with "the app default is proven."
+
+### Local Build Result
+
+- UAS primitive:
+  `agent_core/src/uas/gemma_qat_owner_approved_runtime_replay_transcript_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_gemma_qat_owner_approved_runtime_replay_transcript_gate.rs`
+- Script:
+  `Tools/falsifiers/f_gemma_qat_owner_approved_runtime_replay_transcript_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_transcript_gate/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate_2026_06_08.md`
+
+The artifact accepts 4 E2B/E4B GGUF/LiteRT transcript-gate cards. It consumes
+`F-GemmaQATHeldOutQualityReplayPacket`, selects exactly one first future probe
+candidate (`E2B` GGUF/llama.cpp), requires owner approval to remain pending,
+keeps command envelopes visible but unarmed and unexecuted, binds transcript
+templates, fresh memory sample requirements, redacted prompt/output digest
+policies, cancellation, rollback, RunEventLog, AnswerPacket, abstention, and
+non-promotion. It rejects 50 red fixtures.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma 4 12B QAT remains the flagship Pro Gated target.
+- T1/L1 architecture proof:
+  `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate` is landed when its
+  artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner approval granted: no.
+- Owner path bytes opened: zero.
+- Raw prompt/output/stdout/stderr bytes captured: zero.
+- Commands or scorers executed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It is the exact safety latch needed before a first small Gemma lane can run:
+the app can later prove "we ran this owner-approved command under this memory
+sample and emitted this redacted transcript" without leaking prompts, retaining
+raw outputs, mutating RuntimeRouter/System G, or silently turning a research
+lane into the default model.
+
+### Why It May Be Wrong
+
+It still does not approve a local path, open a model, run llama.cpp, run
+LiteRT-LM, capture a token, execute a scorer, prove memory fit, prove quality,
+or make Gemma the live default. It only makes the next runtime replay hard to
+fake.
+
+Best breakthrough candidate:
+owner-approved Gemma runtime replay probe for the smallest E2B GGUF lane,
+emitting only redacted transcript evidence and memory proof.
+
+Safest next falsifier:
+`F-GemmaQATOwnerApprovedRuntimeReplayProbe`.
+
+Best near-term code unit:
+build the runtime replay probe envelope that can run only after explicit owner
+approval and still preserve prompt/output redaction, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, and no default-model promotion.
+
+Biggest false-claim risk:
+calling Gemma 12B QAT or any E2B/E4B lane the main app model before the first
+owner-approved transcript, held-out replay, RuntimeRouter/System G admission,
+settings WRV, and release-audit proof exist.
+
+Biggest missing source:
+owner-approved local Gemma paths plus the exact runtime lane choice for the
+first safe probe.
+
+Next research query: "What should F-GemmaQATOwnerApprovedRuntimeReplayProbe
+execute for the smallest E2B GGUF lane so it proves memory, cancellation,
+redacted transcript, rollback, RunEventLog, AnswerPacket, and abstention
+without promoting Gemma as the product default?"
