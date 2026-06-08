@@ -62,6 +62,7 @@ pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod graph_filter_visibility_focused_identifier_proof;
 pub mod graph_filter_visibility_focused_proof_root_command_card;
+pub mod graph_filter_visibility_focused_proof_root_execution_artifact_gate;
 pub mod graph_filter_visibility_focused_proof_root_manifest_gate;
 pub mod graph_filter_visibility_focused_repair_packet;
 pub mod graph_filter_visibility_release_blocker_card;
@@ -1121,6 +1122,18 @@ pub use graph_filter_visibility_focused_proof_root_command_card::{
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_ID,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_focused_proof_root_execution_artifact_gate::{
+    required_graph_filter_focused_proof_root_execution_manifest_fields,
+    required_graph_filter_focused_proof_root_execution_rejection_policies,
+    GraphFilterFocusedProofRootExecutionArtifactGate,
+    GraphFilterFocusedProofRootExecutionArtifactMetrics,
+    GraphFilterFocusedProofRootExecutionArtifactStatus,
+    GraphFilterVisibilityFocusedProofRootExecutionArtifactGateWitness,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_ID,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF,
 };
 pub use automated_checks_fresh_test_products_evidence_envelope::{
     required_automated_checks_fresh_test_products_digest_fields,

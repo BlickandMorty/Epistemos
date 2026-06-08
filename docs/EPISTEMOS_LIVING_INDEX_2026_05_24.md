@@ -129,6 +129,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `.xcresult` assumptions behind the next owner-approved proof-root runner.
   This is T0 canon only: no Xcode command was armed or run, no model/runtime
   bytes were opened, and L1/L2/L3/product/release capability did not promote.
+- Updated **2026-06-08** · Deep Research Pass 143 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and
+  implemented as `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The metadata-only L1/T1 witness
+  consumes the focused proof-root command card, binds 18 future post-run
+  manifest fields, 14 rejection policies, nonzero executed-test policy,
+  selected product/result/source/pre-action/RunEventLog/AnswerPacket/rollback
+  digest requirements, 29 rejected red fixtures, zero selected
+  test-product/`.xcresult`/app/model/runtime/provider bytes, and deterministic
+  address
+  `sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`.
+  It runs no Xcode, opens no test-result bytes, and does not advance
+  L2/L3/product/release/large-model capability.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -4596,6 +4612,46 @@ Layer truth:
 
 Correct phrasing: "L1 graph-filter focused proof-root command-card
 architecture proof advanced; product capability / user surface did not."
+
+### 2026-06-08 - Graph Filter Visibility Focused Proof-Root Execution Artifact Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`Tools/falsifiers/f_graph_filter_visibility_focused_proof_root_execution_artifact_gate.sh`
+now emits and validates
+`artifacts/falsifiers/graph_filter_visibility_focused_proof_root_execution_artifact_gate/result.json`
+as metadata-only T1/L1 execution-artifact parser evidence. The witness consumes
+`F-GraphFilterVisibilityFocusedProofRootCommandCard`, binds upstream address
+`sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`,
+18 required post-run manifest fields, 14 rejection policies, nonzero
+executed-test policy, selected product digest/commit requirements, enumeration
+digest, focused selector digest, focused `.xcresult` digest, source-status
+digests, scheme pre-action ledger digest, RunEventLog digest, AnswerPacket
+digest, rollback digest, 29 rejected red fixtures, zero selected test-product
+and `.xcresult` bytes, zero app/model/runtime/provider bytes, and deterministic
+execution-artifact gate address
+`sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`.
+
+Layer truth:
+
+- L1 architecture cursor / side-card:
+  `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate` advanced as
+  metadata-only proof; it keeps next cursor
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`;
+  product capability did not promote.
+- L3 user-facing / release readiness: still red; owner-approved focused
+  proof-root execution, full `xcodebuild_test`, all five automated checks, log
+  evidence, manual/runtime verification, distribution/compliance, and repeated
+  zero-fail audit evidence remain required.
+
+Correct phrasing: "L1 graph-filter focused proof-root execution-artifact
+parser proof advanced; product capability / user surface did not."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 

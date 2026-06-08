@@ -132,6 +132,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-AutomatedChecksFreshTestProductsEvidenceEnvelope",
     "F-GraphFilterVisibilityFocusedProofRootManifestGate",
     "F-GraphFilterVisibilityFocusedProofRootCommandCard",
+    "F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate",
     "F-ResearchToolCatalog-NoHiddenAuthority",
     "F-ThemePresentation-ReleaseBlockerCard",
     "F-DistributionProjectIntegrity-ReleaseBlockerCard",
