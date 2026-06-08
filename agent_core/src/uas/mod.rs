@@ -60,6 +60,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod graph_filter_visibility_focused_identifier_proof;
 pub mod graph_filter_visibility_focused_repair_packet;
 pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
@@ -1066,6 +1067,22 @@ pub use graph_filter_visibility_focused_repair_packet::{
     GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_ID,
     GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_focused_identifier_proof::{
+    required_graph_filter_focused_identifier_command_candidates,
+    required_graph_filter_focused_identifier_function_identifiers,
+    required_graph_filter_focused_identifier_source_refs,
+    required_graph_filter_focused_identifier_suite_identifiers,
+    GraphFilterFocusedEnumerationCaveat, GraphFilterFocusedIdentifierError,
+    GraphFilterFocusedIdentifierMetrics, GraphFilterFocusedIdentifierProofBoundary,
+    GraphFilterFocusedIdentifierSourceMarkers, GraphFilterFocusedIdentifierStatus,
+    GraphFilterFocusedResultBundlePolicy,
+    GraphFilterVisibilityFocusedIdentifierProofWitness,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_IDENTIFIER_PROOF_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_IDENTIFIER_PROOF_ID,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_IDENTIFIER_PROOF_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_IDENTIFIER_PROOF_UPSTREAM_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_IDENTIFIER_PROOF_UPSTREAM_REF,
 };
 pub use graph_filter_visibility_test_products_command_spec::{
     required_graph_filter_test_products_command_templates,

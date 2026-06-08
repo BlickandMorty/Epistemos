@@ -4707,6 +4707,20 @@ suite/function identifiers, rejects filename selectors and zero-test passes,
 and requires fresh `-resultBundlePath` evidence before focused repair proof can
 advance.
 
+2026-06-08 update: `F-GraphFilterVisibilityFocusedIdentifierProof` is now
+landed as metadata-only T1/L1 architecture proof. It consumes
+`F-GraphFilterVisibilityFocusedRepairPacket`, binds test target
+`EpistemosTests`, 6 source refs, 8 suite identifiers, 8 function identifiers, 3
+command candidates, 4 prior build-cost phases, the incomplete-enumeration
+caveat, fresh result-bundle / zero-test / stale-`.xcresult` rejection policy,
+98603 source text bytes read, 26 rejected red fixtures, zero Xcode/Swift test
+execution, zero model/app/Xcode bytes, and deterministic address
+`sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`.
+It advances L1 only: no focused repair proof, full `xcodebuild_test` pass,
+L2/L3/T4/product/release green, live dense 70B, raw note/prompt/model logging,
+hidden authority, or route mutation is claimed. The next side-ladder cursor is
+`graph_filter_visibility_test_products_command_spec`.
+
 ### §28.14 Test-without-building result-bundle proof path canon (added 2026-06-07)
 
 **Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
