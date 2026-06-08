@@ -66,6 +66,7 @@ pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
 pub mod gemma_qat_e2b_model_file_and_llama_cpp_digest_gate;
 pub mod gemma_qat_e2b_owner_approved_first_token_runtime_probe;
 pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
+pub mod gemma_qat_e2b_route_answer_packet_visibility_gate;
 pub mod gemma_qat_e2b_runtime_router_admission_packet_gate;
 pub mod gemma_qat_e2b_same_fixture_quality_replay_packet_gate;
 pub mod gemma_qat_e2b_system_g_dry_run_route_packet_gate;
@@ -450,6 +451,18 @@ pub use gemma_qat_e2b_system_g_dry_run_route_packet_gate::{
     GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_ID,
     GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_route_answer_packet_visibility_gate::{
+    required_gemma_qat_e2b_route_answer_packet_visibility_fields,
+    required_gemma_qat_e2b_route_answer_packet_visibility_rejection_policies,
+    GemmaQatE2bRouteAnswerPacketVisibilityGate,
+    GemmaQatE2bRouteAnswerPacketVisibilityGateError,
+    GemmaQatE2bRouteAnswerPacketVisibilityGateMetrics,
+    GemmaQatE2bRouteAnswerPacketVisibilityGateStatus,
+    GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_CURSOR,
+    GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_ID,
+    GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_model_file_and_llama_cpp_digest_gate::{
     required_gemma_qat_e2b_model_file_and_llama_cpp_digest_fields,

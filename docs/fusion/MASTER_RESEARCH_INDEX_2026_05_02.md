@@ -396,6 +396,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > MAS/L2/L3/T4, Gemma-default, quality, benchmark-fit, live-70B, or
 > SSD-as-RAM claim. Next Gemma unit:
 > `gemma_qat_e2b_route_answer_packet_visibility_gate`.
+> Current addendum: Deep Research Pass 198 lands
+> `F-GemmaQATE2BRouteAnswerPacketVisibilityGate` as the metadata-only T1/L1
+> bridge from Gemma E2B System G dry-run route evidence into future settings,
+> diagnostics, and AnswerPacket visibility. It consumes
+> `F-GemmaQATE2BSystemGDryRunRoutePacketGate`, binds 30 visibility fields, 63
+> rejection policies, AnswerPacket template, visible model identity, runtime
+> lane, route status, caveat, budget summary, memory/KV/latency budgets,
+> privacy class, MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback,
+> abstention, cancellation, rollback, RunEventLog, no-default-model-mutation,
+> no-hidden-authority, non-promotion, settings and diagnostics copy, route
+> explanation, rejected-candidate summary, user-action requirement, explicit
+> no-quality/no-live-default/no-large-model-bypass claims, and 77 red-fixture
+> rejections. Artifact:
+> `artifacts/falsifiers/gemma_qat_e2b_route_answer_packet_visibility_gate/result.json`.
+> It reads zero visibility packet bytes, emits zero user-visible AnswerPackets,
+> performs zero dry-run/admission actions, mutates zero routes, executes zero
+> commands, loads zero model/runtime/provider bytes, suppresses zero
+> AnswerPackets, and makes no MAS/L2/L3/T4, Gemma-default, quality,
+> benchmark-fit, live-70B, or SSD-as-RAM claim. Next Gemma unit:
+> `gemma_qat_e2b_settings_diagnostics_wrv_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

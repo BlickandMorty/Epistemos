@@ -1,0 +1,425 @@
+{
+  "falsifier_id": "F-GemmaQATE2BRouteAnswerPacketVisibilityGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_e2b_route_answer_packet_visibility_gate.sh",
+  "command_digest": "sha256:ea0dbc49be209ec85fd260453b2c88c254aaabd4d9797d2add9d68bc252b9e22",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "201333dde85b7f4bcc55377e99845e74d11b423b",
+  "fixture_id": "gemma_qat_e2b_route_answer_packet_visibility_gate_v1",
+  "timestamp_utc": "2026-06-08T21:23:19Z",
+  "result_digest": "sha256:e3ca7eadca212899e870f893aaa86d446010a1c0c5f391ad1d0314182c49a8dd",
+  "measurements": {
+    "admission_performed_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "answer_packet_emitted_to_user_count": {
+      "value": 0,
+      "unit": "packets"
+    },
+    "answer_packet_suppressed_count": {
+      "value": 0,
+      "unit": "suppressed"
+    },
+    "answer_packet_template_and_visible_identity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "expected_file_size_bytes": {
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "future_visibility_packet_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_visibility_packet_present_count": {
+      "value": 0,
+      "unit": "packets"
+    },
+    "gemma_e2b_route_answer_packet_visibility_gate_address": {
+      "value": "gemma_qat_e2b_route_answer_packet_visibility_gate:3be194531d67a641b95343b7640da9ffdecdb48a5b53891d956e7e02babd6156@1779582000000",
+      "unit": "text"
+    },
+    "gemma_e2b_route_answer_packet_visibility_gate_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_e2b_settings_diagnostics_wrv_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_and_answer_packet_visibility_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 77,
+      "unit": "fixtures"
+    },
+    "required_rejection_policy_count": {
+      "value": 63,
+      "unit": "policies"
+    },
+    "required_visibility_field_count": {
+      "value": 30,
+      "unit": "fields"
+    },
+    "route_priority_mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_performed_count": {
+      "value": 0,
+      "unit": "replays"
+    },
+    "single_e2b_gguf_llama_cpp_visibility_lane_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_dry_run_performed_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "upstream_dry_run_route_packet_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_route_packet_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_fields_and_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_packet_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_budget_privacy_and_build_boundary_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_rollback_run_event_surfaces_and_non_promotion_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_scope_rex_sovereign_gate_fallback_and_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_route_mutation_command_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "answer_packet_emitted_to_user_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "packets"
+    },
+    "answer_packet_suppressed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "suppressed"
+    },
+    "answer_packet_template_and_visible_identity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "expected_file_size_bytes": {
+      "operator": "==",
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "future_visibility_packet_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_visibility_packet_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "packets"
+    },
+    "gemma_e2b_route_answer_packet_visibility_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_e2b_route_answer_packet_visibility_gate_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_e2b_settings_diagnostics_wrv_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_and_answer_packet_visibility_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 76,
+      "unit": "fixtures"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 63,
+      "unit": "policies"
+    },
+    "required_visibility_field_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "fields"
+    },
+    "route_priority_mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_replay_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "replays"
+    },
+    "single_e2b_gguf_llama_cpp_visibility_lane_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_dry_run_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "upstream_dry_run_route_packet_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_route_packet_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_fields_and_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visibility_packet_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_budget_privacy_and_build_boundary_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_rollback_run_event_surfaces_and_non_promotion_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "visible_scope_rex_sovereign_gate_fallback_and_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_route_mutation_command_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "admission_performed_count": true,
+    "answer_packet_emitted_to_user_count": true,
+    "answer_packet_suppressed_count": true,
+    "answer_packet_template_and_visible_identity_bound": true,
+    "command_executed_count": true,
+    "expected_file_size_bytes": true,
+    "future_visibility_packet_bytes_read": true,
+    "future_visibility_packet_present_count": true,
+    "gemma_e2b_route_answer_packet_visibility_gate_address": true,
+    "gemma_e2b_route_answer_packet_visibility_gate_address_deterministic": true,
+    "hidden_authority_count": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": true,
+    "privacy_and_answer_packet_visibility_preserved": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_output_bytes_captured": true,
+    "raw_prompt_bytes_captured": true,
+    "red_fixture_rejection_count": true,
+    "required_rejection_policy_count": true,
+    "required_visibility_field_count": true,
+    "route_priority_mutation_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_replay_performed_count": true,
+    "single_e2b_gguf_llama_cpp_visibility_lane_bound": true,
+    "system_g_dry_run_performed_count": true,
+    "upstream_dry_run_route_packet_gate_pass": true,
+    "upstream_dry_run_route_packet_ref_bound": true,
+    "visibility_fields_and_rejection_policies_bound": true,
+    "visibility_packet_deferred": true,
+    "visible_budget_privacy_and_build_boundary_bound": true,
+    "visible_rollback_run_event_surfaces_and_non_promotion_bound": true,
+    "visible_scope_rex_sovereign_gate_fallback_and_abstention_bound": true,
+    "zero_route_mutation_command_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATE2BRouteAnswerPacketVisibilityGate: consumes the E2B System G dry-run route packet gate and defines the fail-closed AnswerPacket visibility contract before Gemma E2B route evidence can reach settings, diagnostics, or WRV surfaces. It binds visible model identity, runtime lane, route status, caveats, budgets, privacy, MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog, route explanation, rejected candidate summary, user-action requirements, and explicit non-claims. It reads zero visibility packet bytes, emits zero user-visible AnswerPackets, performs zero dry-run/admission actions, mutates zero routes, arms or executes zero commands, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim."
+}
