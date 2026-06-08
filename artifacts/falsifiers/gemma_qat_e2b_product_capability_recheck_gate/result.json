@@ -1,0 +1,355 @@
+{
+  "falsifier_id": "F-GemmaQATE2BProductCapabilityRecheckGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_e2b_product_capability_recheck_gate.sh",
+  "command_digest": "sha256:1d44a71e9aec7dee3cd7b291d81af967c31d6fb41e0956d67c0ea76f0802c531",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "75d2133a0863ca2c24bfb224350f3dffbcaa6f41",
+  "fixture_id": "gemma_qat_e2b_product_capability_recheck_gate_v1",
+  "timestamp_utc": "2026-06-08T22:43:03Z",
+  "result_digest": "sha256:2b75a3b7803ac2dadc8df58469cc81258c75d5a2e55871c9f47266de044ec483",
+  "measurements": {
+    "action_leak_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "blocked_truth_count": {
+      "value": 9,
+      "unit": "blocked_truths"
+    },
+    "capability_kernel_red_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_file_size_bytes": {
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "gated_surface_count": {
+      "value": 6,
+      "unit": "surfaces"
+    },
+    "gated_surfaces_and_owner_action_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_e2b_product_capability_recheck_gate_address": {
+      "value": "gemma_qat_e2b_product_capability_recheck_gate:9d7cd90e2fafb78cf46f82f8b49cb4968c5bd3d00e80ddefb3f18cac5759fd5d@1779582000000",
+      "unit": "text"
+    },
+    "gemma_e2b_product_capability_recheck_gate_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_and_release_blocker_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_product_evidence_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "recheck_fields_and_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 62,
+      "unit": "fixtures"
+    },
+    "required_recheck_field_count": {
+      "value": 36,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "value": 52,
+      "unit": "policies"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "single_e2b_gguf_llama_cpp_recheck_lane_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_release_audit_surface_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_release_audit_surface_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_recheck_xcode_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "action_leak_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "blocked_truth_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "blocked_truths"
+    },
+    "capability_kernel_red_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_file_size_bytes": {
+      "operator": "==",
+      "value": 3349514112,
+      "unit": "bytes"
+    },
+    "gated_surface_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "surfaces"
+    },
+    "gated_surfaces_and_owner_action_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_e2b_product_capability_recheck_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_e2b_product_capability_recheck_gate_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "guard_cursor_and_release_blocker_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_product_evidence_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes_captured": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "recheck_fields_and_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 55,
+      "unit": "fixtures"
+    },
+    "required_recheck_field_count": {
+      "operator": "==",
+      "value": 36,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 52,
+      "unit": "policies"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "single_e2b_gguf_llama_cpp_recheck_lane_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_release_audit_surface_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_release_audit_surface_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_recheck_xcode_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "action_leak_count": true,
+    "blocked_truth_count": true,
+    "capability_kernel_red_status_bound": true,
+    "expected_file_size_bytes": true,
+    "gated_surface_count": true,
+    "gated_surfaces_and_owner_action_bound": true,
+    "gemma_e2b_product_capability_recheck_gate_address": true,
+    "gemma_e2b_product_capability_recheck_gate_address_deterministic": true,
+    "guard_cursor_and_release_blocker_bound": true,
+    "hidden_authority_count": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": true,
+    "pending_product_evidence_bound": true,
+    "privacy_preserved": true,
+    "promotion_claim_count": true,
+    "proof_surfaces_required": true,
+    "provider_calls_made": true,
+    "raw_output_bytes_captured": true,
+    "raw_prompt_bytes_captured": true,
+    "recheck_fields_and_rejection_policies_bound": true,
+    "red_fixture_rejection_count": true,
+    "required_recheck_field_count": true,
+    "required_rejection_policy_count": true,
+    "runtime_bytes_loaded": true,
+    "single_e2b_gguf_llama_cpp_recheck_lane_bound": true,
+    "upstream_release_audit_surface_gate_pass": true,
+    "upstream_release_audit_surface_ref_bound": true,
+    "zero_recheck_xcode_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATE2BProductCapabilityRecheckGate: consumes the E2B release-audit surface gate and rechecks product truth against the current red capability kernel. It passes only when the Gemma E2B product route remains blocked by the release-audit automated-check bottleneck, with focused proof-root, log correlation, manual runtime, distribution/compliance, and repeated-zero-fail evidence still pending. It runs no Xcode command, wires no settings or diagnostics product surface, emits no user AnswerPacket, arms or executes no model command, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim."
+}

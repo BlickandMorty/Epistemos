@@ -6826,6 +6826,45 @@ Correct phrasing: "Gemma E2B release-audit surface requirements are L1
 metadata-proofed; no settings row, release proof, model load, or user-facing
 Gemma capability was activated."
 
+### 2026-06-08 - F-GemmaQATE2BProductCapabilityRecheckGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATE2BProductCapabilityRecheckGate` is now implemented as a
+metadata-only T1/L1 Gemma side-ladder witness at
+`agent_core/src/uas/gemma_qat_e2b_product_capability_recheck_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_product_capability_recheck_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_product_capability_recheck_gate.sh`,
+`artifacts/falsifiers/gemma_qat_e2b_product_capability_recheck_gate/result.json`,
+and `docs/falsifiers/F-GemmaQATE2BProductCapabilityRecheckGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BReleaseAuditSurfaceGate`, binds the E2B QAT
+GGUF / llama.cpp lane, reads the guard and capability-kernel truth, and passes
+only because the product-capability recheck is still blocked by
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+It records 36 recheck fields, 52 rejection policies, 9 blocked-truth
+requirements, 6 gated-surface requirements, 62 rejected red fixtures, zero
+Xcode commands, zero settings or diagnostics product wiring, zero
+user-visible AnswerPackets, zero model command execution, zero
+model/runtime/provider bytes, and zero L2/L3/T4/product-default promotion.
+
+Layer truth:
+
+- L1 architecture/canon: the Gemma E2B side-ladder advanced to a blocked
+  product-capability recheck contract.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Swift settings row,
+  diagnostics UI, Xcode proof, runtime log, manual verification, model load,
+  first token, or user-facing Gemma capability was activated.
+
+Correct phrasing: "Gemma E2B product capability was rechecked as still blocked;
+no product capability was promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
