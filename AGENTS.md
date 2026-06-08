@@ -133,7 +133,8 @@ Runtime policy:
   `F-GemmaQATRedactedFirstTokenProbe`, and
   `F-GemmaQATSameFixtureRuntimeReplay`, and
   `F-GemmaQATHeldOutQualityReplayPacket`, and
-  `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate` are landed as
+  `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate`, and
+  `F-GemmaQATOwnerApprovedRuntimeReplayProbe` are landed as
   metadata-only T1/L1
   witnesses. They make Gemma the preferred Google model-family strategy, bind
   E2B/E4B QAT owner path-manifest contracts, and bind selected artifact bytes
@@ -162,16 +163,23 @@ Runtime policy:
   envelopes, transcript templates, fresh memory sample requirements, redacted
   prompt/output digest policies, cancellation, rollback, RunEventLog,
   AnswerPacket, abstention, non-promotion, and 50 red-fixture rejections.
+  They now also bind one smallest E2B GGUF/llama.cpp replay-probe envelope,
+  offline one-token command template, forbidden download/server/mmap args,
+  owner-approval-pending status, model-path-pending status, synthetic prompt
+  digest, redacted output digest, fresh memory samples, cancellation, rollback,
+  RunEventLog, AnswerPacket, abstention, non-promotion, and 45 red-fixture
+  rejections.
   E2B is only a post-owner-approval probe candidate; E4B is only a tight
   candidate requiring a fresh memory sample. These gates open zero files,
   allocate zero KV/runtime/app bytes, attempt zero first tokens, capture zero
   raw prompt/token/stdout/stderr/tool/cache/output/judge bytes, run zero
-  scorers or benchmarks, arm or execute zero commands, load zero
+  scorers or benchmarks, arm or execute zero commands, observe zero tokens,
+  load zero
   model/runtime/provider bytes, and do not prove local availability, path
   safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
   product default, L2, L3, live dense 70B, or user-facing Gemma capability.
   The next Gemma side-ladder unit is
-  `gemma_qat_owner_approved_runtime_replay_probe`.
+  `gemma_qat_runtime_replay_execution_artifact_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

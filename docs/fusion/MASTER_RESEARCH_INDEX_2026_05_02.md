@@ -255,6 +255,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > provider bytes, and makes no MAS/L2/L3/live-main-model, quality,
 > benchmark-fit, live-70B, or Gemma-default claim. Next Gemma unit:
 > `F-GemmaQATOwnerApprovedRuntimeReplayProbe`.
+> Current addendum: Deep Research Pass 187 lands
+> `F-GemmaQATOwnerApprovedRuntimeReplayProbe` as the metadata-only T1/L1
+> bridge from the Gemma runtime transcript gate into a concrete smallest E2B
+> GGUF/llama.cpp replay-probe envelope. It binds one selected E2B GGUF
+> transcript card, offline one-token command template, forbidden download/
+> server/mmap args, owner approval pending, model path pending, synthetic
+> prompt digest, redacted output digest, fresh memory samples, cancellation,
+> rollback, RunEventLog, AnswerPacket, abstention, non-promotion, and 45
+> red-fixture rejections. Artifact:
+> `artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_probe/result.json`.
+> It opens zero files, executes zero commands, observes zero tokens, captures
+> zero raw prompt/output/stdout/stderr bytes, loads zero model/runtime/provider
+> bytes, and makes no MAS/L2/L3/live-main-model, quality, benchmark-fit,
+> live-70B, or Gemma-default claim. Next Gemma unit:
+> `F-GemmaQATRuntimeReplayExecutionArtifactGate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

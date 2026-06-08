@@ -914,9 +914,16 @@ ladder also has three metadata-only T1/L1 gates landed:
   sample requirements, redacted prompt/output digest policies, cancellation,
   rollback, RunEventLog, AnswerPacket, abstention, zero command/model/runtime/
   provider/scorer bytes or actions, and no L2/L3/user-facing Gemma claim.
+- `F-GemmaQATOwnerApprovedRuntimeReplayProbe`: one E2B GGUF/llama.cpp
+  replay-probe envelope, offline one-token command template, forbidden
+  download/server/mmap args, owner-approval-pending status, model-path-pending
+  status, synthetic prompt digest, redacted output digest, fresh memory
+  samples, cancellation, rollback, RunEventLog, AnswerPacket, abstention, zero
+  command/model/runtime/provider/token bytes or actions, and no
+  L2/L3/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_owner_approved_runtime_replay_probe`.
+`gemma_qat_runtime_replay_execution_artifact_gate`.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned
