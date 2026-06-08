@@ -196,6 +196,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   benchmark, model, runtime, cache, index, or provider bytes were opened; no
   command was armed; L2/L3 stay red; and no large-local-model user-facing
   capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 156 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  minimal synthetic fixture pack v0 blueprint. North-star sentence: Epistemos
+  is a local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The pass creates the buildable side-ladder candidate
+  `F-MinimalSyntheticFixturePackV0`: six exact synthetic fixture IDs for note
+  synthesis, citation-grounded research, structured tool JSON, cache deletion,
+  refusal/abstention, and latency-bounded small-lane proof. Each fixture binds
+  deterministic verifier/scorer requirements, no raw private text, no copied
+  public benchmark prompts, no primary hidden judge, no network-by-default,
+  MAS/Pro caveats, rollback, RunEventLog, AnswerPacket, and non-promotion
+  caveats before any fixture files or runtime comparison can exist. This is T0
+  canon/build pressure only: no fixture, eval, benchmark, model, runtime,
+  cache, index, or provider bytes were opened; no command was armed; L2/L3 stay
+  red; and no large-local-model user-facing capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

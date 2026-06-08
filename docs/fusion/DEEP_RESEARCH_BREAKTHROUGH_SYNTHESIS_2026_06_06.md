@@ -18369,3 +18369,177 @@ Next research query: "Which exact minimal synthetic fixtures should instantiate
 the seed manifest first: one note-synthesis task, one citation task, one
 structured-tool JSON task, one cache-deletion task, one abstention task, and
 one latency-bounded small-lane task?"
+
+## Pass 156 - Minimal Synthetic Fixture Pack V0
+
+### Executive Synthesis
+
+Pass 156 instantiates the Pass 155 seed map as a minimal v0 fixture-pack
+blueprint. The breakthrough is deliberately small: six synthetic fixtures are
+enough to test whether a local lane can behave like Epistemos rather than like
+a generic chat benchmark. The pack covers note synthesis, citation-grounded
+research, structured tool JSON, cache deletion, abstention/refusal, and a
+latency-bounded small-lane task. It excludes raw private notes, copied public
+benchmark prompts, hidden judges, network-by-default, and any live model run.
+
+```text
+SeedFixtureFamilyManifest
+  -> MinimalSyntheticFixturePackV0
+  -> six synthetic fixtures with deterministic verifiers
+  -> no raw private text, no public benchmark copy, no runtime bytes
+  -> EpistemosOwnedHeldOutFixturePackCompiler
+  -> SameFixtureHeldOutQualityReplayPacket
+```
+
+This pass is T0 research-to-build canon. It creates no fixture files and runs
+no eval. It defines the exact blueprint a future metadata-only falsifier can
+validate before any owner-approved tiny runtime subset exists.
+
+### Local Source Facts
+
+- Harness task typing already classifies coding, research, terminal, and
+  note-synthesis objectives in `EpistemosTests/HarnessSubsystemTests.swift`.
+- Harness verification already parses `commandExitZero`, `filesExist`,
+  `outputPattern`, `llmJudge`, and `humanReview`; Pass 156 forbids `llmJudge`
+  as a primary verifier for v0.
+- `CloudKnowledgeDistillationTests` contains synthetic transformer/retrieval
+  notes and checks structured outputs such as domain map, writing style,
+  concept index, active context, instructions, note count, and concept count.
+- `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` names MAS-allowed and
+  Pro-only tool surfaces; v0 tool fixtures must not unlock Pro-only tools on
+  MAS or treat tool catalog entries as hidden route authority.
+- `Epistemos/AgentRuntimeV2/README.md`, `LatestAnswerPacketSink`, and
+  System G tests establish that RunEventLog and AnswerPacket visibility are
+  expected proof surfaces, not optional debug output.
+
+### Current External Source Facts
+
+- JSON Schema 2020-12 remains the structured-output validator target for v0
+  schema fixtures. Source: `https://json-schema.org/specification`
+- BFCL's AST/executable distinction remains the tool-call verification motif
+  for `structured_tool_json`, but public BFCL prompts must not enter held-out
+  fixtures. Source:
+  `https://gorilla.cs.berkeley.edu/blogs/8_berkeley_function_calling_leaderboard.html`
+- IFEval-style strict/loose instruction checking remains useful for
+  instruction-following diagnostics, but v0 promotion should depend on strict
+  deterministic checks only. Source:
+  `https://ukgovernmentbeis.github.io/inspect_evals/evals/reasoning/ifeval/index.html`
+- Terminal-Bench-style end-state verification remains the model for future Pro
+  terminal fixtures, but v0 keeps terminal execution out unless explicitly
+  owner-approved. Source: `https://www.tbench.ai/docs/task-overview`
+
+### Candidate Falsifier
+
+`F-MinimalSyntheticFixturePackV0`
+
+Required fixture IDs:
+
+| Fixture ID | Family | Synthetic input shape | Expected artifact | Primary verifier | Route caveat |
+|---|---|---|---|---|---|
+| `msfp_v0_note_synthesis_001` | note_synthesis_outline | 3 synthetic note cards about retrieval, recurrence, and transformer memory | JSON outline with `thesis`, `evidence_ids`, `open_questions`, `next_actions` | JSON Schema + source-id allowlist + no raw-note echo regex | MAS/Pro local writing, no model claim |
+| `msfp_v0_citation_research_001` | citation_grounded_research_answer | 4 synthetic source cards, one distractor, one missing-source trap | answer with exactly 2 allowlisted citations and explicit caveat for missing source | citation allowlist + missing-source rejection | Pro research or MAS safe local answer, no web claim |
+| `msfp_v0_structured_tool_json_001` | structured_tool_json | request to save a research snippet and citation with one unavailable tool option | JSON tool intent for allowed tool or abstention enum | JSON Schema + BFCL-style AST field check + visible final answer denial | Pro gated tools; MAS must not expose Pro-only tools |
+| `msfp_v0_cache_deletion_001` | cache_deletion_reuse | two context cards, one tombstoned before replay | answer must omit tombstoned fact and cite surviving source only | tombstone ref + cache salt + deleted-source absence regex | cache lane only; no cache quality claim |
+| `msfp_v0_abstention_001` | refusal_and_abstention | prompt asks for nonexistent source, unavailable tool, or unsafe mutation | exact `abstain_missing_evidence` / `deny_unavailable_tool` enum with short visible reason | enum validator + fake-citation/tool denial | SCOPE-Rex/SovereignGate safety |
+| `msfp_v0_latency_small_lane_001` | latency_budget_small_lane | tiny local rewrite/summarize prompt with synthetic text | AnswerPacket-style summary plus retained timing placeholder | timeout/thermal policy fields + no speed claim without measured runtime | small local anchor only, metadata pass no runtime |
+
+Required accepted fields:
+
+- `fixture_pack_id`: `minimal_synthetic_fixture_pack_v0`
+- `manifest_input_ref`: `F-SeedFixtureFamilyManifest`
+- `fixture_count`: `6`
+- stable explicit fixture IDs listed above
+- `search_set_count`, `calibration_set_count`, and `held_out_set_count`
+- `synthetic_only=true`
+- `raw_private_text_denied=true`
+- `public_benchmark_prompt_copy_denied=true`
+- `llm_judge_primary_denied=true`
+- `network_default=false`
+- verifier digest for every fixture
+- scorer digest for every fixture
+- prompt/context/source digests only, not raw prompt/context/source text
+- MAS/Pro caveat for every fixture
+- rollback, RunEventLog, AnswerPacket, abstention, and non-promotion caveat
+
+Required red fixtures:
+
+- missing any of the six required fixture IDs
+- duplicate fixture ID
+- empty held-out set
+- raw note/prompt/cache/model output stored in the pack
+- public benchmark prompt copied into any fixture
+- `llmJudge` as primary verifier
+- network enabled by default
+- structured tool fixture exposes visible control narration instead of final
+  answer or abstention
+- citation fixture accepts fake, missing, or distractor source IDs
+- cache deletion fixture passes while tombstoned source affects output
+- abstention fixture fabricates evidence or tool availability
+- latency fixture claims measured speed in metadata-only scope
+- MAS fixture references Pro-only terminal/subprocess tools
+- pack existence promoted as model quality, L2/L3, T4, or user-facing proof
+
+### Architecture Fusion
+
+| Fixture | Epistemos organ | Why it is first |
+|---|---|---|
+| note synthesis | MissionPacket, AnswerPacket | daily writing/research usefulness |
+| citation answer | Eidos, AppColdStore | anti-hallucination and source proof |
+| structured tool JSON | SovereignGate, tool registry | agentic correctness without hidden tools |
+| cache deletion | KV/cache lineage | prevents stale context from becoming truth |
+| abstention | SCOPE-Rex, AnswerPacket | makes missing evidence visible |
+| latency small lane | System G budget plane | keeps local routes practical |
+
+### Build Path
+
+1. Implement metadata-only `minimal_synthetic_fixture_pack_v0` UAS primitive.
+2. Implement `falsify_minimal_synthetic_fixture_pack_v0`.
+3. Add parser tests for the required six IDs, duplicate IDs, missing verifier
+   digest, raw-private-text leak, benchmark-copy leak, hidden judge,
+   MAS/Pro caveat absence, stale cache pass, and metadata-only promotion.
+4. Make the witness consume `F-SeedFixtureFamilyManifest`, not runtime output.
+5. Later, owner-approved runtime can materialize exactly these six fixtures as
+   synthetic files and run the current small lane before any Gemma/QAT/GGUF/
+   LiteRT/MLX/TurboVec lane comparison.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-MinimalSyntheticFixturePackV0`, because it makes the first held-out arena
+small enough to implement and hard enough to prevent fake local-model quality.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement `F-MinimalSyntheticFixturePackV0`
+after `F-SeedFixtureFamilyManifest`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for `minimal_synthetic_fixture_pack_v0`
+with the six required fixture IDs and invalid fixtures for raw text, copied
+benchmark prompts, hidden judges, stale cache, fake citations, MAS/Pro leakage,
+and metadata-only promotion.
+
+Biggest false-claim risk:
+calling the v0 pack an evaluation result. It is still only the blueprint; model
+quality needs materialized fixtures, owner-approved runtime, scorer digests,
+target verification, RunEventLog, and AnswerPacket proof.
+
+Biggest missing artifact:
+a landed metadata-only v0 fixture-pack witness that freezes the six required
+synthetic fixture IDs and rejects private-data leakage before runtime work.
+
+Next research query: "Which exact scorer and verifier digest schema should
+`F-MinimalSyntheticFixturePackV0` use so future materialized fixture files can
+be checked without trusting row order, mutable paths, hidden judges, or raw
+private text?"
