@@ -136,6 +136,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > AnswerPacket, rollback, abstention, and explicit non-promotion. This is T0
 > canon/backlog only; it does not run a model, capture a token, or advance
 > L2/L3.
+> Current addendum: Deep Research Pass 179 in the same file folds the owner's
+> "make Gemma the main model family" goal into a proof-gated policy instead of
+> a hardcoded default. Gemma 4 E2B/E4B QAT become the small warmup lanes,
+> Gemma 4 12B QAT GGUF/LiteRT becomes the flagship Pro Gated target, Gemma 4
+> 26B-A4B and 31B stay Pro Vault / ResearchCandidate, LiteRT-LM remains Pro
+> Gated until app-embedding and no-hidden-sidecar proof exist, and MLX Swift
+> Gemma 4 remains blocked until loader parity is witnessed. Proposed gates are
+> `F-GemmaMainFamilyPolicySourceCard`,
+> `F-GemmaQATSmallLaneOwnerPathManifest`,
+> `F-GemmaQATByteKVAppEnvelopePreflight`,
+> `F-GemmaQATRedactedFirstTokenProbe`,
+> `F-GemmaQATSameFixtureRuntimeReplay`,
+> `F-MLXSwiftGemma4LoaderParityCard`, and
+> `F-LiteRTLMRuntimeAdmissionPacket`. This is T0 research-to-build canon only:
+> no Gemma runtime/model bytes, no first token, no route promotion, no L2/L3,
+> and no "Gemma is live main app model" claim.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
