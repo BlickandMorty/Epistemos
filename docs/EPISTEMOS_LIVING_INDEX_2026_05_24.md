@@ -4925,6 +4925,47 @@ Layer truth:
 Correct phrasing: "L1 XPC trust source-card advanced; product capability /
 user surface did not."
 
+### 2026-06-08 - Automated-checks red artifact refreshed on current HEAD
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+was regenerated directly from the retained `checks.tsv` and command logs at
+commit `cdb0ba4ccaf41e67778cf3fe2f768a4c99ac4276` without rerunning the heavy
+`xcodebuild test` release command set. The artifact remains schema-valid RED:
+`xcodebuild_build`, `graph_engine_cargo_test`, `omega_mcp_cargo_test`, and
+`omega_ax_cargo_test` passed in the retained ledger, while `xcodebuild_test`
+failed with 161 issues across 84 unique tests.
+
+The refreshed red artifact preserves the failure-family ledger and focused
+repair map:
+
+- top retained family: `graph_filter_visibility` with 34 issues.
+- focused commands: `FilterEngineComprehensiveTests`,
+  `ResourceExhaustionTests`, and `ConcurrencyEdgeCaseTests`.
+- source anchors: `Epistemos/Graph/FilterEngine.swift`,
+  `Epistemos/Models/GraphTypes.swift`, and
+  `Epistemos/Graph/GraphState.swift`.
+- focused test anchors: `EpistemosTests/FilterEngineComprehensiveTests.swift`,
+  `EpistemosTests/ResourceExhaustionTests.swift`, and
+  `EpistemosTests/ConcurrencyEdgeCaseTests.swift`.
+
+Layer truth:
+
+- L1 architecture cursor: still parked on
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+  because `overall_pass=false`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; this was retained-log
+  artifact refresh only, not fresh Xcode runtime proof, not log/manual/
+  distribution evidence, and not a ship call.
+
+Correct phrasing: "Automated-checks red artifact refreshed on current HEAD;
+product capability / user surface did not advance."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

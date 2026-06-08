@@ -17463,3 +17463,109 @@ packet that can prove XPC peer identity, MAS/Pro role separation, provider
 denial/admission, tool denial/admission, rollback, RunEventLog, and
 AnswerPacket visibility before local model routes can use any process or
 provider boundary?"
+
+## Pass 151 - Automated Checks Red Artifact Refresh on Current HEAD
+
+### Executive Synthesis
+
+Pass 151 refreshes the guard-owned product bottleneck artifact without running
+the heavy release-audit command set:
+
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+
+The Rust artifact builder was run directly against the retained `checks.tsv`
+and command logs at commit `cdb0ba4ccaf41e67778cf3fe2f768a4c99ac4276`. The
+schema validator passed, but the artifact remains RED because the retained
+`xcodebuild_test` row failed. This is useful progress because it updates the
+artifact to current HEAD and preserves the exact repair map without pretending
+to have run or passed the full Swift suite.
+
+### Refreshed Evidence
+
+- `overall_pass=false`
+- `failed_check_count=1`
+- failed command: `xcodebuild_test`
+- `xcodebuild_test_issue_count=161`
+- `xcodebuild_test_unique_failure_count=84`
+- top failure family: `graph_filter_visibility`
+- retained top-family issue count: `34`
+- `model_runtime_bytes_loaded=0`
+- no heavy model/runtime probe
+- no full `xcodebuild test` rerun
+- no L2/L3/product/release promotion
+
+### Focused Repair Map
+
+The refreshed artifact binds the top family to the focused repair path:
+
+- focused family: `graph_filter_visibility`
+- focused commands:
+  - `FilterEngineComprehensiveTests`
+  - `ResourceExhaustionTests`
+  - `ConcurrencyEdgeCaseTests`
+- source anchors:
+  - `Epistemos/Graph/FilterEngine.swift`
+  - `Epistemos/Models/GraphTypes.swift`
+  - `Epistemos/Graph/GraphState.swift`
+- focused test anchors:
+  - `EpistemosTests/FilterEngineComprehensiveTests.swift`
+  - `EpistemosTests/ResourceExhaustionTests.swift`
+  - `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
+
+### Research-To-Build Meaning
+
+The architecture has enough research/canon around model lanes, QAT, TurboVec,
+XPC trust, tool authority, and source-guard drift. The current bottleneck is
+not a missing grand theory. It is proof discipline: repair the top retained
+Swift test family, prove focused graph-filter evidence without laundering it
+into the full release-audit row, then rerun the full automated-check gate only
+when the focused proof root is ready.
+
+This matters for larger local models because all Gemma/QAT/GGUF/MLX/LiteRT
+lanes depend on the same product truth chain. If graph/filter visibility,
+source/test evidence, and release-audit logs are red, then large-model routes
+cannot honestly become user-facing no matter how good the compression or model
+candidate is.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture cursor: unchanged; still parked on the automated-checks
+  probe because `overall_pass=false`.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Full Xcode test rerun: no.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+focused graph-filter proof-root execution that produces nonzero executed-test
+evidence, selected product/result digests, source-status digests, RunEventLog,
+AnswerPacket, and rollback while preserving the full `xcodebuild_test` row as
+still required.
+
+Safest next falsifier:
+the already-mapped graph-filter focused proof-root execution path, because the
+current red artifact says `graph_filter_visibility` is the top retained family
+and gives exact focused command/source/test anchors.
+
+Best near-term code unit:
+close the graph-filter focused proof-root owner-approval/execution gap, then
+repair or verify the focused graph-filter tests before any full release-audit
+rerun.
+
+Biggest false-claim risk:
+mistaking a refreshed red artifact, a focused repair plan, or focused tests for
+full automated-check pass, L3 release readiness, or large-local-model product
+capability.
+
+Biggest missing artifact:
+fresh focused graph-filter proof-root execution with nonzero executed-test
+count and digest-bound result evidence.
+
+Next research query: "What is the smallest owner-approved graph-filter focused
+proof-root execution artifact that can prove selected test products, nonzero
+executed tests, source-status digests, RunEventLog, AnswerPacket, rollback,
+and no full-release-audit laundering?"
