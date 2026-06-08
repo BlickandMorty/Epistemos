@@ -426,6 +426,33 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   payload JSON, eval, model, runtime, cache, index, or provider bytes were
   opened; no command was armed; L2/L3 stay red; and no large-local-model
   user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 167 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as
+  synthetic materializer primitive blueprint v0. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes without
+  visible proof. The pass creates the code-shaped side-ladder candidate
+  `F-SyntheticMaterializerPrimitiveBlueprintV0`: a future UAS card/set/witness
+  module at `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs`
+  with a falsifier binary, shell wrapper, and artifact root, all still
+  metadata-only. It binds exact approval phrase, owner-approval absence,
+  repo-root/staging path policy, exact v0 inventory, planned digest map,
+  schema/canonical-digest/privacy/provenance scan requirements, rollback,
+  RunEventLog, AnswerPacket, zero-byte ledger, and T0-only promotion boundary.
+  It rejects approval smuggling, wrong phrase, absolute paths, parent-segment
+  escape, hidden segment bypass, symlinks, hardlinks, case-collision gaps,
+  non-six payload counts, weak digest refs, disabled schema/canonical/privacy/
+  provenance scans, payload writes, runtime/model/provider/cache/index byte
+  access, armed commands, and product/L1/L2/L3/T4/T5/large-model promotion.
+  Local code fit points include the graph-filter owner-approval gate,
+  execution-artifact gate, same-fixture replay envelope, TurboVec crash-safe
+  persistent-index plan, and existing `serde_json`, `jsonschema`, `sha2`,
+  `tempfile`, and `walkdir` dependencies. This is T0 canon/build pressure only:
+  no product code changed, no primitive file was created, no fixture files or
+  payload JSON were written, no model/runtime/cache/index/provider bytes were
+  opened, no command was armed, L2/L3 stay red, and no large-local-model
+  user-facing capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
