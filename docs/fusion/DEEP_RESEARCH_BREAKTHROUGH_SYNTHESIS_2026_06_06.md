@@ -16246,3 +16246,113 @@ evidence for the exact graph-filter identifiers.
 Next research query: "How can the focused graph-filter proof-root run be made
 small, resumable, nonzero-test, source-status-bound, and impossible to confuse
 with full release-audit success?"
+
+## Pass 139 - Fresh Test-Products Evidence Envelope Address-Bound Refresh (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope` is refreshed as a landed
+T1/L1 metadata-only witness. The refresh binds the exact refreshed
+`F-GraphFilterVisibilityTestProductsCommandSpec` address and counts before any
+future fresh Xcode proof root can count.
+
+- UAS primitive:
+  `agent_core/src/uas/automated_checks_fresh_test_products_evidence_envelope.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_automated_checks_fresh_test_products_evidence_envelope.rs`
+- Axis contract:
+  `agent_core/src/falsifier_artifacts/axes.rs::AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_AXES`
+- Shell witness:
+  `Tools/falsifiers/f_automated_checks_fresh_test_products_evidence_envelope.sh`
+- Artifact:
+  `artifacts/falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json`
+- Witness doc:
+  `docs/falsifiers/F-AutomatedChecksFreshTestProductsEvidenceEnvelope_2026_06_07.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only evidence-envelope proof.
+- Upstream command-spec address:
+  `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`.
+- Upstream seed selectors: 8.
+- Upstream command templates: 3.
+- Retained red automated-checks artifact: consumed.
+- Capability bottleneck:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Top failure family: `graph_filter_visibility`.
+- Required digest fields: 8.
+- Required rejection policies: 14.
+- Required proof surfaces: 3.
+- Minimum executed-test policy: 1.
+- Rejected red fixtures: 22.
+- Selected test-product/app/model/runtime bytes: 0.
+- Deterministic envelope address:
+  `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Swift test execution: not attempted.
+- Product source: unchanged by this witness.
+- Full automated-check row: still red.
+- Runtime log/manual/distribution evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+The previous envelope proved the shape of a future proof root, but it only
+consumed the command spec as a boolean pass. Pass 139 makes the envelope inherit
+the refreshed command-spec artifact itself: the address, the eight seed
+selectors, and the three command templates. That matters because the next
+executed-test proof should not be able to reuse an older command-spec witness
+or a vague "passed command spec" label after the identifier-bound refresh.
+
+Correct phrasing: "L1 evidence-envelope bridge advanced; product capability /
+user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this envelope refresh by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only evidence envelope.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+fresh proof-root execution that inherits an exact command-spec address and then
+produces nonzero executed-test evidence without replacing the full automated
+row.
+
+Safest next falsifier:
+the focused proof-root execution gate, because the no-Xcode command-spec and
+envelope bridges now bind exact selectors, command templates, address, rollback,
+RunEventLog, and AnswerPacket requirements.
+
+Best near-term code unit:
+build a parser/witness for selected `.xctestrun` or `.xctestproducts`,
+enumeration JSON digest, focused `.xcresult` digest, executed-test count greater
+than zero, pre/post source-status digests, and explicit full-row-not-replaced
+status.
+
+Biggest false-claim risk:
+calling this refreshed envelope a Swift test pass, release readiness, L2 green,
+or large-local-model product capability.
+
+Biggest missing artifact:
+a fresh focused proof-root artifact with nonzero executed-test evidence for the
+exact graph-filter identifiers.
+
+Next research query: "What is the smallest Xcode proof-root parser that can
+verify selected test product, enumeration JSON, focused xcresult, nonzero
+executed tests, source status, and no full-row replacement without running a
+full release marathon?"

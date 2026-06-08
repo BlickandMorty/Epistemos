@@ -83,6 +83,9 @@ fn build_artifact(
     let capability = read_capability()?;
     let witness = AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
         command_spec.overall_pass,
+        &command_spec.address,
+        command_spec.seed_selector_count,
+        command_spec.command_template_count,
         automated_checks.overall_pass,
         &capability.next_bottleneck,
         &automated_checks.top_failure_family,
@@ -102,6 +105,19 @@ fn build_artifact(
         (
             "upstream_command_spec_pass",
             witness.command_spec_overall_pass,
+        ),
+        (
+            "upstream_command_spec_address_bound",
+            witness.command_spec_address.starts_with("sha256:")
+                && witness.command_spec_address.len() == 71,
+        ),
+        (
+            "upstream_command_spec_seed_selectors_8",
+            witness.command_spec_seed_selector_count == 8,
+        ),
+        (
+            "upstream_command_spec_command_templates_3",
+            witness.command_spec_command_template_count == 3,
         ),
         (
             "upstream_automated_checks_red_bound",
@@ -228,6 +244,18 @@ fn build_artifact(
 
     for (name, actual, expected, unit) in [
         (
+            "command_spec_seed_selector_count",
+            witness.command_spec_seed_selector_count,
+            8,
+            "selectors",
+        ),
+        (
+            "command_spec_command_template_count",
+            witness.command_spec_command_template_count,
+            3,
+            "commands",
+        ),
+        (
             "selected_test_product_kind_count",
             witness.metrics.selected_test_product_kind_count as u64,
             witness.metrics.selected_test_product_kind_count as u64,
@@ -299,6 +327,26 @@ fn build_artifact(
             unit,
         );
     }
+    measurements.insert(
+        "command_spec_address".to_string(),
+        Measurement {
+            value: serde_json::json!(witness.command_spec_address),
+            unit: "sha256".to_string(),
+        },
+    );
+    thresholds.insert(
+        "command_spec_address".to_string(),
+        AcceptanceThreshold {
+            operator: "non_empty".to_string(),
+            value: serde_json::json!(true),
+            unit: "sha256".to_string(),
+        },
+    );
+    pass_per_axis.insert(
+        "command_spec_address".to_string(),
+        witness.command_spec_address.starts_with("sha256:"),
+    );
+
     measurements.insert(
         "automated_checks_fresh_test_products_envelope_address".to_string(),
         Measurement {
@@ -401,6 +449,31 @@ fn red_fixture_results(
         let rejected = match fixture {
             RedFixture::CommandSpecFail => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 false,
+                &witness.command_spec_address,
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
+                witness.automated_checks_overall_pass,
+                &witness.automated_checks_next_bottleneck,
+                &witness.automated_checks_top_failure_family,
+                witness.automated_checks_xcodebuild_test_passed,
+            )
+            .is_err(),
+            RedFixture::MissingCommandSpecAddress => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
+                witness.command_spec_overall_pass,
+                "",
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
+                witness.automated_checks_overall_pass,
+                &witness.automated_checks_next_bottleneck,
+                &witness.automated_checks_top_failure_family,
+                witness.automated_checks_xcodebuild_test_passed,
+            )
+            .is_err(),
+            RedFixture::WrongCommandSpecSelectorCount => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
+                witness.command_spec_overall_pass,
+                &witness.command_spec_address,
+                7,
+                witness.command_spec_command_template_count,
                 witness.automated_checks_overall_pass,
                 &witness.automated_checks_next_bottleneck,
                 &witness.automated_checks_top_failure_family,
@@ -409,6 +482,9 @@ fn red_fixture_results(
             .is_err(),
             RedFixture::AutomatedChecksGreen => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 witness.command_spec_overall_pass,
+                &witness.command_spec_address,
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
                 true,
                 &witness.automated_checks_next_bottleneck,
                 &witness.automated_checks_top_failure_family,
@@ -417,6 +493,9 @@ fn red_fixture_results(
             .is_err(),
             RedFixture::WrongNextBottleneck => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 witness.command_spec_overall_pass,
+                &witness.command_spec_address,
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
                 witness.automated_checks_overall_pass,
                 "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe",
                 &witness.automated_checks_top_failure_family,
@@ -425,6 +504,9 @@ fn red_fixture_results(
             .is_err(),
             RedFixture::WrongFailureFamily => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 witness.command_spec_overall_pass,
+                &witness.command_spec_address,
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
                 witness.automated_checks_overall_pass,
                 &witness.automated_checks_next_bottleneck,
                 "agent_route_policy",
@@ -433,6 +515,9 @@ fn red_fixture_results(
             .is_err(),
             RedFixture::XcodebuildTestGreen => AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 witness.command_spec_overall_pass,
+                &witness.command_spec_address,
+                witness.command_spec_seed_selector_count,
+                witness.command_spec_command_template_count,
                 witness.automated_checks_overall_pass,
                 &witness.automated_checks_next_bottleneck,
                 &witness.automated_checks_top_failure_family,
@@ -455,6 +540,8 @@ fn red_fixture_results(
 // Residency: metadata-only fixture contract; no product/test bytes are loaded.
 enum RedFixture {
     CommandSpecFail,
+    MissingCommandSpecAddress,
+    WrongCommandSpecSelectorCount,
     AutomatedChecksGreen,
     WrongNextBottleneck,
     WrongFailureFamily,
@@ -469,6 +556,8 @@ impl RedFixture {
     fn name(&self) -> &'static str {
         match self {
             Self::CommandSpecFail => "command_spec_fail_rejected",
+            Self::MissingCommandSpecAddress => "missing_command_spec_address_rejected",
+            Self::WrongCommandSpecSelectorCount => "wrong_command_spec_selector_count_rejected",
             Self::AutomatedChecksGreen => "automated_checks_green_rejected",
             Self::WrongNextBottleneck => "wrong_next_bottleneck_rejected",
             Self::WrongFailureFamily => "wrong_failure_family_rejected",
@@ -481,6 +570,8 @@ impl RedFixture {
 fn red_fixture_cases() -> Vec<RedFixture> {
     vec![
         RedFixture::CommandSpecFail,
+        RedFixture::MissingCommandSpecAddress,
+        RedFixture::WrongCommandSpecSelectorCount,
         RedFixture::AutomatedChecksGreen,
         RedFixture::WrongNextBottleneck,
         RedFixture::WrongFailureFamily,
@@ -562,6 +653,9 @@ fn red_fixture_cases() -> Vec<RedFixture> {
 // Residency: metadata-only upstream command-spec artifact summary.
 struct CommandSpecArtifact {
     overall_pass: bool,
+    address: String,
+    seed_selector_count: u64,
+    command_template_count: u64,
 }
 
 // UAS: uas:automated-checks-fresh-test-products-evidence-envelope:automated-checks-artifact
@@ -584,6 +678,10 @@ fn read_command_spec() -> Result<CommandSpecArtifact, Box<dyn std::error::Error>
     let json = read_json(Path::new(COMMAND_SPEC_RESULT))?;
     Ok(CommandSpecArtifact {
         overall_pass: json_bool(&json, "overall_pass").unwrap_or(false),
+        address: measurement_string(&json, "graph_filter_test_products_address")
+            .unwrap_or_default(),
+        seed_selector_count: measurement_u64(&json, "seed_selector_count").unwrap_or(0),
+        command_template_count: measurement_u64(&json, "command_template_count").unwrap_or(0),
     })
 }
 
@@ -616,6 +714,11 @@ fn json_bool(json: &serde_json::Value, key: &str) -> Option<bool> {
 fn measurement_bool(json: &serde_json::Value, key: &str) -> Option<bool> {
     json.pointer(&format!("/measurements/{key}/value"))
         .and_then(serde_json::Value::as_bool)
+}
+
+fn measurement_u64(json: &serde_json::Value, key: &str) -> Option<u64> {
+    json.pointer(&format!("/measurements/{key}/value"))
+        .and_then(serde_json::Value::as_u64)
 }
 
 fn measurement_string(json: &serde_json::Value, key: &str) -> Option<String> {

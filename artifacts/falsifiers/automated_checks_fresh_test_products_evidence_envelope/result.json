@@ -28,17 +28,17 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "96ebbfee06b4c6f202588b67d3b007b0eec76ed0",
+  "commit_sha": "b9564d1e74579840db0064ffaa5767d9e484cfc4",
   "fixture_id": "automated_checks_fresh_test_products_evidence_envelope_v1",
-  "timestamp_utc": "2026-06-07T23:32:41Z",
-  "result_digest": "sha256:a7bfc08cddafcba6359ca42d07480778d649dec9d66164467929b1c39d4872da",
+  "timestamp_utc": "2026-06-08T04:21:58Z",
+  "result_digest": "sha256:40451c60db7a7ecfc07d9674578b2b2eb9ea92e82491a4348540fd2c15f4bac8",
   "measurements": {
     "app_runtime_bytes_loaded_total": {
       "value": 0,
       "unit": "bytes"
     },
     "automated_checks_fresh_test_products_envelope_address": {
-      "value": "sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad",
+      "value": "sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f",
       "unit": "sha256"
     },
     "automated_checks_fresh_test_products_evidence_envelope": {
@@ -48,6 +48,9 @@
         "next_cursor": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
         "command_spec_artifact_ref": "artifact:falsifiers/graph_filter_visibility_test_products_command_spec/result.json#F-GraphFilterVisibilityTestProductsCommandSpec",
         "command_spec_overall_pass": true,
+        "command_spec_address": "sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9",
+        "command_spec_seed_selector_count": 8,
+        "command_spec_command_template_count": 3,
         "automated_checks_artifact_ref": "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
         "automated_checks_overall_pass": false,
         "automated_checks_next_bottleneck": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
@@ -128,7 +131,7 @@
           "model_runtime_bytes_loaded": 0,
           "app_runtime_bytes_loaded": 0
         },
-        "address": "sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad",
+        "address": "sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f",
         "metadata_only": true,
         "no_product_promotion": true
       },
@@ -138,9 +141,21 @@
       "value": true,
       "unit": "bool"
     },
+    "command_spec_address": {
+      "value": "sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9",
+      "unit": "sha256"
+    },
+    "command_spec_command_template_count": {
+      "value": 3,
+      "unit": "commands"
+    },
     "command_spec_fail_rejected": {
       "value": true,
       "unit": "bool"
+    },
+    "command_spec_seed_selector_count": {
+      "value": 8,
+      "unit": "selectors"
     },
     "focused_proof_cannot_replace_full_row": {
       "value": true,
@@ -171,6 +186,10 @@
       "unit": "tests"
     },
     "minimum_nonzero_executed_tests_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_command_spec_address_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -239,11 +258,11 @@
       "unit": "bool"
     },
     "red_fixture_count": {
-      "value": 20,
+      "value": 22,
       "unit": "fixtures"
     },
     "red_fixture_rejection_count": {
-      "value": 20,
+      "value": 22,
       "unit": "fixtures"
     },
     "release_ready_claim_rejected": {
@@ -314,7 +333,19 @@
       "value": true,
       "unit": "bool"
     },
+    "upstream_command_spec_address_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_command_templates_3": {
+      "value": true,
+      "unit": "bool"
+    },
     "upstream_command_spec_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_seed_selectors_8": {
       "value": true,
       "unit": "bool"
     },
@@ -323,6 +354,10 @@
       "unit": "bool"
     },
     "upstream_xcodebuild_test_red_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_command_spec_selector_count_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -368,10 +403,25 @@
       "value": true,
       "unit": "bool"
     },
+    "command_spec_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "command_spec_command_template_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
     "command_spec_fail_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
+    },
+    "command_spec_seed_selector_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "selectors"
     },
     "focused_proof_cannot_replace_full_row": {
       "operator": "==",
@@ -409,6 +459,11 @@
       "unit": "tests"
     },
     "minimum_nonzero_executed_tests_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_command_spec_address_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -495,12 +550,12 @@
     },
     "red_fixture_count": {
       "operator": "==",
-      "value": 20,
+      "value": 22,
       "unit": "fixtures"
     },
     "red_fixture_rejection_count": {
       "operator": "==",
-      "value": 20,
+      "value": 22,
       "unit": "fixtures"
     },
     "release_ready_claim_rejected": {
@@ -588,7 +643,22 @@
       "value": true,
       "unit": "bool"
     },
+    "upstream_command_spec_address_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_command_templates_3": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "upstream_command_spec_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_spec_seed_selectors_8": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -599,6 +669,11 @@
       "unit": "bool"
     },
     "upstream_xcodebuild_test_red_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_command_spec_selector_count_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -634,7 +709,10 @@
     "automated_checks_fresh_test_products_envelope_address": true,
     "automated_checks_fresh_test_products_evidence_envelope": true,
     "automated_checks_green_rejected": true,
+    "command_spec_address": true,
+    "command_spec_command_template_count": true,
     "command_spec_fail_rejected": true,
+    "command_spec_seed_selector_count": true,
     "focused_proof_cannot_replace_full_row": true,
     "full_automated_check_row_still_required": true,
     "full_row_replacement_rejected": true,
@@ -643,6 +721,7 @@
     "live_dense_70b_claim_rejected": true,
     "minimum_executed_test_count": true,
     "minimum_nonzero_executed_tests_required": true,
+    "missing_command_spec_address_rejected": true,
     "missing_digest_field_rejected": true,
     "missing_proof_surface_rejected": true,
     "missing_rejection_policy_rejected": true,
@@ -678,9 +757,13 @@
     "test_product_byte_open_rejected": true,
     "upstream_automated_checks_red_bound": true,
     "upstream_automated_next_bottleneck_bound": true,
+    "upstream_command_spec_address_bound": true,
+    "upstream_command_spec_command_templates_3": true,
     "upstream_command_spec_pass": true,
+    "upstream_command_spec_seed_selectors_8": true,
     "upstream_top_failure_family_bound": true,
     "upstream_xcodebuild_test_red_bound": true,
+    "wrong_command_spec_selector_count_rejected": true,
     "wrong_failure_family_rejected": true,
     "wrong_next_bottleneck_rejected": true,
     "xcode_execution_claim_rejected": true,
