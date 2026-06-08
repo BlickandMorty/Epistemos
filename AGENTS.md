@@ -200,6 +200,19 @@ Runtime policy:
   digest, license/provenance/import mode, extracted motif, failure risk,
   same-fixture replay, rollback, RunEventLog, AnswerPacket, abstention, and no
   route/default mutation before RuntimeRouter/System G can cite it.
+- 2026-06-08 GGUF/QAT same-fixture replay research: Deep Research Pass 209
+  defines `F-GGUFQATForkDeltaSameFixtureReplaySchema` as the next fork-delta
+  replay contract. Official Google QAT Q4_0, Unsloth Dynamic 2.0 / UD-Q*,
+  Atomic/TurboQuant assistant/KV forks, community conversions, and clean-room
+  rewrites must compete on the same fixture pack with baseline source card,
+  fork source card, selected-byte budget, runtime digest, tokenizer digest,
+  chat-template digest, prompt/scorer digest, final output digest,
+  structured-output/tool-call/citation validity, memory and latency counters,
+  timeout/cancel/teardown, rollback, RunEventLog, AnswerPacket, abstention, and
+  no route/default/settings mutation. Current evidence from Google Gemma 4 QAT,
+  llama.cpp, LiteRT-LM, LightEval, and lm-evaluation-harness is source-card
+  material only; it does not prove Epistemos Gemma runtime, L2/L3, or product
+  capability.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
