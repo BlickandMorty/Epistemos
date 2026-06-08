@@ -490,6 +490,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > fast-row-gated visibility, rejects 85 red fixtures, and opens or executes
 > zero settings, Xcode, model, runtime, route, provider, or user-facing packet
 > actions. L2/L3 remain red.
+> Current addendum: Deep Research Pass 205 lands
+> `F-GemmaQATE2BProductCapabilityRecheckGate` as metadata-only T1/L1 evidence.
+> The gate consumes `F-GemmaQATE2BReleaseAuditSurfaceGate`, reads the guard and
+> capability-kernel artifacts, and passes only by proving the Gemma E2B product
+> recheck remains blocked on
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+> with route status `vault_research_route_with_packetized_mitigation`. It
+> rejects 62 red fixtures, runs zero Xcode/model/runtime/provider actions, and
+> does not advance L2/L3.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

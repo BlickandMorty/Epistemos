@@ -66,6 +66,7 @@ pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
 pub mod gemma_qat_e2b_model_file_and_llama_cpp_digest_gate;
 pub mod gemma_qat_e2b_owner_approved_first_token_runtime_probe;
 pub mod gemma_qat_e2b_owner_path_manifest_digest_gate;
+pub mod gemma_qat_e2b_product_capability_recheck_gate;
 pub mod gemma_qat_e2b_release_audit_surface_gate;
 pub mod gemma_qat_e2b_route_answer_packet_visibility_gate;
 pub mod gemma_qat_e2b_runtime_router_admission_packet_gate;
@@ -485,6 +486,18 @@ pub use gemma_qat_e2b_release_audit_surface_gate::{
     GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_ID,
     GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_UPSTREAM_REF,
+};
+pub use gemma_qat_e2b_product_capability_recheck_gate::{
+    required_gemma_qat_e2b_product_capability_recheck_fields,
+    required_gemma_qat_e2b_product_capability_recheck_rejection_policies,
+    GemmaQatE2bProductCapabilityRecheckGate,
+    GemmaQatE2bProductCapabilityRecheckGateError,
+    GemmaQatE2bProductCapabilityRecheckGateMetrics,
+    GemmaQatE2bProductCapabilityRecheckGateStatus,
+    GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_CURSOR,
+    GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ID,
+    GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_model_file_and_llama_cpp_digest_gate::{
     required_gemma_qat_e2b_model_file_and_llama_cpp_digest_fields,

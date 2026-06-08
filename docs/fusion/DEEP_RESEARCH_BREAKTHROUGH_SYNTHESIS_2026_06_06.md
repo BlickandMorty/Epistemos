@@ -25530,3 +25530,106 @@ The next capability recheck could still become theater if it consumes this
 metadata PASS while ignoring the red automated-check gate. The next gate must
 therefore preserve the product blocker explicitly and refuse to call Gemma live
 until release-audit evidence exists.
+
+## Pass 205 - Gemma E2B Product Capability Recheck Gate Landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make the current product-capability recheck itself falsifiable. The new
+`F-GemmaQATE2BProductCapabilityRecheckGate` consumes the release-audit surface
+and passes only when it verifies Gemma E2B is still blocked by the red
+release-audit automated-check cursor.
+
+Safest next falsifier:
+`gemma_qat_e2b_release_audit_blocker_repair_bridge_gate`. It should bind the
+blocked recheck to the graph-filter proof-root repair path without running
+Xcode, replacing full release proof, or promoting Gemma.
+
+Best near-term code unit:
+continue toward the release-audit blocker repair bridge, then owner-approved
+focused graph-filter proof-root execution. That is the shortest path from
+Gemma research-to-build metadata into actual product evidence.
+
+Biggest false-claim risk:
+treating a PASS on the product-capability recheck as product capability. The
+gate passes because it sees the capability kernel is red and preserves the
+blocker.
+
+Biggest missing source:
+a current-HEAD automated-check artifact with `xcodebuild_test_passed=true` and
+the log/manual/distribution/repeated-zero-fail proof required after that.
+
+Next research query: "How can
+`gemma_qat_e2b_release_audit_blocker_repair_bridge_gate` connect the blocked
+Gemma recheck to the graph-filter proof-root repair path without turning a
+focused proof into full release readiness?"
+
+### Current Evidence
+
+- New primitive:
+  `agent_core/src/uas/gemma_qat_e2b_product_capability_recheck_gate.rs`
+- New binary:
+  `agent_core/src/bin/falsify_gemma_qat_e2b_product_capability_recheck_gate.rs`
+- New runner:
+  `Tools/falsifiers/f_gemma_qat_e2b_product_capability_recheck_gate.sh`
+- New witness:
+  `docs/falsifiers/F-GemmaQATE2BProductCapabilityRecheckGate_2026_06_08.md`
+- New artifact:
+  `artifacts/falsifiers/gemma_qat_e2b_product_capability_recheck_gate/result.json`
+- Focused Rust test:
+  `cargo test --manifest-path agent_core/Cargo.toml --lib gemma_qat_e2b_product_capability_recheck_gate`
+  passed 5/5.
+- Witness script:
+  `Tools/falsifiers/f_gemma_qat_e2b_product_capability_recheck_gate.sh`
+  passed and validated the artifact.
+
+### Architecture Fusion
+
+```text
+Gemma E2B release-audit surface gate
+  -> product capability recheck
+  -> blocked truth confirmed against capability kernel
+  -> release-audit blocker repair bridge
+  -> owner-approved focused graph-filter proof
+  -> full automated-check pass
+  -> log/manual/distribution/repeated-zero-fail evidence
+```
+
+The landed gate binds the capability kernel result, guard result, red
+automated-check bottleneck, route status
+`vault_research_route_with_packetized_mitigation`, pending focused proof root,
+pending log correlation, pending manual runtime verification, pending
+distribution/compliance review, pending repeated-zero-fail release evidence,
+gated settings/diagnostics/runtime/default/AnswerPacket surfaces, owner
+action, RunEventLog, rollback, abstention, SCOPE-Rex, SovereignGate, and
+cancellation.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced for the Gemma side-ladder only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Xcode command executed: no.
+- Settings row wired: no.
+- Diagnostics UI wired: no.
+- User-visible AnswerPacket emitted: no.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: explicitly not promoted.
+
+### Why This May Be A Breakthrough
+
+It turns "not yet" into a first-class witness instead of hand-wavy caution. The
+architecture can now prove that Gemma E2B has a release surface and a product
+recheck, while also proving the recheck is blocked until product evidence
+arrives.
+
+### Why It May Be Wrong
+
+A blocked-state witness could become another layer of paperwork if the next
+step does not connect it to the real repair path. The follow-up bridge must
+point at the focused graph-filter proof-root and release-audit automated-check
+repair, not invent a parallel product authority.

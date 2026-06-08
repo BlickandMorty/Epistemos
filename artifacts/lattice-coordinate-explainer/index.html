@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Deep Research Pass 204 - Gemma E2B Release-Audit Surface Gate Landed">
-  <meta name="epistemos-commit-sha" content="f63ecf8a6f3b8cd2ac857f20486e74b2669b78ca">
+  <meta name="epistemos-latest-research-pass" content="Deep Research Pass 205 - Gemma E2B Product Capability Recheck Gate Landed">
+  <meta name="epistemos-commit-sha" content="75d2133a0863ca2c24bfb224350f3dffbcaa6f41">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1465,6 +1465,26 @@
   live 70B, or SSD-as-RAM claim. Next Gemma side-ladder unit:
   <code>gemma_qat_e2b_product_capability_recheck_gate</code>; product truth
   remains blocked by the red release-audit automated-check cursor.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-08 Gemma E2B product-capability recheck gate landed.</strong>
+  <code>F-GemmaQATE2BProductCapabilityRecheckGate</code> is now a
+  metadata-only T1/L1 witness. It consumes the release-audit surface gate plus
+  regenerated architecture guard and capability-kernel truth, and it passes
+  only by proving Gemma E2B product capability is still blocked by
+  <code>small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe</code>.
+  The gate binds 36 recheck fields, 52 fail-closed policies, 9 blocked truth
+  anchors, 6 gated surfaces, 62 red fixtures, rollback, RunEventLog,
+  AnswerPacket, abstention, SCOPE-Rex, SovereignGate, non-promotion, and
+  next-unit deferral. It wires zero settings rows, emits zero user-visible
+  AnswerPackets, runs zero Xcode commands, mutates zero routes or defaults,
+  loads zero model/runtime/provider bytes, and makes no MAS, L2, L3, T4, live
+  Gemma default, release-ready, live 70B, or SSD-as-RAM claim. Next Gemma
+  side-ladder unit:
+  <code>gemma_qat_e2b_release_audit_blocker_repair_bridge_gate</code>; product
+  truth remains blocked by the guard-owned release-audit automated-check
+  cursor.
 </div>
 
 <div class="canon-hook">

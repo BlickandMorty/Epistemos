@@ -154,6 +154,21 @@ Runtime policy:
   Gemma live/default/user-facing. Next Gemma side-ladder unit:
   `gemma_qat_e2b_product_capability_recheck_gate`, still blocked by the
   guard-owned release-audit automated-check cursor for product truth.
+- 2026-06-08 Gemma E2B product-capability recheck status:
+  `F-GemmaQATE2BProductCapabilityRecheckGate` is landed as metadata-only
+  L1/T1. It consumes the release-audit surface gate plus regenerated
+  architecture guard/capability-kernel truth, and passes only by proving Gemma
+  E2B product capability is still blocked by
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+  It binds 36 recheck fields, 52 fail-closed policies, 9 blocked truth anchors,
+  6 gated surfaces, 62 red fixtures, rollback, RunEventLog, AnswerPacket,
+  abstention, SCOPE-Rex, SovereignGate, non-promotion, and next-unit deferral.
+  It wires zero settings rows, emits zero user-visible AnswerPackets, runs zero
+  Xcode commands, loads zero model/runtime/provider bytes, mutates zero routes
+  or defaults, and does not make Gemma live/default/L2/L3/T4. Next Gemma
+  side-ladder unit:
+  `gemma_qat_e2b_release_audit_blocker_repair_bridge_gate`, still downstream of
+  the guard-owned release-audit automated-check cursor for product truth.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
