@@ -1,0 +1,445 @@
+{
+  "falsifier_id": "F-GemmaDirectHarnessArtifactReceiptMap",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_direct_harness_artifact_receipt_map.sh",
+  "command_digest": "sha256:3a0ad2d3f7b9aba124a36df64b9b3d4c10293748718b5f685ff17210965d6e84",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "fd4e7600aea14a92f97a8caf2a4a62d83b8c331c",
+  "fixture_id": "gemma_direct_harness_artifact_receipt_map_v1",
+  "timestamp_utc": "2026-06-08T23:24:50Z",
+  "result_digest": "sha256:d4e54816e7e526b126416c7e012bfa2e96021d6984092701618fca2bc2b7fffe",
+  "measurements": {
+    "accepted_receipt_count": {
+      "value": 0,
+      "unit": "receipts"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "future_receipt_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_present_count": {
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_receipt_map_address": {
+      "value": "gemma_direct_harness_artifact_receipt_map:8d89c8d6a5f176f102ff493d840029af6b998fc817a3fe16f4b41bbad6e51328@1779491600000",
+      "unit": "text"
+    },
+    "gemma_direct_harness_receipt_map_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_owner_approved_receipt_emitter_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_or_parallel_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "observation_redaction_timing_memory_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_prompt_output_stdio_token_path_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "process_exit_timeout_cancel_teardown_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_path_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_read_and_reconciliation_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_reconciliation_performed_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "receipt_sections_fields_and_rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "required_receipt_field_count": {
+      "value": 26,
+      "unit": "fields"
+    },
+    "required_receipt_section_count": {
+      "value": 7,
+      "unit": "sections"
+    },
+    "required_rejection_policy_count": {
+      "value": 37,
+      "unit": "policies"
+    },
+    "run_event_log_answer_packet_rollback_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "subject_material_invocation_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_execution_artifact_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_execution_probe_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_first_token_review_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_receipt_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "receipts"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "future_receipt_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_receipt_map_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_direct_harness_receipt_map_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_owner_approved_receipt_emitter_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_or_parallel_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "observation_redaction_timing_memory_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_prompt_output_stdio_token_path_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "process_exit_timeout_cancel_teardown_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_path_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_read_and_reconciliation_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_reconciliation_performed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "receipt_sections_fields_and_rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 40,
+      "unit": "fixtures"
+    },
+    "required_receipt_field_count": {
+      "operator": "==",
+      "value": 26,
+      "unit": "fields"
+    },
+    "required_receipt_section_count": {
+      "operator": "==",
+      "value": 7,
+      "unit": "sections"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 37,
+      "unit": "policies"
+    },
+    "run_event_log_answer_packet_rollback_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "subject_material_invocation_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_execution_artifact_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_execution_probe_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_first_token_review_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_receipt_count": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "future_receipt_bytes_read": true,
+    "future_receipt_present_count": true,
+    "gemma_direct_harness_receipt_map_address": true,
+    "gemma_direct_harness_receipt_map_address_deterministic": true,
+    "hidden_authority_count": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_or_parallel_authority": true,
+    "observation_redaction_timing_memory_bound": true,
+    "privacy_raw_prompt_output_stdio_token_path_denied": true,
+    "process_exit_timeout_cancel_teardown_bound": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_output_bytes": true,
+    "raw_path_bytes": true,
+    "raw_prompt_bytes": true,
+    "raw_stderr_bytes": true,
+    "raw_stdout_bytes": true,
+    "raw_token_bytes": true,
+    "receipt_read_and_reconciliation_deferred": true,
+    "receipt_reconciliation_performed_count": true,
+    "receipt_sections_fields_and_rejection_policies_bound": true,
+    "red_fixture_rejection_count": true,
+    "required_receipt_field_count": true,
+    "required_receipt_section_count": true,
+    "required_rejection_policy_count": true,
+    "run_event_log_answer_packet_rollback_abstention_bound": true,
+    "runtime_bytes_loaded": true,
+    "subject_material_invocation_digests_bound": true,
+    "upstream_execution_artifact_gate_pass": true,
+    "upstream_execution_probe_pass": true,
+    "upstream_first_token_review_gate_pass": true,
+    "zero_command_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaDirectHarnessArtifactReceiptMap: maps the Pass 211 bounded llama-cli Gemma harness rail into the existing Gemma execution artifact, owner-approved execution probe, first-token review, reconciliation, same-fixture quality, RuntimeRouter admission, dry-run route, AnswerPacket visibility, and settings WRV ladder. It binds digest-only subject/material/invocation/process/observation/join/promotion receipt sections, rejects raw prompt/output/stdout/stderr/token/path bytes, hidden command args, missing exit/termination/timeout/cancel/teardown/redaction/memory/timing/log/packet proof, parallel ladder authority, route/default/settings mutation, and product promotion. It reads zero receipt/model/runtime/provider bytes, arms or executes zero commands, and makes no Gemma live/default/L2/L3/T4/user-facing, quality, live dense 70B, or SSD-as-RAM claim."
+}

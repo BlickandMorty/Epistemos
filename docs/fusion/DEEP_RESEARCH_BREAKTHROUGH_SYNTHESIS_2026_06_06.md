@@ -26668,3 +26668,56 @@ does not collect enough detail. It can also overfit to `llama-cli` and fail to
 cover later `llama-server`, LiteRT-LM, or MLX lanes. The receipt map must stay
 small enough to implement, but extensible enough to add lane-specific
 observations without breaking the review gates.
+
+## Pass 213 - F-GemmaDirectHarnessArtifactReceiptMap landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn the Pass 212 receipt map from research into a real metadata-only UAS
+witness. `F-GemmaDirectHarnessArtifactReceiptMap` now exists as source,
+falsifier binary, shell script, validator-accepted artifact, schema row,
+handbook row, witness doc, Living Index entry, and lattice surface hook.
+
+Mechanism:
+the receipt map binds a future bounded Gemma `llama-cli` run to the existing
+Gemma execution artifact, owner-approved execution probe, first-token review,
+reconciliation, same-fixture quality, RuntimeRouter admission, dry-run route,
+AnswerPacket visibility, and settings WRV ladder. It is a bridge, not a
+parallel authority.
+
+Epistemos organ:
+UAS + Verification plane, feeding RuntimeRouter/System G only after later
+owner-approved receipt emission, reconciliation, quality replay, admission,
+WRV, and release-audit gates pass.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_artifact_receipt_map/result.json`.
+
+Proof:
+the witness passed with 7 receipt sections, 26 receipt fields, 37 rejection
+policies, 45 red-fixture rejections, zero receipt/model/runtime/provider bytes,
+zero command execution, zero raw prompt/output/stdout/stderr/token/path bytes,
+zero RuntimeRouter/System G/settings/default mutation, and no Gemma
+live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate`, because the receipt map
+now defines the contract, but no owner-approved receipt emitter exists yet.
+
+Biggest false-claim risk:
+calling a receipt-map PASS "Gemma works." It only proves the future receipt
+shape and the fail-closed no-leak/no-route/no-promotion boundaries.
+
+Why it may be wrong:
+the future runtime emitter may need lane-specific observations not captured by
+the map. The next gate should therefore allow extension fields only when they
+are monotonic and cannot turn DENY into ALLOW.

@@ -59,6 +59,7 @@ pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
+pub mod gemma_direct_harness_artifact_receipt_map;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
@@ -418,6 +419,18 @@ pub use gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate::{
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_ID,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_RECONCILIATION_GATE_UPSTREAM_REF,
+};
+pub use gemma_direct_harness_artifact_receipt_map::{
+    required_gemma_direct_harness_receipt_fields,
+    required_gemma_direct_harness_receipt_rejection_policies,
+    required_gemma_direct_harness_receipt_sections,
+    GemmaDirectHarnessArtifactReceiptMap,
+    GemmaDirectHarnessArtifactReceiptMapError,
+    GemmaDirectHarnessArtifactReceiptMapMetrics,
+    GemmaDirectHarnessArtifactReceiptMapStatus,
+    GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_CURSOR,
+    GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_ID,
+    GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_NEXT_CURSOR,
 };
 pub use gemma_qat_e2b_same_fixture_quality_replay_packet_gate::{
     required_gemma_qat_e2b_same_fixture_quality_rejection_policies,
