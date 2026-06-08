@@ -213,6 +213,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   canon/build pressure only: no fixture, eval, benchmark, model, runtime,
   cache, index, or provider bytes were opened; no command was armed; L2/L3 stay
   red; and no large-local-model user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 157 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  fixture verifier/scorer digest schema. North-star sentence: Epistemos is a
+  local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The pass creates the buildable side-ladder candidate
+  `F-FixtureVerifierScorerDigestSchema`: canonical JSON plus SHA-256 digest
+  bindings for fixture identity, verifier spec, scorer spec, source allowlist,
+  redaction policy, cache salt, tombstone policy, MAS/Pro caveat, rollback,
+  RunEventLog template, AnswerPacket template, and metadata-only
+  non-promotion. It explicitly rejects row-order authority, mutable path/title
+  authority, hidden judges, raw private text, copied public benchmark prompts,
+  network/provider fallback, MAS/Pro leakage, and digest drift. This is T0
+  canon/build pressure only: no fixture, eval, benchmark, model, runtime,
+  cache, index, or provider bytes were opened; no command was armed; L2/L3 stay
+  red; and no large-local-model user-facing capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

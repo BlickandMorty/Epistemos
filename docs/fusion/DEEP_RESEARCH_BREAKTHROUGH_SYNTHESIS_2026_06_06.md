@@ -18543,3 +18543,198 @@ Next research query: "Which exact scorer and verifier digest schema should
 `F-MinimalSyntheticFixturePackV0` use so future materialized fixture files can
 be checked without trusting row order, mutable paths, hidden judges, or raw
 private text?"
+
+## Pass 157 - Fixture Verifier And Scorer Digest Schema
+
+### Executive Synthesis
+
+Pass 157 answers the Pass 156 handoff by turning "deterministic verifier/scorer
+digests" into a buildable schema contract. The breakthrough is that future
+fixture files must not be trusted because their rows look stable, their paths
+look familiar, or a hidden model judge says they passed. They must be trusted
+only when the verifier, scorer, redaction profile, source allowlist, cache
+tombstone policy, MAS/Pro caveat, rollback, RunEventLog template, AnswerPacket
+template, and non-promotion caveat are all canonicalized and digest-bound.
+
+```text
+MinimalSyntheticFixturePackV0
+  -> FixtureVerifierScorerDigestSchema
+  -> canonical JSON payloads
+  -> SHA-256 digest refs
+  -> no row-order, path, hidden judge, raw private text, or metadata promotion
+  -> materialized fixture files can become falsifier inputs later
+```
+
+This pass is T0 research-to-build canon. It creates no fixture files, imports
+no eval framework, and runs no model or verifier. It defines the contract a
+future metadata-only UAS primitive can validate before any small-lane runtime
+comparison or Gemma/QAT/GGUF/LiteRT/MLX/TurboVec lane replay exists.
+
+### Local Source Facts
+
+- `EpistemosTests/HarnessSubsystemTests.swift` already proves the harness has
+  task typing for coding, research, terminal, and note-synthesis work.
+- The same harness tests parse `commandExitZero`, `filesExist`,
+  `outputPattern`, `llmJudge`, and `humanReview`; Pass 157 keeps `llmJudge`
+  out of the primary verifier path for v0.
+- `CloudKnowledgeDistillationTests` already uses synthetic notes and checks
+  structured outputs such as domain map, writing style, concept index, active
+  context, instructions, note count, and concept count.
+- `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` separates MAS-allowed tools
+  from Pro-only terminal/subprocess surfaces; each tool fixture needs that
+  caveat digest-bound before it can be evaluated.
+- `Epistemos/AgentRuntimeV2/README.md`, `LatestAnswerPacketSink`, and System G
+  tests make RunEventLog and AnswerPacket evidence first-class proof surfaces.
+
+### Current External Source Facts
+
+- RFC 8785 defines the JSON Canonicalization Scheme, giving a standard way to
+  derive deterministic JSON bytes before hashing. Source:
+  `https://www.rfc-editor.org/rfc/rfc8785`
+- NIST FIPS 180-4 defines SHA-256 as part of the Secure Hash Standard. Source:
+  `https://csrc.nist.gov/pubs/fips/180-4/upd1/final`
+- JSON Schema 2020-12 remains the structured-output validation target for
+  schema fixtures. Source: `https://json-schema.org/specification`
+- BFCL's AST and executable check distinction remains a useful motif for tool
+  verification, but public benchmark prompts still must not enter Epistemos
+  held-out fixtures. Source:
+  `https://gorilla.cs.berkeley.edu/blogs/8_berkeley_function_calling_leaderboard.html`
+- IFEval-style strict instruction checks remain useful diagnostics, but v0
+  should rely on deterministic strict checks instead of a hidden judge. Source:
+  `https://ukgovernmentbeis.github.io/inspect_evals/evals/reasoning/ifeval/index.html`
+- Terminal-Bench-style end-state verification remains useful for future Pro
+  terminal fixtures, but v0 keeps terminal execution out unless owner-approved.
+  Source: `https://www.tbench.ai/docs/task-overview`
+
+### Candidate Falsifier
+
+`F-FixtureVerifierScorerDigestSchema`
+
+Required accepted fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `schema_id` | `fixture_verifier_scorer_digest_schema_v0` | stable contract identity |
+| `schema_version` | semantic version or integer version | migration fence |
+| `canonicalization` | `rfc8785_jcs_json` or explicit Epistemos sorted-key profile | prevents whitespace/key-order drift |
+| `digest_algorithm` | `sha256` | conservative portable digest baseline |
+| `fixture_pack_id` | `minimal_synthetic_fixture_pack_v0` | binds Pass 156 pack |
+| `fixture_id` | one of the six `msfp_v0_*` IDs | no rowid authority |
+| `fixture_family` | Pass 155 family enum | no mutable title authority |
+| `verifier_id` | stable verifier identifier | no hidden verifier |
+| `verifier_kind` | schema, regex, AST, executable, file, citation_allowlist, diff_scope, abstention_enum, latency_budget, cache_tombstone | typed verifier surface |
+| `verifier_digest` | `sha256:<64 hex>` over canonical verifier spec/code ref | verifier changes become visible |
+| `scorer_id` | stable scorer identifier | no hidden scorer |
+| `scorer_digest` | `sha256:<64 hex>` over canonical scorer spec/rubric | scorer changes become visible |
+| `expected_input_digest` | digest only, no raw prompt/private note | privacy boundary |
+| `expected_output_schema_digest` | digest of JSON Schema or exact enum/diff spec | deterministic output checks |
+| `source_allowlist_digest` | required for citation/retrieval fixtures | no fake source IDs |
+| `redaction_profile_digest` | required for every fixture | no raw private text |
+| `privacy_policy_digest` | required for every fixture | no prompt/model-output leakage |
+| `cache_salt_digest` | required for cache fixtures | no hidden cache reuse |
+| `tombstone_policy_digest` | required for deletion fixtures | deleted facts stay deleted |
+| `mas_pro_caveat_digest` | required for tool/runtime fixtures | no MAS/Pro leakage |
+| `run_event_log_template_digest` | required for future runtime replay | visible proof path |
+| `answer_packet_template_digest` | required for future runtime replay | user-visible proof path |
+| `rollback_digest` | required for all fixtures | revert path before route influence |
+| `metadata_only_non_promotion` | true | no L2/L3/T4 from schema |
+
+Required denial booleans:
+
+- `raw_private_text_denied=true`
+- `public_benchmark_prompt_copy_denied=true`
+- `row_order_authority_denied=true`
+- `mutable_path_authority_denied=true`
+- `hidden_judge_denied=true`
+- `network_default_denied=true`
+- `provider_fallback_denied=true`
+- `metadata_only_promotion_denied=true`
+
+Required red fixtures:
+
+- missing `verifier_digest` or `scorer_digest`
+- digest computed over pretty/noncanonical JSON instead of canonical bytes
+- fixture identity derived from row number, array order, path, title, or file
+  modification time
+- hidden cloud/model judge in the primary verifier path
+- raw private note, prompt, cache text, or model output embedded in fixture or
+  digest source
+- public BFCL/IFEval/LiveBench/Terminal-Bench prompt copied into the held-out
+  pack
+- citation fixture lacks `source_allowlist_digest`
+- cache deletion fixture lacks `cache_salt_digest` or `tombstone_policy_digest`
+- MAS fixture references Pro-only terminal/subprocess/tool authority
+- latency fixture lacks timeout, cancellation, and thermal caveats
+- verifier code, schema, or rubric changes without digest change
+- RunEventLog or AnswerPacket template missing for future runtime replay
+- any metadata-only schema witness promoted to model quality, L2, L3, T4, or
+  user-facing large-local-model capability
+
+### Architecture Fusion
+
+| Epistemos organ | Digest binding | Resulting build pressure |
+|---|---|---|
+| UAS/OAS | fixture ID, family, canonical payload digest | stable addresses instead of rows |
+| AppColdStore/Eidos | source allowlist and citation verifier digests | no fake retrieval wins |
+| ActiveAssembly/KV lineage | cache salt and tombstone policy digests | no stale-context speedups |
+| SCOPE-Rex/SovereignGate | MAS/Pro caveat and hidden-judge denial | no unsafe route admission |
+| RuntimeRouter/System G | timeout, cancellation, thermal, lane caveat digests | no speed claim without budget proof |
+| RunEventLog | template digest | runtime replay can be checked later |
+| AnswerPacket | template digest and non-promotion caveat | visible proof, not hidden eval magic |
+
+### Build Path
+
+1. Implement metadata-only `fixture_verifier_scorer_digest_schema` UAS
+   primitive.
+2. Implement `falsify_fixture_verifier_scorer_digest_schema`.
+3. Add parser tests for duplicate IDs, missing digests, bad digest format,
+   noncanonical JSON, row-order identity, mutable path identity, hidden judge,
+   raw private text, missing citation allowlist, missing tombstone policy,
+   MAS/Pro leakage, missing AnswerPacket template, and metadata-only promotion.
+4. Make the schema consume `F-MinimalSyntheticFixturePackV0`.
+5. Later, materialized fixture files can use the same digest schema before any
+   small-model or large-model lane comparison is allowed to influence
+   RuntimeRouter/System G.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-FixtureVerifierScorerDigestSchema`, because it makes future held-out fixture
+files auditable without trusting row order, mutable paths, hidden judges, or
+private text.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-FixtureVerifierScorerDigestSchema` after `F-MinimalSyntheticFixturePackV0`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`fixture_verifier_scorer_digest_schema` with red fixtures for noncanonical JSON,
+missing verifier/scorer digests, row-order identity, path identity, hidden
+judges, raw private text, missing source allowlist, missing cache tombstone,
+MAS/Pro leakage, and metadata-only promotion.
+
+Biggest false-claim risk:
+calling digest-bound fixture schemas an evaluation result. The schema only
+proves how future fixtures must be checked; it does not prove any model, lane,
+cache, runtime, or user-facing behavior.
+
+Biggest missing artifact:
+a landed metadata-only digest-schema witness consumed by the v0 fixture pack
+before materialized fixture files or runtime replay.
+
+Next research query: "What exact JSON artifact schema should materialize the
+six `msfp_v0_*` fixtures while storing only synthetic or digest-redacted
+content and preserving no-runtime non-promotion?"
