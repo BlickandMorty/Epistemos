@@ -3510,6 +3510,21 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   L2 remains `vault_research_route_with_packetized_mitigation`; L3 user-facing
   large-local-model/runtime capability is not green. The next KV/cache
   side-ladder unit is `llama_cpp_slot_prompt_cache_command_card`.
+- Updated **2026-06-08** · Deep Research Pass 130 in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` turns that
+  next side-ladder into a concrete `F-LlamaCppSlotPromptCacheCommandCard`
+  blueprint. It source-cards current official llama.cpp server docs for
+  `/slots/{id_slot}?action=save`, `restore`, and `erase`, `--slot-save-path`,
+  `filename`, `n_saved`, `n_written`, `n_restored`, `n_read`, `n_erased`, and
+  timings, then fuses them into a metadata-only Pro ResearchCandidate command
+  card that must consume `F-KVCacheIdentitySaltAndOffloadProofPacket`. Required
+  proof includes slot id, basename/path-root policy, cache salt, prompt/
+  tokenizer/chat-template/tool-schema/model/adaptor digests, rollback,
+  RunEventLog, AnswerPacket, abstention, and deletion policy. This is T0
+  canon/backlog only: no llama.cpp server was started, no command was armed, no
+  prompt-cache/model/KV/runtime/provider/product bytes were opened, no L1
+  witness landed for this card yet, L2 remains red, and L3 user-facing
+  large-local-model/runtime capability is not green.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,

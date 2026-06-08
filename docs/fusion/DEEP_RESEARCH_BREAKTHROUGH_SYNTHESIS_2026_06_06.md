@@ -15217,3 +15217,185 @@ Next research query: "What exact metadata-only command card should represent
 llama.cpp slot prompt-cache save, restore, erase, path scope, n_saved,
 n_restored, timings, deletion, and rollback without arming or executing the
 command?"
+
+## Deep Research Pass 130 - Llama.cpp Slot Prompt Cache Command Card
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Pass 130 converts the previous open research query into a concrete
+research-to-build command-card blueprint for
+`F-LlamaCppSlotPromptCacheCommandCard`. The target is not a product runtime
+integration and not a live cache-reuse claim. It is a metadata-only Pro
+ResearchCandidate / Pro Gated card that forces any future llama.cpp slot
+prompt-cache work to declare exact slot action shape, path scope, cache
+identity, rollback, logs, AnswerPacket, and abstention before a server endpoint
+or command can influence RuntimeRouter/System G.
+
+### Source Facts
+
+- Primary source:
+  `https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md`
+- Current official server docs expose:
+  - `POST /slots/{id_slot}?action=save`
+  - `POST /slots/{id_slot}?action=restore`
+  - `POST /slots/{id_slot}?action=erase`
+  - `--slot-save-path` as the server-side directory for prompt-cache files
+  - save response fields including `id_slot`, `filename`, `n_saved`,
+    `n_written`, and `timings.save_ms`
+  - restore response fields including `id_slot`, `filename`, `n_restored`,
+    `n_read`, and `timings.restore_ms`
+  - erase response fields including `id_slot` and `n_erased`
+- Search freshness note: official docs are sufficient for endpoint shape. Forum
+  and community reports remain only cautionary research signals unless a future
+  witness pins exact issue/discussion URLs and reproduces behavior in a safe
+  harness.
+
+### Why This Matters For Large Local Models
+
+Large local models become practical only when repeated context work is reduced
+without lying about residency. Slot prompt-cache save/restore can be a useful
+GGUF/llama.cpp lane motif because it may avoid reprocessing repeated prefixes
+or session scaffolds, but it is not proof that a model fits, not proof that the
+restored cache is compatible with a changed prompt/tokenizer/template/tool
+schema, not proof of output quality, and not proof that a large model is
+user-facing. Epistemos should therefore treat prompt-cache files as addressed
+ColdStore/AppColdStore cache artifacts with UAS identity and SCOPE-Rex
+admission, not as hidden runtime side effects.
+
+### Epistemos Fusion
+
+- Motion: Project/Compress/Recall.
+- Organ: UAS/OAS, AppColdStore, ActiveAssembly, Eidos, SCOPE-Rex,
+  RuntimeRouter/System G, RunEventLog, AnswerPacket.
+- Plane: Assembly + Controller + Verification.
+- ProductBuild: Pro only.
+- ProStatus: ResearchCandidate until owner approval, runtime harness,
+  rollback, and WRV evidence exist.
+- Tier: T0 now; proposed T1/L1 metadata-only falsifier next.
+- Falsifier: `F-LlamaCppSlotPromptCacheCommandCard`.
+- Canon dependency:
+  `F-KVCacheIdentitySaltAndOffloadProofPacket`.
+
+### Required Command-Card Fields
+
+The future command card must bind, at minimum:
+
+- parent cache packet id and digest;
+- source URL and source retrieval timestamp;
+- llama.cpp server doc revision or pinned source digest when available;
+- action set: save, restore, erase;
+- endpoint template: `/slots/{id_slot}?action=<save|restore|erase>`;
+- `id_slot` type and bounds;
+- `filename` basename policy;
+- `slot_save_path` scope policy;
+- UAS cache artifact address;
+- session id digest, prompt digest, tokenizer digest, chat-template digest,
+  tool-schema digest, model artifact digest, adapter/modality digest, and cache
+  salt digest;
+- expected metadata fields: `n_saved`, `n_written`, `n_restored`, `n_read`,
+  `n_erased`, `save_ms`, `restore_ms`;
+- deletion policy for erase and rollback;
+- server-start status: denied by default;
+- command-envelope status: unarmed by default;
+- owner-approval status: pending by default;
+- RunEventLog ref, AnswerPacket ref, rollback ref, and abstention ref;
+- privacy policy: no raw prompt bytes, raw token bytes, stdout/stderr dumps,
+  model bytes, or prompt-cache file bytes in the artifact.
+
+### Red-Team Rejections
+
+The future T1 witness must reject fixtures that:
+
+- arm or execute a command;
+- start a llama.cpp server;
+- open prompt-cache files;
+- open model, KV, runtime, provider, source-tree, product, benchmark, or cache
+  bytes;
+- use absolute filenames outside the owner-approved cache root;
+- allow `..`, symlink escape, shell metacharacters, URL paths, hidden files, or
+  non-basename prompt-cache filenames;
+- omit `id_slot`, `filename`, `slot_save_path`, rollback, RunEventLog,
+  AnswerPacket, or abstention;
+- treat `n_saved` or `n_restored` as quality proof;
+- treat a restored cache as model-fit proof;
+- reuse cache across changed tokenizer, template, tool schema, adapter,
+  modality, model artifact, cache salt, or prompt digest;
+- log raw prompt text, raw token ids, hidden chain, provider payloads, or
+  stdout/stderr byte dumps;
+- promote MAS, L2/L3, T4/T5 green, release-ready, live dense 70B,
+  SSD-as-RAM, or hidden route authority.
+
+### Blue-Team Build Shape
+
+Suggested files for the next implementation unit:
+
+- `agent_core/src/uas/llama_cpp_slot_prompt_cache_command_card.rs`
+- `agent_core/src/bin/falsify_llama_cpp_slot_prompt_cache_command_card.rs`
+- `Tools/falsifiers/f_llama_cpp_slot_prompt_cache_command_card.sh`
+- `docs/falsifiers/F-LlamaCppSlotPromptCacheCommandCard_2026_06_08.md`
+- artifact root:
+  `artifacts/falsifiers/llama_cpp_slot_prompt_cache_command_card/result.json`
+
+The primitive should emit deterministic command-card addresses from the parent
+KV cache identity packet, endpoint template, path policy, slot id policy,
+action set, source digest, and proof refs. It should not require a local
+llama.cpp binary, a running server, a model file, or a prompt-cache file.
+
+### Why It Could Be A Breakthrough
+
+If later proven at T2/T3, slot prompt-cache cards could let Epistemos preserve
+expensive local context scaffolds, note/research preambles, tool schemas, and
+agentic working-set prefixes as explicit, purgeable, witnessed cache artifacts.
+That would make GGUF/llama.cpp a stronger large-local-model lane even when the
+model itself remains heavier than the hot resident set.
+
+### Why It Might Be Wrong
+
+Prompt-cache reuse may be brittle across model revisions, tokenizer/template
+changes, context shifts, LoRA/adapters, SWA/hybrid/recurrent memory behavior,
+or server slot scheduling. A saved file can exist while the next request still
+forces prompt reprocessing, degrades quality, leaks private context, or
+misleads the route planner. The first T1 card must therefore be conservative,
+and any later runtime proof must measure restored-token usefulness, privacy
+lineage, teardown, and cache-miss fallback rather than trusting file presence.
+
+### Promotion Truth
+
+- T0 research/canon: advanced by this pass.
+- T1/L1 architecture proof: not yet landed for this card.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Runtime/model/cache bytes loaded: 0.
+- Servers started: 0.
+- Commands armed: 0.
+
+Best breakthrough candidate:
+turn llama.cpp prompt-cache from an opaque runtime trick into an addressed,
+salted, owner-approved, rollbackable AppColdStore cache artifact.
+
+Safest next falsifier:
+`F-LlamaCppSlotPromptCacheCommandCard`, because it is the next KV/cache
+side-ladder unit and can be built metadata-only without running llama.cpp.
+
+Best near-term code unit:
+implement the command-card primitive and red-fixture matrix, consuming
+`F-KVCacheIdentitySaltAndOffloadProofPacket`.
+
+Biggest false-claim risk:
+calling slot save/restore "large model works locally" or "KV cache reuse is
+proven" before a runtime harness shows restored-token usefulness and no privacy
+leak.
+
+Biggest missing source:
+a pinned llama.cpp commit/source digest for the exact server docs and endpoint
+implementation, plus a later owner-approved small-model harness log.
+
+Next research query: "What pinned llama.cpp source files implement slot
+prompt-cache save, restore, and erase, and what exact JSON/status/error shapes
+should Epistemos source-card before any owner-approved small-model runtime
+probe?"

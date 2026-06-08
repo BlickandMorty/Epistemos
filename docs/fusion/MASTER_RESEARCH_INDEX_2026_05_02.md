@@ -4786,3 +4786,32 @@ opens zero cache/model/KV/runtime/provider bytes, starts no server, arms no
 command, and does not promote L2/L3/T4. The next KV/cache side-ladder unit is
 `llama_cpp_slot_prompt_cache_command_card`; the guard-owned product cursor
 remains the automated-checks probe.
+
+### §28.18 Llama.cpp slot prompt-cache command card (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 130.
+
+Pass 130 converts the previous KV/cache open research query into a buildable
+`F-LlamaCppSlotPromptCacheCommandCard` blueprint. It validates the current
+official llama.cpp server documentation for slot prompt-cache save, restore,
+and erase endpoint shape, including `/slots/{id_slot}?action=save`,
+`/slots/{id_slot}?action=restore`, `/slots/{id_slot}?action=erase`,
+`--slot-save-path`, `filename`, `n_saved`, `n_written`, `n_restored`,
+`n_read`, `n_erased`, and timing fields. The Epistemos fusion is a
+metadata-only Pro ResearchCandidate command-card spec that consumes
+`F-KVCacheIdentitySaltAndOffloadProofPacket` and binds slot id, filename
+basename policy, owner-approved cache root, UAS cache artifact address, cache
+salt, prompt/tokenizer/chat-template/tool-schema/model/adaptor digests,
+rollback, RunEventLog, AnswerPacket, abstention, and deletion policy before
+any endpoint or command can influence RuntimeRouter/System G.
+
+Promotion truth: this is T0 research-to-build canon only. It runs no server,
+arms no command, opens no prompt-cache/model/KV/runtime/provider/product bytes,
+and does not promote L1/L2/L3/T4. It explicitly rejects path escape, missing
+slot/path/rollback proof, raw prompt/token logs, cache-file presence as quality
+proof, restored cache as model-fit proof, live dense 70B, SSD-as-RAM, MAS
+promotion, hidden route authority, and product green claims. The next
+large-model side-ladder implementation remains
+`F-LlamaCppSlotPromptCacheCommandCard`; the guard-owned product cursor remains
+the automated-checks probe.
