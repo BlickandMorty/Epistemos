@@ -66,6 +66,7 @@ pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gemma_qat_owner_approved_runtime_replay_probe;
 pub mod gemma_qat_owner_approved_runtime_replay_transcript_gate;
 pub mod gemma_qat_redacted_first_token_probe;
+pub mod gemma_qat_runtime_replay_execution_artifact_gate;
 pub mod gemma_qat_same_fixture_runtime_replay;
 pub mod gemma_qat_small_lane_owner_path_manifest;
 pub mod gguf_in_process_runtime_admission_packet;
@@ -416,6 +417,17 @@ pub use gemma_qat_owner_approved_runtime_replay_probe::{
     GEMMA_QAT_OWNER_APPROVED_RUNTIME_REPLAY_PROBE_NEXT_CURSOR,
     GEMMA_QAT_RUNTIME_REPLAY_COMMAND_PATH, GEMMA_QAT_RUNTIME_REPLAY_REQUIRED_FILENAME,
     GEMMA_QAT_RUNTIME_REPLAY_SELECTED_MODEL_ID,
+};
+pub use gemma_qat_runtime_replay_execution_artifact_gate::{
+    required_gemma_qat_runtime_replay_execution_manifest_fields,
+    required_gemma_qat_runtime_replay_execution_rejection_policies,
+    GemmaQatRuntimeReplayExecutionArtifactGate,
+    GemmaQatRuntimeReplayExecutionArtifactGateError,
+    GemmaQatRuntimeReplayExecutionArtifactMetrics, GemmaQatRuntimeReplayExecutionArtifactStatus,
+    GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_CURSOR,
+    GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_ID,
+    GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_NEXT_CURSOR,
+    GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_redacted_first_token_probe::{
     canonical_gemma_qat_redacted_first_token_cards, GemmaQatFirstTokenByteLedger,
