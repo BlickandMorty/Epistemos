@@ -17569,3 +17569,226 @@ Next research query: "What is the smallest owner-approved graph-filter focused
 proof-root execution artifact that can prove selected test products, nonzero
 executed tests, source-status digests, RunEventLog, AnswerPacket, rollback,
 and no full-release-audit laundering?"
+
+## Pass 152 - Target-Verified Acceleration And Salted Cache Fusion
+
+### Executive Synthesis
+
+Pass 152 updates the large-local-model research loop with current upstream
+signals and turns them into one sharper build doctrine:
+
+```text
+QAT model source card
+  -> same-fixture freshness packet
+  -> target-verified speculation/session packet
+  -> salted cache lineage and deletion fence
+  -> first-token / quality replay
+  -> RuntimeRouter/System G admission
+  -> RunEventLog + AnswerPacket
+```
+
+The breakthrough is not "QAT means large models are solved" and not "MTP makes
+70B live." The useful breakthrough is that Gemma 4 QAT, MTP/drafter heads,
+LiteRT-LM, llama.cpp/GGUF, vLLM prefix-cache salts, LMCache tiered KV, KIVI
+low-bit KV, and KTransformers hot/cold expert placement all point to the same
+Epistemos requirement: acceleration is only useful when the target model still
+verifies the output, cache reuse is salted and deletable, and every speed or
+memory claim is visible in an AnswerPacket.
+
+This pass is research-to-build canon. It adds no runtime dependency, imports no
+fork code, arms no command, opens no model/cache/runtime bytes, and does not
+advance L2/L3. It gives the next large-model side-ladder a concrete shape while
+the guard-owned product bottleneck remains the automated-checks probe.
+
+### Current External Source Facts
+
+- Google's Gemma 4 QAT release says the Gemma 4 family now has
+  quantization-aware checkpoints for Q4_0 and a mobile compressed format, and
+  it explicitly names GGUF/llama.cpp, LiteRT-LM, Transformers.js, SGLang,
+  vLLM, MLX, MTP QAT checkpoints, Transformers, and Unsloth as ecosystem
+  paths. Source:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- Google's Gemma 4 12B developer guide says LiteRT-LM can serve Gemma 4 12B
+  locally through an OpenAI-compatible server and describes stateless prefix
+  caching for repeated context. Source:
+  `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`
+- Official Hugging Face Gemma 4 QAT GGUF cards expose concrete llama.cpp usage
+  for `google/gemma-4-E2B-it-qat-q4_0-gguf` and
+  `google/gemma-4-12B-it-qat-q4_0-gguf`. The E2B card also states that QAT
+  checkpoints and GGUF formats exist across E2B, E4B, 12B, 26B-A4B, and 31B.
+  Sources:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`,
+  `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+- The open MLX Swift Gemma 4 issue still reports native Swift loader absence
+  for model type `gemma4`. Python MLX support is useful, but it is not Swift
+  product proof. Source:
+  `https://github.com/ml-explore/mlx-swift/issues/389`
+- LMCache frames KV cache as persistent, tiered, reusable state with CPU RAM,
+  local disk, remote backends, observability, and pluggable transformations.
+  This is a strong motif for Epistemos cache lineage, but daemon/server
+  behavior stays quarantine material until local-app boundary proof exists.
+  Source: `https://github.com/LMCache/LMCache`
+- LMCache's vLLM integration docs describe cache lookup by prompt identifiers,
+  KV chunk retrieval from CPU or disk, injection into the model attention
+  cache, and async cache writes. This is a motif for future cache hit/miss
+  AnswerPacket proof, not a product cache claim. Source:
+  `https://docs.lmcache.ai/developer_guide/integration.html`
+- vLLM prefix caching documents deterministic hash choices and a `cache_salt`
+  isolation mechanism. Epistemos should require cache salt, hash algorithm,
+  trust group, tombstone/deletion ref, and raw prompt denial before any cache
+  reuse can influence a route. Source:
+  `https://docs.vllm.ai/en/stable/design/prefix_caching/`
+- KTransformers currently emphasizes heterogeneous CPU/GPU inference and MoE
+  placement, including hot experts on GPU and routed experts on CPU. This is a
+  hot/cold placement motif for ActiveAssembly and ColdStore, not a Mac/MAS
+  product lane. Source: `https://github.com/kvcache-ai/ktransformers`
+- KIVI remains a useful low-bit KV source card: its README describes 2/4-bit
+  K/V cache support and LongBench evaluation scripts. This feeds a stability
+  source card and softmax/quality replay, not a blind KV-compression import.
+  Source: `https://github.com/jy-yuan/KIVI`
+- Atomic-style llama.cpp TurboQuant/MTP forks claim Gemma 4 MTP and TurboQuant
+  KV cache flags, including in-target-context drafter heads and `turbo2` /
+  `turbo3` / `turbo4` KV types. These are high-value quarantine motifs only:
+  inspect source pins, tests, benchmark methodology, crash reports, license,
+  and fork deltas before any clean-room rewrite or adapter plan. Source:
+  `https://github.com/AtomicBot-ai/atomic-llama-cpp-turboquant`
+
+### Buildable Fusion
+
+The next useful side-ladder is a target-verified acceleration envelope that
+consumes existing same-fixture and cache-lineage gates rather than bypassing
+them.
+
+Candidate falsifier:
+`F-TargetVerifiedAccelerationCachePacket`
+
+Required accepted fields:
+
+- same-fixture replay envelope ref
+- source/search/prompt freshness ref
+- model artifact source card and selected-file digest
+- runtime lane id: GGUF/llama.cpp, LiteRT-LM, MLX Swift candidate,
+  Python MLX quarantine, or no-runtime abstention
+- speculation mode: none, MTP, draft model, n-gram, prefix cache, session
+  restore, or combined
+- target verification count
+- attempted, accepted, and rejected draft token counts
+- final target-output digest, with rejected draft text denied
+- tokenizer/chat-template/tool-schema digest
+- cache salt, hash algorithm, trust group, source span, vault scope, TTL,
+  tombstone, deletion ref, and purge policy
+- KV/cache byte envelope by tier: hot UMA, CPU cache, local disk cache,
+  remote-denied
+- first-token, prefill, decode, and quality metric placeholders
+- held-out task family refs for writing, coding, research, note context,
+  citation, and tool JSON
+- rollback, RunEventLog, AnswerPacket, abstention, and no-runtime scope
+
+Required red fixtures:
+
+- MTP speed treated as quality proof
+- QAT model-card availability treated as local runtime proof
+- Python MLX support treated as native Swift proof
+- LiteRT-LM server treated as MAS in-process product proof
+- cache hit without cache salt
+- cache hit after source deletion or tombstone
+- cross-vault or cross-user cache reuse
+- raw prompt, raw cache tokens, raw draft tokens, or hidden chain stored
+- rejected draft token appearing in final output or tool JSON
+- target verification missing
+- KTransformers/LMCache/vLLM daemon treated as app-local authority
+- Atomic/TurboQuant fork imported without source pin and quarantine card
+- local disk cache treated as RAM
+- active-parameter count treated as memory-fit proof
+- L2/L3/T4 or live dense-70B promotion from metadata
+
+### Architecture Fusion
+
+| Mechanism | Epistemos organ | Tier now | Promotion requirement |
+|---|---|---|---|
+| Gemma 4 QAT GGUF | RuntimeRouter/System G lane card | T0/T1 source-carded | selected file digest, owner path, byte envelope, first-token proof |
+| Gemma 4 MTP / drafter heads | ActiveAssembly acceleration candidate | T0/T1 backlog | target verification, accepted/rejected token evidence, held-out quality floor |
+| LiteRT-LM local server/Swift | Pro Gated runtime lane | T0/T1 source-carded | MAS/Pro boundary, no hidden server, cancellation, log-correlated AnswerPacket |
+| MLX Python Gemma 4 | quarantine research lane | T0 | never Swift proof without loader witness |
+| MLX Swift Gemma 4 | native candidate lane | blocked/T0 | model type support, tool parser, memory, first-token witness |
+| vLLM/LMCache cache reuse | KV lineage and cache admission motif | T0/T1 | cache salt, trust group, deletion fence, cache-hit quality caveat |
+| KIVI / TurboQuant KV | low-bit KV research | T0 | softmax stability, exact baseline, quality replay, rollback |
+| KTransformers hot/cold experts | ColdStore/ActiveAssembly motif | T0 | Mac/server tier proof, expert bytes, placement lease, no MAS leakage |
+
+### Model And Runtime Ladder Update
+
+1. Keep Qwen/Granite or current small local lane as the product proof anchor
+   until the release-audit automated checks are repaired.
+2. Use Gemma 4 E2B QAT GGUF as the safest Google QAT side-lane for future
+   first-token proof because it has a concrete official GGUF card and smaller
+   byte pressure.
+3. Treat Gemma 4 12B QAT GGUF/LiteRT as the flagship Pro Gated Mac target only
+   after same-fixture freshness, target-only output, cache salt, and held-out
+   quality fields exist.
+4. Treat Gemma 26B-A4B, 31B, Qwen A3B/A4B/MoE rows, KTransformers, and
+   TurboQuant KV as Pro Research/Vault until byte envelopes and crash-safe
+   command envelopes exist.
+5. Keep 70B-class ambition in cold assembly and sparse routing: source cards,
+   construction graphs, coactivation prefetch, KV/cache lineage, transport,
+   PatternBoost discovery, target-verified acceleration, and AnswerPacket
+   proof. Do not convert it into dense hot residency.
+
+### Local Source Refs To Preserve
+
+- `docs/fusion/LARGE_MODEL_BREAKTHROUGH_RESEARCH_LOOP_2026_06_07.md`
+- `docs/fusion/LARGE_MODEL_KEYWORD_RESEARCH_ATLAS_2026_06_07.md`
+- `/Users/jojo/Downloads/vector quant.md`
+- `/Users/jojo/Downloads/old research/TurboQuant (PolarQuant + QJL) - Technical Deep Dive for Implementation (1).md`
+- `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/personal/first round of research/fusion/deliberation/w930_kivi_kv_cache_pr2_deliberation_2026_05_01.md`
+- `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/personal/first round of research/fusion/deliberation/w930_kivi_attention_tolerance_deliberation_2026_05_01.md`
+- `/Users/jojo/Downloads/Epistemos/LocalPackages/mlx-swift-lm/Libraries/MLXLMCommon/KVCache.swift`
+- `/Users/jojo/Downloads/Epistemos/LocalPackages/mlx-swift-lm/Libraries/MLXLLM/Models/Gemma.swift`
+- `/Users/jojo/Downloads/Epistemos/LocalPackages/LocalLLMClient/Sources/LocalLLMClientLlamaC/include/gguf.h`
+- `/Users/jojo/Downloads/Epistemos/LocalPackages/LocalLLMClient/Sources/LocalLLMClientMLX/MLXClient.swift`
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-TargetVerifiedAccelerationCachePacket`, because it merges QAT/MTP/cache
+reuse into a single proof packet instead of letting each speed trick become an
+unverifiable hidden route.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-TargetVerifiedAccelerationCachePacket` only after the already mapped
+freshness and same-fixture packet fields are present.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`target_verified_acceleration_cache_packet`, with no runtime bytes and red
+fixtures for QAT-as-runtime, MTP-as-quality, cache-hit-as-truth,
+Python-MLX-as-Swift, LiteRT-server-as-MAS, and fork-import-without-quarantine.
+
+Biggest false-claim risk:
+saying Gemma 4 QAT, MTP, LiteRT-LM, LMCache, KTransformers, KIVI, or
+TurboQuant makes a large model product-ready before target verification,
+salt/deletion lineage, held-out quality, rollback, RunEventLog, and
+AnswerPacket proof exist.
+
+Biggest missing artifact:
+a landed target-verified acceleration/cache packet that can be consumed by a
+future small-model runtime harness before any 12B/26B/31B/70B-class route is
+allowed to claim user-facing usefulness.
+
+Next research query: "Which exact same-fixture held-out tasks, cache-salt
+fields, target-verification counters, and final-output digests are sufficient
+to prove Gemma 4 QAT/MTP or LiteRT/GGUF acceleration improves local agentic
+coding, research, note synthesis, and writing without leaking drafts, stale
+cache state, or hidden route authority?"

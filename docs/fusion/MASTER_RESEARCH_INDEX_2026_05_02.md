@@ -106,6 +106,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-KVSourceCard-ForkAndDaemonBoundary`. This is T0/T1 canon/backlog only:
 > no server, daemon, remote cache, offload benchmark, model/KV byte load,
 > hidden cache authority, SSD-as-RAM claim, or L2/L3 promotion.
+> Current addendum: Deep Research Pass 152 now folds current Google Gemma 4 QAT
+> and 12B/LiteRT-LM docs, official Hugging Face QAT GGUF cards, the MLX Swift
+> Gemma 4 loader caveat, vLLM cache-salt documentation, LMCache tiered KV,
+> KTransformers heterogeneous placement, KIVI, and Atomic-style TurboQuant/MTP
+> fork signals into `F-TargetVerifiedAccelerationCachePacket`. The packet is a
+> buildable T0 side-ladder candidate: bind same-fixture freshness, QAT source
+> cards, target-verified speculation counters, final-output digest, cache salt,
+> deletion lineage, KV/cache byte tiers, rollback, RunEventLog, AnswerPacket,
+> and abstention before QAT/MTP/cache acceleration can influence RuntimeRouter
+> or System G. It imports no code, opens no model/cache/runtime bytes, arms no
+> command, and does not advance L2/L3 or user-facing large-local-model claims.
 > Deep Research Pass 89 in the same file turns the 2026-06-07 QAT/KV/local-
 > Downloads refresh into three build tracks: redacted first-token preflight for
 > Gemma/QAT/GGUF/LiteRT/MLX/Transformers lanes,

@@ -118,6 +118,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   It arms no command, runs no Xcode, opens zero selected
   test-product/`.xcresult`/app/model/runtime/provider bytes, and does not
   advance L2/L3/product/release/large-model capability.
+- Updated **2026-06-08** · Deep Research Pass 152 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  target-verified acceleration and salted-cache fusion for large local models.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The pass validates current Google
+  Gemma 4 QAT, Gemma 4 12B/LiteRT-LM, official Hugging Face QAT GGUF, MLX
+  Swift Gemma 4 loader caveat, vLLM cache-salt, LMCache tiered KV,
+  KTransformers hot/cold placement, KIVI, and Atomic-style TurboQuant/MTP fork
+  signals, then converts them into the buildable side-ladder candidate
+  `F-TargetVerifiedAccelerationCachePacket`. The packet must bind
+  same-fixture freshness, QAT model source cards, MTP/speculation acceptance
+  counters, target verification, final-output digest, cache salt, trust group,
+  deletion/tombstone refs, KV/cache byte tiers, rollback, RunEventLog,
+  AnswerPacket, and abstention before any speed or cache claim can influence
+  RuntimeRouter/System G. This is T0 canon/build pressure only: no model,
+  runtime, cache, index, provider, or fork bytes were opened; no command was
+  armed; L2/L3 stay red; and no Gemma/QAT/MTP/LMCache/KTransformers/TurboQuant
+  large-local-model capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
