@@ -568,6 +568,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > RunEventLog, AnswerPacket, abstention, MAS/Pro caveat, and no route/default
 > mutation. Server/tool-call rails can come later after the direct CLI artifact
 > is reviewable. T0 only; no runtime/model bytes or product capability.
+> Current addendum: Deep Research Pass 212 defines
+> `F-GemmaDirectHarnessArtifactReceiptMap` as the digest-only receipt bridge
+> from a future bounded `llama-cli` Gemma run into the already-landed runtime
+> replay, first-token artifact review, reconciliation, same-fixture quality,
+> RuntimeRouter admission, dry-run route, AnswerPacket visibility, and settings
+> WRV gates. The receipt must carry subject/material/invocation/process/
+> observation/join/promotion sections, with model/runtime/prompt/grammar/argv/
+> environment/owner-approval/process-status/timing/memory digests and visible
+> RunEventLog/AnswerPacket/rollback/abstention refs. It must reject raw
+> prompt/output/stdout/stderr/token/path bytes, hidden command args, missing
+> exit/termination/timeout/cancel/teardown/redaction/memory/timing evidence,
+> route/default/settings mutation, and any L2/L3/product claim. T0 only; no
+> runtime/model bytes or product capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

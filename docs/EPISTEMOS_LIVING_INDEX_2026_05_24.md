@@ -7067,6 +7067,41 @@ Layer truth:
 Correct phrasing: "Gemma now has a direct CLI harness rail for future
 owner-approved proof; Gemma is still not live, default, L2/L3, or user-facing."
 
+### 2026-06-08 - Gemma Direct Harness Artifact Receipt Map (Pass 212, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Added `F-GemmaDirectHarnessArtifactReceiptMap` to
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`. This folds
+the Pass 211 direct `llama-cli` harness rail into the existing Gemma runtime
+replay, first-token artifact review, reconciliation, same-fixture quality,
+RuntimeRouter admission, dry-run route, AnswerPacket visibility, and settings
+WRV gates instead of creating a parallel authority.
+
+The future receipt must be digest-only and split into subject, materials,
+invocation, process, observations, joins, and promotion sections. It rejects
+raw prompt/output/stdout/stderr/token/path bytes, hidden command args, missing
+exit status, missing termination reason, missing timeout/cancel/teardown,
+missing redaction policy, missing memory/timing samples, missing RunEventLog or
+AnswerPacket joins, and any RuntimeRouter/System G/default/settings mutation.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness, process,
+  runtime, model bytes, route priority, settings row, first token, or product
+  capability was activated.
+
+Correct phrasing: "Gemma now has a digest-only receipt map for future direct
+harness artifacts; Gemma is still not live, default, L2/L3, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
