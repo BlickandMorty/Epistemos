@@ -1,0 +1,595 @@
+{
+  "falsifier_id": "F-LlamaCppSlotPromptCacheCommandCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_llama_cpp_slot_prompt_cache_command_card.sh",
+  "command_digest": "sha256:e7d4027eea693708a6b70c2bfa8dfe5fdcf22153b5c9593fbd334d88511d413b",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "fe8b20e818161ebbbe1b30bfde8d87c884262d25",
+  "fixture_id": "llama_cpp_slot_prompt_cache_command_card_v1",
+  "timestamp_utc": "2026-06-08T01:26:25Z",
+  "result_digest": "sha256:2d378a943d7e817fca2a38d647b288ca6bf9f8757d8bed7a55fdc856ce000d0a",
+  "measurements": {
+    "action_count": {
+      "value": 3,
+      "unit": "actions"
+    },
+    "cache_file_presence_quality_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_identity_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_root_escape_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "command_armed_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_card_address": {
+      "value": "llama_cpp_slot_prompt_cache_command_card:3f3182846bc930483a6534cd708beef0482b625f66cf2a2f8d1dc5f1dd710a2b@1779158400000",
+      "unit": "uas_address"
+    },
+    "command_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_field_count": {
+      "value": 9,
+      "unit": "fields"
+    },
+    "filename_absolute_path_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_hidden_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_path_escape_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_shell_metachar_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_endpoint_template_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_slot_bounds_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_action_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_salt_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_parent_packet_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_response_field_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_url_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tokenizer_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "kivi_asymmetric_kv_stability_source_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_logs_hidden_authority_or_quality_laundering": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_not_pending_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending_and_command_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "parent_kv_cache_identity_packet_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_bytes_opened_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_file_bytes_opened": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "proof_refs_and_deletion_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "response_metadata_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "restored_cache_model_fit_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_start_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_endpoint_actions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_filename_and_path_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_and_parent_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stdout_stderr_capture_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_or_opened_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "action_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "actions"
+    },
+    "cache_file_presence_quality_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_identity_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_root_escape_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "command_armed_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_card_address": {
+      "operator": "starts_with",
+      "value": "llama_cpp_slot_prompt_cache_command_card:",
+      "unit": "uas_address"
+    },
+    "command_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_field_count": {
+      "operator": "==",
+      "value": 9,
+      "unit": "fields"
+    },
+    "filename_absolute_path_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_hidden_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_path_escape_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_shell_metachar_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_route_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_endpoint_template_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "invalid_slot_bounds_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_promotion_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_action_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_answer_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_salt_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_parent_packet_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_response_field_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_url_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tokenizer_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "kivi_asymmetric_kv_stability_source_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_logs_hidden_authority_or_quality_laundering": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_not_pending_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_pending_and_command_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "parent_kv_cache_identity_packet_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_bytes_opened_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_cache_file_bytes_opened": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "proof_refs_and_deletion_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "response_metadata_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "restored_cache_model_fit_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_start_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_endpoint_actions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "slot_filename_and_path_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_and_parent_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stdout_stderr_capture_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_or_opened_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "action_count": true,
+    "cache_file_presence_quality_claim_rejected": true,
+    "cache_identity_digests_bound": true,
+    "cache_root_escape_rejected": true,
+    "card_count": true,
+    "command_armed_count_rejected": true,
+    "command_armed_rejected": true,
+    "command_card_address": true,
+    "command_card_address_deterministic": true,
+    "expected_field_count": true,
+    "filename_absolute_path_rejected": true,
+    "filename_hidden_rejected": true,
+    "filename_path_escape_rejected": true,
+    "filename_shell_metachar_rejected": true,
+    "hidden_route_authority_rejected": true,
+    "invalid_endpoint_template_rejected": true,
+    "invalid_slot_bounds_rejected": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "mas_promotion_rejected": true,
+    "missing_action_rejected": true,
+    "missing_answer_packet_rejected": true,
+    "missing_cache_salt_rejected": true,
+    "missing_parent_packet_rejected": true,
+    "missing_prompt_digest_rejected": true,
+    "missing_response_field_rejected": true,
+    "missing_rollback_rejected": true,
+    "missing_source_url_rejected": true,
+    "missing_tokenizer_digest_rejected": true,
+    "missing_tool_schema_digest_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_loaded_rejected": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_mas_l2_l3_live_70b_or_ssd_as_ram_claim": true,
+    "no_raw_logs_hidden_authority_or_quality_laundering": true,
+    "owner_approval_not_pending_rejected": true,
+    "owner_approval_pending_and_command_unarmed": true,
+    "parent_kv_cache_identity_packet_passed": true,
+    "prompt_cache_bytes_opened_rejected": true,
+    "prompt_cache_file_bytes_opened": true,
+    "proof_refs_and_deletion_policy_bound": true,
+    "raw_prompt_log_rejected": true,
+    "red_fixture_rejection_count": true,
+    "response_metadata_fields_bound": true,
+    "restored_cache_model_fit_claim_rejected": true,
+    "runtime_bytes_loaded": true,
+    "server_start_allowed_rejected": true,
+    "slot_endpoint_actions_bound": true,
+    "slot_filename_and_path_policy_bound": true,
+    "source_and_parent_bound": true,
+    "ssd_as_ram_claim_rejected": true,
+    "stdout_stderr_capture_rejected": true,
+    "zero_loaded_or_opened_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-LlamaCppSlotPromptCacheCommandCard as a metadata-only Pass 130 command-card witness. Scope is T1/L1 only: official llama.cpp slot save/restore/erase endpoint shape, slot id, basename/path-root policy, parent KV cache identity packet, cache salt, prompt/tokenizer/template/tool-schema/model digests, rollback, RunEventLog, AnswerPacket, abstention, deletion policy, owner approval pending, unarmed command envelope, denied server start, zero prompt-cache/model/KV/runtime/provider/product bytes, no MAS/L2/L3/product/live-70B/SSD-as-RAM claim."
+}

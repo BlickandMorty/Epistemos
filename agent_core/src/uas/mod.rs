@@ -70,6 +70,7 @@ pub mod kv_source_card_fork_and_daemon_boundary;
 pub mod large_model_deferral;
 pub mod lattice_state_controller;
 pub mod litertlm_native_swift_admission;
+pub mod llama_cpp_slot_prompt_cache_command_card;
 pub mod metal_io_feature_gate;
 pub mod model_inventory_candidate;
 pub mod model_vault_catalog_release_blocker_card;
@@ -366,6 +367,15 @@ pub use litertlm_native_swift_admission::{
     LiteRtSwiftAdmissionProofRefs, LiteRtSwiftBinaryTarget, LiteRtSwiftByteScope,
     LiteRtSwiftPlatform, LITERTLM_NATIVE_SWIFT_ADMISSION_CURSOR,
     LITERTLM_NATIVE_SWIFT_ADMISSION_NEXT_CURSOR,
+};
+pub use llama_cpp_slot_prompt_cache_command_card::{
+    canonical_llama_cpp_slot_prompt_cache_command_card, LlamaCppSlotCacheAction,
+    LlamaCppSlotCacheByteLedger, LlamaCppSlotCacheExpectedField,
+    LlamaCppSlotCacheProofRefs, LlamaCppSlotPromptCacheCommandCard,
+    LlamaCppSlotPromptCacheCommandCardSet, LlamaCppSlotPromptCacheError,
+    LlamaCppSlotPromptCacheMetrics, LLAMA_CPP_SLOT_PROMPT_CACHE_COMMAND_CARD_CURSOR,
+    LLAMA_CPP_SLOT_PROMPT_CACHE_COMMAND_CARD_ID,
+    LLAMA_CPP_SLOT_PROMPT_CACHE_COMMAND_CARD_NEXT_CURSOR,
 };
 pub use large_model_deferral::{
     LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,
