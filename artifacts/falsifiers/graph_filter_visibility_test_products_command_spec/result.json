@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "23b1592bd127b5a49a1d86bc3e0aa37996cbfe9f",
+  "commit_sha": "22044d727364b6a8c9cb617479cb08d7baf15d07",
   "fixture_id": "graph_filter_visibility_test_products_command_spec_v1",
-  "timestamp_utc": "2026-06-07T22:45:15Z",
-  "result_digest": "sha256:af5fe59230eefb1d9be4541f75cfb40247781511b13e5d83f5cd8d0373d12b17",
+  "timestamp_utc": "2026-06-08T04:07:49Z",
+  "result_digest": "sha256:b1e35a546551ea031c1b81a6486f1b09d45ba66782c808c72158d1e49e307ef9",
   "measurements": {
     "app_runtime_bytes_loaded_total": {
       "value": 0,
@@ -70,7 +70,7 @@
       "unit": "bool"
     },
     "graph_filter_test_products_address": {
-      "value": "sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d",
+      "value": "sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9",
       "unit": "sha256"
     },
     "graph_filter_test_products_command_spec": {
@@ -310,11 +310,27 @@
       "value": true,
       "unit": "bool"
     },
-    "upstream_graph_filter_card_pass": {
+    "upstream_focused_identifier_proof_pass": {
       "value": true,
       "unit": "bool"
     },
-    "upstream_next_cursor_research_tool_catalog": {
+    "upstream_function_identifier_count_8": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_identifier_proof_address": {
+      "value": "sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626",
+      "unit": "sha256"
+    },
+    "upstream_identifier_proof_address_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_test_products_command_spec": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_suite_identifier_count_8": {
       "value": true,
       "unit": "bool"
     },
@@ -606,12 +622,32 @@
       "value": true,
       "unit": "bool"
     },
-    "upstream_graph_filter_card_pass": {
+    "upstream_focused_identifier_proof_pass": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "upstream_next_cursor_research_tool_catalog": {
+    "upstream_function_identifier_count_8": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_identifier_proof_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "upstream_identifier_proof_address_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_test_products_command_spec": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_suite_identifier_count_8": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -692,8 +728,12 @@
     "test_product_byte_open_rejected": true,
     "test_without_building_templates_bound": true,
     "upstream_fail_rejected": true,
-    "upstream_graph_filter_card_pass": true,
-    "upstream_next_cursor_research_tool_catalog": true,
+    "upstream_focused_identifier_proof_pass": true,
+    "upstream_function_identifier_count_8": true,
+    "upstream_identifier_proof_address": true,
+    "upstream_identifier_proof_address_bound": true,
+    "upstream_next_cursor_test_products_command_spec": true,
+    "upstream_suite_identifier_count_8": true,
     "wrong_testable_rejected": true,
     "wrong_upstream_cursor_rejected": true,
     "xcode_execution_claim_rejected": true,
@@ -702,5 +742,5 @@
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [],
-  "notes": "metadata-only F-GraphFilterVisibilityTestProductsCommandSpec: consumes the graph-filter visibility release-blocker card, binds the Epistemos scheme/testable/pre-action, proof-root-scoped build-for-testing and test-without-building command templates, seed Swift Testing selectors, stale-artifact and zero-test rejection policy, rollback, RunEventLog, AnswerPacket, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion."
+  "notes": "metadata-only F-GraphFilterVisibilityTestProductsCommandSpec: consumes the graph-filter focused identifier proof, binds the Epistemos scheme/testable/pre-action, proof-root-scoped build-for-testing and test-without-building command templates, seed Swift Testing selectors, stale-artifact and zero-test rejection policy, rollback, RunEventLog, AnswerPacket, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion."
 }

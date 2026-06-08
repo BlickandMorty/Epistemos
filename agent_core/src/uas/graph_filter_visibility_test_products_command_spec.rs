@@ -10,9 +10,9 @@ pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_CURSOR: &str =
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_release_blocker_card/result.json#F-GraphFilterVisibility-ReleaseBlockerCard";
+    "artifact:falsifiers/graph_filter_visibility_focused_identifier_proof/result.json#F-GraphFilterVisibilityFocusedIdentifierProof";
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_NEXT_CURSOR: &str =
-    "research_tool_catalog_no_hidden_authority";
+    "graph_filter_visibility_test_products_command_spec";
 
 const REQUIRED_SOURCE_REFS: [&str; 5] = [
     "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme",
@@ -432,8 +432,8 @@ fn graph_filter_test_products_address(
 
 fn validate_upstream_ref(value: &str) -> Result<(), GraphFilterTestProductsError> {
     validate_token("upstream_ref", value)?;
-    if !value.starts_with("artifact:falsifiers/graph_filter_visibility_release_blocker_card/")
-        || !value.contains("/result.json#F-GraphFilterVisibility-ReleaseBlockerCard")
+    if !value.starts_with("artifact:falsifiers/graph_filter_visibility_focused_identifier_proof/")
+        || !value.contains("/result.json#F-GraphFilterVisibilityFocusedIdentifierProof")
     {
         return Err(GraphFilterTestProductsError::BadUpstreamRef);
     }
@@ -583,9 +583,13 @@ impl fmt::Display for GraphFilterTestProductsError {
                 "missing required set values for {field}: actual={actual} expected={expected}"
             ),
             Self::BadSelector(selector) => write!(f, "bad Swift Testing selector: {selector}"),
-            Self::BadUpstreamRef => write!(f, "bad graph-filter release-blocker upstream ref"),
+            Self::BadUpstreamRef => {
+                write!(f, "bad graph-filter focused-identifier upstream ref")
+            }
             Self::GlobalDerivedDataPath => write!(f, "global DerivedData path is forbidden"),
-            Self::UpstreamNotPassed => write!(f, "upstream graph-filter blocker did not pass"),
+            Self::UpstreamNotPassed => {
+                write!(f, "upstream graph-filter identifier proof did not pass")
+            }
             Self::WrongUpstreamCursor(cursor) => write!(f, "wrong upstream cursor: {cursor}"),
             Self::ExecutionBoundaryBroken => write!(f, "metadata-only execution boundary broken"),
             Self::RejectionPolicyBroken => write!(f, "required rejection policy is missing"),

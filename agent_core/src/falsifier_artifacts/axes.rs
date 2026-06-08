@@ -3120,8 +3120,11 @@ pub const GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_AXES: &[&str] = &[
 ];
 
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_AXES: &[&str] = &[
-    "upstream_graph_filter_card_pass",
-    "upstream_next_cursor_research_tool_catalog",
+    "upstream_focused_identifier_proof_pass",
+    "upstream_next_cursor_test_products_command_spec",
+    "upstream_suite_identifier_count_8",
+    "upstream_function_identifier_count_8",
+    "upstream_identifier_proof_address_bound",
     "scheme_path_bound",
     "scheme_testable_bound",
     "build_for_testing_template_bound",
@@ -3177,6 +3180,7 @@ pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_AXES: &[&str] = &[
     "app_runtime_bytes_loaded_total",
     "red_fixture_count",
     "red_fixture_rejection_count",
+    "upstream_identifier_proof_address",
     "graph_filter_test_products_address",
     "graph_filter_test_products_command_spec",
     "next_cursor",
