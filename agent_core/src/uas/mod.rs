@@ -61,6 +61,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
+pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gemma_qat_redacted_first_token_probe;
 pub mod gemma_qat_same_fixture_runtime_replay;
@@ -377,6 +378,18 @@ pub use gemma_qat_byte_kv_app_envelope_preflight::{
     GemmaQatEnvelopeState, GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_CURSOR,
     GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_ID,
     GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_NEXT_CURSOR,
+};
+pub use gemma_qat_held_out_quality_replay_packet::{
+    canonical_gemma_qat_held_out_quality_replay_cards,
+    GemmaQatHeldOutQualityReplayCard, GemmaQatHeldOutQualityReplayError,
+    GemmaQatHeldOutQualityReplayLedger, GemmaQatHeldOutQualityReplayMetrics,
+    GemmaQatQualityReplayByteLedger, GemmaQatQualityReplayProofRefs,
+    GemmaQatQualityReplayState, GemmaQatQualityTaskFamily,
+    GEMMA_QAT_HELD_OUT_QUALITY_REPLAY_PACKET_CURSOR,
+    GEMMA_QAT_HELD_OUT_QUALITY_REPLAY_PACKET_ID,
+    GEMMA_QAT_HELD_OUT_QUALITY_REPLAY_PACKET_NEXT_CURSOR,
+    GEMMA_QAT_QUALITY_FIXTURE_PACK_DIGEST, GEMMA_QAT_QUALITY_FIXTURE_PACK_ID,
+    GEMMA_QAT_QUALITY_TASK_FAMILIES, GEMMA_QAT_SCORER_BUNDLE_DIGEST,
 };
 pub use gemma_qat_redacted_first_token_probe::{
     canonical_gemma_qat_redacted_first_token_cards, GemmaQatFirstTokenByteLedger,

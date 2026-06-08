@@ -131,7 +131,8 @@ Runtime policy:
   `F-GemmaQATSmallLaneOwnerPathManifest`,
   `F-GemmaQATByteKVAppEnvelopePreflight`, and
   `F-GemmaQATRedactedFirstTokenProbe`, and
-  `F-GemmaQATSameFixtureRuntimeReplay` are landed as metadata-only T1/L1
+  `F-GemmaQATSameFixtureRuntimeReplay`, and
+  `F-GemmaQATHeldOutQualityReplayPacket` are landed as metadata-only T1/L1
   witnesses. They make Gemma the preferred Google model-family strategy, bind
   E2B/E4B QAT owner path-manifest contracts, and bind selected artifact bytes
   `12091583309`, KV floor bytes `1342177280`, runtime workspace bytes
@@ -147,14 +148,21 @@ Runtime policy:
   template/tool-schema boundaries, memory sampling, one-token replay bounds,
   no cache reuse, cancellation, rollback, RunEventLog, AnswerPacket,
   abstention, non-promotion, and 45 red-fixture rejections.
+  They now also bind four held-out quality replay cards across E2B/E4B
+  GGUF/LiteRT, one fixture pack, one scorer bundle, seven task families,
+  held-out split, synthetic-safe fixture policy, verifier/scorer/final-output/
+  failure-taxonomy digests, model-graded-primary denial, hidden-judge denial,
+  raw prompt/output denial, rollback, RunEventLog, AnswerPacket, abstention,
+  non-promotion, and 46 red-fixture rejections.
   E2B is only a post-owner-approval probe candidate; E4B is only a tight
   candidate requiring a fresh memory sample. These gates open zero files,
   allocate zero KV/runtime/app bytes, attempt zero first tokens, capture zero
-  raw prompt/token/stdout/stderr/tool/cache bytes, run zero benchmarks, load
-  zero model/runtime/provider bytes, and do not prove local availability, path
-  safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
-  product default, L2, L3, live dense 70B, or user-facing Gemma capability.
-  The next Gemma side-ladder unit is `gemma_qat_held_out_quality_replay_packet`.
+  raw prompt/token/stdout/stderr/tool/cache/output/judge bytes, run zero
+  scorers or benchmarks, load zero model/runtime/provider bytes, and do not
+  prove local availability, path safety, runtime fit, Swift MLX loader support,
+  LiteRT embedding, quality, product default, L2, L3, live dense 70B, or
+  user-facing Gemma capability. The next Gemma side-ladder unit is
+  `gemma_qat_owner_approved_runtime_replay_transcript_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

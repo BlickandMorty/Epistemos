@@ -900,8 +900,16 @@ ladder also has three metadata-only T1/L1 gates landed:
   AnswerPacket, abstention, zero raw prompt/token/tool/cache/file bytes, zero
   model/runtime/provider bytes, zero benchmarks, and no L2/L3/user-facing
   Gemma claim.
+- `F-GemmaQATHeldOutQualityReplayPacket`: four E2B/E4B GGUF/LiteRT held-out
+  quality replay cards, one fixture pack, one scorer bundle, seven task
+  families, held-out split, synthetic-safe fixture policy, verifier/scorer/
+  final-output/failure-taxonomy digests, model-graded-primary denial,
+  hidden-judge denial, raw prompt/output denial, rollback, RunEventLog,
+  AnswerPacket, abstention, zero fixture/model/runtime/provider/scorer/
+  benchmark bytes or actions, and no L2/L3/user-facing Gemma claim.
 
-The current Gemma side-ladder next unit is `gemma_qat_held_out_quality_replay_packet`.
+The current Gemma side-ladder next unit is
+`gemma_qat_owner_approved_runtime_replay_transcript_gate`.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned
