@@ -1005,9 +1005,24 @@ ladder also has three metadata-only T1/L1 gates landed:
   cache bytes/actions, no raw prompt/context/output/judge retention, no hidden
   authority, no E4B/12B/70B bypass, no quality/benchmark laundering, and no
   L2/L3/T4/user-facing Gemma claim.
+- `F-GemmaQATE2BRuntimeRouterAdmissionPacketGate`: future E2B GGUF/llama.cpp
+  RuntimeRouter/System G admission packet contract, selected model id, source
+  revision, filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`,
+  direct `/opt/homebrew/bin/llama-cli` lane, 31 admission fields, 48 rejection
+  policies, quality summary, failure taxonomy, budget vector, memory headroom,
+  KV budget, latency budget, privacy class, MAS/Pro boundary, SCOPE-Rex
+  verdict, SovereignGate verdict, fallback, abstention, cancellation,
+  rollback, RunEventLog, AnswerPacket, visible caveat, settings visibility,
+  diagnostic visibility, default-model non-mutation, hidden-authority denial,
+  and non-promotion. It rejects 61 red fixtures, reads zero admission packet
+  bytes, performs zero admission, mutates zero route priorities,
+  RuntimeRouter/System G/default-model state, arms or executes zero commands,
+  loads zero model/runtime/provider bytes, captures zero raw prompt/output
+  bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing
+  Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_runtime_router_admission_packet_gate`.
+`gemma_qat_e2b_system_g_dry_run_route_packet_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,

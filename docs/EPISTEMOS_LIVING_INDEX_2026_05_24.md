@@ -6429,6 +6429,60 @@ Correct phrasing: "Gemma E2B same-fixture quality packet requirements are L1
 metadata-proofed; no quality packet, fixture payload, runtime artifact, scorer,
 command, model, runtime, provider, or product capability was activated."
 
+### 2026-06-08 - F-GemmaQATE2BRuntimeRouterAdmissionPacketGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+`F-GemmaQATE2BRuntimeRouterAdmissionPacketGate` is now implemented as a
+metadata-only T1/L1 admission packet gate for the Gemma E2B GGUF/llama.cpp
+lane. It adds
+`agent_core/src/uas/gemma_qat_e2b_runtime_router_admission_packet_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_runtime_router_admission_packet_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_runtime_router_admission_packet_gate.sh`,
+the artifact
+`artifacts/falsifiers/gemma_qat_e2b_runtime_router_admission_packet_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATE2BRuntimeRouterAdmissionPacketGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BSameFixtureQualityReplayPacketGate`, binds
+the selected E2B model id `google/gemma-4-E2B-it-qat-q4_0-gguf`, source
+revision `1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+`gemma-4-E2B_q4_0-it.gguf`, expected file bytes `3349514112`, direct
+`/opt/homebrew/bin/llama-cli` lane, 31 admission fields, 48 rejection policies,
+quality summary, failure taxonomy, budget vector, memory headroom, KV budget,
+latency budget, privacy class, MAS/Pro boundary, SCOPE-Rex verdict,
+SovereignGate verdict, fallback, abstention, cancellation, rollback,
+RunEventLog, AnswerPacket, visible caveats, settings/diagnostic visibility,
+default-model non-mutation, hidden-authority denial, and non-promotion. It
+rejects 61 red fixtures, reads zero admission packet bytes, performs zero
+admission, mutates zero route priorities, mutates zero RuntimeRouter/System G/
+default-model state, arms zero commands, executes zero commands, performs zero
+runtime replay, captures zero raw prompt/output bytes, loads zero
+model/runtime/provider bytes, suppresses zero AnswerPackets, and makes no
+Gemma default-model, quality, benchmark, MAS, L2, L3, T4, live-70B, or
+SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaQATE2BRuntimeRouterAdmissionPacketGate` advances the Gemma E2B GGUF
+  side-ladder to T1/L1 metadata-only RuntimeRouter/System G admission contract
+  proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no route was admitted, no
+  RuntimeRouter/System G state changed, no local Gemma model file was opened or
+  hashed, no llama.cpp binary was inspected or executed, no command was armed
+  or run, no quality replay ran, and Gemma is not the app default.
+
+Correct phrasing: "Gemma E2B RuntimeRouter admission packet requirements are
+L1 metadata-proofed; no admission, route mutation, System G execution, model
+load, or user-facing Gemma capability was activated."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

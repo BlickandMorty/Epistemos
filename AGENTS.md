@@ -174,6 +174,22 @@ Runtime policy:
   no MAS/L2/L3/T4/user-facing, Gemma-default, E4B/12B/70B bypass, quality,
   benchmark-fit, live dense 70B, or SSD-as-RAM claim. Next Gemma unit:
   `gemma_qat_e2b_runtime_router_admission_packet_gate`.
+- 2026-06-08 Gemma E2B RuntimeRouter admission packet status:
+  `F-GemmaQATE2BRuntimeRouterAdmissionPacketGate` is landed as metadata-only
+  L1/T1. It consumes the same-fixture quality packet gate and binds future
+  RuntimeRouter/System G admission to 31 admission fields, 48 rejection
+  policies, quality summary, failure taxonomy, budget vector, memory headroom,
+  KV budget, latency budget, privacy class, MAS/Pro boundary, SCOPE-Rex,
+  SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog,
+  AnswerPacket, visible caveats, settings/diagnostic visibility, default-model
+  non-mutation, hidden-authority denial, and non-promotion. It rejects 61 red
+  fixtures, reads zero admission packet bytes, performs zero admission, mutates
+  zero RuntimeRouter/System G/default-model state, arms/executes zero commands,
+  loads zero model/runtime/provider bytes, captures zero raw prompt/output
+  bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing,
+  Gemma-default, E4B/12B/70B bypass, quality, benchmark-fit, live dense 70B, or
+  SSD-as-RAM claim. Next Gemma unit:
+  `gemma_qat_e2b_system_g_dry_run_route_packet_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
