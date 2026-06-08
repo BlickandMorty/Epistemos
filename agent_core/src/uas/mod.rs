@@ -63,6 +63,7 @@ pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod gemma_qat_owner_approved_runtime_replay_transcript_gate;
 pub mod gemma_qat_redacted_first_token_probe;
 pub mod gemma_qat_same_fixture_runtime_replay;
 pub mod gemma_qat_small_lane_owner_path_manifest;
@@ -390,6 +391,18 @@ pub use gemma_qat_held_out_quality_replay_packet::{
     GEMMA_QAT_HELD_OUT_QUALITY_REPLAY_PACKET_NEXT_CURSOR,
     GEMMA_QAT_QUALITY_FIXTURE_PACK_DIGEST, GEMMA_QAT_QUALITY_FIXTURE_PACK_ID,
     GEMMA_QAT_QUALITY_TASK_FAMILIES, GEMMA_QAT_SCORER_BUNDLE_DIGEST,
+};
+pub use gemma_qat_owner_approved_runtime_replay_transcript_gate::{
+    canonical_gemma_qat_owner_approved_runtime_replay_transcript_cards,
+    GemmaQatOwnerApprovedRuntimeReplayTranscriptCard,
+    GemmaQatOwnerApprovedRuntimeReplayTranscriptError,
+    GemmaQatOwnerApprovedRuntimeReplayTranscriptLedger,
+    GemmaQatOwnerApprovedRuntimeReplayTranscriptMetrics,
+    GemmaQatRuntimeReplayTranscriptByteLedger, GemmaQatRuntimeReplayTranscriptProofRefs,
+    GemmaQatRuntimeReplayTranscriptState,
+    GEMMA_QAT_OWNER_APPROVED_RUNTIME_REPLAY_TRANSCRIPT_GATE_CURSOR,
+    GEMMA_QAT_OWNER_APPROVED_RUNTIME_REPLAY_TRANSCRIPT_GATE_ID,
+    GEMMA_QAT_OWNER_APPROVED_RUNTIME_REPLAY_TRANSCRIPT_GATE_NEXT_CURSOR,
 };
 pub use gemma_qat_redacted_first_token_probe::{
     canonical_gemma_qat_redacted_first_token_cards, GemmaQatFirstTokenByteLedger,

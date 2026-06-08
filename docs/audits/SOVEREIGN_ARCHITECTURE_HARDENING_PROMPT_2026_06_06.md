@@ -907,9 +907,16 @@ ladder also has three metadata-only T1/L1 gates landed:
   hidden-judge denial, raw prompt/output denial, rollback, RunEventLog,
   AnswerPacket, abstention, zero fixture/model/runtime/provider/scorer/
   benchmark bytes or actions, and no L2/L3/user-facing Gemma claim.
+- `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate`: four E2B/E4B
+  GGUF/LiteRT owner-approval-pending runtime replay transcript cards, exactly
+  one selected first future probe candidate (`E2B` GGUF/llama.cpp), visible
+  unarmed/unexecuted command envelopes, transcript templates, fresh memory
+  sample requirements, redacted prompt/output digest policies, cancellation,
+  rollback, RunEventLog, AnswerPacket, abstention, zero command/model/runtime/
+  provider/scorer bytes or actions, and no L2/L3/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_owner_approved_runtime_replay_transcript_gate`.
+`gemma_qat_owner_approved_runtime_replay_probe`.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned

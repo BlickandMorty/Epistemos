@@ -5938,6 +5938,53 @@ metadata-proofed; no Gemma model, prompt, output, judge, scorer, benchmark,
 runtime, quality result, or product route has been opened, captured, run,
 compared, or promoted."
 
+### 2026-06-08 - F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate` is now implemented as a
+metadata-only T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup
+lanes. It adds
+`agent_core/src/uas/gemma_qat_owner_approved_runtime_replay_transcript_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_owner_approved_runtime_replay_transcript_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_owner_approved_runtime_replay_transcript_gate.sh`,
+the artifact
+`artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_transcript_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate_2026_06_08.md`.
+
+The witness accepts 4 E2B/E4B GGUF/LiteRT transcript-gate cards and rejects 50
+red fixtures. It consumes the Gemma held-out quality replay packet, selects
+exactly one smallest first future probe candidate (`E2B` GGUF/llama.cpp),
+requires owner approval to remain pending, keeps command envelopes visible but
+unarmed and unexecuted, binds transcript templates, fresh memory sample
+requirements, redacted prompt/output digest policies, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, and non-promotion. It opens zero model
+or runtime files, captures zero raw prompt/output/stdout/stderr bytes, executes
+zero commands or scorers, loads zero model/runtime/provider bytes, and makes no
+Gemma default-model, quality, benchmark, MAS, L2, L3, live-70B, or
+SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate`
+  advances the Gemma E2B/E4B side-ladder to T1/L1 metadata-only runtime
+  transcript-gate proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, scored, compared, settings-surfaced, or made
+  the app default, and no RuntimeRouter/System G admission was promoted.
+
+Correct phrasing: "Gemma E2B/E4B runtime transcript gating is L1
+metadata-proofed; no Gemma model, runtime command, prompt, output, scorer,
+quality result, product route, or main-model default has been opened, executed,
+captured, compared, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
