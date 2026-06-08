@@ -28,7 +28,7 @@ const COMMAND: &str = "Tools/falsifiers/f_graph_filter_visibility_test_products_
 const RESULT: &str =
     "artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json";
 const UPSTREAM_RESULT: &str =
-    "artifacts/falsifiers/graph_filter_visibility_release_blocker_card/result.json";
+    "artifacts/falsifiers/graph_filter_visibility_focused_identifier_proof/result.json";
 
 fn main() -> std::process::ExitCode {
     let artifact = match build_artifact() {
@@ -90,11 +90,27 @@ fn build_artifact(
     let mut pass_per_axis = BTreeMap::new();
 
     for (name, passed) in [
-        ("upstream_graph_filter_card_pass", upstream.overall_pass),
         (
-            "upstream_next_cursor_research_tool_catalog",
+            "upstream_focused_identifier_proof_pass",
+            upstream.overall_pass,
+        ),
+        (
+            "upstream_next_cursor_test_products_command_spec",
             upstream.next_cursor
                 == GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_NEXT_CURSOR,
+        ),
+        (
+            "upstream_suite_identifier_count_8",
+            upstream.suite_identifier_count == 8,
+        ),
+        (
+            "upstream_function_identifier_count_8",
+            upstream.function_identifier_count == 8,
+        ),
+        (
+            "upstream_identifier_proof_address_bound",
+            upstream.identifier_proof_address.starts_with("sha256:")
+                && upstream.identifier_proof_address.len() == 71,
         ),
         (
             "scheme_path_bound",
@@ -297,6 +313,26 @@ fn build_artifact(
     }
 
     measurements.insert(
+        "upstream_identifier_proof_address".to_string(),
+        Measurement {
+            value: serde_json::json!(upstream.identifier_proof_address),
+            unit: "sha256".to_string(),
+        },
+    );
+    thresholds.insert(
+        "upstream_identifier_proof_address".to_string(),
+        AcceptanceThreshold {
+            operator: "non_empty".to_string(),
+            value: serde_json::json!(true),
+            unit: "sha256".to_string(),
+        },
+    );
+    pass_per_axis.insert(
+        "upstream_identifier_proof_address".to_string(),
+        upstream.identifier_proof_address.starts_with("sha256:"),
+    );
+
+    measurements.insert(
         "graph_filter_test_products_address".to_string(),
         Measurement {
             value: serde_json::json!(witness.address),
@@ -383,31 +419,47 @@ fn build_artifact(
         pass_per_axis,
         fallback_tier: FallbackTier::Primary,
         anomalies: Vec::new(),
-        notes: "metadata-only F-GraphFilterVisibilityTestProductsCommandSpec: consumes the graph-filter visibility release-blocker card, binds the Epistemos scheme/testable/pre-action, proof-root-scoped build-for-testing and test-without-building command templates, seed Swift Testing selectors, stale-artifact and zero-test rejection policy, rollback, RunEventLog, AnswerPacket, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion.".to_string(),
+        notes: "metadata-only F-GraphFilterVisibilityTestProductsCommandSpec: consumes the graph-filter focused identifier proof, binds the Epistemos scheme/testable/pre-action, proof-root-scoped build-for-testing and test-without-building command templates, seed Swift Testing selectors, stale-artifact and zero-test rejection policy, rollback, RunEventLog, AnswerPacket, zero Xcode execution, zero test-product/model/runtime bytes, and no L2/L3/product/release/large-model promotion.".to_string(),
         timestamp_utc: now_utc_rfc3339(),
     }
     .build())
 }
 
-// UAS: uas:graph-filter-visibility-test-products-command-spec:upstream-card
+// UAS: uas:graph-filter-visibility-test-products-command-spec:upstream-identifier-proof
 // Plane: Verification.
 // Residency: metadata-only upstream artifact summary; no product/runtime bytes.
 #[derive(Debug)]
-struct UpstreamGraphFilterCard {
+struct UpstreamIdentifierProof {
     overall_pass: bool,
     next_cursor: String,
+    suite_identifier_count: u64,
+    function_identifier_count: u64,
+    identifier_proof_address: String,
 }
 
-fn read_upstream() -> Result<UpstreamGraphFilterCard, Box<dyn std::error::Error>> {
+fn read_upstream() -> Result<UpstreamIdentifierProof, Box<dyn std::error::Error>> {
     let bytes = std::fs::read(UPSTREAM_RESULT)?;
     let json: serde_json::Value = serde_json::from_slice(&bytes)?;
-    Ok(UpstreamGraphFilterCard {
+    Ok(UpstreamIdentifierProof {
         overall_pass: json
             .get("overall_pass")
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false),
         next_cursor: json
             .pointer("/measurements/next_cursor/value")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        suite_identifier_count: json
+            .pointer("/measurements/suite_identifier_count/value")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0),
+        function_identifier_count: json
+            .pointer("/measurements/function_identifier_count/value")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0),
+        identifier_proof_address: json
+            .pointer("/measurements/graph_filter_focused_identifier_proof_address/value")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
             .to_string(),

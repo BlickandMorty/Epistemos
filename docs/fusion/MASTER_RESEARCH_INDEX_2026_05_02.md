@@ -220,13 +220,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-GraphFilterVisibilityTestProductsCommandSpec` is now landed as a
 > metadata-only T1/L1 command-spec witness at
 > `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`.
-> It consumes the graph-filter blocker, binds `Epistemos.xcodeproj`, scheme
-> `Epistemos`, `EpistemosTests.xctest`, `Debug`, `platform=macOS`, 5 source
-> refs, 8 seed Swift Testing selectors, 3 proof-root-scoped command templates,
-> the scheme pre-action `Patch MLX Metal Warning` /
+> It now consumes the focused identifier proof, binds upstream 8-suite /
+> 8-function identifier proof and upstream address
+> `sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`,
+> then binds `Epistemos.xcodeproj`, scheme `Epistemos`,
+> `EpistemosTests.xctest`, `Debug`, `platform=macOS`, 5 source refs, 8 seed
+> Swift Testing selectors, 3 proof-root-scoped command templates, the scheme
+> pre-action `Patch MLX Metal Warning` /
 > `scripts/patch_mlx_metal_warnings.sh`, 24 rejected red fixtures, zero
 > selected test-product/app/model/runtime bytes, deterministic address
-> `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`,
+> `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`,
 > and next cursor
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > It rejects stale/global/different-commit test-products proof shapes,
@@ -4760,13 +4763,18 @@ for the repaired graph-filter tests. It also records the scheme pre-action
 the proof boundary, because release-audit evidence must reject or explicitly
 account for source mutation.
 
-Promotion truth: this pass is now implemented by
+Promotion truth: this pass is now implemented by a refreshed
 `F-GraphFilterVisibilityTestProductsCommandSpec`, a metadata-only T1/L1 Rust
-primitive and witness doc. It runs no Xcode command, changes no product source,
-opens zero selected test-product bytes, loads no app/model/runtime bytes, and
-does not promote L2/L3/T4. The next proof remains the actual fresh
-build-for-testing / test-without-building evidence and the guard-owned
-automated-checks cursor.
+primitive and witness doc. The refreshed witness consumes
+`F-GraphFilterVisibilityFocusedIdentifierProof`, requires upstream 8-suite and
+8-function identifier proof plus deterministic upstream address
+`sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`, and
+emits command-spec address
+`sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`.
+It runs no Xcode command, changes no product source, opens zero selected
+test-product bytes, loads no app/model/runtime bytes, and does not promote
+L2/L3/T4. The next proof remains the actual fresh build-for-testing /
+test-without-building evidence and the guard-owned automated-checks cursor.
 
 ### §28.16 Automated-checks fresh test-products evidence envelope (added 2026-06-07)
 

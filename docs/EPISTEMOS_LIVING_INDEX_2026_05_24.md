@@ -4034,7 +4034,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   run, no model/runtime bytes loaded, no L1 cursor advance, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3/release readiness
   remains red.
-- Updated **2026-06-07** ·
+- Updated **2026-06-08** ·
   `F-GraphFilterVisibilityTestProductsCommandSpec` landed:
   `Tools/falsifiers/f_graph_filter_visibility_test_products_command_spec.sh`
   emits and validates
@@ -4043,15 +4043,17 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   Epistemos is a local cognitive substrate where every meaningful object has
   an address, plane, budget, status, and witness; MAS ships the safe floor,
   Pro contains the gated/research/vault/omega ladder, and no claim promotes
-  without visible proof. The witness consumes
-  `F-GraphFilterVisibility-ReleaseBlockerCard`, binds `Epistemos.xcodeproj`,
-  scheme `Epistemos`, `EpistemosTests.xctest`, `Debug`, `platform=macOS`, 5
-  source refs, 8 seed Swift Testing selectors, 3 proof-root-scoped command
-  templates, the scheme pre-action `Patch MLX Metal Warning` /
-  `scripts/patch_mlx_metal_warnings.sh`, 24 rejected red fixtures, zero
-  selected test-product bytes opened, zero app/model/runtime bytes, and
-  deterministic address
-  `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`.
+  without visible proof. The refreshed witness consumes
+  `F-GraphFilterVisibilityFocusedIdentifierProof`, requires upstream 8-suite
+  and 8-function identifier proof plus upstream address
+  `sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`,
+  binds `Epistemos.xcodeproj`, scheme `Epistemos`, `EpistemosTests.xctest`,
+  `Debug`, `platform=macOS`, 5 source refs, 8 seed Swift Testing selectors,
+  3 proof-root-scoped command templates, the scheme pre-action `Patch MLX
+  Metal Warning` / `scripts/patch_mlx_metal_warnings.sh`, 24 rejected red
+  fixtures, zero selected test-product bytes opened, zero app/model/runtime
+  bytes, and deterministic address
+  `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`.
   It rejects global DerivedData, different-commit products, stale result
   bundles, selector mismatch, filename selectors, enumeration-only passes,
   zero executed tests, pre-action mutation, full automated-check replacement,

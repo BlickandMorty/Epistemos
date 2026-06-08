@@ -6,6 +6,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 
 PASS as metadata-only L1/T1 command-spec evidence.
 
+2026-06-08 refresh: this witness now consumes the stronger
+`F-GraphFilterVisibilityFocusedIdentifierProof` upstream instead of the older
+generic graph-filter release-blocker card. The refresh keeps the same
+metadata-only / no-Xcode / no-runtime boundary, but it now requires the exact
+identifier proof to pass, expose 8 suite identifiers, expose 8 function
+identifiers, and carry deterministic upstream address
+`sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`.
+
 Artifact:
 
 `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`
@@ -16,7 +24,7 @@ Command:
 
 ## What This Proves
 
-`F-GraphFilterVisibilityTestProductsCommandSpec` consumes `F-GraphFilterVisibility-ReleaseBlockerCard` and validates the exact Epistemos command/discovery contract for the next focused graph-filter test-products proof before any Xcode cost is incurred.
+`F-GraphFilterVisibilityTestProductsCommandSpec` consumes `F-GraphFilterVisibilityFocusedIdentifierProof` and validates the exact Epistemos command/discovery contract for the next focused graph-filter test-products proof before any Xcode cost is incurred.
 
 It proves:
 
@@ -28,7 +36,8 @@ It proves:
 - Rejected red fixtures: `24`
 - Selected test-product bytes opened: `0`
 - Model/runtime/app bytes loaded: `0`
-- Deterministic address: `sha256:ad07c77aac07fbcd45c856b67f2aa3efbca9003ecc37c019e953bfb059ce0c5d`
+- Upstream identifier proof address: `sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`
+- Deterministic address: `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`
 - Next cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
 
 ## Bound Surfaces

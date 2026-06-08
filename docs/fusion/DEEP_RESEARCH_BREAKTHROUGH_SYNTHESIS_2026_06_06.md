@@ -16133,3 +16133,116 @@ exact graph-filter identifiers.
 Next research query: "How should the existing graph-filter test-products command
 spec consume the new exact identifier proof while preserving proof-root
 freshness, stale bundle rejection, and no full-row replacement?"
+
+## Pass 138 - Graph Filter Visibility Test Products Command Spec Refresh Landed (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-GraphFilterVisibilityTestProductsCommandSpec` is refreshed as a landed T1/L1
+metadata-only command-spec witness. The refresh makes the newer exact
+identifier proof its upstream, replacing the older generic
+`F-GraphFilterVisibility-ReleaseBlockerCard` dependency for this side-ladder.
+
+- UAS primitive:
+  `agent_core/src/uas/graph_filter_visibility_test_products_command_spec.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_test_products_command_spec.rs`
+- Axis contract:
+  `agent_core/src/falsifier_artifacts/axes.rs::GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_AXES`
+- Shell witness:
+  `Tools/falsifiers/f_graph_filter_visibility_test_products_command_spec.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_test_products_command_spec/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityTestProductsCommandSpec_2026_06_07.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only command-spec evidence.
+- Upstream: `F-GraphFilterVisibilityFocusedIdentifierProof`.
+- Upstream suite identifiers: 8.
+- Upstream function identifiers: 8.
+- Upstream identifier proof address:
+  `sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`.
+- Scheme/testable: `Epistemos.xcodeproj`, scheme `Epistemos`,
+  `EpistemosTests.xctest`.
+- Configuration/destination: `Debug`, `platform=macOS`.
+- Source refs: 5.
+- Seed Swift Testing selectors: 8.
+- Proof-root-scoped command templates: 3.
+- Rejected red fixtures: 24.
+- Selected test-product/app/model/runtime bytes: 0.
+- Next cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Deterministic command-spec address:
+  `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Swift test execution: not attempted.
+- Product source: unchanged by this witness.
+- Focused graph-filter repair proof: not claimed.
+- Full `xcodebuild_test`: not rerun by this witness.
+- Runtime log evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+This closes the gap between "we know the exact Swift Testing identifiers" and
+"we know the next proof command is allowed to count." The command spec now
+refuses to proceed from a generic graph-filter card alone; it requires the
+exact identifier proof with eight suites, eight functions, and a deterministic
+upstream address. That matters for large-local-model architecture because
+future model-routing and graph-evidence claims should inherit a release floor
+that cannot be satisfied by filenames, stale result bundles, enumeration-only
+output, or zero-test success.
+
+Correct phrasing: "L1 command-spec bridge advanced; product capability / user
+surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this command spec by refreshed landed T1
+  witness.
+- T1/L1 architecture proof: advanced for metadata-only command-spec bridge.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+turn the graph-filter side-ladder into fresh nonzero executed-test evidence
+without letting focused proof replace the full automated-check row.
+
+Safest next falsifier:
+`F-AutomatedChecksFreshTestProductsEvidenceEnvelope` refresh or the fresh
+proof-root focused execution gate, because the command spec now has the correct
+identifier-proof upstream and the next false-claim risk is stale or zero-test
+Xcode evidence.
+
+Best near-term code unit:
+bind fresh proof-root, selected `.xctestrun`/test-products digest, enumeration
+digest, focused `.xcresult` digest, nonzero executed-test count, pre/post
+source-status digests, rollback, RunEventLog, and AnswerPacket.
+
+Biggest false-claim risk:
+treating this command-spec refresh as executed Swift test evidence, release
+readiness, or large-local-model product capability.
+
+Biggest missing artifact:
+a fresh proof-root focused execution artifact with nonzero executed-test
+evidence for the exact graph-filter identifiers.
+
+Next research query: "How can the focused graph-filter proof-root run be made
+small, resumable, nonzero-test, source-status-bound, and impossible to confuse
+with full release-audit success?"
