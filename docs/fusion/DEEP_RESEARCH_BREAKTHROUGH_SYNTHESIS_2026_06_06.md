@@ -15708,3 +15708,104 @@ cache-hit/miss logs, memory samples, teardown, and AnswerPacket evidence.
 Next research query: "What exact cache lineage, deletion, tombstone, and purge
 fields should Epistemos require before any offloaded KV/cache block can be
 reused across note, route, model, tokenizer, or tool-schema boundaries?"
+
+## Deep Research Pass 134 - KV Cache Lineage Deletion Fence Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Pass 134 converts the cache lineage/deletion question into a landed
+metadata-only T1/L1 witness:
+`F-KVCacheLineageDeletionFence`.
+
+### Landed Artifact
+
+- Falsifier: `F-KVCacheLineageDeletionFence`
+- Command: `Tools/falsifiers/f_kv_cache_lineage_deletion_fence.sh`
+- Artifact:
+  `artifacts/falsifiers/kv_cache_lineage_deletion_fence/result.json`
+- Witness doc:
+  `docs/falsifiers/F-KVCacheLineageDeletionFence_2026_06_08.md`
+- Rust primitive:
+  `agent_core/src/uas/kv_cache_lineage_deletion_fence.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_kv_cache_lineage_deletion_fence.rs`
+- Deterministic lineage fence address:
+  `kv_cache_lineage_deletion_fence:f60cf661689a2ad5b70d837987dc23f6b165d7118f9aae9cc7de77040ab849f1@1779331200000`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only cache lineage/deletion evidence.
+- Upstream card: `F-KVOffloadTierBudgetEnvelope`.
+- Source refs bound: 6.
+- Lineage boundaries bound: 10.
+- Lifecycle states bound: active, tombstoned, purged.
+- Red fixtures rejected: 63.
+- KV bytes loaded: 0.
+- Cache bytes opened: 0.
+- Runtime bytes loaded: 0.
+- Model/source/benchmark/product/provider bytes: 0.
+- Next side-ladder cursor: `same_fixture_runtime_replay_envelope`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Cache reuse runtime: not proven.
+- Large-model fit: not proven.
+- First token, quality, latency, and throughput: not proven.
+- Live dense 70B: rejected.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+The fence turns persistent KV/cache state into an AppColdStore/ColdStore
+lineage object rather than hidden route memory. Reuse now requires source body,
+search result, prompt, tokenizer, chat template, tool schema, model revision,
+adapter, cache salt, and privacy-scope identity. Active, tombstoned, and purged
+states are explicit; stale source reuse, identity drift, and cross-scope reuse
+fail closed. A cache hit remains an optimization hint only, not quality proof,
+model-fit proof, or route authority.
+
+Correct phrasing: "L1 KV cache lineage/deletion architecture proof advanced;
+product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this fence by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only lineage/deletion proof.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+cache reuse as lineage-checked, deletion-aware saved computation, not hidden
+memory.
+
+Safest next falsifier:
+`F-SameFixtureRuntimeReplayEnvelope`, because every runtime lane must consume
+the same source/search/prompt/model/cache packet before lane comparisons matter.
+
+Best near-term code unit:
+continue closing the guard-owned
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+while using the cache-lineage fence as required evidence for any later
+owner-approved KV/cache runtime probe.
+
+Biggest false-claim risk:
+treating a restored cache or cache hit as proof that a large model fits,
+answers well, or may skip visible source freshness and deletion checks.
+
+Biggest missing artifact:
+an owner-approved small-model cache-hit/cache-miss runtime probe with redacted
+prompt digests, lineage digest comparison, tombstone replay, purge replay,
+memory samples, teardown, RunEventLog, and AnswerPacket evidence.
+
+Next research query: "How should the same-fixture runtime replay envelope bind
+cache lineage, source freshness, tool-schema identity, runtime lane, and
+redacted first-token evidence so GGUF/LiteRT/MLX comparisons become meaningful
+without promoting product capability too early?"

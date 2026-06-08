@@ -145,6 +145,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-LlamaCppSlotPromptCacheCommandCard",
     "F-KIVIAsymmetricKVStabilitySourceCard",
     "F-KVOffloadTierBudgetEnvelope",
+    "F-KVCacheLineageDeletionFence",
     "F-HardwareTieredModelCatalog-SourceCard",
     "F-MoEActiveParamsMemoryTruth",
     "F-ExoticQuantQuarantineRouteCard",
