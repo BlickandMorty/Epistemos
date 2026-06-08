@@ -521,6 +521,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > RuntimeRouter/System G. Atomic/TurboQuant, Unsloth, community assistant GGUFs,
 > and fork reports are quarantine references unless source-carded and replayed
 > locally. T0 only; no runtime/model bytes or product capability.
+> Current addendum: Deep Research Pass 208 sharpens
+> `F-GGUFQATForkDeltaQuarantineCard`. Official Google QAT Q4_0 is the baseline;
+> Unsloth Dynamic 2.0 / UD-Q* GGUFs, Atomic/TurboQuant assistant/KV forks,
+> bartowski/mradermacher-style conversions, and local Downloads model memos are
+> motif sources only. A fork delta must bind source URL, upstream base,
+> conversion tool/version, quant recipe, selected bytes, digest, license/
+> provenance/import mode, extracted motif, failure risk, same-fixture replay,
+> rollback, RunEventLog, AnswerPacket, abstention, and no route/default
+> mutation before RuntimeRouter/System G can cite it. T0 only; no runtime/model
+> bytes or product capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

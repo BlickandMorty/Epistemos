@@ -6934,6 +6934,39 @@ Layer truth:
 Correct phrasing: "Gemma MTP is now a source-carded future acceleration packet
 with abstention; it is not a live speedup or route authority."
 
+### 2026-06-08 — GGUF/QAT Fork Delta Quarantine Card (Pass 208, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 208 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` sharpens
+`F-GGUFQATForkDeltaQuarantineCard`. Official Google QAT Q4_0 remains the
+baseline. Unsloth Dynamic 2.0 / UD-Q* GGUFs, Atomic/TurboQuant assistant and KV
+forks, bartowski/mradermacher-style conversions, and older local Downloads
+model-selection memos are useful motif sources only until source-carded and
+replayed locally. Every fork delta must bind source URL, upstream base,
+conversion tool/version, quant recipe, selected bytes, digest,
+license/provenance/import mode, extracted motif, failure risks, same-fixture
+replay, rollback, RunEventLog, AnswerPacket, abstention, and no route/default
+mutation.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no fork, GGUF, runtime,
+  model bytes, route priority, settings row, first token, or product capability
+  was activated.
+
+Correct phrasing: "Forks are now mined through a quarantine delta card; no fork
+is trusted as product runtime or route authority."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

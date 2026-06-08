@@ -191,6 +191,15 @@ Runtime policy:
   and other assistant-GGUF/fork signals as quarantine references until
   `F-GemmaMTPAccelerationPacket` source-cards exact assistant/runtime digests,
   same-fixture replay, abstention, provenance, and no hidden route authority.
+- 2026-06-08 GGUF/QAT fork-delta quarantine research: Deep Research Pass 208
+  sharpens `F-GGUFQATForkDeltaQuarantineCard`. Official Google QAT Q4_0 is the
+  baseline; Unsloth Dynamic 2.0 / UD-Q* GGUFs, Atomic/TurboQuant assistant/KV
+  forks, bartowski/mradermacher-style conversions, and older local Downloads
+  model memos are useful motif sources only. Every fork delta must bind source
+  URL, upstream base, conversion tool/version, quant recipe, selected bytes,
+  digest, license/provenance/import mode, extracted motif, failure risk,
+  same-fixture replay, rollback, RunEventLog, AnswerPacket, abstention, and no
+  route/default mutation before RuntimeRouter/System G can cite it.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

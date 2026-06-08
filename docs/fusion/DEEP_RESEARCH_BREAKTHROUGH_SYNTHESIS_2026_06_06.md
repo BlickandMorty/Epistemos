@@ -25936,3 +25936,164 @@ bandwidth or Metal scheduling dominates. Fork-specific assistant layouts may
 break upstream compatibility. QAT assistant conversions may carry provenance
 or accuracy risk. The packet must therefore default to abstention until
 same-fixture local evidence proves faster-and-equal output.
+
+## Pass 208 - GGUF/QAT Fork Delta Quarantine Card
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make fork deltas useful without letting fork claims become product truth.
+`F-GGUFQATForkDeltaQuarantineCard` should compare Google official Q4_0 QAT
+GGUFs, Unsloth Dynamic 2.0 / UD-Q* GGUFs, Atomic/TurboQuant assistant and KV
+forks, bartowski/mradermacher-style community conversions, and local Downloads
+model-selection memos as quarantine sources. The point is to extract accuracy,
+memory, parser, tool-call, MTP, and failure-case motifs, then require
+same-fixture replay before any delta influences RuntimeRouter/System G.
+
+Safest next falsifier:
+`F-GGUFQATForkDeltaQuarantineCard`. It should be metadata-only first and bind
+source URL, model family, upstream base checkpoint, conversion tool/version,
+quant recipe, selected file name, declared bytes, license/provenance,
+quarantine import mode, extracted motif, failure risks, baseline comparator,
+required replay fixture, rollback, RunEventLog, AnswerPacket, and no route/
+default mutation.
+
+Best near-term code unit:
+build this as a source-card/fork-delta ledger before any Unsloth, Atomic,
+Dynamic 2.0, TurboQuant KV, or community assistant GGUF is allowed into a
+runtime packet. The card should output a ranked table of candidate deltas:
+
+```text
+official Google QAT Q4_0
+  -> trusted source baseline
+
+Unsloth Dynamic 2.0 / UD-Q4_K_XL
+  -> quality-recovery motif
+  -> quarantine_reference until local replay beats baseline
+
+Atomic/TurboQuant assistant + KV fork
+  -> MTP/KV/memory motif
+  -> quarantine_reference or clean_room_rewrite
+
+community conversions
+  -> source-card only
+  -> reject if no digest, no license, no upstream base, or no failure notes
+```
+
+Biggest false-claim risk:
+older local research and current community docs often talk as if a preferred
+fork is already the "winner" for Epistemos. That is too strong. A fork can be
+the best research clue and still be unfit for product because of packaging,
+license, hidden sidecar, unsupported tool-call grammar, Apple Silicon
+regression, missing digest, or no local same-fixture replay.
+
+Biggest missing source:
+a local Epistemos fork-delta artifact that compares official Google QAT Q4_0
+against Unsloth Dynamic 2.0 / UD-Q* and any Atomic/TurboQuant assistant/KV
+candidate on the same prompt fixture, with final answer digest, tool-call
+grammar validity, memory, latency, and rollback evidence.
+
+Next research query: "What is the smallest metadata-only
+`F-GGUFQATForkDeltaQuarantineCard` schema that can accept useful Unsloth and
+Atomic motifs while rejecting route mutation, no-license imports, missing
+digests, unverified quality claims, and product-default shortcuts?"
+
+### Current External Evidence
+
+- Unsloth QAT docs:
+  `https://unsloth.ai/docs/basics/quantization-aware-training-qat` describe QAT
+  and dynamic GGUF quantization as a way to reduce accuracy loss from low-bit
+  representation. Canon effect: useful quality-recovery motif, not product
+  proof.
+- Unsloth Dynamic 2.0 docs:
+  `https://unsloth.ai/docs/basics/unsloth-dynamic-2.0-ggufs` describe a
+  larger curated calibration set, Dynamic 2.0 across dense and MoE models, and
+  internal benchmark matching against full-precision and other quant formats.
+  Canon effect: source-card calibration and per-tensor precision motifs.
+- Unsloth Gemma 4 12B QAT GGUF card:
+  `https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF` exposes
+  `UD-Q4_K_XL` files and `llama.cpp` command examples. Canon effect: candidate
+  fork row requiring digest, bytes, same-fixture replay, and provenance.
+- Unsloth Gemma 4 local docs:
+  `https://unsloth.ai/docs/models/gemma-4` expose GGUF command recipes for
+  Gemma 4 E2B/E4B/26B/31B families. Canon effect: route-shape reference only.
+- Reddit/community reports disagree about QAT/fork quality, tool calling, and
+  llama.cpp behavior. Canon effect: use as red-fixture and failure-case
+  harvest, not authority.
+
+### Local Downloads Evidence
+
+- `/Users/jojo/Downloads/rethink1.md` recommends Gemma 4 26B-A4B with Unsloth
+  Dynamic GGUF and describes Dynamic 2.0 as a calibration/assignment strategy.
+  Correction: useful motif, but too product-forward without Epistemos L2/L3.
+- `/Users/jojo/Downloads/rethink2.md` correctly separates TurboQuant KV cache
+  compression from Unsloth Dynamic 2.0 weight quantization. Canon effect: keep
+  KV compression and weight-quant fork deltas as separate cards.
+- `/Users/jojo/Downloads/rethink3.txt` argues Dynamic 2.0 protects sensitive
+  tensors and improves tool-calling reliability. Correction: source-card as a
+  hypothesis; require local grammar/AnswerPacket replay before route use.
+- `/Users/jojo/Downloads/locals.md`, `/Users/jojo/Downloads/locals2.md`, and
+  `/Users/jojo/Downloads/locals4.txt` contain local model-fit notes and
+  Unsloth/Qwopus/Qwen sizing claims. Canon effect: quarantine-reference local
+  prior, never fit proof without byte/KV/app envelope witnesses.
+
+### Architecture Fusion
+
+```text
+public fork / local research memo
+  -> source card
+  -> quarantine import mode
+  -> motif extraction
+  -> same-fixture replay requirement
+  -> official baseline comparison
+  -> rollback + provenance
+  -> only then candidate route packet
+```
+
+This keeps the proprietary advantage where it belongs: Epistemos owns the
+source-card ledger, UAS address, replay fixture, admission gate, rollback,
+RunEventLog, and AnswerPacket. Forks provide candidate mechanisms, not
+authority.
+
+### Candidate Card Fields
+
+- source URL and local file path if any
+- upstream base checkpoint and exact source revision
+- conversion tool, quant recipe, and declared file name
+- selected artifact bytes and expected digest
+- license/provenance/import mode:
+  `direct_import`, `adapter_wrap`, `quarantine_reference`,
+  `clean_room_rewrite`, or `research_only`
+- extracted motif: dynamic tensor precision, AWQ pre-scaling, imatrix
+  calibration, assistant layout, TurboQuant KV, parser/tool-call fix, MTP flag
+- risk flags: no license, missing digest, unknown base, incompatible runtime,
+  tool-call grammar failure, Apple Silicon regression, benchmark-only claim
+- required same-fixture comparator against official Google QAT Q4_0
+- abstention and rollback policy
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; falsifier backlog
+  clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It makes aggressive fork mining compatible with privacy and product safety.
+Instead of choosing between "ignore forks" and "ship someone else's stack,"
+Epistemos can harvest deltas, preserve provenance, replay them locally, and
+rewrite or wrap only the parts that survive visible proof.
+
+### Why It May Be Wrong
+
+Fork-delta cards can become bureaucracy if they do not lead to replay. Dynamic
+quantization may improve one task and break tool calling, multimodal parsing,
+or long context. Community claims may be stale within days. The card must
+therefore stay close to exact source pins, same-fixture replay, and
+fail-closed product routing.
