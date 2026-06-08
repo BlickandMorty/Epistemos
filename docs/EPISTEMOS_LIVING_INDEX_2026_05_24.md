@@ -158,6 +158,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   automated-check-row requirements. It runs no Xcode, opens zero selected
   test-product/`.xcresult`/model/runtime bytes, and does not advance
   L1/L2/L3/product/release/large-model capability.
+- Updated **2026-06-08** · Deep Research Pass 145 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and
+  implemented as `F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The metadata-only L1/T1 witness
+  consumes the command-card witness, execution-artifact parser witness, and
+  owner-approval runbook; binds 10 preconditions, 7 consent clauses, 14
+  rejection policies, 26 rejected red fixtures, zero command executions, zero
+  selected test-product/`.xcresult`/app/model/runtime/provider bytes, and
+  deterministic address
+  `sha256:f8a39e202231f55fbdcfd94a9ff28a1ec7700fdf1518b2f31c77fb47f8e00d4f`.
+  It keeps the future focused Xcode proof-root run fail-closed until exact
+  owner approval, and it does not advance L2/L3/product/release/large-model
+  capability.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -4692,6 +4708,44 @@ Layer truth:
 
 Correct phrasing: "The focused proof-root owner-approval runbook was added;
 product capability / user surface did not advance."
+
+### 2026-06-08 - Focused Proof-Root Owner Approval Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate` now passes at
+`artifacts/falsifiers/graph_filter_visibility_focused_proof_root_owner_approval_gate/result.json`
+as metadata-only T1/L1 owner-approval gate evidence. The witness consumes
+`F-GraphFilterVisibilityFocusedProofRootCommandCard`,
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`, and
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+
+It binds command-card address
+`sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`,
+execution-artifact gate address
+`sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`,
+10 required preconditions, 7 required consent clauses, 14 rejection policies,
+26 rejected red fixtures, zero command executions, zero selected test-product
+bytes, zero `.xcresult` bytes, zero app/model/runtime/provider bytes, and
+deterministic owner-approval gate address
+`sha256:f8a39e202231f55fbdcfd94a9ff28a1ec7700fdf1518b2f31c77fb47f8e00d4f`.
+
+Layer truth:
+
+- L1 architecture side-card: `F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate`
+  advanced as metadata-only approval-boundary proof.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Xcode command was run, no
+  selected test product or `.xcresult` was opened, and no product capability
+  promoted.
+
+Correct phrasing: "L1 focused proof-root owner-approval gate advanced; product
+capability / user surface did not."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 
