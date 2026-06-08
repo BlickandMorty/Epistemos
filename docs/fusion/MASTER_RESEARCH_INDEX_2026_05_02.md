@@ -453,6 +453,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and next side-ladder `jcs_fixture_writer_fail_closed_dry_run`. This advances
 > only canonical fixture-identity L1 evidence; materialization remains blocked
 > and L2/L3 remain red.
+> Current addendum: `F-JcsFixtureWriterFailClosedDryRun` is now landed as a
+> metadata-only L1/T1 side-ladder witness at
+> `artifacts/falsifiers/jcs_fixture_writer_fail_closed_dry_run/result.json`.
+> It consumes `F-JcsNumberAndUtf16SortOracleProbe`, binds upstream address
+> `sha256:036721ee1d6f3291de7c723759928401681ee7c6a44ccdfc80aa278dfb71412a`,
+> number and UTF-16 oracle consumption, no local-writer or Node-runtime
+> authority claim, in-memory plan-only policy, owner approval and staging
+> manifest requirements, direct final write denial, `serde_json`/TriFusion
+> non-authority, 4 planned fragments, 4 blocked writes, 32 rejected red
+> fixtures, zero fixture/staging/final/schema/model/runtime/provider/cache/
+> index bytes, zero armed commands, deterministic address
+> `sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb`,
+> and next side-ladder `synthetic_fixture_staging_manifest_preflight_gate`.
+> This advances only canonical fixture-writer L1 evidence; materialization
+> remains blocked and L2/L3 remain red.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

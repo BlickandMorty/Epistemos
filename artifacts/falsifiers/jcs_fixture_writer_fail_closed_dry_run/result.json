@@ -1,0 +1,205 @@
+{
+  "falsifier_id": "F-JcsFixtureWriterFailClosedDryRun",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_jcs_fixture_writer_fail_closed_dry_run.sh",
+  "command_digest": "sha256:5d8f460bcc920a931fd3fb7b45c082cb4bad75d1704af55f58d7dd07ad2c8c2b",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "9016da9a53e49ffcf69b5f6512b0bfee6109bebc",
+  "fixture_id": "jcs_fixture_writer_fail_closed_dry_run_v1",
+  "timestamp_utc": "2026-06-08T11:57:08Z",
+  "result_digest": "sha256:81a6471e8dc095667cb4da4e4b44b1dbf1b0ac3d5960b2a3a3890159a7fbe998",
+  "measurements": {
+    "blocked_write_count": {
+      "value": 4,
+      "unit": "fragments"
+    },
+    "fail_closed_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "string"
+    },
+    "materialization_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "synthetic_fixture_staging_manifest_preflight_gate",
+      "unit": "string"
+    },
+    "oracle_consumption_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_fragment_count": {
+      "value": 4,
+      "unit": "fragments"
+    },
+    "planned_fragment_oracle_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 32,
+      "unit": "fixtures"
+    },
+    "upstream_oracle_address": {
+      "value": "sha256:036721ee1d6f3291de7c723759928401681ee7c6a44ccdfc80aa278dfb71412a",
+      "unit": "string"
+    },
+    "upstream_oracle_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "value": "sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb",
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "blocked_write_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "fragments"
+    },
+    "fail_closed_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "materialization_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "oracle_consumption_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_fragment_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "fragments"
+    },
+    "planned_fragment_oracle_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "upstream_oracle_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "upstream_oracle_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "blocked_write_count": true,
+    "fail_closed_policy_bound": true,
+    "fixture_files_written": true,
+    "guard_owned_product_cursor_preserved": true,
+    "materialization_blocked": true,
+    "next_research_to_build_unit": true,
+    "oracle_consumption_bound": true,
+    "planned_fragment_count": true,
+    "planned_fragment_oracle_bound": true,
+    "promotion_boundary_preserved": true,
+    "red_fixture_rejection_count": true,
+    "upstream_oracle_address": true,
+    "upstream_oracle_bound": true,
+    "witness_address": true,
+    "witness_header_bound": true,
+    "zero_byte_and_command_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Metadata-only T1/L1 side-ladder witness for the JCS fixture writer fail-closed dry-run. It consumes the number and UTF-16 oracle, plans four in-memory canonical fixture fragments, blocks all writes until owner-approved staging manifest proof exists, opens zero model/runtime/provider/cache/index bytes, arms zero commands, preserves the guard-owned small-model product cursor, and makes no L2/L3/T4/T5 or large-local-model capability claim."
+}
