@@ -62,10 +62,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `/opt/homebrew/bin/llama-cli` command path, offline one-token command
 > envelope, 16 proof phases, 70 red-fixture rejections, owner approval pending,
 > command unarmed, zero download/open/hash/model/runtime/provider bytes, and no
-> L2/L3 product capability. E2B is the harness proving lane; Gemma 4 12B QAT
-> remains the Pro Gated target; and 31B/70B-class routes remain Pro
-> Research/Vault until residency, routing, transport, memory, rollback,
-> RunEventLog, and AnswerPacket proof exists. Current retrieval/index built
+> L2/L3 product capability. The Gemma-specific side-ladder now also reaches
+> `artifacts/falsifiers/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate/result.json`,
+> which passes T1/L1 metadata with the selected E2B source revision
+> `1894d1fc0a19d86697abd40483f5983c867df03f`, required
+> `gemma-4-E2B_q4_0-it.gguf` filename, expected bytes `3349514112`, direct
+> `/opt/homebrew/bin/llama-cli` lane, required future model-file sha256,
+> llama.cpp binary sha256, llama.cpp version digest, visible offline command
+> template, memory probe plan, rollback, RunEventLog, AnswerPacket,
+> abstention, 59 red-fixture rejections, zero local file/hash/binary/version/
+> command/model/runtime/provider actions, and no L2/L3 product capability. E2B
+> is the harness proving lane; Gemma 4 12B QAT remains the Pro Gated target;
+> and 31B/70B-class routes remain Pro Research/Vault until residency, routing,
+> transport, memory, rollback, RunEventLog, and AnswerPacket proof exists.
+> Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,
 > which passes T1/L1 metadata with the pinned TurboVec revision

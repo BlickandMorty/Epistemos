@@ -955,9 +955,19 @@ ladder also has three metadata-only T1/L1 gates landed:
   bytes, zero raw/canonical path bytes, zero canonicalization/stat/hash/symlink
   actions, zero command/model/runtime/provider bytes or actions, no E4B/12B
   bypass, and no L2/L3/T4/user-facing Gemma claim.
+- `F-GemmaQATE2BModelFileAndLlamaCppDigestGate`: future owner-approved E2B
+  GGUF model-file and llama.cpp digest requirement contract, selected model id,
+  source revision, filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes
+  `3349514112`, direct `/opt/homebrew/bin/llama-cli` lane, 24 digest fields,
+  40 rejection policies, 14 required command-template tokens, 11 forbidden
+  command/runtime surfaces, memory probe plan, timeout/cancel, rollback,
+  RunEventLog, AnswerPacket, abstention, zero file open/hash/version-exec
+  actions, zero command/model/runtime/provider bytes or actions, no HF
+  download/server/mmap/provider shortcut, no E4B/12B bypass, and no
+  L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_model_file_and_llama_cpp_digest_gate`.
+`gemma_qat_e2b_owner_approved_first_token_runtime_probe`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,
