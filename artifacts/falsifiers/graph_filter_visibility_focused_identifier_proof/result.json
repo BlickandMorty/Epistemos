@@ -1,0 +1,743 @@
+{
+  "falsifier_id": "F-GraphFilterVisibilityFocusedIdentifierProof",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_graph_filter_visibility_focused_identifier_proof.sh",
+  "command_digest": "sha256:6e54e9413acee5201916754f3e914731bf7c74cb38d3bffbfa9049641d9ab026",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "646908202f7d5a81d166e8fc20ec4856bb4e9792",
+  "fixture_id": "graph_filter_visibility_focused_identifier_proof_v1",
+  "timestamp_utc": "2026-06-08T03:56:43Z",
+  "result_digest": "sha256:27c13dad113cf541005c41c567f47761d333478371f7ed856b8dcf5626520b8c",
+  "measurements": {
+    "app_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "build_cost_phase_count": {
+      "value": 4,
+      "unit": "phases"
+    },
+    "build_cost_phases_observed_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_candidate_count": {
+      "value": 3,
+      "unit": "commands"
+    },
+    "command_candidates_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "enumeration_caveat": {
+      "value": {
+        "enumeration_command_recorded": true,
+        "enumeration_completed": false,
+        "enumerated_test_count": 0,
+        "enumerated_identifier_digest": null,
+        "incomplete_enumeration_used_as_proof": false,
+        "build_cost_phases_observed": [
+          "package_resolution_observed",
+          "scheme_pre_action_observed",
+          "dependency_swiftlint_plugin_observed",
+          "build_graph_entered_before_stop"
+        ]
+      },
+      "unit": "enumeration"
+    },
+    "enumeration_completion_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "enumeration_incomplete_not_used_as_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_pass_does_not_replace_full_row": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_replaces_full_row_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "full_xcodebuild_pass_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "function_identifier_count": {
+      "value": 8,
+      "unit": "functions"
+    },
+    "function_identifiers": {
+      "value": [
+        "EpistemosTests/FilterEngineNodeVisibilityTests/isNodeVisibleForAllTypes",
+        "EpistemosTests/FilterEngineTypeFilterSpecificTests/allSevenTypesCanBeToggled",
+        "EpistemosTests/FilterEngineTypeFilterSpecificTests/visibilityForEachType",
+        "EpistemosTests/FilterEngineComplexScenarioTests/realisticFilteringScenario",
+        "EpistemosTests/ResourceEdgeCaseTests/filterAllTypesActive",
+        "EpistemosTests/ConcurrencyFilterEngineTests/rapidTypeToggling",
+        "EpistemosTests/ConcurrencyFilterEngineTests/allTypesVisibleByDefault",
+        "EpistemosTests/VaultLifecycleResetTests/graphLifecycleResetClearsVisibleStoreAndQueues"
+      ],
+      "unit": "functions"
+    },
+    "function_identifiers_are_not_filenames": {
+      "value": true,
+      "unit": "bool"
+    },
+    "function_identifiers_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "function_without_suite_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_focused_identifier_proof_address": {
+      "value": "sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626",
+      "unit": "sha256"
+    },
+    "hidden_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incomplete_enumeration_as_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_release_green_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_build_cost_phase_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_function_identifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_marker_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_suite_identifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "graph_filter_visibility_test_products_command_spec",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_release_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_user_note_prompt_model_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_user_note_prompt_model_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 26,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 26,
+      "unit": "fixtures"
+    },
+    "result_bundle_policy": {
+      "value": {
+        "result_bundle_path_required": true,
+        "fresh_result_bundle_required": true,
+        "stale_xcresult_rejected": true,
+        "zero_executed_tests_rejected": true,
+        "filename_selector_rejected": true,
+        "function_identifier_required": true,
+        "focused_pass_replaces_full_row": false
+      },
+      "unit": "result_bundle_policy"
+    },
+    "result_bundle_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "result_policy_rejects_filename_selectors": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_markers_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "value": 6,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_text_bytes_read": {
+      "value": 98603,
+      "unit": "bytes"
+    },
+    "stale_xcresult_policy_gap_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "suite_identifier_count": {
+      "value": 8,
+      "unit": "suites"
+    },
+    "suite_identifiers": {
+      "value": [
+        "EpistemosTests/FilterEngineNodeVisibilityTests",
+        "EpistemosTests/FilterEngineTypeFilterSpecificTests",
+        "EpistemosTests/FilterEngineComplexScenarioTests",
+        "EpistemosTests/ResourceEdgeCaseTests",
+        "EpistemosTests/ConcurrencyFilterEngineTests",
+        "EpistemosTests/VaultLifecycleResetTests",
+        "EpistemosTests/FilterEngineCombinedFilterTests",
+        "EpistemosTests/FilterEngineAdditionalTypeTests"
+      ],
+      "unit": "suites"
+    },
+    "suite_identifiers_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_test_execution_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_target_epistemos_tests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_focused_repair_packet_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_identifier_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "whitespace_selector_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_and_swift_tests_not_executed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_byte_execution_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_command_bytes_executed_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "xcode_execution_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_executed_tests_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_app_xcode_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_test_policy_gap_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "build_cost_phase_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "phases"
+    },
+    "build_cost_phases_observed_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_candidate_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "commands"
+    },
+    "command_candidates_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "enumeration_caveat": {
+      "operator": "present",
+      "value": true,
+      "unit": "enumeration"
+    },
+    "enumeration_completion_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "enumeration_incomplete_not_used_as_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "filename_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_pass_does_not_replace_full_row": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_proof_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_replaces_full_row_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "full_xcodebuild_pass_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "function_identifier_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "functions"
+    },
+    "function_identifiers": {
+      "operator": "present",
+      "value": true,
+      "unit": "functions"
+    },
+    "function_identifiers_are_not_filenames": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "function_identifiers_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "function_without_suite_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_focused_identifier_proof_address": {
+      "operator": "present",
+      "value": true,
+      "unit": "sha256"
+    },
+    "hidden_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "incomplete_enumeration_as_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_l3_product_release_green_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_build_cost_phase_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_function_identifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_marker_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_suite_identifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "present",
+      "value": true,
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_release_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_user_note_prompt_model_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_user_note_prompt_model_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 26,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 26,
+      "unit": "fixtures"
+    },
+    "result_bundle_policy": {
+      "operator": "present",
+      "value": true,
+      "unit": "result_bundle_policy"
+    },
+    "result_bundle_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "result_policy_rejects_filename_selectors": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_markers_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_ref_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "refs"
+    },
+    "source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_text_bytes_read": {
+      "operator": "==",
+      "value": 98603,
+      "unit": "bytes"
+    },
+    "stale_xcresult_policy_gap_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "suite_identifier_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "suites"
+    },
+    "suite_identifiers": {
+      "operator": "present",
+      "value": true,
+      "unit": "suites"
+    },
+    "suite_identifiers_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_test_execution_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "test_target_epistemos_tests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_fail_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_focused_repair_packet_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_next_cursor_identifier_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "whitespace_selector_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_upstream_cursor_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_and_swift_tests_not_executed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_byte_execution_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcode_command_bytes_executed_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "xcode_execution_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_executed_tests_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_app_xcode_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_test_policy_gap_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "app_runtime_byte_leak_rejected": true,
+    "app_runtime_bytes_loaded_total": true,
+    "build_cost_phase_count": true,
+    "build_cost_phases_observed_bound": true,
+    "command_candidate_count": true,
+    "command_candidates_bound": true,
+    "enumeration_caveat": true,
+    "enumeration_completion_claim_rejected": true,
+    "enumeration_incomplete_not_used_as_proof": true,
+    "filename_selector_rejected": true,
+    "focused_pass_does_not_replace_full_row": true,
+    "focused_repair_proof_claim_rejected": true,
+    "focused_replaces_full_row_rejected": true,
+    "full_xcodebuild_pass_claim_rejected": true,
+    "function_identifier_count": true,
+    "function_identifiers": true,
+    "function_identifiers_are_not_filenames": true,
+    "function_identifiers_bound": true,
+    "function_without_suite_rejected": true,
+    "graph_filter_focused_identifier_proof_address": true,
+    "hidden_authority_rejected": true,
+    "incomplete_enumeration_as_proof_rejected": true,
+    "l2_l3_product_release_green_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "missing_build_cost_phase_rejected": true,
+    "missing_function_identifier_rejected": true,
+    "missing_source_marker_rejected": true,
+    "missing_suite_identifier_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_route_mutation": true,
+    "no_l2_l3_t4_product_release_green": true,
+    "no_live_dense_70b_claim": true,
+    "no_raw_user_note_prompt_model_bytes": true,
+    "raw_user_note_prompt_model_bytes_rejected": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "result_bundle_policy": true,
+    "result_bundle_policy_bound": true,
+    "result_policy_rejects_filename_selectors": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "route_mutation_rejected": true,
+    "source_markers_bound": true,
+    "source_ref_count": true,
+    "source_refs_bound": true,
+    "source_text_bytes_read": true,
+    "stale_xcresult_policy_gap_rejected": true,
+    "suite_identifier_count": true,
+    "suite_identifiers": true,
+    "suite_identifiers_bound": true,
+    "swift_test_execution_claim_rejected": true,
+    "test_target_epistemos_tests_bound": true,
+    "upstream_fail_rejected": true,
+    "upstream_focused_repair_packet_pass": true,
+    "upstream_next_cursor_identifier_proof": true,
+    "whitespace_selector_rejected": true,
+    "wrong_upstream_cursor_rejected": true,
+    "xcode_and_swift_tests_not_executed": true,
+    "xcode_byte_execution_rejected": true,
+    "xcode_command_bytes_executed_total": true,
+    "xcode_execution_claim_rejected": true,
+    "zero_executed_tests_rejected": true,
+    "zero_model_app_xcode_bytes": true,
+    "zero_test_policy_gap_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GraphFilterVisibilityFocusedIdentifierProof: consumes the focused repair packet, binds exact Swift Testing suite/function identifiers from source, records incomplete enumeration caveat and build-cost phases, requires fresh result-bundle/nonzero-test proof later, rejects filename and zero-test laundering, executes zero Xcode commands, loads zero model/runtime bytes, and makes no L2/L3/T4/release/large-model claim."
+}

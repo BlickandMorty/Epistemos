@@ -16025,3 +16025,111 @@ promotion.
 Next research query: "Which exact Swift Testing identifiers for the graph
 filter repair set produce nonzero focused execution evidence while preserving
 folder default-off source truth?"
+
+## Pass 137 - Graph Filter Visibility Focused Identifier Proof Landed (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-GraphFilterVisibilityFocusedIdentifierProof` is now a real T1/L1
+metadata-only witness, not only Pass 122 research-to-build canon.
+
+- UAS primitive:
+  `agent_core/src/uas/graph_filter_visibility_focused_identifier_proof.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_focused_identifier_proof.rs`
+- Shell witness:
+  `Tools/falsifiers/f_graph_filter_visibility_focused_identifier_proof.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_focused_identifier_proof/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityFocusedIdentifierProof_2026_06_08.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only exact identifier evidence.
+- Upstream: `F-GraphFilterVisibilityFocusedRepairPacket`.
+- Test target: `EpistemosTests`.
+- Source refs: 6.
+- Suite identifiers: 8.
+- Function identifiers: 8.
+- Focused command candidates: 3.
+- Prior build-cost phases observed: 4.
+- Source text bytes read: 98603.
+- Red fixtures rejected: 26.
+- Xcode commands executed: 0.
+- Swift tests executed: 0.
+- Model/app/Xcode bytes: 0.
+- Next cursor: `graph_filter_visibility_test_products_command_spec`.
+- Deterministic identifier proof address:
+  `sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Product source: unchanged by this witness.
+- Focused Swift execution proof: not claimed.
+- Focused graph-filter repair proof: not claimed.
+- Full `xcodebuild_test`: not rerun by this witness.
+- Runtime log evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+This rung prevents a subtle but dangerous release-audit failure: a filename
+selector, stopped enumeration, or zero-test Xcode success can look reassuring
+while proving nothing. Larger local model work depends on graph evidence and
+AnswerPacket visibility being trustworthy; if the graph-filter family closes
+through fake selectors, later Gemma/Qwen/GGUF/MLX/LiteRT/TurboVec route
+evidence could inherit a false release floor.
+
+The witness therefore records exact Swift Testing suite/function identifiers
+from source and keeps enumeration/test execution as a future proof surface. The
+next side-ladder witness can bind proof-root scoped command shape; only after
+fresh result-bundle evidence with nonzero executed tests can a focused repair
+proof move.
+
+Correct phrasing: "L1 graph-filter focused identifier architecture proof
+advanced; product capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this identifier proof by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only exact identifiers.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+make focused release-audit repair evidence selector-exact before any expensive
+Swift or product-runtime proof can count.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityTestProductsCommandSpec`, because exact identifiers now
+need a proof-root scoped build/test command envelope before `.xcresult` evidence
+can count.
+
+Best near-term code unit:
+reconcile the existing test-products command spec to consume the new identifier
+proof, then bind fresh proof-root, `.xctestrun`/test-products path, enumeration
+digest, and focused result-bundle policy.
+
+Biggest false-claim risk:
+treating this identifier witness as executed Swift test evidence or as release
+readiness.
+
+Biggest missing artifact:
+a fresh focused result bundle with nonzero executed-test evidence for these
+exact graph-filter identifiers.
+
+Next research query: "How should the existing graph-filter test-products command
+spec consume the new exact identifier proof while preserving proof-root
+freshness, stale bundle rejection, and no full-row replacement?"

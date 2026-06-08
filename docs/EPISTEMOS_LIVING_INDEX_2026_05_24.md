@@ -4444,6 +4444,44 @@ Layer truth:
 Correct phrasing: "L1 graph-filter focused repair packet architecture proof
 advanced; product capability / user surface did not."
 
+### 2026-06-08 - Graph Filter Visibility Focused Identifier Proof Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`Tools/falsifiers/f_graph_filter_visibility_focused_identifier_proof.sh` now
+emits and validates
+`artifacts/falsifiers/graph_filter_visibility_focused_identifier_proof/result.json`
+as metadata-only T1/L1 Swift Testing identifier evidence. The witness consumes
+`F-GraphFilterVisibilityFocusedRepairPacket`, binds test target
+`EpistemosTests`, six source refs, eight suite identifiers, eight function
+identifiers, three command candidates, four prior build-cost phases, the
+incomplete-enumeration caveat, fresh result-bundle / stale-`.xcresult` /
+zero-test rejection policy, 98603 source text bytes read, 26 rejected red
+fixtures, zero Xcode/Swift test execution, zero model/app/Xcode bytes, and
+deterministic identifier proof address
+`sha256:39e7b26e2f6f94c9793156ede9eee8597201d5bc19950a251afb3bc8f1de2626`.
+
+Layer truth:
+
+- L1 architecture cursor / side-card:
+  `F-GraphFilterVisibilityFocusedIdentifierProof` advanced as metadata-only
+  proof; it points to `graph_filter_visibility_test_products_command_spec`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`;
+  product capability did not promote.
+- L3 user-facing / release readiness: still red; fresh focused `.xcresult`
+  evidence with nonzero executed tests, full `xcodebuild_test`, all five
+  automated checks, log evidence, manual/runtime verification,
+  distribution/compliance, and repeated zero-fail audit evidence remain
+  required.
+
+Correct phrasing: "L1 graph-filter focused identifier architecture proof
+advanced; product capability / user surface did not."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
