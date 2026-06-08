@@ -177,6 +177,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   canon/build pressure only: no eval, benchmark, model, runtime, cache, index,
   provider, or fixture bytes were opened; no command was armed; L2/L3 stay red;
   and no large-local-model user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 155 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  seed fixture family and deterministic verifier map. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. The pass creates the buildable side-ladder candidate
+  `F-SeedFixtureFamilyManifest`: twelve seed families for note synthesis,
+  citation-grounded research, retrieval ordering, structured tool JSON,
+  cache-deletion reuse, writing edits, coding patches, terminal end state,
+  refusal/abstention, latency budgets, target verification, and graph-filter
+  visibility. Each family requires deterministic verifier/scorer digests,
+  stable sample IDs, no raw private note/prompt/cache/model-output bytes,
+  no copied public benchmark prompts, MAS/Pro caveats, rollback, RunEventLog,
+  AnswerPacket, and non-promotion caveats before fixture compilation or
+  same-fixture replay. This is T0 canon/build pressure only: no fixture, eval,
+  benchmark, model, runtime, cache, index, or provider bytes were opened; no
+  command was armed; L2/L3 stay red; and no large-local-model user-facing
+  capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local
