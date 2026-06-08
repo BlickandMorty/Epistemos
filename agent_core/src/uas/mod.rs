@@ -70,6 +70,7 @@ pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod jcs_canonical_json_writer_parity_gate;
+pub mod jcs_fixture_writer_fail_closed_dry_run;
 pub mod jcs_number_and_utf16_sort_oracle_probe;
 pub mod kind;
 pub mod kivi_asymmetric_kv_stability_source_card;
@@ -1097,6 +1098,15 @@ pub use jcs_canonical_json_writer_parity_gate::{
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_CURSOR,
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_ID,
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_NEXT_CURSOR,
+};
+pub use jcs_fixture_writer_fail_closed_dry_run::{
+    jcs_fixture_writer_fail_closed_dry_run_address, JcsFixtureWriterDryRunByteLedger,
+    JcsFixtureWriterDryRunError, JcsFixtureWriterDryRunMetrics, JcsFixtureWriterDryRunPolicy,
+    JcsFixtureWriterDryRunSourceCard, JcsFixtureWriterDryRunStatus,
+    JcsFixtureWriterFailClosedDryRun, JcsFixtureWriterFailClosedDryRunWitness,
+    JcsFixtureWriterPlannedFragment, JCS_FIXTURE_WRITER_FAIL_CLOSED_DRY_RUN_CURSOR,
+    JCS_FIXTURE_WRITER_FAIL_CLOSED_DRY_RUN_ID,
+    JCS_FIXTURE_WRITER_FAIL_CLOSED_DRY_RUN_NEXT_CURSOR,
 };
 pub use jcs_number_and_utf16_sort_oracle_probe::{
     jcs_number_and_utf16_sort_oracle_address, JcsNumberAndUtf16SortOracleProbe,

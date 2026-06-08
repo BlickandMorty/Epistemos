@@ -21710,3 +21710,106 @@ pinned oracles without using a hidden Node/JavaScript runtime path.
 Next research query: "How should F-JcsFixtureWriterFailClosedDryRun prove an
 Epistemos-owned canonical JSON byte plan against the pinned RFC 8785 oracles
 while keeping all file writes, runtime bytes, and product claims blocked?"
+
+## Deep Research Pass 173 - JCS Fixture Writer Fail-Closed Dry-Run Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-JcsFixtureWriterFailClosedDryRun` is now a real metadata-only L1/T1
+side-ladder witness. It consumes the pinned JCS number and UTF-16 sort oracle
+and converts it into a fail-closed in-memory writer plan: four planned canonical
+fixture fragments, four blocked writes, no local writer authority claim, no
+hidden Node runtime, no file writes, and no product promotion.
+
+This matters for large local models because future same-fixture replays,
+Gemma/QAT comparisons, TurboVec retrieval baselines, and small-model harness
+checks need deterministic fixture identity before any runtime result can be
+trusted. This pass builds the next bridge while preserving the honest boundary:
+fixture materialization is still blocked until staging manifest and owner
+approval gates exist.
+
+### Landed Code And Artifact
+
+| Surface | Path |
+| --- | --- |
+| UAS primitive | `agent_core/src/uas/jcs_fixture_writer_fail_closed_dry_run.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_jcs_fixture_writer_fail_closed_dry_run.rs` |
+| Shell wrapper | `Tools/falsifiers/f_jcs_fixture_writer_fail_closed_dry_run.sh` |
+| Artifact | `artifacts/falsifiers/jcs_fixture_writer_fail_closed_dry_run/result.json` |
+| Witness doc | `docs/falsifiers/F-JcsFixtureWriterFailClosedDryRun_2026_06_08.md` |
+
+Artifact facts:
+
+- upstream JCS number/UTF-16 oracle:
+  `sha256:036721ee1d6f3291de7c723759928401681ee7c6a44ccdfc80aa278dfb71412a`
+- witness address:
+  `sha256:f2c70a74d099c73facce3422d0689b35234658c455b871b0ccfdbca008bcebcb`
+- planned fragments: 4
+- blocked writes: 4
+- red fixtures rejected: 32
+- next side-ladder: `synthetic_fixture_staging_manifest_preflight_gate`
+- guard-owned product cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Source Truth
+
+The dry-run consumes local oracle evidence rather than invoking a runtime
+writer. It makes the next writer step explicit: in-memory plans may exist, but
+materialized bytes need owner approval, staging manifest proof, path policy,
+digest policy, rollback, RunEventLog, and AnswerPacket evidence.
+
+Local refs:
+
+- `agent_core/src/uas/jcs_number_and_utf16_sort_oracle_probe.rs`
+- `agent_core/src/uas/jcs_canonical_json_writer_parity_gate.rs`
+- `docs/falsifiers/F-JcsNumberAndUtf16SortOracleProbe_2026_06_08.md`
+
+External refs:
+
+- https://www.rfc-editor.org/rfc/rfc8785
+
+### Promotion Truth
+
+- T0 research/canon: advanced into landed T1 evidence.
+- T1/L1 architecture proof: advanced for fail-closed fixture writer planning.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`synthetic_fixture_staging_manifest_preflight_gate`, because a writer plan is
+not enough until staging paths, manifest fields, digest policy, rollback, and
+approval boundaries are proven.
+
+Safest next falsifier:
+metadata-only `F-SyntheticFixtureStagingManifestPreflightGate` that consumes
+the fail-closed writer dry-run and binds manifest shape, staging root, final
+root denial, content digests, rollback, RunEventLog, AnswerPacket, and owner
+approval requirements while still writing zero files.
+
+Best near-term code unit:
+add a staging manifest preflight UAS primitive and falsifier that validates the
+manifest contract without creating the manifest file.
+
+Biggest false-claim risk:
+mistaking in-memory byte plans for materialized same-fixture replay evidence.
+
+Biggest missing source:
+an owner-approved staging manifest contract that proves where canonical bytes
+would go, how they are digested, and how rollback would remove them before any
+write occurs.
+
+Next research query: "What manifest fields, path policies, digest policies,
+rollback receipts, RunEventLog rows, and AnswerPacket fields should
+F-SyntheticFixtureStagingManifestPreflightGate require before any synthetic
+fixture materialization writes bytes?"
