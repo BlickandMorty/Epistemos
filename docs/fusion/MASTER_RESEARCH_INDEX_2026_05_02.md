@@ -161,6 +161,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > non-promotion caveats before same-fixture quality replay can run. It imports
 > no eval framework, opens no fixture/model/cache/runtime bytes, arms no
 > command, and does not advance L2/L3 or user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 155 in the same file maps
+> `F-SeedFixtureFamilyManifest` as the seed-family input to the held-out
+> fixture-pack compiler. It defines twelve Epistemos-shaped families: note
+> synthesis, citation-grounded research, retrieval ordering, structured tool
+> JSON, cache deletion/reuse, writing edits, coding patches, terminal end
+> state, refusal/abstention, latency budgets, target verification, and
+> graph-filter visibility. Each family requires deterministic verifier/scorer
+> digests, stable sample IDs, no raw private text or prompt/cache/model-output
+> storage, no copied public benchmark prompts, MAS/Pro caveats, rollback,
+> RunEventLog, AnswerPacket, and non-promotion caveats. It imports no eval
+> framework, opens no fixture/model/cache/runtime bytes, arms no command, and
+> does not advance L2/L3 or user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

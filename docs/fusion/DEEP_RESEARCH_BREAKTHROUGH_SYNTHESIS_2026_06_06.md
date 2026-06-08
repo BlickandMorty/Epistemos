@@ -18176,3 +18176,196 @@ Next research query: "Which exact synthetic Epistemos task families and
 deterministic verifier scripts should seed the first owner-approved fixture
 pack so small local models, Gemma 4 QAT, GGUF/LiteRT, MLX, TurboVec/Eidos, and
 cache-reuse lanes can be compared without private-data leakage?"
+
+## Pass 155 - Seed Fixture Families And Deterministic Verifier Map
+
+### Executive Synthesis
+
+Pass 155 answers the Pass 154 query by defining the first Epistemos-owned
+fixture families. The key move is to seed the fixture pack from product-shaped
+capabilities that Epistemos already cares about: local writing, note synthesis,
+citation-grounded research, structured tool calls, graph/retrieval evidence,
+cache deletion, refusal/abstention, and latency. Each seed family must have a
+deterministic verifier first; LLM judges are allowed only as quarantined
+secondary diagnostics with explicit model/source digests.
+
+```text
+SeedFixtureFamilyManifest
+  -> synthetic task + source-card motif + verifier script
+  -> no raw private note/prompt/cache bytes
+  -> search/calibration/held-out split
+  -> scorer digest and failure taxonomy
+  -> EpistemosOwnedHeldOutFixturePackCompiler
+  -> SameFixtureHeldOutQualityReplayPacket
+```
+
+This pass is T0 research-to-build canon. It does not create fixture files, run
+the HarnessLab, load model/runtime/cache bytes, or advance L1/L2/L3. It gives
+the next code pass a sharply scoped manifest for a metadata-only falsifier and,
+later, an owner-approved small fixture subset.
+
+### Local Source Facts
+
+- `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` already defines
+  `EvalVerification` families: `commandExitZero`, `filesExist`,
+  `outputPattern`, `llmJudge`, and `humanReview`; network is denied by default
+  through `EvalTask.allowNetwork`.
+- `EpistemosTests/HarnessSubsystemTests.swift` proves held-out separation,
+  cross-set task lookup, command/file verification, score persistence, failure
+  isolation, and promotion artifact creation.
+- `EpistemosTests/QueryRuntimeTests.swift`, `EpistemosTests/VaultRecallWiringTests.swift`,
+  and `EpistemosTests/CloudKnowledgeDistillationTests.swift` are local anchors
+  for retrieval, candidate ordering, vault recall, and note-context synthesis.
+- `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` and the release-audit docs
+  already name tool/citation surfaces such as `research.collect_snippet`,
+  `citation.save`, `note.create`, and `note.edit`; fixture packs must not make
+  those tools hidden route authority.
+- `Epistemos/AgentRuntimeV2/README.md` names the `RunEventLog` plus
+  `AnswerPacket` visibility path. Every fixture family should expect visible
+  result packets, not raw hidden reasoning.
+
+### Current External Source Facts
+
+- JSON Schema Draft 2020-12 is the current JSON Schema version, and JSON
+  Schema Validation defines validation keywords. Epistemos structured-output
+  fixtures should use schema digests rather than prose-only expectations.
+  Source: `https://json-schema.org/specification`
+- BFCL groups function-calling evaluation by AST or executable evaluation and
+  function type, including simple, parallel, multiple, executable, and
+  relevance-detection cases. Epistemos should mirror AST/executable checks for
+  `tool_json` fixtures while keeping public BFCL prompts out of held-out data.
+  Source:
+  `https://gorilla.cs.berkeley.edu/blogs/8_berkeley_function_calling_leaderboard.html`
+- IFEval-style instruction following measures prompt-level and instruction-
+  level strict and loose accuracy over automatically verifiable instructions.
+  Epistemos should use strict verifiers for output-shape constraints and keep
+  loose checks diagnostic only. Source:
+  `https://ukgovernmentbeis.github.io/inspect_evals/evals/reasoning/ifeval/index.html`
+- Terminal-Bench tasks rely on verifier files such as `test_outputs.py` to
+  validate terminal end state. Epistemos Pro tool/terminal fixtures should have
+  deterministic end-state verifiers and remain out of MAS default routes.
+  Source: `https://www.tbench.ai/docs/task-overview`
+- LiveBench's contamination-resistant design uses recent sources and objective
+  ground truth without LLM judges where possible. Epistemos should use
+  synthetic/private-held-out tasks with release timestamps, duplicate checks,
+  and objective validators. Source: `https://github.com/livebench/livebench`
+
+### Candidate Falsifier
+
+`F-SeedFixtureFamilyManifest`
+
+Required seed families:
+
+| Family | Purpose | Deterministic verifier | Local anchors | Product route |
+|---|---|---|---|---|
+| `note_synthesis_outline` | Turn synthetic note fragments into a structured outline | JSON Schema 2020-12, required headings, no raw-note echo, source-id coverage | `CloudKnowledgeDistillationTests`, note/chat context code | MAS/Pro local writing |
+| `citation_grounded_research_answer` | Answer from provided source cards only | closed source-id allowlist, citation count, missing-source rejection | citation/tool inventory, Eidos docs | Pro research, MAS safe floor when local |
+| `retrieval_candidate_ordering` | Preserve relevant vault candidates under query changes | expected candidate-id set/order tolerance, no hidden candidate insertion | `QueryRuntimeTests`, `VaultRecallWiringTests` | Eidos/AppColdStore |
+| `structured_tool_json` | Emit valid tool intent without control-text leakage | JSON Schema, BFCL-style AST check, unavailable-tool abstention | tool inventory, AgentRuntimeV2 | Pro gated tools |
+| `cache_deletion_reuse` | Ensure deleted/tombstoned context cannot influence output | tombstone ref, cache salt, deleted-source absence assertion | PromptCache/KV lineage canon | RuntimeRouter cache lane |
+| `writing_edit_preserve_voice` | Rewrite synthetic text while preserving constraints | diff bounds, banned phrase check, required style markers | TriageService writing operations | MAS/Pro writing |
+| `coding_patch_minimal` | Produce minimal patch against toy repo fixture | `commandExitZero`, diff scope, no unrelated files | HarnessLab EvalRunner | Pro coding/research |
+| `terminal_end_state` | Complete simple terminal task in volatile root | `filesExist`, content digest, no network by default | EvalSandbox, Terminal-Bench motif | Pro only |
+| `refusal_and_abstention` | Refuse unsafe/unsupported request or abstain from missing evidence | exact refusal/abstention enum, no fake citation/tool | SovereignGate, AnswerPacket | MAS/Pro safety |
+| `latency_budget_small_lane` | Keep small-lane task within declared local budget | retained timing field, timeout policy, thermal gate caveat | HarnessLab thermal guard | small local anchor |
+| `same_fixture_target_verification` | Compare final target output vs draft/cache acceleration | accepted/rejected draft counts and final digest | Pass 152/153 packets | QAT/MTP/cache lanes |
+| `graph_filter_visibility_probe` | Preserve graph/filter visibility semantics in model-written explanations | expected enum values, folder-default caveat, no route authority claim | graph-filter release blockers | L3 release-audit support |
+
+Required accepted fields:
+
+- `seed_manifest_id`, `manifest_version`, `created_at`, `source_commit_sha`
+- exactly named seed families with count, domain, and ProductBuild scope
+- `search_set_seed_count`, `calibration_set_seed_count`, `held_out_seed_count`
+- `verifier_kind`: schema, regex, AST, executable, file, citation_allowlist,
+  diff_scope, abstention_enum, latency_budget
+- `verifier_digest` and `scorer_digest`
+- `sample_id_strategy`: stable explicit IDs, no rowid, no title authority
+- `synthetic_context_digest` and `raw_private_text_denied=true`
+- `benchmark_prompt_copy_denied=true`
+- `network_default=false`
+- MAS/Pro route caveat per family
+- rollback, RunEventLog, AnswerPacket, abstention, and non-promotion caveat
+
+Required red fixtures:
+
+- any seed family without a deterministic verifier
+- `llmJudge` as primary verifier
+- raw private note/prompt/cache/model output stored in fixture
+- public BFCL/IFEval/LiveBench/Terminal-Bench prompt copied into held-out pack
+- duplicate sample ID or mutable row/title authority
+- missing MAS/Pro caveat for terminal/tool fixtures
+- network default-on
+- cache deletion family missing tombstone or trust group
+- coding patch verifier allows unrelated file edits
+- citation fixture allows fake or non-allowlisted source IDs
+- structured-tool fixture accepts visible control narration as final answer
+- latency fixture claims speed without timeout/thermal caveat
+- fixture family manifest treated as model quality proof
+- L2/L3/T4 promotion from metadata-only seed manifest
+
+### Architecture Fusion
+
+| Seed family group | Epistemos organ | Tier now | Why it matters |
+|---|---|---|---|
+| Note/writing synthesis | MissionPacket, AnswerPacket | T0 | Tests local usefulness for the daily writing loop |
+| Citation/retrieval | Eidos, AppColdStore | T0 | Prevents hallucinated evidence and hidden rank authority |
+| Tool/terminal/coding | SovereignGate, RuntimeRouter | T0 | Tests agentic behavior without MAS leakage |
+| Cache/target verification | ActiveAssembly, KV lineage | T0 | Stops acceleration from becoming false quality |
+| Abstention/refusal | SCOPE-Rex, AnswerPacket | T0 | Makes missing evidence and unsupported tools visible |
+| Latency/thermal | System G, budget plane | T0 | Keeps local lanes practical on Apple Silicon |
+
+### Build Path
+
+1. Implement metadata-only `seed_fixture_family_manifest` UAS primitive.
+2. Implement `falsify_seed_fixture_family_manifest`.
+3. Add manifest parser tests for duplicate IDs, empty families, missing
+   verifier digests, raw-private-text flags, benchmark-copy denial, and
+   MAS/Pro caveats.
+4. Wire the manifest as an input to
+   `F-EpistemosOwnedHeldOutFixturePackCompiler`, not as runtime proof.
+5. Later, owner-approved runtime work can materialize a tiny synthetic subset
+   for the existing small model lane before any Gemma/QAT/GGUF/LiteRT/MLX
+   comparison.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-SeedFixtureFamilyManifest`, because it transforms the large-model question
+from "which model is impressive?" into "which lane survives Epistemos-owned
+tasks with deterministic verifiers and visible proof?"
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement `F-SeedFixtureFamilyManifest` before
+`F-EpistemosOwnedHeldOutFixturePackCompiler`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for `seed_fixture_family_manifest`
+with invalid fixtures for missing verifier, duplicate ID, raw private text,
+copied benchmark prompt, hidden judge, MAS terminal leakage, stale cache, and
+metadata-only promotion.
+
+Biggest false-claim risk:
+treating a seed manifest as a benchmark result. It is only the task-family
+map; quality requires fixture compilation, same-fixture replay, target
+verification, scorer digests, and AnswerPacket proof.
+
+Biggest missing artifact:
+a landed seed fixture family manifest witness that makes the first held-out
+pack implementable without private-data leakage or public-benchmark laundering.
+
+Next research query: "Which exact minimal synthetic fixtures should instantiate
+the seed manifest first: one note-synthesis task, one citation task, one
+structured-tool JSON task, one cache-deletion task, one abstention task, and
+one latency-bounded small-lane task?"
