@@ -225,6 +225,18 @@ Runtime policy:
   route/default/settings mutation. Inspect AI, LightEval, lm-evaluation-harness,
   and llama.cpp grammar/JSON support are motifs only; Epistemos owns the
   fixture/scorer proof.
+- 2026-06-08 Gemma direct harness rail research: Deep Research Pass 211 defines
+  `F-GemmaDirectHarnessAdmissionRail` as the first owner-approved live-probe
+  shape. The first Gemma proof should use local-only E2B/E4B QAT GGUF through
+  bounded `llama-cli` single-turn execution, not `-hf` remote download,
+  `llama-server`, an OpenAI-compatible sidecar, MLX, LiteRT-LM, or a fork
+  winner. The rail must bind selected model/source-card digest, owner path
+  digest, `llama-cli` binary/version digest, command-template digest, prompt
+  digest, seed, context/predict caps, grammar/JSON option digest when needed,
+  timeout/cancel, termination reason, stderr redaction, timing/memory plan,
+  rollback, RunEventLog, AnswerPacket, abstention, MAS/Pro caveat, and no
+  route/default/settings mutation. Server/tool-call rails can come later after
+  the direct CLI artifact is reviewable.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
