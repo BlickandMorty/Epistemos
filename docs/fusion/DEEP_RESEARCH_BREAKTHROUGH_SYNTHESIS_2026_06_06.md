@@ -26523,3 +26523,148 @@ issues, Swift packaging problems, long-running lifecycle problems, and
 structured-output differences that only appear in `llama-server` or native
 LiteRT-LM. The rail must therefore be first proof only, not final product
 architecture.
+
+## Pass 212 - Gemma Direct Harness Artifact Receipt Map
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make a future Gemma `llama-cli` run produce an artifact receipt that can be
+reviewed without creating a parallel authority. `F-GemmaDirectHarnessArtifactReceiptMap`
+should map the Pass 211 direct harness rail into the already-landed Gemma
+runtime replay / first-token artifact review gates. The receipt is not a new
+quality score and not a route. It is the bridge from "a bounded process ran" to
+"the existing artifact review and reconciliation gates can inspect digest-only
+evidence."
+
+Safest next falsifier:
+`F-GemmaDirectHarnessArtifactReceiptMap`. It should be metadata-only first and
+consume `F-GemmaDirectHarnessAdmissionRail`,
+`F-GemmaQATRuntimeReplayExecutionArtifactGate`,
+`F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`, and
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`. It must reject receipt
+fields that carry raw prompt/output/stdout/stderr/token/path bytes, omit
+subject/material digests, hide command args, hide process exit status, omit
+termination reason, omit timeout/cancel/teardown, omit redaction policy, omit
+memory/timing samples, omit RunEventLog/AnswerPacket joins, or mutate
+RuntimeRouter/System G.
+
+Best near-term code unit:
+add a metadata-only UAS receipt-map primitive before any owner-approved runtime
+run writes an artifact. Required sections:
+
+```text
+subject: selected model + receipt digest
+materials: model file digest, llama-cli digest, prompt digest, grammar digest
+invocation: argv digest, env digest, working-directory digest, owner approval
+process: pid policy, exit code, termination reason, timeout/cancel/teardown
+observations: redacted first-token digest, stdout/stderr digests, timing, memory
+joins: RunEventLog ref, AnswerPacket ref, rollback ref, abstention ref
+promotion: no quality, no route, no settings, no default, no L2/L3
+```
+
+Biggest false-claim risk:
+treating the receipt as proof that Gemma works. A receipt only proves that a
+future artifact has enough digest-only evidence for review. It does not prove
+the model file exists, that the command was run in this session, that the token
+is useful, that memory fit is safe, or that Gemma should be selected by System
+G.
+
+Biggest missing source:
+a real owner-approved receipt artifact emitted by a bounded Gemma E2B
+`llama-cli` process. Until that exists, the receipt map remains T0/T1 planning.
+
+Next research query: "How should `F-GemmaDirectHarnessArtifactReceiptMap`
+align SLSA-style subject/material/invocation evidence and OpenTelemetry-style
+process attributes with Epistemos RunEventLog/AnswerPacket so a future Gemma
+first-token artifact can be reviewed without raw prompt/output leakage or
+route promotion?"
+
+### Current External Evidence
+
+- SLSA provenance frames an artifact as a subject produced by an invocation
+  using materials, with build/invocation/environment details captured for
+  traceability. Canon effect: reuse subject/material/invocation vocabulary for
+  Gemma receipts, but keep it Epistemos-local and digest-only.
+- OpenTelemetry CLI semantic conventions require process executable name,
+  exit code, PID, and error type when exit is non-zero, and recommend command
+  arguments. Canon effect: Gemma receipts should record process status and
+  argv digest visibly, with sensitive raw args/path/output redacted.
+- OpenTelemetry process metrics define common process-level measurement
+  vocabulary. Canon effect: memory/timing samples should become typed receipt
+  fields, not prose in a transcript.
+- Local canon already lands the Gemma runtime replay transcript, execution
+  artifact, owner-approved execution probe, first-token review, first-token
+  reconciliation, same-fixture quality, RuntimeRouter admission, dry-run route,
+  AnswerPacket visibility, and settings WRV gates. Canon effect: do not create
+  a second ladder. The direct harness rail feeds those gates by receipt.
+
+### Architecture Fusion
+
+```text
+bounded llama-cli run
+  -> digest-only receipt
+  -> existing first-token artifact review gate
+  -> reconciliation against owner/path/command/version digests
+  -> same-fixture quality replay packet
+  -> RuntimeRouter/System G admission packet
+  -> dry-run route
+  -> visible AnswerPacket / settings WRV
+```
+
+This keeps the fastest Gemma path aligned with the existing architecture. The
+receipt can make future runtime work much faster because the review target is
+precompiled, but it refuses to become a product claim by itself.
+
+### Receipt Fields
+
+- `subject.model_uas_address`
+- `subject.receipt_digest`
+- `materials.model_file_sha256`
+- `materials.llama_cli_binary_sha256`
+- `materials.prompt_file_digest`
+- `materials.grammar_or_json_schema_digest`
+- `invocation.argv_digest`
+- `invocation.environment_digest`
+- `invocation.owner_approval_digest`
+- `process.exit_code`
+- `process.termination_reason`
+- `process.timeout_result`
+- `process.cancel_result`
+- `observations.redacted_first_token_digest`
+- `observations.stdout_digest`
+- `observations.stderr_digest`
+- `observations.timing_digest`
+- `observations.memory_sample_digest`
+- `joins.run_event_log_ref`
+- `joins.answer_packet_ref`
+- `joins.rollback_ref`
+- `joins.abstention_ref`
+- `promotion.no_route_no_default_no_l2_l3`
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; artifact receipt-map
+  backlog clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It gives the first real Gemma run a receipt shape before the run exists. That
+means when owner approval arrives, the runtime probe can emit exactly what the
+review gates need: no scrambling, no mystery logs, no raw private text, no
+route mutation, and no "first token means done" confusion.
+
+### Why It May Be Wrong
+
+Receipt discipline can still miss runtime-specific bugs if the actual harness
+does not collect enough detail. It can also overfit to `llama-cli` and fail to
+cover later `llama-server`, LiteRT-LM, or MLX lanes. The receipt map must stay
+small enough to implement, but extensible enough to add lane-specific
+observations without breaking the review gates.

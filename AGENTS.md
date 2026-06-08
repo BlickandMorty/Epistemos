@@ -237,6 +237,16 @@ Runtime policy:
   rollback, RunEventLog, AnswerPacket, abstention, MAS/Pro caveat, and no
   route/default/settings mutation. Server/tool-call rails can come later after
   the direct CLI artifact is reviewable.
+- 2026-06-08 Gemma direct harness receipt-map research: Deep Research Pass 212
+  defines `F-GemmaDirectHarnessArtifactReceiptMap` as the digest-only bridge
+  from a future bounded `llama-cli` Gemma run into the already-landed runtime
+  replay, first-token artifact review, reconciliation, and same-fixture gates.
+  It requires subject/material/invocation/process/observation/join/promotion
+  sections, rejects raw prompt/output/stdout/stderr/token/path bytes, hidden
+  command args, missing exit/termination/timeout/cancel/teardown/redaction/
+  memory/timing evidence, and any RuntimeRouter/System G/default mutation.
+  This is T0 research-to-build canon only: it does not prove Gemma works, does
+  not run a model, and does not promote Gemma to live/default/L2/L3/T4.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
