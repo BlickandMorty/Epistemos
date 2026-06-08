@@ -302,6 +302,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > model/runtime/provider bytes, and makes no MAS/L2/L3/live-main-model,
 > quality, benchmark-fit, live-70B, or Gemma-default claim. Next Gemma unit:
 > `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`.
+> Current addendum: Deep Research Pass 190 lands
+> `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate` as the metadata-only
+> T1/L1 review contract for a future owner-approved Gemma E2B GGUF/llama.cpp
+> first-token runtime artifact. It consumes
+> `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`, binds 32 review fields
+> and 33 rejection policies, rejects 42 red fixtures, preserves the clarified
+> Gemma-first loop (E2B harness, E4B scale lane, 12B Pro flagship, then
+> 70B/custom cold assembly when Gemma-class scaling needs it), reads zero
+> runtime artifact bytes, arms zero commands, executes zero commands, opens
+> zero files, loads zero model/runtime/provider bytes, and makes no
+> MAS/L2/L3/T4/live-main-model, quality, benchmark-fit, live-70B, or
+> Gemma-default claim. Artifact:
+> `artifacts/falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_gate/result.json`.
+> Next Gemma unit: `gemma_qat_e2b_owner_path_manifest_digest_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

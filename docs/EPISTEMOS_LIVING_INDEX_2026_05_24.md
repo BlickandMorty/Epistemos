@@ -6123,6 +6123,52 @@ L1 metadata-proofed; no Gemma model, runtime command, token, output, scorer,
 quality result, product route, or main-model default has been opened, executed,
 observed, captured, compared, or promoted."
 
+### 2026-06-08 - F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate` is now implemented as a
+metadata-only T1/L1 review gate for the future owner-approved Gemma E2B
+GGUF/llama.cpp first-token runtime artifact. It adds
+`agent_core/src/uas/gemma_qat_e2b_first_token_runtime_artifact_review_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_first_token_runtime_artifact_review_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_first_token_runtime_artifact_review_gate.sh`,
+the artifact
+`artifacts/falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`,
+requires 32 review fields and 33 rejection policies, and rejects 42 red
+fixtures. It preserves the clarified Gemma-first loop: E2B QAT GGUF/llama.cpp
+is the harness lane, E4B QAT is the next scale lane, 12B QAT GGUF/LiteRT is
+the Pro flagship target after E2B/E4B proof, and 70B-class/custom cold
+assembly remains preserved for the point where Gemma-class models become too
+large for ordinary runtime proof or no longer suffice. It reads zero runtime
+artifact bytes, arms zero commands, executes zero commands, opens zero files,
+loads zero model/runtime/provider bytes, and makes no Gemma default-model,
+quality, benchmark, MAS, L2, L3, T4, live-70B, or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`
+  advances the Gemma E2B GGUF side-ladder to T1/L1 metadata-only first-token
+  artifact review-contract proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, token-observed, scored, settings-surfaced,
+  admitted into RuntimeRouter/System G, or made the app default.
+
+Correct phrasing: "Gemma E2B first-token runtime artifact review is L1
+metadata-proofed; no Gemma model, path, runtime command, token, output,
+quality result, System G route, product default, or user-facing capability has
+been opened, executed, observed, compared, admitted, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

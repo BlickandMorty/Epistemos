@@ -61,6 +61,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
+pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
 pub mod gemma_qat_held_out_quality_replay_packet;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gemma_qat_owner_approved_runtime_replay_execution_probe;
@@ -382,6 +383,18 @@ pub use gemma_qat_byte_kv_app_envelope_preflight::{
     GemmaQatEnvelopeState, GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_CURSOR,
     GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_ID,
     GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_NEXT_CURSOR,
+};
+pub use gemma_qat_e2b_first_token_runtime_artifact_review_gate::{
+    required_gemma_qat_e2b_first_token_runtime_artifact_rejection_policies,
+    required_gemma_qat_e2b_first_token_runtime_artifact_review_fields,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewGate,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewGateError,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewGateMetrics,
+    GemmaQatE2bFirstTokenRuntimeArtifactReviewGateStatus,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_CURSOR,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_ID,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_NEXT_CURSOR,
+    GEMMA_QAT_E2B_FIRST_TOKEN_RUNTIME_ARTIFACT_REVIEW_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_held_out_quality_replay_packet::{
     canonical_gemma_qat_held_out_quality_replay_cards,

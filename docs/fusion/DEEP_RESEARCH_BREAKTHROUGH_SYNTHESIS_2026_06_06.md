@@ -23784,3 +23784,99 @@ Next research query: "What should
 F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate require to review an
 owner-approved E2B GGUF first-token artifact while preserving privacy,
 rollback, memory truth, abstention, and no default-model promotion?"
+
+## Pass 190 - Gemma-First Runtime Artifact Review Gate
+
+### Synthesis
+
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate` is now landed as the
+metadata-only T1/L1 review contract for the first future owner-approved Gemma
+E2B GGUF/llama.cpp first-token runtime artifact.
+
+The near-term large-model loop is now deliberately Gemma-first:
+
+- E2B QAT GGUF/llama.cpp is the harness lane.
+- E4B QAT is the next scale lane once the E2B harness proves owner path,
+  first-token, memory, rollback, RunEventLog, AnswerPacket, and quality
+  review surfaces.
+- 12B QAT GGUF/LiteRT is the Pro flagship target after E2B/E4B are proven.
+- Larger 70B-class/custom cold-assembly work stays preserved for the point
+  where Gemma-class models become too large for ordinary runtime proof or stop
+  being enough.
+
+### Architecture Fusion
+
+System G should treat Gemma as a preferred model family, not a runtime. The
+route card stays explicit:
+
+```text
+model_family = Gemma4QAT
+model_id = google/gemma-4-E2B-it-qat-q4_0-gguf | E4B | 12B
+format = GGUF | LiteRT-LM | MLX
+runtime_lane = llama.cpp | LiteRT-LM | MLXSwift | MLXPythonQuarantine
+status = ProGated | MASCandidate | VaultResearch
+proof = owner path + digest + memory + first token + quality + AnswerPacket
+```
+
+This pass binds the first review layer for the E2B/llama.cpp lane without
+running it. The gate requires 32 review fields, 33 rejection policies, and 42
+red-fixture rejections. It reads zero runtime artifact bytes, arms zero
+commands, opens zero files, loads zero model/runtime/provider bytes, and makes
+no MAS/L2/L3/T4/user-facing claim.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first near-term model ladder is now explicit.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes opened: zero.
+- Runtime artifact bytes read: zero.
+- Commands armed/executed: zero.
+- First tokens observed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It turns the first possible Gemma runtime proof into a structured review
+artifact instead of an informal terminal success. That prevents path leakage,
+raw token leakage, one-token quality laundering, System G mutation, and
+E2B-to-E4B/12B bypass. It also gives the 12B flagship path a cleaner ladder:
+the app proves the smallest Gemma lane correctly before scaling.
+
+### Why It May Be Wrong
+
+It still does not prove the local E2B GGUF file exists, does not approve a
+path, does not run llama.cpp, does not prove memory fit, does not prove
+quality, and does not prove LiteRT or MLX parity. The next owner-path digest
+gate may still fail on local file availability, digest mismatch, llama.cpp
+version drift, or hardware headroom.
+
+Best breakthrough candidate:
+Gemma-first harness ladder with E2B as the proof discipline, E4B as scale
+validation, and 12B as the Pro flagship target.
+
+Safest next falsifier:
+`F-GemmaQATE2BOwnerPathManifestDigestGate`.
+
+Best near-term code unit:
+bind the owner-approved E2B local-path manifest digest without retaining raw
+paths, opening model files, or arming commands.
+
+Biggest false-claim risk:
+saying "Gemma works" or "Gemma is the main model" from L1 metadata, or treating
+E2B first-token review as 12B product readiness.
+
+Biggest missing source:
+owner-approved local E2B GGUF path, exact file digest, and exact llama.cpp
+binary/version digest.
+
+Next research query: "How should
+F-GemmaQATE2BOwnerPathManifestDigestGate bind owner-approved local E2B model
+paths, canonical-path digests, file digests, llama.cpp digests, and privacy
+redaction without opening model bytes or promoting Gemma?"

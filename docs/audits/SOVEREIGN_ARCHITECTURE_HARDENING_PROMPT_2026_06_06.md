@@ -939,9 +939,25 @@ ladder also has three metadata-only T1/L1 gates landed:
   rollback, RunEventLog, AnswerPacket, abstention, zero
   command/model/runtime/provider/token bytes or actions, and no
   L2/L3/user-facing Gemma claim.
+- `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`: future
+  owner-approved E2B GGUF/llama.cpp first-token runtime artifact review
+  contract, 32 review fields, 33 rejection policies, owner approval/path/
+  canonical digest requirements, redacted token proof, memory/exit/stdout/
+  stderr/rollback/RunEventLog/AnswerPacket/abstention requirements, zero
+  runtime-artifact read, zero command/model/runtime/provider bytes or actions,
+  no first-token quality laundering, no System G mutation, and no
+  L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_first_token_runtime_artifact_review_gate`.
+`gemma_qat_e2b_owner_path_manifest_digest_gate`.
+
+Near-term large-model simplification: work Gemma exclusively until the
+Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,
+E4B is the next scale lane, 12B QAT GGUF/LiteRT is the Pro flagship target, and
+the larger 70B/custom cold-assembly track stays preserved for the point where
+Gemma-class models become too large for ordinary runtime proof or no longer
+suffice. Do not use this simplification to claim Gemma is live, default,
+quality-proven, user-facing, or System G admitted.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned
