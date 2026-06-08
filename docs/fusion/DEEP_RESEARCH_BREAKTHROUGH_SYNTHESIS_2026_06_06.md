@@ -17792,3 +17792,194 @@ fields, target-verification counters, and final-output digests are sufficient
 to prove Gemma 4 QAT/MTP or LiteRT/GGUF acceleration improves local agentic
 coding, research, note synthesis, and writing without leaking drafts, stale
 cache state, or hidden route authority?"
+
+## Pass 153 - Same-Fixture Held-Out Quality Replay Packet
+
+### Executive Synthesis
+
+Pass 153 answers the Pass 152 query by turning current evaluation frameworks
+and benchmark practice into an Epistemos proof packet. The breakthrough is not
+"run SWE-bench" or "get a leaderboard score." The useful breakthrough is a
+same-fixture held-out quality replay envelope that can compare small, QAT,
+accelerated, cache-warmed, and future large-local lanes on exactly the same
+mission families while preserving privacy, provenance, target verification,
+and AnswerPacket visibility.
+
+```text
+Mission fixture pack
+  -> source/search freshness and cache identity
+  -> candidate lane: small local, QAT GGUF/LiteRT, MLX, no-runtime abstention
+  -> target-verified generation or explicit abstention
+  -> family-specific scorers
+  -> result digest, failure taxonomy, and rollback
+  -> RunEventLog + AnswerPacket
+  -> RuntimeRouter/System G promotion pressure only after held-out wins
+```
+
+This is research-to-build canon. It imports no eval framework, runs no
+benchmark, opens no model/cache/runtime bytes, and does not advance L1/L2/L3.
+It gives the next large-model side-ladder a quality floor so compression,
+MTP/speculation, prompt-cache reuse, LiteRT/GGUF, MLX, TurboVec, or any 70B
+cold-assembly route cannot promote from speed, memory, or source-card evidence
+alone.
+
+### Current External Source Facts
+
+- Inspect AI is a UK AI Security Institute evaluation framework with built-in
+  components for prompt engineering, tool usage, multi-turn dialog, model-
+  graded evaluations, extensions, and a large eval collection. Its task,
+  solver, scorer, sandbox, log, and sample concepts are useful motifs for
+  Epistemos proof packets, not product dependencies. Source:
+  `https://github.com/UKGovernmentBEIS/inspect_ai`
+- Hugging Face LightEval describes multi-backend LLM evaluation, custom tasks,
+  custom metrics, local result storage, sample-by-sample results, and backends
+  including Inspect AI, Transformers, vLLM, SGLang, inference endpoints, TGI,
+  LiteLLM, and custom models. Source:
+  `https://huggingface.co/docs/lighteval/index`
+- EleutherAI lm-evaluation-harness task documentation emphasizes shareable YAML
+  task configs plus codebase commit hashes so evaluation setup can be
+  replicated. This maps directly to Epistemos scorer-version and fixture-pack
+  digests. Source:
+  `https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/task_guide.md`
+- LiveCodeBench positions itself as a holistic and contamination-free coding
+  benchmark that continuously collects problems over time and covers code
+  generation, self-repair, code execution, and test-output prediction. Source:
+  `https://github.com/LiveCodeBench/LiveCodeBench`
+- Terminal-Bench measures agents that complete real terminal work in sandboxed
+  terminal tasks. This is a motif for eventual Epistemos tool/terminal family
+  replay, not a default product probe. Source: `https://www.tbench.ai/`
+- SWE-bench Verified remains a useful cautionary coding source card, but
+  current public discussion and OpenAI's 2026 retirement note make it unsafe
+  as sole frontier or local-product proof. Use it only as one coding family
+  with contamination and test-validity caveats. Source:
+  `https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/`
+- Ragas exposes retrieval-generation metrics such as context precision,
+  faithfulness, answer accuracy, and context relevance. These are useful
+  motifs for Eidos/note/research answer scoring, but judge-model scores cannot
+  replace citation/source-span proof or human-visible AnswerPacket evidence.
+  Source: `https://docs.ragas.io/en/latest/concepts/metrics/available_metrics/`
+
+### Candidate Falsifier
+
+`F-SameFixtureHeldOutQualityReplayPacket`
+
+Required accepted fields:
+
+- fixture_pack_id, fixture_pack_digest, fixture_pack_version, fixture_seed
+- task_family: coding_edit, terminal_agent, tool_json, citation_research,
+  note_synthesis, writing_editing, retrieval_grounded_answer,
+  cache_deletion_reuse, refusal_safety, latency_cost
+- local_source_refs and external_source_refs
+- model_lane_id and runtime_lane_id
+- no_runtime_abstention flag for metadata-only passes
+- model/source-card digest and selected artifact digest, when applicable
+- prompt digest, source corpus digest, note-context digest, and no raw prompt
+- tokenizer, chat-template, tool-schema, and structured-output schema digests
+- cache_salt, trust_group, deletion_ref, tombstone_ref, and cache-hit caveat
+- target verification count
+- attempted, accepted, and rejected draft-token counters when speculation is
+  enabled
+- final output digest, rejected draft denial, hidden-chain denial
+- baseline lane id, baseline result digest, and required improvement threshold
+- scorer_id, scorer_version, scorer_digest, scorer_kind, and rubric digest
+- judge model/source digest when any model judge is used
+- expected output digest, structural oracle digest, or test-result digest
+- result family metrics: pass/fail, exact, citation coverage, tool JSON
+  validity, patch/test status, faithfulness, context precision, latency, peak
+  memory, cache hit/miss, and abstention correctness
+- failure taxonomy: hallucination, stale cache, source-miss, schema-invalid,
+  tool-invalid, unsafe refusal, over-refusal, slow path, memory pressure,
+  route hidden, hidden authority, benchmark contamination
+- rollback, RunEventLog, AnswerPacket, visibility, and non-promotion caveat
+
+Required red fixtures:
+
+- leaderboard score treated as local product proof
+- SWE-bench or LiveCodeBench score treated as note/research/writing proof
+- coding-only eval treated as full agentic quality
+- cached prompt reused after source deletion or tombstone
+- cross-vault, cross-user, or cross-trust-group cache reuse
+- hidden model judge, hidden provider, or hidden cloud scorer
+- LLM judge without rubric, source refs, or scorer digest
+- raw note text, raw prompt text, raw cache tokens, raw draft tokens, or hidden
+  chain stored
+- exact public benchmark examples embedded in prompts
+- accepted draft tokens without target verification
+- cache-hit speed treated as answer quality
+- MTP/speculation speed treated as correctness
+- QAT/GGUF/LiteRT/MLX availability treated as loader or product proof
+- no-runtime metadata packet promoted to L2/L3/T4
+- live dense 70B, SSD-as-RAM, or hidden sidecar claim
+
+### Architecture Fusion
+
+| Mechanism | Epistemos organ | Tier now | Promotion requirement |
+|---|---|---|---|
+| Inspect-style task/solver/scorer/log shape | RunEventLog, AnswerPacket, SovereignGate | T0 | Epistemos-native packet with local digests and redaction |
+| LightEval/lm-eval custom-task motifs | Capability kernel, RuntimeRouter lane comparison | T0 | same fixture, scorer digest, reproducible config |
+| LiveCodeBench/SWE-bench coding families | coding/research model ladder | T0 | local held-out subset, contamination caveat, patch/test proof |
+| Terminal-Bench terminal family | Pro tool/terminal lane | T0 | owner-gated sandbox and MAS/Pro boundary proof |
+| Ragas-style retrieval metrics | Eidos, citation/research answer quality | T0 | source-span proof, citation coverage, no hidden judge |
+| Target-verified acceleration counters | ActiveAssembly, cache and MTP lanes | T0/T1 backlog | accepted/rejected token proof plus final target-output digest |
+
+### Model And Runtime Ladder Update
+
+1. Keep the current small local product lane as the quality-control anchor until
+   the guard-owned release-audit automated-checks bottleneck moves.
+2. Add a same-fixture quality replay packet before any Gemma 4 QAT, GGUF,
+   LiteRT-LM, MLX, or local endpoint route can claim improvement.
+3. Use Gemma 4 E2B/E4B QAT as future low-pressure first-token and
+   same-fixture candidates only after source-card and byte-envelope proof.
+4. Use Gemma 4 12B QAT GGUF/LiteRT as the flagship Pro Gated quality replay
+   target only after cache salt, target verification, final-output digest, and
+   held-out scorer fields exist.
+5. Keep 26B/31B, MoE/A3B/A4B, TurboQuant, KIVI, KTransformers, and cold 70B
+   assembly behind Pro Research/Vault until byte envelopes, crash-safe command
+   envelopes, and held-out quality replay exist.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-SameFixtureHeldOutQualityReplayPacket`, because it prevents every large-
+model acceleration trick from becoming a false capability claim before coding,
+research, writing, note synthesis, citation, tool JSON, cache deletion, and
+latency families are tested on the same fixtures.
+
+Safest next falsifier:
+the guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-SameFixtureHeldOutQualityReplayPacket` after the target-verified
+acceleration packet fields are made addressable.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`same_fixture_held_out_quality_replay_packet`, with invalid fixtures for
+hidden judges, raw prompt/cache leakage, stale cache reuse, benchmark
+laundering, no-runtime promotion, and cache-speed-as-quality.
+
+Biggest false-claim risk:
+using public benchmark numbers, QAT source availability, cache hit latency, or
+target-verified draft acceptance as proof that a local model is good enough for
+Epistemos users across coding, research, note synthesis, and writing.
+
+Biggest missing artifact:
+a landed same-fixture held-out quality replay packet that can be consumed by
+future Gemma 4 QAT, LiteRT/GGUF, MLX, TurboVec/Eidos, cache-reuse, and cold
+assembly lanes before RuntimeRouter/System G can treat them as improvement
+evidence.
+
+Next research query: "Which Epistemos-owned held-out fixture pack best covers
+local coding edits, note synthesis, citation-grounded research, structured tool
+JSON, writing edits, cache deletion, latency, and abstention without leaking
+raw note text, benchmark examples, hidden judges, or stale cache state?"

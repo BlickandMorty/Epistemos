@@ -136,6 +136,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > AnswerPacket, rollback, abstention, and explicit non-promotion. This is T0
 > canon/backlog only; it does not run a model, capture a token, or advance
 > L2/L3.
+> Current addendum: Deep Research Pass 153 in the same file folds current
+> Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
+> LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
+> retrieval-eval signals into `F-SameFixtureHeldOutQualityReplayPacket`. The
+> packet is a buildable T0 side-ladder candidate: bind fixture-pack digests,
+> coding/research/note/writing/tool/cache/refusal task families, scorer
+> version digests, model/runtime lane identity, source and prompt digests,
+> cache salt, target verification, final-output digest, rollback, RunEventLog,
+> AnswerPacket, abstention, and benchmark-contamination caveats before
+> QAT/GGUF/LiteRT/MLX/TurboVec/cache acceleration can count as quality
+> evidence. It imports no eval framework, opens no model/cache/runtime bytes,
+> arms no command, and does not advance L2/L3 or user-facing large-local-model
+> claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
