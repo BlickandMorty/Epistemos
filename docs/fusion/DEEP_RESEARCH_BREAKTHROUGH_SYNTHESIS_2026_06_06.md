@@ -19840,3 +19840,225 @@ Next research query: "Which exact deterministic verifier predicates should be
 attached to the six synthetic payload shapes so small-model and QAT lane
 comparisons can score outputs without LLM judges, benchmark copies, or hidden
 route authority?"
+
+## Pass 163 - Deterministic Fixture Verifier Predicate Set V0
+
+### Executive Synthesis
+
+Pass 163 turns the Pass 162 payload shapes into a verifier predicate contract.
+This is still not payload materialization and not runtime evaluation. The
+breakthrough is that future small-model, QAT, GGUF, MLX, LiteRT, and no-runtime
+abstention lanes can be compared only against explicit, deterministic
+predicates that inspect structured output, evidence IDs, tombstone state, tool
+authority, and AnswerPacket/RunEventLog joins.
+
+The predicate law is:
+
+```text
+predicate set != LLM judge
+predicate pass != model quality
+predicate digest != fixture payload
+predicate failure != hidden route mutation
+```
+
+Every future verifier must be small, content-addressed, replayable, and
+non-authoritative until a later owner-approved replay artifact supplies model
+output, runtime lane identity, logs, and AnswerPacket evidence.
+
+### Local Source Facts
+
+- Passes 156-162 already define the v0 fixture family, digest schema,
+  no-runtime templates, redaction profiles, descriptor set, and payload shapes.
+  Pass 163 binds the missing verifier/scorer predicate layer between payload
+  shape and runtime replay.
+- `EpistemosTests/PrivacyTest.swift` proves redaction is a storage boundary for
+  feedback and exports; predicate inputs must therefore use synthetic or
+  digest-redacted data only.
+- `Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift` shows the current
+  app persists redacted prompt/completion signals separately from the main
+  SwiftData graph; fixture verifier inputs must keep the same privacy posture.
+- The small-model runtime harness sidecars already expect redacted prompt/token
+  digests, rollback, RunEventLog, AnswerPacket, and no false L2/L3 promotion.
+  Predicate output must join that proof shape instead of replacing it.
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` requires fixture
+  identity, command digest, lineage, artifact roots, and validator/reviewer
+  accountability. A verifier predicate cannot rely on row order, mutable file
+  path, note title, mtime, natural-language explanation, or hidden state.
+
+### Current External Source Facts
+
+- IFEval's central useful motif is automatically verifiable instruction
+  compliance rather than human or LLM-judge grading. Pass 163 borrows the
+  objective-predicate motif only. Source: `https://arxiv.org/abs/2311.07911`
+- JSON Schema Draft 2020-12 supplies an explicit schema dialect, metaschema,
+  and validation vocabulary suitable for deterministic structural output
+  checks. Source: `https://json-schema.org/draft/2020-12`
+- BFCL's useful motif is tool/function relevance and argument correctness
+  checking. Pass 163 borrows AST/argument-shape checking only, not benchmark
+  prompts or functions. Sources:
+  `https://sky.cs.berkeley.edu/project/berkeley-function-calling-leaderboard/`
+  and
+  `https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard`
+- Terminal-Bench's useful motif is task contract plus verification script plus
+  oracle/reference solution under a reproducible harness. Pass 163 borrows
+  "expected end-state verified by code" while forbidding terminal execution in
+  the v0 fixture path. Sources: `https://www.tbench.ai/benchmarks` and
+  `https://github.com/harbor-framework/terminal-bench`
+
+### Candidate Falsifier
+
+`F-DeterministicFixtureVerifierPredicateSetV0`
+
+Required future predicate file set, not created by this pass:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/verifiers/
+  msfp_v0_note_synthesis_001.verifier.json
+  msfp_v0_citation_research_001.verifier.json
+  msfp_v0_structured_tool_json_001.verifier.json
+  msfp_v0_cache_deletion_001.verifier.json
+  msfp_v0_abstention_001.verifier.json
+  msfp_v0_latency_small_lane_001.verifier.json
+fixtures/minimal_synthetic_fixture_pack_v0/scorers/
+  deterministic_scorer_v0.json
+```
+
+Required common predicate fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `verifier_id` | fixed ASCII slug per fixture | stable predicate identity |
+| `verifier_scope` | `deterministic_no_llm_judge_no_runtime` | no hidden evaluator |
+| `fixture_id_ref` | one fixed Pass 156 fixture ID | descriptor join |
+| `payload_digest_ref` | nullable until payload materialization | no fake payload |
+| `schema_dialect` | `https://json-schema.org/draft/2020-12/schema` | deterministic schema semantics |
+| `output_contract` | JSON object, citation list, tool call, abstention enum, or lane-class object | closed output shape |
+| `allowed_evidence_ids_digest` | digest or explicit empty reason | citation fence |
+| `forbidden_evidence_ids_digest` | digest or explicit empty reason | distractor/deleted fence |
+| `tool_authority_digest` | digest or explicit empty reason | MAS/Pro tool fence |
+| `tombstone_policy_digest` | digest or explicit empty reason | deletion proof |
+| `required_predicates` | closed list from the allowed predicate set | deterministic replay |
+| `scorer_policy` | pass/fail plus optional bounded points | no model-quality inflation |
+| `failure_taxonomy` | closed enum | comparable red results |
+| `answer_packet_join_ref` | no-runtime template digest | visible proof skeleton |
+| `run_event_log_join_ref` | no-runtime template digest | replay skeleton |
+| `metadata_only_non_promotion` | `true` | no L2/L3/T4 claim |
+
+Allowed predicate families:
+
+| Family | Predicate examples | Forbidden shortcut |
+|---|---|---|
+| structural JSON | schema-valid object, required keys, enum membership, bounded array length | prose parsing as success |
+| evidence allowlist | every cited `evidence_id` is allowed and present | citation by title/path/text |
+| evidence exclusion | distractor, missing-source, tombstoned, private, or unknown IDs absent | post-hoc filtering after score |
+| support sufficiency | required minimum evidence count or explicit abstention | unsupported synthesis |
+| tool authority | selected tool is allowed for MAS/Pro status and arguments are schema-valid | MAS-denied Pro tool call |
+| tombstone safety | deleted generation/fact cannot appear in output evidence | cache hit as truth |
+| abstention class | closed enum with reason code and missing-proof ref | vague refusal prose |
+| latency lane shape | lane class and budget placeholders only | speed, throughput, or quality claim |
+| privacy scan | no PII, raw prompt, note text, path, token, provider payload, or hidden reasoning | redaction after scoring |
+| proof joins | AnswerPacket and RunEventLog refs present and matching | hidden sidecar evidence |
+
+Per-fixture predicate set:
+
+| Fixture | Required predicates | Score boundary |
+|---|---|---|
+| `msfp_v0_note_synthesis_001` | JSON outline schema; exactly or at least two allowed evidence IDs; no unsupported fact marker; no raw note echo | pass/fail only, no writing-quality score |
+| `msfp_v0_citation_research_001` | citation list schema; only allowed source IDs; distractor and missing-source IDs absent; caveat required when source missing | pass/fail plus bounded citation-grounding points |
+| `msfp_v0_structured_tool_json_001` | tool-call JSON schema; one allowed tool or abstention; arguments match schema; MAS-denied Pro tool absent | pass/fail only, no tool-success claim |
+| `msfp_v0_cache_deletion_001` | surviving-source ID present; tombstoned ID absent; tombstone reason joined; cache reuse caveat visible | pass/fail plus deletion-safety point |
+| `msfp_v0_abstention_001` | abstention enum present; missing evidence/tool reason present; no fabricated answer body | pass/fail only |
+| `msfp_v0_latency_small_lane_001` | lane-class object schema; budget placeholders present; no measured speed, token count, runtime path, or winner claim | pass/fail only |
+
+Required red fixtures:
+
+- verifier uses an LLM judge, natural-language rubric, hidden chain-of-thought,
+  or unconstrained semantic similarity
+- verifier accepts prose when the output contract requires JSON
+- verifier depends on row order, path, note title, mtime, runtime lane winner,
+  cache hit, provider response, or mutable local state
+- verifier stores copied IFEval, BFCL, Terminal-Bench, LiveBench, SWE-bench, or
+  other public benchmark prompt/task/oracle text
+- verifier accepts raw user/vault/provider/model/token text, PII, credentials,
+  hidden reasoning, local file paths, or deleted content
+- verifier allows post-rank/post-score privacy filtering instead of
+  allowlist-before-score
+- verifier accepts distractor, missing-source, private, tombstoned, or unknown
+  evidence IDs
+- verifier allows MAS-denied Pro tool calls, private arguments, network by
+  default, hidden provider fallback, or hidden route authority
+- verifier treats latency placeholder as measured speed, quality, or route win
+- scorer emits model-quality, release-ready, L2/L3/T4, user-facing, live dense
+  70B, live sparse 70B, or SSD-as-RAM claims
+
+### Architecture Fusion
+
+| Epistemos organ | Predicate role | Build implication |
+|---|---|---|
+| UAS/OAS | verifier IDs and digests address predicate contracts | output checks are content-addressed |
+| ColdStore/AppColdStore | tombstone and source IDs remain truth boundaries | stale cache cannot win |
+| ActiveAssembly | support sufficiency is explicit and tiny | local lanes wake only needed evidence |
+| Eidos | citation/retrieval outputs are allowlist-scored | Eidos cannot become hidden router |
+| SCOPE-Rex/SovereignGate | tool, evidence, MAS/Pro, and abstention rules gate output | unsafe outputs fail closed |
+| RuntimeRouter/System G | predicate pass is not route authority | later replay must still prove lane behavior |
+| RunEventLog | verifier events join by digest | replay is inspectable without raw tokens |
+| AnswerPacket | pass/fail caveat becomes visible proof | user-facing claims remain caveated |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive
+   `deterministic_fixture_verifier_predicate_set_v0`.
+2. Implement `falsify_deterministic_fixture_verifier_predicate_set_v0`.
+3. Add accepted predicate cards for the six v0 fixtures and one shared scorer
+   policy card.
+4. Add red fixtures for hidden judges, prose-as-JSON, row/path/title/mtime
+   authority, public-benchmark copying, privacy leaks, evidence misuse,
+   tool-authority bypass, tombstone bypass, latency overclaim, hidden route
+   authority, and metadata promotion.
+5. Only after this predicate witness should the fixture path materialize
+   payload files or run same-fixture replay.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-DeterministicFixtureVerifierPredicateSetV0`, because it makes the first
+small-model/QAT lane comparisons inspectable without hidden judges or benchmark
+copying.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-DeterministicFixtureVerifierPredicateSetV0` after
+`F-MinimalSyntheticFixturePayloadShapeV0`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`deterministic_fixture_verifier_predicate_set_v0`, with six accepted predicate
+cards and red fixtures for hidden judges, privacy leaks, evidence/tool/
+tombstone misuse, latency overclaim, and metadata promotion.
+
+Biggest false-claim risk:
+treating deterministic verifier predicates as proof that a model is good.
+They only define how later outputs will be checked; model quality begins only
+after materialized payloads, owner-approved replay, logs, AnswerPackets,
+capability-kernel evidence, and L3 WRV.
+
+Biggest missing artifact:
+a metadata-only witness validating the six verifier predicate cards and shared
+scorer policy.
+
+Next research query: "What is the minimum materialized synthetic fixture file
+set that can feed these deterministic predicates while preserving no raw
+private text, no benchmark copying, no hidden judge, and no model-quality
+promotion before replay?"
