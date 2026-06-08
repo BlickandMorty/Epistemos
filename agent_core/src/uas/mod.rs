@@ -64,6 +64,7 @@ pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod kind;
+pub mod kv_cache_identity_salt_offload_proof_packet;
 pub mod kv_runtime_source_card;
 pub mod kv_source_card_fork_and_daemon_boundary;
 pub mod large_model_deferral;
@@ -339,6 +340,14 @@ pub use hardware_tiered_model_catalog_source_card::{
     HARDWARE_TIERED_MODEL_CATALOG_SOURCE_CARD_NEXT_CURSOR,
 };
 pub use kind::UasKind;
+pub use kv_cache_identity_salt_offload_proof_packet::{
+    canonical_kv_cache_identity_cards, KvCacheIdentityByteLedger, KvCacheIdentityCard,
+    KvCacheIdentityError, KvCacheIdentityMetrics, KvCacheIdentityProofRefs,
+    KvCacheIdentityRuntimeLane, KvCacheIdentitySaltOffloadProofPacket,
+    KvCacheIdentitySource, KvOffloadTier, KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_CURSOR,
+    KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_ID,
+    KV_CACHE_IDENTITY_SALT_OFFLOAD_PROOF_PACKET_NEXT_CURSOR,
+};
 pub use kv_runtime_source_card::{
     KvAppleSiliconStatus, KvDefaultDeploymentShape, KvMasStatus, KvRuntimeByteScope,
     KvRuntimeMechanism, KvRuntimeProofRefs, KvRuntimeShape, KvRuntimeSourceCard,

@@ -1,0 +1,475 @@
+{
+  "falsifier_id": "F-KVCacheIdentitySaltAndOffloadProofPacket",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_cache_identity_salt_offload_proof_packet.sh",
+  "command_digest": "sha256:2085cf58fa872ac754d0c220c555ae49e3ed4c6b404abef5d8dfcf916566d8ee",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "d360fbc29ce4e9ed9e7fbbab213336e3805b572a",
+  "fixture_id": "kv_cache_identity_salt_offload_proof_packet_v1",
+  "timestamp_utc": "2026-06-08T00:48:01Z",
+  "result_digest": "sha256:9a7782cb843e77996c15a3340d516493ded17ce917908100f4368d8758507018",
+  "measurements": {
+    "accepted_source_cards_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "block_parent_salt_extras_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_bytes_opened": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cache_bytes_opened_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_reuse_allowed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "value": 5,
+      "unit": "cards"
+    },
+    "command_armed_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "kv_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_identity_packet_address": {
+      "value": "kv_cache_identity_salt_offload_proof_packet:190f70b5238f764552e25ef5e3d086afff42d30ee4c9824c098fe4098b7027eb@1779072000000",
+      "unit": "uas_address"
+    },
+    "kv_dtype_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_disk_path_escape_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_adapter_extras_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_salt_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_parent_block_hash_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_source_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_freshness_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tokenizer_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "llama_cpp_slot_prompt_cache_command_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cache_or_raw_logs": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_command_or_server": {
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_tier_budget_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packet_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_and_visibility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "remote_cache_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_started_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_prompt_tokenizer_tool_identity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_bytes_and_no_provider": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_source_cards_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "block_parent_salt_extras_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_bytes_opened": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "cache_bytes_opened_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cache_reuse_allowed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "card_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "cards"
+    },
+    "command_armed_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "duplicate_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_cache_authority_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "kv_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_cache_identity_packet_address": {
+      "operator": "starts_with",
+      "value": "kv_cache_identity_salt_offload_proof_packet:",
+      "unit": "uas_address"
+    },
+    "kv_dtype_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_disk_path_escape_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_adapter_extras_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_cache_salt_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_parent_block_hash_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_prompt_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_source_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_source_freshness_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tokenizer_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_tool_schema_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "llama_cpp_slot_prompt_cache_command_card",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cache_or_raw_logs": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_live_70b_or_ssd_as_ram_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_runtime_command_or_server": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "offload_tier_budget_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packet_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_refs_and_visibility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_prompt_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_token_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "remote_cache_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_started_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_prompt_tokenizer_tool_identity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_loaded_bytes_and_no_provider": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_source_cards_present": true,
+    "block_parent_salt_extras_bound": true,
+    "cache_bytes_opened": true,
+    "cache_bytes_opened_rejected": true,
+    "cache_reuse_allowed_rejected": true,
+    "card_count": true,
+    "command_armed_rejected": true,
+    "duplicate_source_rejected": true,
+    "hidden_cache_authority_rejected": true,
+    "kv_bytes_loaded": true,
+    "kv_bytes_loaded_rejected": true,
+    "kv_cache_identity_packet_address": true,
+    "kv_dtype_mismatch_rejected": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "local_disk_path_escape_rejected": true,
+    "missing_adapter_extras_rejected": true,
+    "missing_cache_salt_rejected": true,
+    "missing_parent_block_hash_rejected": true,
+    "missing_prompt_digest_rejected": true,
+    "missing_required_source_rejected": true,
+    "missing_source_freshness_rejected": true,
+    "missing_tokenizer_digest_rejected": true,
+    "missing_tool_schema_digest_rejected": true,
+    "model_bytes_loaded": true,
+    "model_bytes_loaded_rejected": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_cache_or_raw_logs": true,
+    "no_l2_l3_live_70b_or_ssd_as_ram_claim": true,
+    "no_runtime_command_or_server": true,
+    "offload_tier_budget_bound": true,
+    "packet_address_deterministic": true,
+    "proof_refs_and_visibility_bound": true,
+    "raw_prompt_log_rejected": true,
+    "raw_token_log_rejected": true,
+    "red_fixture_rejection_count": true,
+    "remote_cache_bytes_rejected": true,
+    "server_started_rejected": true,
+    "source_prompt_tokenizer_tool_identity_bound": true,
+    "ssd_as_ram_claim_rejected": true,
+    "zero_loaded_bytes_and_no_provider": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-KVCacheIdentitySaltAndOffloadProofPacket as a metadata-only Pass 128 packet. Scope is T1/L1 only: source/search freshness, tokenizer/template/tool-schema digests, block parent hashes, cache salts, offload tiers, path scopes, rollback, RunEventLog, AnswerPacket, abstention, zero model/KV/cache/runtime/provider bytes, no server, no command, no L2/L3/product/live-70B/SSD-as-RAM claim."
+}

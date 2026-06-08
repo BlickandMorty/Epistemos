@@ -4778,3 +4778,11 @@ opens no model/KV/cache/runtime/product bytes, arms no command, and does not
 promote L1/L2/L3/T4. It specifically rejects SSD-as-RAM, unsalted shared cache,
 cross-model/tokenizer/tool-schema reuse, remote hidden cache authority, raw
 prompt/token logging, and cache-hit-as-quality-proof claims.
+
+Promotion update: this pass is now implemented by
+`F-KVCacheIdentitySaltAndOffloadProofPacket`, a metadata-only T1/L1 Rust
+primitive and witness doc. It accepts 5 source cards, rejects 25 red fixtures,
+opens zero cache/model/KV/runtime/provider bytes, starts no server, arms no
+command, and does not promote L2/L3/T4. The next KV/cache side-ladder unit is
+`llama_cpp_slot_prompt_cache_command_card`; the guard-owned product cursor
+remains the automated-checks probe.
