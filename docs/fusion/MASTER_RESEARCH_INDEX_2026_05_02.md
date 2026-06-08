@@ -404,6 +404,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Terminal-Bench, and BFCL. This is T0 canon/build pressure only: no fixture
 > files, eval, model/runtime bytes, commands, L1/L2/L3, release-ready, live
 > dense 70B, or SSD-as-RAM claim is promoted.
+> Current addendum: Deep Research Pass 175 in the same file adds the runtime
+> proof bridge for large-model work. It folds current Google Gemma 4 12B /
+> LiteRT-LM desktop-serving docs, the Hugging Face `google/gemma-4-12B`
+> source-card facts, the open MLX Swift Gemma 4 loader caveat, TurboVec's
+> current compressed-vector/source facts, and the arXiv Gemma/Phi/Qwen
+> efficiency-comparison lead into a build-first rule: the small-model L3
+> release-audit bottleneck is the measurement floor for every future Gemma QAT,
+> GGUF/llama.cpp, LiteRT-LM, MLX Swift, TurboVec/Eidos, KV/cache, and
+> cold-assembly lane. This pass maps `F-GemmaQAT-QualityAndLoaderParitySourceCard`,
+> `F-LiteRTLM-NativeSwiftAdmission`, and the release-audit-first same-fixture
+> lane tournament as the next buildable source-card units. It imports no code,
+> opens no model/index/runtime/cache/provider bytes, arms no command, and does
+> not advance L1/L2/L3/product/release/large-local-model capability.
 > Current addendum: `F-SyntheticPayloadMaterializationGateV0` is now landed as
 > a metadata-only L1/T1 side-ladder witness at
 > `artifacts/falsifiers/synthetic_payload_materialization_gate/result.json`.

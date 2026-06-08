@@ -21896,3 +21896,157 @@ Next research query: "What exact consent, address-lock, staging-root,
 rollback, and AnswerPacket checks should F-SyntheticFixtureOwnerApprovalWriteGate
 require before synthetic fixture materialization can move from metadata-only to
 owner-approved staging?"
+
+## Deep Research Pass 175 - Runtime Proof Bridge For Large-Model Work
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+The next useful breakthrough is not another isolated model recommendation. It
+is the runtime-proof bridge that lets small-model product evidence become the
+honest measuring floor for Gemma 4 QAT, GGUF/llama.cpp, LiteRT-LM, MLX Swift,
+TurboVec/Eidos recall, KV/cache reuse, and later cold-assembly lanes.
+
+Current regenerated truth keeps the guard-owned product cursor on
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+The retained automated-check artifact is red because the overall Swift test row
+is still failing. That means large-model research should now feed the release
+proof path: build source cards and replay packets that make future QAT/runtime
+lane comparisons consume the same prompt, search freshness, tokenizer/tool
+schema, byte envelope, RunEventLog, AnswerPacket, rollback, and release-audit
+evidence as the small model. Anything else risks optimizing a lane that cannot
+be shipped.
+
+### Current External Source Signals
+
+- Google's Gemma 4 12B developer guide says Gemma 4 12B is being used for local
+  agentic workflows, includes Apple Silicon desktop serving through LiteRT-LM,
+  and exposes an OpenAI-compatible `litert-lm serve` path with stateless prefix
+  caching. Epistemos interpretation: LiteRT-LM is a Pro Gated runtime lane
+  candidate, not a hidden sidecar or MAS promise.
+- The Hugging Face `google/gemma-4-12B` model card records Apache-2.0 licensing,
+  multimodal local-oriented deployment, a 256K context window claim, and five
+  Gemma 4 size bands. Epistemos interpretation: source-card candidate only
+  until selected files, revisions, local bytes, tokenizer/template, runtime
+  command/API, memory, and quality replay are witnessed.
+- The open MLX Swift issue for Gemma 4 support still reports that Swift
+  `MLXLLM` cannot load `gemma4` model architecture while Python MLX libraries
+  have support. Epistemos interpretation: Python MLX can remain quarantine
+  research, but Swift MLX Gemma 4 cannot be product proof without an
+  Epistemos-owned loader witness.
+- TurboVec's current repository documents 2-bit and 4-bit compressed vector
+  scoring, length-renormalized inner-product correction, ARM NEON/x86 SIMD
+  kernels, benchmark scripts, MIT license, and dense-vector memory reduction.
+  Epistemos interpretation: TurboVec remains an Eidos/AppColdStore compressed
+  recall cache candidate with allowlist-before-rank and exact-source replay,
+  not durable truth and not route authority.
+- The current arXiv efficiency comparison across Gemma 4, Phi-4, and Qwen3
+  families is useful as a benchmark-design lead, but not promotion authority.
+  Epistemos interpretation: local quality must be measured on Epistemos-owned
+  same-fixture tasks for coding, research, notes, writing, tool JSON,
+  retrieval, refusal, and cache deletion.
+
+### Build Fusion
+
+The large-model stack should now be shaped as:
+
+```text
+small-model L3 release-audit proof
+  -> same-fixture source/search freshness packet
+  -> QAT / GGUF / LiteRT / MLX source-card lane cards
+  -> redacted first-token proof for one small lane
+  -> target-verified quality replay
+  -> RuntimeRouter/System G admission
+  -> visible AnswerPacket and RunEventLog
+```
+
+This makes the small-model route the safety floor, Gemma 4 E2B/E4B QAT the
+low-pressure Google side-lane, Gemma 4 12B QAT GGUF/LiteRT the flagship Pro
+Gated candidate, Swift MLX Gemma 4 a blocked native lane until loader proof,
+and TurboVec an Eidos/AppColdStore recall accelerator that must never outrank
+privacy allowlists or exact citation checks.
+
+### Promising Ideas
+
+| Idea | Organ | Tier | Falsifier / proof needed | Breakthrough | Why it might be wrong |
+|---|---|---|---|---|---|
+| Release-audit-first runtime lane tournament | RuntimeRouter/System G, RunEventLog, AnswerPacket | T0/T1 backlog | `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe` repair, then same-fixture replay | Prevents Gemma/QAT hype from bypassing product truth | Slower than direct model tinkering |
+| LiteRT-LM as Pro Gated local API lane | RuntimeRouter/System G | T0 | `F-LiteRTLM-NativeSwiftAdmission` plus command/API envelope and no-hidden-sidecar proof | Google now points Gemma 4 12B at desktop LiteRT-LM workflows | Local server shape may violate MAS/no-sidecar constraints unless explicitly Pro Gated |
+| Gemma 4 12B QAT GGUF as flagship Pro comparison model | ActiveAssembly, RuntimeRouter | T0/T1 source-carded | `F-GemmaQAT-QualityAndLoaderParitySourceCard`, byte envelope, first token, held-out replay | Stronger local agentic target than tiny models | 16 GB comfort and tool reliability are not proven |
+| Swift MLX Gemma 4 loader witness | MLX lane under System G | blocked/T0 | model architecture support, tokenizer/template/tool parser, first-token witness | Keeps native Apple Silicon path alive | Current Swift loader issue means Python MLX evidence cannot promote |
+| TurboVec recall cache shadow replay | Eidos/AppColdStore | T1 existing branch, T2 missing | exact baseline, allowlist-before-rank, citation replay, product graph no-contamination | Could shrink recall memory without losing privacy | Approximate recall may hide citation misses unless exact baseline wins |
+
+### Required Red-Team Fixtures
+
+- QAT model card treated as runtime proof.
+- LiteRT-LM local server treated as MAS-safe or hidden fallback.
+- Python MLX Gemma 4 support treated as Swift app support.
+- 12B "runs on 16 GB" treated as Jojo's app headroom proof.
+- TurboVec compressed hit treated as source truth or route authority.
+- MTP/speculation accepted-token count treated as quality proof.
+- Prompt-cache hit treated as retrieval freshness proof.
+- Same benchmark score reused across coding, notes, research, and tool JSON.
+- Missing `xcodebuild_test` pass hidden behind focused test success.
+- AnswerPacket present but uncorrelated with RunEventLog and release-audit rows.
+
+### Near-Term Buildable Units
+
+1. Repair or re-run the guard-owned automated-check bottleneck without hiding
+   the red Swift test row.
+2. Add a same-fixture release-audit bridge card that says every future
+   Gemma/QAT/GGUF/LiteRT/MLX/TurboVec lane must cite the current small-model
+   L3 release-audit state before claiming user-facing progress.
+3. Add `F-GemmaQAT-QualityAndLoaderParitySourceCard` if it is not already
+   landed: bind official Google/HF model facts, Swift MLX loader caveat,
+   GGUF/LiteRT lane caveats, selected files, byte envelopes, tokenizer/tool
+   policy, rollback, RunEventLog, AnswerPacket, and non-promotion.
+4. Add `F-LiteRTLM-NativeSwiftAdmission` as Pro Gated only: separate CLI/server
+   docs from app-embeddable Swift/Mac proof, deny hidden sidecar defaults, and
+   require owner approval before any import or run.
+5. Add `F-TurboVec-RecallQualityExactBaseline` follow-through only after the
+   exact baseline and allowlist-before-rank proof can be replayed without
+   product route authority.
+
+### Promotion Truth
+
+- T0 research/canon: advanced with current external source validation and a
+  sharper runtime-proof bridge.
+- T1/L1 architecture proof: unchanged in this pass; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+release-audit-first same-fixture runtime lane tournament, because it turns the
+small-model product bottleneck into the measurement floor for every larger
+local model lane.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+repair or a narrow source-card bridge that preserves its red truth while
+binding the model-lane tournament requirements.
+
+Best near-term code unit:
+make the automated-check repair path explicit and then add the lane-tournament
+source card that consumes the repaired or retained red release-audit evidence.
+
+Biggest false-claim risk:
+calling Gemma 4 12B QAT, LiteRT-LM, TurboVec, or Python MLX availability a
+product route when the L2/L3 small-model release-audit bottleneck remains red.
+
+Biggest missing source:
+fresh local evidence for Swift MLX Gemma 4 loader support and an owner-approved
+LiteRT-LM app-embedding strategy that does not become a hidden sidecar.
+
+Next research query: "How should Epistemos bind Gemma 4 QAT, LiteRT-LM,
+GGUF/llama.cpp, MLX Swift, and TurboVec lane candidates to the same retained
+small-model L3 release-audit evidence so that a future runtime tournament
+cannot promote without build/test/log/AnswerPacket proof?"

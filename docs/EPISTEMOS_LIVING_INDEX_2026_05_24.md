@@ -5468,6 +5468,43 @@ Layer truth:
 Correct phrasing: "Automated-checks red artifact refreshed on current HEAD;
 product capability / user surface did not advance."
 
+### 2026-06-08 - Deep Research Pass 175 runtime-proof bridge folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 175 was folded into
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and indexed in
+the Master Research Index. It updates the large-local-model research-to-build
+story: the current
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+is not a distraction from Gemma/QAT/TurboVec work; it is the measurement floor
+that every larger runtime lane must consume before it can claim product value.
+
+Current external signals are now mapped into build pressure: Google Gemma 4
+12B / LiteRT-LM desktop-serving docs support a Pro Gated LiteRT lane; the
+Hugging Face `google/gemma-4-12B` card is source-card evidence only; the open
+MLX Swift Gemma 4 loader issue keeps Swift MLX Gemma 4 blocked until loader
+proof; TurboVec remains an Eidos/AppColdStore compressed recall cache
+candidate, not truth or route authority; and benchmark papers/community leads
+remain same-fixture design inputs, not promotion authority.
+
+Layer truth:
+
+- L1 architecture/canon: Deep Research Pass 175 advanced T0 research-to-build
+  canon only; no new falsifier landed and no architecture cursor moved.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime
+  lane, model bytes, provider bytes, index bytes, command execution, or
+  user-facing large-local-model capability promoted.
+
+Correct phrasing: "Large-model research was folded into the runtime-proof
+bridge; product capability / user surface did not advance."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
