@@ -60,6 +60,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod graph_filter_visibility_focused_repair_packet;
 pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
@@ -1052,6 +1053,19 @@ pub use graph_filter_visibility_release_blocker_card::{
     GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF, GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_CURSOR,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_ID,
     GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR, GRAPH_FILTER_VISIBILITY_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_focused_repair_packet::{
+    required_graph_filter_focused_repair_commands,
+    required_graph_filter_focused_repair_invariants,
+    required_graph_filter_focused_repair_source_refs,
+    required_graph_filter_focused_repair_test_refs, GraphFilterFocusedRepairAnchor,
+    GraphFilterFocusedRepairError, GraphFilterFocusedRepairMetrics,
+    GraphFilterFocusedRepairProofBoundary, GraphFilterFocusedRepairSourceTruth,
+    GraphFilterFocusedRepairStatus, GraphFilterVisibilityFocusedRepairPacketWitness,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_ID,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_UPSTREAM_REF,
 };
 pub use graph_filter_visibility_test_products_command_spec::{
     required_graph_filter_test_products_command_templates,

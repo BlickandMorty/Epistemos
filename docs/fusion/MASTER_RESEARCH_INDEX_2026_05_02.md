@@ -4651,6 +4651,20 @@ next build unit is a focused test repair that preserves folder opt-in semantics,
 then focused Swift test logs, then full `xcodebuild_test` rerun before release
 or model-route capability can move.
 
+2026-06-08 update: `F-GraphFilterVisibilityFocusedRepairPacket` is now landed
+as metadata-only T1/L1 architecture proof. It consumes
+`F-ReleaseAuditAutomatedChecksClosureMatrix`, binds retained family
+`graph_filter_visibility`, retained issue count 34, repair rank 1, 4 source
+refs, 4 test refs, 4 focused command templates, 7 repair anchors, 10
+invariants, 7 source-truth markers, 28305 source text bytes read, 29 rejected
+red fixtures, zero Swift tests executed, zero model/runtime/graph-runtime/
+command bytes, and deterministic address
+`sha256:fe09fbc5253aaffaeaea88097245ca865a2d0eeea349e0e20cc9727516e06ed8`.
+It advances L1 only: no product source patch, focused identifier proof,
+focused repair proof, full `xcodebuild_test` pass, L2/L3/T4/product green, live
+dense 70B, hidden authority, or route mutation is claimed. The next cursor is
+`graph_filter_visibility_focused_identifier_proof`.
+
 ### §28.12 Graph-filter visibility test patch checkpoint (added 2026-06-07)
 
 **Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
