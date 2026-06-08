@@ -15112,3 +15112,108 @@ Next research query: "Which Epistemos runtime lane can expose the smallest
 redacted KV/cache identity packet first: llama.cpp prompt-cache command card,
 MLX Swift cache metadata, LiteRT-LM session metadata, or a pure dry-run
 RuntimeRouter packet?"
+
+## Deep Research Pass 129 - KV Cache Identity Packet Landed
+
+### Executive Synthesis
+
+Pass 129 converts Pass 128 from T0 research-to-build canon into a landed
+metadata-only T1/L1 witness:
+`F-KVCacheIdentitySaltAndOffloadProofPacket`.
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The witness makes cache reuse and offload harder to fake. It accepts five
+source-card motifs, binds their cache identity, salt, K/V layout, offload tier,
+proof refs, and non-promotion policy, then rejects unsafe cache reuse,
+path-unsafe local disk claims, remote cache bytes, hidden authority, raw logs,
+runtime/server/command activity, byte loads, and product promotion.
+
+### Landed Artifact
+
+- Falsifier: `F-KVCacheIdentitySaltAndOffloadProofPacket`
+- Command:
+  `Tools/falsifiers/f_kv_cache_identity_salt_offload_proof_packet.sh`
+- Artifact:
+  `artifacts/falsifiers/kv_cache_identity_salt_offload_proof_packet/result.json`
+- Witness doc:
+  `docs/falsifiers/F-KVCacheIdentitySaltAndOffloadProofPacket_2026_06_07.md`
+- Rust primitive:
+  `agent_core/src/uas/kv_cache_identity_salt_offload_proof_packet.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_kv_cache_identity_salt_offload_proof_packet.rs`
+- Deterministic packet address:
+  `kv_cache_identity_salt_offload_proof_packet:190f70b5238f764552e25ef5e3d086afff42d30ee4c9824c098fe4098b7027eb@1779072000000`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only cache identity/offload proof.
+- Accepted source cards: 5.
+- Red fixtures rejected: 25.
+- Cache bytes opened: 0.
+- KV bytes loaded: 0.
+- Model bytes loaded: 0.
+- Runtime bytes loaded: 0.
+- Provider calls made: 0.
+- Servers started: 0.
+- Commands armed: 0.
+- Next side-ladder cursor: `llama_cpp_slot_prompt_cache_command_card`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing runtime: unchanged and red.
+- T4/T5 green: no.
+- Product code: unchanged.
+- Live cache reuse: not proven.
+- Local model runtime: not proven.
+- Large-model fit: not proven.
+- SSD-as-RAM: rejected.
+
+### Architecture Fusion
+
+The cache identity packet is now the substrate bridge between KV/cache research
+and future runtime work. Gemma QAT, GGUF/llama.cpp, LiteRT-LM, MLX,
+vLLM/LMCache, KTransformers, KIVI, TurboVec/Eidos, and cold-assembly routes can
+cite cache/offload ideas only after identity, salt, source freshness, path
+scope, byte-zero, rollback, RunEventLog, AnswerPacket, and abstention are
+visible.
+
+Correct phrasing: "KV cache identity architecture proof advanced; product
+capability / user surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this packet by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only cache identity/offload
+  proof.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+cache identity as an addressed, salted, source-fresh substrate object instead
+of an opaque runtime side effect.
+
+Safest next falsifier:
+`F-LlamaCppSlotPromptCacheCommandCard`, if continuing the KV/cache side ladder;
+otherwise the guard-owned automated-checks probe.
+
+Best near-term code unit: source-card the llama.cpp slot prompt-cache
+save/restore/erase command shape with owner approval, path scope, n_saved /
+n_restored fields, deletion policy, rollback, RunEventLog, AnswerPacket, and
+zero command execution.
+
+Biggest false-claim risk: treating the landed cache identity packet as cache
+reuse, local model fit, or large-model product proof.
+
+Biggest missing artifact: an owner-approved small runtime lane that emits
+redacted cache identity and teardown logs without leaking prompt/model bytes.
+
+Next research query: "What exact metadata-only command card should represent
+llama.cpp slot prompt-cache save, restore, erase, path scope, n_saved,
+n_restored, timings, deletion, and rollback without arming or executing the
+command?"

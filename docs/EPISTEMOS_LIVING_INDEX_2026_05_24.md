@@ -3497,6 +3497,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   no SSD-as-RAM claim exists, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing
   large-local-model/runtime capability is not green.
+- Updated **2026-06-07** · The Pass 128 packet is now landed as
+  `F-KVCacheIdentitySaltAndOffloadProofPacket`, a metadata-only T1/L1 witness
+  at
+  `artifacts/falsifiers/kv_cache_identity_salt_offload_proof_packet/result.json`.
+  It accepts 5 source-card motifs, rejects 25 red fixtures, binds source/search
+  freshness, tokenizer/chat-template/tool-schema identity, parent block hash,
+  cache salt, trust group, adapter/modality extras, K/V dtype, offload tier,
+  path scope, rollback, RunEventLog, AnswerPacket, abstention, and cache
+  caveat, while opening zero cache/model/KV/runtime/provider bytes, starting no
+  server, arming no command, and rejecting L2/L3/live-70B/SSD-as-RAM claims.
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3 user-facing
+  large-local-model/runtime capability is not green. The next KV/cache
+  side-ladder unit is `llama_cpp_slot_prompt_cache_command_card`.
 - 2026-06-07 research-to-build large-local-model build now includes the new
   L1/T1 `F-HardwareTieredModelCatalog-SourceCard` witness. It consumes
   `F-KVSourceCard-ForkAndDaemonBoundary`, binds Gemma 4 E2B/12B QAT,
