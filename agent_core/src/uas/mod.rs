@@ -86,6 +86,7 @@ pub mod provider_reference;
 pub mod provider_route_copy_source_guard;
 pub mod qat_model_route_card_memory_preflight;
 pub mod reasoning_state_continuity;
+pub mod release_audit_automated_checks_closure_matrix;
 pub mod release_audit_failure_family_source_card;
 pub mod research_tool_catalog_no_hidden_authority;
 pub mod residency_construction_graph;
@@ -497,6 +498,19 @@ pub use release_audit_failure_family_source_card::{
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_CURSOR,
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_ID,
     RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_NEXT_CURSOR,
+};
+pub use release_audit_automated_checks_closure_matrix::{
+    required_release_audit_closure_check_ids, required_release_audit_closure_steps,
+    required_release_audit_closure_top_family_source_refs,
+    required_release_audit_closure_top_family_test_refs,
+    ReleaseAuditAutomatedChecksClosureMatrixWitness, ReleaseAuditClosureByteLedger,
+    ReleaseAuditClosureCommandRow, ReleaseAuditClosureCommandStatus, ReleaseAuditClosureError,
+    ReleaseAuditClosureFamilyRow, ReleaseAuditClosureFamilyStatus, ReleaseAuditClosureMetrics,
+    ReleaseAuditClosureProofBoundary, RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_CURSOR,
+    RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_FAMILY_SOURCE_REF,
+    RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_ID,
+    RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_NEXT_CURSOR,
+    RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_UPSTREAM_REF,
 };
 pub use editor_epdoc_surface_release_blocker_card::{
     required_editor_epdoc_surface_invariants, required_editor_epdoc_surface_source_refs,

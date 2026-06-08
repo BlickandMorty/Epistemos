@@ -4615,6 +4615,19 @@ evidence binds visible AnswerPacket/RunEventLog surfaces, manual/runtime and
 distribution/compliance checks complete, and three uninterrupted zero-fail
 passes exist.
 
+2026-06-08 update: `F-ReleaseAuditAutomatedChecksClosureMatrix` is now landed as
+metadata-only T1/L1 architecture proof. It consumes the retained RED automated-
+checks artifact and `F-ReleaseAuditFailureFamily-SourceCard`, preserves five
+command rows, one failed `xcodebuild_test` row, 161 retained issues, 84 unique
+retained failures, 15 family rows, top family `graph_filter_visibility` with 34
+issues, six closure steps, rollback/RunEventLog/AnswerPacket refs, 22 rejected
+red fixtures, zero model/runtime/product/provider/command bytes, and
+deterministic address
+`sha256:a0dd9fa5643ece03c1a70b0a312855eb01aeb259edd3931ca0ecde354fbd69cd`.
+It advances L1 only: L2 remains `vault_research_route_with_packetized_mitigation`,
+L3 release readiness remains red, and the next repair cursor is
+`graph_filter_visibility_focused_repair_packet`.
+
 ### §28.11 Graph-filter visibility focused repair canon (added 2026-06-07)
 
 **Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`

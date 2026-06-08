@@ -1,0 +1,1034 @@
+{
+  "falsifier_id": "F-ReleaseAuditAutomatedChecksClosureMatrix",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_release_audit_automated_checks_closure_matrix.sh",
+  "command_digest": "sha256:d9bb07d7702d710cae3304ac98cf2045e367ea5b1b08f36d4f59043d6dd7ebf3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "4ea7b66acc1cd4070476b3d92f5906c649f4d158",
+  "fixture_id": "release_audit_automated_checks_closure_matrix_v1",
+  "timestamp_utc": "2026-06-08T03:11:34Z",
+  "result_digest": "sha256:53bff1771b7d694edd63b044adfa8673ba3d6eda08e99c657a582c022a34e649",
+  "measurements": {
+    "all_failure_families_in_closure_matrix": {
+      "value": true,
+      "unit": "bool"
+    },
+    "closure_step_count": {
+      "value": 6,
+      "unit": "steps"
+    },
+    "closure_steps": {
+      "value": [
+        "family_source_cards_bound",
+        "focused_graph_filter_identifier_proof",
+        "focused_graph_filter_test_repair",
+        "focused_graph_filter_logs_pass",
+        "full_xcodebuild_test_rerun_passes",
+        "all_automated_checks_rerun_pass"
+      ],
+      "unit": "steps"
+    },
+    "closure_steps_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_bytes_executed_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_count": {
+      "value": 5,
+      "unit": "commands"
+    },
+    "command_execution_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_rows": {
+      "value": [
+        {
+          "check_id": "xcodebuild_build",
+          "status": "passed_retained",
+          "issue_count": 0,
+          "log_ref": "artifact_log:xcodebuild_build"
+        },
+        {
+          "check_id": "xcodebuild_test",
+          "status": "failed_retained",
+          "issue_count": 161,
+          "log_ref": "artifact_log:xcodebuild_test"
+        },
+        {
+          "check_id": "graph_engine_cargo_test",
+          "status": "passed_retained",
+          "issue_count": 0,
+          "log_ref": "artifact_log:graph_engine_cargo_test"
+        },
+        {
+          "check_id": "omega_mcp_cargo_test",
+          "status": "passed_retained",
+          "issue_count": 0,
+          "log_ref": "artifact_log:omega_mcp_cargo_test"
+        },
+        {
+          "check_id": "omega_ax_cargo_test",
+          "status": "passed_retained",
+          "issue_count": 0,
+          "log_ref": "artifact_log:omega_ax_cargo_test"
+        }
+      ],
+      "unit": "rows"
+    },
+    "duplicate_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_command_count": {
+      "value": 1,
+      "unit": "commands"
+    },
+    "failed_command_missing_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_family_count": {
+      "value": 15,
+      "unit": "families"
+    },
+    "family_rows": {
+      "value": [
+        {
+          "family_id": "agent_route_policy",
+          "issue_count": 21,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#agent_route_policy",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "EpistemosTests/AgentCommandCenterStateTests.swift"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 2,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "body_read_checksum",
+          "issue_count": 1,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#body_read_checksum",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Models",
+            "EpistemosTests"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 13,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "distribution_project_integrity",
+          "issue_count": 18,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#distribution_project_integrity",
+          "focused_commands": [
+            "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build"
+          ],
+          "source_refs": [
+            "Epistemos.xcodeproj",
+            "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 4,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "editor_epdoc_surface",
+          "issue_count": 14,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#editor_epdoc_surface",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Views/Notes",
+            "EpistemosTests"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 6,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "graph_filter_visibility",
+          "issue_count": 34,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#graph_filter_visibility",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/FilterEngineComprehensiveTests",
+            "xcodebuild test -only-testing:EpistemosTests/ResourceExhaustionTests"
+          ],
+          "source_refs": [
+            "Epistemos/Graph",
+            "EpistemosTests/FilterEngineComprehensiveTests.swift"
+          ],
+          "test_refs": [
+            "EpistemosTests/FilterEngineComprehensiveTests.swift",
+            "EpistemosTests/ResourceExhaustionTests.swift",
+            "EpistemosTests/ConcurrencyEdgeCaseTests.swift"
+          ],
+          "status": "focused_repair_needed",
+          "repair_rank": 1,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "model_vault_catalog",
+          "issue_count": 9,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#model_vault_catalog",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 8,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "research_tool_catalog",
+          "issue_count": 16,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#research_tool_catalog",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "agent_core/src"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 5,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "runtime_performance_policy",
+          "issue_count": 3,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#runtime_performance_policy",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "benchmarks/results"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 10,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "search_index",
+          "issue_count": 1,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#search_index",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Graph",
+            "Epistemos/Sync"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 14,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "source_guard_drift",
+          "issue_count": 3,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#source_guard_drift",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "EpistemosTests",
+            "docs"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 11,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "theme_presentation",
+          "issue_count": 19,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#theme_presentation",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Theme",
+            "EpistemosTests"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 3,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "tool_execution_surface",
+          "issue_count": 2,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#tool_execution_surface",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "agent_core/src"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 12,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "ui_shell_source_guard",
+          "issue_count": 14,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#ui_shell_source_guard",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests"
+          ],
+          "source_refs": [
+            "Epistemos/Views/Shell",
+            "EpistemosTests"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 7,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "visible_output_sanitization",
+          "issue_count": 5,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#visible_output_sanitization",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests"
+          ],
+          "source_refs": [
+            "Epistemos/Engine",
+            "EpistemosTests/UserFacingModelOutputTests.swift"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 9,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        },
+        {
+          "family_id": "xpc_trust_configuration",
+          "issue_count": 1,
+          "source_card_ref": "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard#xpc_trust_configuration",
+          "focused_commands": [
+            "xcodebuild test -only-testing:EpistemosTests/XPCSmokeTests"
+          ],
+          "source_refs": [
+            "Epistemos/XPC",
+            "EpistemosTests/XPCSmokeTests.swift"
+          ],
+          "test_refs": [],
+          "status": "source_carded",
+          "repair_rank": 15,
+          "source_card_is_repair_proof": false,
+          "focused_test_replaces_full_rerun": false
+        }
+      ],
+      "unit": "rows"
+    },
+    "family_source_card_pass_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_family_count": {
+      "value": 1,
+      "unit": "families"
+    },
+    "focused_test_full_rerun_replacement_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "focused_test_replaces_full_rerun_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_do_not_replace_full_rerun": {
+      "value": true,
+      "unit": "bool"
+    },
+    "four_retained_commands_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_focused_repair_needed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "green_upstream_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_attempted_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_manual_distribution_evidence_not_attempted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_attempted_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_top_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "graph_filter_visibility_focused_repair_packet",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_ship_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram": {
+      "value": true,
+      "unit": "bool"
+    },
+    "only_xcodebuild_test_failed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "passed_command_count": {
+      "value": 4,
+      "unit": "commands"
+    },
+    "product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_byte_leak_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "provider_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_count": {
+      "value": 22,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 22,
+      "unit": "fixtures"
+    },
+    "release_audit_closure_matrix_address": {
+      "value": "sha256:a0dd9fa5643ece03c1a70b0a312855eb01aeb259edd3931ca0ecde354fbd69cd",
+      "unit": "sha256"
+    },
+    "required_check_rows_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_as_repair_proof_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_repair_proof_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "source_cards_not_repair_proof": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "t4_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "top_failure_family": {
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "top_family_graph_filter_visibility_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "top_family_issue_count": {
+      "value": 34,
+      "unit": "issues"
+    },
+    "top_family_source_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "top_family_test_refs_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_issue_count": {
+      "value": 161,
+      "unit": "issues"
+    },
+    "total_issue_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_failure_count": {
+      "value": 84,
+      "unit": "tests"
+    },
+    "unique_failure_count_retained": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_failed_xcodebuild_test_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_top_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_passes_unclaimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_failed_check_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_product_provider_command_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_unique_failures_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "all_failure_families_in_closure_matrix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "closure_step_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "steps"
+    },
+    "closure_steps": {
+      "operator": "present",
+      "value": true,
+      "unit": "steps"
+    },
+    "closure_steps_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_bytes_executed_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "commands"
+    },
+    "command_execution_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_rows": {
+      "operator": "present",
+      "value": true,
+      "unit": "rows"
+    },
+    "duplicate_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_command_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "commands"
+    },
+    "failed_command_missing_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failure_family_count": {
+      "operator": "==",
+      "value": 15,
+      "unit": "families"
+    },
+    "family_rows": {
+      "operator": "present",
+      "value": true,
+      "unit": "rows"
+    },
+    "family_source_card_pass_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_repair_family_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "families"
+    },
+    "focused_test_full_rerun_replacement_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "focused_test_replaces_full_rerun_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_tests_do_not_replace_full_rerun": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "four_retained_commands_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "graph_filter_visibility_focused_repair_needed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "green_upstream_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_attempted_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_manual_distribution_evidence_not_attempted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_evidence_attempted_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_top_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "graph_filter_visibility_focused_repair_packet",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_route_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_product_ship_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_live_dense_70b_or_ssd_as_ram": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "only_xcodebuild_test_failed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "passed_command_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "commands"
+    },
+    "product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_byte_leak_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "provider_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 22,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 22,
+      "unit": "fixtures"
+    },
+    "release_audit_closure_matrix_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "sha256"
+    },
+    "required_check_rows_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_as_repair_proof_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_card_repair_proof_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "source_cards_not_repair_proof": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ssd_as_ram_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "t4_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "top_failure_family": {
+      "operator": "eq",
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "top_family_graph_filter_visibility_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "top_family_issue_count": {
+      "operator": "==",
+      "value": 34,
+      "unit": "issues"
+    },
+    "top_family_source_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "top_family_test_refs_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_issue_count": {
+      "operator": "==",
+      "value": 161,
+      "unit": "issues"
+    },
+    "total_issue_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unique_failure_count": {
+      "operator": "==",
+      "value": 84,
+      "unit": "tests"
+    },
+    "unique_failure_count_retained": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_failed_xcodebuild_test_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wrong_top_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_fail_passes_unclaimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_failed_check_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_issue_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_product_provider_command_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_unique_failures_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "all_failure_families_in_closure_matrix": true,
+    "closure_step_count": true,
+    "closure_steps": true,
+    "closure_steps_bound": true,
+    "command_bytes_executed_total": true,
+    "command_count": true,
+    "command_execution_byte_leak_rejected": true,
+    "command_rows": true,
+    "duplicate_family_rejected": true,
+    "failed_command_count": true,
+    "failed_command_missing_rejected": true,
+    "failure_family_count": true,
+    "family_rows": true,
+    "family_source_card_pass_bound": true,
+    "focused_repair_family_count": true,
+    "focused_test_full_rerun_replacement_count": true,
+    "focused_test_replaces_full_rerun_rejected": true,
+    "focused_tests_do_not_replace_full_rerun": true,
+    "four_retained_commands_passed": true,
+    "graph_filter_visibility_focused_repair_needed": true,
+    "green_upstream_rejected": true,
+    "hidden_authority_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "log_evidence_attempted_rejected": true,
+    "log_manual_distribution_evidence_not_attempted": true,
+    "manual_runtime_evidence_attempted_rejected": true,
+    "missing_top_family_rejected": true,
+    "model_runtime_byte_leak_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_route_mutation": true,
+    "no_l2_l3_t4_product_ship_green": true,
+    "no_live_dense_70b_or_ssd_as_ram": true,
+    "only_xcodebuild_test_failed": true,
+    "passed_command_count": true,
+    "product_green_claim_rejected": true,
+    "product_runtime_byte_leak_rejected": true,
+    "product_runtime_bytes_loaded_total": true,
+    "provider_bytes_loaded_total": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_audit_closure_matrix_address": true,
+    "required_check_rows_bound": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "route_mutation_claim_rejected": true,
+    "ship_call_claim_rejected": true,
+    "source_card_as_repair_proof_rejected": true,
+    "source_card_repair_proof_count": true,
+    "source_cards_not_repair_proof": true,
+    "ssd_as_ram_claim_rejected": true,
+    "t4_green_claim_rejected": true,
+    "top_failure_family": true,
+    "top_family_graph_filter_visibility_bound": true,
+    "top_family_issue_count": true,
+    "top_family_source_refs_bound": true,
+    "top_family_test_refs_bound": true,
+    "total_issue_count": true,
+    "total_issue_count_retained": true,
+    "unique_failure_count": true,
+    "unique_failure_count_retained": true,
+    "upstream_automated_checks_red": true,
+    "upstream_failed_xcodebuild_test_bound": true,
+    "wrong_top_family_rejected": true,
+    "zero_fail_passes_unclaimed": true,
+    "zero_failed_check_rejected": true,
+    "zero_issue_family_rejected": true,
+    "zero_model_product_provider_command_bytes": true,
+    "zero_unique_failures_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-ReleaseAuditAutomatedChecksClosureMatrix: consumes the retained red automated-check ledger and release-audit family source card, maps xcodebuild_test plus 15 families into repair order, binds graph_filter_visibility as the first focused repair, rejects source-card-as-repair/full-rerun/product-green/live-70B/SSD-as-RAM/hidden-authority/byte fixtures, runs no commands, loads zero model/runtime/provider bytes, and makes no L2/L3/T4/release-ready claim."
+}
