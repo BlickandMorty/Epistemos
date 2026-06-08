@@ -162,6 +162,7 @@ pub mod ui_shell_source_guard_release_blocker_card;
 pub mod visible_output_sanitization_release_blocker_card;
 pub mod weight_block;
 pub mod witness;
+pub mod xpc_trust_configuration_release_blocker_card;
 
 pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
@@ -582,6 +583,15 @@ pub use tool_execution_surface_release_blocker_card::{
     TOOL_EXECUTION_SURFACE_FAMILY_SOURCE_REF, TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_CURSOR,
     TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_ID,
     TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR, TOOL_EXECUTION_SURFACE_UPSTREAM_REF,
+};
+pub use xpc_trust_configuration_release_blocker_card::{
+    required_xpc_trust_configuration_invariants, required_xpc_trust_configuration_source_refs,
+    XpcTrustConfigurationError, XpcTrustConfigurationMetrics, XpcTrustConfigurationOrgan,
+    XpcTrustConfigurationReleaseBlockerCard, XpcTrustConfigurationReleaseBlockerWitness,
+    XpcTrustConfigurationStatus, XpcTrustSurface, XPC_TRUST_CONFIGURATION_FAMILY_SOURCE_REF,
+    XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_CURSOR,
+    XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_ID,
+    XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR, XPC_TRUST_CONFIGURATION_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,
