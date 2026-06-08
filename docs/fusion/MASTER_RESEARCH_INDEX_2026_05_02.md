@@ -332,6 +332,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > large-model promotion. It creates no fixture files, imports no eval
 > framework, opens no fixture/model/cache/runtime/index/provider bytes, arms no
 > command, and does not advance L2/L3 or user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 166 in the same file maps
+> `F-SyntheticPayloadMaterializationGateV0`, the exact owner-approved
+> materialization gate required before the six invented payload values can
+> become JSON fixture files. It requires the explicit approval phrase
+> `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, repo-root path policy,
+> staging-before-final promotion, exact file inventory, JSON Schema Draft
+> 2020-12 validation, RFC 8785/JCS-style canonical UTF-8 SHA-256 digest maps,
+> privacy/provenance scans, descriptor -> payload -> verifier -> scorer ->
+> template -> policy -> review joins, rollback receipt, RunEventLog,
+> AnswerPacket, and T0-only non-promotion. It rejects missing approval, path
+> escape, absolute paths, parent segments, hidden path segments, symlinks,
+> unexpected hardlinks, case-folding collisions, direct final-root writes,
+> schema failure, digest drift, extra/missing/duplicate files, private/user/
+> vault/provider/model/benchmark text, PII, credentials, hidden reasoning,
+> MAS-denied Pro tool use, tombstone bypass, runtime/model/provider/cache/index
+> byte access, armed commands, and product/L1/L2/L3/T4/T5/large-model
+> promotion. It creates no fixture files, opens no fixture/model/cache/runtime/
+> index/provider bytes, arms no command, and does not advance L2/L3 or
+> user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
