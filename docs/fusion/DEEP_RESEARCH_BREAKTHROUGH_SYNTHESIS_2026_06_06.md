@@ -24100,3 +24100,119 @@ F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe consume the E2B model-file
 and llama.cpp digest gate to run exactly one owner-approved redacted token with
 memory samples, timeout/cancel, rollback, RunEventLog, AnswerPacket, and no
 Gemma default promotion?"
+
+## Pass 193 - Gemma E2B Owner-Approved First-Token Runtime Probe Gate
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+owner-approved first-token runtime proof as a strict bridge from digest-only
+Gemma E2B evidence into later real local execution.
+
+Safest next falsifier:
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate`.
+
+Best near-term code unit:
+build the reconciliation gate that can compare any future owner-approved
+first-token artifact against the exact probe contract before same-fixture
+quality replay or System G admission.
+
+Biggest false-claim risk:
+treating this owner-approved first-token probe contract as if a token already
+ran, as if llama.cpp was already inspected, or as if Gemma can become the app
+default.
+
+Biggest missing source:
+the owner-approved local artifact bundle: redacted approval digest, local
+model-file sha256, llama.cpp binary sha256, llama.cpp version digest, memory
+sample digest series, timeout/cancel proof, RunEventLog, and AnswerPacket.
+
+Next research query: "How should
+F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate reconcile an
+owner-approved one-token Gemma E2B GGUF/llama.cpp artifact against model-file
+digest, llama.cpp binary/version digest, memory samples, timeout/cancel,
+rollback, RunEventLog, AnswerPacket, and no Gemma-default promotion?"
+
+### Synthesis
+
+`F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe` is now landed as the
+metadata-only T1/L1 owner-approved runtime-probe contract between the
+model-file/llama.cpp digest gate and any future first-token runtime artifact.
+
+This pass makes the Gemma-first loop more practical without overclaiming. The
+best implementation path remains direct and inspectable: E2B QAT GGUF through
+`/opt/homebrew/bin/llama-cli` first, then E4B, then 12B QAT GGUF/LiteRT only
+after the same proof packet works. The custom cold-assembly/70B track stays
+preserved for the point where Gemma-class runtime proof is exhausted or
+insufficient.
+
+### Architecture Fusion
+
+System G still cannot route Gemma live. The build path is now:
+
+```text
+Gemma4QAT/E2B/GGUF/llama.cpp
+  -> owner approval phrase digest
+  -> owner manifest digest
+  -> canonical path digest
+  -> model file digest and llama.cpp digest
+  -> owner-approved first-token runtime probe
+  -> first-token artifact reconciliation
+  -> same-fixture quality replay
+  -> RuntimeRouter/System G admission
+  -> WRV/release-audit surface
+```
+
+The landed gate binds:
+
+- model id: `google/gemma-4-E2B-it-qat-q4_0-gguf`
+- source revision: `1894d1fc0a19d86697abd40483f5983c867df03f`
+- filename: `gemma-4-E2B_q4_0-it.gguf`
+- expected file bytes: `3349514112`
+- direct lane: `/opt/homebrew/bin/llama-cli`
+- 29 probe fields
+- 27 abort conditions
+- 14 required command-template tokens
+- 11 forbidden command/runtime surfaces
+- 74 red fixtures
+
+It opens zero files, hashes zero local files, opens zero llama.cpp binaries,
+executes zero version checks, arms zero commands, executes zero commands,
+observes zero tokens, captures zero raw path/prompt/output/stdout/stderr
+bytes, loads zero model/runtime/provider bytes, denies network/server/download/
+mmap/provider shortcuts, and rejects System G mutation, hidden authority,
+quality laundering, E4B/12B bypass, live dense 70B, and SSD-as-RAM claims.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma-first near-term model ladder stays explicit.
+- T1/L1 architecture proof:
+  `F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe` is landed when its
+  artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Local model file opened/hashed: zero.
+- llama.cpp binary opened/version-executed: zero.
+- Commands armed/executed: zero.
+- Tokens observed: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It makes the first real Gemma step small enough to become safe: a future single
+redacted synthetic token with exact local artifact, exact runtime binary,
+exact command shape, memory samples, cancellation, rollback, RunEventLog, and
+AnswerPacket evidence. That is the right proof grain for later E4B and 12B
+promotion because it tests runtime discipline before quality claims.
+
+### Why It May Be Wrong
+
+It still does not prove the E2B file exists locally, does not hash the model,
+does not prove llama.cpp is installed, does not run inference, and does not
+prove memory fit or quality. The next reconciliation gate may still reject the
+future artifact for digest drift, command mismatch, timeout, memory pressure,
+redaction failure, missing logs, missing AnswerPacket, or accidental default
+promotion.

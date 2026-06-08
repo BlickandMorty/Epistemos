@@ -126,6 +126,22 @@ Runtime policy:
   download/server/mmap/provider shortcuts, and makes no MAS/L2/L3/T4/user-
   facing Gemma claim. Next Gemma unit:
   `gemma_qat_e2b_owner_approved_first_token_runtime_probe`.
+- 2026-06-08 Gemma E2B owner-approved first-token probe status:
+  `F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe` is landed as
+  metadata-only L1/T1. It consumes the E2B model-file and llama.cpp digest
+  gate, keeps the direct GGUF/llama.cpp E2B lane, and requires explicit owner
+  approval, owner manifest digest, canonical path digest, model-file sha256,
+  llama.cpp binary sha256, llama.cpp version digest, visible offline command
+  template, synthetic prompt digest, memory before/load/first-token/teardown
+  samples, timeout/cancel, rollback, RunEventLog, AnswerPacket, and abstention
+  before any one-token run can proceed. It rejects 74 red fixtures, opens zero
+  files, arms zero commands, executes zero commands, observes zero tokens,
+  captures zero raw path/prompt/output/stdout/stderr bytes, loads zero
+  model/runtime/provider bytes, denies network/server/download/mmap/provider
+  shortcuts, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, E4B/12B
+  bypass, quality, benchmark-fit, live dense 70B, or SSD-as-RAM claim. Next
+  Gemma unit:
+  `gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
@@ -220,8 +236,9 @@ Runtime policy:
   model/runtime/provider bytes, and do not prove local availability, path
   safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
   product default, L2, L3, live dense 70B, or user-facing Gemma capability.
-  The current Gemma side-ladder unit after the landed digest gates is
-  `gemma_qat_e2b_owner_approved_first_token_runtime_probe`.
+  The current Gemma side-ladder unit after the landed owner-approved
+  first-token probe gate is
+  `gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,
