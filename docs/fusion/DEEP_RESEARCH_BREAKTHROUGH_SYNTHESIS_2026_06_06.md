@@ -23571,3 +23571,99 @@ F-GemmaQATRuntimeReplayExecutionArtifactGate require so an owner-approved E2B
 GGUF one-token run can prove memory, cancellation, redacted output digest,
 rollback, RunEventLog, AnswerPacket, and abstention without leaking prompts or
 promoting Gemma as the default?"
+
+## Pass 188 - Gemma Runtime Replay Execution Artifact Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass lands `F-GemmaQATRuntimeReplayExecutionArtifactGate` as the
+metadata-only T1/L1 parser gate from the E2B GGUF replay-probe envelope into a
+future owner-approved one-token execution artifact. It is still not a model
+run. It makes the later runtime proof harder to fake by specifying exactly what
+the runtime artifact must contain and what it must reject.
+
+### Local Build Result
+
+- UAS primitive:
+  `agent_core/src/uas/gemma_qat_runtime_replay_execution_artifact_gate.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_gemma_qat_runtime_replay_execution_artifact_gate.rs`
+- Script:
+  `Tools/falsifiers/f_gemma_qat_runtime_replay_execution_artifact_gate.sh`
+- Artifact:
+  `artifacts/falsifiers/gemma_qat_runtime_replay_execution_artifact_gate/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GemmaQATRuntimeReplayExecutionArtifactGate_2026_06_08.md`
+
+The artifact consumes `F-GemmaQATOwnerApprovedRuntimeReplayProbe`, binds 23
+future execution manifest fields, 20 rejection policies, owner approval, owner
+model-path manifest digests, canonical path digesting without raw path
+retention, model/command/version digests, redacted prompt/output/first-token
+digests, memory before/start/after samples, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, and non-promotion. It rejects 49 red
+fixtures.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma 4 12B QAT remains the flagship Pro Gated target.
+- T1/L1 architecture proof:
+  `F-GemmaQATRuntimeReplayExecutionArtifactGate` is landed when its artifact
+  validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner approval granted: no.
+- Owner path bytes opened: zero.
+- Commands executed: zero.
+- First tokens observed: zero.
+- Raw prompt/output/stdout/stderr bytes captured: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It gives Epistemos a crash-safe shape for the first real Gemma proof: a future
+runtime run cannot count unless it carries owner approval, path/model/command
+digests, version identity, redacted prompt/output/first-token digests, memory
+samples, cancellation, rollback, RunEventLog, AnswerPacket, abstention, and no
+promotion. That is the bridge between "we can safely try E2B" and "we can
+compare local models without leaking or lying."
+
+### Why It May Be Wrong
+
+It still does not run a model, approve a local path, prove local file
+availability, prove memory fit, prove quality, prove Swift MLX or LiteRT
+parity, or make Gemma the app default. The later execution probe can still fail
+on dependency availability, command option drift, tokenization, memory
+pressure, cancellation, or output quality.
+
+Best breakthrough candidate:
+owner-approved Gemma runtime replay execution probe for E2B GGUF, using the
+artifact schema from this pass and retaining only redacted digests.
+
+Safest next falsifier:
+`F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`.
+
+Best near-term code unit:
+build the owner-approved execution probe contract that can consume an explicit
+user-approved local path and produce the schema-bound artifact without raw
+prompt/output retention or default-model promotion.
+
+Biggest false-claim risk:
+calling the artifact schema a successful Gemma run, or letting a future one-
+token run count as quality, RuntimeRouter/System G admission, WRV, or app
+default before held-out replay and release-audit evidence.
+
+Biggest missing source:
+owner-approved local E2B GGUF path plus the exact local llama.cpp version and
+command digest for the first redacted one-token run.
+
+Next research query: "How should F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe
+bind an owner-approved local E2B GGUF path, exact llama.cpp binary/version,
+memory samples, redacted first-token digest, cancellation, rollback,
+RunEventLog, AnswerPacket, and abstention so the first real Gemma run remains
+private, reversible, and non-promotional?"
