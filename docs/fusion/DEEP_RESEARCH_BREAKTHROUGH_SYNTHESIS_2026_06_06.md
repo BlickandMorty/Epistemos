@@ -19405,3 +19405,230 @@ Next research query: "What is the smallest deterministic fixture-descriptor
 file set that can exercise these redaction profiles while staying synthetic,
 digest-bound, source-allowlisted, tombstone-aware, MAS/Pro caveated, and useful
 for the small-model runtime harness?"
+
+## Pass 161 - Minimal Synthetic Fixture Descriptor Set V0
+
+### Executive Synthesis
+
+Pass 161 converts the Pass 160 redaction profiles into the smallest planned
+fixture-descriptor file set that can be implemented later without opening real
+fixture, vault, model, runtime, cache, index, or provider bytes. The core move
+is to split **descriptors** from **payloads**: the descriptor set names six
+cases, their privacy profiles, source/tombstone/proof-template refs, expected
+verifier families, and non-promotion caveats, while still refusing to store
+private text, raw prompts, model output, raw tokens, or benchmark prompt copies.
+
+```text
+FixtureRedactionProfileSyntheticLabelSchema
+  -> MinimalSyntheticFixtureDescriptorSetV0
+  -> manifest + six descriptor stubs + schema refs + policy refs
+  -> deterministic digests, no payload bytes, no runtime result
+```
+
+This pass is T0 research-to-build canon. It does not create the files; it
+defines the exact future file set and rejection rules so the next code unit can
+be a small metadata-only UAS primitive/falsifier instead of a vague fixture
+generator.
+
+### Local Source Facts
+
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` requires stable
+  `fixture_id`, replay-safe fixture lineage, manifest digests, command digests,
+  result-digest canonicalization, UTF-8 JSONL framing, contiguous row indexes,
+  and no replay-ineligible generated fixtures.
+- Pass 156 froze six v0 case IDs:
+  `msfp_v0_note_synthesis_001`, `msfp_v0_citation_research_001`,
+  `msfp_v0_structured_tool_json_001`, `msfp_v0_cache_deletion_001`,
+  `msfp_v0_abstention_001`, and `msfp_v0_latency_small_lane_001`.
+- Pass 157-160 require verifier/scorer digests, source allowlist digests,
+  tombstone policy digests, redaction profile digests, no-runtime
+  AnswerPacket/RunEventLog templates, closed labels, MAS/Pro caveats, and
+  metadata-only non-promotion before any replay can claim quality.
+- The retained small-model harness sidecars already prove the desired runtime
+  shape later: redacted prompt/token digests, RunEventLog, AnswerPacket,
+  rollback, and explicit no L2/L3 promotion.
+
+### Current External Source Facts
+
+- JSON Schema Draft 2020-12 provides the current schema/metaschema family for
+  validating JSON structures; Pass 161 uses it as a validation vocabulary motif,
+  not as a runtime dependency. Source:
+  `https://json-schema.org/draft/2020-12`
+- RFC 8785 JSON Canonicalization Scheme describes invariant JSON
+  representations for repeatable hashing/signing; Pass 161 keeps the canonical
+  JSON/SHA-256 pattern from earlier canon. Source:
+  `https://www.rfc-editor.org/rfc/rfc8785`
+- NIST SP 800-188 warns that masking alone is not sufficient
+  de-identification; Pass 161 therefore requires synthetic-only or
+  digest-redacted descriptors plus red-team rejection cases instead of plain
+  masking. Source: `https://csrc.nist.gov/pubs/sp/800/188/final`
+
+### Candidate Falsifier
+
+`F-MinimalSyntheticFixtureDescriptorSetV0`
+
+Required planned file set:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/
+  manifest.json
+  cases/msfp_v0_note_synthesis_001.descriptor.json
+  cases/msfp_v0_citation_research_001.descriptor.json
+  cases/msfp_v0_structured_tool_json_001.descriptor.json
+  cases/msfp_v0_cache_deletion_001.descriptor.json
+  cases/msfp_v0_abstention_001.descriptor.json
+  cases/msfp_v0_latency_small_lane_001.descriptor.json
+  schemas/redaction_profile_schema_v0.json
+  schemas/synthetic_safe_label_dictionary_v0.json
+  schemas/fixture_verifier_scorer_digest_schema_v0.json
+  schemas/answer_packet_template_v0.json
+  schemas/run_event_log_template_v0.json
+  policies/source_allowlist_policy_v0.json
+  policies/tombstone_policy_v0.json
+  policies/mas_pro_caveat_policy_v0.json
+  reviews/privacy_review_profile_v0.json
+```
+
+Required `manifest.json` fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `fixture_pack_id` | `minimal_synthetic_fixture_pack_v0` | stable pack identity |
+| `pack_scope` | `descriptor_only_no_payload_no_runtime` | no payload/runtime laundering |
+| `schema_version` | current fixture descriptor schema | migration safety |
+| `case_count` | `6` | exact v0 boundary |
+| `case_ids` | six fixed Pass 156 IDs in sorted order | no missing/extra cases |
+| `descriptor_files` | exact paths above | no path discovery authority |
+| `canonicalization` | `rfc8785_json_canonicalization` | deterministic digesting |
+| `digest_algorithm` | `sha256` | stable digest family |
+| `schema_refs` | five schema file refs and digests | no hidden schema drift |
+| `policy_refs` | source, tombstone, MAS/Pro policy refs | proof caveats |
+| `template_refs` | AnswerPacket and RunEventLog template refs | visible proof shape |
+| `payload_bytes_present` | `0` | descriptor-only |
+| `runtime_bytes_loaded` | `0` | no runtime proof |
+| `model_bytes_loaded` | `0` | no model proof |
+| `metadata_only_non_promotion` | `true` | truth-layer fence |
+
+Required descriptor fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `fixture_id` | one of the six fixed case IDs | stable identity |
+| `fixture_family` | Pass 155 family enum | verifier routing |
+| `descriptor_scope` | `descriptor_only_no_payload` | no raw content |
+| `redaction_profile_id` | one or more Pass 160 profiles | privacy mode |
+| `redaction_profile_digest` | `sha256:<64 hex>` | profile binding |
+| `synthetic_safe_labels` | closed Pass 160 labels | human audit |
+| `input_payload_mode` | `inline_synthetic_descriptor` or `digest_redacted_reference_descriptor` | no payload text |
+| `source_refs` | allowlisted source IDs/digests or empty with reason | citation fence |
+| `tombstone_refs` | tombstone IDs/digests or empty with reason | deletion fence |
+| `verifier_ref` | deterministic verifier digest | no hidden judge |
+| `scorer_ref` | deterministic scorer digest | no hidden score |
+| `answer_packet_template_ref` | template digest | visible proof skeleton |
+| `run_event_log_template_ref` | template digest | replay skeleton |
+| `expected_outcome_class` | enum only, no answer text | auditable task intent |
+| `failure_taxonomy_refs` | enum refs | structured failures |
+| `rollback_ref` | rollback policy digest | reversibility |
+| `mas_pro_caveat_ref` | caveat digest | build honesty |
+| `payload_digest` | `null` until materialized synthetic payload exists | no fake payload |
+| `runtime_result_digest` | `null` | no runtime claim |
+| `metadata_only_non_promotion` | `true` | no L2/L3/T4 claim |
+
+Per-case descriptor intent:
+
+| Descriptor | Expected outcome class | Special refs |
+|---|---|---|
+| `msfp_v0_note_synthesis_001.descriptor.json` | `synthesize_outline_from_evidence_ids` | empty source/tombstone refs with synthetic-only reason |
+| `msfp_v0_citation_research_001.descriptor.json` | `cite_allowed_source_or_abstain` | required `source_allowlist_policy_v0` refs |
+| `msfp_v0_structured_tool_json_001.descriptor.json` | `emit_allowed_tool_json_or_abstain` | required MAS/Pro tool caveat |
+| `msfp_v0_cache_deletion_001.descriptor.json` | `ignore_tombstoned_fact_use_surviving_source` | required tombstone refs |
+| `msfp_v0_abstention_001.descriptor.json` | `abstain_when_evidence_or_tool_missing` | required blocked/abstain packet labels |
+| `msfp_v0_latency_small_lane_001.descriptor.json` | `classify_tiny_prompt_lane_without_speed_claim` | byte/token buckets only |
+
+Required red fixtures:
+
+- missing, extra, duplicate, unsorted, or renamed descriptor case
+- descriptor contains raw prompt, note body, model output, token text, provider
+  payload, hidden reasoning, chain-of-thought, local path, note title,
+  credential, PII, or copied public benchmark prompt
+- descriptor includes payload bytes, runtime result digest, speed result, model
+  result, first-token result, quality score, or route success
+- `payload_digest` is non-null before synthetic payload materialization
+- source/citation descriptor lacks source allowlist policy refs
+- cache descriptor lacks tombstone refs or stores deleted text
+- tool descriptor lacks MAS/Pro caveat or stores private args/tool output
+- latency descriptor stores exact private byte/token count or speed claim
+- descriptor uses path/title/mtime/row-order authority
+- verifier/scorer/profile/template/policy digest is missing or noncanonical
+- unknown label, open-ended enum, duplicate label, or label implying runtime
+  success or product green
+- metadata-only descriptor promotes L1/L2/L3/T4, MAS readiness, release
+  readiness, live dense 70B, live sparse 70B, or user-facing capability
+
+### Architecture Fusion
+
+| Epistemos organ | Descriptor-set role | Build implication |
+|---|---|---|
+| UAS/OAS | every descriptor, schema, policy, and template gets an address | no path/title/row-order authority |
+| ColdStore/AppColdStore | dormant source and tombstone refs are explicit | future replay can refuse stale/deleted context |
+| ActiveAssembly | descriptor labels define support-set shape | runtime can wake only a tiny verified set later |
+| Eidos | source allowlist policy is first-class | citation fixtures cannot rank forbidden evidence |
+| SCOPE-Rex/SovereignGate | MAS/Pro and abstention policies gate use | unsupported tools/routes fail closed |
+| RuntimeRouter/System G | descriptor has no runtime result fields | no descriptor can steer live routes |
+| RunEventLog | template refs define future event skeletons | runtime replay can correlate without raw payloads |
+| AnswerPacket | expected outcome and caveat refs are visible | user proof remains packetized and honest |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive
+   `minimal_synthetic_fixture_descriptor_set_v0`.
+2. Implement `falsify_minimal_synthetic_fixture_descriptor_set_v0`.
+3. Add invalid fixtures for missing/extra/duplicate cases, raw text leaks,
+   payload bytes, runtime result fields, source/tombstone gaps, MAS/Pro caveat
+   gaps, digest drift, unknown labels, path/title/mtime authority, and
+   metadata promotion.
+4. Only after that should a separate materialization gate create synthetic
+   payload files.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-MinimalSyntheticFixtureDescriptorSetV0`, because it turns the large-model
+quality-replay ladder into a small, implementable, privacy-safe descriptor
+contract before any actual fixture payload exists.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-MinimalSyntheticFixtureDescriptorSetV0` after
+`F-FixtureRedactionProfileSyntheticLabelSchema`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`minimal_synthetic_fixture_descriptor_set_v0`, with exact file-path lists,
+closed case IDs, canonical digest refs, null payload/runtime fields, and red
+fixtures for every leak/promotion path.
+
+Biggest false-claim risk:
+treating descriptor existence as fixture existence or runtime proof. Pass 161
+only names the future files; the actual synthetic payloads, replay, model
+comparison, and product WRV remain separate gates.
+
+Biggest missing artifact:
+a metadata-only witness validating the descriptor set before the repository
+contains any materialized synthetic fixture payload.
+
+Next research query: "What is the minimum synthetic payload shape for each of
+the six descriptors that exercises verifier/scorer logic without copying
+benchmarks, leaking vault text, or creating model-quality claims before replay?"
