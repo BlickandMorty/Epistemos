@@ -16884,3 +16884,101 @@ and full-row-not-replaced status.
 Next research query: "What owner-approved focused proof-root runner code can
 write the 18-field manifest without mutating product source, hiding scheme
 pre-action effects, or replacing full automated-check release evidence?"
+
+## Pass 145 - Focused Proof-Root Owner Approval Gate (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 145 turns the owner-approval runbook into a machine-readable metadata
+gate:
+
+`F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate`
+
+The gate consumes the focused proof-root command-card witness, the
+execution-artifact parser witness, and the approval runbook. It proves the
+future focused graph-filter Xcode proof-root command remains fail-closed until
+the owner gives the exact scoped approval phrase, while the full release audit
+approval remains separate.
+
+This is research-to-build canon. It does not execute Xcode, arm commands, open
+selected test products, inspect `.xcresult` bytes, mutate product source, load
+model/runtime/provider bytes, or promote capability.
+
+### Architecture Fusion
+
+The gate connects four proof layers:
+
+- Command intent:
+  `F-GraphFilterVisibilityFocusedProofRootCommandCard`.
+- Post-run evidence parser:
+  `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`.
+- Human approval boundary:
+  `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+- Guard-owned product blocker:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+The witness binds 10 required preconditions, 7 required consent clauses, 14
+rejection policies, 26 rejected red fixtures, zero command executions, zero
+selected test-product bytes, zero `.xcresult` bytes, zero
+app/model/runtime/provider bytes, and deterministic address
+`sha256:f8a39e202231f55fbdcfd94a9ff28a1ec7700fdf1518b2f31c77fb47f8e00d4f`.
+
+### Why This Helps Large Local Models
+
+Large-local-model work fails if release/runtime evidence can be faked through
+ambiguous consent, stale proof roots, zero-test Xcode success, or focused test
+laundering. Gemma 4 QAT, GGUF/LiteRT/MLX lanes, TurboVec/Eidos compressed
+recall, KV reuse, sparse residency, and cold assembly all need a product proof
+floor that is consent-bound, source-bound, digest-bound, rollback-bound,
+RunEventLog-visible, and AnswerPacket-visible.
+
+This gate is not a model breakthrough by itself. It is the consent-and-proof
+boundary that keeps future model breakthroughs from inheriting false release
+green.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: advanced for the approval gate only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Model/runtime bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+an exact-consent focused proof-root run that emits the execution-artifact
+manifest, then feeds the full automated-check closure without replacing full
+release evidence.
+
+Safest next falsifier:
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+because the guard-owned cursor still points there and product capability
+remains red.
+
+Best near-term code unit:
+after explicit owner approval, run only the focused proof-root command
+specified by the current command card and parse it through the execution
+artifact gate; otherwise continue metadata/source-card closure around the
+automated-checks blocker.
+
+Biggest false-claim risk:
+calling an approval gate, runbook, command card, parser gate, or focused proof
+root a release pass, product green, local-large-model proof, or live runtime
+capability.
+
+Biggest missing artifact:
+owner-approved focused proof-root execution output: selected product digest,
+focused `.xcresult` digest, nonzero executed-test count, source-status
+digests, scheme pre-action ledger, RunEventLog, AnswerPacket, rollback digest,
+and full-row-not-replaced status.
+
+Next research query: "How should the owner-approved focused proof-root command
+be invoked and captured so the execution-artifact parser gate can validate it
+without broad release-audit approval or source mutation?"

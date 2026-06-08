@@ -318,6 +318,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > full automated-check-row preservation mandatory, and runs no Xcode command.
 > L1 guard cursor, L2 route, L3 release readiness, and large-local-model
 > product capability remain unchanged.
+> `F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate` is now landed as a
+> metadata-only T1/L1 owner-approval gate at
+> `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_owner_approval_gate/result.json`.
+> It consumes the command-card witness, execution-artifact parser witness, and
+> owner-approval runbook; binds upstream addresses
+> `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`
+> and `sha256:ddaf0208e07b6d4528bb507dc6d7561cbd1c4f254c3e35ece1a4cc64ed844a99`,
+> 10 required preconditions, 7 consent clauses, 14 rejection policies, 26 red
+> fixtures, zero command executions, zero selected test-product/`.xcresult`/
+> app/model/runtime/provider bytes, deterministic address
+> `sha256:f8a39e202231f55fbdcfd94a9ff28a1ec7700fdf1518b2f31c77fb47f8e00d4f`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> This advances only the approval-boundary side-card; guard-owned product
+> cursor, L2, L3, release readiness, and large-local-model product capability
+> remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4972,6 +4988,28 @@ Promotion truth: this is T0 runbook/canon only. It runs no Xcode command,
 opens no selected test product or `.xcresult`, changes no product source, loads
 no app/model/runtime bytes, and does not promote L1/L2/L3/T4. The future
 owner-approved run must still produce selected product digest, focused
+`.xcresult` digest, nonzero executed-test count, source-status digests, scheme
+pre-action ledger, RunEventLog, AnswerPacket, rollback, and full-row-not-
+replaced status before any focused evidence can count.
+
+### §28.17E Focused proof-root owner approval gate (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 145, `docs/falsifiers/F-GraphFilterVisibilityFocusedProofRootOwnerApprovalGate_2026_06_08.md`, and
+`artifacts/falsifiers/graph_filter_visibility_focused_proof_root_owner_approval_gate/result.json`.
+
+Pass 145 implements the runbook boundary as a metadata-only L1/T1 gate. The
+witness consumes `F-GraphFilterVisibilityFocusedProofRootCommandCard`,
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`, and the owner
+runbook, then rejects missing/broad approval, approval leaks, command arming,
+Xcode execution, selected-product or result-bundle byte opens, product-code
+changes, full-row replacement, L2/L3/product/release green claims, live
+dense-70B claims, and SSD-as-RAM claims.
+
+Promotion truth: this is L1 approval-boundary proof only. It runs no Xcode,
+opens no selected test product or `.xcresult`, changes no product source,
+loads no app/model/runtime/provider bytes, and does not promote L2/L3/T4. The
+future owner-approved run must still produce selected product digest, focused
 `.xcresult` digest, nonzero executed-test count, source-status digests, scheme
 pre-action ledger, RunEventLog, AnswerPacket, rollback, and full-row-not-
 replaced status before any focused evidence can count.

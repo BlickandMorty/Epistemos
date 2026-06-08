@@ -64,6 +64,7 @@ pub mod graph_filter_visibility_focused_identifier_proof;
 pub mod graph_filter_visibility_focused_proof_root_command_card;
 pub mod graph_filter_visibility_focused_proof_root_execution_artifact_gate;
 pub mod graph_filter_visibility_focused_proof_root_manifest_gate;
+pub mod graph_filter_visibility_focused_proof_root_owner_approval_gate;
 pub mod graph_filter_visibility_focused_repair_packet;
 pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
@@ -1134,6 +1135,21 @@ pub use graph_filter_visibility_focused_proof_root_execution_artifact_gate::{
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_ID,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_focused_proof_root_owner_approval_gate::{
+    required_graph_filter_focused_proof_root_owner_approval_consent_clauses,
+    required_graph_filter_focused_proof_root_owner_approval_preconditions,
+    required_graph_filter_focused_proof_root_owner_approval_rejection_policies,
+    GraphFilterFocusedProofRootOwnerApprovalGate,
+    GraphFilterFocusedProofRootOwnerApprovalMetrics,
+    GraphFilterFocusedProofRootOwnerApprovalStatus,
+    GraphFilterVisibilityFocusedProofRootOwnerApprovalGateWitness,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_COMMAND_CARD_REF,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_EXECUTION_GATE_REF,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_GATE_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_GATE_ID,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_GATE_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_PATH,
 };
 pub use automated_checks_fresh_test_products_evidence_envelope::{
     required_automated_checks_fresh_test_products_digest_fields,
