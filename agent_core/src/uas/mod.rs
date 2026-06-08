@@ -109,6 +109,7 @@ pub mod small_compressed_model_local_runtime_command_card;
 pub mod small_compressed_model_model_path_readiness_card;
 pub mod small_compressed_model_owner_approval_runtime_gate;
 pub mod small_compressed_model_runtime_probe_proof_envelope;
+pub mod synthetic_materializer_primitive_blueprint;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
 pub mod small_model_runtime_harness_dry_run;
@@ -1063,6 +1064,16 @@ pub use turbovec_real_adapter_source_pin_probe::{
     TurboVecRealAdapterSourcePinTier, TurboVecSourcePinAllowedAction,
     TurboVecSourcePinByteLedger, TurboVecSourcePinPolicy,
     TURBOVEC_REAL_ADAPTER_SOURCE_PIN_CURSOR, TURBOVEC_REAL_ADAPTER_SOURCE_PIN_NEXT_CURSOR,
+};
+pub use synthetic_materializer_primitive_blueprint::{
+    synthetic_materializer_blueprint_address, SyntheticMaterializerBlueprintError,
+    SyntheticMaterializerBlueprintMetrics, SyntheticMaterializerByteLedger,
+    SyntheticMaterializerInventoryPlan, SyntheticMaterializerPathPolicy,
+    SyntheticMaterializerPrimitiveBlueprint, SyntheticMaterializerPrimitiveBlueprintWitness,
+    SyntheticMaterializerStatus, SYNTHETIC_MATERIALIZER_APPROVAL_PHRASE,
+    SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_CURSOR,
+    SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID,
+    SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_NEXT_CURSOR,
 };
 pub use turbovec_runtime_shadow_benchmark_plan::{
     TurboVecRuntimeShadowBenchmarkPlan, TurboVecRuntimeShadowBenchmarkPlanSet,

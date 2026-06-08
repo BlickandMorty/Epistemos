@@ -648,6 +648,10 @@ name = "falsify_local_tool_use"
 path = "src/bin/falsify_local_tool_use.rs"
 
 [[bin]]
+name = "falsify_synthetic_materializer_primitive_blueprint"
+path = "src/bin/falsify_synthetic_materializer_primitive_blueprint.rs"
+
+[[bin]]
 name = "capability_ceiling_evaluation_kernel"
 path = "src/bin/capability_ceiling_evaluation_kernel.rs"
 
