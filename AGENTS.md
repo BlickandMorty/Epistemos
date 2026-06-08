@@ -169,6 +169,18 @@ Runtime policy:
   side-ladder unit:
   `gemma_qat_e2b_release_audit_blocker_repair_bridge_gate`, still downstream of
   the guard-owned release-audit automated-check cursor for product truth.
+- 2026-06-08 runtime-lane split research: Deep Research Pass 206 upgrades the
+  Gemma runtime plan into two evidence lanes. Keep E2B QAT GGUF/direct
+  `llama.cpp` as the smallest owner-approved one-token harness. Add a separate
+  Pro Gated LiteRT-LM native admission track for Gemma 4 12B because current
+  Google AI Edge and LiteRT-LM sources now claim Gemma 4 12B support,
+  OpenAI-compatible serving, and Swift package support for macOS/iOS. This is
+  source-card canon only: no LiteRT-LM package, endpoint, sidecar, route,
+  settings row, model bytes, or product capability is proven. Proposed backlog:
+  `F-GemmaRuntimeLaneSplit-SourceCard`,
+  `F-LiteRTLMGemma12BNativeAdmissionSourceCard`,
+  `F-GemmaMTPAccelerationPacket`, and
+  `F-GGUFQATForkDeltaQuarantineCard`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

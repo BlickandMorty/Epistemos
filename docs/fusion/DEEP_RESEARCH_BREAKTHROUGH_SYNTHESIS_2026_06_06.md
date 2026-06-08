@@ -25633,3 +25633,168 @@ A blocked-state witness could become another layer of paperwork if the next
 step does not connect it to the real repair path. The follow-up bridge must
 point at the focused graph-filter proof-root and release-audit automated-check
 repair, not invent a parallel product authority.
+
+## Pass 206 - Gemma Runtime Lane Split: llama.cpp Harness + LiteRT-LM Pro Candidate
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+split the Gemma runtime plan into two evidence lanes instead of treating
+"best runtime" as a single answer. Keep E2B QAT GGUF through direct
+`llama.cpp` as the smallest controllable owner-approved harness, and create a
+separate LiteRT-LM native admission track for the 12B Pro flagship because
+current Google AI Edge evidence now makes LiteRT-LM a serious local Mac lane,
+not just a mobile someday.
+
+Safest next falsifier:
+`gemma_qat_e2b_release_audit_blocker_repair_bridge_gate` remains the next
+product-truth unit because the guard-owned release-audit automated-check
+bottleneck still blocks Gemma capability. In parallel, the new research-to-build
+backlog candidate should be `F-LiteRTLMGemma12BNativeAdmissionSourceCard`: a
+metadata-only card that pins LiteRT-LM version, Swift package maturity,
+Gemma 4 12B source repo, import/serve envelope, package-size budget,
+cancellation/teardown hooks, local endpoint policy, rollback, RunEventLog,
+AnswerPacket, and no hidden sidecar/default-route authority.
+
+Best near-term code unit:
+do not hardcode Gemma as the main model. First repair the release-audit product
+rail. Then add a tiny runtime-lane source card that lets RuntimeRouter/System G
+compare two future admitted candidates:
+
+```text
+E2B QAT GGUF / llama.cpp
+  -> smallest owner-approved one-token harness
+  -> memory/timeout/cancel/teardown proof
+  -> release-audit-compatible product route
+
+12B QAT / LiteRT-LM
+  -> Pro native local endpoint candidate
+  -> Swift/package/cancellation/source-card admission
+  -> no default route until L2/L3 evidence
+```
+
+Biggest false-claim risk:
+Google and Hugging Face now make local Gemma use look easy, but public commands
+are not Epistemos proof. A model card command, a LiteRT-LM serve example, or a
+third-party GGUF fork does not prove local file availability, byte envelope,
+Swift integration, cancellation, product UI truth, release readiness, or
+System G admission.
+
+Biggest missing source:
+a current Epistemos-owned runtime artifact for any Gemma path: exact local
+model file digest, exact runtime binary/package digest, command or API envelope,
+memory samples, cancellation/teardown evidence, redacted one-token output,
+RunEventLog, AnswerPacket, and release-audit correlation.
+
+Next research query: "What is the smallest source-card and dry-run envelope
+that lets Epistemos compare `llama.cpp` E2B GGUF and LiteRT-LM 12B without
+running either runtime, opening model bytes, or creating hidden route authority?"
+
+### Current External Evidence
+
+- Google QAT release, 2026-06-05:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+  says Gemma 4 QAT provides GGUF formats ready for `llama.cpp`, compressed
+  tensors for vLLM, LiteRT-LM for optimized edge deployment, and MLX as an
+  Apple Silicon optimization lane. Canon effect: keep runtime pluralism.
+- Official Google Hugging Face E2B/E4B/12B QAT GGUF cards:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`,
+  `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`, and
+  `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf` expose
+  Q4_0 GGUF artifacts and `llama.cpp` usage examples. Canon effect: source
+  evidence for owner-manifest and digest gates, not product capability.
+- Official `llama.cpp` repository:
+  `https://github.com/ggml-org/llama.cpp` is MIT licensed, has local model and
+  `-hf` execution paths, OpenAI-compatible `llama-server`, grammar-constrained
+  output, speculative decoding support, embedding/reranking modes, and
+  `llama-bench`/perplexity tools. Canon effect: best first harness because it
+  gives the most direct command, digest, timeout, stdout/stderr, and teardown
+  envelope.
+- Official LiteRT-LM repository:
+  `https://github.com/google-ai-edge/LiteRT-LM` currently states Gemma 4 12B
+  support, an OpenAI-compatible server, Swift package support for macOS/iOS,
+  cross-platform support, hardware acceleration, multimodality, tool use, and
+  broad model support. Canon effect: upgrade LiteRT-LM from generic candidate
+  to Pro Gated native admission candidate, still not MAS/default/live.
+- Google AI Edge 12B developer posts:
+  `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/` and
+  `https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/`
+  frame Gemma 4 12B as local, agentic, multimodal, runnable on Apple Silicon
+  through Google AI Edge/LiteRT-LM, and usable as a local OpenAI-compatible
+  endpoint. Canon effect: add a Pro 12B LiteRT-LM admission rail after E2B.
+- Google MTP post:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/`
+  says MTP drafters can reduce latency via speculative decoding, with the
+  target model verifying suggested tokens and sharing KV-cache/activations.
+  Canon effect: MTP is a later acceleration packet, not first runtime proof.
+- Community/fork signals such as Unsloth dynamic GGUFs, Atomic/TurboQuant MTP
+  branches, and Reddit benchmark reports are useful quarantine references for
+  failure cases and motif mining only. Canon effect: source-card, compare, and
+  clean-room lessons; do not direct-import or treat as product proof.
+
+### Architecture Fusion
+
+```text
+Intent / MissionPacket
+  -> UAS model source card
+  -> owner manifest + byte/KV/app envelope
+  -> runtime lane source card
+  -> release-audit blocker repair bridge
+  -> owner-approved one-token or dry-run artifact
+  -> RuntimeRouter/System G admission packet
+  -> RunEventLog + AnswerPacket
+```
+
+The important change is that "best runtime" now means "best proven lane for
+the claim." E2B uses direct `llama.cpp` because it is the smallest falsifiable
+command harness. 12B gets a Pro LiteRT-LM track because current Google docs
+make a native local endpoint plausible, but the app still needs package,
+Swift, cancellation, teardown, and no-hidden-sidecar proof before any product
+route can select it.
+
+### Candidate Falsifier Backlog
+
+- `F-GemmaRuntimeLaneSplit-SourceCard`: binds E2B GGUF/llama.cpp, E4B repeat,
+  12B GGUF/LiteRT-LM, MLX Swift blocked-pending-loader, and larger/70B cold
+  assembly as separate lanes with no default mutation.
+- `F-LiteRTLMGemma12BNativeAdmissionSourceCard`: pins LiteRT-LM repo/version,
+  Swift package status, macOS/iOS support claim, Gemma 12B model source,
+  import/serve command envelope, local endpoint policy, rollback, RunEventLog,
+  AnswerPacket, and no hidden sidecar.
+- `F-GemmaMTPAccelerationPacket`: admits MTP only after target model output is
+  verified against the same fixture, final answer digest matches, acceptance
+  counters are visible, KV sharing is accounted for, and rollback disables MTP
+  without disabling the base route.
+- `F-GGUFQATForkDeltaQuarantineCard`: compares Google official Q4_0, Unsloth
+  dynamic GGUF, bartowski/mradermacher-style conversions, and any no-license
+  forks as quarantine references for accuracy/memory/failure motifs without
+  contaminating product code.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; backlog clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It stops Epistemos from arguing "MLX vs GGUF vs LiteRT" abstractly. Each lane
+gets a job: `llama.cpp` proves the smallest local harness; LiteRT-LM competes
+for native 12B Pro admission; MLX stays a future Apple Silicon lane only after
+loader proof; MTP becomes a target-verified acceleration packet later. This
+makes the large-local-model plan more likely to build because every runtime has
+a falsifier-shaped reason to exist.
+
+### Why It May Be Wrong
+
+LiteRT-LM may still be too immature for Epistemos packaging, Swift
+cancellation, sandboxing, or MAS boundaries. `llama.cpp` may be easier to
+prove but worse for the eventual native user experience. Community GGUF forks
+may fix quality gaps or introduce untracked provenance risk. The only safe
+answer is to keep all of this as source-card canon until local Epistemos
+artifacts prove bytes, runtime behavior, logs, rollback, and user-visible truth.
