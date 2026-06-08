@@ -311,6 +311,27 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > model promotion. It creates no fixture files, imports no eval framework,
 > opens no fixture/model/cache/runtime/index/provider bytes, arms no command,
 > and does not advance L2/L3 or user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 165 in the same file maps
+> `F-FirstSyntheticPayloadValuesV0`, the exact invented payload-value contract
+> required before an owner-approved materialization gate writes JSON files. It
+> defines first values for six cases: note synthesis with `ev_note_alpha`,
+> `ev_note_beta`, and `ev_note_gamma`; citation research with
+> `src_allowed_one`, `src_allowed_two`, `src_distractor`, and
+> `src_missing_trap`; structured tool JSON with `local_note.create` and
+> MAS-denied `pro_terminal.run`; cache deletion with tombstoned
+> `cache_old_delta` and active `cache_new_echo`; abstention for missing
+> `omega_source_missing` plus unavailable `mutation.promote_live_route`; and a
+> tiny latency-lane prompt class with null measured latency/runtime path. It
+> requires fully invented synthetic text, no user/vault/provider/model/
+> benchmark derivation, bounded payload bytes, zero runtime/model/provider/
+> cache/index bytes, rollback, RunEventLog, AnswerPacket, and T0-only
+> non-promotion. It rejects copied or paraphrased private/benchmark/provider/
+> model text, PII, credentials, local paths, note titles, hidden reasoning,
+> evidence misuse, MAS-denied Pro tool use, tombstone bypass, fabricated
+> abstention, latency speed claims, route wins, and product/L1/L2/L3/T4/T5/
+> large-model promotion. It creates no fixture files, imports no eval
+> framework, opens no fixture/model/cache/runtime/index/provider bytes, arms no
+> command, and does not advance L2/L3 or user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
