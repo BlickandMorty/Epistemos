@@ -129,19 +129,26 @@ Runtime policy:
   `exotic_quant_crash_safe_command_envelope_preflight_gate`.
 - 2026-06-08 Gemma-main ladder status: `F-GemmaMainFamilyPolicySourceCard`,
   `F-GemmaQATSmallLaneOwnerPathManifest`, and
-  `F-GemmaQATByteKVAppEnvelopePreflight` are landed as metadata-only T1/L1
+  `F-GemmaQATByteKVAppEnvelopePreflight`, and
+  `F-GemmaQATRedactedFirstTokenProbe` are landed as metadata-only T1/L1
   witnesses. They make Gemma the preferred Google model-family strategy, bind
   E2B/E4B QAT owner path-manifest contracts, and bind selected artifact bytes
   `12091583309`, KV floor bytes `1342177280`, runtime workspace bytes
   `1879048192`, app headroom bytes `8589934592`, and total planned envelope
-  bytes `24104069965` across E2B/E4B warmup cards. E2B is only a
-  post-owner-approval probe candidate; E4B is only a tight candidate requiring
-  a fresh memory sample. These gates open zero files, allocate zero KV/runtime/
-  app bytes, attempt zero first tokens, load zero model/runtime/provider bytes,
+  bytes `24104069965` across E2B/E4B warmup cards. They also bind four
+  redacted first-token preflight cards across GGUF/llama.cpp and LiteRT-LM,
+  owner-approval-pending status, synthetic prompt descriptors, prompt digest
+  policy, future token digest policy, one-token/context/batch bounds, 16
+  memory sample slots, cancellation, teardown, rollback, RunEventLog,
+  AnswerPacket, lane caveats, non-promotion, and 48 red-fixture rejections.
+  E2B is only a post-owner-approval probe candidate; E4B is only a tight
+  candidate requiring a fresh memory sample. These gates open zero files,
+  allocate zero KV/runtime/app bytes, attempt zero first tokens, capture zero
+  raw prompt/token/stdout/stderr bytes, load zero model/runtime/provider bytes,
   and do not prove local availability, path safety, runtime fit, Swift MLX
   loader support, LiteRT embedding, quality, product default, L2, L3, live
   dense 70B, or user-facing Gemma capability. The next Gemma side-ladder unit
-  is `gemma_qat_redacted_first_token_probe`.
+  is `gemma_qat_same_fixture_runtime_replay`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,
