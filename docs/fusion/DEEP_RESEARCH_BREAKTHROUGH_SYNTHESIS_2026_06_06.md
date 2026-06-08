@@ -16795,3 +16795,92 @@ scheme pre-action ledger, and full-row-not-replaced status.
 Next research query: "How should the owner-approved focused proof-root runner
 turn the execution-artifact parser contract into a replayable RunEventLog and
 AnswerPacket without replacing full release-audit automated checks?"
+
+## Pass 144 - Focused Proof-Root Owner Approval Runbook (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+The next bottleneck is no longer a vague "run tests" desire. It is an
+owner-gated focused Xcode proof-root execution that must obey the landed
+command-card and execution-artifact parser witnesses. Pass 144 adds the
+runbook:
+
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`
+
+This is research-to-build canon. It does not execute Xcode, open selected test
+products, inspect `.xcresult` bytes, mutate product source, or promote
+capability. It specifies the consent boundary and evidence contract for the
+future focused run.
+
+### Architecture Fusion
+
+The runbook connects three layers:
+
+- L1/T1 command shape:
+  `F-GraphFilterVisibilityFocusedProofRootCommandCard`.
+- L1/T1 post-run parser:
+  `F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`.
+- L2/L3 blocker:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+The future execution must remain proof-root-scoped under
+`artifacts/xcode/graph-filter-visibility-test-products/`, use no global
+DerivedData, capture pre/post source status, account for the scheme pre-action,
+bind selected test-product and focused `.xcresult` digests, prove nonzero
+executed tests, write RunEventLog and AnswerPacket evidence, and refuse to
+replace the full automated-check row.
+
+### Why This Helps Large Local Models
+
+The large-local-model ladder needs release/runtime proof that cannot be
+laundered through stale test products or zero-test Xcode success. Gemma QAT,
+GGUF/LiteRT/MLX lanes, TurboVec/Eidos compressed recall, KV reuse, sparse
+residency, and cold assembly become safer only when the underlying product
+evidence floor is source-bound, digest-bound, and AnswerPacket-visible. This
+runbook is not a model breakthrough by itself; it is the approval and evidence
+boundary that prevents later model wins from inheriting false release green.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: unchanged; prior command/parser witnesses remain
+  the L1 evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Model/runtime bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+a consent-bound focused proof-root execution that produces the exact
+18-field manifest and makes focused graph-filter evidence replayable without
+replacing the full release-audit row.
+
+Safest next falsifier:
+still `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`,
+because the guard and capability kernel both point there.
+
+Best near-term code unit:
+after explicit owner approval, implement or run only the focused proof-root
+execution harness that writes the manifest required by
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`.
+
+Biggest false-claim risk:
+calling the runbook, command card, or parser gate a release pass, product
+green, local-large-model proof, or live runtime capability.
+
+Biggest missing artifact:
+owner-approved focused proof-root execution output: selected product digest,
+focused `.xcresult` digest, nonzero executed-test count, source-status
+digests, scheme pre-action ledger, RunEventLog, AnswerPacket, rollback digest,
+and full-row-not-replaced status.
+
+Next research query: "What owner-approved focused proof-root runner code can
+write the 18-field manifest without mutating product source, hiding scheme
+pre-action effects, or replacing full automated-check release evidence?"

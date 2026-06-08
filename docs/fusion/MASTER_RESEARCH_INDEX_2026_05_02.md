@@ -311,6 +311,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and next cursor
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > Guard-owned product cursor remains automated checks; L2 and L3 remain red.
+> Deep Research Pass 144 adds
+> `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+> The runbook binds the explicit owner-approval boundary for the future focused
+> graph-filter proof-root Xcode run, keeps the 18-field execution manifest and
+> full automated-check-row preservation mandatory, and runs no Xcode command.
+> L1 guard cursor, L2 route, L3 release readiness, and large-local-model
+> product capability remain unchanged.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4947,6 +4954,27 @@ source, opens zero selected test-product or `.xcresult` bytes, loads no
 app/model/runtime/provider bytes, and does not promote L2/L3/T4. The next proof
 remains an owner-approved focused proof-root run, then the full
 `xcodebuild_test` row, then the five-row automated-check closure.
+
+### §28.17D Focused proof-root owner approval runbook (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 144 and
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
+
+Pass 144 defines the owner-approval boundary for the future focused
+graph-filter proof-root Xcode run. It connects
+`F-GraphFilterVisibilityFocusedProofRootCommandCard`,
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`, and the
+guard-owned bottleneck
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+Promotion truth: this is T0 runbook/canon only. It runs no Xcode command,
+opens no selected test product or `.xcresult`, changes no product source, loads
+no app/model/runtime bytes, and does not promote L1/L2/L3/T4. The future
+owner-approved run must still produce selected product digest, focused
+`.xcresult` digest, nonzero executed-test count, source-status digests, scheme
+pre-action ledger, RunEventLog, AnswerPacket, rollback, and full-row-not-
+replaced status before any focused evidence can count.
 
 ### §28.18 KV cache identity, salt, and offload proof packet (added 2026-06-07)
 
