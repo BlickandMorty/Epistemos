@@ -5852,6 +5852,48 @@ Correct phrasing: "Gemma E2B/E4B redacted first-token preflight is L1
 metadata-proofed; no Gemma prompt, token, model file, runtime, or product route
 has been opened, captured, loaded, or promoted."
 
+### 2026-06-08 - F-GemmaQATSameFixtureRuntimeReplay landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATSameFixtureRuntimeReplay` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup lanes. It adds
+`agent_core/src/uas/gemma_qat_same_fixture_runtime_replay.rs`,
+`agent_core/src/bin/falsify_gemma_qat_same_fixture_runtime_replay.rs`,
+`Tools/falsifiers/f_gemma_qat_same_fixture_runtime_replay.sh`, the artifact
+`artifacts/falsifiers/gemma_qat_same_fixture_runtime_replay/result.json`, and
+the witness doc
+`docs/falsifiers/F-GemmaQATSameFixtureRuntimeReplay_2026_06_08.md`.
+
+The witness accepts 4 same-fixture replay cards across E2B/E4B and GGUF/LiteRT
+lanes and rejects 45 red fixtures. It binds one replay fixture,
+source/search/body freshness, prompt/tokenizer/chat-template/tool-schema
+boundaries, memory sampling, one-token replay bounds, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, no cache reuse before lineage, and
+non-promotion. It captures zero raw prompt, raw token, tool JSON, cache, or
+local-file bytes; executes zero commands; runs zero benchmarks; loads zero
+model/runtime/provider bytes; and does not claim quality or benchmark fit.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATSameFixtureRuntimeReplay` advances the
+  Gemma E2B/E4B side-ladder to T1/L1 metadata-only same-fixture replay proof
+  when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, compared, or user-surfaced, and no quality,
+  Swift MLX loader, LiteRT embedding, RuntimeRouter/System G admission, or
+  live-main-model claim promoted.
+
+Correct phrasing: "Gemma E2B/E4B same-fixture replay is L1 metadata-proofed;
+no Gemma model, prompt, token, cache, benchmark, runtime, quality result, or
+product route has been opened, captured, loaded, compared, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

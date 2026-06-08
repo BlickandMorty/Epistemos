@@ -893,8 +893,15 @@ ladder also has three metadata-only T1/L1 gates landed:
   teardown, rollback, RunEventLog, AnswerPacket, zero raw prompt/token/stdout/
   stderr bytes, zero model/runtime/provider bytes, and no L2/L3/user-facing
   Gemma claim.
+- `F-GemmaQATSameFixtureRuntimeReplay`: four E2B/E4B GGUF/LiteRT same-fixture
+  replay cards, one replay fixture, source/search/body freshness, prompt/
+  tokenizer/chat-template/tool-schema boundaries, memory sampling,
+  one-token replay bounds, no cache reuse, cancellation, rollback, RunEventLog,
+  AnswerPacket, abstention, zero raw prompt/token/tool/cache/file bytes, zero
+  model/runtime/provider bytes, zero benchmarks, and no L2/L3/user-facing
+  Gemma claim.
 
-The current Gemma side-ladder next unit is `gemma_qat_same_fixture_runtime_replay`.
+The current Gemma side-ladder next unit is `gemma_qat_held_out_quality_replay_packet`.
 
 The current runtime-plural next unit is
 `runtime_plural_qat_lane_tournament_owner_approval_gate`. The guard-owned

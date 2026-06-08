@@ -211,6 +211,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > raw token, stdout, or stderr bytes, loads zero model/runtime/provider bytes,
 > and makes no MAS/L2/L3/live-main-model claim. Next Gemma unit:
 > `F-GemmaQATSameFixtureRuntimeReplay`.
+> Current addendum: Deep Research Pass 184 lands
+> `F-GemmaQATSameFixtureRuntimeReplay` as the metadata-only T1/L1 bridge from
+> Gemma redacted first-token contracts into comparable replay evidence. It
+> binds four E2B/E4B GGUF/LiteRT cards to one fixture, source/search/body
+> freshness, prompt/tokenizer/chat-template/tool-schema boundaries, memory
+> sampling, one-token replay bounds, cancellation, rollback, RunEventLog,
+> AnswerPacket, abstention, no cache reuse before lineage, non-promotion, and
+> 45 red-fixture rejections. Artifact:
+> `artifacts/falsifiers/gemma_qat_same_fixture_runtime_replay/result.json`. It
+> opens zero paths/files, executes zero commands, captures zero raw prompt,
+> raw token, tool, cache, or local-file bytes, loads zero model/runtime/provider
+> bytes, runs zero benchmarks, and makes no MAS/L2/L3/live-main-model claim.
+> Next Gemma unit: `F-GemmaQATHeldOutQualityReplayPacket`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
