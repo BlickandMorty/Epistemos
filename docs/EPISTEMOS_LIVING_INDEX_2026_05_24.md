@@ -549,6 +549,29 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   user-facing large-local-model capability remains red; no fixture
   materialization, eval, model load, product route, release readiness, live
   dense 70B, SSD-as-RAM, or hidden route authority claim is promoted.
+- Updated **2026-06-08** · `F-JcsNumberAndUtf16SortOracleProbe` landed as a
+  real metadata-only L1/T1 side-ladder witness. North-star sentence: Epistemos
+  is a local cognitive substrate where every meaningful object has an address,
+  plane, budget, status, and witness; MAS ships the safe floor, Pro contains
+  the gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. The probe consumes `F-JcsCanonicalJsonWriterParityGate` at upstream
+  address
+  `sha256:2b7f5aa4ec88740c94d97b8d2d87e606e9d7c09391eb57ccb647eca2e230c5eb`,
+  binds RFC 8785 Appendix B number rows and Section 3.2.3 UTF-16
+  property-sort source truth, records 26 number samples, 24 finite rows, 2
+  rejected NaN/Infinity rows, 7 UTF-16 sort matches, minus-zero normalization,
+  UTF-8/locale sort non-authority, 30 rejected red fixtures, zero fixture/
+  schema/model/runtime/provider/cache/index bytes, zero armed commands,
+  deterministic witness address
+  `sha256:036721ee1d6f3291de7c723759928401681ee7c6a44ccdfc80aa278dfb71412a`,
+  and next side-ladder `jcs_fixture_writer_fail_closed_dry_run`. This advances
+  only canonical fixture-identity L1 evidence. The guard-owned product cursor
+  remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3
+  user-facing large-local-model capability remains red; no fixture
+  materialization, eval, model load, product route, release readiness, live
+  dense 70B, SSD-as-RAM, or hidden route authority claim is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

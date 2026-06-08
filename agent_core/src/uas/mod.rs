@@ -70,6 +70,7 @@ pub mod graph_filter_visibility_release_blocker_card;
 pub mod graph_filter_visibility_test_products_command_spec;
 pub mod hardware_tiered_model_catalog_source_card;
 pub mod jcs_canonical_json_writer_parity_gate;
+pub mod jcs_number_and_utf16_sort_oracle_probe;
 pub mod kind;
 pub mod kivi_asymmetric_kv_stability_source_card;
 pub mod kv_cache_identity_salt_offload_proof_packet;
@@ -1096,6 +1097,14 @@ pub use jcs_canonical_json_writer_parity_gate::{
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_CURSOR,
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_ID,
     JCS_CANONICAL_JSON_WRITER_PARITY_GATE_NEXT_CURSOR,
+};
+pub use jcs_number_and_utf16_sort_oracle_probe::{
+    jcs_number_and_utf16_sort_oracle_address, JcsNumberAndUtf16SortOracleProbe,
+    JcsNumberAndUtf16SortOracleWitness, JcsNumberOracleSample, JcsNumberUtf16OracleByteLedger,
+    JcsNumberUtf16OracleError, JcsNumberUtf16OracleMetrics, JcsNumberUtf16OraclePolicy,
+    JcsNumberUtf16OracleSourceCard, JcsNumberUtf16OracleStatus, JcsUtf16SortSample,
+    JCS_NUMBER_AND_UTF16_SORT_ORACLE_PROBE_CURSOR, JCS_NUMBER_AND_UTF16_SORT_ORACLE_PROBE_ID,
+    JCS_NUMBER_AND_UTF16_SORT_ORACLE_PROBE_NEXT_CURSOR,
 };
 pub use turbovec_runtime_shadow_benchmark_plan::{
     TurboVecRuntimeShadowBenchmarkPlan, TurboVecRuntimeShadowBenchmarkPlanSet,
