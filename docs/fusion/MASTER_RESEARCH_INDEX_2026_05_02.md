@@ -182,6 +182,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > opens/hashes zero files, executes zero commands, loads zero model/runtime/
 > provider bytes, and makes no MAS/L2/L3/live-main-model claim. Next Gemma unit:
 > `F-GemmaQATByteKVAppEnvelopePreflight`.
+> Current addendum: Deep Research Pass 182 lands
+> `F-GemmaQATByteKVAppEnvelopePreflight` as the metadata-only T1/L1 bridge from
+> Gemma E2B/E4B owner-path manifest contracts into byte/KV/app envelope
+> preflight. It binds selected artifact bytes (`12091583309` total), KV cache
+> floors (`1342177280` total), runtime workspace (`1879048192` total), app
+> headroom (`8589934592` total), total planned envelope bytes
+> (`24104069965` across both warmup cards), owner approval, fresh memory sample
+> caveats, redacted-first-token requirement, cancellation, rollback,
+> RunEventLog, AnswerPacket, abstention, SovereignGate, and compatibility
+> fences. Artifact:
+> `artifacts/falsifiers/gemma_qat_byte_kv_app_envelope_preflight/result.json`.
+> It opens zero paths/files, allocates zero KV/runtime/app bytes, attempts zero
+> first tokens, loads zero model/runtime/provider bytes, and makes no
+> MAS/L2/L3/live-main-model claim. Next Gemma unit:
+> `F-GemmaQATRedactedFirstTokenProbe`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

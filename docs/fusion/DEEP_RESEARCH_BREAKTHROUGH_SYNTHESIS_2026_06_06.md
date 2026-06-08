@@ -22922,3 +22922,123 @@ owner-approved local path manifests and post-approval file digests for E2B/E4B.
 Next research query: "What byte/KV/app-headroom envelope should
 F-GemmaQATByteKVAppEnvelopePreflight require for E2B/E4B on Jojo's M2 Pro
 16 GB floor before any redacted first-token probe can run?"
+
+## Deep Research Pass 182 - Gemma Byte/KV/App Envelope Preflight Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 182 implements the answer to Pass 181's next query:
+`F-GemmaQATByteKVAppEnvelopePreflight` is now a metadata-only T1/L1 witness for
+the Gemma 4 E2B/E4B QAT byte/KV/app envelope.
+
+This is the next concrete movement toward getting Gemma working locally because
+it makes the future runtime step prove byte math, fresh memory sampling,
+redacted first-token behavior, cancellation, rollback, RunEventLog,
+AnswerPacket, and abstention before any command can run.
+
+### Landed Artifact
+
+| Surface | Value |
+|---|---|
+| Primitive | `agent_core/src/uas/gemma_qat_byte_kv_app_envelope_preflight.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gemma_qat_byte_kv_app_envelope_preflight.rs` |
+| Script | `Tools/falsifiers/f_gemma_qat_byte_kv_app_envelope_preflight.sh` |
+| Artifact root | `artifacts/falsifiers/gemma_qat_byte_kv_app_envelope_preflight/` |
+| Witness doc | `docs/falsifiers/F-GemmaQATByteKVAppEnvelopePreflight_2026_06_08.md` |
+| Axis contract | `agent_core/src/falsifier_artifacts/axes.rs::GEMMA_QAT_BYTE_KV_APP_ENVELOPE_PREFLIGHT_AXES` |
+
+### Mechanism
+
+The witness consumes `F-GemmaQATSmallLaneOwnerPathManifest` and accepts two
+envelope cards:
+
+- `google/gemma-4-E2B-it-qat-q4_0-gguf`.
+- `google/gemma-4-E4B-it-qat-q4_0-gguf`.
+
+The artifact binds:
+
+- selected artifact bytes total: `12091583309`;
+- KV cache floor bytes total: `1342177280`;
+- runtime workspace bytes total: `1879048192`;
+- app headroom bytes total: `8589934592`;
+- planned total envelope bytes: `24104069965`;
+- owner approval, fresh memory sample, and redacted-first-token requirements;
+- cancellation, rollback, RunEventLog, AnswerPacket, abstention,
+  SovereignGate, and compatibility-fence refs.
+
+E2B is a post-owner-approval probe candidate. E4B is a tight probe candidate
+that still requires a fresh memory sample. Both remain L1 metadata only.
+
+The artifact rejects 33 red fixtures, including 12B insertion, duplicate model
+IDs, wrong selected bytes, selected-bytes-as-resident claims, missing KV cache,
+runtime workspace, or app headroom, envelope mismatch, E4B missing fresh memory
+sample, M2 Pro fit-claim caveat removal, owner approval laundering,
+first-token claims/attempts, bad proof refs, owner manifest/local artifact/path
+claims, file/hash/command/runtime attempts, model/runtime/provider bytes,
+benchmark runs, route mutation, hidden authority, MAS/L2/L3/product claims,
+live dense 70B, SSD-as-RAM, metadata overflow, bad upstream refs, missing
+LiteRT lane, and quality claims.
+
+### Why This May Be A Breakthrough
+
+Large local models fail productization when "download size", "QAT compressed",
+"fits in theory", and "safe to run in the app" collapse into one claim. This
+gate forces those apart. It lets Epistemos keep Gemma as the main-family target
+while requiring future proof for local path safety, resident memory, KV
+allocation, runtime workspace, cancellation, first-token behavior, and
+AnswerPacket visibility.
+
+### Why It May Be Wrong
+
+The envelope is conservative and metadata-only. The actual best lane may be
+LiteRT packaging, GGUF/llama.cpp, or a future Swift MLX loader, and the byte
+plan may need to change after real memory samples. It also does not prove
+tokenizer/chat-template correctness, tool JSON reliability, quality, or that
+12B can be a comfortable local Pro flagship on Jojo's current Mac.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma QAT preferred-family research remains active.
+- T1/L1 architecture proof: `F-GemmaQATByteKVAppEnvelopePreflight` is landed
+  when its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes read: zero.
+- File open/stat/hash/symlink attempts: zero.
+- KV/runtime/app bytes allocated: zero.
+- Model/runtime/provider bytes loaded: zero.
+- First-token attempts: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+Gemma byte/KV/app envelopes as the safety bridge between owner path manifests
+and the first redacted runtime token.
+
+Safest next falsifier:
+`F-GemmaQATRedactedFirstTokenProbe`, remaining owner-approved, redacted,
+one-token, cancellable, rollback-bound, RunEventLog-backed,
+AnswerPacket-visible, and non-promoting.
+
+Best near-term code unit:
+build the redacted first-token preflight/probe only after owner approval and a
+fresh memory sample contract are explicit.
+
+Biggest false-claim risk:
+treating E2B/E4B byte-envelope candidacy as proof of fit, first-token success,
+quality, or Gemma as the live main app model.
+
+Biggest missing source:
+owner-approved local path manifests and fresh memory samples for E2B/E4B under
+the selected GGUF or LiteRT lane.
+
+Next research query: "What exact redacted prompt digest, command envelope,
+memory sampling cadence, cancellation timeout, teardown proof, RunEventLog, and
+AnswerPacket fields should F-GemmaQATRedactedFirstTokenProbe require for the
+first Gemma E2B/E4B local runtime token?"

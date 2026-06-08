@@ -5766,6 +5766,49 @@ Layer truth:
 Correct phrasing: "Gemma E2B/E4B owner-path manifest contract is L1
 metadata-proofed; no Gemma path or runtime has been approved or opened."
 
+### 2026-06-08 - F-GemmaQATByteKVAppEnvelopePreflight landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATByteKVAppEnvelopePreflight` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the Gemma 4 E2B/E4B QAT warmup lanes. It adds
+`agent_core/src/uas/gemma_qat_byte_kv_app_envelope_preflight.rs`,
+`agent_core/src/bin/falsify_gemma_qat_byte_kv_app_envelope_preflight.rs`,
+`Tools/falsifiers/f_gemma_qat_byte_kv_app_envelope_preflight.sh`, the artifact
+`artifacts/falsifiers/gemma_qat_byte_kv_app_envelope_preflight/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATByteKVAppEnvelopePreflight_2026_06_08.md`.
+
+The witness accepts 2 envelope cards and rejects 33 red fixtures. It binds
+`12091583309` selected artifact bytes, `1342177280` KV cache floor bytes,
+`1879048192` runtime workspace bytes, `8589934592` app headroom bytes, and
+`24104069965` total planned envelope bytes across the E2B/E4B warmup cards.
+It also binds owner-approval, fresh-memory-sample, redacted-first-token,
+cancellation, rollback, RunEventLog, AnswerPacket, abstention, SovereignGate,
+and compatibility-fence refs. It opens zero files, canonicalizes zero paths,
+allocates zero KV/runtime/app bytes, executes zero commands, attempts zero
+first tokens, and loads zero model/runtime/provider bytes.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATByteKVAppEnvelopePreflight` advances the
+  Gemma E2B/E4B side-ladder to T1/L1 metadata-only byte/KV/app envelope proof
+  when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, canonicalized, opened, hashed, loaded, or user-surfaced, and no
+  first-token, quality, Swift MLX loader, LiteRT embedding, or live-main-model
+  claim promoted.
+
+Correct phrasing: "Gemma E2B/E4B byte/KV/app envelopes are L1
+metadata-proofed; no Gemma file or runtime has been opened, loaded, or
+promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

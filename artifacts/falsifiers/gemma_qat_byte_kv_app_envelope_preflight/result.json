@@ -1,0 +1,405 @@
+{
+  "falsifier_id": "F-GemmaQATByteKVAppEnvelopePreflight",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_byte_kv_app_envelope_preflight.sh",
+  "command_digest": "sha256:16d4c65161793961d2a1dab98a08957f7368ca8cfa0d551dac2d258f27b76688",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "a3b8d5e59f1d9fb29100108da9c162f59ce8bec0",
+  "fixture_id": "gemma_qat_byte_kv_app_envelope_preflight_v1",
+  "timestamp_utc": "2026-06-08T15:24:16Z",
+  "result_digest": "sha256:3d7667c758fa687c21964169440b8ad4ccaab8b8832017658652c211d6fff86f",
+  "measurements": {
+    "accepted_e2b_e4b_envelope_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bytes_total": {
+      "value": 8589934592,
+      "unit": "bytes"
+    },
+    "command_execution_count_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "envelope_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "envelope_ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_path_command_runtime_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_attempts_total": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_byte_kv_app_envelope_address": {
+      "value": "gemma_qat_byte_kv_app_envelope_preflight:fd0acba9dd3929280e3d8965110a9b34f5961ce0eca83c9f98390672def8cea4@1779212000000",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "kv_cache_floor_bytes_total": {
+      "value": 1342177280,
+      "unit": "bytes"
+    },
+    "kv_runtime_app_headroom_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_file_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "m2pro_candidate_not_fit_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "value": 128000,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_redacted_first_token_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "only_e2b_e4b_small_lanes_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_and_redacted_probe_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "planned_total_envelope_bytes": {
+      "value": 24104069965,
+      "unit": "bytes"
+    },
+    "probe_candidate_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "proof_surfaces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_workspace_bytes_total": {
+      "value": 1879048192,
+      "unit": "bytes"
+    },
+    "selected_artifact_bytes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_artifact_bytes_total": {
+      "value": 12091583309,
+      "unit": "bytes"
+    },
+    "tight_candidate_count": {
+      "value": 1,
+      "unit": "cards"
+    },
+    "total_envelope_recomputed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_manifest_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_benchmark_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_e2b_e4b_envelope_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_headroom_bytes_total": {
+      "operator": "==",
+      "value": 8589934592,
+      "unit": "bytes"
+    },
+    "command_execution_count_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "envelope_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "envelope_ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_path_command_runtime_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "first_token_attempts_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_byte_kv_app_envelope_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "kv_cache_floor_bytes_total": {
+      "operator": "==",
+      "value": 1342177280,
+      "unit": "bytes"
+    },
+    "kv_runtime_app_headroom_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "litert_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_file_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "m2pro_candidate_not_fit_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "operator": "<=",
+      "value": 327680,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_redacted_first_token_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_70b_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "only_e2b_e4b_small_lanes_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_and_redacted_probe_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "planned_total_envelope_bytes": {
+      "operator": "==",
+      "value": 24104069965,
+      "unit": "bytes"
+    },
+    "probe_candidate_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "proof_surfaces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 31,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_workspace_bytes_total": {
+      "operator": "==",
+      "value": 1879048192,
+      "unit": "bytes"
+    },
+    "selected_artifact_bytes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selected_artifact_bytes_total": {
+      "operator": "==",
+      "value": 12091583309,
+      "unit": "bytes"
+    },
+    "tight_candidate_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "cards"
+    },
+    "total_envelope_recomputed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_manifest_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_benchmark_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_e2b_e4b_envelope_pack_present": true,
+    "app_headroom_bytes_total": true,
+    "command_execution_count_total": true,
+    "envelope_card_count": true,
+    "envelope_ledger_address_deterministic": true,
+    "file_path_command_runtime_blocked": true,
+    "first_token_attempts_total": true,
+    "gemma_byte_kv_app_envelope_address": true,
+    "gguf_lane_count": true,
+    "kv_cache_floor_bytes_total": true,
+    "kv_runtime_app_headroom_bound": true,
+    "litert_lane_count": true,
+    "local_file_bytes_read_total": true,
+    "m2pro_candidate_not_fit_claim": true,
+    "metadata_bytes_read_total": true,
+    "model_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_mas_l2_l3_product_or_70b_claim": true,
+    "no_route_mutation_or_hidden_authority": true,
+    "only_e2b_e4b_small_lanes_allowed": true,
+    "owner_approval_and_redacted_probe_required": true,
+    "owner_manifest_bytes_read_total": true,
+    "planned_total_envelope_bytes": true,
+    "probe_candidate_count": true,
+    "proof_surfaces_bound": true,
+    "provider_calls_made_total": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded_total": true,
+    "runtime_workspace_bytes_total": true,
+    "selected_artifact_bytes_bound": true,
+    "selected_artifact_bytes_total": true,
+    "tight_candidate_count": true,
+    "total_envelope_recomputed": true,
+    "upstream_gemma_manifest_pass": true,
+    "zero_model_runtime_provider_benchmark_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATByteKVAppEnvelopePreflight: binds Gemma 4 E2B/E4B QAT selected artifact bytes, KV cache floors, runtime workspace, app headroom, fresh-memory-sample caveats, cancellation, rollback, RunEventLog, AnswerPacket, abstention, SovereignGate, and the next redacted first-token probe while opening zero paths/files, arming zero commands, loading zero model/runtime/provider bytes, allocating zero KV/workspace bytes, and making no MAS/L2/L3/user-facing or 70B live claim. It does not prove local artifact availability, path safety, first token, quality, Swift MLX loader support, LiteRT embedding, or Gemma as the live default app model."
+}
