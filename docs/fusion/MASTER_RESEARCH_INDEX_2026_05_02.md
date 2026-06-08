@@ -423,6 +423,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > only the synthetic materializer L1 side-ladder; the guard-owned product
 > cursor, L2 red route, and L3 user-facing large-model red status remain
 > unchanged.
+> Current addendum: `F-JcsCanonicalJsonWriterParityGate` is now landed as a
+> metadata-only L1/T1 side-ladder witness at
+> `artifacts/falsifiers/jcs_canonical_json_writer_parity_gate/result.json`.
+> It consumes `F-SyntheticPayloadMaterializationGateV0`, binds upstream address
+> `sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d`,
+> RFC 8785 and JSON Schema source refs, local `serde_json`/TriFusion writer
+> gaps, I-JSON, duplicate-key, invalid-Unicode, NaN/Infinity, no-whitespace,
+> recursive-sort, array-order, UTF-8, stable digest-map, Draft 2020-12,
+> ECMAScript-number-oracle, and UTF-16-property-sort-oracle requirements, 16
+> positive samples, 2 blocked oracles, 33 rejected red fixtures, zero fixture/
+> schema/model/runtime/provider/cache/index bytes, zero armed commands,
+> deterministic address
+> `sha256:2b7f5aa4ec88740c94d97b8d2d87e606e9d7c09391eb57ccb647eca2e230c5eb`,
+> and next side-ladder `jcs_number_and_utf16_sort_oracle_probe`. This advances
+> only fixture-identity L1 evidence; materialization remains blocked and L2/L3
+> remain red.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

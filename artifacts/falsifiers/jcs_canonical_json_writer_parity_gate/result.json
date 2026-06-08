@@ -1,0 +1,215 @@
+{
+  "falsifier_id": "F-JcsCanonicalJsonWriterParityGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_jcs_canonical_json_writer_parity_gate.sh",
+  "command_digest": "sha256:14b0b527a6ec057de867ad26b3928eece6268a612a9c84daefe83862074a02be",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "e7abcb59696d3d78ae39fef1f1275136226f63f9",
+  "fixture_id": "jcs_canonical_json_writer_parity_gate_v1",
+  "timestamp_utc": "2026-06-08T11:14:59Z",
+  "result_digest": "sha256:889cb90472c531412b6d87cd4fa591c264e607eafd6ee19a896617f8b2402e27",
+  "measurements": {
+    "blocked_oracle_count": {
+      "value": 2,
+      "unit": "oracles"
+    },
+    "fixture_files_written": {
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "string"
+    },
+    "jcs_policy_requirements_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_writer_gap_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "materialization_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "jcs_number_and_utf16_sort_oracle_probe",
+      "unit": "string"
+    },
+    "positive_sample_count": {
+      "value": 16,
+      "unit": "samples"
+    },
+    "primary_source_card_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 33,
+      "unit": "fixtures"
+    },
+    "sample_matrix_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_materialization_gate_address": {
+      "value": "sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d",
+      "unit": "string"
+    },
+    "upstream_materialization_gate_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "value": "sha256:2b7f5aa4ec88740c94d97b8d2d87e606e9d7c09391eb57ccb647eca2e230c5eb",
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "blocked_oracle_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "oracles"
+    },
+    "fixture_files_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "jcs_policy_requirements_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_writer_gap_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "materialization_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "positive_sample_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "samples"
+    },
+    "primary_source_card_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_boundary_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 24,
+      "unit": "fixtures"
+    },
+    "sample_matrix_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_materialization_gate_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "upstream_materialization_gate_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "blocked_oracle_count": true,
+    "fixture_files_written": true,
+    "guard_owned_product_cursor_preserved": true,
+    "jcs_policy_requirements_bound": true,
+    "local_writer_gap_bound": true,
+    "materialization_blocked": true,
+    "next_research_to_build_unit": true,
+    "positive_sample_count": true,
+    "primary_source_card_bound": true,
+    "promotion_boundary_preserved": true,
+    "red_fixture_rejection_count": true,
+    "sample_matrix_bound": true,
+    "upstream_materialization_gate_address": true,
+    "upstream_materialization_gate_bound": true,
+    "witness_address": true,
+    "witness_header_bound": true,
+    "zero_byte_and_command_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Metadata-only T1/L1 side-ladder witness for the JCS canonical JSON writer parity gate. It consumes the synthetic payload materialization gate, binds RFC 8785/JCS and JSON Schema source requirements, records local serde_json/TriFusion writer gaps, blocks fixture materialization until ECMAScript number and UTF-16 sort oracle proof exists, writes zero fixture files, opens zero model/runtime/provider/cache/index bytes, arms zero commands, preserves the guard-owned small-model product cursor, and makes no L2/L3/T4/T5 or large-local-model capability claim."
+}

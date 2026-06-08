@@ -21505,3 +21505,106 @@ Next research query: "What minimal Epistemos-owned canonical JSON writer and
 parity fixture set should F-JcsCanonicalJsonWriterParityGate use so same-fixture
 payload identity cannot drift across serde_json, JCS, schema, Unicode, and
 number edge cases?"
+
+## Deep Research Pass 171 - JCS Canonical JSON Writer Parity Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+`F-JcsCanonicalJsonWriterParityGate` is now a real metadata-only L1/T1
+side-ladder witness. It consumes the landed synthetic payload materialization
+gate and prevents future same-fixture bytes from materializing until canonical
+JSON identity is safer than a local `serde_json` convenience call.
+
+The important nuance is that this pass does not claim full JCS writer support.
+It binds RFC 8785, JSON Schema, local writer refs, positive sample counts, red
+fixtures, and two explicit blockers: ECMAScript number serialization and UTF-16
+property sorting. This is the correct research-to-build posture: build the
+gate, name the missing oracle, and keep materialization blocked.
+
+### Landed Code And Artifact
+
+| Surface | Path |
+| --- | --- |
+| UAS primitive | `agent_core/src/uas/jcs_canonical_json_writer_parity_gate.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_jcs_canonical_json_writer_parity_gate.rs` |
+| Shell wrapper | `Tools/falsifiers/f_jcs_canonical_json_writer_parity_gate.sh` |
+| Artifact | `artifacts/falsifiers/jcs_canonical_json_writer_parity_gate/result.json` |
+| Witness doc | `docs/falsifiers/F-JcsCanonicalJsonWriterParityGate_2026_06_08.md` |
+
+Artifact facts:
+
+- upstream materialization gate:
+  `sha256:0b528533a6e531312926fd634328f212ddd849554d1805d3c60528525eb0b32d`
+- witness address:
+  `sha256:2b7f5aa4ec88740c94d97b8d2d87e606e9d7c09391eb57ccb647eca2e230c5eb`
+- positive samples: 16
+- blocked oracles: 2
+- red fixtures rejected: 33
+- next side-ladder: `jcs_number_and_utf16_sort_oracle_probe`
+- guard-owned product cursor:
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+
+### Source Truth
+
+RFC 8785 says JCS is built from I-JSON constraints, ECMAScript primitive
+serialization, deterministic property sorting, and UTF-8 output. It requires
+no duplicate property names, Unicode strings expressible as Unicode, number
+data expressible as IEEE 754 double precision, no whitespace between JSON
+tokens, error termination for invalid Unicode and NaN/Infinity, recursive
+object property sorting, unchanged array order, and property-name sorting by
+UTF-16 code units.
+
+Local refs:
+
+- `agent_core/src/tri_fusion/mod.rs:1251`
+- `agent_core/src/falsifier_artifacts/mod.rs:256`
+- `agent_core/schemas/README.md`
+
+External refs:
+
+- https://www.rfc-editor.org/rfc/rfc8785
+- https://json-schema.org/specification
+
+### Promotion Truth
+
+- T0 research/canon: advanced into landed T1 evidence.
+- T1/L1 architecture proof: advanced for fixture identity safety.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture files created: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`jcs_number_and_utf16_sort_oracle_probe`, because it is the missing proof that
+allows same-fixture identity to move closer to owner-approved materialization.
+
+Safest next falsifier:
+metadata-only `F-JcsNumberAndUtf16SortOracleProbe` that pins RFC 8785 Appendix
+B-style number samples and UTF-16 property ordering before any fixture write.
+
+Best near-term code unit:
+add a Rust source-card/oracle gate for number serialization and UTF-16 sorting
+that compares local writer output against pinned expected bytes without
+creating fixture files.
+
+Biggest false-claim risk:
+mistaking this gate for a completed canonical JSON implementation. It is a
+blocker witness with explicit local writer gaps.
+
+Biggest missing source:
+an Epistemos-owned parity oracle for ECMAScript number serialization and
+UTF-16 property sorting.
+
+Next research query: "Which pinned number and UTF-16 property-order samples
+should F-JcsNumberAndUtf16SortOracleProbe use so Epistemos can distinguish a
+safe fixture identity writer from ordinary serde_json or TriFusion canonical
+helpers?"
