@@ -6967,6 +6967,39 @@ Layer truth:
 Correct phrasing: "Forks are now mined through a quarantine delta card; no fork
 is trusted as product runtime or route authority."
 
+### 2026-06-08 — GGUF/QAT Fork Delta Same-Fixture Replay Schema (Pass 209, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 209 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` defines
+`F-GGUFQATForkDeltaSameFixtureReplaySchema` as the replay contract required
+before official Google QAT Q4_0, Unsloth Dynamic 2.0 / UD-Q* GGUFs,
+Atomic/TurboQuant assistant/KV forks, community conversions, or clean-room
+rewrites can move from quarantine motif to candidate route packet. The packet
+must bind baseline source card, fork source card, selected-byte budget, runtime
+digest, tokenizer digest, chat-template digest, prompt/scorer digest, final
+output digest, structured-output/tool-call/citation validity, memory and
+latency counters, timeout/cancel/teardown, rollback, RunEventLog, AnswerPacket,
+abstention, and no route/default/settings mutation.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no fork, GGUF, LiteRT-LM,
+  MLX, model bytes, route priority, settings row, first token, or product
+  capability was activated.
+
+Correct phrasing: "Fork deltas now have a same-fixture replay schema; Gemma is
+still not live, default, L2/L3, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

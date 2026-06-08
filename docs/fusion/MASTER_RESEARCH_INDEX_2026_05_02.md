@@ -531,6 +531,19 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > rollback, RunEventLog, AnswerPacket, abstention, and no route/default
 > mutation before RuntimeRouter/System G can cite it. T0 only; no runtime/model
 > bytes or product capability.
+> Current addendum: Deep Research Pass 209 defines
+> `F-GGUFQATForkDeltaSameFixtureReplaySchema` as the evidence packet required
+> before a fork delta can move from quarantine motif to candidate route packet.
+> Official Google QAT Q4_0, Unsloth Dynamic 2.0 / UD-Q*, Atomic/TurboQuant
+> assistant/KV forks, community conversions, and clean-room rewrites must bind
+> baseline source card, fork source card, selected-byte budget, runtime digest,
+> tokenizer and chat-template digests, prompt/scorer digest, final output
+> digest, structured-output/tool-call/citation validity, memory/latency
+> counters, timeout/cancel/teardown, rollback, RunEventLog, AnswerPacket,
+> abstention, and no route/default/settings mutation. Google Gemma 4 QAT,
+> llama.cpp, LiteRT-LM, LightEval, and lm-evaluation-harness are source-card
+> and replay-motif evidence only. T0 only; no runtime/model bytes or product
+> capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

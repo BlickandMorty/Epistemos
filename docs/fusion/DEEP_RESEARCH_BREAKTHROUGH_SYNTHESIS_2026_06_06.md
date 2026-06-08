@@ -26097,3 +26097,138 @@ quantization may improve one task and break tool calling, multimodal parsing,
 or long context. Community claims may be stale within days. The card must
 therefore stay close to exact source pins, same-fixture replay, and
 fail-closed product routing.
+
+## Pass 209 - GGUF/QAT Fork Delta Same-Fixture Replay Schema
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make fork deltas compete through deterministic replay instead of popularity,
+bench screenshots, or runtime-lane hype. `F-GGUFQATForkDeltaSameFixtureReplaySchema`
+should define the evidence packet that lets official Google QAT Q4_0, Unsloth
+Dynamic 2.0 / UD-Q* GGUFs, Atomic/TurboQuant assistant/KV forks, community
+conversions, and future clean-room rewrites be compared without loading model
+bytes in this pass and without letting any fork mutate RuntimeRouter/System G.
+
+Safest next falsifier:
+`F-GGUFQATForkDeltaSameFixtureReplaySchema`. It should be metadata-only first
+and consumed by `F-GGUFQATForkDeltaQuarantineCard`. The schema must require the
+official baseline, fork source card, tokenizer/template identity, prompt fixture
+digest, runtime digest, output digest, structured-output validity, tool-call
+grammar validity, memory/latency counters, rollback, RunEventLog, AnswerPacket,
+abstention, and no route/default mutation.
+
+Best near-term code unit:
+build a Rust UAS replay-schema primitive before any forked Gemma GGUF can become
+a candidate route packet. The falsifier should reject missing official baseline,
+missing source revision, missing selected-byte budget, tokenizer mismatch,
+chat-template mismatch, absent scorer digest, absent rollback, missing
+AnswerPacket, hidden judge, benchmark-only claim, route priority mutation, and
+"Gemma is main model" copy.
+
+Biggest false-claim risk:
+treating a llama.cpp command, Hugging Face model card, LiteRT-LM release note,
+or lighteval/lm-eval capability as Epistemos product proof. They are useful
+replay motifs only. Epistemos still needs its own owner-approved local artifact,
+its own exact fixture pack, and its own RunEventLog/AnswerPacket.
+
+Biggest missing source:
+a local same-fixture artifact comparing official Google QAT Q4_0 against one
+fork delta on the exact Epistemos note/research/coding/writing/tool-call
+fixture pack with output digest, tool JSON validity, peak memory, latency,
+timeout/cancel, and abstention evidence.
+
+Next research query: "Which exact fixture pack and scorer digest should
+`F-GGUFQATForkDeltaSameFixtureReplaySchema` require so Gemma E2B/E4B can move
+from quarantine fork idea to candidate route packet without hidden judges,
+route mutation, or product-default shortcuts?"
+
+### Current External Evidence
+
+- Google's 2026-06-05 Gemma 4 QAT announcement says QAT reduces memory needs
+  for local/edge devices, releases Q4_0 GGUFs for `llama.cpp`, mobile
+  optimized formats for edge hardware, and points to LiteRT-LM, vLLM, MLX, and
+  MTP as ecosystem lanes. Canon effect: strong source-card basis, not
+  Epistemos runtime proof.
+- The official Hugging Face `google/gemma-4-E4B-it-qat-q4_0-gguf` card exposes
+  `llama-cli` / `llama-server` usage and states the QAT GGUF family is optimized
+  for lower memory. Canon effect: direct command-shape motif for the future
+  owner-approved harness, not MAS-safe sidecar proof.
+- `llama.cpp` documents direct Hugging Face GGUF loading with `-hf`,
+  conversation/chat-template handling, and grammar-constrained JSON output; its
+  `perplexity` tool README frames perplexity as a quantization-loss comparison
+  signal and warns that values depend on tokenizer and implementation details.
+  Canon effect: use perplexity/KL only inside same-runtime, same-tokenizer,
+  same-fixture comparisons.
+- `llama-bench` supports JSON output. Canon effect: require machine-readable
+  latency/memory/perf counters for replay packets instead of screenshot
+  benchmarks.
+- Hugging Face LightEval supports multi-backend evaluation and sample-by-sample
+  result inspection. EleutherAI `lm-evaluation-harness` exposes task listing,
+  CLI evaluation, `--log_samples`, and output paths. Canon effect: borrow the
+  sample logging/reproducibility discipline, but do not import framework output
+  as Epistemos product truth.
+- LiteRT-LM v0.13 currently advertises Gemma 4 12B support, macOS/iOS Swift
+  package support, OpenAI-compatible CLI serving, and function calling. Canon
+  effect: keep the 12B LiteRT-LM lane alive as Pro Gated native admission, but
+  require Swift packaging, cancellation, sandbox, and AnswerPacket proof.
+
+### Architecture Fusion
+
+```text
+fork/source card
+  -> official Google QAT Q4_0 baseline binding
+  -> same tokenizer + chat template + prompt fixture digest
+  -> local runtime digest + command envelope
+  -> final output digest + structured/tool-call validity
+  -> memory/latency/cancel counters
+  -> rollback + RunEventLog + AnswerPacket
+  -> abstain or become candidate route packet
+```
+
+This turns the "Gemma should be easier" insight into a narrow proof rail:
+`llama.cpp` GGUF is the fastest first harness for E2B/E4B, LiteRT-LM remains the
+12B Pro Gated native lane, MLX remains blocked until Swift Gemma 4 loader proof,
+and forks stay quarantine references until the same-fixture replay packet beats
+or safely complements the official baseline.
+
+### Candidate Replay Fields
+
+- official baseline source card and selected artifact digest
+- fork source card, upstream base, conversion tool, quant recipe, selected bytes
+- runtime lane, binary/package digest, command-envelope digest, owner approval
+- tokenizer digest, chat-template digest, prompt fixture pack digest
+- task family: note, research, coding, writing, tool JSON, refusal, citation
+- output digest, structured JSON validity, tool-call grammar validity,
+  citation/AnswerPacket validity, refusal-policy validity
+- perplexity/KL or task scorer digest when applicable, with tokenizer caveat
+- peak RSS, resident bytes, KV/workspace estimate, prefill latency,
+  generation tokens/s, timeout/cancel/teardown result
+- abstention reason and rollback result
+- no route/default/settings mutation until later L2/L3 evidence
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; falsifier schema backlog
+  clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It lets Epistemos move fast on Gemma without betting the product on whichever
+fork is loudest. A fork can win only by producing the same visible evidence the
+official baseline must produce: exact bytes, exact runtime, exact fixture,
+visible output validity, memory/latency counters, rollback, and witness.
+
+### Why It May Be Wrong
+
+Same-fixture replay can be too narrow if the fixtures are weak. Perplexity can
+miss instruction-following regressions, and task scores can miss tool JSON or
+note-context failures. The schema must therefore require task-family coverage
+and held-out replay before any product or route claim.
