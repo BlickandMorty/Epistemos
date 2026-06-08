@@ -250,11 +250,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` is now landed as a
 > metadata-only T1/L1 evidence-envelope witness at
 > `artifacts/falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json`.
-> It consumes the command-spec witness and retained red automated-checks
-> artifact, binds 8 digest fields, 14 rejection policies, 3 proof surfaces,
-> minimum executed-test policy `1`, 20 rejected red fixtures, zero selected
-> test-product/app/model/runtime bytes, deterministic address
-> `sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad`,
+> It consumes the command-spec witness, binds command-spec address
+> `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`,
+> seed selector count `8`, command-template count `3`, and retained red
+> automated-checks artifact, then binds 8 digest fields, 14 rejection policies,
+> 3 proof surfaces, minimum executed-test policy `1`, 22 rejected red fixtures,
+> zero selected test-product/app/model/runtime bytes, deterministic address
+> `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`,
 > and next cursor
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > Guard-owned product cursor remains automated checks; L2 and L3 remain red.
@@ -4799,11 +4801,14 @@ filename selectors, enumeration-only output, zero executed tests, hidden
 pre-action mutation, focused-proof replacement of the full automated-check row,
 or any large-local-model/release-ready promotion.
 
-Promotion update: this pass is now implemented by
+Promotion update: this pass is now implemented by a refreshed
 `F-AutomatedChecksFreshTestProductsEvidenceEnvelope`, a metadata-only T1/L1
-Rust primitive and witness doc. It runs no Xcode command, changes no product
-source, opens zero selected test-product bytes, loads no app/model/runtime
-bytes, and does not promote L2/L3/T4. The next proof remains the actual fresh
+Rust primitive and witness doc. The refreshed witness binds command-spec
+address `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`,
+8 seed selectors, and 3 command templates before it can accept the red
+automated-checks artifact. It runs no Xcode command, changes no product source,
+opens zero selected test-product bytes, loads no app/model/runtime bytes, and
+does not promote L2/L3/T4. The next proof remains the actual fresh
 test-products proof root and the guard-owned automated-checks cursor.
 
 ### §28.17 KV cache identity, salt, and offload proof packet (added 2026-06-07)

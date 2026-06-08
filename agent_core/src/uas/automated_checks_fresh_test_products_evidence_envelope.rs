@@ -288,6 +288,9 @@ pub struct AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
     pub next_cursor: String,
     pub command_spec_artifact_ref: String,
     pub command_spec_overall_pass: bool,
+    pub command_spec_address: String,
+    pub command_spec_seed_selector_count: u64,
+    pub command_spec_command_template_count: u64,
     pub automated_checks_artifact_ref: String,
     pub automated_checks_overall_pass: bool,
     pub automated_checks_next_bottleneck: String,
@@ -303,6 +306,9 @@ pub struct AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
 impl AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
     pub fn new(
         command_spec_overall_pass: bool,
+        command_spec_address: &str,
+        command_spec_seed_selector_count: u64,
+        command_spec_command_template_count: u64,
         automated_checks_overall_pass: bool,
         automated_checks_next_bottleneck: &str,
         automated_checks_top_failure_family: &str,
@@ -310,6 +316,14 @@ impl AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
     ) -> Result<Self, AutomatedChecksFreshTestProductsError> {
         if !command_spec_overall_pass {
             return Err(AutomatedChecksFreshTestProductsError::CommandSpecNotPassed);
+        }
+        validate_token("command_spec_address", command_spec_address)?;
+        if !command_spec_address.starts_with("sha256:")
+            || command_spec_address.len() != 71
+            || command_spec_seed_selector_count != 8
+            || command_spec_command_template_count != 3
+        {
+            return Err(AutomatedChecksFreshTestProductsError::CommandSpecArtifactUnbound);
         }
         if automated_checks_overall_pass || automated_checks_xcodebuild_test_passed {
             return Err(AutomatedChecksFreshTestProductsError::AutomatedChecksNotRed);
@@ -338,6 +352,9 @@ impl AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
         };
         let address = automated_checks_fresh_test_products_address(
             command_spec_overall_pass,
+            command_spec_address,
+            command_spec_seed_selector_count,
+            command_spec_command_template_count,
             automated_checks_overall_pass,
             automated_checks_next_bottleneck,
             automated_checks_top_failure_family,
@@ -352,6 +369,9 @@ impl AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
                 .to_string(),
             command_spec_artifact_ref: COMMAND_SPEC_REF.to_string(),
             command_spec_overall_pass,
+            command_spec_address: command_spec_address.to_string(),
+            command_spec_seed_selector_count,
+            command_spec_command_template_count,
             automated_checks_artifact_ref: AUTOMATED_CHECKS_REF.to_string(),
             automated_checks_overall_pass,
             automated_checks_next_bottleneck: automated_checks_next_bottleneck.to_string(),
@@ -379,6 +399,9 @@ impl AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness {
         }
         let rebuilt = Self::new(
             self.command_spec_overall_pass,
+            &self.command_spec_address,
+            self.command_spec_seed_selector_count,
+            self.command_spec_command_template_count,
             self.automated_checks_overall_pass,
             &self.automated_checks_next_bottleneck,
             &self.automated_checks_top_failure_family,
@@ -406,6 +429,9 @@ pub fn required_automated_checks_fresh_test_products_proof_surfaces() -> &'stati
 
 fn automated_checks_fresh_test_products_address(
     command_spec_overall_pass: bool,
+    command_spec_address: &str,
+    command_spec_seed_selector_count: u64,
+    command_spec_command_template_count: u64,
     automated_checks_overall_pass: bool,
     automated_checks_next_bottleneck: &str,
     automated_checks_top_failure_family: &str,
@@ -418,6 +444,9 @@ fn automated_checks_fresh_test_products_address(
     preimage.push_str(AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_CURSOR);
     preimage.push_str(AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR);
     preimage.push_str(&command_spec_overall_pass.to_string());
+    preimage.push_str(command_spec_address);
+    preimage.push_str(&command_spec_seed_selector_count.to_string());
+    preimage.push_str(&command_spec_command_template_count.to_string());
     preimage.push_str(&automated_checks_overall_pass.to_string());
     preimage.push_str(automated_checks_next_bottleneck);
     preimage.push_str(automated_checks_top_failure_family);
@@ -577,6 +606,7 @@ pub enum AutomatedChecksFreshTestProductsError {
     ExecutionBoundaryBroken,
     PromotionBoundaryBroken,
     CommandSpecNotPassed,
+    CommandSpecArtifactUnbound,
     AutomatedChecksNotRed,
     WitnessHeaderBroken,
     WitnessDigestMismatch,
@@ -616,6 +646,12 @@ impl fmt::Display for AutomatedChecksFreshTestProductsError {
             Self::ExecutionBoundaryBroken => write!(formatter, "execution boundary broken"),
             Self::PromotionBoundaryBroken => write!(formatter, "promotion boundary broken"),
             Self::CommandSpecNotPassed => write!(formatter, "command spec artifact not passed"),
+            Self::CommandSpecArtifactUnbound => {
+                write!(
+                    formatter,
+                    "command spec artifact address/counts are unbound"
+                )
+            }
             Self::AutomatedChecksNotRed => write!(formatter, "automated checks artifact not red"),
             Self::WitnessHeaderBroken => write!(formatter, "witness header broken"),
             Self::WitnessDigestMismatch => write!(formatter, "witness digest mismatch"),
@@ -628,6 +664,9 @@ impl std::error::Error for AutomatedChecksFreshTestProductsError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_COMMAND_SPEC_ADDRESS: &str =
+        "sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9";
 
     #[test]
     fn canonical_envelope_validates() {
@@ -701,6 +740,9 @@ mod tests {
     fn witness_requires_red_automated_checks_and_is_deterministic() {
         let witness = AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
             true,
+            TEST_COMMAND_SPEC_ADDRESS,
+            8,
+            3,
             false,
             AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
             "graph_filter_visibility",
@@ -711,6 +753,9 @@ mod tests {
 
         let rebuilt = AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
             true,
+            TEST_COMMAND_SPEC_ADDRESS,
+            8,
+            3,
             false,
             AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
             "graph_filter_visibility",
@@ -722,6 +767,9 @@ mod tests {
         assert_eq!(
             AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 false,
+                TEST_COMMAND_SPEC_ADDRESS,
+                8,
+                3,
                 false,
                 AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
                 "graph_filter_visibility",
@@ -732,12 +780,44 @@ mod tests {
         assert_eq!(
             AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
                 true,
+                TEST_COMMAND_SPEC_ADDRESS,
+                8,
+                3,
                 true,
                 AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
                 "graph_filter_visibility",
                 false,
             ),
             Err(AutomatedChecksFreshTestProductsError::AutomatedChecksNotRed)
+        );
+        assert_eq!(
+            AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
+                true,
+                "",
+                8,
+                3,
+                false,
+                AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
+                "graph_filter_visibility",
+                false,
+            ),
+            Err(AutomatedChecksFreshTestProductsError::InvalidToken {
+                field: "command_spec_address",
+                value: String::new(),
+            })
+        );
+        assert_eq!(
+            AutomatedChecksFreshTestProductsEvidenceEnvelopeWitness::new(
+                true,
+                TEST_COMMAND_SPEC_ADDRESS,
+                7,
+                3,
+                false,
+                AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR,
+                "graph_filter_visibility",
+                false,
+            ),
+            Err(AutomatedChecksFreshTestProductsError::CommandSpecArtifactUnbound)
         );
     }
 }

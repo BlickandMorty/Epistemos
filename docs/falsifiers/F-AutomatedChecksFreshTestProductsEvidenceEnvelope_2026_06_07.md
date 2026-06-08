@@ -6,6 +6,12 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 
 PASS as metadata-only L1/T1 evidence-envelope proof.
 
+2026-06-08 refresh: the envelope now binds the refreshed
+`F-GraphFilterVisibilityTestProductsCommandSpec` address and counts, not only
+its boolean pass state. The refreshed command-spec address is
+`sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`,
+with `8` seed selectors and `3` command templates.
+
 Artifact:
 
 `artifacts/falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json`
@@ -24,10 +30,13 @@ It proves:
 - Required rejection policies: `14`
 - Required proof surfaces: `3`
 - Minimum executed-test count policy: `1`
-- Rejected red fixtures: `20`
+- Command-spec address: `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`
+- Command-spec seed selectors: `8`
+- Command-spec command templates: `3`
+- Rejected red fixtures: `22`
 - Selected test-product bytes opened: `0`
 - Model/runtime/app bytes loaded: `0`
-- Deterministic address: `sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad`
+- Deterministic address: `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`
 - Next cursor: `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
 
 ## Bound Evidence Contract

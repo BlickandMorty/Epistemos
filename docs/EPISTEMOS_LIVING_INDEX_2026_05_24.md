@@ -4082,7 +4082,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   run, no model/runtime bytes loaded, no L1 cursor advance, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3/release readiness
   remains red.
-- Updated **2026-06-07** ·
+- Updated **2026-06-08** ·
   `F-AutomatedChecksFreshTestProductsEvidenceEnvelope` landed:
   `Tools/falsifiers/f_automated_checks_fresh_test_products_evidence_envelope.sh`
   emits and validates
@@ -4091,14 +4091,16 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   Epistemos is a local cognitive substrate where every meaningful object has
   an address, plane, budget, status, and witness; MAS ships the safe floor,
   Pro contains the gated/research/vault/omega ladder, and no claim promotes
-  without visible proof. The witness consumes the landed command-spec witness
-  and retained red automated-checks artifact, binds the current capability
-  bottleneck, top failure family `graph_filter_visibility`, red
-  `xcodebuild_test`, 8 digest fields, 14 rejection policies, 3 proof surfaces,
-  minimum executed-test policy `1`, 20 rejected red fixtures, zero selected
-  test-product bytes opened, zero app/model/runtime bytes, and deterministic
-  address
-  `sha256:71ae09f12d4ca70ebb51987b21b3fe0dcf0936337f2a770df68d2475b772a7ad`.
+  without visible proof. The refreshed witness consumes the landed
+  command-spec witness, binds command-spec address
+  `sha256:564e14b81e59faf790c4da0e8f93792a4a5a1ba68c89f8d51153a2c595bd94f9`,
+  seed selector count `8`, command-template count `3`, and retained red
+  automated-checks artifact, then binds the current capability bottleneck, top
+  failure family `graph_filter_visibility`, red `xcodebuild_test`, 8 digest
+  fields, 14 rejection policies, 3 proof surfaces, minimum executed-test
+  policy `1`, 22 rejected red fixtures, zero selected test-product bytes
+  opened, zero app/model/runtime bytes, and deterministic address
+  `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`.
   It rejects stale/global/different-commit proof shapes, missing digests,
   selector laundering, zero-test proof, pre-action mutation, focused-proof
   replacement of the full automated-check row, raw note/prompt/model bytes,
