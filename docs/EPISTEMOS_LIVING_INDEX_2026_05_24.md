@@ -453,6 +453,29 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   payload JSON were written, no model/runtime/cache/index/provider bytes were
   opened, no command was armed, L2/L3 stay red, and no large-local-model
   user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 168 landed
+  `F-SyntheticMaterializerPrimitiveBlueprintV0` as a real metadata-only L1/T1
+  side-ladder witness with UAS primitive, falsifier binary, shell wrapper,
+  artifact root, validator row, schema row, handbook row, and dedicated
+  witness doc. North-star sentence: Epistemos is a local cognitive substrate
+  where every meaningful object has an address, plane, budget, status, and
+  witness; MAS ships the safe floor, Pro contains the gated/research/vault/
+  omega ladder, and no claim promotes without visible proof. The witness binds
+  exact approval phrase `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, owner
+  approval absent, repo-relative fixture/staging roots, final-root writes
+  denied, unsafe path policies denied, exact six-payload inventory, schema/
+  canonical-digest/privacy/provenance/rollback/RunEventLog/AnswerPacket
+  requirements, zero payload files, zero fixture/model/runtime/provider/cache/
+  index bytes, zero armed commands, T0-only non-promotion, 18 rejected red
+  fixtures, and deterministic address
+  `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083`.
+  This advances only the synthetic materializer L1 side-ladder. The
+  guard-owned product cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3
+  user-facing large-local-model capability remains red; no fixture files,
+  model bytes, eval, runtime, product route, release readiness, live dense 70B,
+  or SSD-as-RAM claim is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

@@ -1,0 +1,175 @@
+{
+  "falsifier_id": "F-SyntheticMaterializerPrimitiveBlueprintV0",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_synthetic_materializer_primitive_blueprint.sh",
+  "command_digest": "sha256:18080c3a03eed3182ff964bf9138f51997293f8eb6cd7410050bf8bb176d786f",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "310f64e840279aa258ec9a3f258e4684170c342d",
+  "fixture_id": "synthetic_materializer_primitive_blueprint_v1",
+  "timestamp_utc": "2026-06-08T10:34:21Z",
+  "result_digest": "sha256:1a01afa70b3b5efe9377963cabaca2b62f76c5df0ccd912d0f341d784cc33c03",
+  "measurements": {
+    "approval_boundary_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "unit": "string"
+    },
+    "inventory_and_digest_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "value": "synthetic_payload_materialization_gate_v0",
+      "unit": "string"
+    },
+    "path_policy_fail_closed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_payload_count": {
+      "value": 6,
+      "unit": "files"
+    },
+    "promotion_boundary_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 18,
+      "unit": "fixtures"
+    },
+    "witness_address": {
+      "value": "sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083",
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "approval_boundary_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fixture_files_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "guard_owned_product_cursor_preserved": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "inventory_and_digest_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_research_to_build_unit": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "path_policy_fail_closed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_payload_count": {
+      "operator": "==",
+      "value": 6,
+      "unit": "files"
+    },
+    "promotion_boundary_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 18,
+      "unit": "fixtures"
+    },
+    "witness_address": {
+      "operator": "non_empty",
+      "value": true,
+      "unit": "string"
+    },
+    "witness_header_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_byte_and_command_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "approval_boundary_fail_closed": true,
+    "fixture_files_written": true,
+    "guard_owned_product_cursor_preserved": true,
+    "inventory_and_digest_bound": true,
+    "next_research_to_build_unit": true,
+    "path_policy_fail_closed": true,
+    "planned_payload_count": true,
+    "promotion_boundary_preserved": true,
+    "proof_surfaces_required": true,
+    "red_fixture_rejection_count": true,
+    "witness_address": true,
+    "witness_header_bound": true,
+    "zero_byte_and_command_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Metadata-only T1/L1 side-ladder witness for the synthetic materializer primitive blueprint. It writes zero fixture files, opens zero model/runtime/provider/cache/index bytes, arms zero commands, does not advance the guard-owned product cursor, and makes no L2/L3/T4/T5 or large-local-model capability claim."
+}

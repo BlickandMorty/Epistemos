@@ -368,6 +368,26 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > creates no primitive or fixture files, opens no fixture/model/cache/runtime/
 > index/provider bytes, arms no command, and does not advance L2/L3 or
 > user-facing large-local-model claims.
+> Current addendum: Deep Research Pass 168 in the same file lands
+> `F-SyntheticMaterializerPrimitiveBlueprintV0` as a metadata-only L1/T1
+> side-ladder witness. The implemented Rust primitive, falsifier binary, shell
+> wrapper, validator row, schema row, handbook row, dedicated witness doc, and
+> artifact root bind exact approval phrase
+> `APPROVE_SYNTHETIC_FIXTURE_MATERIALIZATION_V0`, owner-approval absence,
+> repo-relative fixture/staging roots, final-root write denial, unsafe path
+> denial, exact six-payload inventory, schema/canonical-digest/privacy/
+> provenance/rollback/RunEventLog/AnswerPacket requirements, zero payload
+> files, zero fixture/model/runtime/provider/cache/index bytes, zero armed
+> commands, T0-only non-promotion, 18 rejected red fixtures, and deterministic
+> address
+> `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083`.
+> This advances only the synthetic materializer L1 side-ladder. The
+> guard-owned product cursor remains
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+> L2 remains `vault_research_route_with_packetized_mitigation`; L3
+> user-facing large-local-model capability remains red; no fixture files,
+> eval, model/runtime bytes, product route, release readiness, live dense 70B,
+> or SSD-as-RAM claim is promoted.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.

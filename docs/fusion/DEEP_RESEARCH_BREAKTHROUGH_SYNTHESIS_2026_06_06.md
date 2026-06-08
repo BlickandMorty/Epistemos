@@ -21131,3 +21131,88 @@ the metadata-only Rust witness and result JSON for
 Next research query: "What exact falsifier schema axes and architecture guard
 cursor entries should promote SyntheticMaterializerPrimitiveBlueprintV0 from T0
 canon to T1/L1 metadata proof without reopening product runtime claims?"
+
+---
+
+## Deep Research Pass 168 - Synthetic Materializer Primitive Blueprint Landed
+
+Landed falsifier:
+`F-SyntheticMaterializerPrimitiveBlueprintV0`
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 167 is now implemented as a real metadata-only Rust L1/T1 witness. The
+side-ladder now has:
+
+- `agent_core/src/uas/synthetic_materializer_primitive_blueprint.rs`
+- `agent_core/src/bin/falsify_synthetic_materializer_primitive_blueprint.rs`
+- `Tools/falsifiers/f_synthetic_materializer_primitive_blueprint.sh`
+- `artifacts/falsifiers/synthetic_materializer_primitive_blueprint/result.json`
+- `docs/falsifiers/F-SyntheticMaterializerPrimitiveBlueprintV0_2026_06_08.md`
+
+The witness validates the synthetic fixture materializer blueprint before any
+synthetic fixture payload is written. It binds the exact approval phrase,
+owner-approval absence, repo-relative fixture/staging roots, final-root write
+denial, unsafe path denial, exact six-payload inventory, proof surfaces,
+zero-byte ledger, no armed commands, deterministic address, and T0-only
+non-promotion.
+
+### L1 / L2 / L3 Truth
+
+- L1/T1 side-ladder: advanced for
+  `F-SyntheticMaterializerPrimitiveBlueprintV0`.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / WRV: unchanged and red for large-local-model capability.
+- Guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Fixture files created: zero.
+- Fixture/model/runtime/provider/cache/index bytes opened: zero.
+- Product code changed: no.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+### Witness Facts
+
+| Field | Value |
+| --- | --- |
+| Artifact root | `artifacts/falsifiers/synthetic_materializer_primitive_blueprint/` |
+| Command | `Tools/falsifiers/f_synthetic_materializer_primitive_blueprint.sh` |
+| Artifact commit | `310f64e840279aa258ec9a3f258e4684170c342d` |
+| Witness address | `sha256:d94ba97b3f8259f8d4faa74828560713e3db85f46f2829e89118e2796e1af083` |
+| Planned payloads | 6 |
+| Red fixtures rejected | 18 |
+| Next side-ladder unit | `synthetic_payload_materialization_gate_v0` |
+
+Best breakthrough candidate:
+the same-fixture synthetic replay ladder, because it is becoming executable
+without leaking private notes, importing benchmark prompts, or letting a
+research fixture become hidden route authority.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+side-ladder fixture work remains `synthetic_payload_materialization_gate_v0`
+behind explicit owner approval.
+
+Best near-term code unit:
+keep the next architecture session focused on the guard-owned small-model
+runtime harness bottleneck unless the owner explicitly approves fixture
+materialization.
+
+Biggest false-claim risk:
+treating the materializer blueprint as materialized fixtures, eval evidence,
+or large-model runtime proof.
+
+Biggest missing artifact:
+owner-approved, staged, canonical fixture materialization remains absent.
+
+Next research query: "What is the smallest owner-approved synthetic fixture
+materialization witness that writes files only into staging, proves canonical
+digests and privacy/provenance scans, and still refuses all L2/L3/runtime
+promotion?"
