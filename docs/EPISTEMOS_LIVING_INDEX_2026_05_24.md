@@ -5555,6 +5555,55 @@ Layer truth:
 Correct phrasing: "Runtime-lane admission research was folded into canon;
 product capability / user surface did not advance."
 
+### 2026-06-08 - Deep Research Pass 177 GGUF admission packet blueprint folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 177 was folded into
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and indexed in
+the Master Research Index as the blueprint for
+`F-GGUFInProcessRuntimeAdmissionPacket`.
+
+The pass narrows the runtime-lane matrix to the most buildable local lane:
+GGUF/llama.cpp through Epistemos' in-process bridge. It maps
+`Epistemos/Engine/LocalGGUFClient.swift`,
+`LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift`,
+`LocalPackages/GGUFRuntimeBridge/Package.swift`,
+`EpistemosTests/LocalGGUFClientTests.swift`,
+`Epistemos/Engine/BackendRuntimeContract.swift`,
+`Epistemos/LocalAgent/RuntimeRouter.swift`, and
+`Epistemos/Engine/RuntimeExecutor.swift` into an owner-gated, byte-budgeted,
+privacy-preserving admission packet.
+
+The next side-ladder falsifier should accept only metadata evidence: llama.cpp
+`b6871` source pin and checksum, local code refs, owner path-manifest status,
+selected byte envelope, context/KV/app-headroom policy,
+chat-template/tool-schema/cache-salt digest policy, cancellation, rollback,
+RunEventLog, AnswerPacket, sanitized AgentEvent focused tests, and abstention.
+It should reject missing owner approval, raw path/prompt/output leakage,
+`.gguf` discovery as approval, mmap/mlock/GPU/Metal support as fit proof,
+server slot-cache confusion, unbounded runtime settings, MAS/Live promotion,
+L2/L3 promotion, live dense 70B, SSD-as-RAM, and any model/runtime/cache/index
+bytes opened during metadata admission.
+
+Layer truth:
+
+- L1 architecture/canon: Deep Research Pass 177 advanced T0
+  research-to-build canon only; no new falsifier landed and no architecture
+  cursor moved.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime
+  lane, model bytes, provider bytes, index bytes, command execution, or
+  user-facing large-local-model capability promoted.
+
+Correct phrasing: "GGUF in-process admission blueprint was folded into canon;
+product capability / user surface did not advance."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
