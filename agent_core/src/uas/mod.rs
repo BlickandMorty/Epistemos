@@ -59,6 +59,7 @@ pub mod exotic_quant_runtime_lane_owner_approval_gate;
 pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
+pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod gguf_in_process_runtime_admission_packet;
 pub mod graph_filter_visibility_focused_identifier_proof;
@@ -346,6 +347,13 @@ pub use gemma_qat_local_runtime_candidate_card::{
     GemmaQatMemoryEnvelope, GemmaQatModelSize, GemmaQatPromotionTier, GemmaQatProofRefs,
     GemmaQatRuntimeLane, GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_CURSOR,
     GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_NEXT_CURSOR,
+};
+pub use gemma_main_family_policy_source_card::{
+    GemmaFamilyPolicyBand, GemmaFamilyPolicyProofRefs, GemmaFamilyPolicyStatus,
+    GemmaFamilyRuntimeLane, GemmaMainFamilyPolicyCard, GemmaMainFamilyPolicyError,
+    GemmaMainFamilyPolicyMetrics, GemmaMainFamilyPolicySet,
+    GEMMA_MAIN_FAMILY_POLICY_SOURCE_CARD_CURSOR,
+    GEMMA_MAIN_FAMILY_POLICY_SOURCE_CARD_NEXT_CURSOR,
 };
 pub use gguf_in_process_runtime_admission_packet::{
     canonical_gguf_in_process_runtime_admission_packet, GgufAdmissionByteEnvelope,

@@ -174,6 +174,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-LiteRTLM-NativeSwiftAdmission",
     "F-GGUFInProcessRuntimeAdmissionPacket",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
+    "F-GemmaMainFamilyPolicySourceCard",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",
     "F-TurboVec-Eidos-CompressedIndex-Plan",

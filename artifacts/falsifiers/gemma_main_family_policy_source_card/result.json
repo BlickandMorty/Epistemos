@@ -1,0 +1,355 @@
+{
+  "falsifier_id": "F-GemmaMainFamilyPolicySourceCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_main_family_policy_source_card.sh",
+  "command_digest": "sha256:32567cbbfa1c7372a2c580ed63b19dc263974137f9b304351f3c6a3d2cf18529",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "c39452da13f12e014efb35bd9379f990abd1a41f",
+  "fixture_id": "gemma_main_family_policy_source_card_v1",
+  "timestamp_utc": "2026-06-08T14:34:15Z",
+  "result_digest": "sha256:e76e489fe588bcfc077a9f483200e4da7988146f4f2eef09f8a68ff52c84e8ed",
+  "measurements": {
+    "abstention_required_when_proof_missing": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "gemma_family_policy_address": {
+      "value": "gemma_main_family_policy_source_card:3a3144efdfd09889f4f072a962dbff2b37fb6eb19bb2a88fbefa89635576762e@1779207200000",
+      "unit": "uas_address"
+    },
+    "gemma_family_preferred_not_default": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_and_litert_lanes_policy_only": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "value": 136000,
+      "unit": "bytes"
+    },
+    "mlx_swift_loader_blocked": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_small_lane_owner_path_manifest",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_falsifier_ladder_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hardcoded_live_default_or_product_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_or_route_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_or_ssd_overclaim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_litert_sidecar_or_python_mlx_laundering": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_green_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_byte_first_token_replay_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_card_count": {
+      "value": 6,
+      "unit": "cards"
+    },
+    "policy_set_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_flagship_12b_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_settings_answer_packet_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_count": {
+      "value": 5,
+      "unit": "lanes"
+    },
+    "small_warmup_lanes_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "smallest_verified_lane_first_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_qat_candidate_card_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gguf_admission_packet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_litert_admission_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_large_gemmas_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_command_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "abstention_required_when_proof_missing": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executions": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "gemma_family_policy_address": {
+      "operator": "starts_with",
+      "value": "gemma_main_family_policy_source_card:",
+      "unit": "uas_address"
+    },
+    "gemma_family_preferred_not_default": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_and_litert_lanes_policy_only": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mlx_swift_loader_blocked": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_small_lane_owner_path_manifest",
+      "unit": "cursor"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_falsifier_ladder_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hardcoded_live_default_or_product_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_cloud_or_route_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_or_ssd_overclaim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_litert_sidecar_or_python_mlx_laundering": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_green_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_byte_first_token_replay_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "policy_card_count": {
+      "operator": ">=",
+      "value": 6,
+      "unit": "cards"
+    },
+    "policy_set_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_flagship_12b_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "quality_settings_answer_packet_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 25,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lane_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "lanes"
+    },
+    "small_warmup_lanes_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "smallest_verified_lane_first_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_qat_candidate_card_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gguf_admission_packet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_litert_admission_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_large_gemmas_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_command_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "abstention_required_when_proof_missing": true,
+    "command_executions": true,
+    "gemma_family_policy_address": true,
+    "gemma_family_preferred_not_default": true,
+    "gguf_and_litert_lanes_policy_only": true,
+    "metadata_bytes_read": true,
+    "mlx_swift_loader_blocked": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "next_falsifier_ladder_bound": true,
+    "no_hardcoded_live_default_or_product_claim": true,
+    "no_hidden_cloud_or_route_authority": true,
+    "no_large_model_or_ssd_overclaim": true,
+    "no_litert_sidecar_or_python_mlx_laundering": true,
+    "no_mas_l2_l3_green_claim": true,
+    "owner_path_byte_first_token_replay_required": true,
+    "policy_card_count": true,
+    "policy_set_address_deterministic": true,
+    "pro_flagship_12b_present": true,
+    "quality_settings_answer_packet_required": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded": true,
+    "runtime_lane_count": true,
+    "small_warmup_lanes_present": true,
+    "smallest_verified_lane_first_required": true,
+    "upstream_gemma_qat_candidate_card_bound": true,
+    "upstream_gguf_admission_packet_bound": true,
+    "upstream_litert_admission_bound": true,
+    "vault_large_gemmas_preserved": true,
+    "zero_model_runtime_provider_command_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Builds F-GemmaMainFamilyPolicySourceCard as T1/L1 metadata only. Gemma becomes the preferred family strategy, not a live app default: E2B/E4B are warmup lanes, 12B QAT GGUF/LiteRT is the Pro Gated flagship target, 26B-A4B/31B stay Vault, MLX Swift Gemma 4 remains loader-blocked, zero model/runtime/provider bytes are loaded, no command runs, and L2/L3/product capability remain red."
+}

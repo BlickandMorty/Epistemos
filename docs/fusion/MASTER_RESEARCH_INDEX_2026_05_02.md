@@ -152,6 +152,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-LiteRTLMRuntimeAdmissionPacket`. This is T0 research-to-build canon only:
 > no Gemma runtime/model bytes, no first token, no route promotion, no L2/L3,
 > and no "Gemma is live main app model" claim.
+> Current addendum: Deep Research Pass 180 lands
+> `F-GemmaMainFamilyPolicySourceCard` as the metadata-only T1/L1 bridge for
+> the owner's "Gemma as main model family" direction. The witness binds six
+> policy cards: Gemma 4 E2B/E4B QAT as small warmup lanes, Gemma 4 12B QAT
+> GGUF/LiteRT as the flagship Pro Gated target, Gemma 4 26B-A4B and 31B as
+> Vault/Research candidates, and MLX Swift Gemma 4 as blocked until loader
+> parity is witnessed. It requires owner path manifests, byte/KV/app envelopes,
+> redacted first-token proof, same-fixture replay, quality replay, settings
+> visibility, AnswerPacket route explanation, rollback, RunEventLog,
+> abstention, and compatibility fences before any runtime route can promote.
+> Artifact:
+> `artifacts/falsifiers/gemma_main_family_policy_source_card/result.json`.
+> This is L1 metadata only: zero model/runtime/provider bytes, zero command
+> execution, no MAS/L2/L3 promotion, no hidden cloud or route authority, no
+> live dense 70B claim, and no "Gemma is live main app model" claim.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

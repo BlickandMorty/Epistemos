@@ -5685,6 +5685,46 @@ Layer truth:
 Correct phrasing: "Gemma is now the preferred family strategy in canon; Gemma
 is not yet the live main app model."
 
+### 2026-06-08 - F-GemmaMainFamilyPolicySourceCard landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaMainFamilyPolicySourceCard` is now implemented as a metadata-only T1/L1
+side-ladder witness for the Gemma preferred-family strategy. It adds
+`agent_core/src/uas/gemma_main_family_policy_source_card.rs`,
+`agent_core/src/bin/falsify_gemma_main_family_policy_source_card.rs`,
+`Tools/falsifiers/f_gemma_main_family_policy_source_card.sh`, the artifact
+`artifacts/falsifiers/gemma_main_family_policy_source_card/result.json`, and
+the witness doc
+`docs/falsifiers/F-GemmaMainFamilyPolicySourceCard_2026_06_08.md`.
+
+The witness accepts 6 Gemma policy cards and rejects 25 red fixtures. It keeps
+E2B/E4B as warmup lanes, 12B QAT GGUF/LiteRT as the Pro Gated flagship target,
+26B-A4B and 31B as Vault/Research, and MLX Swift Gemma 4 as loader-blocked. It
+requires owner path manifests, byte/KV/app envelopes, redacted first-token
+proof, same-fixture replay, quality replay, settings visibility, AnswerPacket
+route explanation, abstention, rollback, RunEventLog, and compatibility fences
+before any runtime or product claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaMainFamilyPolicySourceCard` advances the Gemma
+  preferred-family side-ladder to T1/L1 metadata-only proof when its artifact
+  validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime lane,
+  model bytes, provider bytes, index bytes, command execution, first token,
+  quality proof, Swift MLX loader proof, LiteRT app-embedding proof, or
+  user-facing Gemma capability promoted.
+
+Correct phrasing: "Gemma preferred-family policy is L1 metadata-proofed;
+Gemma is not yet the live main app model."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
