@@ -100,6 +100,13 @@ Runtime policy:
   Gemma 4 E2B/E4B QAT are MAS/Pro candidates only after memory,
   cancellation, structured-output, loader, package-size, RunEventLog, and
   AnswerPacket witnesses. MLX Gemma 4 repos are not Swift runtime proof.
+- 2026-06-08 simplification: near-term large-model work is Gemma-first.
+  Work E2B QAT GGUF/llama.cpp as the harness lane, E4B QAT as the next scale
+  lane, and 12B QAT GGUF/LiteRT as the Pro flagship target before returning to
+  broad model-family exploration. Preserve 70B-class/custom cold assembly for
+  the point where Gemma-class models become too large for ordinary runtime
+  proof or no longer suffice. This is a build-order policy only: it does not
+  make Gemma live, default, quality-proven, user-facing, or System G admitted.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
