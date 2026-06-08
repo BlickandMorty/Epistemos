@@ -22211,3 +22211,191 @@ F-GGUFInProcessRuntimeAdmissionPacket require so an existing in-process
 GGUF lane can become owner-approved, byte-budgeted, cancellable, logged,
 rollbackable, and AnswerPacket-visible without loading model bytes during the
 metadata gate?"
+
+## Deep Research Pass 177 - GGUF In-Process Runtime Admission Packet Blueprint
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 177 narrows the runtime-lane matrix to the most buildable local lane:
+GGUF/llama.cpp through Epistemos' in-process bridge. This is the best next
+side-ladder because it already has real Swift/Rust-adjacent app anchors,
+sanitized AgentEvent tests, cancellation behavior, run profiles, prepared
+artifact lookup, and a pinned llama.cpp binary package. The pass does not claim
+runtime capability. It defines the metadata packet that should exist before any
+owner-approved GGUF runtime probe.
+
+The breakthrough is a fail-closed packet that treats local GGUF as a real but
+unarmed lane:
+
+```text
+prepared model descriptor
+  -> canonical owner path manifest
+  -> source pin and binary checksum
+  -> selected GGUF byte envelope
+  -> tokenizer/chat-template/tool-schema/cache-salt digest pack
+  -> local app-headroom and KV/context budget
+  -> BackendRuntimeControlPlane launch contract
+  -> sanitized AgentEvent / RunEventLog / AnswerPacket refs
+  -> cancellation, rollback, abstention
+  -> no model bytes opened during metadata gate
+```
+
+That packet is the safe bridge from "GGUF code exists" to "we can run a small
+approved GGUF model later without pretending it is already green."
+
+### Local Code Evidence
+
+| Anchor | Evidence | Admission field it should create |
+|---|---|---|
+| `Epistemos/Engine/LocalGGUFClient.swift` | Resolves a `LocalGGUFRequest`, trims prompts through local runtime policy, requires a prepared model, emits BackendRuntimeControlPlane launch/status/completion/cancel/failure events, publishes run profiles, records sanitized AgentEvents, and rejects unsupported fast mode for always-thinking families. | `local_client_contract_ref`, `prompt_trim_policy_ref`, `backend_launch_contract_ref`, `sanitized_agent_event_ref`, `always_thinking_fast_mode_denial_ref` |
+| `LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift` | In-process actor initializes llama backend once, loads a GGUF model, configures mmap/mlock/GPU-offload flags, sets bounded context/batch/thread counts, renders chat templates or fallback prompt, tokenizes, streams chunks, checks cancellation, clears context, and frees resources in `deinit`. | `in_process_bridge_ref`, `backend_init_ref`, `mmap_mlock_gpu_policy_ref`, `context_batch_thread_bounds_ref`, `chat_template_fallback_ref`, `cancellation_ref`, `teardown_ref` |
+| `LocalPackages/GGUFRuntimeBridge/Package.swift` | Pins llama.cpp release `b6871` through a binary XCFramework URL and checksum. | `llama_release_pin`, `binary_checksum`, `direct_distribution_review_required` |
+| `EpistemosTests/LocalGGUFClientTests.swift` | Covers prepared artifact file resolution, in-process engine generation, run profile publication, sanitized success/failure/cancel AgentEvents, no forbidden prompt/system/output/model/path/steering leaks, fast-mode denial, and provider identity. | `focused_test_refs`, `privacy_redaction_ref`, `cancellation_test_ref`, `profile_test_ref`, `provider_identity_ref` |
+| `Epistemos/Engine/BackendRuntimeContract.swift` | Defines runtime kind, local/remote execution modes, generation request/launch/summary/events, runtime capabilities, timeout, and error classes. GGUF capabilities are generate-only, local, serial I/O audited, no tool calls. | `backend_contract_schema_ref`, `capability_decl_ref`, `timeout_ref`, `error_class_ref` |
+| `Epistemos/LocalAgent/RuntimeRouter.swift` and `Epistemos/Engine/RuntimeExecutor.swift` | GGUF is a lane in the default router, visible in settings, local, current-app tier by stub capability, soft-guidance tool mode, and escalates/rejects honestly when disabled, absent, or policy-mismatched. | `runtime_lane_ref`, `route_escalation_ref`, `settings_visibility_ref`, `abstention_ref` |
+
+### External Source Validation
+
+- The current local package pins `ggml-org/llama.cpp` release `b6871`. The
+  GitHub release page identifies `b6871` as a signed release created from commit
+  `9a3ea68`, with macOS/iOS release assets listed by the llama.cpp release
+  stream.
+- The current llama.cpp releases page shows Apple Silicon/macOS assets on the
+  active release stream and identifies the latest release as `b9553` at the time
+  of validation. Epistemos interpretation: upstream is active, but local package
+  pin stays `b6871` until an explicit source-card upgrade lands.
+- The llama.cpp build documentation says Metal is enabled by default on macOS
+  and can be disabled at build time or with `--n-gpu-layers 0` in CLI contexts.
+  Epistemos interpretation: Metal/GPU support is a runtime capability signal,
+  not memory-fit proof.
+- The llama.cpp server documentation exposes slot prompt-cache save, restore,
+  and erase endpoints gated by `--slot-save-path`. Epistemos interpretation:
+  server slot-cache evidence belongs to
+  `F-LlamaCppSlotPromptCacheCommandCard`, not the in-process GGUF admission
+  packet, unless a future owner-approved server lane is explicitly created.
+
+### Proposed `F-GGUFInProcessRuntimeAdmissionPacket`
+
+Accepted packet fields:
+
+| Field | Required value shape |
+|---|---|
+| `packet_id` | deterministic UAS address derived from lane id, source pin, package checksum, selected descriptor digest, and metadata schema |
+| `lane_id` | `gguf_in_process` |
+| `runtime_kind` | `gguf` |
+| `product_build` | `Pro` unless MAS binary/sandbox review is explicitly passed |
+| `pro_status` | `Gated` or `ResearchCandidate`, never `Live` |
+| `source_pin` | `ggml-org/llama.cpp` release `b6871` plus commit/ref evidence and package checksum |
+| `binary_target` | `llama-b6871-xcframework.zip` with local `Package.swift` checksum |
+| `local_code_refs` | LocalGGUFClient, GGUFSessionBridge, GGUFRuntimeBridge Package, BackendRuntimeContract, RuntimeRouter, RuntimeLanesSection, LocalGGUFClientTests |
+| `owner_path_manifest_status` | `absent`, `pending`, or `approved`; metadata gate requires `pending` or `absent`, never opens files |
+| `selected_model_path_policy` | canonical path required later; metadata gate stores no raw owner path and opens zero files |
+| `selected_bytes_declared` | declared only from manifest; metadata gate can be zero when absent |
+| `resident_bytes_loaded` | exactly `0` |
+| `runtime_bytes_loaded` | exactly `0` |
+| `model_files_opened` | exactly `0` |
+| `provider_calls_made` | exactly `0` |
+| `context_window_cap` | bounded and tied to LocalGGUFSwiftSession parameter policy |
+| `kv_budget_ref` | future KV/context envelope required before runtime probe |
+| `app_headroom_ref` | required before runtime probe; no 16 GB fit claim from metadata |
+| `chat_template_digest_policy` | required before runtime probe; fallback prompt must be named as fallback, not parity |
+| `tool_schema_digest_policy` | required even when GGUF only supports soft-guidance/no native tools |
+| `cache_salt_policy` | required to keep prompt-cache/KV evidence identity-bound |
+| `cancellation_ref` | LocalGGUF stream cancellation and bridge Task cancellation evidence |
+| `rollback_ref` | unload/teardown/disable-lane policy plus route abstention |
+| `run_event_log_ref` | required reference, not raw prompt/output log |
+| `answer_packet_ref` | required reference, no hidden route caveat |
+| `focused_test_refs` | LocalGGUFClient tests for resolution, profiles, sanitized events, failure, cancellation, fast-mode denial |
+| `next_runtime_probe` | owner-approved small GGUF first-token probe only after this packet passes |
+
+### Red Fixtures
+
+The falsifier should reject at least these fixtures:
+
+- source pin missing, stale, or not matching local `Package.swift`;
+- binary checksum missing, changed, or claimed as source review;
+- owner path present without explicit manifest approval;
+- raw owner path, prompt, system prompt, output, model id, artifact id, or
+  steering JSON persisted in the packet;
+- `.gguf` filename discovery treated as owner approval;
+- mmap/mlock/GPU offload support treated as memory-fit proof;
+- Metal support treated as Apple Silicon comfort proof;
+- package pin treated as latest upstream proof;
+- server slot-cache endpoint treated as in-process bridge capability;
+- prompt-cache hit treated as source freshness, quality, or model-fit proof;
+- unbounded context, batch, thread count, or max-token policy;
+- `fast` mode accepted for always-thinking families;
+- missing cancellation, teardown, rollback, RunEventLog, or AnswerPacket ref;
+- missing explicit abstention when byte envelope, owner manifest, or release
+  audit proof is absent;
+- MAS build promotion without binary/sandbox review;
+- Pro Live, L2, L3, T4, live dense 70B, SSD-as-RAM, hidden cloud fallback, or
+  hidden route-authority promotion;
+- any model/runtime/cache/index/provider bytes opened during the metadata gate.
+
+### Build Fusion
+
+The packet should sit between existing app code and future runtime probes:
+
+```text
+F-RuntimeLaneAdmissionMatrix-QATLiteRTGGUFMLX
+  -> F-GGUFInProcessRuntimeAdmissionPacket
+  -> owner-approved small GGUF path manifest
+  -> byte envelope + KV/context/app-headroom preflight
+  -> redacted first-token GGUF probe
+  -> same-fixture replay against MLX/LiteRT/Gemma QAT
+  -> RuntimeRouter/System G L2 route
+  -> L3 WRV release-audit proof
+```
+
+This is also where the 70B-class thesis stays protected. A small GGUF first
+token is not a 70B claim. It is the proof harness the large-model ladder needs
+before Gemma 4 QAT, MoE active-parameter rows, KV offload, or cold assembly can
+compete honestly.
+
+### Promotion Truth
+
+- T0 research/canon: advanced with a precise GGUF admission-packet blueprint.
+- T1/L1 architecture proof: unchanged in this pass; no new falsifier landed.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-GGUFInProcessRuntimeAdmissionPacket`, because it converts the most concrete
+local runtime lane into an owner-gated, byte-budgeted, rollback-visible,
+privacy-preserving proof packet before runtime.
+
+Safest next falsifier:
+metadata-only `F-GGUFInProcessRuntimeAdmissionPacket` with zero file opens and
+red fixtures for path approval, mmap-as-fit, Metal-as-fit, server-cache
+confusion, secret leakage, and L2/L3 promotion.
+
+Best near-term code unit:
+add `agent_core/src/uas/gguf_in_process_runtime_admission_packet.rs`,
+`agent_core/src/bin/falsify_gguf_in_process_runtime_admission_packet.rs`, and
+`Tools/falsifiers/f_gguf_in_process_runtime_admission_packet.sh`, then index it
+as a side-ladder witness without moving the guard-owned product cursor.
+
+Biggest false-claim risk:
+calling the existing in-process GGUF client a proven product runtime simply
+because focused tests use fake `.gguf` files and sanitized AgentEvents.
+
+Biggest missing source:
+an owner-approved canonical path manifest for a small real GGUF file, plus a
+byte/KV/app-headroom envelope that opens zero bytes during admission.
+
+Next research query: "How should
+F-GGUFInProcessRuntimeAdmissionPacket represent owner path manifests and byte
+envelopes so the later small GGUF first-token probe can open exactly the
+approved file, prove cancellation/rollback, and still keep raw paths and
+prompts out of durable evidence?"

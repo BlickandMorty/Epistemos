@@ -5636,3 +5636,36 @@ SSD-as-RAM, or user-facing large-local-model capability. The safest side-ladder
 falsifier is `F-GGUFInProcessRuntimeAdmissionPacket`; the guard-owned product
 cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.23 GGUF in-process runtime admission packet blueprint (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 177.
+
+Pass 177 narrows the runtime-lane admission matrix to the most buildable local
+lane: GGUF/llama.cpp through Epistemos' in-process bridge. It maps
+`Epistemos/Engine/LocalGGUFClient.swift`,
+`LocalPackages/GGUFRuntimeBridge/Sources/GGUFRuntimeBridge/GGUFSessionBridge.swift`,
+`LocalPackages/GGUFRuntimeBridge/Package.swift`,
+`EpistemosTests/LocalGGUFClientTests.swift`,
+`Epistemos/Engine/BackendRuntimeContract.swift`,
+`Epistemos/LocalAgent/RuntimeRouter.swift`, and
+`Epistemos/Engine/RuntimeExecutor.swift` into an implementable
+`F-GGUFInProcessRuntimeAdmissionPacket` side-ladder witness.
+
+The proposed packet binds the pinned llama.cpp `b6871` XCFramework checksum,
+local client and bridge refs, owner path-manifest status, selected byte
+envelope, context/KV/app-headroom policy, chat-template/tool-schema/cache-salt
+digests, cancellation, rollback, RunEventLog, AnswerPacket, focused sanitized
+AgentEvent tests, and abstention before any GGUF runtime probe may open model
+bytes. It explicitly separates the in-process bridge from llama.cpp server slot
+prompt-cache evidence, which remains under
+`F-LlamaCppSlotPromptCacheCommandCard`.
+
+Promotion truth: this is T0 research-to-build canon only. It edits no product
+code, opens no model/runtime/cache/index/provider bytes, starts no server, arms
+no command, and does not promote MAS, L2/L3, T4/T5, live dense 70B,
+SSD-as-RAM, or user-facing large-local-model capability. The next buildable
+side-ladder unit is the metadata-only
+`F-GGUFInProcessRuntimeAdmissionPacket`; the guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
