@@ -6322,6 +6322,60 @@ L1 metadata-proofed; no local file was opened or hashed, no llama.cpp binary
 was inspected, no command was armed or run, no token was observed, and no
 Gemma product capability was promoted."
 
+### 2026-06-08 - F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate` is now
+implemented as a metadata-only T1/L1 reconciliation contract for a future
+Gemma E2B GGUF/llama.cpp one-token runtime artifact. It adds
+`agent_core/src/uas/gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate.rs`,
+`agent_core/src/bin/falsify_gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate.rs`,
+`Tools/falsifiers/f_gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate.sh`,
+the artifact
+`artifacts/falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATE2BOwnerApprovedFirstTokenRuntimeProbe`, binds
+the selected E2B model id `google/gemma-4-E2B-it-qat-q4_0-gguf`, source
+revision `1894d1fc0a19d86697abd40483f5983c867df03f`, filename
+`gemma-4-E2B_q4_0-it.gguf`, expected file bytes `3349514112`, direct
+`/opt/homebrew/bin/llama-cli` lane, 36 reconciliation fields, 42 rejection
+policies, exact owner approval/owner manifest/canonical path/model-file/
+llama.cpp binary/version/command/argv/environment/synthetic prompt/token/
+memory/timeout/cancel/teardown/rollback/log/packet/abstention digest-match
+requirements, and non-promotion. It rejects 66 red fixtures, reads zero
+runtime artifact bytes, performs zero reconciliation actions, opens zero
+files, hashes zero local files, opens zero llama.cpp binaries, executes zero
+version checks, arms zero commands, executes zero commands, observes zero
+tokens, captures zero raw path/prompt/output/stdout/stderr/token bytes, loads
+zero model/runtime/provider bytes, and makes no Gemma default-model, quality,
+benchmark, MAS, L2, L3, T4, live-70B, or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate` advances
+  the Gemma E2B GGUF side-ladder to T1/L1 metadata-only artifact
+  reconciliation proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no runtime artifact was read,
+  no local Gemma model file was opened or hashed, no llama.cpp binary was
+  inspected or executed, no command was armed or run, no token was observed,
+  no route was admitted into RuntimeRouter/System G, and Gemma is not the app
+  default.
+
+Correct phrasing: "Gemma E2B first-token artifact reconciliation requirements
+are L1 metadata-proofed; no runtime artifact was read, no local file was opened
+or hashed, no llama.cpp binary was inspected, no command was armed or run, no
+token was observed, and no Gemma product capability was promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

@@ -979,9 +979,22 @@ ladder also has three metadata-only T1/L1 gates landed:
   network/server/download/mmap/provider shortcut, no hidden authority, no
   E4B/12B bypass, no quality/benchmark laundering, and no L2/L3/T4/user-facing
   Gemma claim.
+- `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate`: future
+  owner-approved E2B GGUF/llama.cpp first-token artifact reconciliation
+  contract, selected model id, source revision, filename
+  `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, direct
+  `/opt/homebrew/bin/llama-cli` lane, 36 reconciliation fields, 42 rejection
+  policies, exact owner approval/owner manifest/canonical path/model-file/
+  llama.cpp binary/version/command/argv/environment/synthetic prompt/token/
+  memory/timeout/cancel/teardown/rollback/log/packet/abstention digest-match
+  requirements, zero runtime artifact bytes read, zero reconciliation actions,
+  zero file/hash/binary/version-exec actions, zero command/token/model/runtime/
+  provider bytes or actions, no raw path/prompt/output/stdout/stderr/token
+  retention, no hidden authority, no E4B/12B bypass, no quality/benchmark
+  laundering, and no L2/L3/T4/user-facing Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate`.
+`gemma_qat_e2b_same_fixture_quality_replay_packet_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,

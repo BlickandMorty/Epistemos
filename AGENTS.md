@@ -142,6 +142,22 @@ Runtime policy:
   bypass, quality, benchmark-fit, live dense 70B, or SSD-as-RAM claim. Next
   Gemma unit:
   `gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate`.
+- 2026-06-08 Gemma E2B first-token artifact reconciliation status:
+  `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewReconciliationGate` is landed
+  as metadata-only L1/T1. It consumes the owner-approved first-token probe and
+  requires exact owner approval, owner manifest, canonical path, model-file,
+  llama.cpp binary/version, command, argv, environment, synthetic prompt,
+  redacted first-token, memory, timeout/cancel, teardown, rollback,
+  RunEventLog, AnswerPacket, and abstention digests before any future
+  first-token artifact can feed quality replay or RuntimeRouter/System G. It
+  rejects 66 red fixtures, reads zero runtime artifact bytes, opens zero
+  files, hashes zero local files, opens zero llama.cpp binaries, executes zero
+  version checks, arms zero commands, executes zero commands, observes zero
+  tokens, captures zero raw path/prompt/output/stdout/stderr/token bytes,
+  loads zero model/runtime/provider bytes, and makes no MAS/L2/L3/T4/user-
+  facing, Gemma-default, E4B/12B bypass, quality, benchmark-fit, live dense
+  70B, or SSD-as-RAM claim. Next Gemma unit:
+  `gemma_qat_e2b_same_fixture_quality_replay_packet_gate`.
 - 2026-06-07 status: `F-HardwareTieredModelCatalog-SourceCard`,
   `F-MoEActiveParamsMemoryTruth`, `F-ExoticQuantQuarantineRouteCard`, and
   `F-ExoticQuantSourcePinAndByteBudgetPreflight`, and
@@ -236,9 +252,9 @@ Runtime policy:
   model/runtime/provider bytes, and do not prove local availability, path
   safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
   product default, L2, L3, live dense 70B, or user-facing Gemma capability.
-  The current Gemma side-ladder unit after the landed owner-approved
-  first-token probe gate is
-  `gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate`.
+  The current Gemma side-ladder unit after the landed first-token artifact
+  reconciliation gate is
+  `gemma_qat_e2b_same_fixture_quality_replay_packet_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

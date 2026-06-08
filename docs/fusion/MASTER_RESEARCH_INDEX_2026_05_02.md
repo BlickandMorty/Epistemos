@@ -63,17 +63,18 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > envelope, 16 proof phases, 70 red-fixture rejections, owner approval pending,
 > command unarmed, zero download/open/hash/model/runtime/provider bytes, and no
 > L2/L3 product capability. The Gemma-specific side-ladder now also reaches
-> `artifacts/falsifiers/gemma_qat_e2b_owner_approved_first_token_runtime_probe/result.json`,
+> `artifacts/falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate/result.json`,
 > which passes T1/L1 metadata with the selected E2B source revision
 > `1894d1fc0a19d86697abd40483f5983c867df03f`, required
 > `gemma-4-E2B_q4_0-it.gguf` filename, expected bytes `3349514112`, direct
-> `/opt/homebrew/bin/llama-cli` lane, required owner approval, owner manifest
-> digest, canonical path digest, model-file sha256, llama.cpp binary sha256,
-> llama.cpp version digest, visible offline synthetic-prompt command template,
-> memory before/load-start/first-token/teardown samples, timeout/cancel,
-> rollback, RunEventLog, AnswerPacket, abstention, 74 red-fixture rejections,
-> zero file/hash/binary/version-exec/command/token/model/runtime/provider
-> actions, and no L2/L3/T4/user-facing/default Gemma claim. E2B
+> `/opt/homebrew/bin/llama-cli` lane, exact owner approval, owner manifest,
+> canonical path, model-file, llama.cpp binary/version, command, argv,
+> environment, synthetic prompt, token, memory, timeout/cancel, teardown,
+> rollback, RunEventLog, AnswerPacket, and abstention digest-match
+> requirements, 66 red-fixture rejections, zero runtime artifact reads, zero
+> reconciliation actions, zero file/hash/binary/version-exec/command/token/
+> model/runtime/provider actions, and no L2/L3/T4/user-facing/default Gemma
+> claim. E2B
 > is the harness proving lane; Gemma 4 12B QAT remains the Pro Gated target;
 > and 31B/70B-class routes remain Pro Research/Vault until residency, routing,
 > transport, memory, rollback, RunEventLog, and AnswerPacket proof exists.
