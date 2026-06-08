@@ -1020,9 +1020,25 @@ ladder also has three metadata-only T1/L1 gates landed:
   loads zero model/runtime/provider bytes, captures zero raw prompt/output
   bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing
   Gemma claim.
+- `F-GemmaQATE2BSystemGDryRunRoutePacketGate`: future E2B GGUF/llama.cpp
+  System G dry-run route packet contract, selected model id, source revision,
+  filename `gemma-4-E2B_q4_0-it.gguf`, expected bytes `3349514112`, direct
+  `/opt/homebrew/bin/llama-cli` lane, 29 route fields, 56 rejection policies,
+  System G dry-run envelope, RuntimeRouter policy digest, route-priority
+  snapshot, no-priority-mutation proof, budget vector, memory headroom, KV
+  budget, latency budget, privacy class, MAS/Pro boundary, SCOPE-Rex verdict,
+  SovereignGate verdict, fallback, abstention, cancellation, rollback,
+  RunEventLog, AnswerPacket, visible caveat, settings visibility, diagnostic
+  visibility, route explanation, hidden-authority denial, and non-promotion.
+  It rejects 70 red fixtures, reads zero route packet bytes, performs zero
+  dry-run or admission actions, mutates zero route priorities,
+  RuntimeRouter/System G/default-model state, arms or executes zero commands,
+  loads zero model/runtime/provider bytes, captures zero raw prompt/output
+  bytes, suppresses zero AnswerPackets, and makes no MAS/L2/L3/T4/user-facing
+  Gemma claim.
 
 The current Gemma side-ladder next unit is
-`gemma_qat_e2b_system_g_dry_run_route_packet_gate`.
+`gemma_qat_e2b_route_answer_packet_visibility_gate`.
 
 Near-term large-model simplification: work Gemma exclusively until the
 Gemma-class ladder is actually proven or exhausted. E2B is the harness lane,

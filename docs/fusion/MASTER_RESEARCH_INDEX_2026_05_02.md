@@ -378,6 +378,24 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > makes no MAS/L2/L3/T4, Gemma-default, quality, benchmark-fit, live-70B, or
 > SSD-as-RAM claim. Next Gemma unit:
 > `gemma_qat_e2b_system_g_dry_run_route_packet_gate`.
+> Current addendum: Deep Research Pass 197 lands
+> `F-GemmaQATE2BSystemGDryRunRoutePacketGate` as the metadata-only T1/L1
+> bridge from Gemma E2B RuntimeRouter admission evidence into future System G
+> dry-run route packets. It consumes
+> `F-GemmaQATE2BRuntimeRouterAdmissionPacketGate`, binds 29 route fields, 56
+> rejection policies, System G dry-run envelope, RuntimeRouter policy digest,
+> route-priority snapshot, no-priority-mutation proof, budget vector,
+> memory/KV/latency budgets, privacy class, MAS/Pro boundary, SCOPE-Rex,
+> SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog,
+> AnswerPacket, settings/diagnostic visibility, route explanation, and 70
+> red-fixture rejections. Artifact:
+> `artifacts/falsifiers/gemma_qat_e2b_system_g_dry_run_route_packet_gate/result.json`.
+> It reads zero route packet bytes, performs zero dry-run/admission actions,
+> mutates zero routes, executes zero commands, loads zero
+> model/runtime/provider bytes, suppresses zero AnswerPackets, and makes no
+> MAS/L2/L3/T4, Gemma-default, quality, benchmark-fit, live-70B, or
+> SSD-as-RAM claim. Next Gemma unit:
+> `gemma_qat_e2b_route_answer_packet_visibility_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
