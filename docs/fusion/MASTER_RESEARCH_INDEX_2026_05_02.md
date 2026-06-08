@@ -285,6 +285,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > bytes, and makes no MAS/L2/L3/live-main-model, quality, benchmark-fit,
 > live-70B, or Gemma-default claim. Next Gemma unit:
 > `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`.
+> Current addendum: Deep Research Pass 189 lands
+> `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe` as the metadata-only
+> T1/L1 envelope for a future owner-approved E2B GGUF/llama.cpp one-token
+> execution probe. It consumes `F-GemmaQATRuntimeReplayExecutionArtifactGate`
+> and binds 27 future execution proof fields, 24 abort conditions, owner
+> approval pending, owner model-path manifest and canonical path digest
+> requirements, visible but unarmed command template, offline/no-server/no-
+> download/no-mmap-stress/no-provider route, first-token/model/llama.cpp/
+> command digest requirements, memory samples, timeout, cancellation,
+> rollback, RunEventLog, AnswerPacket, abstention, non-promotion, and 51
+> red-fixture rejections. Artifact:
+> `artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_execution_probe/result.json`.
+> It opens zero files, arms zero commands, executes zero commands, observes
+> zero tokens, captures zero raw prompt/output/stdout/stderr bytes, loads zero
+> model/runtime/provider bytes, and makes no MAS/L2/L3/live-main-model,
+> quality, benchmark-fit, live-70B, or Gemma-default claim. Next Gemma unit:
+> `F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

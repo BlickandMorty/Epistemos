@@ -6077,6 +6077,52 @@ metadata-proofed; no Gemma model, runtime command, token, output, scorer,
 quality result, product route, or main-model default has been opened, executed,
 observed, captured, compared, or promoted."
 
+### 2026-06-08 - F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe` is now implemented as a
+metadata-only T1/L1 Gemma side-ladder witness. It adds
+`agent_core/src/uas/gemma_qat_owner_approved_runtime_replay_execution_probe.rs`,
+`agent_core/src/bin/falsify_gemma_qat_owner_approved_runtime_replay_execution_probe.rs`,
+`Tools/falsifiers/f_gemma_qat_owner_approved_runtime_replay_execution_probe.sh`,
+the validated artifact
+`artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_execution_probe/result.json`,
+and the witness doc
+`docs/falsifiers/F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe_2026_06_08.md`.
+
+The witness consumes `F-GemmaQATRuntimeReplayExecutionArtifactGate`, requires
+27 future execution proof fields and 24 abort conditions, and rejects 51 red
+fixtures. It keeps owner approval pending, requires owner model-path manifest
+and canonical path digest proof, keeps the command visible but unarmed, forbids
+server/download/mmap-stress/provider lanes, requires first-token/model/llama
+binary/version/command digests, memory before/start/first-token/after samples,
+timeout, cancellation, rollback, RunEventLog, AnswerPacket, abstention, and
+non-promotion. It opens zero files, arms zero commands, executes zero commands,
+observes zero tokens, captures zero raw prompt/output/stdout/stderr bytes,
+loads zero model/runtime/provider bytes, and makes no Gemma default-model,
+quality, benchmark, MAS, L2, L3, live-70B, or SSD-as-RAM claim.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe`
+  advances the Gemma E2B GGUF side-ladder to T1/L1 metadata-only
+  owner-approved execution-probe envelope proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no local Gemma path was
+  approved, opened, loaded, run, token-observed, scored, settings-surfaced, or
+  made the app default, and no RuntimeRouter/System G admission was promoted.
+
+Correct phrasing: "Gemma E2B GGUF owner-approved execution-probe envelope is
+L1 metadata-proofed; no Gemma model, runtime command, token, output, scorer,
+quality result, product route, or main-model default has been opened, executed,
+observed, captured, compared, or promoted."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

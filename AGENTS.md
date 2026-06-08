@@ -135,7 +135,8 @@ Runtime policy:
   `F-GemmaQATHeldOutQualityReplayPacket`, and
   `F-GemmaQATOwnerApprovedRuntimeReplayTranscriptGate`, and
   `F-GemmaQATOwnerApprovedRuntimeReplayProbe`, and
-  `F-GemmaQATRuntimeReplayExecutionArtifactGate` are landed as
+  `F-GemmaQATRuntimeReplayExecutionArtifactGate`, and
+  `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe` are landed as
   metadata-only T1/L1
   witnesses. They make Gemma the preferred Google model-family strategy, bind
   E2B/E4B QAT owner path-manifest contracts, and bind selected artifact bytes
@@ -177,6 +178,13 @@ Runtime policy:
   digests, memory before/start/after samples, cancellation, rollback,
   RunEventLog, AnswerPacket, abstention, non-promotion, and 49 red-fixture
   rejections.
+  They now also bind the future owner-approved E2B GGUF/llama.cpp one-token
+  execution-probe envelope: 27 proof fields, 24 abort conditions, owner
+  approval pending, owner model-path manifest and canonical path digest
+  requirements, visible but unarmed command template, offline/no-server/no-
+  download/no-mmap-stress/no-provider route, digest/version/memory sample
+  requirements, timeout, cancellation, rollback, RunEventLog, AnswerPacket,
+  abstention, non-promotion, and 51 red-fixture rejections.
   E2B is only a post-owner-approval probe candidate; E4B is only a tight
   candidate requiring a fresh memory sample. These gates open zero files,
   allocate zero KV/runtime/app bytes, attempt zero first tokens, capture zero
@@ -187,7 +195,7 @@ Runtime policy:
   safety, runtime fit, Swift MLX loader support, LiteRT embedding, quality,
   product default, L2, L3, live dense 70B, or user-facing Gemma capability.
   The next Gemma side-ladder unit is
-  `gemma_qat_owner_approved_runtime_replay_execution_probe`.
+  `gemma_qat_e2b_first_token_runtime_artifact_review_gate`.
 - 2026-06-07 research-to-build lock: future work must separately bind exact
   source pins, file manifests, declared artifact bytes, runtime-lane byte
   envelopes, Mac-tier denial/allowance, full-weight bytes, KV cache bytes,

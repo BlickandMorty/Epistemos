@@ -23667,3 +23667,120 @@ bind an owner-approved local E2B GGUF path, exact llama.cpp binary/version,
 memory samples, redacted first-token digest, cancellation, rollback,
 RunEventLog, AnswerPacket, and abstention so the first real Gemma run remains
 private, reversible, and non-promotional?"
+
+## Pass 189 - Gemma Owner-Approved Runtime Replay Execution Probe Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass lands `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe` as the
+metadata-only T1/L1 execution-probe envelope after
+`F-GemmaQATRuntimeReplayExecutionArtifactGate`. It is still not a model run.
+It exists because the first future Gemma execution is exactly where false
+promotion, raw-output leakage, command drift, path drift, and "one token means
+main model" pressure can enter the system.
+
+### Local Build Result
+
+- UAS primitive:
+  `agent_core/src/uas/gemma_qat_owner_approved_runtime_replay_execution_probe.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_gemma_qat_owner_approved_runtime_replay_execution_probe.rs`
+- Script:
+  `Tools/falsifiers/f_gemma_qat_owner_approved_runtime_replay_execution_probe.sh`
+- Artifact:
+  `artifacts/falsifiers/gemma_qat_owner_approved_runtime_replay_execution_probe/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe_2026_06_08.md`
+
+The artifact consumes `F-GemmaQATRuntimeReplayExecutionArtifactGate`, binds 27
+future execution proof fields and 24 abort conditions, and rejects 51 red
+fixtures. It keeps owner approval pending; requires an owner model-path
+manifest, canonical path digest, model digest, llama.cpp binary/version
+digests, command digest, redacted prompt/output/first-token digests, memory
+before/start/first-token/after samples, timeout, cancellation, rollback,
+RunEventLog, AnswerPacket, abstention, and non-promotion; forbids network,
+server, download, mmap-stress, and provider routes; and opens zero files, arms
+zero commands, executes zero commands, observes zero tokens, captures zero raw
+prompt/output/stdout/stderr bytes, and loads zero model/runtime/provider bytes.
+
+### Research Synthesis
+
+The Google Gemma 4 QAT direction still looks like the right flagship family
+for Pro Gated local model work: E2B/E4B are the harness warmup lanes, 12B QAT is
+the flagship Pro local target, and larger Gemma/QAT or MoE variants remain
+Vault/Research until byte, quality, and runtime evidence exists. The build
+lesson from the latest local canon and web validation is stricter than "try the
+model": first bind source cards, then owner paths, then byte/KV/app envelopes,
+then redacted first-token/same-fixture/held-out proof, then owner-approved
+execution artifacts, then RuntimeRouter/System G admission, then WRV/release
+audit. This pass adds the envelope that prevents the first owner-approved run
+from bypassing that ladder.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma 4 12B QAT remains the flagship Pro Gated target.
+- T1/L1 architecture proof:
+  `F-GemmaQATOwnerApprovedRuntimeReplayExecutionProbe` is landed when its
+  artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner approval granted: no.
+- Owner path bytes opened: zero.
+- Commands armed: zero.
+- Commands executed: zero.
+- First tokens observed: zero.
+- Raw prompt/output/stdout/stderr bytes captured: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It moves Gemma from "researched candidate" toward "auditable local runtime
+candidate" without collapsing the privacy and stability gates. The first future
+E2B GGUF one-token run now has to be replayable, redacted, memory-sampled,
+rollback-bound, AnswerPacket-visible, and non-promotional before it counts as
+anything. That same shape can later lift to E4B, 12B, LiteRT-LM, and MLX Swift
+only after each lane proves its own loader and memory truth.
+
+### Why It May Be Wrong
+
+It still does not prove llama.cpp exists locally, does not approve a path, does
+not prove the E2B file is present, does not prove memory fit, does not prove
+quality, does not prove Swift MLX or LiteRT parity, and does not make Gemma
+usable or default in the app. The later execution artifact can still fail on
+dependency availability, path safety, model digest mismatch, command option
+drift, tokenizer/template behavior, memory pressure, cancellation, or output
+quality.
+
+Best breakthrough candidate:
+owner-approved first-token runtime artifact review gate for the E2B GGUF lane,
+fed by this execution-probe envelope and blocked from product promotion until
+RunEventLog, AnswerPacket, and held-out quality evidence line up.
+
+Safest next falsifier:
+`F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate`.
+
+Best near-term code unit:
+build the review gate that can consume the future execution artifact and decide
+whether a first-token digest, memory samples, exit status, rollback, RunEventLog,
+AnswerPacket, and abstention are complete enough to permit a later real
+owner-approved E2B run review without marking Gemma live.
+
+Biggest false-claim risk:
+saying "Gemma works" or "Gemma is the main model" from this L1 metadata-only
+probe, or treating E2B one-token evidence as proof of 12B quality, app
+default-readiness, or RuntimeRouter/System G admission.
+
+Biggest missing source:
+owner-approved local E2B GGUF path, exact llama.cpp binary/version digest, and
+the future redacted first-token execution artifact.
+
+Next research query: "What should
+F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate require to review an
+owner-approved E2B GGUF first-token artifact while preserving privacy,
+rollback, memory truth, abstention, and no default-model promotion?"
