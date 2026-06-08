@@ -25426,3 +25426,107 @@ selector today. If that becomes the explicit priority, the correct move is an
 honest "coming soon / gated" Gemma row with no route mutation, not a fake live
 default. The live default still depends on the red release-audit automated
 checks and owner-approved runtime evidence.
+
+## Pass 204 - Gemma E2B Release-Audit Surface Gate Landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn the "fast row versus main model" distinction into a concrete falsifier.
+`F-GemmaQATE2BReleaseAuditSurfaceGate` now gives the Gemma ladder a release
+surface between settings/diagnostics visibility and any product capability
+recheck.
+
+Safest next falsifier:
+`gemma_qat_e2b_product_capability_recheck_gate`, but it must remain blocked on
+the guard-owned red product cursor until the release-audit automated-check
+ledger is repaired. The gate can name the recheck shape; it must not fake the
+recheck evidence.
+
+Best near-term code unit:
+owner-approved focused graph-filter proof-root execution remains the fastest
+path to actual Gemma product progress, because the new release-audit surface
+proves Gemma cannot bypass the red product rail. Without that proof, a Gemma
+settings row can be honest gated visibility only.
+
+Biggest false-claim risk:
+treating the new `F-GemmaQATE2BReleaseAuditSurfaceGate` PASS as a release
+audit, Swift settings proof, Xcode proof, model load, first token, or Gemma
+main-model route. It is metadata-only L1/T1.
+
+Biggest missing source:
+a current-HEAD full automated-check artifact with `xcodebuild_test_passed=true`
+and the later log/manual/distribution/repeated-zero-fail evidence required by
+the release audit skill.
+
+Next research query: "What is the minimum non-product-code
+`gemma_qat_e2b_product_capability_recheck_gate` that can consume the new
+release-audit surface without laundering the still-red automated-check gate?"
+
+### Current Evidence
+
+- New primitive:
+  `agent_core/src/uas/gemma_qat_e2b_release_audit_surface_gate.rs`
+- New binary:
+  `agent_core/src/bin/falsify_gemma_qat_e2b_release_audit_surface_gate.rs`
+- New runner:
+  `Tools/falsifiers/f_gemma_qat_e2b_release_audit_surface_gate.sh`
+- New witness:
+  `docs/falsifiers/F-GemmaQATE2BReleaseAuditSurfaceGate_2026_06_08.md`
+- New artifact:
+  `artifacts/falsifiers/gemma_qat_e2b_release_audit_surface_gate/result.json`
+- Focused Rust test:
+  `cargo test --manifest-path agent_core/Cargo.toml --lib gemma_qat_e2b_release_audit_surface_gate`
+  passed 5/5.
+- Witness script:
+  `Tools/falsifiers/f_gemma_qat_e2b_release_audit_surface_gate.sh` passed and
+  validated the artifact.
+
+### Architecture Fusion
+
+```text
+Gemma E2B settings/diagnostics WRV gate
+  -> Gemma E2B release-audit surface gate
+  -> product capability recheck shape
+  -> still blocked by red release-audit automated checks
+  -> owner-approved focused product proof
+  -> full automated-check pass
+  -> log/manual/distribution/repeated-zero-fail evidence
+```
+
+The landed gate binds the release-audit skill, red automated-check blocker,
+graph-filter proof-root command card, execution-artifact parser gate,
+owner-approval runbook, log/manual/distribution/repeated-zero-fail
+requirements, settings and diagnostics copy, AnswerPacket, RunEventLog,
+rollback, abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion,
+fast-row gated visibility, owner action, and product-capability recheck
+deferral.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced for the Gemma side-ladder only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Xcode command executed: no.
+- Settings row wired: no.
+- Diagnostics UI wired: no.
+- User-visible AnswerPacket emitted: no.
+- Model/runtime/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It lets Epistemos move fast without losing truth. A future UI row can be added
+as gated visibility while the runtime route remains bound to release proof.
+That is the clean bridge from research-to-build for Gemma E2B, then E4B, then
+12B.
+
+### Why It May Be Wrong
+
+The next capability recheck could still become theater if it consumes this
+metadata PASS while ignoring the red automated-check gate. The next gate must
+therefore preserve the product blocker explicitly and refuse to call Gemma live
+until release-audit evidence exists.

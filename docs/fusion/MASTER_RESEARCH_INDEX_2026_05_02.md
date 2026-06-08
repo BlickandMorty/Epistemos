@@ -480,6 +480,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > cards, and llama.cpp supports the E2B GGUF/llama.cpp first lane, E4B repeat
 > lane, and 12B QAT GGUF/LiteRT Pro flagship target, but does not promote L2/L3
 > product capability.
+> Current addendum: Deep Research Pass 204 lands
+> `F-GemmaQATE2BReleaseAuditSurfaceGate` as metadata-only T1/L1 evidence. The
+> gate consumes `F-GemmaQATE2BSettingsDiagnosticsWRVGate`, binds the Gemma E2B
+> GGUF/llama.cpp lane to the release-audit skill, red automated-check blocker,
+> graph-filter proof-root command card, execution-artifact parser gate,
+> owner-approval runbook, log/manual/distribution/repeated-zero-fail
+> requirements, AnswerPacket, RunEventLog, rollback, abstention, and
+> fast-row-gated visibility, rejects 85 red fixtures, and opens or executes
+> zero settings, Xcode, model, runtime, route, provider, or user-facing packet
+> actions. L2/L3 remain red.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
