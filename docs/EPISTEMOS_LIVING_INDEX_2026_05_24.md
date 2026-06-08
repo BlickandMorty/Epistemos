@@ -6902,6 +6902,38 @@ Layer truth:
 Correct phrasing: "The Gemma runtime plan now has an E2B llama.cpp harness lane
 and a 12B LiteRT-LM Pro admission lane; neither lane is product-live."
 
+### 2026-06-08 — Gemma MTP Target-Verified Acceleration Packet (Pass 207, T0 only)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 207 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` sharpens
+`F-GemmaMTPAccelerationPacket`: Gemma MTP/speculative decoding is an optional
+target-verified acceleration layer, not a runtime default and not proof that a
+model can run. The packet must bind target model, assistant model, runtime lane,
+speculative mode, draft-token policy, acceptance counters, same-fixture
+baseline-vs-MTP final digest equality, latency, memory, timeout/cancel/teardown,
+Apple Silicon abstention, rollback, RunEventLog, AnswerPacket, provenance, and
+no route/default mutation before RuntimeRouter/System G can use MTP to improve
+priority.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier rung was
+  landed in this pass.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no MTP runtime, assistant
+  GGUF, fork, target model, route priority, settings row, first token, or
+  product capability was activated.
+
+Correct phrasing: "Gemma MTP is now a source-carded future acceleration packet
+with abstention; it is not a live speedup or route authority."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

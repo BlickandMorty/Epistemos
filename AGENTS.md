@@ -181,6 +181,16 @@ Runtime policy:
   `F-LiteRTLMGemma12BNativeAdmissionSourceCard`,
   `F-GemmaMTPAccelerationPacket`, and
   `F-GGUFQATForkDeltaQuarantineCard`.
+- 2026-06-08 MTP acceleration packet research: Deep Research Pass 207 makes
+  Gemma MTP/speculative decoding a target-verified acceleration packet, not a
+  runtime default. MTP may improve larger Gemma responsiveness only after the
+  base route exists, target verification preserves the final answer digest,
+  acceptance/latency/memory counters are visible, Apple Silicon overhead beats
+  baseline, rollback disables MTP without disabling the base route, and
+  RunEventLog/AnswerPacket witnesses exist. Treat Atomic/TurboQuant, Unsloth,
+  and other assistant-GGUF/fork signals as quarantine references until
+  `F-GemmaMTPAccelerationPacket` source-cards exact assistant/runtime digests,
+  same-fixture replay, abstention, provenance, and no hidden route authority.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
