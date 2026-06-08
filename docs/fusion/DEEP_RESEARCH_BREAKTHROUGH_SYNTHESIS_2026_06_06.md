@@ -19632,3 +19632,211 @@ contains any materialized synthetic fixture payload.
 Next research query: "What is the minimum synthetic payload shape for each of
 the six descriptors that exercises verifier/scorer logic without copying
 benchmarks, leaking vault text, or creating model-quality claims before replay?"
+
+## Pass 162 - Minimal Synthetic Fixture Payload Shape V0
+
+### Executive Synthesis
+
+Pass 162 defines the minimum synthetic payload shapes that would later attach
+to the six Pass 161 descriptors. The point is not to create payload files yet.
+The point is to make payload materialization deterministic, tiny, auditable,
+and Epistemos-owned before any same-fixture replay, QAT lane comparison, or
+small-model runtime harness consumes it.
+
+The payload principle is strict:
+
+```text
+payload shape != benchmark copy
+payload digest != runtime proof
+synthetic expected outcome != model-quality score
+verifier exercise != hidden judge
+```
+
+Every future payload must be small enough to inspect, synthetic enough to avoid
+vault leakage, structured enough for deterministic verifier/scorer logic, and
+explicit enough to fail closed when evidence, tools, tombstones, or MAS/Pro
+authority are missing.
+
+### Local Source Facts
+
+- Pass 156 fixed the six v0 cases; Pass 157-161 now bind digests, templates,
+  profiles, labels, descriptors, and no-promotion caveats before payloads.
+- `EpistemosTests/PrivacyTest.swift` and
+  `Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift` prove the current
+  app already treats PII redaction as a storage boundary, not a post-hoc UI
+  detail.
+- `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` requires stable
+  fixture identity and lineage; payload shape must therefore include generator
+  seed and canonical digest refs without relying on row order, path, title, or
+  mtime.
+- The small-model runtime harness sidecars show the later proof shape:
+  synthetic non-user prompt digest, redacted token digest, RunEventLog,
+  AnswerPacket, rollback, admission, privacy, and no false L2/L3 promotion.
+
+### Current External Source Facts
+
+- IFEval focuses on automatically verifiable instruction constraints rather
+  than LLM-judge scoring. Pass 162 borrows that verifiable-constraint motif
+  while creating original Epistemos payloads. Source:
+  `https://arxiv.org/abs/2311.07911`
+- Berkeley Function-Calling Leaderboard (BFCL) includes function relevance
+  detection and tool-call selection scenarios. Pass 162 borrows the allowed
+  tool-or-abstain motif without copying BFCL prompts or functions. Source:
+  `https://sky.cs.berkeley.edu/project/berkeley-function-calling-leaderboard/`
+- Terminal-Bench tasks include an instruction, verification script, and oracle
+  solution. Pass 162 borrows the explicit verifier/target-state motif while
+  avoiding terminal execution and benchmark task copying. Sources:
+  `https://www.tbench.ai/benchmarks` and
+  `https://github.com/harbor-framework/terminal-bench`
+
+### Candidate Falsifier
+
+`F-MinimalSyntheticFixturePayloadShapeV0`
+
+Required future payload file set, not created by this pass:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/payloads/
+  msfp_v0_note_synthesis_001.payload.json
+  msfp_v0_citation_research_001.payload.json
+  msfp_v0_structured_tool_json_001.payload.json
+  msfp_v0_cache_deletion_001.payload.json
+  msfp_v0_abstention_001.payload.json
+  msfp_v0_latency_small_lane_001.payload.json
+```
+
+Required common payload fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `fixture_id` | one fixed Pass 156 ID | descriptor join |
+| `payload_scope` | `synthetic_payload_no_runtime` | no runtime laundering |
+| `payload_origin` | `epistemos_owned_synthetic_v0` | no benchmark copy |
+| `generator_seed` | stable ASCII seed slug | reproducibility |
+| `descriptor_digest_ref` | Pass 161 descriptor digest | descriptor linkage |
+| `redaction_profile_digest` | Pass 160 digest | privacy linkage |
+| `source_allowlist_digest` | required or explicit empty reason | evidence fence |
+| `tombstone_policy_digest` | required or explicit empty reason | deletion fence |
+| `verifier_digest_ref` | deterministic verifier digest | no hidden judge |
+| `scorer_digest_ref` | deterministic scorer digest | no hidden score |
+| `answer_packet_template_ref` | no-runtime template digest | visible proof skeleton |
+| `run_event_log_template_ref` | no-runtime template digest | replay skeleton |
+| `payload_text_blocks` | bounded synthetic blocks only | human audit |
+| `expected_outcome_shape` | enum/checklist, not answer prose | verifier target |
+| `forbidden_output_classes` | raw private text, hidden reasoning, unsupported tool, deleted fact, ungrounded claim | fail-closed |
+| `metadata_only_non_promotion` | `true` | no L2/L3/T4 claim |
+
+Per-case minimum payload shapes:
+
+| Payload | Minimum synthetic contents | Deterministic verifier exercise |
+|---|---|---|
+| `msfp_v0_note_synthesis_001.payload.json` | three short synthetic note cards, each with `evidence_id`, `heading`, and one invented fact | output outline must cite allowed evidence IDs and omit unsupported fact |
+| `msfp_v0_citation_research_001.payload.json` | four synthetic source cards, one marked distractor, one missing-source trap | answer must cite only allowed source IDs or abstain |
+| `msfp_v0_structured_tool_json_001.payload.json` | one synthetic user request, two tool schemas, one MAS-denied Pro tool caveat | output must emit allowed JSON call or abstain; no private args |
+| `msfp_v0_cache_deletion_001.payload.json` | two synthetic cache/source cards, one tombstoned generation, one surviving generation | output must ignore tombstoned fact and use surviving source only |
+| `msfp_v0_abstention_001.payload.json` | one synthetic request with missing evidence and unavailable tool labels | output must choose abstention class, not fabricate |
+| `msfp_v0_latency_small_lane_001.payload.json` | tiny synthetic prompt class with byte/token buckets and no expected text | verifier checks lane classification shape only, no speed claim |
+
+Payload size ceilings:
+
+| Payload class | Ceiling |
+|---|---|
+| total payload file bytes | `<= 4096` bytes each |
+| synthetic text blocks | `<= 6` blocks per payload |
+| synthetic block bytes | `<= 512` bytes per block |
+| source cards | `<= 4` per payload |
+| tool schemas | `<= 2` per payload |
+| tombstone entries | `<= 2` per payload |
+| exact private byte/token counts | forbidden |
+| runtime/model/provider/cache/index bytes | `0` |
+
+Required red fixtures:
+
+- payload text copies IFEval, BFCL, Terminal-Bench, LiveBench, SWE-bench, or
+  any public benchmark prompt/task/oracle
+- payload contains raw user/vault text, note title, local path, provider
+  payload, PII, credential, hidden reasoning, chain-of-thought, model output,
+  raw token, or deleted/tombstoned content
+- payload lacks descriptor digest, redaction profile digest, source allowlist
+  digest, tombstone policy digest, verifier/scorer digest, AnswerPacket
+  template, RunEventLog template, rollback, or MAS/Pro caveat
+- payload exceeds byte/block/source/tool/tombstone ceilings
+- expected outcome stores final answer prose instead of verifier shape
+- citation payload permits distractor or missing-source trap as evidence
+- tool payload permits MAS-denied Pro tool or private tool args
+- cache payload uses tombstoned fact or omits surviving-source proof
+- abstention payload rewards fabricated answer
+- latency payload stores speed result, exact prompt text length, exact token
+  count, runtime path, or route success
+- payload materialization claims L1/L2/L3/T4, release readiness, model quality,
+  route authority, live dense 70B, live sparse 70B, or user-facing capability
+
+### Architecture Fusion
+
+| Epistemos organ | Payload-shape role | Build implication |
+|---|---|---|
+| UAS/OAS | payloads join descriptors by digest | payload identity is content-addressed |
+| ColdStore/AppColdStore | source/tombstone refs remain dormant | replay can refuse deleted/stale context |
+| ActiveAssembly | payloads define tiny support sets | future runtime wakes minimal evidence only |
+| Eidos | citation/source cards stay allowlisted | retrieval cannot rank forbidden evidence |
+| SCOPE-Rex/SovereignGate | abstention and MAS/Pro caveats are testable | unsafe tool/evidence paths fail closed |
+| RuntimeRouter/System G | payloads carry no route success or speed | no payload can steer runtime policy |
+| RunEventLog | template refs define later event skeletons | replay can correlate without raw output |
+| AnswerPacket | expected outcome class is packet-visible | proof remains visible and caveated |
+
+### Build Path
+
+1. Implement metadata-only UAS primitive
+   `minimal_synthetic_fixture_payload_shape_v0`.
+2. Implement `falsify_minimal_synthetic_fixture_payload_shape_v0`.
+3. Add red fixtures for benchmark-copy leakage, private text, PII, credentials,
+   raw model/token/provider output, hidden reasoning, missing digest refs,
+   oversized payloads, evidence misuse, tombstone misuse, tool caveat bypass,
+   latency speed claims, and metadata promotion.
+4. Only after that should a separate payload materialization gate create actual
+   synthetic `payload.json` files.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-MinimalSyntheticFixturePayloadShapeV0`, because it defines tiny,
+verifier-shaped synthetic payloads that can later exercise local model quality
+without copying benchmarks or leaking the user's corpus.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-MinimalSyntheticFixturePayloadShapeV0` after
+`F-MinimalSyntheticFixtureDescriptorSetV0`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`minimal_synthetic_fixture_payload_shape_v0`, with accepted payload-shape cards
+and red fixtures for benchmark-copy, privacy leakage, missing proof refs,
+oversized payloads, tool/citation/tombstone misuse, latency overclaim, and
+metadata promotion.
+
+Biggest false-claim risk:
+treating synthetic payload shape as evidence that a model can solve the task.
+Model quality begins only after materialized payloads, owner-approved replay,
+RunEventLog/AnswerPacket evidence, capability kernel checks, and L3 WRV.
+
+Biggest missing artifact:
+a metadata-only witness validating payload shapes before payload files are
+materialized.
+
+Next research query: "Which exact deterministic verifier predicates should be
+attached to the six synthetic payload shapes so small-model and QAT lane
+comparisons can score outputs without LLM judges, benchmark copies, or hidden
+route authority?"
