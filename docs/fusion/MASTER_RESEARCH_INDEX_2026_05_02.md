@@ -461,6 +461,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > the gate, and does not promote Gemma; it creates the build instruction to fix
 > the focused release-audit family, then rerun the automated-check gate before
 > any Gemma product capability recheck can mean anything.
+> Current addendum: Deep Research Pass 202 verifies the non-Xcode
+> graph-filter proof-root boundary on current HEAD. The command-card and
+> execution-artifact parser gates both validate as metadata-only evidence; the
+> manifest and owner-approval gates are present; focused graph-filter source
+> and test anchors have no current dirty diff. No focused Xcode command ran
+> because the owner-approval runbook requires explicit approval before
+> proof-root execution. The guard-owned automated-check cursor remains red and
+> unchanged.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

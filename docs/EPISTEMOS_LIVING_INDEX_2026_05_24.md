@@ -6710,6 +6710,37 @@ Layer truth:
 Correct phrasing: "The red release-audit automated-check ledger is now the
 named product-route blocker for making Gemma real later; it is not cleared."
 
+### 2026-06-08 - Deep Research Pass 202 graph-filter proof-root readiness
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 202 in
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` verifies the
+non-Xcode graph-filter proof-root boundary on current HEAD. The command-card
+gate and execution-artifact parser gate validate as metadata-only evidence,
+and source/test inspection found no dirty diff in the focused graph-filter
+anchors. The actual focused Xcode run is still not performed because
+`docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md` requires
+explicit owner approval before any proof-root Xcode execution.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research-to-build canon advanced with a precise
+  owner-approval boundary for the next focused graph-filter proof-root run.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no focused Xcode command ran,
+  no Swift tests executed, no full automated-check rerun happened, no runtime
+  log evidence, no manual verification, no distribution/compliance review, no
+  three-pass release audit, and no user-facing Gemma capability promoted.
+
+Correct phrasing: "Graph-filter proof-root metadata is ready for an
+owner-approved focused Xcode run; the run has not happened."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
