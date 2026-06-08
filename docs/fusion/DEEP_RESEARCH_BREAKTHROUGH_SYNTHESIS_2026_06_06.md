@@ -22722,3 +22722,95 @@ Next research query: "What owner-approved Gemma E2B/E4B local artifact path,
 byte envelope, and redacted first-token proof would be safest to use as the
 first Google QAT runtime step before attempting Gemma 4 12B QAT as the Pro
 flagship?"
+
+## Deep Research Pass 180 - Gemma Main Family Policy Source Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 180 converts the Pass 179 Gemma preferred-family policy into a concrete
+metadata-only T1/L1 witness:
+`F-GemmaMainFamilyPolicySourceCard`.
+
+The movement is precise: Gemma is now architecture-proofed as the preferred
+Google model family strategy, while the witness rejects the dangerous shortcut
+of treating that strategy as a live default or product capability.
+
+### Landed Artifact
+
+| Surface | Value |
+|---|---|
+| Primitive | `agent_core/src/uas/gemma_main_family_policy_source_card.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gemma_main_family_policy_source_card.rs` |
+| Script | `Tools/falsifiers/f_gemma_main_family_policy_source_card.sh` |
+| Artifact root | `artifacts/falsifiers/gemma_main_family_policy_source_card/` |
+| Witness doc | `docs/falsifiers/F-GemmaMainFamilyPolicySourceCard_2026_06_08.md` |
+| Axis contract | `agent_core/src/falsifier_artifacts/axes.rs::GEMMA_MAIN_FAMILY_POLICY_SOURCE_CARD_AXES` |
+
+### Mechanism
+
+The witness accepts six Gemma policy cards:
+
+- Gemma 4 E2B QAT warmup policy.
+- Gemma 4 E4B QAT warmup policy.
+- Gemma 4 12B QAT Pro flagship policy.
+- Gemma 4 26B-A4B Vault policy.
+- Gemma 4 31B Vault policy.
+- MLX Swift Gemma 4 loader-blocked policy.
+
+It binds upstream Gemma QAT candidate evidence, the landed GGUF in-process
+admission packet, and the LiteRT-LM Native Swift admission card. It requires
+owner path manifests, byte/KV/app envelopes, redacted first-token proof,
+same-fixture replay, quality replay, settings visibility, AnswerPacket route
+explanations, abstention, rollback, RunEventLog, and compatibility fences
+before later runtime or product work.
+
+The artifact rejects 25 red fixtures, including hardcoded defaults, live
+defaults, product capability claims, MAS/L2/L3 promotion, Swift MLX loader
+bypass, LiteRT sidecar laundering, Python MLX as Swift proof, live dense 70B,
+SSD-as-RAM, hidden cloud fallback, hidden route authority, missing proof
+surfaces, byte loads, command execution, duplicate model IDs, missing policy
+invariants, and metadata budget overflow.
+
+### Promotion Truth
+
+- T0 research/canon: Pass 179 remains folded.
+- T1/L1 architecture proof: `F-GemmaMainFamilyPolicySourceCard` is now landed
+  when its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/cache/index/provider bytes loaded: zero.
+- Commands executed by the model runtime: zero.
+- Heavy runtime probe: no.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+Gemma preferred-family policy as a RuntimeRouter/System G input, because it
+lets Epistemos aim at Gemma without lying about live model capability.
+
+Safest next falsifier:
+`F-GemmaQATSmallLaneOwnerPathManifest`, consuming the landed policy and the
+GGUF admission packet for E2B/E4B owner path-manifest proof.
+
+Best near-term code unit:
+build the Gemma small-lane owner path-manifest preflight, then byte/KV/app
+envelope preflight, before any first-token probe.
+
+Biggest false-claim risk:
+treating this policy card as a product default, a 12B fit proof, or a Swift MLX
+Gemma 4 loader proof.
+
+Biggest missing source:
+owner-approved local artifact paths and byte envelopes for Gemma 4 E2B/E4B QAT
+under the GGUF or LiteRT lanes.
+
+Next research query: "What exact owner path-manifest fields should
+F-GemmaQATSmallLaneOwnerPathManifest require so E2B/E4B can become the first
+Google QAT runtime probes without exposing raw paths or bypassing the release
+audit bottleneck?"
