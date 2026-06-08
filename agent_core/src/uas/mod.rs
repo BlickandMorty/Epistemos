@@ -61,6 +61,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
 pub mod graph_filter_visibility_focused_identifier_proof;
+pub mod graph_filter_visibility_focused_proof_root_command_card;
 pub mod graph_filter_visibility_focused_proof_root_manifest_gate;
 pub mod graph_filter_visibility_focused_repair_packet;
 pub mod graph_filter_visibility_release_blocker_card;
@@ -1108,6 +1109,18 @@ pub use graph_filter_visibility_focused_proof_root_manifest_gate::{
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_ID,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_NEXT_CURSOR,
     GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_UPSTREAM_REF,
+};
+pub use graph_filter_visibility_focused_proof_root_command_card::{
+    required_graph_filter_focused_proof_root_command_templates,
+    required_graph_filter_focused_proof_root_proof_surfaces,
+    required_graph_filter_focused_proof_root_safety_policies,
+    GraphFilterFocusedProofRootCommandCard, GraphFilterFocusedProofRootCommandCardMetrics,
+    GraphFilterFocusedProofRootCommandStatus,
+    GraphFilterVisibilityFocusedProofRootCommandCardWitness,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_ID,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_NEXT_CURSOR,
+    GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_UPSTREAM_REF,
 };
 pub use automated_checks_fresh_test_products_evidence_envelope::{
     required_automated_checks_fresh_test_products_digest_fields,

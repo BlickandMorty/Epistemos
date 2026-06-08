@@ -43,6 +43,8 @@ The witness rejects failed upstream evidence, missing upstream address, wrong up
 
 L1 advanced only as metadata-only manifest-gate proof.
 
+Next landed metadata gate: `F-GraphFilterVisibilityFocusedProofRootCommandCard`.
+
 L2 product route did not advance. Capability kernel remains `vault_research_route_with_packetized_mitigation`.
 
 L3 user-facing/release readiness did not advance. The actual fresh Xcode proof root, full automated-check rerun, log correlation, manual runtime verification, distribution/compliance review, and release audit remain required.
