@@ -61,6 +61,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod gemma_qat_small_lane_owner_path_manifest;
 pub mod gguf_in_process_runtime_admission_packet;
 pub mod graph_filter_visibility_focused_identifier_proof;
 pub mod graph_filter_visibility_focused_proof_root_command_card;
@@ -354,6 +355,16 @@ pub use gemma_main_family_policy_source_card::{
     GemmaMainFamilyPolicyMetrics, GemmaMainFamilyPolicySet,
     GEMMA_MAIN_FAMILY_POLICY_SOURCE_CARD_CURSOR,
     GEMMA_MAIN_FAMILY_POLICY_SOURCE_CARD_NEXT_CURSOR,
+};
+pub use gemma_qat_small_lane_owner_path_manifest::{
+    canonical_gemma_qat_small_lane_owner_path_manifest_cards, GemmaQatSmallLaneManifestAction,
+    GemmaQatSmallLaneManifestByteLedger, GemmaQatSmallLaneManifestProofRefs,
+    GemmaQatSmallLaneManifestRequiredFields, GemmaQatSmallLaneManifestState,
+    GemmaQatSmallLaneOwnerPathManifestCard, GemmaQatSmallLaneOwnerPathManifestError,
+    GemmaQatSmallLaneOwnerPathManifestLedger, GemmaQatSmallLaneOwnerPathManifestMetrics,
+    GEMMA_QAT_SMALL_LANE_OWNER_PATH_MANIFEST_CURSOR,
+    GEMMA_QAT_SMALL_LANE_OWNER_PATH_MANIFEST_ID,
+    GEMMA_QAT_SMALL_LANE_OWNER_PATH_MANIFEST_NEXT_CURSOR,
 };
 pub use gguf_in_process_runtime_admission_packet::{
     canonical_gguf_in_process_runtime_admission_packet, GgufAdmissionByteEnvelope,

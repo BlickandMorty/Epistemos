@@ -22814,3 +22814,111 @@ Next research query: "What exact owner path-manifest fields should
 F-GemmaQATSmallLaneOwnerPathManifest require so E2B/E4B can become the first
 Google QAT runtime probes without exposing raw paths or bypassing the release
 audit bottleneck?"
+
+## Deep Research Pass 181 - Gemma Small-Lane Owner Path Manifest Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 181 implements the answer to Pass 180's next query:
+`F-GemmaQATSmallLaneOwnerPathManifest` is now a metadata-only T1/L1 witness for
+the Gemma 4 E2B/E4B QAT owner path-manifest contract.
+
+This is the right next movement toward getting Gemma working locally because it
+creates a typed owner-path intake contract without opening local files, storing
+raw paths, approving commands, or pretending a runtime has been proven.
+
+### Landed Artifact
+
+| Surface | Value |
+|---|---|
+| Primitive | `agent_core/src/uas/gemma_qat_small_lane_owner_path_manifest.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gemma_qat_small_lane_owner_path_manifest.rs` |
+| Script | `Tools/falsifiers/f_gemma_qat_small_lane_owner_path_manifest.sh` |
+| Artifact root | `artifacts/falsifiers/gemma_qat_small_lane_owner_path_manifest/` |
+| Witness doc | `docs/falsifiers/F-GemmaQATSmallLaneOwnerPathManifest_2026_06_08.md` |
+| Axis contract | `agent_core/src/falsifier_artifacts/axes.rs::GEMMA_QAT_SMALL_LANE_OWNER_PATH_MANIFEST_AXES` |
+
+### Mechanism
+
+The witness consumes `F-GemmaMainFamilyPolicySourceCard` and accepts two
+manifest cards:
+
+- `google/gemma-4-E2B-it-qat-q4_0-gguf` with
+  `gemma-4-E2B_q4_0-it.gguf`.
+- `google/gemma-4-E4B-it-qat-q4_0-gguf` with
+  `gemma-4-E4B_q4_0-it.gguf`.
+
+The contract requires model ID, source revision, selected filename, declared
+file bytes, owner path digest, canonical path digest, post-approval file hash,
+no raw path storage, no symlink-follow without a later gate, byte/KV/app
+envelope ref, cancellation, rollback, RunEventLog, AnswerPacket, abstention,
+compatibility fence, and no promotion.
+
+The artifact rejects 29 red fixtures, including 12B insertion into the small
+lane, duplicate model IDs, bad source refs, missing manifest fields, owner
+approval laundering, owner manifest bytes, raw/canonical path bytes, path
+canonicalization, file open/stat/hash/symlink attempts, armed commands, runtime
+probes, model/runtime/provider bytes, bad proof refs, route mutation, hidden
+authority, MAS/L2/L3/product claims, live dense 70B, SSD-as-RAM, unsafe ledger
+state, metadata overflow, and wrong manifest state/action.
+
+### Why This May Be A Breakthrough
+
+Gemma QAT only becomes useful inside Epistemos if the app can move from public
+model-card evidence to owner-controlled local bytes without path leaks,
+sidecar defaults, hidden router decisions, or release-audit bypass. This gate
+creates that bridge: a future runtime probe can ask for a manifest and verify
+the declared model/path/byte intent without treating the model as installed or
+safe yet.
+
+### Why It May Be Wrong
+
+The contract may still be too metadata-heavy if the actual best lane becomes
+LiteRT packaging or a future Swift MLX loader instead of GGUF. It also does
+not prove memory fit, tokenizer/template correctness, multimodal projector
+handling, or quality. Those remain downstream proof obligations.
+
+### Promotion Truth
+
+- T0 research/canon: Gemma QAT source cards remain active.
+- T1/L1 architecture proof: `F-GemmaQATSmallLaneOwnerPathManifest` is landed
+  when its artifact validates.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Owner path bytes read: zero.
+- Raw/canonical path bytes stored: zero.
+- File open/stat/hash/symlink attempts: zero.
+- Model/runtime/provider bytes loaded: zero.
+- Commands executed by the model runtime: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+Best breakthrough candidate:
+owner-path manifesting as the privacy boundary between public Gemma QAT source
+cards and local runtime bytes.
+
+Safest next falsifier:
+`F-GemmaQATByteKVAppEnvelopePreflight`, consuming this manifest contract and
+separately proving selected file bytes, KV cache bytes, runtime workspace, app
+headroom, cancellation, rollback, RunEventLog, AnswerPacket, and abstention.
+
+Best near-term code unit:
+build the Gemma byte/KV/app envelope preflight before any redacted first-token
+or live runtime probe.
+
+Biggest false-claim risk:
+treating an owner-path manifest contract as proof that a local file exists, is
+safe, fits memory, or can be selected as the live app model.
+
+Biggest missing source:
+owner-approved local path manifests and post-approval file digests for E2B/E4B.
+
+Next research query: "What byte/KV/app-headroom envelope should
+F-GemmaQATByteKVAppEnvelopePreflight require for E2B/E4B on Jojo's M2 Pro
+16 GB floor before any redacted first-token probe can run?"

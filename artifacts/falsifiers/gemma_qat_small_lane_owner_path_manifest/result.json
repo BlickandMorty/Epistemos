@@ -1,0 +1,385 @@
+{
+  "falsifier_id": "F-GemmaQATSmallLaneOwnerPathManifest",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_qat_small_lane_owner_path_manifest.sh",
+  "command_digest": "sha256:0041cff0a1ff5ac45f87732c6a907032ca476ae761455cbfb26b51ae72290d53",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "db46e18ae183a19298e313e476b176a60f021d3d",
+  "fixture_id": "gemma_qat_small_lane_owner_path_manifest_v1",
+  "timestamp_utc": "2026-06-08T14:55:33Z",
+  "result_digest": "sha256:c3938e3ffadaf1984a0ba476cd398aa0423d5d77b8f029dd04977dd83d48c115",
+  "measurements": {
+    "accepted_small_lane_manifest_pack_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "canonical_path_bytes_stored_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_execution_count_total": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "declared_file_bytes_total": {
+      "value": 12091583309,
+      "unit": "bytes"
+    },
+    "file_access_and_hashing_disallowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_hash_attempts_total": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_small_lane_manifest_address": {
+      "value": "gemma_qat_small_lane_owner_path_manifest:f7a4b8b647724a1b3e4779dc7fbf58021adbdc3ac573211275c35c5c45a39722@1779210800000",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_path_open_attempts_total": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "manifest_card_count": {
+      "value": 2,
+      "unit": "cards"
+    },
+    "manifest_contract_fields_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_ledger_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "value": 108000,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_qat_byte_kv_app_envelope_preflight",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_large_model_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "only_e2b_e4b_small_lanes_allowed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_absent_zero_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "path_canonicalization_attempts_total": {
+      "value": 0,
+      "unit": "attempts"
+    },
+    "path_canonicalization_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_and_canonical_path_bytes_absent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_owner_path_bytes_stored_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 29,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lanes_declared_but_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_revision_filename_and_xet_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_policy_card_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "accepted_small_lane_manifest_pack_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "canonical_path_bytes_stored_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_execution_count_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "declared_file_bytes_total": {
+      "operator": "==",
+      "value": 12091583309,
+      "unit": "bytes"
+    },
+    "file_access_and_hashing_disallowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_hash_attempts_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "gemma_small_lane_manifest_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gguf_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "litert_lane_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "lanes"
+    },
+    "local_path_open_attempts_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "manifest_card_count": {
+      "operator": "==",
+      "value": 2,
+      "unit": "cards"
+    },
+    "manifest_contract_fields_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_ledger_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "metadata_bytes_read_total": {
+      "operator": "<=",
+      "value": 262144,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_qat_byte_kv_app_envelope_preflight",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_mas_l2_l3_product_or_large_model_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_mutation_or_hidden_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "only_e2b_e4b_small_lanes_allowed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_absent_zero_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_manifest_bytes_read_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "path_canonicalization_attempts_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "attempts"
+    },
+    "path_canonicalization_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "proof_surfaces_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_and_canonical_path_bytes_absent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_owner_path_bytes_stored_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 23,
+      "unit": "fixtures"
+    },
+    "runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_lanes_declared_but_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_revision_filename_and_xet_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_gemma_policy_card_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "accepted_small_lane_manifest_pack_present": true,
+    "canonical_path_bytes_stored_total": true,
+    "command_execution_count_total": true,
+    "declared_file_bytes_total": true,
+    "file_access_and_hashing_disallowed": true,
+    "file_hash_attempts_total": true,
+    "gemma_small_lane_manifest_address": true,
+    "gguf_lane_count": true,
+    "litert_lane_count": true,
+    "local_path_open_attempts_total": true,
+    "manifest_card_count": true,
+    "manifest_contract_fields_required": true,
+    "manifest_ledger_address_deterministic": true,
+    "metadata_bytes_read_total": true,
+    "model_bytes_loaded_total": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_mas_l2_l3_product_or_large_model_claim": true,
+    "no_route_mutation_or_hidden_authority": true,
+    "only_e2b_e4b_small_lanes_allowed": true,
+    "owner_manifest_absent_zero_bytes": true,
+    "owner_manifest_bytes_read_total": true,
+    "path_canonicalization_attempts_total": true,
+    "path_canonicalization_deferred": true,
+    "proof_surfaces_bound": true,
+    "provider_calls_made_total": true,
+    "raw_and_canonical_path_bytes_absent": true,
+    "raw_owner_path_bytes_stored_total": true,
+    "red_fixture_rejection_count": true,
+    "runtime_bytes_loaded_total": true,
+    "runtime_lanes_declared_but_unarmed": true,
+    "source_revision_filename_and_xet_bound": true,
+    "upstream_gemma_policy_card_pass": true,
+    "zero_model_runtime_provider_bytes": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaQATSmallLaneOwnerPathManifest: defines the owner path-manifest contract for Gemma 4 E2B/E4B QAT warmup lanes while reading zero owner manifest bytes, storing zero raw/canonical path bytes, canonicalizing zero paths, opening/statting/hashing zero files, arming zero commands, loading zero model/runtime/provider bytes, and making no MAS/L2/L3/user-facing promotion. It does not prove local artifact availability, owner approval, path safety, byte-envelope fit, first token, quality, Swift MLX loader support, LiteRT app embedding, or Gemma as the live main app model."
+}
