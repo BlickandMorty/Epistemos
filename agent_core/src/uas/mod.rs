@@ -134,6 +134,7 @@ pub mod small_model_runtime_harness_safety_plan;
 pub mod source_guard_drift_release_blocker_card;
 pub mod ssd_wear_budget;
 pub mod theme_presentation_release_blocker_card;
+pub mod tool_execution_surface_release_blocker_card;
 pub mod transport_cancellation;
 pub mod transport_trace_answer_packet;
 pub mod turbovec_crash_safe_persistent_index_plan;
@@ -572,6 +573,15 @@ pub use source_guard_drift_release_blocker_card::{
     SourceGuardDriftStatus, SourceGuardDriftSurface, SOURCE_GUARD_DRIFT_FAMILY_SOURCE_REF,
     SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_CURSOR, SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_ID,
     SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_NEXT_CURSOR, SOURCE_GUARD_DRIFT_UPSTREAM_REF,
+};
+pub use tool_execution_surface_release_blocker_card::{
+    required_tool_execution_surface_invariants, required_tool_execution_surface_source_refs,
+    ToolExecutionSurface, ToolExecutionSurfaceError, ToolExecutionSurfaceMetrics,
+    ToolExecutionSurfaceOrgan, ToolExecutionSurfaceReleaseBlockerCard,
+    ToolExecutionSurfaceReleaseBlockerWitness, ToolExecutionSurfaceStatus,
+    TOOL_EXECUTION_SURFACE_FAMILY_SOURCE_REF, TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_CURSOR,
+    TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_ID,
+    TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR, TOOL_EXECUTION_SURFACE_UPSTREAM_REF,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,
