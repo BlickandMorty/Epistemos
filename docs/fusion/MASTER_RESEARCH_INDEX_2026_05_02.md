@@ -511,6 +511,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > `F-LiteRTLMGemma12BNativeAdmissionSourceCard`,
 > `F-GemmaMTPAccelerationPacket`, and
 > `F-GGUFQATForkDeltaQuarantineCard`.
+> Current addendum: Deep Research Pass 207 sharpens
+> `F-GemmaMTPAccelerationPacket`: Gemma MTP/speculative decoding is a
+> target-verified acceleration packet, not a runtime default. It must bind the
+> target model, assistant model, runtime lane, speculative mode, draft-token
+> policy, acceptance counters, baseline-vs-MTP final digest equality, latency,
+> memory, timeout/cancel/teardown, Apple Silicon abstention, rollback,
+> RunEventLog, AnswerPacket, and no route/default mutation before it can affect
+> RuntimeRouter/System G. Atomic/TurboQuant, Unsloth, community assistant GGUFs,
+> and fork reports are quarantine references unless source-carded and replayed
+> locally. T0 only; no runtime/model bytes or product capability.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

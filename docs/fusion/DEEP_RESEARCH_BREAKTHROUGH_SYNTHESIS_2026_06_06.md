@@ -25798,3 +25798,141 @@ prove but worse for the eventual native user experience. Community GGUF forks
 may fix quality gaps or introduce untracked provenance risk. The only safe
 answer is to keep all of this as source-card canon until local Epistemos
 artifacts prove bytes, runtime behavior, logs, rollback, and user-visible truth.
+
+## Pass 207 - Gemma MTP Target-Verified Acceleration Packet
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn Gemma 4 MTP/speculative decoding into a target-verified acceleration
+packet rather than a runtime default. MTP can be a major speed lever for
+larger Gemma routes, but only when the target model verifies the final output,
+acceptance counters are visible, Apple Silicon overhead is measured, and
+rollback can disable MTP while keeping the base route available.
+
+Safest next falsifier:
+`F-GemmaMTPAccelerationPacket`. It should be metadata-only at first and bind
+target model id/digest, assistant model id/digest, runtime lane, speculative
+mode, draft-token ceiling, acceptance counter surface, final-output digest,
+latency baseline, Apple Silicon abstention policy, rollback, RunEventLog,
+AnswerPacket, and no default-route mutation.
+
+Best near-term code unit:
+add the packet after `F-GemmaRuntimeLaneSplit-SourceCard` and before any real
+MTP runtime probe. It should consume the E2B/12B lane split, record all
+candidate MTP sources as source cards, and explicitly prevent MTP from
+influencing RuntimeRouter/System G until same-fixture target verification
+beats the non-MTP route on this machine class.
+
+Biggest false-claim risk:
+assuming MTP is universally faster because Google reports up to large speedups
+or because community benchmark posts look exciting. Upstream issue evidence
+shows speculative decoding can be slower on Apple Silicon Metal when overhead
+exceeds acceptance gains. Epistemos must measure local acceptance, token/s,
+prefill, memory, and teardown before MTP affects route priority.
+
+Biggest missing source:
+an Epistemos-owned same-fixture MTP replay artifact with baseline and MTP
+outputs, final answer digest equality, acceptance counts, token/s, peak memory,
+timeout/cancel behavior, rollback, RunEventLog, and AnswerPacket.
+
+Next research query: "Which exact Gemma MTP assistant source, runtime version,
+and draft-token policy should be source-carded first for an Apple Silicon
+same-fixture replay that can abstain when MTP is slower than baseline?"
+
+### Current External Evidence
+
+- Google MTP announcement:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/`
+  says Gemma 4 MTP drafters use speculative decoding, the target verifies
+  drafted tokens, drafters can share KV/activations, and the claimed benefit is
+  latency reduction without quality degradation when verification holds.
+  Canon effect: target verification and final-output digest are mandatory.
+- `llama.cpp` speculative docs:
+  `https://github.com/ggml-org/llama.cpp/blob/master/docs/speculative.md`
+  document speculative modes including `draft-mtp`, n-gram variants, and
+  command-line controls. Canon effect: MTP is a configurable lane property,
+  not a hidden route policy.
+- vLLM Gemma 4 MTP docs:
+  `https://github.com/vllm-project/vllm/blob/main/docs/features/speculative_decoding/mtp.md`
+  say Gemma 4 assistant checkpoints use vLLM's Gemma 4 MTP path and are not
+  generic draft models. Canon effect: assistant compatibility is runtime-
+  specific and must be pinned per lane.
+- `llama.cpp` discussion #21975 and issue #22337:
+  separate assistant/draft layouts and E2B/E4B draft-model loading have been
+  fragile across builds. Canon effect: source-card exact release/commit and
+  reject "any assistant GGUF works" assumptions.
+- `llama.cpp` issue #23752:
+  reports MTP slower than baseline on Apple Silicon Metal under tested
+  settings. Canon effect: add an Apple Silicon abstention gate and require
+  baseline-vs-MTP replay before route priority changes.
+- Atomic/TurboQuant fork material and AtomicChat assistant GGUF cards:
+  useful quarantine references for custom assistant layouts, centroid heads,
+  TurboQuant KV-cache motifs, and launch flags. Canon effect: classify as
+  `quarantine_reference` or `clean_room_rewrite`, not direct product import.
+- Community Hugging Face assistant conversions such as
+  `ysong21/gemma-4-12B-it-qat-assistant-MTP-Q4_0-GGUF` show MTP assistant
+  conversion recipes and SHA-style artifact notes. Canon effect: useful for
+  source-card schema and red-fixture design, not product trust.
+
+### Architecture Fusion
+
+```text
+Gemma runtime lane split
+  -> MTP source card
+  -> same-fixture baseline run packet
+  -> same-fixture MTP replay packet
+  -> target verification + final digest equality
+  -> acceptance / latency / memory counters
+  -> abstain or admit acceleration
+  -> RuntimeRouter/System G priority only after L2 evidence
+```
+
+MTP belongs after the base route is real. It should never be the reason a model
+is considered runnable. Its job is to make an already-admitted route faster
+only when target verification proves correctness and local measurements beat
+the simpler path.
+
+### Candidate Packet Fields
+
+- target model UAS address, source revision, file digest, selected byte count
+- assistant model UAS address, source revision, file digest, selected byte
+  count, and "not standalone chat model" flag
+- runtime lane: `llama.cpp`, LiteRT-LM, vLLM, MLX, or quarantine fork
+- speculative mode and flags: `draft-mtp`, draft limit, draft floor, n-gram
+  fallback, cache type, Metal/GPU backend
+- baseline digest and MTP final digest
+- acceptance count, rejection count, accepted tokens per target step
+- prompt/source fixture digest and answer packet digest
+- peak memory, prefill latency, generation token/s, timeout/cancel/teardown
+- abstention reasons: slower than baseline, mismatched digest, unsupported
+  assistant layout, missing rollback, hidden route mutation, untrusted fork
+- rollback: disable MTP while retaining the base route
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; packet backlog
+  clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It gives Epistemos a route to large-model responsiveness that does not depend
+on making the base model smaller. The base model remains the verifier; MTP is
+only a reversible acceleration layer. That fits the substrate doctrine:
+addressable components, explicit budgets, visible counters, rollback, and no
+hidden authority.
+
+### Why It May Be Wrong
+
+On Apple Silicon, draft overhead may erase the gains, especially when memory
+bandwidth or Metal scheduling dominates. Fork-specific assistant layouts may
+break upstream compatibility. QAT assistant conversions may carry provenance
+or accuracy risk. The packet must therefore default to abstention until
+same-fixture local evidence proves faster-and-equal output.
