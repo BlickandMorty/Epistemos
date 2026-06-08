@@ -118,6 +118,15 @@ Runtime policy:
   candidate lanes until loader/package/cancellation/product integration proof
   lands. A downloadable model or HF command example is source evidence, not an
   Epistemos product route.
+- 2026-06-08 release-audit bottleneck lock: do not try to make Gemma the main
+  app model by bypassing the current product gate. The guard-owned bottleneck
+  is still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+  Its retained artifact is red because `xcodebuild_test` failed. Treat the top
+  retained family `graph_filter_visibility` as the first focused repair target,
+  then rerun the full automated-check gate, then log/manual/distribution/
+  repeated-zero-fail evidence. Only after that can a Gemma E2B product
+  capability recheck be meaningful.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

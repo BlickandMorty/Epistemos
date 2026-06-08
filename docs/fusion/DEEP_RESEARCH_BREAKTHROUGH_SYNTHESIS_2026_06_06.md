@@ -25086,3 +25086,121 @@ E4B may fit but fail quality; 12B may need a different lane than GGUF/LiteRT on
 this Mac; or Swift product integration may expose cancellation/logging/UI
 gaps. The ladder is designed to find those failures early without pretending a
 downloadable model is already a product capability.
+
+## Pass 201 - Release-Audit Bottleneck as the Gemma Runtime Unblocker
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+treat the red release-audit automated-check ledger as the immediate
+large-local-model unblocker. Gemma cannot become the app's main model by adding
+another model row while the product route gate is parked on
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+The breakthrough is to make the first Gemma runtime proof inherit a clean
+release-audit surface instead of bypassing it.
+
+Safest next falsifier:
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe`
+remains the guard-owned bottleneck because its retained artifact is red:
+`xcodebuild_test` failed while `xcodebuild_build`, `graph_engine_cargo_test`,
+`omega_mcp_cargo_test`, and `omega_ax_cargo_test` passed. The artifact records
+161 xcodebuild-test issues, 84 unique failing tests, and the top family
+`graph_filter_visibility` with 34 issues.
+
+Best near-term code unit:
+repair the top focused release-audit family under the existing source/test
+runbooks, then rerun only focused proof-root checks until the evidence is
+nonzero and log-correlated. After that, rerun the full automated-check gate.
+Do not run the full release marathon or treat focused success as L2/L3 green.
+
+Biggest false-claim risk:
+calling Gemma work "slow" and skipping the release-audit bottleneck. A quick
+Gemma row would be easy, but it would not be route-safe, release-safe,
+settings-visible, log-correlated, or rollback-proven. The faster practical path
+is to clear the small-model release gate once, then let Gemma E2B reuse the
+same product proof rail.
+
+Biggest missing source:
+a current-HEAD focused proof artifact for the top xcodebuild failure family and
+a current-HEAD full automated-check artifact whose `xcodebuild_test_passed`
+axis is true.
+
+Next research query: "Which current dirty or pending graph-filter visibility
+changes are legitimate repairs versus unrelated drift, and what focused
+Swift-testing identifiers prove the top family before the full automated-check
+gate is rerun?"
+
+### Current Evidence
+
+- Guard on HEAD `f7ef78ea700c4413dac61448331201951a224cd0` reports
+  `next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- Capability kernel on the same HEAD remains
+  `overall_pass=false` with route status
+  `vault_research_route_with_packetized_mitigation` and the same
+  `next_bottleneck`.
+- The retained automated-check artifact at
+  `artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json`
+  is red, not missing: `overall_pass=false`,
+  `all_required_automated_checks_present=true`,
+  `all_required_automated_checks_passed=false`,
+  `xcodebuild_test_passed=false`, `failed_check_count=1`, and
+  `model_runtime_bytes_loaded=0`.
+- The same artifact already carries a repair orientation:
+  focused repair family `graph_filter_visibility`, focused source refs
+  `Epistemos/Graph/FilterEngine.swift`, `Epistemos/Models/GraphTypes.swift`,
+  and `Epistemos/Graph/GraphState.swift`, and focused test refs
+  `EpistemosTests/FilterEngineComprehensiveTests.swift`,
+  `EpistemosTests/ResourceExhaustionTests.swift`, and
+  `EpistemosTests/ConcurrencyEdgeCaseTests.swift`.
+
+### Architecture Fusion
+
+The model architecture and release architecture now share one rule: no
+meaningful object promotes without the proof surface that will explain it to a
+user.
+
+```text
+release-audit red ledger
+  -> focused family repair proof
+  -> full automated-check pass
+  -> log evidence
+  -> manual runtime evidence
+  -> distribution/compliance evidence
+  -> repeated zero-fail release pass
+  -> Gemma E2B product capability recheck may become meaningful
+```
+
+This does not pause Gemma research. It makes Gemma's first real route depend on
+the same rails the app needs anyway: build/test evidence, logs, manual review,
+RunEventLog, AnswerPacket, settings visibility, diagnostics visibility,
+fallback, abstention, and rollback.
+
+### Promotion Truth
+
+- T0 research/canon: advanced. The bottleneck is now named as a Gemma runtime
+  unblocker, not a side concern.
+- T1/L1 architecture proof: unchanged; the automated-check artifact is red and
+  therefore does not advance the cursor.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Full xcodebuild test rerun in this pass: no.
+- Model/runtime/provider bytes loaded: zero.
+- Commands armed/executed by this pass: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It turns the frustrating "why can't we just add the model?" question into a
+concrete engineering answer: once the product release rail is clean, Gemma E2B
+can move through a much shorter real runtime path because the app will already
+know how to prove, log, surface, and roll back local model behavior.
+
+### Why It May Be Wrong
+
+The retained automated-check artifact may be stale relative to current dirty
+local edits, or graph-filter visibility may no longer be the top failure after
+focused repairs. The next session must not rely on this pass alone; it must
+inspect current source diffs, run the focused proof-root checks, and regenerate
+the artifact before claiming progress.

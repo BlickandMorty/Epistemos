@@ -450,6 +450,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > capability recheck. No falsifier lands in Pass 200; no product code changed,
 > no model/runtime/provider bytes were opened, no command was armed, and L2/L3
 > remain red.
+> Current addendum: Deep Research Pass 201 names the retained red
+> release-audit automated-check ledger as the immediate product-route blocker
+> for making Gemma real later. On current HEAD, the guard and capability kernel
+> still point to
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> The retained artifact is red because `xcodebuild_test` failed while the other
+> four checks passed; it records 161 issues, 84 unique failing tests, and top
+> family `graph_filter_visibility`. Pass 201 does not run Xcode, does not clear
+> the gate, and does not promote Gemma; it creates the build instruction to fix
+> the focused release-audit family, then rerun the automated-check gate before
+> any Gemma product capability recheck can mean anything.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
