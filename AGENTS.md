@@ -258,6 +258,21 @@ Runtime policy:
   arms or executes zero commands, captures zero raw prompt/output/stdout/
   stderr/token/path bytes, mutates zero RuntimeRouter/System G/settings/
   default state, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
+- 2026-06-08 Gemma direct harness receipt-emitter status:
+  `F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate` is now landed as
+  metadata-only L1/T1. It consumes the landed direct-harness receipt-map
+  artifact, binds 33 emitter fields, 42 abort conditions, owner approval,
+  owner path-manifest digest, upstream receipt-map digest, model/llama.cpp/
+  version/command-template digests, argv/environment/workdir/prompt/grammar
+  digests, process/timeout/cancel/teardown/stdout/stderr policies, token
+  redaction, timing/memory samplers, atomic write, cleanup, RunEventLog,
+  AnswerPacket, rollback, abstention, non-promotion, and 54 red-fixture
+  rejections. It writes zero receipts, reads zero receipt/model/runtime/
+  provider bytes, opens zero files, arms or executes zero commands, captures
+  zero raw owner path/prompt/output/stdout/stderr/token bytes, mutates zero
+  RuntimeRouter/System G/settings/default state, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. Next side-ladder unit is
+  `gemma_direct_harness_receipt_emitter_dry_run_artifact_gate`.
   Next side-ladder unit:
   `gemma_direct_harness_owner_approved_receipt_emitter_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`

@@ -1,0 +1,445 @@
+{
+  "falsifier_id": "F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_direct_harness_owner_approved_receipt_emitter_gate.sh",
+  "command_digest": "sha256:ce3f720b61de1260161690243b333df5e4a5ad5ada4ccdb6a510bafeb6d87079",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6f37e4c9e60f2d8341cb6e8ada5633ae33024590",
+  "fixture_id": "gemma_direct_harness_owner_approved_receipt_emitter_gate_v1",
+  "timestamp_utc": "2026-06-08T23:41:30Z",
+  "result_digest": "sha256:db51ce8a270fab237a6ce78f8a48fb255a4bcf6f780b5ea588ce0c6bc77523ba",
+  "measurements": {
+    "argv_environment_prompt_grammar_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "emitter_fields_and_abort_conditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "files"
+    },
+    "future_receipt_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_bytes_written": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_written_count": {
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_receipt_emitter_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_receipt_emitter_gate_address": {
+      "value": "gemma_direct_harness_owner_approved_receipt_emitter_gate:1832dcf6ad5444d55169a663bf81e7e2275ce84cf2b50076bd0bb26bec4cd376@1779495200000",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "log_packet_rollback_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_receipt_emitter_dry_run_artifact_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_or_parallel_authority": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_digest_receipt_field_count": {
+      "value": 0,
+      "unit": "fields"
+    },
+    "owner_source_model_runtime_command_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_path_prompt_output_stdio_token_and_non_digest_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "process_timeout_cancel_teardown_stdio_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_owner_path_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_write_and_read_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 54,
+      "unit": "fixtures"
+    },
+    "required_abort_condition_count": {
+      "value": 42,
+      "unit": "conditions"
+    },
+    "required_emitter_field_count": {
+      "value": 33,
+      "unit": "fields"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "token_redaction_timing_memory_atomic_cleanup_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_map_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_map_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_file_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "argv_environment_prompt_grammar_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "emitter_fields_and_abort_conditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "future_receipt_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_bytes_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_written_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_receipt_emitter_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_receipt_emitter_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "log_packet_rollback_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_receipt_emitter_dry_run_artifact_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_or_parallel_authority": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_digest_receipt_field_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "fields"
+    },
+    "owner_source_model_runtime_command_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_path_prompt_output_stdio_token_and_non_digest_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "process_timeout_cancel_teardown_stdio_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_owner_path_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_write_and_read_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "fixtures"
+    },
+    "required_abort_condition_count": {
+      "operator": "==",
+      "value": 42,
+      "unit": "conditions"
+    },
+    "required_emitter_field_count": {
+      "operator": "==",
+      "value": 33,
+      "unit": "fields"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "token_redaction_timing_memory_atomic_cleanup_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_map_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_map_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_file_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "argv_environment_prompt_grammar_digests_bound": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "emitter_fields_and_abort_conditions_bound": true,
+    "file_open_count": true,
+    "future_receipt_bytes_read": true,
+    "future_receipt_bytes_written": true,
+    "future_receipt_written_count": true,
+    "gemma_direct_harness_receipt_emitter_address_deterministic": true,
+    "gemma_direct_harness_receipt_emitter_gate_address": true,
+    "hidden_authority_count": true,
+    "log_packet_rollback_abstention_bound": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_or_parallel_authority": true,
+    "non_digest_receipt_field_count": true,
+    "owner_source_model_runtime_command_digests_bound": true,
+    "privacy_raw_path_prompt_output_stdio_token_and_non_digest_denied": true,
+    "process_timeout_cancel_teardown_stdio_policies_bound": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_output_bytes": true,
+    "raw_owner_path_bytes": true,
+    "raw_prompt_bytes": true,
+    "raw_stderr_bytes": true,
+    "raw_stdout_bytes": true,
+    "raw_token_bytes": true,
+    "receipt_write_and_read_deferred": true,
+    "red_fixture_rejection_count": true,
+    "required_abort_condition_count": true,
+    "required_emitter_field_count": true,
+    "runtime_bytes_loaded": true,
+    "token_redaction_timing_memory_atomic_cleanup_bound": true,
+    "upstream_receipt_map_pass": true,
+    "upstream_receipt_map_ref_bound": true,
+    "zero_command_file_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate: consumes the landed Gemma direct harness receipt-map witness and defines the fail-closed emitter contract for a future owner-approved bounded llama-cli receipt. It binds owner approval, owner path manifest, model/llama-cli/version/command/argv/environment/workdir/prompt/grammar digests, process exit/timeout/cancel/teardown policies, stdout/stderr digest policy, token redaction, timing/memory samplers, atomic write and cleanup policy, RunEventLog, AnswerPacket, rollback, abstention, and non-promotion. It writes zero receipts, reads zero receipt/model/runtime/provider bytes, opens zero model or llama-cli files, arms or executes zero commands, captures zero raw path/prompt/output/stdout/stderr/token bytes, allows zero non-digest receipt fields, mutates no RuntimeRouter/System G/settings/default state, and makes no Gemma live/default/L2/L3/T4/user-facing, quality, live dense 70B, or SSD-as-RAM claim."
+}
