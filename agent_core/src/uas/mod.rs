@@ -60,6 +60,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_qat_local_runtime_candidate_card;
+pub mod gguf_in_process_runtime_admission_packet;
 pub mod graph_filter_visibility_focused_identifier_proof;
 pub mod graph_filter_visibility_focused_proof_root_command_card;
 pub mod graph_filter_visibility_focused_proof_root_execution_artifact_gate;
@@ -345,6 +346,15 @@ pub use gemma_qat_local_runtime_candidate_card::{
     GemmaQatMemoryEnvelope, GemmaQatModelSize, GemmaQatPromotionTier, GemmaQatProofRefs,
     GemmaQatRuntimeLane, GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_CURSOR,
     GEMMA_QAT_LOCAL_RUNTIME_CANDIDATE_CARD_NEXT_CURSOR,
+};
+pub use gguf_in_process_runtime_admission_packet::{
+    canonical_gguf_in_process_runtime_admission_packet, GgufAdmissionByteEnvelope,
+    GgufAdmissionProofRefs, GgufInProcessRuntimeAdmissionError,
+    GgufInProcessRuntimeAdmissionMetrics, GgufInProcessRuntimeAdmissionPacket,
+    GgufInProcessRuntimeAdmissionPacketSet, GgufLocalCodeAnchor,
+    GgufOwnerPathManifestStatus, GGUF_IN_PROCESS_RUNTIME_ADMISSION_PACKET_CURSOR,
+    GGUF_IN_PROCESS_RUNTIME_ADMISSION_PACKET_ID,
+    GGUF_IN_PROCESS_RUNTIME_ADMISSION_PACKET_NEXT_CURSOR,
 };
 pub use gemma4_mtp_drafter_compatibility_card::{
     Gemma4MtpByteScope, Gemma4MtpDrafterCompatibilityCard,

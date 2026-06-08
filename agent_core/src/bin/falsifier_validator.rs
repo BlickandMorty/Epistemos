@@ -172,6 +172,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate",
     "F-ExoticQuantRedactedFirstTokenProbePreflightGate",
     "F-LiteRTLM-NativeSwiftAdmission",
+    "F-GGUFInProcessRuntimeAdmissionPacket",
     "F-Gemma4-MTP-DrafterCompatibilityCard",
     "F-RuntimePlural-QATLaneTournamentPlan",
     "F-SameFixtureRuntimeReplayEnvelope",

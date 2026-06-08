@@ -5604,6 +5604,45 @@ Layer truth:
 Correct phrasing: "GGUF in-process admission blueprint was folded into canon;
 product capability / user surface did not advance."
 
+### 2026-06-08 - F-GGUFInProcessRuntimeAdmissionPacket landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GGUFInProcessRuntimeAdmissionPacket` is now implemented as a metadata-only
+T1/L1 side-ladder witness for the local GGUF / llama.cpp in-process lane. It
+adds `agent_core/src/uas/gguf_in_process_runtime_admission_packet.rs`,
+`agent_core/src/bin/falsify_gguf_in_process_runtime_admission_packet.rs`,
+`Tools/falsifiers/f_gguf_in_process_runtime_admission_packet.sh`, the witness
+doc `docs/falsifiers/F-GGUFInProcessRuntimeAdmissionPacket_2026_06_08.md`, and
+schema/handbook axis coverage.
+
+The witness binds llama.cpp release `b6871`, commit `9a3ea68`, the pinned
+XCFramework checksum, eight local code anchors, owner path-manifest pending
+state with no raw path storage, zero selected/opened/loaded model/cache/runtime/
+provider/command/server/product bytes, bounded context/batch/thread caps,
+policy refs for KV budget, app headroom, chat-template, tool-schema, cache
+salt, prompt trim, backend launch, cancellation, and teardown, plus rollback,
+RunEventLog, AnswerPacket, abstention, sanitized AgentEvent, and focused-test
+refs.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GGUFInProcessRuntimeAdmissionPacket` advances the
+  GGUF side-ladder to T1/L1 metadata-only proof when its artifact validates.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no product code, runtime
+  lane, model bytes, provider bytes, index bytes, command execution, first
+  token, Apple Silicon fit proof, quality proof, or user-facing
+  large-local-model capability promoted.
+
+Correct phrasing: "GGUF in-process admission is L1 metadata-proofed; product
+capability / user surface did not advance."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

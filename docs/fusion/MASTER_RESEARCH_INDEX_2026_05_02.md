@@ -5669,3 +5669,31 @@ SSD-as-RAM, or user-facing large-local-model capability. The next buildable
 side-ladder unit is the metadata-only
 `F-GGUFInProcessRuntimeAdmissionPacket`; the guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.24 GGUF in-process runtime admission packet landed (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 178 and
+`docs/falsifiers/F-GGUFInProcessRuntimeAdmissionPacket_2026_06_08.md`.
+
+Pass 178 lands `F-GGUFInProcessRuntimeAdmissionPacket` as a metadata-only T1/L1
+side-ladder witness for the local GGUF / llama.cpp in-process lane. The witness
+adds `agent_core/src/uas/gguf_in_process_runtime_admission_packet.rs`,
+`agent_core/src/bin/falsify_gguf_in_process_runtime_admission_packet.rs`, and
+`Tools/falsifiers/f_gguf_in_process_runtime_admission_packet.sh`.
+
+The landed packet binds llama.cpp release `b6871`, commit `9a3ea68`, the pinned
+XCFramework checksum, eight local code anchors, owner path-manifest pending
+state with no raw path storage, zero selected/opened/loaded model/cache/runtime/
+provider/command/server/product bytes, bounded context/batch/thread caps,
+policy refs for KV budget, app headroom, chat-template, tool-schema, cache
+salt, prompt trim, backend launch, cancellation, and teardown, plus rollback,
+RunEventLog, AnswerPacket, abstention, sanitized AgentEvent, and focused-test
+refs.
+
+Promotion truth: this is T1/L1 metadata-only architecture proof when the
+artifact validates. It does not open a GGUF file, canonicalize an owner path,
+start llama.cpp, load runtime bytes, produce a token, prove Apple Silicon fit,
+prove quality, promote MAS, advance L2/L3, or make any large-local-model
+capability user-facing. The guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
