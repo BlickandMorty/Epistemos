@@ -335,6 +335,28 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   only: no payload, fixture, eval, benchmark, model, runtime, cache, index, or
   provider bytes were opened; no command was armed; L2/L3 stay red; and no
   large-local-model user-facing capability is promoted.
+- Updated **2026-06-08** · Deep Research Pass 163 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as the
+  deterministic fixture verifier predicate set. North-star sentence:
+  Epistemos is a local cognitive substrate where every meaningful object has
+  an address, plane, budget, status, and witness; MAS ships the safe floor, Pro
+  contains the gated/research/vault/omega ladder, and no claim promotes
+  without visible proof. The pass creates the buildable side-ladder candidate
+  `F-DeterministicFixtureVerifierPredicateSetV0`: planned
+  `verifiers/msfp_v0_*.verifier.json` cards plus shared
+  `deterministic_scorer_v0.json` before any synthetic payload or runtime replay
+  can score model output. Predicate families cover structural JSON, evidence
+  allowlists/exclusions, support sufficiency, tool authority, tombstone safety,
+  abstention class, latency-lane shape, privacy scan, and AnswerPacket/
+  RunEventLog joins. It borrows objective-verifier motifs from IFEval, JSON
+  Schema Draft 2020-12, BFCL, and Terminal-Bench while rejecting hidden LLM
+  judges, prose-as-JSON, row/path/title/mtime authority, public-benchmark
+  copying, raw private/provider/model/token text, post-score privacy filtering,
+  evidence/tool/tombstone misuse, latency speed claims, hidden route authority,
+  and product/L2/L3/T4/large-model promotion. This is T0 canon/build pressure
+  only: no predicate files, payload, fixture, eval, model, runtime, cache,
+  index, or provider bytes were opened; no command was armed; L2/L3 stay red;
+  and no large-local-model user-facing capability is promoted.
 - Updated **2026-06-08** · Deep Research Pass 142 folded into
   `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
   Xcode proof-root source validation. North-star sentence: Epistemos is a local

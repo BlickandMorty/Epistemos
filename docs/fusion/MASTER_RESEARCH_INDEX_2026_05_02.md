@@ -275,6 +275,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > no eval framework, opens no fixture/model/cache/runtime/index/provider bytes,
 > arms no command, and does not advance L2/L3 or user-facing large-local-model
 > claims.
+> Current addendum: Deep Research Pass 163 in the same file maps
+> `F-DeterministicFixtureVerifierPredicateSetV0`, the deterministic predicate
+> contract required after payload shapes and before any model output can be
+> scored. It defines planned `verifiers/msfp_v0_*.verifier.json` cards and a
+> shared `deterministic_scorer_v0.json`; every predicate set must bind JSON
+> Schema Draft 2020-12 output shape, fixture/payload digest refs, evidence
+> allowlist and exclusion refs, tool authority refs, tombstone policy refs,
+> failure taxonomy, AnswerPacket/RunEventLog joins, and metadata-only
+> non-promotion. It borrows objective-verifier motifs from IFEval, BFCL, and
+> Terminal-Bench while rejecting hidden LLM judges, prose-as-JSON, row/path/
+> title/mtime authority, copied benchmark prompts or oracles, raw private/
+> provider/model/token text, post-score privacy filtering, evidence misuse,
+> MAS-denied tool calls, tombstone bypass, latency speed claims, hidden route
+> authority, and product/L2/L3/T4/large-model promotion. It creates no
+> predicate files, imports no eval framework, opens no fixture/model/cache/
+> runtime/index/provider bytes, arms no command, and does not advance L2/L3 or
+> user-facing large-local-model claims.
 > `F-ExoticQuantRedactedFirstTokenProbePreflightGate` is now landed as a
 > metadata-only T1/L1 witness at
 > `artifacts/falsifiers/exotic_quant_redacted_first_token_probe_preflight_gate/result.json`.
