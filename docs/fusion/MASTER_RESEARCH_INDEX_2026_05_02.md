@@ -292,6 +292,12 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and next cursor
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > Guard-owned product cursor remains automated checks; L2 and L3 remain red.
+> Deep Research Pass 142 adds official-source validation for the future
+> focused proof-root runner. Apple TN2339 and Apple's current Xcode test-result
+> documentation support the command assumptions behind `build-for-testing`,
+> `test-without-building`, `.xctestrun`, `-only-testing`, and `.xcresult`.
+> This is T0 canon only: no Xcode command ran, no artifact parser was promoted,
+> and L1/L2/L3/product/release capability did not move.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4886,6 +4892,25 @@ source, opens zero selected test-product or `.xcresult` bytes, loads no
 app/model/runtime/provider bytes, and does not promote L2/L3/T4. The next proof
 remains an owner-approved focused proof-root run, then the full
 `xcodebuild_test` row, then the five-row automated-check closure.
+
+### §28.17B Official Xcode proof-root source validation (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 142.
+
+Pass 142 validates the proof-root runner plan against primary Apple sources
+before any command is armed. Apple TN2339 documents `build-for-testing`,
+`test-without-building`, `.xctestrun` use, `-only-testing`, and the
+`TestTarget[/TestClass[/TestMethod]]` test identifier shape. Apple's current
+Xcode test-result documentation keeps `.xcresult` bundles as the visible
+container for command-line test results.
+
+Promotion truth: this is T0 research-to-build canon only. It runs no Xcode
+command, opens no test product or `.xcresult`, changes no product source, loads
+no app/model/runtime bytes, and does not promote L1/L2/L3/T4. The next buildable
+unit is a metadata-only execution-artifact gate that validates the future
+post-run manifest, selected product digest, `.xcresult` digest, nonzero
+executed-test count, source-status digests, and full-row-not-replaced status.
 
 ### §28.18 KV cache identity, salt, and offload proof packet (added 2026-06-07)
 

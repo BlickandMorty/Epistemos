@@ -118,6 +118,17 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   It arms no command, runs no Xcode, opens zero selected
   test-product/`.xcresult`/app/model/runtime/provider bytes, and does not
   advance L2/L3/product/release/large-model capability.
+- Updated **2026-06-08** · Deep Research Pass 142 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` as official
+  Xcode proof-root source validation. North-star sentence: Epistemos is a local
+  cognitive substrate where every meaningful object has an address, plane,
+  budget, status, and witness; MAS ships the safe floor, Pro contains the
+  gated/research/vault/omega ladder, and no claim promotes without visible
+  proof. Apple TN2339 and Apple's current test-result documentation support the
+  build-for-testing, test-without-building, `.xctestrun`, `-only-testing`, and
+  `.xcresult` assumptions behind the next owner-approved proof-root runner.
+  This is T0 canon only: no Xcode command was armed or run, no model/runtime
+  bytes were opened, and L1/L2/L3/product/release capability did not promote.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -3550,6 +3561,13 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
   L2 remains `vault_research_route_with_packetized_mitigation`; L3 release and
   user-facing large-model capability are not green.
+- 2026-06-08 official-source validation now anchors the future focused
+  proof-root runner to Apple TN2339 and Apple's current Xcode test-result docs.
+  The next buildable code unit should parse a post-run proof-root manifest and
+  reject missing selected product digests, missing `.xcresult` digests, zero
+  executed tests, source-status drift, and focused-proof-as-full-row laundering.
+  This is T0 research-to-build canon only, not executed Swift test evidence and
+  not L2/L3/product/release green.
 - Updated **2026-06-07** · The Pass 128 packet is now landed as
   `F-KVCacheIdentitySaltAndOffloadProofPacket`, a metadata-only T1/L1 witness
   at

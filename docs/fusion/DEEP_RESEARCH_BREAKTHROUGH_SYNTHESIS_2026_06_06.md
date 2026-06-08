@@ -16579,3 +16579,120 @@ Next research query: "What minimal owner-approved focused proof-root runner can
 execute graph-filter selectors, record source-status and scheme pre-action
 evidence, produce a manifest, and fail closed without opening model/runtime
 bytes or claiming release readiness?"
+
+## Pass 142 - Official Xcode Proof-Root Source Validation (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+This pass folds a targeted official-source validation into the proof-root
+runner plan after `F-GraphFilterVisibilityFocusedProofRootCommandCard`. It does
+not add product code and does not run Xcode. It updates the research-to-build
+canon so the future owner-approved focused proof-root runner is grounded in
+Apple's documented command-line testing model before any command is armed.
+
+Primary external sources:
+
+- Apple Developer Documentation, "Running tests and interpreting results":
+  `https://developer.apple.com/documentation/xcode/running-tests-and-interpreting-results`
+- Apple Technical Note TN2339, "Building from the Command Line with Xcode FAQ":
+  `https://developer.apple.com/library/archive/technotes/tn2339/_index.html`
+
+### Source-Validated Mechanism
+
+Apple TN2339 documents:
+
+- `xcodebuild test` with `-scheme`, `-destination`, `-only-testing`, and
+  `-skip-testing`.
+- `xcodebuild build-for-testing` for building test targets without running
+  them.
+- `xcodebuild test-without-building` with either a scheme or an `.xctestrun`
+  file.
+- `-only-testing:<test-identifier>` where the identifier shape is
+  `TestTarget[/TestClass[/TestMethod]]`.
+- `build-for-testing` generates an `.xctestrun` file in DerivedData.
+- `test-without-building -xctestrun <file>` searches for bundles at paths
+  specified in the `.xctestrun` file, so the bundles must exist at those paths.
+
+Apple's current test-result documentation also keeps `.xcresult` bundles as
+the visible test-result container for command-line Xcode test runs. For
+Epistemos, this means the future proof-root runner must treat `.xctestrun`
+paths, selected identifiers, bundle paths, result bundles, and source-status
+digests as first-class evidence, not terminal noise.
+
+### Architecture Fusion
+
+The next owner-approved focused proof-root runner should be designed as a
+strict evidence producer:
+
+1. Capture pre-build source status and source commit before `build-for-testing`.
+2. Run `build-for-testing` only inside the proof root with proof-root-scoped
+   DerivedData.
+3. Locate and digest exactly one selected `.xctestrun` or `.xctestproducts`
+   artifact inside the proof root.
+4. Enumerate or otherwise bind the exact Swift Testing selectors before focused
+   execution.
+5. Run focused `test-without-building` only with the selected product and exact
+   focused identifiers.
+6. Capture `.xcresult` digest, executed-test count, status, and failure
+   families.
+7. Capture post-test source status and scheme pre-action accounting.
+8. Write `focused-proof-root-manifest.json`.
+9. Emit RunEventLog and AnswerPacket summaries with caveats.
+10. Refuse to replace the full `xcodebuild_test` automated-check row.
+
+### Why This Helps Large Local Models
+
+Large-local-model work needs a trustworthy release/runtime proof floor. Gemma
+4 QAT, GGUF/llama.cpp, LiteRT-LM, MLX lanes, TurboVec/Eidos retrieval caches,
+KV/cache reuse, sparse residency, and future cold assembly should not inherit
+confidence from stale build products, ambiguous selectors, zero-test passes, or
+focused runs that silently replace full release checks. The proof-root runner
+is not itself a model breakthrough, but it is the safety harness that lets
+later local-model breakthroughs become user-facing without false green.
+
+### Promotion Truth
+
+- T0 research/canon: advanced for official-source runner design.
+- T1/L1 architecture proof: unchanged by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Model/runtime bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+an owner-approved focused proof-root runner that converts official Xcode
+build/test primitives into source-bound, digest-bound, AnswerPacket-visible
+proof without hiding the full automated-check row.
+
+Safest next falsifier:
+`F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate`, a parser/witness
+for the post-run manifest and `.xcresult` digest that fails closed on missing
+source status, missing selected product digest, zero executed tests, or
+focused-proof-as-full-row laundering.
+
+Best near-term code unit:
+write a metadata-only execution-artifact gate that consumes
+`F-GraphFilterVisibilityFocusedProofRootCommandCard` and validates the exact
+manifest fields expected from the future owner-approved runner.
+
+Biggest false-claim risk:
+treating official `xcodebuild` command support as proof that Epistemos already
+ran focused tests, repaired graph-filter failures, passed release checks, or
+promoted large-local-model capability.
+
+Biggest missing artifact:
+the actual owner-approved focused proof-root run with selected product digest,
+`.xcresult` digest, nonzero executed-test count, source-status digests, and
+full-row-not-replaced status.
+
+Next research query: "What exact manifest schema should
+F-GraphFilterVisibilityFocusedProofRootExecutionArtifactGate validate so an
+owner-approved Xcode proof-root run can be replayed without leaking raw
+user/model bytes or claiming release readiness?"
