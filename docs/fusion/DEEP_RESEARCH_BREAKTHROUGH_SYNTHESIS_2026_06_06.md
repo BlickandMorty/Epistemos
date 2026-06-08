@@ -16982,3 +16982,93 @@ and full-row-not-replaced status.
 Next research query: "How should the owner-approved focused proof-root command
 be invoked and captured so the execution-artifact parser gate can validate it
 without broad release-audit approval or source mutation?"
+
+## Pass 146 - L3 Release-Audit Log Evidence Probe
+
+Date: 2026-06-08
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS
+ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+no claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 146 implements the earlier L3 runtime log-evidence build-plan as a
+metadata-only retained release-audit log witness:
+
+`F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`
+
+The gate consumes the RED automated-checks artifact instead of rerunning it,
+binds `checks.tsv` and five command-log digests, and preserves the top failure
+family as evidence without promoting product capability.
+
+### Architecture Fusion
+
+This is the bridge from release-audit RED evidence to future manual runtime
+verification. It binds:
+
+- upstream automated-checks address
+  `sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6`
+- 5 retained command logs and `log_bytes_total=7297056`
+- `failed_check_count=1`
+- `xcodebuild_test_issue_count=161`
+- `xcodebuild_test_unique_failure_count=84`
+- top family `graph_filter_visibility`
+- rollback, RunEventLog, and AnswerPacket refs
+- next cursor
+  `small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe`
+
+The witness rejects upstream green laundering, missing or corrupted logs,
+runtime OSLog and AnswerPacket runtime-correlation overclaims, manual runtime
+and distribution/compliance overclaims, zero-fail pass claims, L2/L3/product/
+release green claims, live dense 70B or long-context shard claims, and raw
+prompt/answer byte leakage.
+
+### Why This Helps Large Local Models
+
+Large local models only become practical when their runtime proof floor is
+hard to fake. Gemma 4 QAT, GGUF, LiteRT, MLX, TurboVec/Eidos recall, KV/cache
+reuse, sparse residency, and cold assembly all need release/runtime evidence
+that is digest-bound, redaction-bound, rollback-bound, RunEventLog-bound, and
+AnswerPacket-visible. This pass makes the retained automated-check logs durable
+without pretending the failed Swift suite is fixed.
+
+### Promotion Truth
+
+- T0 research/canon: updated.
+- T1/L1 architecture proof: landed for retained log evidence only.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Model/runtime/provider bytes: zero.
+- Product capability: not promoted.
+
+Best breakthrough candidate:
+turn retained automated-check logs into redacted manual runtime evidence with
+OSLog predicates, AnswerPacket runtime-correlation ids, visible row ids, and
+distribution/compliance blockers, without leaking prompts or route authority.
+
+Safest next falsifier:
+`small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe`,
+but only as manual runtime evidence; the guard-owned bottleneck remains parked
+on the RED automated-checks row until the Swift suite is repaired.
+
+Best near-term code unit:
+bind the manual runtime verification packet to retained log digests plus
+runtime OSLog/AnswerPacket ids, while refusing product green and live-large-
+model claims.
+
+Biggest false-claim risk:
+calling retained log digests runtime OSLog proof, release readiness, L2/L3
+green, or a large-local-model product capability.
+
+Biggest missing artifact:
+manual runtime verification evidence with OSLog time windows, AnswerPacket id,
+RunEventLog id, visible row id, unsupported-mode hidden/gated assertion, and
+distribution/compliance review state.
+
+Next research query: "What exact runtime OSLog predicates, AnswerPacket ids,
+and visible product rows should manual small-model runtime verification bind
+without exposing raw prompts, raw answers, or hidden route authority?"

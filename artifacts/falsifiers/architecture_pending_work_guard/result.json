@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "d643a412a9313d83a06f0f7cddfa386313b84862",
+  "commit_sha": "13973d49d0e6589a20f58d8e63f806534a1720e5",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-08T06:22:56Z",
-  "result_digest": "sha256:d31df29c76e97db418322575a20dd052de918a673b48550c55f24a7ec42477c5",
+  "timestamp_utc": "2026-06-08T07:03:16Z",
+  "result_digest": "sha256:56aa4866a3d2fb4c84efd25ce4bae40675bd9e1248a3718c3bf0e7c0e7ff5fdd",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -357,6 +357,10 @@
           "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json",
             "available": false
+          },
+          "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe": {
+            "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe/result.json",
+            "available": true
           },
           "provider_reference_manifest_dry_run": {
             "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
@@ -873,6 +877,10 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": {
       "value": true,
       "unit": "bool"
@@ -1304,6 +1312,11 @@
       "value": true,
       "unit": "bool"
     },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": {
       "operator": "==",
       "value": true,
@@ -1480,6 +1493,7 @@
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_available": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_live_probe_available": true,
     "small_model_runtime_harness_fresh_product_runtime_safety_lease_available": true,
     "small_model_runtime_harness_fresh_product_runtime_wrv_probe_available": true,

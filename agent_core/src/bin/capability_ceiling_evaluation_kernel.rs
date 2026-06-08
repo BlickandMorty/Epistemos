@@ -23,6 +23,7 @@ use agent_core::falsifier_artifacts::axes::{
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_LOG_CORRELATION_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_AXES,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FAIL_PROBE_AXES,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_AXES,
@@ -184,6 +185,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FA
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe/result.json";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json";
+const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_PROBE_PATH: &str =
+    "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe/result.json";
 const FULP_ORACLE_PATH: &str = "artifacts/falsifiers/ulp_oracle/result.json";
 const CONTROLLER_KERNEL_PATH: &str = "artifacts/falsifiers/controller_kernel_pack/result.json";
 const COCKTAIL_LITE_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
@@ -2532,6 +2535,10 @@ fn build_report() -> KernelReport {
         GateArtifact::read(
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_PATH,
         );
+    let small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe =
+        GateArtifact::read(
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_PROBE_PATH,
+        );
 
     let active_assembly_shape_available = Path::new(ACTIVE_ASSEMBLY_TEST_PATH).exists();
     let source_artifacts_present = [
@@ -2618,6 +2625,7 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe,
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe,
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe,
+        &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe,
     ]
     .iter()
     .all(|gate| gate.exists);
@@ -3152,6 +3160,13 @@ fn build_report() -> KernelReport {
                 .all_axes_true(
                     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_AXES,
                 );
+    let small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass =
+        small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe
+            .overall_pass
+            && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe
+                .all_axes_true(
+                    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_PROBE_AXES,
+                );
     let seventy_b_route_pass = cocktail.overall_pass;
     let seventy_b_bottleneck_identified = cocktail.axis_true("bottleneck_identified");
     let all_gate_artifacts_schema_normalized = [
@@ -3238,6 +3253,7 @@ fn build_report() -> KernelReport {
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe,
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe,
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe,
+        &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe,
     ]
     .iter()
     .all(|gate| gate.schema_normalized);
@@ -4332,6 +4348,13 @@ fn build_report() -> KernelReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass",
+        small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "seventy_b_bottleneck_identified",
         seventy_b_bottleneck_identified,
     );
@@ -4746,6 +4769,11 @@ fn build_report() -> KernelReport {
         &mut measurements,
         "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
         &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe,
+    );
+    add_gate_summary(
+        &mut measurements,
+        "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe",
+        &small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe,
     );
     add_gate_summary(&mut measurements, "seventy_b_lite", &cocktail);
 
