@@ -6,6 +6,13 @@ Status: RED, schema-valid primary witness artifact on 2026-06-05.
 ledger parsed from the retained `xcodebuild_test` log. This did not rerun the heavy
 release command set and did not change the gate status.
 
+2026-06-08 refresh note: regenerated the artifact builder directly against the
+retained `checks.tsv` and command logs at commit
+`cdb0ba4ccaf41e67778cf3fe2f768a4c99ac4276`, without running the heavy
+`xcodebuild test` release command set. The artifact remains RED and
+schema-valid, now carrying current-HEAD commit identity plus the same top
+repair family `graph_filter_visibility`.
+
 North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
 
 Command:
@@ -40,7 +47,7 @@ Measured truth:
 - `xcodebuild_test_unique_failure_count=84`
 - `top_xcodebuild_test_failure_family=graph_filter_visibility`
 - `model_runtime_bytes_loaded=0`
-- `next_cursor=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe` only if the automated checks pass
+- `next_cursor=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe` appears inside the red artifact as the witness' logical next edge, but the guard-owned cursor does not advance while `overall_pass=false`
 
 Failure-family ledger from the retained Swift test log:
 
