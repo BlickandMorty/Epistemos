@@ -22399,3 +22399,113 @@ F-GGUFInProcessRuntimeAdmissionPacket represent owner path manifests and byte
 envelopes so the later small GGUF first-token probe can open exactly the
 approved file, prove cancellation/rollback, and still keep raw paths and
 prompts out of durable evidence?"
+
+## Deep Research Pass 178 - GGUF In-Process Runtime Admission Packet Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### Executive Synthesis
+
+Pass 178 converts the Pass 177 GGUF admission blueprint into a concrete
+metadata-only T1/L1 architecture witness:
+`F-GGUFInProcessRuntimeAdmissionPacket`.
+
+The important movement is not "GGUF is green." It is that the in-process GGUF
+lane now has a hard admission packet that future probes must satisfy before
+model files, runtime bytes, first tokens, route authority, or user-facing claims
+can appear.
+
+### Landed Artifact
+
+| Surface | Value |
+|---|---|
+| Primitive | `agent_core/src/uas/gguf_in_process_runtime_admission_packet.rs` |
+| Falsifier binary | `agent_core/src/bin/falsify_gguf_in_process_runtime_admission_packet.rs` |
+| Script | `Tools/falsifiers/f_gguf_in_process_runtime_admission_packet.sh` |
+| Artifact root | `artifacts/falsifiers/gguf_in_process_runtime_admission_packet/` |
+| Witness doc | `docs/falsifiers/F-GGUFInProcessRuntimeAdmissionPacket_2026_06_08.md` |
+| Axis contract | `agent_core/src/falsifier_artifacts/axes.rs::GGUF_IN_PROCESS_RUNTIME_ADMISSION_PACKET_AXES` |
+
+### Mechanism
+
+The witness accepts one canonical GGUF in-process admission packet and rejects
+red fixtures that try to skip the proof ladder. It binds:
+
+- `ggml-org/llama.cpp` release `b6871`, commit `9a3ea68`, binary target URL,
+  and checksum
+- eight local code anchors across the GGUF client, bridge package, backend
+  contract, RuntimeRouter, RuntimeExecutor, settings lane, and focused tests
+- owner path-manifest pending state with no raw path storage
+- zero selected/opened/loaded model, cache, runtime, provider, command, server,
+  and product-copy bytes
+- context, batch, and thread caps
+- KV budget, app headroom, chat-template digest, tool-schema digest, cache-salt,
+  prompt-trim, backend-contract, cancellation, and teardown policy refs
+- rollback, RunEventLog, AnswerPacket, abstention, sanitized AgentEvent, and
+  focused-test refs
+- deterministic UAS admission-packet address
+
+### Red-Team / Blue-Team Outcome
+
+The red fixtures block the exact shortcuts most likely to create instability or
+false confidence:
+
+- local `.gguf` path discovery cannot become owner approval
+- raw owner paths cannot be stored in the durable packet
+- mmap, mlock, Metal, or GPU-offload support cannot become memory-fit proof
+- llama.cpp server slot-cache evidence cannot be confused with the in-process
+  lane
+- raw prompt/output/token logs cannot be retained
+- command/server activation and byte opening are rejected
+- MAS, L2, L3, T4, live dense-70B, and SSD-as-RAM claims are rejected
+
+The blue-team gain is a safe bridge from local code existence to future runtime
+evidence. A later owner-approved small GGUF probe can consume this packet,
+attach a model path manifest, attach a byte/KV/app-headroom envelope, run one
+redacted first-token probe, and produce visible rollback/RunEventLog/
+AnswerPacket evidence without inventing a parallel authority.
+
+### Promotion Truth
+
+- T0 research/canon: Pass 177 remains folded.
+- T1/L1 architecture proof: `F-GGUFInProcessRuntimeAdmissionPacket` is now
+  landed when the artifact validates.
+- T2/L2 capability route: unchanged; the capability kernel still reports
+  `vault_research_route_with_packetized_mitigation`.
+- T3/L3 WRV/user-facing: unchanged; no visible product runtime claim promotes.
+- T4/T5 green: no.
+- Product code changed: no.
+- Model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+GGUF becomes the safest non-MLX near-term local runtime lane because it now has
+a pinned, byte-zero, owner-gated, rollback-visible admission packet.
+
+Safest next falsifier:
+stay with the guard-owned
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+unless explicitly doing a GGUF side-ladder; for the side-ladder, next is an
+owner-approved small GGUF path manifest and redacted first-token preflight.
+
+Best near-term code unit:
+bind the generated artifact into the guard/kernel/canon surfaces without
+advancing L2/L3, then return to the small-model runtime L3 release-audit
+bottleneck.
+
+Biggest false-claim risk:
+treating this packet as a product runtime, Apple Silicon fit proof, or
+large-local-model capability proof.
+
+Biggest missing source:
+owner-approved local GGUF model path evidence and same-fixture first-token
+runtime logs.
+
+Next research query: "What minimal owner-approved GGUF path-manifest and
+redacted first-token preflight would let Epistemos prove one safe GGUF token
+without exposing raw paths, prompts, or outputs and without bypassing the
+small-model L3 release-audit bottleneck?"
