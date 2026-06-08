@@ -174,6 +174,25 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   It keeps the future focused Xcode proof-root run fail-closed until exact
   owner approval, and it does not advance L2/L3/product/release/large-model
   capability.
+- Updated **2026-06-08** · Deep Research Pass 146 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and
+  implemented as
+  `F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The metadata-only L1/T1 witness
+  consumes the retained RED automated-checks artifact, binds `checks.tsv` and
+  5 command-log digests, preserves failed `xcodebuild_test` truth with 161
+  issues across 84 unique failures and top family `graph_filter_visibility`,
+  rejects 21 red fixtures, opens zero selected test-product/app/model/runtime/
+  provider bytes, embeds zero raw logs/prompts/answers, and records
+  deterministic address
+  `sha256:9605a49d8905288390f73a06fcad76e8a807bab0710954e5c53f22c1f1d4f299`.
+  It makes retained log evidence durable, but L2 remains
+  `vault_research_route_with_packetized_mitigation`, L3 release readiness
+  remains red, runtime OSLog/AnswerPacket correlation remains pending, and no
+  product/release/large-local-model capability promotes.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:

@@ -1,0 +1,656 @@
+{
+  "falsifier_id": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe.sh",
+  "command_digest": "sha256:b15be386fbea5f4119adb6841c499ee25eefa133f3daa0b1d74728040e3e77c9",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "13973d49d0e6589a20f58d8e63f806534a1720e5",
+  "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_v1",
+  "timestamp_utc": "2026-06-08T07:03:15Z",
+  "result_digest": "sha256:0926a46cc5f75fc2a0549c326a973f76878ff3abc6a306d181858debe2c5a831",
+  "measurements": {
+    "answer_packet_runtime_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_runtime_correlation_pending": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_log_digest_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "checks_tsv_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_check_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "five_command_logs_digest_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_bytes_total": {
+      "value": 7297056,
+      "unit": "bytes"
+    },
+    "log_digest_count": {
+      "value": 5,
+      "unit": "logs"
+    },
+    "log_digest_refs": {
+      "value": [
+        {
+          "check_id": "graph_engine_cargo_test",
+          "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/graph_engine_cargo_test.log",
+          "bytes": 247538,
+          "sha256": "sha256:f2d29079e2c903ce928891375f3364ed433b7596331edbf1014de481e1339adb"
+        },
+        {
+          "check_id": "omega_ax_cargo_test",
+          "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/omega_ax_cargo_test.log",
+          "bytes": 1343,
+          "sha256": "sha256:eb532ecc4960ab29643055af6d3c8877a1dd457a343dc528f18253068029a652"
+        },
+        {
+          "check_id": "omega_mcp_cargo_test",
+          "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/omega_mcp_cargo_test.log",
+          "bytes": 11654,
+          "sha256": "sha256:1384e293b61b85aad632f88585a44b3e9ceeecf6f94ccb008c4615471b0a795f"
+        },
+        {
+          "check_id": "xcodebuild_build",
+          "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_build.log",
+          "bytes": 704829,
+          "sha256": "sha256:da1ffef54e2a11e07ebb3b00fb1c013a17716c94e9a11752f58f9ae06f4895f4"
+        },
+        {
+          "check_id": "xcodebuild_test",
+          "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_test.log",
+          "bytes": 6331692,
+          "sha256": "sha256:23e9662ff637c2e1dca63183acf037525b87ca1b25cce45a2b2f2fb259b5dadc"
+        }
+      ],
+      "unit": "redacted_log_digests"
+    },
+    "long_context_shard_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_distribution_three_pass_blockers_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_checks_tsv_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_log_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_top_failure_family_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "value": 0,
+      "unit": "count"
+    },
+    "model_runtime_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_manual_runtime_verification_queued": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_product_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_prompt_or_answer_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_green_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_prompt_or_answer_bytes_embedded_total": {
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_prompt_or_answer_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_failure_counts_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "release_ready_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_check_count": {
+      "value": 5,
+      "unit": "checks"
+    },
+    "required_check_ids_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phase_count": {
+      "value": 12,
+      "unit": "phases"
+    },
+    "required_rejection_policy_count": {
+      "value": 16,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_oslog_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_oslog_entries_bound": {
+      "value": 0,
+      "unit": "count"
+    },
+    "runtime_oslog_evidence_pending": {
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe": {
+      "value": true,
+      "unit": "log_evidence_probe"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_address": {
+      "value": "sha256:9605a49d8905288390f73a06fcad76e8a807bab0710954e5c53f22c1f1d4f299",
+      "unit": "sha256"
+    },
+    "top_xcodebuild_test_failure_family": {
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "upstream_automated_checks_address": {
+      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "unit": "sha256"
+    },
+    "upstream_automated_checks_address_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_artifact_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_green_laundered_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_failure_family_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_issue_count": {
+      "value": 161,
+      "unit": "issues"
+    },
+    "xcodebuild_test_unique_failure_count": {
+      "value": 84,
+      "unit": "tests"
+    },
+    "zero_fail_pass_count_claim_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_xcodebuild_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "answer_packet_runtime_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "answer_packet_runtime_correlation_pending": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bad_log_digest_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "checks_tsv_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_check_count": {
+      "operator": "==",
+      "value": 1,
+      "unit": "count"
+    },
+    "five_command_logs_digest_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l2_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "l3_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_dense_70b_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_bytes_total": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "log_digest_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "logs"
+    },
+    "log_digest_refs": {
+      "operator": "present",
+      "value": true,
+      "unit": "axis_missing"
+    },
+    "long_context_shard_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_distribution_three_pass_blockers_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_checks_tsv_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_required_log_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_top_failure_family_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_runtime_bytes_loaded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "model_runtime_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "eq",
+      "value": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe",
+      "unit": "cursor"
+    },
+    "next_cursor_mismatch_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_manual_runtime_verification_queued": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_product_release_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_large_model_product_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_runtime_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_raw_prompt_or_answer_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_green_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_call_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_calls_made_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_prompt_or_answer_bytes_embedded_total": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_prompt_or_answer_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_failure_counts_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "red_fixture_rejection_count": {
+      "operator": "==",
+      "value": 21,
+      "unit": "fixtures"
+    },
+    "release_ready_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_check_count": {
+      "operator": "==",
+      "value": 5,
+      "unit": "checks"
+    },
+    "required_check_ids_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_phase_count": {
+      "operator": "==",
+      "value": 12,
+      "unit": "phases"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 16,
+      "unit": "policies"
+    },
+    "rollback_run_event_answer_packet_refs_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_oslog_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_oslog_entries_bound": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "runtime_oslog_evidence_pending": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe": {
+      "operator": "present",
+      "value": true,
+      "unit": "axis_missing"
+    },
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_address": {
+      "operator": "eq",
+      "value": "sha256:9605a49d8905288390f73a06fcad76e8a807bab0710954e5c53f22c1f1d4f299",
+      "unit": "sha256"
+    },
+    "top_xcodebuild_test_failure_family": {
+      "operator": "eq",
+      "value": "graph_filter_visibility",
+      "unit": "family"
+    },
+    "upstream_automated_checks_address": {
+      "operator": "eq",
+      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "unit": "sha256"
+    },
+    "upstream_automated_checks_address_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_artifact_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_automated_checks_red_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_green_laundered_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_failure_family_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "xcodebuild_test_issue_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "issues"
+    },
+    "xcodebuild_test_unique_failure_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "tests"
+    },
+    "zero_fail_pass_count_claim_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_xcodebuild_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "answer_packet_runtime_claim_rejected": true,
+    "answer_packet_runtime_correlation_pending": true,
+    "bad_log_digest_rejected": true,
+    "checks_tsv_bound": true,
+    "distribution_compliance_claim_rejected": true,
+    "failed_check_count": true,
+    "five_command_logs_digest_bound": true,
+    "l2_green_claim_rejected": true,
+    "l3_green_claim_rejected": true,
+    "live_dense_70b_claim_rejected": true,
+    "log_bytes_total": true,
+    "log_digest_count": true,
+    "log_digest_refs": true,
+    "long_context_shard_claim_rejected": true,
+    "manual_distribution_three_pass_blockers_preserved": true,
+    "manual_runtime_claim_rejected": true,
+    "missing_checks_tsv_rejected": true,
+    "missing_required_log_rejected": true,
+    "missing_top_failure_family_rejected": true,
+    "model_runtime_bytes_loaded_total": true,
+    "model_runtime_bytes_rejected": true,
+    "next_cursor": true,
+    "next_cursor_mismatch_rejected": true,
+    "next_manual_runtime_verification_queued": true,
+    "no_l2_l3_product_release_green": true,
+    "no_large_model_product_claim": true,
+    "no_model_runtime_provider_bytes": true,
+    "no_raw_prompt_or_answer_bytes": true,
+    "product_green_claim_rejected": true,
+    "provider_call_rejected": true,
+    "provider_calls_made_total": true,
+    "raw_prompt_or_answer_bytes_embedded_total": true,
+    "raw_prompt_or_answer_bytes_rejected": true,
+    "red_failure_counts_bound": true,
+    "red_fixture_count": true,
+    "red_fixture_rejection_count": true,
+    "release_ready_claim_rejected": true,
+    "required_check_count": true,
+    "required_check_ids_bound": true,
+    "required_phase_count": true,
+    "required_rejection_policy_count": true,
+    "rollback_run_event_answer_packet_refs_present": true,
+    "runtime_oslog_claim_rejected": true,
+    "runtime_oslog_entries_bound": true,
+    "runtime_oslog_evidence_pending": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe": true,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_address": true,
+    "top_xcodebuild_test_failure_family": true,
+    "upstream_automated_checks_address": true,
+    "upstream_automated_checks_address_bound": true,
+    "upstream_automated_checks_artifact_present": true,
+    "upstream_automated_checks_red_bound": true,
+    "upstream_green_laundered_rejected": true,
+    "xcodebuild_test_failure_family_bound": true,
+    "xcodebuild_test_issue_count": true,
+    "xcodebuild_test_unique_failure_count": true,
+    "zero_fail_pass_count_claim_rejected": true,
+    "zero_xcodebuild_issue_count_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe: consumes retained automated-checks logs, binds red xcodebuild_test family evidence, keeps runtime OSLog and AnswerPacket runtime correlation pending, opens zero model/runtime/provider bytes, embeds no raw prompt/answer/log payloads, and does not promote L2/L3/product/release/large-model capability."
+}

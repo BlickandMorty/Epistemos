@@ -120,6 +120,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditPreflightProbe",
     "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditZeroFailProbe",
     "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
+    "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe",
     "F-ReleaseAuditFailureFamily-SourceCard",
     "F-ReleaseAuditAutomatedChecksClosureMatrix",
     "F-GraphFilterVisibilityFocusedRepairPacket",
