@@ -26232,3 +26232,149 @@ Same-fixture replay can be too narrow if the fixtures are weak. Perplexity can
 miss instruction-following regressions, and task scores can miss tool JSON or
 note-context failures. The schema must therefore require task-family coverage
 and held-out replay before any product or route claim.
+
+## Pass 210 - Gemma Replay Fixture And Scorer Pack Lock
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn the Gemma-first runtime ladder into an Epistemos-owned fixture pack instead
+of a generic benchmark plan. `F-GemmaReplayFixtureScorerPackLock` should bind
+the exact task families, scorer digests, source/privacy rules, and failure
+taxonomy that E2B, E4B, 12B, official QAT, forked GGUF, LiteRT-LM, and future
+clean-room runtime lanes must reuse. The practical win is speed with discipline:
+once the pack exists, adding a Gemma model becomes a measured replay against the
+same substrate tasks instead of a fresh architecture debate.
+
+Safest next falsifier:
+`F-GemmaReplayFixtureScorerPackLock`. It should be metadata-only first and
+consume `F-GGUFQATForkDeltaSameFixtureReplaySchema`,
+`F-GemmaQATE2BSameFixtureQualityReplayPacketGate`, and the existing
+Epistemos-owned held-out fixture compiler canon. It must reject raw private
+note text, rowid authority, hidden model judges, copied public benchmark rows,
+missing scorer digests, missing grammar/tool schema, missing citation verifier,
+missing latency/cancel scorer, missing MAS/Pro caveat, and any route/default
+mutation.
+
+Best near-term code unit:
+add a Rust UAS fixture-pack lock primitive with seven families:
+
+```text
+note_synthesis
+research_citation_grounding
+coding_patch_plan
+writing_style_transform
+structured_tool_json
+refusal_privacy_boundary
+latency_abstention
+```
+
+Each family should name a descriptor digest, redacted prompt digest, allowed
+source digest, deterministic scorer digest, failure taxonomy digest, expected
+AnswerPacket fields, RunEventLog join, rollback rule, and promotion boundary.
+The first accepted pack can be synthetic/redacted and metadata-only; later
+owner-approved runtime probes can attach outputs to the same pack.
+
+Biggest false-claim risk:
+using public eval scores as a substitute for Epistemos tasks. MMLU, HellaSwag,
+perplexity, and sample-level external evaluators are useful calibration motifs,
+but the app needs note memory, citation grounding, coding patch planning,
+structured tool JSON, privacy refusal, and latency/cancellation behavior. A
+Gemma model that looks good on public tasks can still be unsafe or useless in
+Epistemos if it fails these local organs.
+
+Biggest missing source:
+the actual Epistemos fixture descriptor file and deterministic scorer bundle
+digest. Until those exist, fork replay and Gemma route admission remain
+T0/T1 planning, not L2/L3 capability.
+
+Next research query: "What is the smallest synthetic/redacted fixture descriptor
+set for `F-GemmaReplayFixtureScorerPackLock` that proves Gemma E2B can support
+Epistemos note, research, coding, writing, tool JSON, refusal, and latency
+abstention tasks without exposing private text or using hidden judges?"
+
+### Current External Evidence
+
+- Inspect AI describes an evaluation as a `Task` combining dataset, solver, and
+  scorer; its examples include labelled samples, generation solvers, model/text
+  scorers, tool-using agents, and result viewing. Canon effect: adopt the
+  dataset/solver/scorer shape, but keep Epistemos scorers deterministic and
+  visible unless an explicitly gated judge route exists.
+- EleutherAI `lm-evaluation-harness` documents reproducible evaluations with
+  shareable configs, YAML/Jinja task configuration, custom tasks, local JSON
+  datasets, output paths, `--log_samples`, `--samples`, `--check_integrity`,
+  `--apply_chat_template`, seeds, and unsafe-code confirmation. Canon effect:
+  fixture packs must be digestable and replayable, with sample logging and
+  explicit unsafe-code denial by default.
+- Hugging Face LightEval supports custom tasks, metrics, custom models,
+  multi-backend evaluation, and sample-by-sample analysis. Canon effect:
+  sample-level failure visibility is mandatory, but backend variety is not
+  route authority.
+- `llama.cpp` grammars support JSON Schema / GBNF constraints through
+  `llama-server` request fields and `llama-cli --json`, with warnings that
+  unsupported schema features may be skipped and grammars should be inspected
+  and validated. Canon effect: structured tool JSON fixtures need both grammar
+  validity and semantic validation; syntactic JSON alone cannot promote a
+  model.
+- Prior local canon already has `F-EpistemosOwnedHeldOutFixturePackCompiler`,
+  `F-SameFixtureHeldOutQualityReplayPacket`, and Gemma E2B same-fixture packet
+  gates. Canon effect: Pass 210 specializes those rails for Gemma-first work
+  instead of inventing a parallel evaluator.
+
+### Architecture Fusion
+
+```text
+Epistemos redacted/synthetic task descriptor
+  -> UAS address + source/privacy digest
+  -> deterministic scorer + failure taxonomy
+  -> grammar/tool/citation verifier
+  -> runtime output packet
+  -> AnswerPacket + RunEventLog join
+  -> abstain, repair, or candidate route admission
+```
+
+This keeps the runtime stack optimized for the best implementation while
+preventing benchmark laundering. `llama.cpp` remains the fastest E2B/E4B GGUF
+harness lane, LiteRT-LM remains the 12B Pro Gated native lane, MLX remains a
+candidate only after Swift Gemma 4 loader proof, and future fork/runtime
+experiments must speak the same fixture language.
+
+### Required Fixture Families
+
+| Family | Epistemos organ | Deterministic checks |
+| --- | --- | --- |
+| `note_synthesis` | AppColdStore/Eidos/AnswerPacket | preserves cited note IDs, no private-source leak, visible uncertainty |
+| `research_citation_grounding` | Eidos/SCOPE-Rex | cites allowed sources only, rejects unsupported claims, abstains on stale evidence |
+| `coding_patch_plan` | RuntimeRouter/System G | emits bounded patch plan, no destructive command, references files by digest |
+| `writing_style_transform` | MissionPacket/AnswerPacket | transforms style while preserving user intent and exclusions |
+| `structured_tool_json` | SovereignGate/tool adapter | grammar-valid JSON, semantic schema valid, no hallucinated tool args |
+| `refusal_privacy_boundary` | SCOPE-Rex/SovereignGate | refuses forbidden private/source requests with visible reason |
+| `latency_abstention` | RuntimeRouter/System G | abstains or downgrades on timeout/memory pressure/cancel |
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass; fixture-pack falsifier
+  backlog clarified.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Runtime/model/provider bytes loaded: zero.
+- Gemma-as-main-app-model capability: not promoted.
+
+### Why This May Be A Breakthrough
+
+It answers the owner's speed concern without lowering the bar. Once the
+fixture/scorer pack is locked, a Gemma candidate can be added quickly because
+the hard questions are precompiled: exact tasks, exact scorers, exact privacy
+rules, exact rollback, and exact visible proof. That is how Gemma becomes
+practical instead of forever-theoretical.
+
+### Why It May Be Wrong
+
+A synthetic pack can become too sterile. If it never graduates to
+owner-approved redacted real workflows, it may overfit to toy tasks and miss
+the real note/research/coding behavior the app needs. The falsifier must
+therefore require both synthetic safety now and an explicit path to future
+owner-approved held-out workflows.
