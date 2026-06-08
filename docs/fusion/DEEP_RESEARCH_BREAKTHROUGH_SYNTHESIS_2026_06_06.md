@@ -26721,3 +26721,60 @@ Why it may be wrong:
 the future runtime emitter may need lane-specific observations not captured by
 the map. The next gate should therefore allow extension fields only when they
 are monotonic and cannot turn DENY into ALLOW.
+
+## Pass 214 - F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn the Pass 213 direct-harness receipt map into a concrete owner-approved
+receipt-emitter contract before any Gemma command can produce evidence for
+System G.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedReceiptEmitterGate` binds the future receipt
+emitter to owner approval, owner path-manifest digest, upstream receipt-map
+digest, model file digest, llama.cpp binary/version digest, command-template
+digest, argv/environment/workdir digest, prompt/grammar digest, process/
+timeout/cancel/teardown/stdout/stderr policy, token redaction, timing and
+memory samplers, atomic write, cleanup, RunEventLog, AnswerPacket, rollback,
+abstention, and non-promotion.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future direct Gemma harness receipt path
+only after dry-run artifact, owner-approved execution, review, quality,
+admission, WRV, and release-audit gates pass.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_receipt_emitter_gate/result.json`.
+
+Proof:
+the witness passed with 33 emitter fields, 42 abort conditions, 54 red-fixture
+rejections, zero receipt bytes written or read, zero file opens, zero command
+arming or execution, zero model/runtime/provider bytes, zero raw owner path/
+prompt/output/stdout/stderr/token bytes, zero RuntimeRouter/System G/settings/
+default mutation, and no Gemma live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate`, because the emitter
+contract now exists, but there is still no dry-run receipt artifact, no owner
+path approval, no local file proof, no llama.cpp proof, no token, and no route
+admission.
+
+Biggest false-claim risk:
+calling an owner-approved receipt-emitter contract "Gemma is added." It is not
+a model install, not a runtime run, and not a live product route. It is the
+guardrail that lets a later runtime run become reviewable instead of mysterious.
+
+Why it may be wrong:
+the actual direct harness may need extra lane-specific observations once the
+first dry-run artifact exists. Any extension must be digest-only, monotonic,
+rollbackable, and unable to turn a denied runtime action into route authority.

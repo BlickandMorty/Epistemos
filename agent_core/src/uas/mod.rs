@@ -60,6 +60,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_direct_harness_artifact_receipt_map;
+pub mod gemma_direct_harness_owner_approved_receipt_emitter_gate;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
@@ -431,6 +432,18 @@ pub use gemma_direct_harness_artifact_receipt_map::{
     GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_CURSOR,
     GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_ID,
     GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_NEXT_CURSOR,
+};
+pub use gemma_direct_harness_owner_approved_receipt_emitter_gate::{
+    required_gemma_direct_harness_receipt_emitter_abort_conditions,
+    required_gemma_direct_harness_receipt_emitter_fields,
+    GemmaDirectHarnessOwnerApprovedReceiptEmitterGate,
+    GemmaDirectHarnessOwnerApprovedReceiptEmitterGateError,
+    GemmaDirectHarnessOwnerApprovedReceiptEmitterGateMetrics,
+    GemmaDirectHarnessOwnerApprovedReceiptEmitterGateStatus,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_ID,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_UPSTREAM_REF,
 };
 pub use gemma_qat_e2b_same_fixture_quality_replay_packet_gate::{
     required_gemma_qat_e2b_same_fixture_quality_rejection_policies,
