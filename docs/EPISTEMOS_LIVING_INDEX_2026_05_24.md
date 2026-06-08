@@ -102,6 +102,22 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`.
   It runs no Xcode command, opens zero selected test-product/model/runtime
   bytes, and does not advance L2/L3/product/release/large-model capability.
+- Updated **2026-06-08** · Deep Research Pass 141 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and
+  implemented as `F-GraphFilterVisibilityFocusedProofRootCommandCard`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The new metadata-only L1/T1 witness
+  consumes the focused proof-root manifest gate, binds 3 unarmed command
+  templates, 9 proof surfaces, 12 safety policies, 8 seed selectors, owner
+  approval pending, timeout/cancellation/teardown, source-status capture,
+  scheme pre-action accounting, manifest write, rollback, RunEventLog,
+  AnswerPacket, and deterministic address
+  `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`.
+  It arms no command, runs no Xcode, opens zero selected
+  test-product/`.xcresult`/app/model/runtime/provider bytes, and does not
+  advance L2/L3/product/release/large-model capability.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -3522,6 +3538,18 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
   L2 remains `vault_research_route_with_packetized_mitigation`; L3 release and
   user-facing large-model capability are not green.
+- 2026-06-08 release-audit proof-root hardening now also includes the new L1/T1
+  `F-GraphFilterVisibilityFocusedProofRootCommandCard` witness. It consumes
+  `F-GraphFilterVisibilityFocusedProofRootManifestGate`, binds the future
+  focused proof-root command envelope, rejects global DerivedData, bad
+  selected-product or focused-selector placeholders, missing
+  timeout/cancellation/teardown/source-status/pre-action/manifest requirements,
+  armed or executed commands, owner-approval leaks, focused-proof-as-full-row
+  laundering, release-ready claims, live dense-70B claims, and SSD-as-RAM
+  claims. The active architecture cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3 release and
+  user-facing large-model capability are not green.
 - Updated **2026-06-07** · The Pass 128 packet is now landed as
   `F-KVCacheIdentitySaltAndOffloadProofPacket`, a metadata-only T1/L1 witness
   at
@@ -4510,6 +4538,46 @@ Layer truth:
 
 Correct phrasing: "L1 graph-filter focused identifier architecture proof
 advanced; product capability / user surface did not."
+
+### 2026-06-08 - Graph Filter Visibility Focused Proof-Root Command Card Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`Tools/falsifiers/f_graph_filter_visibility_focused_proof_root_command_card.sh`
+now emits and validates
+`artifacts/falsifiers/graph_filter_visibility_focused_proof_root_command_card/result.json`
+as metadata-only T1/L1 command-card evidence. The witness consumes
+`F-GraphFilterVisibilityFocusedProofRootManifestGate`, binds upstream address
+`sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`,
+three proof-root-scoped command templates, nine proof surfaces, twelve safety
+policies, eight seed selectors, owner approval pending, unarmed command
+envelope, timeout, cancellation, teardown, source-status capture, scheme
+pre-action accounting, manifest write, rollback, RunEventLog, AnswerPacket, 32
+rejected red fixtures, zero armed commands, zero selected test-product and
+`.xcresult` bytes, zero app/model/runtime/provider bytes, and deterministic
+command-card address
+`sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`.
+
+Layer truth:
+
+- L1 architecture cursor / side-card:
+  `F-GraphFilterVisibilityFocusedProofRootCommandCard` advanced as
+  metadata-only proof; it keeps next cursor
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`;
+  product capability did not promote.
+- L3 user-facing / release readiness: still red; owner-approved focused
+  proof-root execution, full `xcodebuild_test`, all five automated checks, log
+  evidence, manual/runtime verification, distribution/compliance, and repeated
+  zero-fail audit evidence remain required.
+
+Correct phrasing: "L1 graph-filter focused proof-root command-card
+architecture proof advanced; product capability / user surface did not."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 

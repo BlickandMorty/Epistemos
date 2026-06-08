@@ -277,6 +277,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > execution claims, product-source change claims, L2/L3/product/release green,
 > live dense 70B, SSD-as-RAM, and byte leaks. Guard-owned product cursor
 > remains automated checks; L2 and L3 remain red.
+> `F-GraphFilterVisibilityFocusedProofRootCommandCard` is now landed as a
+> metadata-only T1/L1 command-card witness at
+> `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_command_card/result.json`.
+> It consumes the focused proof-root manifest gate, binds upstream address
+> `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`,
+> 3 command templates, 9 proof surfaces, 12 safety policies, 8 seed selectors,
+> owner approval pending, unarmed command envelope, timeout, cancellation,
+> teardown, source-status capture, scheme pre-action accounting, manifest
+> write, rollback, RunEventLog, AnswerPacket, 32 rejected red fixtures, zero
+> armed commands, zero selected test-product/`.xcresult`/app/model/runtime/
+> provider bytes, deterministic address
+> `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> Guard-owned product cursor remains automated checks; L2 and L3 remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4849,6 +4864,28 @@ zero selected test-product bytes, loads no app/model/runtime bytes, and does
 not promote L2/L3/T4. The next proof remains an owner-approved focused
 proof-root run, then the full `xcodebuild_test` row, then the five-row
 automated-check closure.
+
+### §28.17A Focused proof-root command card (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 141.
+
+Pass 141 implements `F-GraphFilterVisibilityFocusedProofRootCommandCard` as
+the owner-approval-pending, unarmed command-card contract before any focused
+graph-filter Xcode run can count. It consumes
+`F-GraphFilterVisibilityFocusedProofRootManifestGate`, then requires future
+proof-root execution to use proof-root-scoped DerivedData, `$SELECTED_TEST_PRODUCT`,
+`$FOCUSED_SELECTOR`, `build-for-testing`, `enumerate-tests`, focused
+`test-without-building`, timeout, cancellation, teardown, source-status
+capture, scheme pre-action accounting, manifest write, rollback, RunEventLog,
+and AnswerPacket.
+
+Promotion truth: this is implemented as a metadata-only T1/L1 Rust primitive
+and witness doc. It runs no Xcode command, arms no command, changes no product
+source, opens zero selected test-product or `.xcresult` bytes, loads no
+app/model/runtime/provider bytes, and does not promote L2/L3/T4. The next proof
+remains an owner-approved focused proof-root run, then the full
+`xcodebuild_test` row, then the five-row automated-check closure.
 
 ### §28.18 KV cache identity, salt, and offload proof packet (added 2026-06-07)
 

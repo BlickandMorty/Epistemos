@@ -16465,3 +16465,117 @@ Next research query: "How should the owner-approved focused proof-root runner
 write source-status, selected test-product, enumeration, focused xcresult, and
 executed-test evidence so it can be parsed without leaking raw user/model
 bytes or replacing the full automated-check row?"
+
+## Pass 141 - Focused Proof-Root Command Card (2026-06-08)
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+### What Landed
+
+`F-GraphFilterVisibilityFocusedProofRootCommandCard` is now a landed T1/L1
+metadata-only witness. It consumes the focused proof-root manifest gate and
+binds the owner-approval-pending, unarmed command-card contract that must exist
+before any focused graph-filter Xcode run can count.
+
+- UAS primitive:
+  `agent_core/src/uas/graph_filter_visibility_focused_proof_root_command_card.rs`
+- Falsifier binary:
+  `agent_core/src/bin/falsify_graph_filter_visibility_focused_proof_root_command_card.rs`
+- Axis contract:
+  `agent_core/src/falsifier_artifacts/axes.rs::GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_AXES`
+- Shell witness:
+  `Tools/falsifiers/f_graph_filter_visibility_focused_proof_root_command_card.sh`
+- Artifact:
+  `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_command_card/result.json`
+- Witness doc:
+  `docs/falsifiers/F-GraphFilterVisibilityFocusedProofRootCommandCard_2026_06_08.md`
+
+### What Advanced
+
+- T1/L1 advanced: yes, as metadata-only command-card evidence.
+- Upstream manifest-gate address:
+  `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`.
+- Required command templates: 3.
+- Required proof surfaces: 9.
+- Required safety policies: 12.
+- Seed selector count: 8.
+- Minimum executed-test policy: 1.
+- Rejected red fixtures: 32.
+- Armed commands: 0.
+- Selected test-product/`.xcresult`/app/model/runtime/provider bytes: 0.
+- Deterministic command-card address:
+  `sha256:e7095c8391930693cd93aa9d4e69ce36f45e2b9d178cf7c95a16b81a06aad743`.
+
+### What Did Not Advance
+
+- T2/L2 capability route: unchanged and red.
+- T3/L3 user-facing/runtime/release readiness: unchanged and red.
+- T4/T5 green: no.
+- Xcode execution: not attempted.
+- Swift test execution: not attempted.
+- Product source: unchanged by this witness.
+- Full automated-check row: still red.
+- Runtime log/manual/distribution evidence: not attempted.
+- Large-local-model runtime: not proven.
+- Live dense 70B: rejected.
+- Hidden route authority: rejected.
+
+### Architecture Fusion
+
+This pass turns the future graph-filter focused proof-root run into a
+crash-safe command envelope before execution. Future focused evidence must use
+proof-root-scoped DerivedData, `$SELECTED_TEST_PRODUCT`, `$FOCUSED_SELECTOR`,
+`build-for-testing`, `enumerate-tests`, focused `test-without-building`,
+timeout, cancellation, teardown, source-status capture, scheme pre-action
+accounting, manifest write, rollback, RunEventLog, and AnswerPacket.
+
+That matters for large-local-model work because the runtime ladder cannot
+become trustworthy if the release floor accepts stale Xcode products, global
+DerivedData, zero-test success, unaccounted source mutation, or focused proof
+laundered into full release readiness. Gemma 4 QAT, GGUF, LiteRT-LM, MLX,
+TurboVec/Eidos caches, KV/cache lanes, and future larger-model residency should
+inherit confidence only from fresh, source-bound, rollbackable, packet-visible
+proof roots.
+
+Correct phrasing: "L1 command-card bridge advanced; product capability / user
+surface did not."
+
+### Promotion Truth
+
+- T0 research/canon: superseded for this command card by landed T1 witness.
+- T1/L1 architecture proof: advanced for metadata-only command-card gate.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/release readiness: unchanged and red.
+- T4/T5 green: no.
+
+Best breakthrough candidate:
+owner-approved focused proof-root execution that writes the manifest and proves
+nonzero executed tests without replacing the full automated-check row.
+
+Safest next falsifier:
+the focused proof-root execution artifact, because command templates,
+placeholders, safety policy, rollback, RunEventLog, AnswerPacket, and rejection
+fixtures are now bound before any command can run.
+
+Best near-term code unit:
+build the focused proof-root execution artifact parser that verifies
+`focused-proof-root-manifest.json`, selected test-product digest, enumeration
+digest, focused `.xcresult` digest, executed-test count, source-status digests,
+scheme pre-action ledger, and full-row-not-replaced status after an
+owner-approved run.
+
+Biggest false-claim risk:
+treating this command card as executed Swift test evidence, release readiness,
+L2 green, or large-local-model product capability.
+
+Biggest missing artifact:
+a real owner-approved focused proof-root run with nonzero executed-test
+evidence for the exact graph-filter identifiers.
+
+Next research query: "What minimal owner-approved focused proof-root runner can
+execute graph-filter selectors, record source-status and scheme pre-action
+evidence, produce a manifest, and fail closed without opening model/runtime
+bytes or claiming release readiness?"
