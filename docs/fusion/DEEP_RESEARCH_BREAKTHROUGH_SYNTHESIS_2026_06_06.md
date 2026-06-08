@@ -18969,3 +18969,226 @@ Next research query: "What should the first no-runtime AnswerPacket and
 RunEventLog templates look like for the six materialized fixtures so future
 small-model replay can attach visible proof without exposing raw prompts or
 model output?"
+
+## Pass 159 - No-Runtime AnswerPacket And RunEventLog Fixture Templates
+
+### Executive Synthesis
+
+Pass 159 defines the first no-runtime proof templates that the six materialized
+fixtures will attach to later. The breakthrough is to separate **proof shape**
+from **runtime evidence**: every fixture can predeclare the AnswerPacket and
+RunEventLog fields that future replay must fill, while also forbidding raw
+prompts, model output, token text, provider traces, hidden judges, and any
+claim that a template proves model quality.
+
+```text
+MaterializedSyntheticFixtureArtifactSchema
+  -> NoRuntimeAnswerPacketRunEventTemplate
+  -> AnswerPacket template + RunEventLog template
+  -> trace/correlation ids + digest refs only
+  -> no prompt text, no model output, no token text, no runtime result
+```
+
+This pass is T0 research-to-build canon. It creates no AnswerPacket sidecar, no
+RunEventLog sidecar, no fixture files, and no runtime replay. It defines the
+minimal local template a future falsifier can validate before small-model
+runtime work uses the six v0 fixtures.
+
+### Local Source Facts
+
+- `Epistemos/Models/AnswerPacket.swift` and
+  `agent_core/src/scope_rex/answer_packet.rs` define the canonical packet
+  fields: `id`, `claims`, `residency_signals`, `ui_label`,
+  `attention_mode`, `witnessed_state_ref`, `semantic_delta_ref`, and
+  `mutation_envelope_ref`; Swift additionally carries `interrupt_bucket`.
+- `AnswerPacket` defaults missing `attention_mode` and `interrupt_bucket` to
+  `unavailable`, and static fallback requires an explicit
+  `static_fallback_acknowledged` claim.
+- `Epistemos/Engine/AnswerPacketEmitter.swift` is an actor-backed bounded
+  100-packet audit sink with per-mode, per-bucket, and per-claim-kind counts.
+- `Epistemos/SystemG/SystemGRunSeam.swift` defines the Swift
+  `SystemGAgentEvent` stream and `RunEventLog`: ordered events, terminal
+  `complete` or `failed`, `answerPacketId` resolution, replay text
+  reconstruction, and explicit missing-terminal / missing-packet failures.
+- `agent_core/src/agent_runtime_v2/run_event_log.rs` defines the Rust
+  append-only log, dense ordinals, event rows, sealed mutation rows, ledger
+  snapshots, and BLAKE3-root witness intent.
+- Existing retained runtime sidecars under
+  `artifacts/falsifiers/small_model_runtime_harness_answer_packet_runtime_probe/`
+  already demonstrate redacted first-token evidence: the AnswerPacket stores
+  claims and refs, and the RunEventLog stores a redacted token digest marker
+  plus `stop`, not raw prompt or raw token text.
+
+### Current External Source Facts
+
+- OpenTelemetry's logs data model uses trace/span correlation concepts; Pass
+  159 borrows only the correlation motif, not the telemetry stack. Source:
+  `https://opentelemetry.io/docs/specs/otel/logs/data-model/`
+- W3C Trace Context standardizes trace identity propagation; Pass 159 uses the
+  trace-id/parent-id idea locally for fixture/run correlation, not HTTP
+  propagation. Source: `https://www.w3.org/TR/trace-context/`
+- CloudEvents requires event `id`, `source`, and `type` so events can be
+  correlated generically; Pass 159 uses that as an event-identity motif while
+  keeping Epistemos' local `SystemGAgentEvent` taxonomy authoritative. Source:
+  `https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md`
+
+### Candidate Falsifier
+
+`F-NoRuntimeAnswerPacketRunEventTemplate`
+
+Required template pack:
+
+```text
+fixtures/minimal_synthetic_fixture_pack_v0/templates/
+  answer_packet_template_v0.json
+  run_event_log_template_v0.json
+  replay_correlation_template_v0.json
+```
+
+Required `answer_packet_template_v0.json` fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `template_id` | `answer_packet_template_v0` | stable template identity |
+| `template_scope` | `no_runtime_fixture_replay` | no live result claim |
+| `fixture_pack_id` | `minimal_synthetic_fixture_pack_v0` | binds v0 pack |
+| `fixture_id_ref` | placeholder for one `msfp_v0_*` ID | per-case binding |
+| `answer_packet_id_pattern` | `answer_packet:<fixture_id>:<run_digest>` | deterministic packet id |
+| `claims_required` | fixture identity, verifier/scorer refs, no-runtime caveat | visible proof |
+| `claims_forbidden` | model quality, speed, live route, hidden judge | no overclaim |
+| `ui_label_default` | `plausible_but_unverified` or `blocked` | no false verified |
+| `attention_mode_default` | `unavailable` | no fake runtime attention |
+| `interrupt_bucket_default` | `unavailable` | no fake interrupt signal |
+| `residency_signal_default` | neutral | no false residency |
+| `witnessed_state_ref_pattern` | `run_event_log:<run_id>;fixture:<fixture_id>;events:<count>` | replay link |
+| `semantic_delta_ref_mode` | digest-only optional ref | no raw output |
+| `mutation_envelope_ref` | `mutation_envelope:no_mutation:<fixture_id>` | no mutation |
+| `static_fallback_ack_rule` | required only when attention mode is `static_fallback` | existing invariant |
+| `non_promotion_caveat` | explicit T0-only caveat | truth layer fence |
+
+Required `run_event_log_template_v0.json` fields:
+
+| Field | Required shape | Why it exists |
+|---|---|---|
+| `template_id` | `run_event_log_template_v0` | stable template identity |
+| `run_id_pattern` | `fixture_run:<fixture_id>:<run_digest>` | local trace id |
+| `ordinal_policy` | dense zero-based, append-only | replay safety |
+| `required_events` | `fixture_loaded`, `verifier_bound`, `answer_packet_planned`, `complete_or_abstain` | minimal no-runtime trail |
+| `forbidden_events` | token_chunk, final_text, tool_start, tool_end, provider_call, model_handoff | no runtime evidence laundering |
+| `event_payload_mode` | digest refs and enum statuses only | no raw prompt/output |
+| `terminal_event_required` | true | no half-run proof |
+| `answer_packet_id_required_on_complete` | true | packet-log join |
+| `failure_event_allowed` | explicit abstention or blocked only | safe failure proof |
+| `sealed_mutation_count` | `0` | no fixture mutation |
+| `ledger_snapshot_mode` | optional budget placeholders only | no runtime budget proof |
+| `run_event_log_digest` | `sha256:<64 hex>` over canonical log template | replay identity |
+
+Required `replay_correlation_template_v0.json` fields:
+
+- `fixture_id`
+- `run_id`
+- `trace_id`
+- `parent_id`
+- `answer_packet_id`
+- `run_event_log_digest`
+- `answer_packet_digest`
+- `fixture_case_digest`
+- `verifier_digest`
+- `scorer_digest`
+- `redaction_profile_digest`
+- `source_allowlist_digest`
+- `tombstone_policy_digest`
+- `mas_pro_caveat_digest`
+- `rollback_ref`
+- `metadata_only_non_promotion=true`
+
+Required red fixtures:
+
+- AnswerPacket template defaults `ui_label` to `verified`
+- template claims model quality, speed, first-token, runtime parity, product
+  reachability, L2/L3, T4, MAS readiness, live dense 70B, or live sparse 70B
+- `attention_mode=static_fallback` without a static-fallback acknowledgement
+  claim
+- `attention_mode=dynamic` or `interrupt_bucket` non-`unavailable` without
+  owner-approved runtime evidence
+- RunEventLog template includes raw `token_chunk`, `final_text`, reasoning
+  text, prompt text, tool output, provider payload, or model output
+- missing terminal event or missing `answer_packet_id`
+- nondense ordinals, mutable ordering, duplicate event IDs, or row-index
+  identity
+- sealed mutation count greater than zero
+- missing rollback, redaction profile, source allowlist, tombstone policy, or
+  MAS/Pro caveat refs
+- correlation IDs derived from path/title/mtime instead of fixture digests
+- no-runtime template promoted to model quality, L1/L2/L3, product WRV, or
+  user-facing large-local-model capability
+
+### Architecture Fusion
+
+| Epistemos organ | Template role | Build implication |
+|---|---|---|
+| UAS/OAS | fixture/run/packet/correlation IDs | every proof object is addressable |
+| ColdStore/AppColdStore | source and tombstone refs | future replay can verify evidence scope |
+| ActiveAssembly | no-runtime working-set placeholders | later runtime can fill exact support set |
+| Eidos | source allowlist digest | citation fixtures cannot fake evidence |
+| SCOPE-Rex/SovereignGate | blocked/abstain templates | unsupported routes remain visible |
+| RuntimeRouter/System G | forbidden runtime events in T0 | templates cannot smuggle live route proof |
+| RunEventLog | dense append-only no-runtime event plan | future replay has a log skeleton |
+| AnswerPacket | packet skeleton with visible caveats | user proof shape exists before runtime |
+
+### Build Path
+
+1. Implement metadata-only `no_runtime_answer_packet_run_event_template` UAS
+   primitive.
+2. Implement `falsify_no_runtime_answer_packet_run_event_template`.
+3. Add invalid fixtures for verified UI overclaim, non-unavailable runtime
+   fields, static fallback missing acknowledgement, raw prompt/output/token
+   text, runtime events, missing terminal event, missing packet ID, nondense
+   ordinals, sealed mutation, missing rollback/source/tombstone/caveat refs,
+   path-derived correlation ID, and metadata promotion.
+4. Later, owner-approved materialized fixtures can include these templates
+   before small-model replay fills them with actual retained log evidence.
+
+### Promotion Truth
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: not advanced by this pass.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+- Product code changed: no.
+- Fixture/model/runtime/cache/index/provider bytes loaded: zero.
+- Heavy runtime probe: no.
+- Large-local-model capability: not promoted.
+
+Best breakthrough candidate:
+`F-NoRuntimeAnswerPacketRunEventTemplate`, because it pre-shapes visible proof
+for fixture replay without letting templates masquerade as runtime evidence.
+
+Safest next falsifier:
+guard-owned product work remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+For the large-model side-ladder, implement
+`F-NoRuntimeAnswerPacketRunEventTemplate` after
+`F-MaterializedSyntheticFixtureArtifactSchema`.
+
+Best near-term code unit:
+metadata-only UAS primitive and falsifier for
+`no_runtime_answer_packet_run_event_template` with red fixtures for verified
+overclaim, dynamic-attention overclaim, raw token/prompt/output leakage,
+runtime event laundering, missing terminal event, missing packet join, nondense
+ordinals, sealed mutations, missing caveat refs, and metadata promotion.
+
+Biggest false-claim risk:
+treating no-runtime AnswerPacket and RunEventLog templates as user-visible
+proof. They are only skeletons; proof begins when owner-approved runtime replay
+fills them and the capability/L3 gates validate the result.
+
+Biggest missing artifact:
+a metadata-only witness proving the no-runtime template pack rejects hidden
+runtime evidence, raw text leakage, and promotion before fixture replay begins.
+
+Next research query: "Which exact redaction profiles and synthetic-safe summary
+labels should the six fixture templates use so materialized fixtures can remain
+human-auditable without storing raw private prompts, note text, or model
+outputs?"
