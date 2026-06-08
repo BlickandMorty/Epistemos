@@ -260,6 +260,23 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > and next cursor
 > `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
 > Guard-owned product cursor remains automated checks; L2 and L3 remain red.
+> `F-GraphFilterVisibilityFocusedProofRootManifestGate` is now landed as a
+> metadata-only T1/L1 manifest-gate witness at
+> `artifacts/falsifiers/graph_filter_visibility_focused_proof_root_manifest_gate/result.json`.
+> It consumes the fresh test-products evidence envelope, binds upstream address
+> `sha256:5c24af9bc099863d5dba8398403175f2642caf45201e2ec8169042c2b26ac49f`,
+> 13 required manifest fields, 2 selected test-product kinds, 12 rejection
+> policies, minimum executed-test policy `1`, 23 rejected red fixtures, zero
+> selected test-product/app/model/runtime bytes, deterministic address
+> `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`,
+> and next cursor
+> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+> It rejects stale/global proof roots, missing source/product/enumeration/
+> result-bundle digests, zero-test policy, unaccounted scheme pre-action
+> mutation, focused-proof replacement of the full automated-check row, Xcode
+> execution claims, product-source change claims, L2/L3/product/release green,
+> live dense 70B, SSD-as-RAM, and byte leaks. Guard-owned product cursor
+> remains automated checks; L2 and L3 remain red.
 > `F-ResearchToolCatalog-NoHiddenAuthority` is now landed as a metadata-only
 > T1/L1 research-tool source-card witness at
 > `artifacts/falsifiers/research_tool_catalog_no_hidden_authority/result.json`.
@@ -4811,7 +4828,29 @@ opens zero selected test-product bytes, loads no app/model/runtime bytes, and
 does not promote L2/L3/T4. The next proof remains the actual fresh
 test-products proof root and the guard-owned automated-checks cursor.
 
-### §28.17 KV cache identity, salt, and offload proof packet (added 2026-06-07)
+### §28.17 Focused proof-root manifest gate (added 2026-06-08)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 140.
+
+Pass 140 implements `F-GraphFilterVisibilityFocusedProofRootManifestGate` as
+the metadata parser contract before any focused graph-filter proof root can
+count. It consumes `F-AutomatedChecksFreshTestProductsEvidenceEnvelope`, then
+requires future proof-root evidence to carry source commit, pre-build and
+post-test source-status digests, selected `.xctestrun`/`.xctestproducts`
+path-kind-digest, enumeration JSON digest, seed and enumerated selector
+digests, focused `.xcresult` digest, executed-test count, focused bundle
+status, full automated-check row status, scheme pre-action accounting,
+rollback, RunEventLog, and AnswerPacket.
+
+Promotion truth: this is implemented as a metadata-only T1/L1 Rust primitive
+and witness doc. It runs no Xcode command, changes no product source, opens
+zero selected test-product bytes, loads no app/model/runtime bytes, and does
+not promote L2/L3/T4. The next proof remains an owner-approved focused
+proof-root run, then the full `xcodebuild_test` row, then the five-row
+automated-check closure.
+
+### §28.18 KV cache identity, salt, and offload proof packet (added 2026-06-07)
 
 **Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
 Pass 128.

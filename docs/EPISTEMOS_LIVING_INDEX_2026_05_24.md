@@ -88,6 +88,20 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
   no model/runtime/KV/index bytes, no SSD-as-RAM claim, no hidden route
   authority, no L2/L3 promotion, and no user-facing large-local-model green
   claim.
+- Updated **2026-06-08** · Deep Research Pass 140 folded into
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` and
+  implemented as `F-GraphFilterVisibilityFocusedProofRootManifestGate`.
+  North-star sentence: Epistemos is a local cognitive substrate where every
+  meaningful object has an address, plane, budget, status, and witness; MAS
+  ships the safe floor, Pro contains the gated/research/vault/omega ladder, and
+  no claim promotes without visible proof. The new metadata-only L1/T1 witness
+  consumes the fresh test-products evidence envelope, binds 13 future
+  proof-root manifest fields, 2 selected test-product kinds, 12 rejection
+  policies, nonzero executed-test policy, rollback, RunEventLog, AnswerPacket,
+  and deterministic address
+  `sha256:bef74a16a07327e94b3b4fa36c619bbbc80957072f43886390bf1a920fdbc05c`.
+  It runs no Xcode command, opens zero selected test-product/model/runtime
+  bytes, and does not advance L2/L3/product/release/large-model capability.
 - Updated **2026-06-07** · Large-model research-to-build Pass 90 adds the
   redacted first-token artifact schema for
   `F-ExoticQuantRedactedFirstTokenProbePreflightGate`. North-star sentence:
@@ -3497,6 +3511,17 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   no SSD-as-RAM claim exists, L2 remains
   `vault_research_route_with_packetized_mitigation`, and L3 user-facing
   large-local-model/runtime capability is not green.
+- 2026-06-08 release-audit proof-root hardening now includes the new L1/T1
+  `F-GraphFilterVisibilityFocusedProofRootManifestGate` witness. It consumes
+  `F-AutomatedChecksFreshTestProductsEvidenceEnvelope`, binds the future
+  `focused-proof-root-manifest.json` parser contract, rejects stale/global
+  proof roots, zero-test policy, missing source/product/enumeration/result
+  digests, focused-proof-as-full-row laundering, Xcode execution claims,
+  release-ready claims, live dense-70B claims, and SSD-as-RAM claims. The
+  active architecture cursor remains
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+  L2 remains `vault_research_route_with_packetized_mitigation`; L3 release and
+  user-facing large-model capability are not green.
 - Updated **2026-06-07** · The Pass 128 packet is now landed as
   `F-KVCacheIdentitySaltAndOffloadProofPacket`, a metadata-only T1/L1 witness
   at
