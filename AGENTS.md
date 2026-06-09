@@ -581,6 +581,17 @@ Runtime policy:
   `--offline` presence, rollback, RunEventLog, AnswerPacket, abstention,
   reviewer summary, and non-promotion while storing zero raw paths and making no
   runtime, route, default, L2, L3, T4, or user-facing claim.
+- 2026-06-09 `F-GemmaOwnerApprovedLocalArtifactReceiptProbe` is landed as
+  metadata-only L1/T1. It consumes `F-GemmaLocalArtifactDiscoveryRunbookGate`,
+  binds 28 receipt fields, 4 allowed model ids, 3 runtime lanes, 14 denied
+  shortcuts, 36 rejection policies, and 46 red fixtures while granting zero
+  owner approval, writing/reading zero receipt bytes, storing zero raw paths,
+  opening/hashing zero files, executing zero `llama-cli` help/version probes,
+  arming zero commands, loading zero model/runtime/provider bytes, mutating no
+  RuntimeRouter/System G/settings/default state, and making no Gemma live,
+  default, L2, L3, T4, or user-facing claim. The next Gemma side unit is
+  `gemma_direct_harness_owner_approved_first_runtime_execution_probe`, but only
+  after a real owner-approved local artifact receipt exists.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

@@ -6540,3 +6540,22 @@ the first direct-file proof lane; Gemma 4 12B LiteRT-LM remains Pro Gated after
 source/API/sandbox/lifecycle/rollback/RunEventLog/AnswerPacket proof. The
 guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.32 Gemma owner-approved artifact receipt probe landed (added 2026-06-09)
+
+**Canonical:** `docs/falsifiers/F-GemmaOwnerApprovedLocalArtifactReceiptProbe_2026_06_09.md`,
+`artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_probe/result.json`,
+and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 239 lands `F-GemmaOwnerApprovedLocalArtifactReceiptProbe` as the
+metadata-only T1/L1 implementation of the Pass 238 cutline. It consumes
+`F-GemmaLocalArtifactDiscoveryRunbookGate`, binds 28 receipt fields, 4 allowed
+model ids, 3 runtime lanes, 14 denied shortcuts, 36 rejection policies, 46 red
+fixtures, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
+
+This is still not an approved local artifact, not a file scan, not a file hash,
+not a `llama-cli` probe, not a model load, not route admission, not a default
+model, and not L2/L3/T4/product green. It exists so the next owner-approved
+Gemma step can be a tiny direct-file runtime proof without collapsing source
+cards, local candidate discovery, local artifact receipts, and first-token
+receipts into one unsafe claim.
