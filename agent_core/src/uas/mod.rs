@@ -79,6 +79,7 @@ pub mod gemma_main_family_policy_source_card;
 pub mod gemma_official_convenience_command_denylist_gate;
 pub mod gemma_owner_approved_local_artifact_receipt_intake_gate;
 pub mod gemma_owner_approved_local_artifact_receipt_probe;
+pub mod gemma_owner_approved_receipt_emitter_dry_run_gate;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
@@ -561,6 +562,15 @@ pub use gemma_owner_approved_local_artifact_receipt_intake_gate::{
     GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_ID,
     GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_NEXT_CURSOR,
     GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_UPSTREAM_REF,
+};
+pub use gemma_owner_approved_receipt_emitter_dry_run_gate::{
+    GemmaOwnerApprovedReceiptEmitterDryRunGate,
+    GemmaOwnerApprovedReceiptEmitterDryRunGateError,
+    GemmaOwnerApprovedReceiptEmitterDryRunGateMetrics,
+    GEMMA_OWNER_APPROVED_RECEIPT_EMITTER_DRY_RUN_GATE_CURSOR,
+    GEMMA_OWNER_APPROVED_RECEIPT_EMITTER_DRY_RUN_GATE_ID,
+    GEMMA_OWNER_APPROVED_RECEIPT_EMITTER_DRY_RUN_GATE_NEXT_CURSOR,
+    GEMMA_OWNER_APPROVED_RECEIPT_EMITTER_DRY_RUN_GATE_UPSTREAM_REF,
 };
 pub use gemma_official_convenience_command_denylist_gate::{
     denied_gemma_official_convenience_commands, official_gemma_convenience_source_refs,

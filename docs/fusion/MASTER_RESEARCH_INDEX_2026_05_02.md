@@ -6579,3 +6579,25 @@ not model bytes, not route admission, and not a user-facing Gemma feature. It
 exists so the eventual receipt emitter cannot smuggle raw paths, HF cache
 identity, server endpoints, download completion, source-card claims, or hidden
 route authority into the first runtime execution probe.
+
+### §28.34 Gemma owner-approved receipt emitter dry-run gate landed (added 2026-06-09)
+
+**Canonical:** `docs/falsifiers/F-GemmaOwnerApprovedReceiptEmitterDryRunGate_2026_06_09.md`,
+`artifacts/falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/result.json`,
+and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 241 lands `F-GemmaOwnerApprovedReceiptEmitterDryRunGate` as the
+metadata-only T1/L1 dry-run shape for the future owner-approved local Gemma
+artifact receipt emitter. It consumes
+`F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate`, binds 7 emitter sections,
+24 receipt fields, 4 receipt kinds, 9 dry-run outputs, 16 denied shortcuts, 37
+rejection policies, 46 red fixtures, rollback, RunEventLog, AnswerPacket,
+abstention, and non-promotion.
+
+This is still not a written receipt, not owner approval, not a file scan, not a
+file hash, not `llama-cli`, not model bytes, not route admission, and not a
+user-facing Gemma feature. It exists so future owner-guided receipt
+materialization can produce digest slots and reviewer-visible summaries without
+allowing raw paths, cache/download/source-card shortcuts, server endpoints,
+hidden route authority, or product-default claims to masquerade as local
+runtime proof.
