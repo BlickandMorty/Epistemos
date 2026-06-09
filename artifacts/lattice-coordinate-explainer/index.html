@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 231 - F-GemmaLocalArtifactAcquisitionReceiptGate landed">
-  <meta name="epistemos-commit-sha" content="554dc00802">
+  <meta name="epistemos-latest-research-pass" content="Pass 232 - Gemma official runtime source validation folded">
+  <meta name="epistemos-commit-sha" content="0ab9c4c565">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1934,6 +1934,24 @@
   arms zero commands, starts zero servers, stores zero raw owner paths, loads
   zero model/runtime/provider bytes, and makes no Gemma live/default/L2/L3/T4/
   user-facing claim.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 232 Gemma official runtime source validation folded.</strong>
+  Official Hugging Face E2B/E4B QAT GGUF cards support the direct
+  GGUF/<code>llama.cpp</code> source lane, and Google's Gemma 4 12B developer
+  guide supports a LiteRT-LM reference lane for the Pro 12B target. This makes
+  Gemma easier to prove, but it does not make Gemma configured, live, default,
+  or user-facing. Epistemos still requires source card &rarr;
+  owner-approved acquisition command &rarr; acquisition receipt with sha256,
+  byte count, and tool-version evidence &rarr; direct local-file one-token
+  receipt &rarr; same-fixture replay &rarr; RuntimeRouter admission &rarr;
+  System G dry-run &rarr; WRV/release audit. <code>-hf</code>,
+  <code>llama-server</code>, LiteRT-LM <code>serve</code>, local endpoints,
+  Ollama/LM Studio/Pi/Hermes examples, and model-card snippets are convenience
+  references only until witnessed. This pass opens zero model bytes, runs zero
+  commands, starts zero servers, mutates zero RuntimeRouter/System G/default
+  state, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
 </div>
 
 <div class="canon-hook">

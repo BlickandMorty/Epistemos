@@ -28299,3 +28299,117 @@ Next research query:
 What is the safest first real acquisition receipt: existing local E2B file,
 E2B quarantine download, E4B quarantine download, or 12B LiteRT-LM quarantine
 import?
+
+## Pass 232 - Gemma Official Runtime Source Validation And Shortcut Boundary
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Research-to-build result:
+Current primary sources strengthen the Gemma-first plan, but also sharpen the
+shortcut boundary. Official Hugging Face model cards for Gemma 4 E2B/E4B QAT
+GGUF expose llama.cpp-oriented usage paths, including `llama-cli -hf ...`, and
+Google's Gemma 4 12B developer guide exposes a LiteRT-LM import/serve path for
+local desktop serving. Epistemos should treat those as source-card evidence for
+runtime feasibility, not as Epistemos runtime proof.
+
+Mechanism:
+Keep the first practical proof on the direct local-file rail:
+
+```text
+official source card
+  -> owner-approved acquisition command
+  -> acquisition receipt with sha256 + byte count + tool/version digest
+  -> direct llama-cli -m <owner-approved-local-gguf> one-token receipt
+  -> same-fixture quality replay
+  -> RuntimeRouter admission packet
+  -> System G dry-run packet
+  -> L3 WRV/release-audit evidence
+```
+
+`-hf`, `llama-server`, LiteRT-LM `serve`, Ollama/LM Studio/Pi/Hermes examples,
+and local OpenAI-compatible endpoints remain research/reference shortcuts until
+a later gate proves sandboxing, dependency envelope, cancellation, rollback,
+RunEventLog, AnswerPacket, and no hidden provider/server authority. The
+official cards make acquisition easier; they do not replace the local receipt.
+
+Why it matters:
+This answers the "why not just add the model?" pressure without weakening the
+architecture. Gemma can move faster than the 70B cold-assembly track because
+E2B/E4B have official GGUF/QAT lanes and 12B has an official LiteRT-LM lane,
+but Epistemos still needs one durable receipt per local artifact and one
+receipt per runtime proof before the model can be a main app route.
+
+Epistemos organ:
+Gemma source cards, owner path manifest, AppColdStore quarantine, SCOPE-Rex/
+SovereignGate owner approval, RuntimeRouter/System G, RunEventLog,
+AnswerPacket, release-audit WRV, and MAS/Pro claim discipline.
+
+Local refs:
+
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionCommandCard_2026_06_09.md`
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionReceiptGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_local_artifact_acquisition_receipt_gate/result.json`
+
+External refs:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`
+- `https://deepmind.google/models/gemma/gemma-4/`
+
+Tier and status:
+T0 research-to-build canon. It uses current official-source validation to
+choose the next build path, but it lands no new primitive and makes no L1,
+L2, L3, T4, main-model, user-facing, or live runtime claim.
+
+Falsifier backlog update:
+
+- `F-GemmaLocalArtifactAcquisitionReceiptGate` remains the immediate gate
+  before any runtime proof.
+- `F-GemmaOfficialConvenienceCommandDenylistGate` should be added if agents
+  keep trying to use `-hf`, `llama-server`, or LiteRT-LM `serve` as proof.
+- `F-GemmaRuntimeProofToAdmissionBridge` should consume a real runtime receipt
+  plus same-fixture replay before RuntimeRouter/System G can cite Gemma.
+- `F-LiteRTLMGemma12BProAdmissionPacket` should remain source/API/sandbox
+  proof first, not a product default.
+
+Runtime proof:
+Not run. No model was acquired, hashed, opened, loaded, served, or queried.
+
+User-visible proof:
+Not present. The correct product copy remains "Gemma not configured" or
+"Gemma proof pending" until a local artifact receipt and runtime receipt exist.
+
+Rollback:
+Future rollback must remove Gemma from route eligibility without deleting the
+source-card, receipt, or research canon. This pass executes no rollback.
+
+Privacy/stability/provenance risks:
+The biggest near-term risk is accidentally accepting an official convenience
+command as Epistemos proof. `llama-cli -hf` can hide acquisition/caching behind
+the runtime command, and `llama-server`/LiteRT-LM `serve` can introduce local
+endpoint authority before System G has a visible admission packet. The safe
+path is two-step: acquire/receipt first, execute one-token direct local-file
+probe second.
+
+Why it may be a breakthrough:
+It lets the project finally move from research to a real Gemma proof while
+keeping the proof small: one owner-approved E2B/E4B artifact, one receipt, one
+bounded one-token run. That is the fastest credible path from T1 to a future
+T2 route.
+
+Why it may be wrong:
+If LiteRT-LM proves more stable or safer than direct GGUF on this Mac, the
+first runtime proof may need to switch lanes. That switch is allowed only if
+the same receipt, byte, cancellation, rollback, RunEventLog, and AnswerPacket
+requirements are preserved.
+
+Next research query:
+What exact local acquisition receipt should be produced first, and can it use
+E2B QAT GGUF to minimize memory/cancellation risk while preserving the same
+fixture and admission path needed for E4B and 12B?
