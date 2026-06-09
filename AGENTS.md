@@ -405,6 +405,19 @@ Runtime policy:
   decoding is an acceleration packet only after base-route equivalence and
   rollback proof. This pass updates canon only; it does not make Gemma live,
   default, L2/L3, T4, MAS, or user-facing.
+- 2026-06-09 Gemma first runtime proof envelope: the next buildable Gemma
+  runtime work should bind a Pro Gated command-card before execution and a
+  digest-only receipt after execution. Allow direct `llama-cli -m <local GGUF>`,
+  `--single-turn`, `--no-display-prompt`, `--show-timings`, bounded
+  `--ctx-size`, bounded positive `--predict`, fixed nonnegative `--seed`, and
+  optional digest-bound grammar/JSON. Deny `-hf`, remote model URLs,
+  `MODEL_ENDPOINT`, `llama-server`, ports, provider endpoints, unbounded
+  generation, implicit context size, MTP/draft flags, LoRA/control vectors, raw
+  prompt/output retention, MAS claims, route/default mutation, and L2/L3/T4
+  promotion. The future receipt must include exit/termination classification,
+  timeout/cancel/teardown evidence, timing/memory digests, rollback,
+  RunEventLog, AnswerPacket, abstention, reviewer summary, and no-promotion
+  flags.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
