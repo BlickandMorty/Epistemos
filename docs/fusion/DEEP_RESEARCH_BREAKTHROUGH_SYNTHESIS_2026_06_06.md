@@ -26835,3 +26835,60 @@ Why it may be wrong:
 the later runbook may expose a runtime edge case that needs a field not present
 in the dry-run artifact schema. Future additions must be monotonic, digest-only,
 owner-approved, rollbackable, and unable to bypass the existing review ladder.
+
+## Pass 216 - F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make owner approval operationally precise before any future Gemma direct-harness
+command can be armed.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate` binds owner approval and
+identity, owner path manifest, model file digest, llama.cpp binary/version
+digest, command template, argv/environment/workdir policy, prompt/grammar
+policy, context/predict caps, seed, timeout, cancellation, teardown, stdio
+redaction, memory/timing samplers, temp/atomic/cleanup policy, RunEventLog,
+AnswerPacket, rollback, abstention, human-visible confirmation, and
+non-promotion.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future direct Gemma preflight packet and
+then the existing review, quality, admission, WRV, and release-audit ladder.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_receipt_runbook_gate/result.json`.
+
+Proof:
+the witness passed with 34 runbook fields, 46 abort conditions, 52 red-fixture
+rejections, zero runbook bytes written/read, zero owner path opens, zero file
+opens, zero command arming or execution, zero model/runtime/provider bytes,
+zero raw owner path/prompt/output/stdout/stderr/token bytes, zero
+RuntimeRouter/System G/settings/default mutation, and no Gemma
+live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate`, because the
+runbook contract exists, but there is still no preflight packet, no owner path
+approval artifact, no local file proof, no llama.cpp proof, no token, and no
+route admission.
+
+Biggest false-claim risk:
+calling an owner-approved runbook "Gemma is ready." It is still not a runtime
+run or local availability proof. It only prevents the later command lane from
+being ambiguous or invisible.
+
+Why it may be wrong:
+the future preflight packet may need additional hardware or memory evidence
+before a real owner-approved command is safe to arm. Those additions must
+remain digest-only, visible, rollbackable, and non-promotional until L2/L3 proof
+exists.
