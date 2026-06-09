@@ -592,6 +592,17 @@ Runtime policy:
   default, L2, L3, T4, or user-facing claim. The next Gemma side unit is
   `gemma_direct_harness_owner_approved_first_runtime_execution_probe`, but only
   after a real owner-approved local artifact receipt exists.
+- 2026-06-09 `F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate` is landed as
+  metadata-only L1/T1. It consumes the receipt probe, binds 8 intake sections,
+  30 canonical fields, 4 receipt kinds, 10 privacy rules, 14 denied shortcuts,
+  40 rejection policies, and 47 red fixtures while granting zero owner approval,
+  reading/writing zero receipt payload bytes, storing zero raw paths or owner
+  phrases, opening/hashing zero files, executing zero `llama-cli` probes,
+  arming zero commands, loading zero model/runtime/provider bytes, mutating no
+  RuntimeRouter/System G/settings/default state, and making no Gemma live,
+  default, L2, L3, T4, or user-facing claim. The next safe Gemma build unit is a
+  redacted receipt-emitter dry-run shape that satisfies this intake gate before
+  any owner-approved one-token runtime execution probe.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

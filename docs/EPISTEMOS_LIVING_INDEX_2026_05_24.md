@@ -8058,6 +8058,37 @@ Correct phrasing: "The owner-approved Gemma local artifact receipt contract is
 witnessed; no Gemma artifact has been approved, opened, hashed, loaded,
 route-admitted, or promoted by this witness."
 
+### 2026-06-09 - F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_intake_gate/result.json`.
+It consumes the receipt probe and defines the fail-closed typed intake boundary
+for a future owner-approved local Gemma artifact receipt before any runtime
+proof can consume receipt evidence.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 8 intake sections, 30
+  canonical fields, 4 receipt kinds, 10 privacy rules, 14 denied shortcuts, 40
+  rejection policies, and 47 red fixtures are bound.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no owner
+  approval was granted, no receipt payload was read or written, no raw path or
+  owner phrase was stored, no path was canonicalized, no file was opened or
+  hashed, no `llama-cli` command ran, no model/runtime/provider bytes loaded,
+  and no Gemma route/default/user surface changed.
+
+Correct phrasing: "The Gemma local artifact receipt intake boundary is
+witnessed; no owner receipt or Gemma artifact has been read, approved, opened,
+hashed, loaded, route-admitted, or promoted by this witness."
+
 ### 2026-06-09 - Local Gemma E4B manifest reconciliation
 
 North-star sentence: Epistemos is a local cognitive substrate where every

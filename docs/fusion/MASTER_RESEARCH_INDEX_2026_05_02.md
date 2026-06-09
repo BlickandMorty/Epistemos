@@ -6559,3 +6559,23 @@ model, and not L2/L3/T4/product green. It exists so the next owner-approved
 Gemma step can be a tiny direct-file runtime proof without collapsing source
 cards, local candidate discovery, local artifact receipts, and first-token
 receipts into one unsafe claim.
+
+### §28.33 Gemma owner-approved local artifact receipt intake gate landed (added 2026-06-09)
+
+**Canonical:** `docs/falsifiers/F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate_2026_06_09.md`,
+`artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_intake_gate/result.json`,
+and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 240 lands `F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate` as the
+metadata-only T1/L1 parser/admission boundary for a future owner-approved local
+Gemma artifact receipt. It consumes `F-GemmaOwnerApprovedLocalArtifactReceiptProbe`,
+binds 8 intake sections, 30 canonical fields, 4 receipt kinds, 10 privacy rules,
+14 denied shortcuts, 40 rejection policies, 47 red fixtures, rollback,
+RunEventLog, AnswerPacket, abstention, and non-promotion.
+
+This is still not a receipt payload, not owner approval, not local file
+availability, not a path scan, not a file hash, not `llama-cli`, not LiteRT-LM,
+not model bytes, not route admission, and not a user-facing Gemma feature. It
+exists so the eventual receipt emitter cannot smuggle raw paths, HF cache
+identity, server endpoints, download completion, source-card claims, or hidden
+route authority into the first runtime execution probe.
