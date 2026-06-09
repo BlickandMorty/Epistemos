@@ -26778,3 +26778,60 @@ Why it may be wrong:
 the actual direct harness may need extra lane-specific observations once the
 first dry-run artifact exists. Any extension must be digest-only, monotonic,
 rollbackable, and unable to turn a denied runtime action into route authority.
+
+## Pass 215 - F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn the receipt-emitter contract into a concrete dry-run artifact contract so
+the first future Gemma command has a non-mysterious, digest-only evidence shape
+before it is allowed to exist as a run artifact.
+
+Mechanism:
+`F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate` binds dry-run schema and
+artifact digest, owner/model/llama.cpp/command placeholders, argv/environment/
+workdir/prompt/grammar policies, process/timeout/cancel/teardown/stdout/stderr
+policies, token redaction, timing and memory sampler plans, temp-path/
+atomic-write/cleanup policy, RunEventLog, AnswerPacket, rollback, abstention,
+and non-promotion. It deliberately writes no artifact and reads no receipt in
+the default loop.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future direct Gemma harness runbook and
+then the existing first-token review, reconciliation, quality, admission, WRV,
+and release-audit ladder.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_receipt_emitter_dry_run_artifact_gate/result.json`.
+
+Proof:
+the witness passed with 36 dry-run artifact fields, 46 abort conditions, 60
+red-fixture rejections, zero dry-run artifact bytes written/read, zero receipt
+bytes written/read, zero file opens, zero command arming or execution, zero
+model/runtime/provider bytes, zero raw owner path/prompt/output/stdout/stderr/
+token bytes, zero RuntimeRouter/System G/settings/default mutation, and no
+Gemma live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate`, because the dry-run
+artifact contract now exists, but there is still no owner-approved runbook, no
+local file proof, no llama.cpp proof, no token, and no route admission.
+
+Biggest false-claim risk:
+calling a dry-run artifact contract "Gemma added." It is not a model install,
+not a runtime execution, not a local availability proof, and not System G
+admission. It only makes the next owner-approved runbook harder to fake.
+
+Why it may be wrong:
+the later runbook may expose a runtime edge case that needs a field not present
+in the dry-run artifact schema. Future additions must be monotonic, digest-only,
+owner-approved, rollbackable, and unable to bypass the existing review ladder.
