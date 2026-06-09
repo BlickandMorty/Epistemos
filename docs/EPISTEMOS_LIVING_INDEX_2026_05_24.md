@@ -7639,6 +7639,59 @@ Layer truth:
 Correct phrasing: "Gemma now has a sharper practical runtime cutover plan;
 Gemma is still not live, default, route-admitted, L2/L3, T4, or user-facing."
 
+### 2026-06-09 - Gemma first runtime proof envelope folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now includes
+Pass 224, "Gemma First Runtime Proof Envelope." This pass turns the prior
+runtime cutover plan into a concrete command-card and receipt contract for a
+future owner-approved Gemma E2B/E4B direct `llama-cli` proof. No product code
+changed and no runtime/model bytes were loaded.
+
+Allowed first-proof shape:
+
+- Pro Gated only.
+- Direct `llama-cli -m <owner-approved-local-gguf>`.
+- `--single-turn`, `--no-display-prompt`, `--show-timings`.
+- Explicit bounded `--ctx-size`, positive bounded `--predict`, fixed
+  nonnegative `--seed`.
+- Optional grammar/JSON only when digest-bound.
+- Receipt with exit code, termination reason, timeout/cancel/teardown,
+  timing/memory digests, first-token digest, stdout/stderr digests, rollback,
+  RunEventLog, AnswerPacket, abstention, reviewer summary, and no-promotion
+  flags.
+
+Denied first-proof shape:
+
+- `-hf`, remote URLs, `MODEL_ENDPOINT`, hidden Hugging Face cache authority.
+- `llama-server`, ports, local OpenAI-compatible endpoint authority.
+- Unbounded generation, implicit model context, MTP/draft flags, LoRA/control
+  vectors, raw prompt/output/stdout/stderr retention.
+- MAS claim, route/default/settings mutation, L2/L3/T4/product promotion.
+
+Buildable backlog added:
+
+- `F-GemmaDirectHarnessFirstRuntimeProofCommandCard`.
+- `F-GemmaDirectHarnessFirstRuntimeProofReceiptGate`.
+- `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`.
+- `F-GemmaDirectHarnessRuntimeProofToAdmissionBridge`.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier landed.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Gemma execution, model
+  bytes, settings row, route priority, or product capability was activated.
+
+Correct phrasing: "Gemma now has an exact first-runtime-proof envelope; Gemma
+is still not live, default, route-admitted, L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

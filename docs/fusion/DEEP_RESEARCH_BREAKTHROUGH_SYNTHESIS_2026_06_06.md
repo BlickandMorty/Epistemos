@@ -27387,3 +27387,232 @@ What exact owner-approved E2B/E4B `llama-cli` command envelope should be used
 for the first T2 attempt, with no server, no network, bounded context, redacted
 receipt, cancellation/teardown, memory sample, RunEventLog, AnswerPacket, and
 rollback?
+
+## Pass 224 - Gemma First Runtime Proof Envelope
+
+Date: 2026-06-09.
+
+Best breakthrough candidate:
+turn the next Gemma move into an exact first-runtime-proof envelope instead of
+another generic "add model" task. The first runtime attempt should be a Pro
+Gated, owner-approved, single-process `llama-cli` execution that can be killed,
+redacted, reviewed, rolled back, and correlated with RunEventLog and
+AnswerPacket before any RuntimeRouter/System G route can treat it as evidence.
+
+Mechanism:
+the envelope is a command-card plus receipt contract. The command-card binds
+local material digests and allowed arguments before execution; the receipt
+records only digest/redacted observations after execution. Public `-hf`
+examples remain source-card evidence only because `llama.cpp` documents that
+`-hf` downloads from Hugging Face by default. The first Epistemos run must use
+`-m /owner/approved/local/model.gguf`, not a remote repo, server URL, port bind,
+provider endpoint, or hidden model cache.
+
+Epistemos organ:
+UAS owns the command-card address; AppColdStore owns dormant model/runtime
+material refs; SCOPE-Rex/SovereignGate check owner approval and Pro status;
+RuntimeRouter/System G stay read-only until the receipt passes review;
+RunEventLog and AnswerPacket expose the caveat that this is first-token
+runtime proof, not model quality or product default.
+
+Local refs:
+
+- `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 211
+  direct harness rail, Pass 212 receipt map, Pass 223 cutover canon.
+- `AGENTS.md` no hidden sidecar, MAS subprocess prohibition, runtime-plural
+  Gemma locks.
+- `/Users/jojo/Downloads/CLAUDE-CODE-FIRST-START-PROMPT.md`: local research
+  emphasizing FFI/error-handling/Metal safety and no skipped crash handling.
+- `/Users/jojo/Downloads/EPISTEMOS-RESEARCH-REFERENCE-v2 (1) 2.md`: older
+  local research preferring MLX/Metal for final Apple Silicon performance while
+  preserving a router and RAG-first discipline.
+- `/Users/jojo/Downloads/Custom Metal Mamba 2 Implementation for Epistemos  Technical Specification.md`:
+  kernel-panic-class warning for GPU/Metal bounds and the need for explicit
+  memory safety gates; this motivates dry-run command envelopes before any
+  custom runtime.
+
+External refs:
+
+- `llama.cpp` README: Apple Silicon Metal is a supported backend; `-hf` can
+  load compatible Hugging Face models but downloads by default; GGUF is the
+  required model format for `llama.cpp`.
+- `llama.cpp/tools/cli/README.md`: `-m/--model`, `-c/--ctx-size`,
+  `-n/--predict`, `-s/--seed`, `--fit`, `--log-file`, `--show-timings`,
+  `--no-display-prompt`, grammar/JSON, and `--single-turn` are available
+  envelope fields.
+- SLSA provenance: subject/materials/invocation/environment vocabulary maps
+  cleanly to Epistemos receipt evidence.
+- Apple Foundation `Process`: subprocess state exposes termination status and
+  termination reason; Epistemos must capture and classify abnormal exits rather
+  than hiding them behind a route claim.
+
+Recommended command-card fields:
+
+```text
+identity:
+  command_card_id
+  product_build = Pro
+  pro_status = Gated
+  owner_approval_digest
+  selected_model_uas_address
+  selected_runtime_lane = gemma-direct-harness-llama-cpp-gguf-pro-gated
+
+materials:
+  model_file_sha256
+  model_file_byte_count
+  model_path_digest_only
+  llama_cli_binary_sha256
+  llama_cli_version_digest
+  prompt_file_sha256
+  grammar_or_json_schema_sha256_optional
+
+allowed argv:
+  -m <owner-approved-local-gguf>
+  --single-turn
+  --no-display-prompt
+  --log-file <ephemeral-redacted-log-path>
+  --show-timings
+  --ctx-size <bounded-small-context>
+  --predict <small-positive-token-cap>
+  --seed <fixed-nonnegative-seed>
+  --temp 0 or bounded sampler tuple
+  optional --grammar-file or --json-schema only when digest-bound
+  optional Metal/GPU layer controls only when source-card bounded
+
+denied argv:
+  -hf / --hf-repo / --hf-file
+  --model-url / remote URL / MODEL_ENDPOINT
+  llama-server / port / host / OpenAI-compatible endpoint
+  --predict -1 or any unbounded generation
+  --ctx-size 0 for first proof
+  --ignore-eos
+  MTP/draft model flags
+  LoRA/control-vector flags
+  mmap/fit experiments unless separately witnessed
+
+process:
+  timeout_ms
+  cancellation_signal
+  terminate_then_kill_after_ms
+  cwd_digest
+  env_allowlist_digest
+  stdout_stderr_byte_caps
+  memory_sampler_plan
+```
+
+Recommended receipt fields:
+
+```text
+subject:
+  receipt_id
+  command_card_id
+  model_uas_address
+  receipt_sha256
+
+materials:
+  model_file_sha256
+  llama_cli_binary_sha256
+  prompt_file_sha256
+  grammar_or_json_schema_sha256_optional
+
+invocation:
+  argv_digest
+  env_digest
+  cwd_digest
+  started_at
+  finished_at
+
+process:
+  exit_code
+  termination_reason
+  timeout_triggered
+  cancelled
+  teardown_observed
+  peak_rss_or_sample_digest
+  timing_digest
+
+observations:
+  first_token_digest
+  redacted_output_digest
+  stdout_digest
+  stderr_digest
+  raw_prompt_bytes_stored = 0
+  raw_output_bytes_stored = 0
+
+joins:
+  rollback_ref
+  run_event_log_ref
+  answer_packet_ref
+  abstention_ref
+  reviewer_visible_summary_ref
+
+promotion_denials:
+  no_quality_claim
+  no_route_admission
+  no_default_model_mutation
+  no_settings_visibility
+  no_mas_claim
+  no_l2_l3_t4_claim
+```
+
+Buildable falsifier backlog:
+
+- `F-GemmaDirectHarnessFirstRuntimeProofCommandCard`: metadata-only; validates
+  the command-card shape above, rejects remote `-hf`, server/port/provider
+  paths, unbounded generation/context, missing owner approval, missing digests,
+  hidden route mutation, MAS claims, and MTP flags.
+- `F-GemmaDirectHarnessFirstRuntimeProofReceiptGate`: metadata-only first;
+  validates the post-run receipt shape, redaction policy, process termination
+  classification, timing/memory samples, RunEventLog, AnswerPacket, rollback,
+  and no-promotion flags before any future runtime run can count toward L2.
+- `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`: owner-approved
+  live probe only; executes exactly one command-card with a local E2B/E4B GGUF
+  file and writes only the redacted receipt. It remains Pro Gated and does not
+  mutate RuntimeRouter/System G.
+- `F-GemmaDirectHarnessRuntimeProofToAdmissionBridge`: consumes receipt review
+  and same-fixture quality packets before admitting any route evidence.
+
+MAS/Pro status:
+Pro Gated only. MAS must not spawn the command, show a model toggle, advertise
+Gemma as shipped, or inherit a local OpenAI-compatible server. This pass is
+T0 research/canon plus buildable T1 backlog only.
+
+Runtime proof:
+not run in this pass. The future proof must provide an owner-approved local
+file, exact binary digest, exact version digest, exact command-card, one
+redacted receipt, exit/termination evidence, timing/memory sample, rollback,
+RunEventLog, and AnswerPacket.
+
+User-visible proof:
+not present yet. Future L3 requires a settings/diagnostics row that says
+"Gemma direct harness: Pro Gated runtime proof captured" with the receipt
+digest, visible caveats, and no default-model toggle until release audit.
+
+Privacy/stability/provenance risks:
+
+- `-hf` is convenient but can download or use cache state outside owner
+  approval; deny it in the first proof.
+- `llama-server` is useful later but creates lifecycle, port, API, sidecar, and
+  MAS/Pro ambiguity; deny it in the first proof.
+- `--ctx-size 0` and `--predict -1` are valid llama.cpp options but too broad
+  for first proof; require explicit small bounds.
+- `--fit` and memory auto-adjustment can hide byte-envelope mistakes; first
+  proof should record fit policy and prefer conservative explicit caps.
+- Raw prompt/output/stdout/stderr must not be stored; only digests and redacted
+  reviewer summaries survive.
+
+Why it may be a breakthrough:
+it creates a clean bridge from "research says Gemma is easy" to "Epistemos can
+actually run one local token safely." It is the smallest possible runtime proof
+that respects the user's speed wish and the architecture's no-false-claim law.
+
+Why it may be wrong:
+the exact flags may need adjustment after inspecting the installed `llama-cli`
+version on Jojo's machine, and E4B may be a better first model than E2B if the
+owner has already downloaded it. The envelope should therefore bind help/version
+output before execution and allow E2B/E4B selection by owner path manifest.
+
+Next research query:
+What local owner-approved Gemma E2B or E4B GGUF path and local `llama-cli`
+binary/version should the first execution probe bind, and should the first live
+receipt target one token, four tokens, or a tiny JSON object?

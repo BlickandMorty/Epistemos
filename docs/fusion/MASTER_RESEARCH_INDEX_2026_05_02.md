@@ -740,6 +740,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > MTP/speculative decoding as a later equivalence/acceleration packet. It
 > updates research-to-build canon only: no model bytes, no runtime, no route
 > admission, no default Gemma, no L2/L3/T4/user-facing claim.
+> Current addendum: Deep Research Pass 224 folds the Gemma first-runtime-proof
+> envelope. It defines a Pro Gated command-card and digest-only receipt contract
+> for a future owner-approved E2B/E4B direct `llama-cli` proof: allow local
+> `-m`, `--single-turn`, `--no-display-prompt`, `--show-timings`, bounded
+> context/predict, fixed seed, optional digest-bound grammar/JSON; deny `-hf`,
+> remote URLs, `MODEL_ENDPOINT`, `llama-server`, ports, provider endpoints,
+> unbounded generation, implicit context, MTP/draft flags, raw prompt/output
+> retention, MAS claims, route/default mutation, and L2/L3/T4 promotion. It
+> updates canon only; no command was armed or run.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
