@@ -27794,3 +27794,105 @@ Next research query:
 What exact local E2B/E4B Gemma QAT GGUF file and `llama-cli` binary should the
 owner-approved first execution probe bind, and should the proof emit one token,
 four tokens, or a tiny JSON object?
+
+## Pass 227 - Gemma Runtime Cutover Readiness Snapshot
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+This pass turns the owner's "Gemma should be much easier" correction into a
+concrete runtime cutover map. The laptop already has the runtime executable
+needed for the first tiny GGUF proof, but the required local Gemma model
+artifact was not found in the bounded scan.
+
+Mechanism:
+Use a two-lane Gemma strategy:
+
+- E2B/E4B QAT GGUF: first practical direct local-file proof lane through
+  `llama-cli -m <owner-approved local GGUF>`, with no `-hf`, no server, no
+  network, no provider endpoint, bounded context/prediction, fixed seed,
+  timeout/cancel/teardown, digest-only first-token receipt, memory/timing
+  samples, rollback, RunEventLog, AnswerPacket, abstention, and
+  non-promotion.
+- Gemma 4 12B: Pro Gated flagship lane through LiteRT-LM/source-card evidence
+  until package/API, endpoint policy, sandboxing, cancellation, byte/KV, local
+  artifact, AnswerPacket, and release-audit witnesses exist.
+
+Host readiness evidence:
+
+- `/opt/homebrew/bin/llama-cli --version` returned
+  `version: 9370 (aa50b2c2a)` built with AppleClang for Darwin arm64.
+- `/opt/homebrew/bin/llama-server --version` returned the same version.
+- A bounded local scan under `/Users/jojo/Downloads/Epistemos` and
+  `/Users/jojo/Downloads` did not surface an owner-approved `*.gguf` or
+  `*.litertlm` Gemma artifact before the scan was stopped for safety.
+
+External refs:
+
+- Google Gemma 4 QAT announcement:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`.
+- Google Gemma 4 12B developer guide:
+  `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`.
+- Google AI Edge Gemma 4 12B laptop/LiteRT-LM guide:
+  `https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/`.
+- Official Hugging Face E2B QAT GGUF model card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`.
+- Official Hugging Face E4B QAT GGUF model card:
+  `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`.
+
+Epistemos organ:
+RuntimeRouter/System G non-admission boundary, SCOPE-Rex/SovereignGate,
+RunEventLog, AnswerPacket, owner path manifest, and Gemma direct harness.
+
+Tier and status:
+T0/T1 research-to-build canon. Pro Gated. This does not make Gemma MAS, live,
+default, quality-proven, route-admitted, L2/L3, T4, or user-facing.
+
+Falsifier backlog:
+
+- `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`: consume the
+  landed command card and receipt gate, but execute only if the owner provides
+  an exact local E2B/E4B GGUF path and explicitly approves the tiny probe.
+- `F-GemmaLocalArtifactAcquisitionPlan`: if no local file exists, create a
+  no-execute import/download plan that distinguishes direct HF download,
+  `llama-cli -hf` convenience commands, checksum pinning, and local-file
+  promotion. It must not make hidden cache/download behavior product proof.
+- `F-LiteRTLMGemma12BProAdmissionPacket`: source-card and package/API proof
+  for the 12B lane without treating a local server as hidden app authority.
+
+Runtime proof:
+Not run. Only the tool version was inspected. No model/runtime/provider bytes
+were opened or loaded.
+
+User-visible proof:
+Not present. Future visibility should be a diagnostics row that says "Gemma
+runtime proof captured" only after a receipt exists, and "Gemma not configured"
+while no approved local artifact is present.
+
+Rollback:
+Future execution must write a rollback/teardown observation into the receipt
+before any RuntimeRouter/System G admission bridge can consume it.
+
+Privacy/stability/provenance risks:
+The biggest risk is using `llama-cli -hf` as if it were local-file proof; that
+can hide download/cache behavior and path provenance. The safer proof is
+`llama-cli -m <approved local GGUF>` after owner manifest, sha256, byte count,
+version digest, and redacted path digest are bound.
+
+Why it may be a breakthrough:
+It removes the confusion between "Gemma is available online" and "Epistemos can
+prove Gemma locally." The runtime executable is present; the missing piece is a
+selected model artifact and a tiny receipt-producing run.
+
+Why it may be wrong:
+The bounded scan may have missed a model stored deeper or outside Downloads, and
+the installed `llama-cli` may need flag adjustments after the exact model file
+is selected.
+
+Next research query:
+Should the first owner-approved local Gemma proof use E2B for minimum risk or
+E4B for better quality, and where is the exact local GGUF artifact or approved
+download/import target?

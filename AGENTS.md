@@ -453,6 +453,20 @@ Runtime policy:
   live/default/quality-proven/route-admitted/L2/L3/T4/user-facing claim. Next
   side-ladder unit is
   `gemma_direct_harness_owner_approved_first_runtime_execution_probe`.
+- 2026-06-09 Gemma runtime cutover readiness status: host inspection found
+  `/opt/homebrew/bin/llama-cli` and `/opt/homebrew/bin/llama-server` at version
+  `9370 (aa50b2c2a)` built for Darwin arm64, while the bounded local scan did
+  not surface an owner-approved Gemma GGUF or LiteRT-LM artifact. Official
+  Google/Hugging Face sources now make the practical split clear: E2B/E4B QAT
+  GGUF should be the first direct local-file `llama-cli -m <approved GGUF>`
+  proof lane; Gemma 4 12B should stay a Pro Gated LiteRT-LM/source-card lane
+  until package, endpoint, sandbox, cancellation, byte/KV, and AnswerPacket
+  witnesses exist. Do not use `llama-cli -hf` as Epistemos proof because it can
+  hide download/cache authority; use it only as source-card evidence or in an
+  owner-approved import/download plan. This pass updates canon only. It does
+  not download a model, open model bytes, arm or execute a command, start a
+  server, mutate RuntimeRouter/System G/settings/default state, or make Gemma
+  live/default/quality-proven/route-admitted/L2/L3/T4/user-facing.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

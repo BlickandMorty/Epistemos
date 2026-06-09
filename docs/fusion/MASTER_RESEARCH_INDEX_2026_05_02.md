@@ -6346,3 +6346,25 @@ start llama.cpp, load runtime bytes, produce a token, prove Apple Silicon fit,
 prove quality, promote MAS, advance L2/L3, or make any large-local-model
 capability user-facing. The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.25 Gemma runtime cutover readiness snapshot (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 227 and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 227 records the practical current state for Gemma: the host has
+`/opt/homebrew/bin/llama-cli` and `/opt/homebrew/bin/llama-server` at version
+`9370 (aa50b2c2a)` for Darwin arm64, while a bounded local scan did not surface
+an owner-approved Gemma GGUF or LiteRT-LM artifact. The first runtime proof
+should therefore use E2B/E4B QAT GGUF through direct local-file
+`llama-cli -m <approved GGUF>` with the existing command-card and receipt
+contracts; Gemma 4 12B remains a Pro Gated LiteRT-LM admission lane.
+
+Promotion truth: this is T0/T1 research-to-build canon only. It inspects tool
+versions but opens no model bytes, loads no runtime/provider bytes, starts no
+server, arms no command, and does not promote Gemma to MAS, L2/L3, T4/T5,
+default, quality-proven, route-admitted, or user-facing. The next Gemma side
+unit is `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe` once an
+exact local artifact path and owner approval exist; the guard-owned product
+cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
