@@ -7655,7 +7655,7 @@ changed and no runtime/model bytes were loaded.
 Allowed first-proof shape:
 
 - Pro Gated only.
-- Direct `llama-cli -m <owner-approved-local-gguf>`.
+- Direct `llama-cli --offline -m <owner-approved-local-gguf>`.
 - `--single-turn`, `--no-display-prompt`, `--show-timings`.
 - Explicit bounded `--ctx-size`, positive bounded `--predict`, fixed
   nonnegative `--seed`.
@@ -7714,12 +7714,12 @@ metadata-only T1/L1 primary witness:
   `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json`.
 
 The witness consumes the landed owner-approved RuntimeRouter admission packet
-gate, then binds 36 command-card fields, 16 allowed argv flags, 21 denied
-argv/environment/server/provider flags, direct local `llama-cli -m` GGUF policy,
+gate, then binds 37 command-card fields, 17 allowed argv flags, 22 denied
+argv/environment/server/provider flags, direct local `llama-cli --offline -m` GGUF policy,
 single-turn/no-display-prompt/show-timings, bounded context and prediction,
 fixed seed, digest-only prompt/grammar/receipt policy, timeout/cancel/teardown,
 stdio cap, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog,
-AnswerPacket, abstention, non-promotion, and 77 red-fixture rejections. It
+AnswerPacket, abstention, non-promotion, and 78 red-fixture rejections. It
 writes zero command-card bytes, opens zero owner/model/llama.cpp paths, arms
 zero commands, executes zero commands, spawns zero processes, starts zero
 servers, allows zero network/hub/endpoint route, loads zero
@@ -8057,7 +8057,7 @@ user-facing capability."
 
 Next practical fork: owner-approve the E4B MLX record for loader bring-up with
 checksum/path receipt, or acquire E2B/E4B QAT GGUF for the stricter
-`llama-cli -m` first-token lane.
+`llama-cli --offline -m` first-token lane.
 
 ### 2026-06-09 - Gemma progress cutover and runtime tool reality
 
@@ -8089,8 +8089,34 @@ Layer truth:
 
 Next practical Gemma unit: owner-approved local E2B/E4B QAT GGUF receipt emitter
 or probe that binds path digest, sha256, byte count, source revision, rollback,
-RunEventLog, AnswerPacket, and a direct local-file `llama-cli -m` command before
+RunEventLog, AnswerPacket, and a direct local-file `llama-cli --offline -m` command before
 any first-token claim.
+
+### 2026-06-09 - F-GemmaDirectHarnessFirstRuntimeProofCommandCard offline hardening
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The first-runtime Gemma command-card witness now requires offline local-file
+execution shape: `llama-cli --offline -m <owner-approved-file>`. This was
+validated against local `llama-cli --help` and upstream llama.cpp CLI docs:
+`--offline` exists, while `-hf`/`--hf-repo`, `--hf-file`, and `--hf-token` are
+network/cache-facing surfaces that cannot count as Epistemos proof.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaDirectHarnessFirstRuntimeProofCommandCard`
+  regenerated with 37 command-card fields, 17 allowed argv flags, 22 denied
+  flags, and 78 red fixtures.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged and still red; no model bytes
+  were opened, hashed, loaded, served, queried, route-admitted, or made default.
+
+Correct phrasing: "The Gemma first-runtime command-card contract now requires
+`--offline`; Gemma is still not live/default/L2/L3/T4/user-facing."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 

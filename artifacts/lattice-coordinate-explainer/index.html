@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 236 - Gemma progress cutover and runtime tool reality">
-  <meta name="epistemos-commit-sha" content="205c3c8973">
+  <meta name="epistemos-latest-research-pass" content="Pass 237 - Gemma first-runtime command card offline hardening">
+  <meta name="epistemos-commit-sha" content="047a13849b">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1796,7 +1796,7 @@
   <strong>2026-06-09 research-to-build Pass 224 folded.</strong>
   Gemma now has an exact first-runtime-proof envelope. Future live work must
   bind a Pro Gated command-card and digest-only receipt before any route
-  authority: allow direct <code>llama-cli -m &lt;owner-approved-local-gguf&gt;</code>,
+  authority: allow direct <code>llama-cli --offline -m &lt;owner-approved-local-gguf&gt;</code>,
   <code>--single-turn</code>, <code>--no-display-prompt</code>,
   <code>--show-timings</code>, bounded <code>--ctx-size</code>, positive bounded
   <code>--predict</code>, fixed nonnegative <code>--seed</code>, and optional
@@ -1813,13 +1813,13 @@
   <code>F-GemmaDirectHarnessFirstRuntimeProofCommandCard</code> is now a
   landed metadata-only L1/T1 witness. It consumes the owner-approved
   RuntimeRouter admission packet gate and freezes the first practical Gemma
-  local GGUF proof as a Pro Gated direct <code>llama-cli -m</code> command card:
-  36 command-card fields, 16 allowed argv flags, 21 denied
+  local GGUF proof as a Pro Gated direct <code>llama-cli --offline -m</code> command card:
+  37 command-card fields, 17 allowed argv flags, 22 denied
   argv/environment/server/provider flags, bounded context and prediction,
   fixed seed, digest-only prompt/grammar/receipt evidence,
   timeout/cancel/teardown, stdio caps, memory sampler, SCOPE-Rex,
   SovereignGate, rollback, RunEventLog, AnswerPacket, abstention, and
-  non-promotion. It rejects 77 red fixtures, writes zero command-card bytes,
+  non-promotion. It rejects 78 red fixtures, writes zero command-card bytes,
   opens zero owner/model/llama.cpp paths, arms or executes zero commands,
   spawns zero processes, starts zero servers, allows zero network/hub/endpoint
   route, loads zero model/runtime/provider bytes, captures zero raw private
@@ -1857,7 +1857,7 @@
   <code>llama-server</code> exist at <code>version: 9370 (aa50b2c2a)</code>
   for Darwin arm64, but no owner-approved Gemma GGUF or LiteRT-LM artifact was
   surfaced by the bounded local scan. The practical split is E2B/E4B QAT GGUF
-  through direct local-file <code>llama-cli -m &lt;approved GGUF&gt;</code> for
+  through direct local-file <code>llama-cli --offline -m &lt;approved GGUF&gt;</code> for
   the first receipt-producing proof, and Gemma 4 12B as a Pro Gated LiteRT-LM
   lane after package/API, endpoint, sandbox, cancellation, byte/KV,
   RunEventLog, AnswerPacket, and release-audit witnesses. Do not treat
@@ -1891,7 +1891,7 @@
   &rarr; direct local-file receipt &rarr; same-fixture quality replay &rarr;
   RuntimeRouter admission &rarr; System G dry-run &rarr; WRV/release audit.
   E2B/E4B QAT GGUF through direct
-  <code>llama-cli -m &lt;owner-approved-local-gguf&gt;</code> are the proving
+  <code>llama-cli --offline -m &lt;owner-approved-local-gguf&gt;</code> are the proving
   lane. Gemma 4 12B LiteRT-LM/GGUF is the Pro flagship candidate only after
   package/API, sandbox, cancellation, byte/KV, rollback, RunEventLog,
   AnswerPacket, and release-audit proof. A picker row, <code>-hf</code>
@@ -2005,7 +2005,7 @@
   runtime proof, route admission, live default, or user-facing capability. Next
   practical fork: owner-approve this E4B MLX record for loader bring-up with
   checksum/path receipt, or acquire E2B/E4B QAT GGUF for the stricter
-  <code>llama-cli -m</code> first-token lane.
+  <code>llama-cli --offline -m</code> first-token lane.
 </div>
 
 <div class="canon-hook">
@@ -2017,10 +2017,21 @@
   Official Gemma E2B/E4B QAT GGUF <code>-hf</code> examples and Gemma 4 12B
   LiteRT/llama.cpp/MLX/vLLM route docs are source-card evidence only. First
   practical proof should use owner-approved direct local-file
-  <code>llama-cli -m &lt;approved-file&gt;</code> with path digest, sha256, byte
+  <code>llama-cli --offline -m &lt;approved-file&gt;</code> with path digest, sha256, byte
   count, source revision, rollback, RunEventLog, AnswerPacket, no server, no
   hidden network/cache authority, and no RuntimeRouter/System G/default
   mutation before admission. L2 and L3 remain red.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 237 Gemma first-runtime command-card offline hardening.</strong>
+  <code>F-GemmaDirectHarnessFirstRuntimeProofCommandCard</code> now requires
+  <code>llama-cli --offline -m &lt;owner-approved-file&gt;</code>. The regenerated
+  metadata-only witness binds 37 command-card fields, 17 allowed argv flags,
+  22 denied argv/environment/server/provider flags, and 78 red fixtures,
+  including missing <code>--offline</code> rejection and <code>--hf-token</code>
+  denial. It opens zero paths, executes zero commands, loads zero model/runtime
+  bytes, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
 </div>
 
 <div class="canon-hook">

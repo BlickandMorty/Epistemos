@@ -27632,8 +27632,8 @@ rows, Living Index canon, and lattice visibility.
 
 Mechanism:
 The command card constrains the first practical Gemma local runtime proof to an
-owner-approved local GGUF through direct `llama-cli -m <approved-file>`. It
-binds 36 command-card fields, 16 allowed argv flags, 21 denied argv/
+owner-approved local GGUF through direct `llama-cli --offline -m <approved-file>`. It
+binds 37 command-card fields, 17 allowed argv flags, 22 denied argv/
 environment/server/provider flags, 16 future receipt fields, bounded context
 and prediction, fixed seed, digest-only prompt/grammar/receipt evidence,
 timeout/cancel/teardown, stdio caps, memory sampler, SCOPE-Rex, SovereignGate,
@@ -27662,7 +27662,7 @@ Tier and status:
 T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
 
 Falsifier evidence:
-The artifact passes with 77 red fixtures rejected, zero command-card bytes
+The artifact passes with 78 red fixtures rejected, zero command-card bytes
 written/read, zero owner path opens, zero command arming/execution, zero process
 spawn, zero server start, zero network/hub/endpoint allowance, zero
 model/runtime/provider bytes, zero raw private bytes, zero mutation, zero hidden
@@ -27683,8 +27683,8 @@ Future receipt/execution gates must bind rollback before any command evidence
 can feed RuntimeRouter/System G.
 
 Privacy/stability/provenance risks:
-The main closed risks are hidden Hugging Face download/cache authority,
-server/port/provider fallback, raw transcript retention, unbounded generation,
+The main closed risks are hidden Hugging Face download/cache authority, missing
+offline-mode proof, server/port/provider fallback, raw transcript retention, unbounded generation,
 and default-route mutation. Remaining risks are exact local model path,
 llama.cpp binary/version compatibility, actual memory behavior, and quality.
 
@@ -27812,7 +27812,7 @@ Mechanism:
 Use a two-lane Gemma strategy:
 
 - E2B/E4B QAT GGUF: first practical direct local-file proof lane through
-  `llama-cli -m <owner-approved local GGUF>`, with no `-hf`, no server, no
+  `llama-cli --offline -m <owner-approved local GGUF>`, with no `-hf`, no server, no
   network, no provider endpoint, bounded context/prediction, fixed seed,
   timeout/cancel/teardown, digest-only first-token receipt, memory/timing
   samples, rollback, RunEventLog, AnswerPacket, abstention, and
@@ -27879,7 +27879,7 @@ before any RuntimeRouter/System G admission bridge can consume it.
 Privacy/stability/provenance risks:
 The biggest risk is using `llama-cli -hf` as if it were local-file proof; that
 can hide download/cache behavior and path provenance. The safer proof is
-`llama-cli -m <approved local GGUF>` after owner manifest, sha256, byte count,
+`llama-cli --offline -m <approved local GGUF>` after owner manifest, sha256, byte count,
 version digest, and redacted path digest are bound.
 
 Why it may be a breakthrough:
@@ -28005,7 +28005,7 @@ Use a monotonic ladder:
    license/source-card evidence.
 2. Acquisition: owner-provided local file or owner-approved quarantine import;
    no hidden HF cache, endpoint, server, or provider fallback.
-3. Local receipt: direct `llama-cli -m <owner-approved-local-gguf>` for E2B
+3. Local receipt: direct `llama-cli --offline -m <owner-approved-local-gguf>` for E2B
    first, then E4B; digest-only prompt/output/token evidence, memory/timing
    samples, timeout/cancel/teardown, rollback, RunEventLog, and AnswerPacket.
 4. Same-fixture quality replay: one fixture/scorer bundle across E2B, E4B, and
@@ -28322,7 +28322,7 @@ Keep the first practical proof on the direct local-file rail:
 official source card
   -> owner-approved acquisition command
   -> acquisition receipt with sha256 + byte count + tool/version digest
-  -> direct llama-cli -m <owner-approved-local-gguf> one-token receipt
+  -> direct llama-cli --offline -m <owner-approved-local-gguf> one-token receipt
   -> same-fixture quality replay
   -> RuntimeRouter admission packet
   -> System G dry-run packet
@@ -28645,7 +28645,7 @@ capability unless a receipt, loader proof, route packet, AnswerPacket, and WRV
 evidence exist.
 
 Architecture fusion:
-This record should not feed the E2B GGUF `llama-cli -m` first-token lane
+This record should not feed the E2B GGUF `llama-cli --offline -m` first-token lane
 directly because it is an MLX community E4B manifest record, not a GGUF QAT
 artifact receipt. It can feed one of two future branches:
 
@@ -28677,7 +28677,7 @@ manifest metadata only.
 Next research query:
 Should the first owner-approved Gemma runtime proof use the existing unverified
 E4B MLX manifest record as loader bring-up material, or should it acquire an
-E2B/E4B QAT GGUF artifact for the stricter `llama-cli -m` first-token lane?
+E2B/E4B QAT GGUF artifact for the stricter `llama-cli --offline -m` first-token lane?
 
 ## Pass 236 - Gemma Progress Cutover And Runtime Tool Reality
 
@@ -28732,7 +28732,7 @@ owner-approved local GGUF or MLX receipt
 ```
 
 Near-term lane choice:
-Use E2B or E4B QAT GGUF with direct local-file `llama-cli -m <approved-file>` as
+Use E2B or E4B QAT GGUF with direct local-file `llama-cli --offline -m <approved-file>` as
 the fastest proof lane. Treat the existing E4B MLX manifest record as a
 secondary loader-bring-up branch until Swift MLX support for this exact model
 is witnessed. Keep Gemma 4 12B as Pro Gated LiteRT-LM/GGUF research until the
@@ -28763,3 +28763,84 @@ What is the minimal owner-approved receipt emitter that can transform a local
 Gemma E2B/E4B QAT GGUF path into a redacted, digest-bound, rollback-aware
 first-token command packet without leaking raw paths or counting `-hf` cache
 state as product proof?
+
+## Pass 237 - F-GemmaDirectHarnessFirstRuntimeProofCommandCard Offline Hardened
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Mechanism:
+The landed first-runtime proof command-card gate is now hardened against a
+subtle runtime drift: a direct local `llama-cli --offline -m` proof must also require
+`--offline`. Local `llama-cli --help` and upstream llama.cpp CLI documentation
+both expose `--offline`; upstream docs also expose `-hf` / `--hf-repo`,
+`--hf-file`, and `--hf-token` as Hugging Face/cache/network-facing surfaces.
+Official Gemma E2B/E4B QAT GGUF cards continue to show convenient
+`llama-cli -hf ...:Q4_0` examples. Those examples are useful for humans, but
+they must not become Epistemos proof.
+
+Build result:
+`F-GemmaDirectHarnessFirstRuntimeProofCommandCard` was regenerated as a
+metadata-only T1/L1 witness. It now binds:
+
+- 37 required command-card fields, including `offline_flag_digest`.
+- 17 allowed argv flags, including `--offline`.
+- 22 denied argv/environment/server/provider flags, including `--hf-token`.
+- 78 red fixtures, including missing `--offline`.
+- zero command-card writes, path opens, command arming/execution, process
+  spawn, server start, network/hub/endpoint allowance, model/runtime/provider
+  bytes, raw private bytes, route/default mutation, hidden authority, or
+  promotion claims.
+
+Why it matters:
+This closes the gap between "direct local file" and "direct local file that
+cannot silently consult the hub/cache/network path." The future owner-approved
+Gemma proof should therefore use a command-card shape like:
+
+```text
+llama-cli --offline -m <owner-approved-local-gguf> \
+  --single-turn --no-display-prompt --show-timings \
+  --ctx-size <bounded> --predict <bounded-positive> --seed <fixed>
+```
+
+The actual execution probe still cannot run until owner approval, path digest,
+model sha256, byte count, llama.cpp version/binary digest, prompt digest,
+timeout/cancel/teardown, rollback, RunEventLog, AnswerPacket, and no-promotion
+proof exist.
+
+Epistemos organ:
+UAS command-card contract, SCOPE-Rex/SovereignGate admission, RuntimeRouter/
+System G non-mutation boundary, RunEventLog, AnswerPacket, rollback, and
+MAS/Pro claim discipline.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_direct_harness_first_runtime_proof_command_card.rs`
+- `agent_core/src/bin/falsify_gemma_direct_harness_first_runtime_proof_command_card.rs`
+- `Tools/falsifiers/f_gemma_direct_harness_first_runtime_proof_command_card.sh`
+- `docs/falsifiers/F-GemmaDirectHarnessFirstRuntimeProofCommandCard_2026_06_09.md`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json`
+
+External refs:
+
+- `https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md`
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+
+Tier and status:
+T1 / L1 metadata-only hardening. Pro Gated. L2, L3, T4, and user-facing Gemma
+remain red. No model files were opened, hashed, loaded, served, queried, or
+made default.
+
+Why it may be wrong:
+If a future llama.cpp version changes offline semantics, the receipt emitter
+must re-bind `llama-cli --help`, version, binary sha256, and command behavior
+before execution. The command card should treat help/version drift as a
+preflight failure, not as proof.
+
+Next research query:
+Can the next owner-approved receipt emitter bind `--offline` help/version proof
+and a local E2B/E4B GGUF file digest without opening or leaking raw paths before
+the actual one-token execution probe?

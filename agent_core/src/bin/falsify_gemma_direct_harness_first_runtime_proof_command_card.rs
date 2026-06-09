@@ -116,14 +116,14 @@ fn build_artifact(
         ),
         (
             "command_card_fields_bound",
-            metrics.required_command_card_field_count == 36
+            metrics.required_command_card_field_count == 37
                 && red_pass(&red_results, "missing_command_card_field")
                 && red_pass(&red_results, "duplicate_command_card_field"),
         ),
         (
             "argv_allowlist_and_denylist_bound",
-            metrics.allowed_argv_flag_count == 16
-                && metrics.denied_argv_flag_count == 21
+            metrics.allowed_argv_flag_count == 17
+                && metrics.denied_argv_flag_count == 22
                 && red_pass(&red_results, "missing_allowed_argv_flag")
                 && red_pass(&red_results, "duplicate_allowed_argv_flag")
                 && red_pass(&red_results, "missing_denied_argv_flag")
@@ -131,10 +131,12 @@ fn build_artifact(
         ),
         (
             "local_m_single_turn_timing_policy_bound",
-            card.local_m_flag_required
+            card.offline_required
+                && card.local_m_flag_required
                 && card.single_turn_required
                 && card.no_display_prompt_required
                 && card.show_timings_required
+                && red_pass(&red_results, "offline_missing")
                 && red_pass(&red_results, "local_m_flag_missing")
                 && red_pass(&red_results, "single_turn_missing")
                 && red_pass(&red_results, "no_display_prompt_missing")
@@ -270,21 +272,21 @@ fn build_artifact(
             "required_command_card_field_count",
             metrics.required_command_card_field_count,
             "==",
-            36,
+            37,
             "fields",
         ),
         (
             "allowed_argv_flag_count",
             metrics.allowed_argv_flag_count,
             "==",
-            16,
+            17,
             "flags",
         ),
         (
             "denied_argv_flag_count",
             metrics.denied_argv_flag_count,
             "==",
-            21,
+            22,
             "flags",
         ),
         (
@@ -472,7 +474,7 @@ fn build_artifact(
         pass_per_axis,
         fallback_tier: FallbackTier::Primary,
         anomalies: Vec::new(),
-        notes: "metadata-only F-GemmaDirectHarnessFirstRuntimeProofCommandCard: consumes the Gemma direct-harness RuntimeRouter admission packet gate and freezes the local GGUF first-runtime proof command-card contract. It allows only an owner-approved local llama-cli -m path shape with single-turn, no-display-prompt, show-timings, bounded context and prediction, fixed seed, digest-only prompt/grammar/receipt evidence, bounded stdio caps, timeout/cancel/teardown, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion. It writes zero command-card bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw path/prompt/stdout/stderr/token bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim.".to_string(),
+        notes: "metadata-only F-GemmaDirectHarnessFirstRuntimeProofCommandCard: consumes the Gemma direct-harness RuntimeRouter admission packet gate and freezes the local GGUF first-runtime proof command-card contract. It allows only an owner-approved local llama-cli --offline -m path shape with single-turn, no-display-prompt, show-timings, bounded context and prediction, fixed seed, digest-only prompt/grammar/receipt evidence, bounded stdio caps, timeout/cancel/teardown, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion. It writes zero command-card bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw path/prompt/stdout/stderr/token bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim.".to_string(),
         timestamp_utc: now_utc_rfc3339(),
     }
     .build())
@@ -600,6 +602,7 @@ fn red_fixture_results(
             "local_m_flag_missing",
             Box::new(|c| c.local_m_flag_required = false),
         ),
+        ("offline_missing", Box::new(|c| c.offline_required = false)),
         (
             "single_turn_missing",
             Box::new(|c| c.single_turn_required = false),

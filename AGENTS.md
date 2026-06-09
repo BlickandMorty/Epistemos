@@ -407,7 +407,7 @@ Runtime policy:
   default, L2/L3, T4, MAS, or user-facing.
 - 2026-06-09 Gemma first runtime proof envelope: the next buildable Gemma
   runtime work should bind a Pro Gated command-card before execution and a
-  digest-only receipt after execution. Allow direct `llama-cli -m <local GGUF>`,
+  digest-only receipt after execution. Allow direct `llama-cli --offline -m <local GGUF>`,
   `--single-turn`, `--no-display-prompt`, `--show-timings`, bounded
   `--ctx-size`, bounded positive `--predict`, fixed nonnegative `--seed`, and
   optional digest-bound grammar/JSON. Deny `-hf`, remote model URLs,
@@ -421,13 +421,13 @@ Runtime policy:
 - 2026-06-09 Gemma first runtime proof command-card status:
   `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` is now landed as
   metadata-only L1/T1. It consumes the landed owner-approved RuntimeRouter
-  admission packet gate, binds 36 command-card fields, 16 allowed argv flags,
-  21 denied argv/environment/server/provider flags, local `llama-cli -m`
+  admission packet gate, binds 37 command-card fields, 17 allowed argv flags,
+  22 denied argv/environment/server/provider flags, local `llama-cli --offline -m`
   policy, single-turn/no-display-prompt/show-timings, bounded context and
   prediction, fixed seed, digest-only prompt/grammar/receipt policy,
   timeout/cancel/teardown, stdio cap, memory sampler, SCOPE-Rex,
   SovereignGate, rollback, RunEventLog, AnswerPacket, abstention,
-  non-promotion, and 77 red-fixture rejections. It writes zero command-card
+  non-promotion, and 78 red-fixture rejections. It writes zero command-card
   bytes, opens zero owner/model/llama.cpp paths, arms or executes zero
   commands, spawns zero processes, starts zero servers, allows zero
   network/hub/endpoint route, captures zero raw path/prompt/stdout/stderr/token
@@ -458,7 +458,7 @@ Runtime policy:
   `9370 (aa50b2c2a)` built for Darwin arm64, while the bounded local scan did
   not surface an owner-approved Gemma GGUF or LiteRT-LM artifact. Official
   Google/Hugging Face sources now make the practical split clear: E2B/E4B QAT
-  GGUF should be the first direct local-file `llama-cli -m <approved GGUF>`
+  GGUF should be the first direct local-file `llama-cli --offline -m <approved GGUF>`
   proof lane; Gemma 4 12B should stay a Pro Gated LiteRT-LM/source-card lane
   until package, endpoint, sandbox, cancellation, byte/KV, and AnswerPacket
   witnesses exist. Do not use `llama-cli -hf` as Epistemos proof because it can
@@ -484,7 +484,7 @@ Runtime policy:
   local-model lane only by climbing source card -> owner-approved acquisition
   -> direct local-file receipt -> same-fixture quality replay -> RuntimeRouter
   admission -> System G dry-run -> WRV/release audit. E2B/E4B QAT GGUF via
-  direct `llama-cli -m <owner-approved-local-gguf>` are the proving lane; Gemma
+  direct `llama-cli --offline -m <owner-approved-local-gguf>` are the proving lane; Gemma
   4 12B LiteRT-LM/GGUF is the Pro flagship candidate after package/API,
   sandbox, cancellation, byte/KV, rollback, RunEventLog, AnswerPacket, and
   release-audit proof. Do not make a picker row, `llama-cli -hf`, `llama-server`,
@@ -553,17 +553,24 @@ Runtime policy:
   unverified legacy metadata. Do not call this a configured or live Gemma
   runtime. Treat it as Pro Gated manifest evidence only: either owner-approve
   E4B MLX for loader bring-up with checksum/path receipt, or acquire E2B/E4B
-  QAT GGUF for the stricter `llama-cli -m` first-token lane.
+  QAT GGUF for the stricter `llama-cli --offline -m` first-token lane.
 - 2026-06-09 Gemma progress cutover lock: adding a Gemma descriptor is not the
   bottleneck; verified local artifact receipt and runtime proof are. Host
   inspection found `llama-cli`, `llama-server`, `swift`, and `xcrun` on PATH,
   but not `hf` / `huggingface-cli`. Official Gemma E2B/E4B QAT GGUF `-hf`
   examples and Gemma 4 12B LiteRT/llama.cpp/MLX/vLLM route docs are source-card
   evidence only, not Epistemos proof. First practical proof should use
-  owner-approved direct local-file `llama-cli -m <approved-file>` with path
+  owner-approved direct local-file `llama-cli --offline -m <approved-file>` with path
   digest, sha256, byte count, source revision, rollback, RunEventLog,
   AnswerPacket, no server, no hidden network/cache authority, and no
   RuntimeRouter/System G/default mutation before admission.
+- 2026-06-09 Gemma first-runtime command-card offline hardening:
+  `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` now requires
+  `llama-cli --offline -m <owner-approved-file>`. It binds 37 command-card
+  fields, 17 allowed argv flags, 22 denied argv/environment/server/provider
+  flags, and 78 red fixtures, including missing `--offline` rejection and
+  `--hf-token` denial. This is L1/T1 metadata-only hardening, not a runtime
+  token, route admission, default model, L2/L3, or user-facing claim.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
