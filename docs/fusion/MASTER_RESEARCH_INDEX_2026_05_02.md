@@ -624,6 +624,21 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > stderr/token bytes, mutates zero RuntimeRouter/System G/settings/default
 > state, and makes no Gemma live/default/L2/L3/T4/user-facing claim. Next
 > side-ladder unit: `gemma_direct_harness_owner_approved_receipt_runbook_gate`.
+> Current addendum: `F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate` is now
+> landed as metadata-only T1/L1 evidence. Artifact:
+> `artifacts/falsifiers/gemma_direct_harness_owner_approved_receipt_runbook_gate/result.json`.
+> It consumes the landed dry-run artifact gate, binds 34 runbook fields, 46
+> abort conditions, owner approval and identity digests, owner path/model/
+> llama.cpp/version/command digest requirements, argv/environment/workdir/
+> prompt/grammar policies, context/predict caps, seed/timeout/cancel/teardown,
+> stdout/stderr redaction, memory/timing samplers, temp/atomic/cleanup policy,
+> RunEventLog, AnswerPacket, rollback, abstention, human-visible confirmation,
+> and non-promotion, and rejects 52 red fixtures. It writes zero runbook bytes,
+> opens zero owner/model/llama.cpp paths, arms or executes zero commands,
+> captures zero raw owner path/prompt/output/stdout/stderr/token bytes, mutates
+> zero RuntimeRouter/System G/settings/default state, and makes no Gemma
+> live/default/L2/L3/T4/user-facing claim. Next side-ladder unit:
+> `gemma_direct_harness_owner_approved_receipt_preflight_packet_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style

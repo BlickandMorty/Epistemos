@@ -1,0 +1,445 @@
+{
+  "falsifier_id": "F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_direct_harness_owner_approved_receipt_runbook_gate.sh",
+  "command_digest": "sha256:8a1a799bae3843ec9b6b79d41ef3e2d53075e8fd8fbe50acc081bf707d6d5700",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "a52830169b5387f8f18ac2bd09aa93d53dc7d005",
+  "fixture_id": "gemma_direct_harness_owner_approved_receipt_runbook_gate_v1",
+  "timestamp_utc": "2026-06-09T00:13:28Z",
+  "result_digest": "sha256:a7a264698c0a6712ccb9769756d9d449446de59be6b00647212bef59566c9395",
+  "measurements": {
+    "argv_env_workdir_prompt_grammar_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "caps_seed_timeout_cancel_teardown_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "files"
+    },
+    "future_runbook_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_runbook_bytes_written": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_runbook_written_count": {
+      "value": 0,
+      "unit": "runbooks"
+    },
+    "gemma_direct_harness_receipt_runbook_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_receipt_runbook_gate_address": {
+      "value": "gemma_direct_harness_owner_approved_receipt_runbook_gate:11bde3c53bb750c921f7fad8c5112a018439df4901369fd97e5a8821d26f0073@1779668000000",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "log_packet_rollback_abstention_confirmation_non_promotion_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_owner_approved_receipt_preflight_packet_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_model_llama_command_digests_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_open_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_path_prompt_output_stdio_token_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_owner_path_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "required_abort_condition_count": {
+      "value": 46,
+      "unit": "conditions"
+    },
+    "required_runbook_field_count": {
+      "value": 34,
+      "unit": "fields"
+    },
+    "runbook_fields_and_abort_conditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runbook_write_read_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdio_redaction_memory_timing_temp_atomic_cleanup_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_artifact_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_artifact_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_owner_path_command_file_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "argv_env_workdir_prompt_grammar_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "caps_seed_timeout_cancel_teardown_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "future_runbook_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_runbook_bytes_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_runbook_written_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "runbooks"
+    },
+    "gemma_direct_harness_receipt_runbook_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_receipt_runbook_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "log_packet_rollback_abstention_confirmation_non_promotion_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_owner_approved_receipt_preflight_packet_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_model_llama_command_digests_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_path_prompt_output_stdio_token_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_owner_path_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 52,
+      "unit": "fixtures"
+    },
+    "required_abort_condition_count": {
+      "operator": "==",
+      "value": 46,
+      "unit": "conditions"
+    },
+    "required_runbook_field_count": {
+      "operator": "==",
+      "value": 34,
+      "unit": "fields"
+    },
+    "runbook_fields_and_abort_conditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runbook_write_read_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "stdio_redaction_memory_timing_temp_atomic_cleanup_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_artifact_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_dry_run_artifact_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_owner_path_command_file_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "argv_env_workdir_prompt_grammar_bound": true,
+    "caps_seed_timeout_cancel_teardown_bound": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "file_open_count": true,
+    "future_runbook_bytes_read": true,
+    "future_runbook_bytes_written": true,
+    "future_runbook_written_count": true,
+    "gemma_direct_harness_receipt_runbook_address_deterministic": true,
+    "gemma_direct_harness_receipt_runbook_gate_address": true,
+    "hidden_authority_count": true,
+    "log_packet_rollback_abstention_confirmation_non_promotion_bound": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_mutation": true,
+    "owner_model_llama_command_digests_bound": true,
+    "owner_path_open_count": true,
+    "privacy_raw_path_prompt_output_stdio_token_denied": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_output_bytes": true,
+    "raw_owner_path_bytes": true,
+    "raw_prompt_bytes": true,
+    "raw_stderr_bytes": true,
+    "raw_stdout_bytes": true,
+    "raw_token_bytes": true,
+    "red_fixture_rejection_count": true,
+    "required_abort_condition_count": true,
+    "required_runbook_field_count": true,
+    "runbook_fields_and_abort_conditions_bound": true,
+    "runbook_write_read_deferred": true,
+    "runtime_bytes_loaded": true,
+    "stdio_redaction_memory_timing_temp_atomic_cleanup_bound": true,
+    "upstream_dry_run_artifact_gate_pass": true,
+    "upstream_dry_run_artifact_ref_bound": true,
+    "zero_owner_path_command_file_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate: consumes the landed Gemma direct-harness dry-run artifact gate and freezes the owner-approved runbook contract before any bounded llama-cli receipt attempt can be armed. It binds owner approval, owner identity, owner path manifest, model/llama-cli/version/command digests, argv/environment/workdir/prompt/grammar policy, context/predict caps, seed/timeout/cancel/teardown, stdout/stderr redaction, memory/timing samplers, temp/atomic/cleanup policy, RunEventLog, AnswerPacket, rollback, abstention, human-visible confirmation, and non-promotion. It writes zero runbooks, opens zero owner/model/llama-cli paths, arms or executes zero commands, captures zero raw path/prompt/output/stdout/stderr/token bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no Gemma live/default/L2/L3/T4/user-facing, quality, live dense 70B, or SSD-as-RAM claim."
+}
