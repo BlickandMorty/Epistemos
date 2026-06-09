@@ -27190,3 +27190,59 @@ the future admission packet may need more explicit budget vectors, hardware
 headroom, latency envelopes, and fallback ordering before RuntimeRouter/System
 G can even dry-run the route. Those additions must remain owner-approved,
 visible, rollbackable, and non-promotional until L2 and L3 evidence exists.
+
+## Pass 222 - F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate landed
+
+Date: 2026-06-09.
+
+Best breakthrough candidate:
+force Gemma direct-harness quality evidence through a bounded RuntimeRouter
+admission packet before any System G route, settings visibility, or product
+default can exist.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` consumes the
+landed same-fixture quality packet witness and binds the future admission packet
+shape. It requires direct harness runtime lane identity, quality summary,
+failure taxonomy, budget vector, memory/KV/latency envelopes, privacy class,
+MAS/Pro boundary, SCOPE-Rex, SovereignGate, fallback, abstention, cancellation,
+rollback, RunEventLog, AnswerPacket, visibility, default-model non-mutation,
+hidden-authority denial, and non-promotion.
+
+Epistemos organ:
+UAS + Controller and Verification planes, feeding RuntimeRouter/System G only
+after a future packet proves bounded admission evidence.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/result.json`.
+
+Proof:
+the witness passed with 32 admission fields, 55 rejection policies, 72
+red-fixture rejections, zero admission packet bytes read, zero admission
+performed, zero route/default mutation, zero command arming or execution, zero
+process spawns, zero model/runtime/provider bytes, zero raw prompt/output bytes,
+zero AnswerPacket suppression, and no Gemma live/default/quality/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedSystemGDryRunRoutePacketGate`, because the
+admission packet contract exists, but there is still no System G dry-run route
+packet, no route explanation, no settings WRV, no product capability proof, and
+no live default model.
+
+Biggest false-claim risk:
+calling an admission packet contract "Gemma is route-admitted." It is still not
+an admission packet, not a dry-run, not model execution, not quality proof, not
+memory-fit proof, and not a user-facing lane.
+
+Why it may be wrong:
+the future System G dry-run packet may need stricter route-priority snapshots,
+policy digests, abstention ordering, and AnswerPacket route explanations before
+any user-visible Gemma setting is safe.
