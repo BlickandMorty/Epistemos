@@ -6,7 +6,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 
 PASS as a metadata-only T1/L1 primary witness.
 
-This gate consumes `F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` and freezes the first practical Gemma runtime-proof command-card contract: owner-approved local GGUF through direct `llama-cli -m <approved-file>`, single-turn, no-display-prompt, show-timings, bounded context and prediction, fixed seed, digest-only prompt/grammar/receipt evidence, bounded stdio caps, timeout/cancel/teardown, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
+This gate consumes `F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` and freezes the first practical Gemma runtime-proof command-card contract: owner-approved local GGUF through direct `llama-cli --offline -m <approved-file>`, single-turn, no-display-prompt, show-timings, bounded context and prediction, fixed seed, digest-only prompt/grammar/receipt evidence, bounded stdio caps, timeout/cancel/teardown, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
 
 It does not write a command card, open owner/model/llama.cpp paths, arm or execute a command, spawn a process, start a server, allow network/hub/endpoint routes, load model/runtime/provider bytes, capture raw path/prompt/stdout/stderr/token bytes, mutate RuntimeRouter/System G/settings/defaults, emit a user-facing AnswerPacket, or make Gemma live/default/L2/L3/T4.
 
@@ -20,12 +20,12 @@ It does not write a command card, open owner/model/llama.cpp paths, arm or execu
 
 ## Bound Axes
 
-- 36 required command-card fields.
-- 16 allowed argv flags for a local bounded `llama-cli` proof.
-- 21 denied argv/environment/server/provider flags, including `-hf`, hub repo/file flags, URLs, host/port/server/endpoint/API-key paths, unbounded prediction, MTP/draft, LoRA/control-vector, and provider environment keys.
+- 37 required command-card fields, now including an `offline_flag_digest`.
+- 17 allowed argv flags for a local bounded `llama-cli --offline -m` proof.
+- 22 denied argv/environment/server/provider flags, including `-hf`, hub repo/file/token flags, URLs, host/port/server/endpoint/API-key paths, unbounded prediction, MTP/draft, LoRA/control-vector, and provider environment keys.
 - 16 required receipt fields for the future post-run proof.
 - `ctx_size_bound=8192`, `predict_token_bound=512`, `stdio_capture_cap_bytes=65536`.
-- 77 red fixtures rejected.
+- 78 red fixtures rejected, including missing `--offline` rejection.
 - Zero command-card write/read bytes.
 - Zero owner path opens, command arming/execution, process spawn, server start, network/hub/endpoint allowance, file opens, model/runtime/provider bytes, raw private bytes, route/default mutation, hidden authority, and promotion claims.
 

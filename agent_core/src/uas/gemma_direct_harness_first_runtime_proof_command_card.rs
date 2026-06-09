@@ -1,7 +1,7 @@
 //! Gemma direct harness first runtime proof command card.
 //!
 //! This primitive narrows the first owner-approved Gemma runtime proof to a
-//! local GGUF `llama-cli -m <approved-file>` command card. It is metadata-only:
+//! local GGUF `llama-cli --offline -m <approved-file>` command card. It is metadata-only:
 //! no command card is written, no process starts, no model path is opened, no
 //! prompt/output bytes are retained, and no route/default is promoted.
 
@@ -51,6 +51,7 @@ const REQUIRED_COMMAND_CARD_FIELDS: &[&str] = &[
     "llama_cli_version_digest",
     "runtime_lane_digest",
     "argv_vector_digest",
+    "offline_flag_digest",
     "local_model_flag_digest",
     "single_turn_flag_digest",
     "no_display_prompt_flag_digest",
@@ -81,6 +82,7 @@ const REQUIRED_COMMAND_CARD_FIELDS: &[&str] = &[
 
 const ALLOWED_ARGV_FLAGS: &[&str] = &[
     "llama-cli",
+    "--offline",
     "-m",
     "--single-turn",
     "--no-display-prompt",
@@ -103,6 +105,7 @@ const DENIED_ARGV_FLAGS: &[&str] = &[
     "--hf-repo",
     "--hf-file",
     "--model-url",
+    "--hf-token",
     "--url",
     "--host",
     "--port",
@@ -172,6 +175,7 @@ pub struct GemmaDirectHarnessFirstRuntimeProofCommandCard {
     pub local_model_file_required: bool,
     pub model_path_redacted: bool,
     pub llama_cli_identity_required: bool,
+    pub offline_required: bool,
     pub local_m_flag_required: bool,
     pub single_turn_required: bool,
     pub no_display_prompt_required: bool,
@@ -269,6 +273,7 @@ impl GemmaDirectHarnessFirstRuntimeProofCommandCard {
             local_model_file_required: true,
             model_path_redacted: true,
             llama_cli_identity_required: true,
+            offline_required: true,
             local_m_flag_required: true,
             single_turn_required: true,
             no_display_prompt_required: true,
@@ -387,6 +392,7 @@ impl GemmaDirectHarnessFirstRuntimeProofCommandCard {
             || !self.local_model_file_required
             || !self.model_path_redacted
             || !self.llama_cli_identity_required
+            || !self.offline_required
             || !self.local_m_flag_required
             || !self.single_turn_required
             || !self.no_display_prompt_required
@@ -718,9 +724,9 @@ mod tests {
         card.validate()
             .expect("canonical first runtime proof command card should validate");
         let metrics = card.metrics();
-        assert_eq!(metrics.required_command_card_field_count, 36);
-        assert_eq!(metrics.allowed_argv_flag_count, 16);
-        assert_eq!(metrics.denied_argv_flag_count, 21);
+        assert_eq!(metrics.required_command_card_field_count, 37);
+        assert_eq!(metrics.allowed_argv_flag_count, 17);
+        assert_eq!(metrics.denied_argv_flag_count, 22);
         assert_eq!(metrics.required_receipt_field_count, 16);
         assert_eq!(metrics.ctx_size_bound, MAX_CTX_SIZE);
         assert_eq!(metrics.predict_token_bound, MAX_PREDICT_TOKENS);
