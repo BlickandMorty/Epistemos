@@ -26953,3 +26953,62 @@ environment, or memory-sampler fields needed for a real `llama-cli` invocation.
 Those additions must remain monotonic, owner-approved, digest-only where
 possible, rollbackable, and unable to mutate RuntimeRouter/System G until L2
 and L3 evidence exists.
+
+## Pass 218 - F-GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+turn Gemma direct-harness runtime work into an inert, visible, owner-approved
+command envelope before any `llama-cli` process can be spawned.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate` consumes the landed
+preflight packet witness and binds the command envelope shape. It requires
+owner/path/model/llama.cpp identity, hardware and memory verdicts,
+argv/environment allowlists, shell-string denial, network and hub-download
+denial, prompt/grammar policy, timeout/cancel/teardown, stdio redaction,
+output byte cap, token digest policy, memory sampler, rollback, RunEventLog,
+AnswerPacket, abstention, human-visible confirmation, no-execution proof, and
+non-promotion.
+
+Epistemos organ:
+UAS + Controller + Verification planes, feeding the future redacted dry-run
+receipt gate before any actual process or token proof can be considered.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_command_envelope_gate/result.json`.
+
+Proof:
+the witness passed with 35 command-envelope fields, 58 abort conditions, 51
+red-fixture rejections, zero command envelope bytes written/read, zero owner
+path opens, zero file opens, zero command arming or execution, zero process
+spawns, zero model/runtime/provider bytes, zero raw owner path/prompt/output/
+stdout/stderr/token bytes, zero RuntimeRouter/System G/settings/default
+mutation, and no Gemma live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate`, because the
+command envelope contract exists, but there is still no owner-approved dry-run
+receipt, no local file proof, no `llama.cpp` execution proof, no first token,
+no quality packet, and no route admission.
+
+Biggest false-claim risk:
+calling an inert command envelope "Gemma is running." It is not execution, not
+a token, not memory-fit proof, and not a user-facing lane. It only prevents the
+later dry-run receipt from hiding shell strings, downloads, raw stdio,
+cancellation gaps, route mutation, or missing rollback proof.
+
+Why it may be wrong:
+the future dry-run receipt may need a narrower process sandbox or platform
+specific stdio/memory sampler proof. Those additions must remain monotonic,
+owner-approved, visible, rollbackable, and non-promotional until L2 and L3
+evidence exists.
