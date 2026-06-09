@@ -6601,3 +6601,24 @@ materialization can produce digest slots and reviewer-visible summaries without
 allowing raw paths, cache/download/source-card shortcuts, server endpoints,
 hidden route authority, or product-default claims to masquerade as local
 runtime proof.
+
+### §28.35 Gemma owner-approved receipt materialization gate landed (added 2026-06-09)
+
+**Canonical:** `docs/falsifiers/F-GemmaOwnerApprovedReceiptMaterializationGate_2026_06_09.md`,
+`artifacts/falsifiers/gemma_owner_approved_receipt_materialization_gate/result.json`,
+and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 242 lands `F-GemmaOwnerApprovedReceiptMaterializationGate` as the
+metadata-only T1/L1 materialization contract for a future owner-approved local
+Gemma artifact receipt. It consumes
+`F-GemmaOwnerApprovedReceiptEmitterDryRunGate`, binds 18 materialization
+fields, 4 materialization modes, 12 safety checks, 12 denied shortcuts, 43 red
+fixtures, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
+
+This is still not a materialized receipt, not owner approval, not a file scan,
+not a file hash, not `llama-cli`, not model bytes, not route admission, and not
+a user-facing Gemma feature. It exists so the next owner-approved runtime proof
+has a narrow input contract: one selected local artifact, digest slots, byte
+slots, tool identity slots, raw-path privacy, rollback, RunEventLog,
+AnswerPacket, abstention, and no route/default mutation before first-token
+execution.

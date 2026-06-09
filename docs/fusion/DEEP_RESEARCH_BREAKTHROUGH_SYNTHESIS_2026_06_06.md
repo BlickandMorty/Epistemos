@@ -29190,3 +29190,71 @@ Next research query:
 Which receipt materialization mode should be implemented first for the actual
 owner-approved artifact: direct E2B/E4B GGUF file hash, existing E4B MLX
 manifest reconciliation, or a quarantined LiteRT-LM bundle receipt?
+
+## Pass 242 - F-GemmaOwnerApprovedReceiptMaterializationGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedReceiptMaterializationGate` is now a landed metadata-only
+T1/L1 witness. It consumes `F-GemmaOwnerApprovedReceiptEmitterDryRunGate` and
+freezes the typed materialization boundary for a future owner-approved local
+Gemma artifact receipt.
+
+Mechanism:
+The gate binds 18 materialization fields, 4 materialization modes, 12 safety
+checks, 12 denied shortcuts, rollback, RunEventLog, AnswerPacket, abstention,
+non-promotion, and 43 rejected red fixtures. It requires owner approval but
+grants none, materializes zero receipt bytes, and reads zero receipt payload
+bytes.
+
+Architecture fusion:
+This is the direct bridge from research/canon to the first practical Gemma
+runtime input. The next runtime proof should not hunt broadly through caches or
+model folders. It should consume one explicit owner-approved receipt that
+matches this materialization contract, then run the already-constrained
+one-token `llama-cli --offline -m` proof for E2B/E4B QAT GGUF.
+
+Files landed:
+
+- `agent_core/src/uas/gemma_owner_approved_receipt_materialization_gate.rs`
+- `agent_core/src/bin/falsify_gemma_owner_approved_receipt_materialization_gate.rs`
+- `Tools/falsifiers/f_gemma_owner_approved_receipt_materialization_gate.sh`
+- `docs/falsifiers/F-GemmaOwnerApprovedReceiptMaterializationGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_owner_approved_receipt_materialization_gate/result.json`
+
+Tier and status:
+T1/L1 metadata-only. No receipt payload was written or read, no raw path or
+owner phrase was stored, no path was canonicalized, no file was opened or
+hashed, no byte count was verified, no `llama-cli` command ran, no server or
+network probe started, no model/runtime/provider bytes loaded, no
+RuntimeRouter/System G/settings/default mutation occurred, and no Gemma
+live/default/L2/L3/T4/user-facing claim was made.
+
+Best breakthrough candidate:
+Move from proof gates to the smallest real owner-approved E2B/E4B QAT GGUF
+receipt, then a redacted one-token offline proof.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`, but only after a
+real owner-approved local artifact receipt exists.
+
+Best near-term code unit:
+Build the owner-approved receipt materializer implementation behind an
+explicit owner path/receipt input, with raw-path redaction, sha256/byte-count
+verification, rollback, RunEventLog, AnswerPacket, abstention, and no route
+mutation.
+
+Biggest false-claim risk:
+Treating the materialization contract as "Gemma is installed" or "Gemma can
+run." It still proves zero local file bytes and zero runtime bytes.
+
+Biggest missing source:
+The actual owner-approved E2B/E4B QAT GGUF local artifact receipt.
+
+Next research query:
+Can the next owner-approved receipt step safely verify one selected E2B/E4B
+QAT GGUF file digest and byte count without leaking raw paths or mutating any
+RuntimeRouter/System G/default-model state?

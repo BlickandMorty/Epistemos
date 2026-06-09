@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 241 - F-GemmaOwnerApprovedReceiptEmitterDryRunGate landed">
-  <meta name="epistemos-commit-sha" content="6b8f827a6f">
+  <meta name="epistemos-latest-research-pass" content="Pass 242 - F-GemmaOwnerApprovedReceiptMaterializationGate landed">
+  <meta name="epistemos-commit-sha" content="47fa428ba9">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -2093,6 +2093,22 @@
   zero commands, loads zero model/runtime/provider bytes, and keeps Gemma
   non-live/non-default with L2/L3 red. Next safe Gemma unit: owner-guided
   receipt materialization for one explicitly approved local artifact.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 242 Gemma receipt materialization gate landed.</strong>
+  <code>F-GemmaOwnerApprovedReceiptMaterializationGate</code> is now a
+  metadata-only L1/T1 witness at
+  <code>artifacts/falsifiers/gemma_owner_approved_receipt_materialization_gate/result.json</code>.
+  It consumes the receipt-emitter dry-run gate, binds 18 materialization fields,
+  4 materialization modes, 12 safety checks, 12 denied shortcuts, rollback,
+  RunEventLog, AnswerPacket, abstention, non-promotion, and 43 red-fixture
+  rejections. It materializes zero receipt bytes, opens zero files, hashes zero
+  files, verifies zero byte counts, executes zero <code>llama-cli</code>
+  probes, arms zero commands, loads zero model/runtime/provider bytes, and keeps
+  Gemma non-live/non-default with L2/L3 red. Next safe Gemma unit:
+  owner-approved first runtime execution, but only after a real local artifact
+  receipt exists.
 </div>
 
 <div class="canon-hook">
