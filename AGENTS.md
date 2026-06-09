@@ -571,6 +571,16 @@ Runtime policy:
   flags, and 78 red fixtures, including missing `--offline` rejection and
   `--hf-token` denial. This is L1/T1 metadata-only hardening, not a runtime
   token, route admission, default model, L2/L3, or user-facing claim.
+- 2026-06-09 Gemma owner-approved artifact receipt cutline: Deep Research Pass
+  238 makes the next build step explicit:
+  `official source card != local candidate discovered != owner-approved local
+  artifact receipt != runtime first-token receipt`. The next practical
+  falsifier should be `F-GemmaOwnerApprovedLocalArtifactReceiptProbe`, binding
+  explicit owner approval, model/source/revision/filename/byte-count/sha256/
+  redacted-path-digest/runtime-lane identity, `llama-cli` help/version digest,
+  `--offline` presence, rollback, RunEventLog, AnswerPacket, abstention,
+  reviewer summary, and non-promotion while storing zero raw paths and making no
+  runtime, route, default, L2, L3, T4, or user-facing claim.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

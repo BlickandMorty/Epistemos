@@ -6519,3 +6519,24 @@ Promotion truth: T1/L1 metadata-only hardening. L2 and L3 remain red. The next
 practical Gemma unit remains an owner-approved receipt emitter/probe that binds
 a local E2B/E4B QAT GGUF file, offline flag proof, llama.cpp identity, rollback,
 RunEventLog, and AnswerPacket before any runtime token claim.
+
+### §28.31 Gemma owner-approved artifact receipt cutline (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 238 and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 238 defines the next buildable Gemma cutline:
+`official source card != local candidate discovered != owner-approved local
+artifact receipt != runtime first-token receipt`. The next practical falsifier
+is `F-GemmaOwnerApprovedLocalArtifactReceiptProbe`: consume the discovery and
+acquisition gates, require explicit owner approval, bind model/source/revision/
+filename/byte-count/sha256/redacted-path-digest/runtime-lane identity, bind
+`llama-cli` help/version and `--offline` presence for GGUF lanes, store zero
+raw paths, and make no runtime, route, default, L2, L3, T4, or user-facing
+claim.
+
+Promotion truth: T0/T1 research-to-build canon only. E2B/E4B QAT GGUF remain
+the first direct-file proof lane; Gemma 4 12B LiteRT-LM remains Pro Gated after
+source/API/sandbox/lifecycle/rollback/RunEventLog/AnswerPacket proof. The
+guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
