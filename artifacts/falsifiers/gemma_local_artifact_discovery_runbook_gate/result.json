@@ -1,0 +1,415 @@
+{
+  "falsifier_id": "F-GemmaLocalArtifactDiscoveryRunbookGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_local_artifact_discovery_runbook_gate.sh",
+  "command_digest": "sha256:8f2cfa7dc858520a9f014ffcdcbf358752d97b7ad6faca2e4e06c92c1cebfe60",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "6b2970573a26ccbdd6dfc7016aacb0758f86ffa8",
+  "fixture_id": "gemma_local_artifact_discovery_runbook_gate_v1",
+  "timestamp_utc": "2026-06-09T05:15:03Z",
+  "result_digest": "sha256:1fff9b8dddaafe968e2d81bd721c4ecd5280e19bd873b121318c0a4d3e056fa7",
+  "measurements": {
+    "candidate_discovery_non_promotional": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_promotion_count": {
+      "value": 0,
+      "unit": "promotions"
+    },
+    "discovery_rule_count": {
+      "value": 18,
+      "unit": "rules"
+    },
+    "discovery_rules_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_artifact_pattern_count": {
+      "value": 4,
+      "unit": "patterns"
+    },
+    "expected_artifact_patterns_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_action_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "gemma_local_artifact_discovery_runbook_gate_address": {
+      "value": "gemma_local_artifact_discovery_runbook_gate:4e75b97483e0cb9ca7dd095baee2ebbe3bf15b883ce360093effa6e764f1ba0b@1779938400001",
+      "unit": "text"
+    },
+    "gemma_local_artifact_discovery_runbook_gate_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "authorities"
+    },
+    "metadata_bytes": {
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_owner_approved_local_artifact_receipt_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_gemma_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_absent_and_scan_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "value": 0,
+      "unit": "approvals"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_path_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_path_storage_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "red_fixture_rejection_count": {
+      "value": 36,
+      "unit": "fixtures"
+    },
+    "rejection_policies_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rejection_policy_count": {
+      "value": 30,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_action_count": {
+      "value": 0,
+      "unit": "actions"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "symbolic_roots_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "symbolic_search_root_count": {
+      "value": 4,
+      "unit": "roots"
+    },
+    "upstream_convenience_denylist_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_convenience_denylist_gate_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_file_path_hash_actions": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_bytes": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_network_server_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "candidate_discovery_non_promotional": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_promotion_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "promotions"
+    },
+    "discovery_rule_count": {
+      "operator": "==",
+      "value": 18,
+      "unit": "rules"
+    },
+    "discovery_rules_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_artifact_pattern_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "patterns"
+    },
+    "expected_artifact_patterns_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_action_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "gemma_local_artifact_discovery_runbook_gate_address": {
+      "operator": "!=",
+      "value": "",
+      "unit": "text"
+    },
+    "gemma_local_artifact_discovery_runbook_gate_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "authorities"
+    },
+    "metadata_bytes": {
+      "operator": "<=",
+      "value": 98304,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_owner_approved_local_artifact_receipt_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_l2_l3_t4_gemma_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_absent_and_scan_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "approvals"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_path_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_path_storage_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 36,
+      "unit": "fixtures"
+    },
+    "rejection_policies_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rejection_policy_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_action_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "actions"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "symbolic_roots_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "symbolic_search_root_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "roots"
+    },
+    "upstream_convenience_denylist_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_convenience_denylist_gate_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_file_path_hash_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_model_runtime_provider_bytes": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_runtime_network_server_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "candidate_discovery_non_promotional": true,
+    "candidate_promotion_count": true,
+    "discovery_rule_count": true,
+    "discovery_rules_bound": true,
+    "expected_artifact_pattern_count": true,
+    "expected_artifact_patterns_bound": true,
+    "file_action_count": true,
+    "gemma_local_artifact_discovery_runbook_gate_address": true,
+    "gemma_local_artifact_discovery_runbook_gate_address_deterministic": true,
+    "hidden_authority_count": true,
+    "metadata_bytes": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_l2_l3_t4_gemma_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_mutation": true,
+    "owner_approval_absent_and_scan_deferred": true,
+    "owner_approval_granted_count": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_path_denied": true,
+    "raw_path_storage_count": true,
+    "red_fixture_rejection_count": true,
+    "rejection_policies_bound": true,
+    "rejection_policy_count": true,
+    "rollback_log_packet_abstention_bound": true,
+    "route_mutation_count": true,
+    "runtime_action_count": true,
+    "runtime_bytes_loaded": true,
+    "symbolic_roots_bound": true,
+    "symbolic_search_root_count": true,
+    "upstream_convenience_denylist_gate_pass": true,
+    "upstream_convenience_denylist_gate_ref_bound": true,
+    "zero_file_path_hash_actions": true,
+    "zero_model_runtime_provider_bytes": true,
+    "zero_runtime_network_server_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaLocalArtifactDiscoveryRunbookGate: consumes the Gemma convenience-command denylist and defines a bounded, symbolic-root, owner-approved, raw-path-redacted discovery runbook. It scans zero paths, opens zero files, hashes zero model bytes, arms zero commands, starts zero servers, performs zero provider calls, mutates no RuntimeRouter/System G/settings/default state, and makes no Gemma L2/L3/T4/user-facing claim."
+}

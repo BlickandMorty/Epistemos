@@ -7998,6 +7998,36 @@ Correct phrasing: "`llama-cli -hf`, `llama-server`, LiteRT-LM `serve`, local
 endpoints, HF cache paths, and app examples are official source references
 only; Epistemos still needs local artifact and runtime receipts."
 
+### 2026-06-09 - F-GemmaLocalArtifactDiscoveryRunbookGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaLocalArtifactDiscoveryRunbookGate` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_local_artifact_discovery_runbook_gate/result.json`.
+It consumes the convenience-command denylist and proves future local Gemma
+artifact discovery must be owner-approved, symbolic-root based, bounded,
+raw-path redacted, and non-promotional before any local artifact receipt or
+runtime proof can run.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 4 symbolic roots, 4
+  expected artifact patterns, 18 discovery rules, 30 rejection policies, and 36
+  red fixtures are bound.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no Downloads or
+  cache scan ran, no local artifact was found, approved, opened, hashed, loaded,
+  route-admitted, or made default.
+
+Correct phrasing: "The local Gemma discovery runbook is safe and witnessed; no
+local Gemma artifact has been found, approved, opened, hashed, loaded, or
+promoted by this witness."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

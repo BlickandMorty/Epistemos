@@ -532,6 +532,19 @@ Runtime policy:
   live/default/L2/L3/T4/user-facing claim. The next Gemma side-ladder unit is
   still `gemma_direct_harness_owner_approved_first_runtime_execution_probe`,
   but only after a real owner-approved acquisition receipt exists.
+- 2026-06-09 Gemma local artifact discovery status:
+  `F-GemmaLocalArtifactDiscoveryRunbookGate` is landed as metadata-only L1/T1.
+  It consumes the convenience-command denylist and binds 4 symbolic search
+  roots, 4 expected artifact patterns, 18 discovery rules, 30 rejection
+  policies, rollback, RunEventLog, AnswerPacket, abstention, and
+  non-promotion. It grants zero owner approval, stores zero raw paths,
+  canonicalizes zero paths, opens zero files, hashes zero files, verifies zero
+  byte counts, arms or executes zero commands, starts zero servers, allows zero
+  network probes, loads zero model/runtime/provider bytes, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. The next Gemma side-ladder unit is
+  `gemma_owner_approved_local_artifact_receipt_probe`; do not scan Downloads,
+  HF cache, or LiteRT imports without explicit owner approval and redacted
+  receipt rules.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
