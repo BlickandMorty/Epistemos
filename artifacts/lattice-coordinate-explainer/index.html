@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 218 - F-GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate landed">
-  <meta name="epistemos-commit-sha" content="952f767dcb574bb98a9d1f9b09f2b9c7e898f3fe">
+  <meta name="epistemos-latest-research-pass" content="Pass 219 - F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate landed">
+  <meta name="epistemos-commit-sha" content="3d0233dd6fbec195c221a873b2a537f8b4b360bf">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1701,6 +1701,24 @@
   state, and makes no Gemma live/default/L2/L3/T4/user-facing claim. Next
   side-ladder unit:
   <code>gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate</code>.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-08 build Pass 219 folded.</strong>
+  <code>F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate</code> is now
+  a landed metadata-only L1/T1 witness. It consumes the landed owner-approved
+  command envelope gate, binds 28 receipt fields, 51 abort conditions,
+  owner/model/llama.cpp identity, exit/timeout/teardown policy,
+  stdout/stderr/first-token/prompt digest policy, redaction maps, output/token
+  byte caps, memory/timing samples, temp/atomic/cleanup policy, rollback,
+  RunEventLog, AnswerPacket, abstention, human-visible confirmation,
+  no-route-mutation proof, quality denial, non-promotion, and 48 red-fixture
+  rejections. It writes zero receipt bytes, opens zero temp/owner/model/
+  llama.cpp paths, arms or executes zero commands, spawns zero processes,
+  captures zero raw prompt/output/stdout/stderr/token bytes, mutates zero
+  RuntimeRouter/System G/settings/default state, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. Next side-ladder unit:
+  <code>gemma_direct_harness_owner_approved_first_token_digest_review_gate</code>.
 </div>
 
 <div class="canon-hook">

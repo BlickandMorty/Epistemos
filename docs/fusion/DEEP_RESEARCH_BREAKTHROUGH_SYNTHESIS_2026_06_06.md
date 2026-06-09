@@ -27012,3 +27012,62 @@ the future dry-run receipt may need a narrower process sandbox or platform
 specific stdio/memory sampler proof. Those additions must remain monotonic,
 owner-approved, visible, rollbackable, and non-promotional until L2 and L3
 evidence exists.
+
+## Pass 219 - F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make any future Gemma first-token evidence pass through a digest-only redacted
+receipt contract before it can influence quality, routing, or user-facing
+claims.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate` consumes the landed
+command-envelope witness and binds the redacted dry-run receipt shape. It
+requires owner/model/llama.cpp identity, exit/timeout/teardown policy,
+stdout/stderr/first-token/prompt digest policies, redaction maps, output/token
+byte caps, memory/timing samples, temp/atomic/cleanup policy, rollback,
+RunEventLog, AnswerPacket, abstention, human-visible confirmation,
+no-route-mutation proof, quality denial, and non-promotion.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future first-token digest review gate
+before any quality packet, route admission, WRV, or product default can exist.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate/result.json`.
+
+Proof:
+the witness passed with 28 receipt fields, 51 abort conditions, 48 red-fixture
+rejections, zero receipt bytes written/read, zero temp/owner/model/llama path
+opens, zero command arming or execution, zero process spawns, zero
+model/runtime/provider bytes, zero raw prompt/output/stdout/stderr/token bytes,
+zero RuntimeRouter/System G/settings/default mutation, and no Gemma
+live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate`, because the
+redacted receipt contract exists, but there is still no receipt, no token
+digest, no local file proof, no `llama.cpp` execution proof, no quality packet,
+and no route admission.
+
+Biggest false-claim risk:
+calling a redacted receipt contract "first-token proof." It is still not a
+receipt, not execution, not a token, not memory-fit proof, and not a
+user-facing lane. It only prevents later evidence from retaining raw private
+bytes or bypassing the review ladder.
+
+Why it may be wrong:
+the future token digest review may need stricter tokenizer/chat-template
+binding or additional transcript integrity fields. Those additions must remain
+owner-approved, visible, rollbackable, and non-promotional until L2 and L3
+evidence exists.

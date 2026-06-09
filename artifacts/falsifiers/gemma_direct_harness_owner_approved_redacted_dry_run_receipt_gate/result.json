@@ -1,0 +1,465 @@
+{
+  "falsifier_id": "F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate.sh",
+  "command_digest": "sha256:63130616ff05cd6d8b141fce79537b341f32453922191ef4515af3a38db8eb82",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "3d0233dd6fbec195c221a873b2a537f8b4b360bf",
+  "fixture_id": "gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate_v1",
+  "timestamp_utc": "2026-06-09T01:03:12Z",
+  "result_digest": "sha256:16bc8c2c1d772636e56fd58a2eaf12d9be39d628898f53acf3e45120ff4d78f5",
+  "measurements": {
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "exit_timeout_teardown_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "files"
+    },
+    "future_receipt_bytes_read": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_bytes_written": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_written_count": {
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_redacted_receipt_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_redacted_receipt_gate_address": {
+      "value": "gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate:bc5392dceaa4550c953f3dabd2e2708e17abd6e8807344489a169f285707124f@1779754400000",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "memory_timing_temp_atomic_cleanup_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_owner_approved_first_token_digest_review_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_quality_l2_l3_t4_default_claim_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_model_llama_identity_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_open_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_prompt_output_stdio_token_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "process_spawned_count": {
+      "value": 0,
+      "unit": "processes"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_fields_and_abort_conditions_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_write_read_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "redacted_stdio_token_prompt_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "required_abort_condition_count": {
+      "value": 51,
+      "unit": "conditions"
+    },
+    "required_receipt_field_count": {
+      "value": 28,
+      "unit": "fields"
+    },
+    "rollback_log_packet_abstention_confirmation_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "temp_path_open_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "upstream_command_envelope_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_envelope_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_path_command_process_file_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "exit_timeout_teardown_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "future_receipt_bytes_read": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_bytes_written": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "future_receipt_written_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_direct_harness_redacted_receipt_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_direct_harness_redacted_receipt_gate_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "memory_timing_temp_atomic_cleanup_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_owner_approved_first_token_digest_review_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_quality_l2_l3_t4_default_claim_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_model_llama_identity_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_path_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_prompt_output_stdio_token_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "process_spawned_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "processes"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_output_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_prompt_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stderr_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_stdout_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "raw_token_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "receipt_fields_and_abort_conditions_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_write_read_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 45,
+      "unit": "fixtures"
+    },
+    "redacted_stdio_token_prompt_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "required_abort_condition_count": {
+      "operator": "==",
+      "value": 51,
+      "unit": "conditions"
+    },
+    "required_receipt_field_count": {
+      "operator": "==",
+      "value": 28,
+      "unit": "fields"
+    },
+    "rollback_log_packet_abstention_confirmation_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "temp_path_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "upstream_command_envelope_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_envelope_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_path_command_process_file_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "exit_timeout_teardown_bound": true,
+    "file_open_count": true,
+    "future_receipt_bytes_read": true,
+    "future_receipt_bytes_written": true,
+    "future_receipt_written_count": true,
+    "gemma_direct_harness_redacted_receipt_address_deterministic": true,
+    "gemma_direct_harness_redacted_receipt_gate_address": true,
+    "hidden_authority_count": true,
+    "memory_timing_temp_atomic_cleanup_bound": true,
+    "model_bytes_loaded": true,
+    "mutation_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_mas_l2_l3_t4_default_70b_or_ssd_claim": true,
+    "no_route_quality_l2_l3_t4_default_claim_bound": true,
+    "no_route_system_g_settings_mutation": true,
+    "owner_model_llama_identity_bound": true,
+    "owner_path_open_count": true,
+    "privacy_raw_prompt_output_stdio_token_denied": true,
+    "process_spawned_count": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_output_bytes": true,
+    "raw_prompt_bytes": true,
+    "raw_stderr_bytes": true,
+    "raw_stdout_bytes": true,
+    "raw_token_bytes": true,
+    "receipt_fields_and_abort_conditions_bound": true,
+    "receipt_write_read_deferred": true,
+    "red_fixture_rejection_count": true,
+    "redacted_stdio_token_prompt_policy_bound": true,
+    "required_abort_condition_count": true,
+    "required_receipt_field_count": true,
+    "rollback_log_packet_abstention_confirmation_bound": true,
+    "runtime_bytes_loaded": true,
+    "temp_path_open_count": true,
+    "upstream_command_envelope_gate_pass": true,
+    "upstream_command_envelope_ref_bound": true,
+    "zero_path_command_process_file_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate: consumes the landed Gemma direct-harness owner-approved command envelope gate and freezes the digest-only redacted dry-run receipt contract. It binds owner/model/llama.cpp identity, exit/timeout/teardown policy, stdout/stderr/first-token/prompt digest policy, redaction maps, output/token byte caps, memory/timing samples, temp/atomic/cleanup policy, rollback, RunEventLog, AnswerPacket, abstention, human confirmation, no-route-mutation proof, quality denial, and non-promotion. It writes zero receipts, opens zero temp/owner/model/llama-cli paths, arms or executes zero commands, spawns zero processes, captures zero raw prompt/output/stdout/stderr/token bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no Gemma live/default/L2/L3/T4/user-facing, quality, live dense 70B, or SSD-as-RAM claim."
+}

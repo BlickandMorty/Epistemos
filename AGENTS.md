@@ -332,6 +332,21 @@ Runtime policy:
   default state, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
   Next side-ladder unit is
   `gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate`.
+- 2026-06-08 Gemma direct harness redacted receipt status:
+  `F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate` is now landed
+  as metadata-only L1/T1. It consumes the landed owner-approved command
+  envelope gate, binds 28 receipt fields, 51 abort conditions,
+  owner/model/llama.cpp identity, exit/timeout/teardown policy,
+  stdout/stderr/first-token/prompt digest policy, redaction maps, output/token
+  byte caps, memory/timing samples, temp/atomic/cleanup policy, rollback,
+  RunEventLog, AnswerPacket, abstention, human-visible confirmation,
+  no-route-mutation proof, quality denial, non-promotion, and 48 red-fixture
+  rejections. It writes zero receipt bytes, opens zero temp/owner/model/
+  llama.cpp paths, arms or executes zero commands, spawns zero processes,
+  captures zero raw prompt/output/stdout/stderr/token bytes, mutates zero
+  RuntimeRouter/System G/settings/default state, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. Next side-ladder unit is
+  `gemma_direct_harness_owner_approved_first_token_digest_review_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

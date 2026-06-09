@@ -64,6 +64,7 @@ pub mod gemma_direct_harness_owner_approved_command_envelope_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_emitter_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_preflight_packet_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_runbook_gate;
+pub mod gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate;
 pub mod gemma_direct_harness_receipt_emitter_dry_run_artifact_gate;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
@@ -460,6 +461,18 @@ pub use gemma_direct_harness_owner_approved_command_envelope_gate::{
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_ID,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_UPSTREAM_REF,
+};
+pub use gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate::{
+    required_gemma_direct_harness_owner_approved_redacted_receipt_abort_conditions,
+    required_gemma_direct_harness_owner_approved_redacted_receipt_fields,
+    GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate,
+    GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGateError,
+    GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGateMetrics,
+    GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGateStatus,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_REDACTED_DRY_RUN_RECEIPT_GATE_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_REDACTED_DRY_RUN_RECEIPT_GATE_ID,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_REDACTED_DRY_RUN_RECEIPT_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_REDACTED_DRY_RUN_RECEIPT_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_owner_approved_receipt_runbook_gate::{
     required_gemma_direct_harness_owner_approved_runbook_abort_conditions,
