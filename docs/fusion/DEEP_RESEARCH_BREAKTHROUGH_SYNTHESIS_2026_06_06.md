@@ -26892,3 +26892,64 @@ the future preflight packet may need additional hardware or memory evidence
 before a real owner-approved command is safe to arm. Those additions must
 remain digest-only, visible, rollbackable, and non-promotional until L2/L3 proof
 exists.
+
+## Pass 217 - F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate landed
+
+Date: 2026-06-08.
+
+Best breakthrough candidate:
+make the Gemma direct-harness command lane impossible to arm until an explicit
+preflight packet proves owner approval, path/model/runtime identity, memory
+budget, command policy, rollback, RunEventLog, AnswerPacket, abstention, and
+human-visible confirmation.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate` consumes the
+landed runbook witness and binds the future preflight packet shape. It requires
+owner/path/model/llama.cpp digests, hardware profile, memory byte envelope,
+command template, argv/environment allowlists, prompt policy, grammar digest,
+timeout/cancel/teardown, stdio redaction, memory/timing sampler, rollback,
+RunEventLog, AnswerPacket, abstention, human-visible confirmation,
+no-command-arm proof, and non-promotion.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future owner-approved command envelope
+gate before any real Gemma direct-harness receipt can approach runtime.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_receipt_preflight_packet_gate/result.json`.
+
+Proof:
+the witness passed with 30 preflight fields, 45 abort conditions, 46
+red-fixture rejections, zero preflight packet bytes written/read, zero owner
+path opens, zero file opens, zero command arming or execution, zero
+model/runtime/provider bytes, zero raw owner path/prompt/output/stdout/stderr/
+token bytes, zero RuntimeRouter/System G/settings/default mutation, and no
+Gemma live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate`, because the preflight
+packet contract exists, but there is still no owner-approved command envelope,
+no real local file proof, no llama.cpp execution proof, no token, no quality
+packet, and no route admission.
+
+Biggest false-claim risk:
+calling a preflight packet contract "Gemma works." It is not a packet write,
+not a model load, not a first token, and not a user-facing model lane. It only
+prevents the later command envelope from skipping identity, budget, rollback,
+privacy, and visible-proof obligations.
+
+Why it may be wrong:
+the future command envelope may reveal additional process-isolation,
+environment, or memory-sampler fields needed for a real `llama-cli` invocation.
+Those additions must remain monotonic, owner-approved, digest-only where
+possible, rollbackable, and unable to mutate RuntimeRouter/System G until L2
+and L3 evidence exists.
