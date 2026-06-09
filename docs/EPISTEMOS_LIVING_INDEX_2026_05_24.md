@@ -8345,6 +8345,47 @@ Layer truth:
 Correct phrasing: "Gemma direct runtime now has a trap map; no Gemma runtime
 proof has run and no shortcut path is product authority."
 
+### 2026-06-09 - Gemma direct harness trap-policy gate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+
+`F-GemmaDirectHarnessTrapPolicyGate` is now landed as a metadata-only L1/T1
+witness. It consumes `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` and
+binds the fail-closed policy between a future Gemma direct-file command card and
+any execution receipt. The gate allows only a text-only, direct local GGUF,
+`llama-cli --offline -m <approved local file>` proof shape, and rejects `-hf`,
+URL/model-repo identifiers, `llama-server`, host/port/API flags, local-server
+shortcuts, provider endpoints, HF cache shortcuts, MTP/drafter flags,
+multimodal `mmproj`, image inputs, MLX folder substitution, LiteRT bundle
+substitution, safetensors substitution, unbounded context/prediction, hidden
+route authority, and RuntimeRouter/System G/settings/default mutation.
+
+Evidence:
+
+- Command: `Tools/falsifiers/f_gemma_direct_harness_trap_policy_gate.sh`
+- Artifact: `artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/result.json`
+- Witness doc: `docs/falsifiers/F-GemmaDirectHarnessTrapPolicyGate_2026_06_09.md`
+- Required policy fields: 29
+- Allowed runtime shapes: 14
+- Denied runtime shapes: 29
+- Denied file classes: 8
+- Red fixtures rejected: 59
+- Next cursor: `gemma_direct_harness_first_runtime_proof_receipt_gate`
+
+Layer truth:
+
+- L1 architecture/canon: advanced. The primitive, falsifier binary, wrapper,
+  validator id, schema axes, artifact, witness doc, handbook row, Master Index,
+  and lattice surface now name the trap-policy gate.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged. No Gemma model file was
+  approved, opened, hashed, loaded, tokenized, route-admitted, made default, or
+  surfaced as working product capability.
+
+Correct phrasing: "Gemma direct runtime now has a landed trap-policy witness;
+product capability and user-facing Gemma remain unproven."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

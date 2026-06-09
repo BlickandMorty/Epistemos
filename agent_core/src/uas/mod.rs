@@ -62,6 +62,7 @@ pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_direct_harness_artifact_receipt_map;
 pub mod gemma_direct_harness_first_runtime_proof_command_card;
 pub mod gemma_direct_harness_first_runtime_proof_receipt_gate;
+pub mod gemma_direct_harness_trap_policy_gate;
 pub mod gemma_direct_harness_owner_approved_command_envelope_gate;
 pub mod gemma_direct_harness_owner_approved_first_token_digest_review_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_emitter_gate;
@@ -489,6 +490,17 @@ pub use gemma_direct_harness_first_runtime_proof_command_card::{
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_ID,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_UPSTREAM_REF,
+};
+pub use gemma_direct_harness_trap_policy_gate::{
+    allowed_gemma_direct_harness_trap_policy_runtime_shapes,
+    denied_gemma_direct_harness_trap_policy_file_classes,
+    denied_gemma_direct_harness_trap_policy_runtime_shapes,
+    required_gemma_direct_harness_trap_policy_fields, GemmaDirectHarnessTrapPolicyGate,
+    GemmaDirectHarnessTrapPolicyGateError, GemmaDirectHarnessTrapPolicyGateMetrics,
+    GemmaDirectHarnessTrapPolicyGateStatus, GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_CURSOR,
+    GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID,
+    GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_first_runtime_proof_receipt_gate::{
     required_gemma_direct_harness_first_runtime_proof_receipt_abort_conditions,

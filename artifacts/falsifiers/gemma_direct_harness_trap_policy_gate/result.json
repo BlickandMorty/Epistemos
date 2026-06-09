@@ -1,0 +1,415 @@
+{
+  "falsifier_id": "F-GemmaDirectHarnessTrapPolicyGate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_direct_harness_trap_policy_gate.sh",
+  "command_digest": "sha256:7b6bc995a28dea7090f8de2d24ab97ebd449a630c9d06e1bfdd251a6a902a31a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "2aca7048253ce2ab509239da719b7582af6407df",
+  "fixture_id": "gemma_direct_harness_trap_policy_gate_v1",
+  "timestamp_utc": "2026-06-09T07:44:00Z",
+  "result_digest": "sha256:57267369a2d95e6188fbe7d6baa0c431c5c1d8af2d0f8b453b6b45f1f4e9be68",
+  "measurements": {
+    "allowed_runtime_shape_count": {
+      "value": 14,
+      "unit": "shapes"
+    },
+    "allowed_runtime_shapes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "denied_file_class_count": {
+      "value": 8,
+      "unit": "classes"
+    },
+    "denied_file_classes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "denied_runtime_shape_count": {
+      "value": 29,
+      "unit": "shapes"
+    },
+    "denied_runtime_shapes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "gemma_direct_harness_trap_policy_address": {
+      "value": "gemma_direct_harness_trap_policy_gate:e93f95b982e292e7750d9e95fce59b77a355796df1334a019b4f49a1d08c8483@1779840000000",
+      "unit": "text"
+    },
+    "gemma_direct_harness_trap_policy_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "local_text_only_direct_file_offline_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mtp_mmproj_mlx_litert_substitution_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mutation_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "network_hub_provider_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_first_runtime_proof_receipt_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_path_prompt_output_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "process_spawned_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_private_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "value": 59,
+      "unit": "fixtures"
+    },
+    "required_policy_field_count": {
+      "value": 29,
+      "unit": "fields"
+    },
+    "required_policy_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_network_hf_cache_provider_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "server_started_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "upstream_command_card_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_card_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_model_runtime_provider_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "allowed_runtime_shape_count": {
+      "operator": "==",
+      "value": 14,
+      "unit": "shapes"
+    },
+    "allowed_runtime_shapes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "denied_file_class_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "classes"
+    },
+    "denied_file_classes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "denied_runtime_shape_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "shapes"
+    },
+    "denied_runtime_shapes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "gemma_direct_harness_trap_policy_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_direct_harness_trap_policy_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "local_text_only_direct_file_offline_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mtp_mmproj_mlx_litert_substitution_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "network_hub_provider_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_first_runtime_proof_receipt_gate",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_raw_path_prompt_output_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "process_spawned_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "raw_private_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 48,
+      "unit": "fixtures"
+    },
+    "required_policy_field_count": {
+      "operator": "==",
+      "value": 29,
+      "unit": "fields"
+    },
+    "required_policy_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_network_hf_cache_provider_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "server_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "upstream_command_card_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_command_card_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_model_runtime_provider_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "allowed_runtime_shape_count": true,
+    "allowed_runtime_shapes_bound": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "denied_file_class_count": true,
+    "denied_file_classes_bound": true,
+    "denied_runtime_shape_count": true,
+    "denied_runtime_shapes_bound": true,
+    "file_open_count": true,
+    "gemma_direct_harness_trap_policy_address": true,
+    "gemma_direct_harness_trap_policy_address_deterministic": true,
+    "hidden_authority_count": true,
+    "local_text_only_direct_file_offline_policy_bound": true,
+    "model_bytes_loaded": true,
+    "mtp_mmproj_mlx_litert_substitution_denied": true,
+    "mutation_count": true,
+    "network_hub_provider_count": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_l2_l3_t4_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_mutation": true,
+    "privacy_raw_path_prompt_output_denied": true,
+    "process_spawned_count": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_private_bytes": true,
+    "red_fixture_rejection_count": true,
+    "required_policy_field_count": true,
+    "required_policy_fields_bound": true,
+    "rollback_log_packet_abstention_bound": true,
+    "runtime_bytes_loaded": true,
+    "server_network_hf_cache_provider_denied": true,
+    "server_started_count": true,
+    "upstream_command_card_gate_pass": true,
+    "upstream_command_card_ref_bound": true,
+    "zero_command_process_model_runtime_provider_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaDirectHarnessTrapPolicyGate: consumes the Gemma direct-harness first-runtime command card and freezes a fail-closed trap policy before any owner-approved execution. It allows only text-only direct local GGUF llama-cli --offline -m proof shape and denies -hf/HF cache, llama-server, network/provider endpoints, MTP/drafter, mmproj/multimodal, MLX folder, LiteRT bundle, safetensors, unbounded context/predict, route/default mutation, hidden authority, live Gemma/default/L2/L3/T4, live dense 70B, and SSD-as-RAM claims. It opens zero files, arms/runs zero commands, spawns zero processes, starts zero servers, loads zero model/runtime/provider bytes, captures zero raw private bytes, and promotes no product route."
+}

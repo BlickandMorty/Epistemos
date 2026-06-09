@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 244 - Gemma Direct Lane Runtime Trap Map">
-  <meta name="epistemos-commit-sha" content="5bb150967f">
+  <meta name="epistemos-latest-research-pass" content="Pass 245 - F-GemmaDirectHarnessTrapPolicyGate landed">
+  <meta name="epistemos-commit-sha" content="2aca704825">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -2141,6 +2141,20 @@
   first runtime execution probe opens bytes. This is T0/T1 canon/backlog only:
   no command ran, no model opened, no token was produced, and Gemma is still not
   live, default, L2/L3, T4, or user-facing.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 245 F-GemmaDirectHarnessTrapPolicyGate landed.</strong>
+  The Gemma direct harness now has a metadata-only L1 trap-policy witness:
+  <code>F-GemmaDirectHarnessTrapPolicyGate</code>. It binds 29 required policy
+  fields, 14 allowed runtime shapes, 29 denied runtime shapes, 8 denied file
+  classes, and 59 red-fixture rejections. It permits only text-only direct
+  local GGUF <code>llama-cli --offline -m &lt;approved local file&gt;</code>
+  proof shape, and denies <code>-hf</code>, server mode, provider endpoints,
+  HF cache shortcuts, MTP/drafter, <code>mmproj</code>, MLX/LiteRT substitution,
+  safetensors substitution, unbounded context/prediction, hidden authority, and
+  route/default mutation. L1 advanced only: no Gemma file was approved, opened,
+  hashed, loaded, tokenized, route-admitted, made default, or made user-facing.
 </div>
 
 <div class="canon-hook">
