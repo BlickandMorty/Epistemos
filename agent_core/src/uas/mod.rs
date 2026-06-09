@@ -74,6 +74,7 @@ pub mod gemma_direct_harness_receipt_emitter_dry_run_artifact_gate;
 pub mod gemma_local_artifact_acquisition_command_card;
 pub mod gemma_local_artifact_acquisition_plan;
 pub mod gemma_local_artifact_acquisition_receipt_gate;
+pub mod gemma_local_artifact_discovery_runbook_gate;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_official_convenience_command_denylist_gate;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
@@ -532,6 +533,14 @@ pub use gemma_local_artifact_acquisition_receipt_gate::{
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_ID,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_NEXT_CURSOR,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_UPSTREAM_REF,
+};
+pub use gemma_local_artifact_discovery_runbook_gate::{
+    GemmaLocalArtifactDiscoveryRunbookGate, GemmaLocalArtifactDiscoveryRunbookGateError,
+    GemmaLocalArtifactDiscoveryRunbookGateMetrics,
+    GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_CURSOR,
+    GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_ID,
+    GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_NEXT_CURSOR,
+    GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_UPSTREAM_REF,
 };
 pub use gemma_official_convenience_command_denylist_gate::{
     denied_gemma_official_convenience_commands, official_gemma_convenience_source_refs,

@@ -6430,3 +6430,26 @@ run until an exact owner-approved local file path, sha256, byte count, owner
 path manifest, command, receipt, rollback, RunEventLog, and AnswerPacket proof
 exist. The guard-owned product cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.27 Gemma local artifact discovery runbook landed (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 234 and
+`docs/falsifiers/F-GemmaLocalArtifactDiscoveryRunbookGate_2026_06_09.md`.
+
+Pass 234 lands `F-GemmaLocalArtifactDiscoveryRunbookGate` as a metadata-only
+T1/L1 side-ladder witness. It consumes the official convenience-command
+denylist and binds a privacy-preserving local Gemma discovery runbook: 4
+symbolic roots, 4 expected artifact patterns, 18 discovery rules, 30 rejection
+policies, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
+It grants zero owner approval, stores zero raw paths, canonicalizes zero paths,
+opens zero files, hashes zero files, verifies zero byte counts, arms zero
+commands, starts zero servers, loads zero model/runtime/provider bytes, and
+mutates no RuntimeRouter/System G/settings/default state.
+
+Promotion truth: T1/L1 metadata-only. This does not scan Downloads, inspect an
+HF cache, discover a model, acquire a model, verify a model, produce a token,
+admit a route, or make Gemma user-facing. The next Gemma side unit is
+`gemma_owner_approved_local_artifact_receipt_probe`; the guard-owned product
+cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

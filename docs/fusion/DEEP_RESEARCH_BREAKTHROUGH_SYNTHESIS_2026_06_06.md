@@ -28505,3 +28505,84 @@ Next research query:
 What is the smallest owner-approved local E2B QAT GGUF acquisition receipt that
 can satisfy this denylist gate and safely feed the first direct local-file
 one-token runtime proof?
+
+## Pass 234 - F-GemmaLocalArtifactDiscoveryRunbookGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Mechanism:
+`F-GemmaLocalArtifactDiscoveryRunbookGate` is now a landed metadata-only T1/L1
+witness for the narrow step between official Gemma source evidence and a real
+owner-approved local artifact receipt. It defines a symbolic-root, bounded,
+raw-path-redacted discovery runbook and refuses to scan, canonicalize, open,
+hash, verify, execute, serve, or route anything in this metadata pass.
+
+Why it matters:
+This is the point where Gemma work can become practical without becoming
+reckless. Future sessions can look for E2B/E4B/12B artifacts only through an
+owner-approved runbook that preserves privacy and keeps "candidate found"
+separate from "artifact receipt" and "runtime proof."
+
+Epistemos organ:
+UAS model identity, AppColdStore quarantine intake, SCOPE-Rex/SovereignGate
+owner approval, RuntimeRouter/System G non-mutation, RunEventLog,
+AnswerPacket, rollback, and MAS/Pro claim discipline.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_local_artifact_discovery_runbook_gate.rs`
+- `agent_core/src/bin/falsify_gemma_local_artifact_discovery_runbook_gate.rs`
+- `Tools/falsifiers/f_gemma_local_artifact_discovery_runbook_gate.sh`
+- `docs/falsifiers/F-GemmaLocalArtifactDiscoveryRunbookGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_local_artifact_discovery_runbook_gate/result.json`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 4 symbolic search roots, 4 expected artifact patterns,
+18 discovery rules, 30 rejection policies, 36 red fixtures rejected, zero raw
+paths stored, zero path canonicalization, zero file opens/hashes/byte-count
+verification, zero commands armed or executed, zero servers started, zero
+network probes, zero model/runtime/provider bytes, zero route/default
+mutations, and zero MAS/L2/L3/T4/Gemma-default/live-70B promotion claims.
+
+Runtime proof:
+Not run. No model was discovered, acquired, opened, hashed, loaded, served, or
+queried.
+
+User-visible proof:
+Not present. Future UI should still say "Gemma not configured" until a local
+artifact receipt and runtime receipt exist.
+
+Rollback:
+Bound as a required non-promotion proof field. No rollback action executed
+because no runtime, filesystem, route, or settings state changed.
+
+Privacy/stability/provenance risks:
+Closed at T1: raw path leakage, approval laundering, HF-cache identity
+laundering, candidate-discovery promotion, hidden authority, and local-server
+or `-hf` shortcut bypass. Still open: explicit owner approval, local artifact
+receipt with digest and byte count, direct local-file first-token receipt,
+same-fixture replay, RuntimeRouter admission, System G dry-run, and WRV/release
+audit.
+
+Why it may be a breakthrough:
+It removes ambiguity around the next real Gemma step: find or acquire the local
+artifact under a privacy-preserving receipt, then run the smallest direct
+local-file proof. That is a much shorter path to practical Gemma than another
+generic model-catalog research pass.
+
+Why it may be wrong:
+If the owner explicitly wants a manual path entry rather than local discovery,
+this runbook may be bypassed by a stricter owner-provided manifest. The same
+redaction, digest, byte-count, rollback, RunEventLog, AnswerPacket, and
+non-promotion requirements still apply.
+
+Next research query:
+What owner-approved receipt format should bind the first local Gemma E2B/E4B
+artifact path digest, sha256, byte count, source revision, llama.cpp identity,
+and privacy-safe reviewer summary before the first one-token runtime probe?
