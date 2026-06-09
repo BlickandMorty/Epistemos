@@ -7291,6 +7291,54 @@ Layer truth:
 Correct phrasing: "Gemma now has a landed owner-approved receipt runbook
 contract; Gemma is still not live, default, L2/L3, or user-facing."
 
+### 2026-06-08 - F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate` is now
+implemented as a metadata-only T1/L1 primary witness:
+
+- Source:
+  `agent_core/src/uas/gemma_direct_harness_owner_approved_receipt_preflight_packet_gate.rs`.
+- Falsifier:
+  `agent_core/src/bin/falsify_gemma_direct_harness_owner_approved_receipt_preflight_packet_gate.rs`.
+- Script:
+  `Tools/falsifiers/f_gemma_direct_harness_owner_approved_receipt_preflight_packet_gate.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate_2026_06_08.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_owner_approved_receipt_preflight_packet_gate/result.json`.
+
+The witness consumes the landed owner-approved runbook gate, then binds 30
+preflight fields, 45 abort conditions, owner/path/model/llama.cpp digests,
+hardware profile, memory byte envelope, command/prompt policies,
+timeout/cancel/stdio/sampler policy, rollback, RunEventLog, AnswerPacket,
+abstention, human-visible confirmation, no-command-arm proof, and
+non-promotion. It rejects 46 red fixtures, writes zero preflight packet bytes,
+opens zero owner/model/llama.cpp paths, arms zero commands, executes zero
+commands, loads zero model/runtime/provider bytes, captures zero raw owner
+path/prompt/output/stdout/stderr/token bytes, mutates zero RuntimeRouter/System
+G/settings/default state, and does not make Gemma live/default/L2/L3/T4/user
+facing.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaDirectHarnessOwnerApprovedReceiptPreflightPacketGate` advances as
+  metadata-only T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, first token, preflight
+  packet, or product capability was activated.
+
+Correct phrasing: "Gemma now has a landed owner-approved preflight packet
+contract; Gemma is still not live, default, L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
