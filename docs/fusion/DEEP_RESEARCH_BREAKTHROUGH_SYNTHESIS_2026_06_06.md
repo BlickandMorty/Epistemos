@@ -27704,3 +27704,93 @@ Which local `llama-cli` binary/version and owner-approved Gemma E2B/E4B GGUF
 path should the first receipt-producing execution probe bind, and what is the
 smallest reviewer-useful output shape: one token, four tokens, or a tiny JSON
 object?
+
+## Pass 226 - F-GemmaDirectHarnessFirstRuntimeProofReceiptGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaDirectHarnessFirstRuntimeProofReceiptGate` is now a landed
+metadata-only T1/L1 primary witness. It converts Pass 225's receipt backlog
+into code, artifact, validator coverage, handbook/schema rows, Living Index
+canon, and lattice visibility.
+
+Mechanism:
+The receipt gate defines what a future local Gemma execution must prove after
+the command runs: 35 receipt fields, 6 termination classes, 66 abort
+conditions, owner/model/llama.cpp/command identity, argv/environment/workdir
+digests, exit/termination/timeout/teardown digests, timing/memory/stdout/
+stderr/first-token/prompt/output digest-only evidence, redaction proof,
+raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention,
+reviewer-visible summary, no-quality, no-route-admission, and non-promotion.
+
+Why it matters:
+This closes the last metadata gap before a tiny owner-approved Gemma execution
+probe. A future run cannot be accepted merely because a process exited or a
+token appeared; it must leave a redacted receipt with bounded evidence and
+explicit non-promotion.
+
+Epistemos organ:
+RunEventLog, AnswerPacket, SCOPE-Rex/SovereignGate evidence boundary,
+RuntimeRouter/System G non-admission, and UAS model identity.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_direct_harness_first_runtime_proof_receipt_gate.rs`
+- `agent_core/src/bin/falsify_gemma_direct_harness_first_runtime_proof_receipt_gate.rs`
+- `Tools/falsifiers/f_gemma_direct_harness_first_runtime_proof_receipt_gate.sh`
+- `docs/falsifiers/F-GemmaDirectHarnessFirstRuntimeProofReceiptGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_receipt_gate/result.json`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 71 red fixtures rejected, zero receipt bytes written
+or read, zero command-card bytes read, zero owner path opens, zero command
+arming/execution, zero process spawn, zero server start, zero
+network/hub/endpoint allowance, zero model/runtime/provider bytes, zero raw
+private bytes, zero mutation, zero hidden authority, and zero promotion claims.
+
+Runtime proof:
+not run. The next safe runtime unit is
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`, which must bind
+an owner-approved local E2B/E4B GGUF path, exact `llama-cli` binary/version,
+bounded argv, timeout/cancel/teardown, and produce only the receipt shape
+defined here.
+
+User-visible proof:
+not present. Future L3 still needs settings/diagnostics and AnswerPacket
+visibility after receipt review, quality evidence, admission, System G dry-run,
+and release-audit surfaces.
+
+Rollback:
+Bound as a receipt field and red fixture, but not executed. The future
+execution probe must prove teardown and rollback observation in the receipt.
+
+Privacy/stability/provenance risks:
+Closed at T1: raw path/prompt/output/stdout/stderr/token retention, hidden
+server/provider/endpoint authority, receipt/action leakage, hidden route
+authority, and promotion from receipt metadata. Still open: exact local model
+availability, actual memory behavior, first-token quality, installed
+`llama-cli` flag compatibility, and user-facing WRV.
+
+Why it may be a breakthrough:
+It gives the first Gemma run an evidence target small enough to execute soon
+while preserving the architecture's no-false-claim law. The loop is now
+command-card -> receipt -> owner-approved tiny execution, not abstract
+research.
+
+Why it may be wrong:
+The receipt may need one more field after inspecting the installed `llama-cli`
+version output or the exact GGUF metadata. That should be added as a receipt
+schema revision, not by weakening the current redaction and non-promotion
+rules.
+
+Next research query:
+What exact local E2B/E4B Gemma QAT GGUF file and `llama-cli` binary should the
+owner-approved first execution probe bind, and should the proof emit one token,
+four tokens, or a tiny JSON object?
