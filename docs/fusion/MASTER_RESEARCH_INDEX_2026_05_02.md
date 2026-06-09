@@ -6472,3 +6472,29 @@ token, admit a route, or make Gemma live/default/user-facing. The practical fork
 is now explicit: either owner-approve this E4B MLX record for loader bring-up
 with checksum/path receipt, or acquire an E2B/E4B QAT GGUF artifact for the
 stricter `llama-cli -m` first-token lane.
+
+### §28.29 Gemma progress cutover and runtime tool reality (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 236.
+
+Pass 236 resolves the "why does progress feel slow?" failure mode. Adding a
+Gemma descriptor is already cheap and partly present; the missing product-grade
+bridge is local artifact receipt -> first-token runtime proof -> same-fixture
+quality -> RuntimeRouter/System G dry-run -> AnswerPacket -> L3 WRV/release
+audit. Host inspection found `llama-cli`, `llama-server`, `swift`, and `xcrun`
+on PATH, but not `hf` / `huggingface-cli`. No model files were opened, hashed,
+loaded, served, or queried.
+
+Current external source reality: official Google/Hugging Face Gemma 4 E2B/E4B
+QAT GGUF pages expose `llama-cli -hf ...:Q4_0` examples, and Google's Gemma 4
+12B launch page names LiteRT-LM CLI, llama.cpp, MLX, Transformers, SGLang, and
+vLLM routes. Epistemos translation: those are ecosystem/source-card evidence,
+not product proof. The first safe proof should still be direct local-file
+`llama-cli -m <owner-approved-file>` with path digest, sha256, byte count,
+source revision, rollback, RunEventLog, AnswerPacket, and no hidden server or
+network/cache authority.
+
+Promotion truth: T0/T1 canon clarification only. L2 and L3 remain red. The
+next practical Gemma unit is a minimal owner-approved receipt emitter or probe
+that binds a local E2B/E4B QAT GGUF file before any runtime token claim.
