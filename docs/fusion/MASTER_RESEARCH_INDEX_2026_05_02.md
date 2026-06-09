@@ -6622,3 +6622,35 @@ has a narrow input contract: one selected local artifact, digest slots, byte
 slots, tool identity slots, raw-path privacy, rollback, RunEventLog,
 AnswerPacket, abstention, and no route/default mutation before first-token
 execution.
+
+### §28.36 Gemma direct build cutover source refresh (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 243 and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 243 refreshes the current Gemma runtime-source picture without promoting
+runtime capability. Google's 2026-06-05 Gemma 4 QAT announcement says QAT
+checkpoints are intended for local edge/consumer hardware and names GGUF for
+`llama.cpp`, LiteRT-LM, compressed tensors, Transformers.js, vLLM/SGLang, and
+MLX-oriented workflows. Official Hugging Face E4B and 12B QAT GGUF cards expose
+`llama-cli -hf ...:Q4_0` and `llama-server -hf ...:Q4_0` examples.
+
+Architecture rule: those convenience examples are source evidence, not
+Epistemos product proof. The proving lane remains direct local-file execution
+from an explicit owner-approved receipt:
+
+`E2B/E4B QAT GGUF receipt`
+-> `sha256 + byte count + llama-cli identity`
+-> `llama-cli --offline -m <approved local file>`
+-> `RunEventLog + AnswerPacket`
+-> same-fixture replay
+-> RuntimeRouter/System G dry-run
+-> settings/diagnostics WRV
+-> release-audit evidence.
+
+Promotion truth: T0/T1 canon/source refresh only. No local artifact was
+approved, opened, hashed, loaded, route-admitted, made default, or surfaced as
+working Gemma capability. E2B QAT GGUF remains the first proof lane, E4B is the
+scale-repeat lane, 12B QAT GGUF/LiteRT-LM is the Pro flagship after small-lane
+proof, and 26B/31B/70B-class work remains Pro Research/cold assembly until the
+Gemma ladder proves where ordinary local runtime stops.

@@ -29258,3 +29258,99 @@ Next research query:
 Can the next owner-approved receipt step safely verify one selected E2B/E4B
 QAT GGUF file digest and byte count without leaking raw paths or mutating any
 RuntimeRouter/System G/default-model state?
+
+## Pass 243 - Gemma Direct Build Cutover Source Refresh
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass answers the practical "why is Gemma not just added yet?" pressure
+with a build-oriented cutover rule: official Gemma QAT availability has become
+strong enough to stop treating Gemma as an abstract research question, but it
+is still not strong enough to bypass Epistemos owner-approved local artifact
+receipts.
+
+Current primary-source refresh:
+
+- Google says Gemma 4 QAT checkpoints are meant to reduce memory use and run
+  locally on edge devices and consumer GPUs; Google also says the QAT release
+  provides GGUF formats for `llama.cpp`, mobile/compressed formats, LiteRT-LM,
+  Transformers.js, vLLM/SGLang, and MLX-oriented workflows.
+- The official Hugging Face `google/gemma-4-E4B-it-qat-q4_0-gguf` card exposes
+  `llama-cli -hf google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0` and
+  `llama-server -hf ...` examples.
+- The official Hugging Face `google/gemma-4-12B-it-qat-q4_0-gguf` card exposes
+  the same `llama.cpp` convenience shape for the 12B QAT target.
+- Epistemos must treat all `-hf`, server, cache, provider, Docker, Ollama, LM
+  Studio, and other convenience forms as source evidence only. The first
+  product-grade proof remains direct local-file execution:
+  `llama-cli --offline -m <owner-approved-local-gguf>`.
+
+Architecture fusion:
+
+The direct build path is now:
+
+`official Gemma QAT source card`
+-> `owner-approved local artifact receipt`
+-> `sha256 / byte-count / tool-identity verification`
+-> `one synthetic redacted token through llama-cli --offline -m`
+-> `RunEventLog + AnswerPacket`
+-> `same-fixture quality replay`
+-> `RuntimeRouter/System G dry-run admission`
+-> `settings/diagnostics WRV`
+-> `release-audit zero-fail evidence`
+-> only then possible T4/T5 Gemma user-facing promotion.
+
+Near-term implementation bias:
+
+- First proof: Gemma 4 E2B QAT GGUF direct local-file harness.
+- Second proof: repeat on Gemma 4 E4B QAT GGUF if E2B is stable.
+- Flagship Pro target: Gemma 4 12B QAT GGUF or LiteRT-LM after E2B/E4B
+  receipt, cancellation, memory, quality, and AnswerPacket proof.
+- MLX Swift remains a candidate lane, not the first proof lane, until a Swift
+  Gemma loader witness exists.
+- Gemma 26B/31B and 70B-class ambition remain Pro Research / cold assembly
+  until the Gemma-class ladder proves where ordinary local runtime stops.
+
+Tier and status:
+T0/T1 canon/source refresh only. No new falsifier landed in this pass. No owner
+approval was granted, no path was scanned, no file was opened or hashed, no
+model/runtime/provider bytes loaded, no command was armed, no RuntimeRouter/
+System G/settings/default mutation occurred, and no Gemma live/default/L2/L3/
+T4/user-facing claim was made.
+
+Best breakthrough candidate:
+The direct local-file E2B QAT GGUF proof is the fastest credible route from
+research to build because it avoids hidden HF/cache/server behavior while using
+the official GGUF lane Google and Hugging Face already expose.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`, but only after a
+real owner-approved E2B/E4B QAT GGUF receipt exists.
+
+Best near-term code unit:
+Implement the real receipt reader/validator that consumes exactly one
+owner-approved receipt, redacts raw paths, verifies bytes and sha256, binds
+`llama-cli` identity plus `--offline`, emits RunEventLog/AnswerPacket, and
+refuses route/default mutation.
+
+Biggest false-claim risk:
+Treating official `llama-cli -hf ...`, `llama-server`, LiteRT-LM examples, or
+Hugging Face model cards as proof that Epistemos has a local configured Gemma
+runtime.
+
+Biggest missing source:
+The actual owner-approved local E2B/E4B QAT GGUF receipt.
+
+External sources:
+
+- `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+
+Next research query:
+Which exact local artifact should become the first receipt: freshly acquired
+official E2B QAT GGUF, freshly acquired official E4B QAT GGUF, or the existing
+unverified E4B MLX manifest after a separate Swift-loader receipt?
