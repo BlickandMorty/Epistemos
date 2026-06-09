@@ -29120,3 +29120,73 @@ Next research query:
 What is the smallest receipt-emitter dry-run that can produce the digest-only
 owner-approved Gemma artifact receipt required by this intake gate while still
 opening no model runtime and preserving raw-path privacy?
+
+## Pass 241 - F-GemmaOwnerApprovedReceiptEmitterDryRunGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedReceiptEmitterDryRunGate` is now a landed metadata-only
+T1/L1 witness. It consumes `F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate`
+and freezes the digest-only dry-run emitter shape for a future owner-approved
+local Gemma artifact receipt.
+
+Mechanism:
+The gate binds 7 emitter sections, 24 receipt fields, 4 receipt kinds, 9
+dry-run outputs, 16 denied shortcuts, 37 rejection policies, rollback,
+RunEventLog, AnswerPacket, abstention, non-promotion, and 46 rejected red
+fixtures. It requires owner approval but grants none.
+
+Architecture fusion:
+This is the build bridge between "we know what a receipt must look like" and
+"we can produce a reviewed receipt for one exact local artifact." The emitter
+dry run can later become the owner-guided materializer, but this witness keeps
+it inert: symbolic owner input only, digest slots only, reviewer-visible
+summary only, no raw paths, no tool execution, no file hashing, no System G
+route mutation, and no product claim.
+
+Files landed:
+
+- `agent_core/src/uas/gemma_owner_approved_receipt_emitter_dry_run_gate.rs`
+- `agent_core/src/bin/falsify_gemma_owner_approved_receipt_emitter_dry_run_gate.rs`
+- `Tools/falsifiers/f_gemma_owner_approved_receipt_emitter_dry_run_gate.sh`
+- `docs/falsifiers/F-GemmaOwnerApprovedReceiptEmitterDryRunGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/result.json`
+
+Tier and status:
+T1/L1 metadata-only. No receipt payload was written or read, no raw path or
+owner phrase was stored, no path was canonicalized, no file was opened or
+hashed, no `llama-cli` command ran, no server or network probe started, no
+model/runtime/provider bytes loaded, no RuntimeRouter/System G/settings/default
+mutation occurred, and no Gemma live/default/L2/L3/T4/user-facing claim was
+made.
+
+Best breakthrough candidate:
+Keep pursuing the direct-file Gemma proof rail: receipt materialization for one
+approved E2B/E4B QAT GGUF artifact, then one-token `llama-cli --offline -m`,
+then quality replay and route admission.
+
+Safest next falsifier:
+An owner-guided local artifact receipt materialization gate that writes a
+redacted digest-only receipt for one explicitly approved artifact, still with
+no runtime execution and no route mutation.
+
+Best near-term code unit:
+Build the receipt materialization contract: symbolic owner path input, raw path
+redaction, sha256/byte-count slots, tool identity slots, rollback, RunEventLog,
+AnswerPacket, and abstention.
+
+Biggest false-claim risk:
+Treating an emitter dry run as "we have the model." It only proves the shape of
+the future receipt writer.
+
+Biggest missing source:
+The owner-approved local artifact itself, selected from E2B/E4B GGUF, E4B MLX,
+or 12B LiteRT-LM with an explicit receipt path.
+
+Next research query:
+Which receipt materialization mode should be implemented first for the actual
+owner-approved artifact: direct E2B/E4B GGUF file hash, existing E4B MLX
+manifest reconciliation, or a quarantined LiteRT-LM bundle receipt?

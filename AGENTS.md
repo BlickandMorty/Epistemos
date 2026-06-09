@@ -603,6 +603,17 @@ Runtime policy:
   default, L2, L3, T4, or user-facing claim. The next safe Gemma build unit is a
   redacted receipt-emitter dry-run shape that satisfies this intake gate before
   any owner-approved one-token runtime execution probe.
+- 2026-06-09 `F-GemmaOwnerApprovedReceiptEmitterDryRunGate` is landed as
+  metadata-only L1/T1. It consumes the receipt-intake gate, binds 7 emitter
+  sections, 24 receipt fields, 4 receipt kinds, 9 dry-run outputs, 16 denied
+  shortcuts, 37 rejection policies, and 46 red fixtures while granting zero
+  owner approval, writing/reading zero receipt payload bytes, storing zero raw
+  paths or owner phrases, opening/hashing zero files, executing zero
+  `llama-cli` probes, arming zero commands, loading zero model/runtime/provider
+  bytes, mutating no RuntimeRouter/System G/settings/default state, and making
+  no Gemma live, default, L2, L3, T4, or user-facing claim. The next safe Gemma
+  build unit is owner-guided receipt materialization for one explicitly
+  approved artifact; it must still precede any one-token execution probe.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

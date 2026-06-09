@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 240 - F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate landed">
-  <meta name="epistemos-commit-sha" content="593a10889d">
+  <meta name="epistemos-latest-research-pass" content="Pass 241 - F-GemmaOwnerApprovedReceiptEmitterDryRunGate landed">
+  <meta name="epistemos-commit-sha" content="6b8f827a6f">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -2078,6 +2078,21 @@
   provider bytes, and keeps Gemma non-live/non-default with L2/L3 red. Next
   safe Gemma unit: a redacted receipt-emitter dry run before any one-token
   runtime execution.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 241 Gemma receipt emitter dry-run gate landed.</strong>
+  <code>F-GemmaOwnerApprovedReceiptEmitterDryRunGate</code> is now a metadata-only
+  L1/T1 witness at
+  <code>artifacts/falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/result.json</code>.
+  It consumes the receipt-intake gate, binds 7 emitter sections, 24 receipt
+  fields, 4 receipt kinds, 9 dry-run outputs, 16 denied shortcuts, 37 rejection
+  policies, rollback, RunEventLog, AnswerPacket, abstention, non-promotion, and
+  46 red-fixture rejections. It writes zero receipt payload bytes, opens zero
+  files, hashes zero files, executes zero <code>llama-cli</code> probes, arms
+  zero commands, loads zero model/runtime/provider bytes, and keeps Gemma
+  non-live/non-default with L2/L3 red. Next safe Gemma unit: owner-guided
+  receipt materialization for one explicitly approved local artifact.
 </div>
 
 <div class="canon-hook">
