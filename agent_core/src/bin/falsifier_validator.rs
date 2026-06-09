@@ -198,6 +198,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate",
     "F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate",
     "F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate",
+    "F-GemmaDirectHarnessOwnerApprovedSameFixtureQualityPacketGate",
     "F-GemmaQATE2BRuntimeRouterAdmissionPacketGate",
     "F-GemmaQATE2BSystemGDryRunRoutePacketGate",
     "F-GemmaQATE2BRouteAnswerPacketVisibilityGate",

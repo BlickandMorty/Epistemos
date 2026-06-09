@@ -27129,3 +27129,64 @@ the future same-fixture quality packet may require stricter scorer provenance,
 prompt contamination checks, or comparison against Apple Intelligence/Qwen
 baselines. Those additions must remain owner-approved, visible, rollbackable,
 and non-promotional until L2 and L3 evidence exists.
+
+## Pass 221 - F-GemmaDirectHarnessOwnerApprovedSameFixtureQualityPacketGate landed
+
+Date: 2026-06-09.
+
+Best breakthrough candidate:
+force Gemma direct-harness quality evidence through deterministic same-fixture
+packets before any route admission, so a token digest cannot become a hidden
+quality claim or default-model promotion.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedSameFixtureQualityPacketGate` consumes the
+landed first-token digest review witness and binds the future quality packet
+shape. It requires owner approval, redacted receipt and first-token review
+digests, model/llama.cpp/prompt/token/tokenizer identity,
+fixture/scorer/task-family digests, redacted candidate output policy,
+deterministic scorer requirements, contamination and cache-deletion proof,
+rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, and
+non-promotion.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future direct-harness RuntimeRouter
+admission packet before any System G route, WRV, settings surface, or product
+default can exist.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate/result.json`.
+
+Proof:
+the witness passed with 34 quality packet fields, 52 rejection policies, 81
+red-fixture rejections, zero quality packet bytes read, zero fixture/review/
+receipt bytes opened, zero scorer executions, zero benchmark runs, zero command
+arming or execution, zero process spawns, zero model/runtime/provider bytes,
+zero raw prompt/context/output/judge bytes, zero RuntimeRouter/System
+G/settings/default mutation, and no Gemma live/default/quality/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate`, because the
+same-fixture quality packet contract exists, but there is still no route
+admission packet, no SCOPE-Rex/SovereignGate verdict, no settings WRV, no
+product capability proof, and no live default model.
+
+Biggest false-claim risk:
+calling a quality packet contract "Gemma is quality-proven." It is still not a
+quality packet, not evaluation, not memory-fit proof, not route admission, and
+not a user-facing lane. It only prevents later quality evidence from bypassing
+deterministic fixtures, privacy redaction, rollback, and visible proof.
+
+Why it may be wrong:
+the future admission packet may need more explicit budget vectors, hardware
+headroom, latency envelopes, and fallback ordering before RuntimeRouter/System
+G can even dry-run the route. Those additions must remain owner-approved,
+visible, rollbackable, and non-promotional until L2 and L3 evidence exists.
