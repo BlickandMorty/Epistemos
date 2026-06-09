@@ -6368,3 +6368,24 @@ unit is `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe` once an
 exact local artifact path and owner approval exist; the guard-owned product
 cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.26 Gemma local artifact acquisition plan landed (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 228 and
+`docs/falsifiers/F-GemmaLocalArtifactAcquisitionPlan_2026_06_09.md`.
+
+Pass 228 lands `F-GemmaLocalArtifactAcquisitionPlan` as the fail-closed bridge
+from "no local Gemma file found" to a future owner-approved runtime probe. It
+pins E2B QAT GGUF (`3349514112` bytes), E4B QAT GGUF (`5154939136` bytes),
+and Gemma 4 12B LiteRT-LM (`6547589312` bytes), but starts zero downloads,
+opens zero files, hashes zero files, arms zero commands, starts zero servers,
+loads zero model/runtime/provider bytes, and makes no route/default mutation or
+product capability claim.
+
+Promotion truth: T1/L1 metadata-only. The next Gemma side unit remains
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`, but it cannot
+run until an exact owner-approved local file path, sha256, byte count, owner
+path manifest, command, receipt, rollback, RunEventLog, and AnswerPacket proof
+exist. The guard-owned product cursor remains
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.

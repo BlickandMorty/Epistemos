@@ -7824,6 +7824,37 @@ Correct phrasing: "Gemma has a local llama.cpp executable ready for a tiny
 proof, but Epistemos still needs an approved local model artifact and receipt
 before Gemma can move toward L2/L3."
 
+### 2026-06-09 - F-GemmaLocalArtifactAcquisitionPlan landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaLocalArtifactAcquisitionPlan` is now implemented as a metadata-only
+T1/L1 witness at
+`artifacts/falsifiers/gemma_local_artifact_acquisition_plan/result.json`. It
+pins the source artifacts for E2B QAT GGUF (`3349514112` bytes), E4B QAT GGUF
+(`5154939136` bytes), and 12B LiteRT-LM (`6547589312` bytes), while allowing
+only owner-provided local files or owner-approved quarantine imports/downloads.
+It rejects `llama-cli -hf`, `llama-server`, HF cache paths, model cards, repo
+revisions, download completion, hidden providers, endpoints, and default-route
+mutation as proof.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 38 red fixtures
+  rejected and zero model/runtime/provider bytes loaded.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Gemma runtime receipt,
+  settings row, default model, or user-facing capability was activated.
+
+Correct phrasing: "Gemma has a fail-closed acquisition plan; Epistemos still
+needs an owner-approved local model file and runtime receipt before capability
+promotion."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

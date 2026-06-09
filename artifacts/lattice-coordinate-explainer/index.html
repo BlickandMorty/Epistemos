@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 227 - Gemma Runtime Cutover Readiness Snapshot">
-  <meta name="epistemos-commit-sha" content="b5aa0d4140a4a803a3a510085a5ac8d8b56662e9">
+  <meta name="epistemos-latest-research-pass" content="Pass 228 - F-GemmaLocalArtifactAcquisitionPlan landed">
+  <meta name="epistemos-commit-sha" content="a194e568f777f38410c81ce2c8a01a9063e4d169">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1865,6 +1865,23 @@
   proof. This update opens zero model bytes, arms zero commands, starts zero
   servers, mutates zero RuntimeRouter/System G/default state, and makes no
   Gemma live/default/L2/L3/T4/user-facing claim.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 228 Gemma local artifact acquisition plan landed.</strong>
+  <code>F-GemmaLocalArtifactAcquisitionPlan</code> is now a metadata-only
+  T1/L1 witness at
+  <code>artifacts/falsifiers/gemma_local_artifact_acquisition_plan/result.json</code>.
+  It pins E2B QAT GGUF (<code>3349514112</code> bytes), E4B QAT GGUF
+  (<code>5154939136</code> bytes), and Gemma 4 12B LiteRT-LM
+  (<code>6547589312</code> bytes), allows only owner-provided local files or
+  owner-approved quarantine imports/downloads, and rejects
+  <code>llama-cli -hf</code>, <code>llama-server</code>, HF cache paths,
+  model cards, repo revisions, download completion, endpoints, hidden
+  providers, and default-route mutation as proof. It starts zero downloads,
+  opens zero files, hashes zero files, arms zero commands, starts zero servers,
+  loads zero model/runtime/provider bytes, and makes no Gemma live/default/
+  L2/L3/T4/user-facing claim.
 </div>
 
 <div class="canon-hook">

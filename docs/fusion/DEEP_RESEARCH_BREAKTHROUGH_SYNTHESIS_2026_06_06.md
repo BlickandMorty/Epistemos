@@ -27896,3 +27896,90 @@ Next research query:
 Should the first owner-approved local Gemma proof use E2B for minimum risk or
 E4B for better quality, and where is the exact local GGUF artifact or approved
 download/import target?
+
+## Pass 228 - F-GemmaLocalArtifactAcquisitionPlan landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaLocalArtifactAcquisitionPlan` is now a landed metadata-only T1/L1
+witness. It converts Pass 227's missing-artifact problem into code, artifact,
+validator coverage, and canon.
+
+Mechanism:
+The witness pins three official source artifacts without downloading them:
+E2B QAT GGUF at `3349514112` bytes, E4B QAT GGUF at `5154939136` bytes, and
+Gemma 4 12B LiteRT-LM at `6547589312` bytes. It allows only
+owner-provided local files or owner-approved quarantine import/download modes,
+and it requires local-file sha256, byte count, owner path manifest, rollback,
+RunEventLog, AnswerPacket, abstention, and non-promotion after acquisition.
+
+Why it matters:
+The next Gemma run no longer depends on vague "download a model" language.
+`llama-cli -hf`, `llama-server`, HF cache paths, model cards, repo revisions,
+download completion, local endpoints, and hidden providers are explicitly
+rejected as Epistemos runtime proof.
+
+Epistemos organ:
+Owner path manifest, UAS model identity, SCOPE-Rex/SovereignGate acquisition
+admission, RuntimeRouter/System G non-admission, RunEventLog, and AnswerPacket.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_local_artifact_acquisition_plan.rs`
+- `agent_core/src/bin/falsify_gemma_local_artifact_acquisition_plan.rs`
+- `Tools/falsifiers/f_gemma_local_artifact_acquisition_plan.sh`
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionPlan_2026_06_09.md`
+- `artifacts/falsifiers/gemma_local_artifact_acquisition_plan/result.json`
+
+External refs:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 3 source cards, 4 allowed acquisition modes, 10 denied
+proof shortcuts, 33 rejection policies, total source artifact bytes
+`15052042560`, max single artifact bytes `6547589312`, 38 red fixtures
+rejected, zero downloads, zero file opens, zero file hashes, zero path
+canonicalization, zero commands, zero servers, zero model/runtime/provider
+bytes, zero route/default mutation, and zero promotion claims.
+
+Runtime proof:
+not run. This is an acquisition plan only.
+
+User-visible proof:
+not present. Future UI can show "Gemma not configured" until a local artifact
+receipt and owner-approved runtime proof exist.
+
+Rollback:
+Bound as a required acquisition and post-acquisition proof ref. No rollback was
+executed because no acquisition or runtime occurred.
+
+Privacy/stability/provenance risks:
+Closed at T1: HF cache laundering, `-hf` as proof, server endpoint laundering,
+model-card-as-file proof, repo revision as file hash, hidden provider fallback,
+route/default mutation, and accidental MAS/L2/L3/T4 promotion. Still open:
+actual owner-approved file path, local sha256, disk space, first-token runtime
+receipt, quality, and release-audit proof.
+
+Why it may be a breakthrough:
+It makes the fastest real Gemma path operationally small: acquire or point to
+one exact local E2B/E4B file, bind sha256/bytes/path manifest, then run the
+already-defined tiny receipt-producing proof.
+
+Why it may be wrong:
+Artifact size or revision metadata can drift upstream; future probes must pin
+the exact downloaded/local file and reject stale source cards before execution.
+
+Next research query:
+Which acquisition mode should be owner-approved first: existing local E2B file,
+HF snapshot download to quarantine, browser download to quarantine, or E4B
+instead of E2B for better quality?
