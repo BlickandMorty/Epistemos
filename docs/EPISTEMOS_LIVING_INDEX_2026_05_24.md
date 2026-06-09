@@ -7587,6 +7587,58 @@ Correct phrasing: "Gemma now has a landed RuntimeRouter admission packet
 contract; Gemma is still not live, default, quality-proven, route-admitted,
 L2/L3, T4, or user-facing."
 
+### 2026-06-09 - Gemma practical runtime cutover canon folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` now includes
+Pass 223, "Gemma Practical Runtime Cutover Canon." This is a research-to-build
+canon update, not product code and not a runtime proof.
+
+The folded decision:
+
+- Fastest credible T2 attempt: owner-approved E2B/E4B QAT GGUF through direct
+  `llama-cli`, no server, no network, bounded prompt/context, redacted
+  first-token receipt, timeout/cancel/teardown, memory/timing samples,
+  rollback, RunEventLog, AnswerPacket, and no hidden RuntimeRouter/System G
+  mutation.
+- 12B path: separate Pro Gated LiteRT-LM/GGUF lane after source-card,
+  package/API, cancellation, sandbox, local endpoint, and byte/KV witnesses.
+- MLX path: remains an Apple Silicon lane only after Swift Gemma loader proof.
+- MTP path: later acceleration packet only after base-route output equivalence,
+  target verification, acceptance counters, KV accounting, latency win, and
+  rollback.
+- Larger models: 26B A4B / 31B / 70B-class stay Pro Research or cold assembly
+  until byte envelopes, active-parameter truth, route leases, and cold miss
+  ledgers prove fit without live dense-RAM claims.
+
+Current external evidence folded:
+
+- Google Gemma 4 QAT announcement says GGUF is ready for `llama.cpp`,
+  LiteRT-LM is the optimized edge lane, and MLX is an Apple Silicon lane.
+- Official Google E2B QAT GGUF model card exposes direct `llama-cli -hf`
+  usage, which is useful as source-card input only.
+- LiteRT-LM README advertises Gemma 4 CLI use on macOS, acceleration,
+  multimodality, tool use, and broad model support, making it a serious 12B
+  Pro-native candidate.
+- `llama.cpp` Gemma assistant/MTP issue history remains a quarantine signal:
+  MTP is not first proof and not a default route.
+
+Layer truth:
+
+- L1 architecture/canon: T0 research/canon advanced; no new falsifier landed.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Gemma process, model bytes,
+  settings row, route priority, or product capability was activated.
+
+Correct phrasing: "Gemma now has a sharper practical runtime cutover plan;
+Gemma is still not live, default, route-admitted, L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

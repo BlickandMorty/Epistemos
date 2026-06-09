@@ -732,6 +732,14 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > live/default/quality-proven/route-admitted/L2/L3/T4/user-facing claim. Next
 > side-ladder unit:
 > `gemma_direct_harness_owner_approved_system_g_dry_run_route_packet_gate`.
+> Current addendum: Deep Research Pass 223 folds the Gemma practical runtime
+> cutover canon. It keeps official Google QAT GGUF through direct `llama-cli`
+> as the fastest owner-approved E2B/E4B T2 attempt, LiteRT-LM/GGUF as the
+> separate 12B Pro-native lane after source-card/package/cancellation/sandbox/
+> byte/KV witnesses, MLX as an Apple Silicon lane after Swift loader proof, and
+> MTP/speculative decoding as a later equivalence/acceleration packet. It
+> updates research-to-build canon only: no model bytes, no runtime, no route
+> admission, no default Gemma, no L2/L3/T4/user-facing claim.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
