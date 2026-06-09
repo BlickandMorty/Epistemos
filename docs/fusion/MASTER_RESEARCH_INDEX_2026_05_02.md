@@ -809,15 +809,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > L2/L3/T4/user-facing claim. Next side-ladder unit:
 > `gemma_direct_harness_first_runtime_proof_receipt_gate`.
 > Current addendum: `F-GemmaDirectHarnessFirstRuntimeProofReceiptGate` is now
-> landed as metadata-only T1/L1 evidence. Artifact:
+> landed and hardened as metadata-only T1/L1 evidence. Artifact:
 > `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_receipt_gate/result.json`.
-> It consumes the landed first-runtime proof command-card gate, binds 35
-> receipt fields, 6 termination classes, 66 abort conditions, owner/model/
+> It consumes the landed first-runtime proof command-card gate and the landed
+> trap-policy gate, binds 36 receipt fields, 6 termination classes, 67 abort
+> conditions, trap-policy digest, owner/model/
 > llama.cpp/command identity, argv/environment/workdir digests,
 > exit/termination/timeout/teardown digests, timing/memory/stdout/stderr/
 > first-token/prompt/output digest-only policy, redaction and raw-byte-zero
 > proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible
-> summary, no-quality, no-route-admission, non-promotion, and 71 red-fixture
+> summary, no-quality, no-route-admission, non-promotion, and 73 red-fixture
 > rejections. It writes zero receipt bytes, reads zero command-card or receipt
 > bytes, opens zero owner/model/llama.cpp paths, arms or executes zero
 > commands, spawns zero processes, starts zero servers, allows zero

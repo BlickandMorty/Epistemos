@@ -14,6 +14,7 @@ use std::fmt;
 use crate::uas::{
     ProStatus, ProductBuild, UasAddress, UasKind,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_ID,
+    GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID,
 };
 
 pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_ID: &str =
@@ -24,9 +25,13 @@ pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_NEXT_CURSOR: &st
     "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
 pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF: &str =
     "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json#F-GemmaDirectHarnessFirstRuntimeProofCommandCard";
+pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF: &str =
+    "artifact:falsifiers/gemma_direct_harness_trap_policy_gate/result.json#F-GemmaDirectHarnessTrapPolicyGate";
 
 const UPSTREAM_COMMAND_CARD_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/";
+const UPSTREAM_TRAP_POLICY_PREFIX: &str =
+    "artifact:falsifiers/gemma_direct_harness_trap_policy_gate/";
 const ARTIFACT_ROOT_PREFIX: &str =
     "artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_receipt_gate/";
 const RECEIPT_GATE_ID: &str = "gemma-direct-harness-first-runtime-proof-receipt-gate-v1";
@@ -43,6 +48,7 @@ const REQUIRED_RECEIPT_FIELDS: &[&str] = &[
     "upstream_command_card_artifact_digest",
     "receipt_schema_version",
     "command_card_digest",
+    "trap_policy_digest",
     "owner_approval_digest",
     "selected_model_uas_address",
     "model_file_sha256",
@@ -90,6 +96,7 @@ const REQUIRED_ABORT_CONDITIONS: &[&str] = &[
     "missing_upstream_command_card",
     "missing_receipt_schema_version",
     "missing_command_card_digest",
+    "missing_trap_policy",
     "missing_owner_approval",
     "missing_selected_model_uas_address",
     "missing_model_file_sha256",
@@ -171,6 +178,8 @@ pub enum GemmaDirectHarnessFirstRuntimeProofReceiptGateStatus {
 pub struct GemmaDirectHarnessFirstRuntimeProofReceiptGate {
     pub upstream_command_card_ref: String,
     pub upstream_command_card_id: String,
+    pub upstream_trap_policy_ref: String,
+    pub upstream_trap_policy_id: String,
     pub artifact_root_prefix: String,
     pub receipt_gate_id: String,
     pub future_receipt_name: String,
@@ -250,6 +259,9 @@ impl GemmaDirectHarnessFirstRuntimeProofReceiptGate {
                 GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF.to_string(),
             upstream_command_card_id: GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_ID
                 .to_string(),
+            upstream_trap_policy_ref:
+                GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF.to_string(),
+            upstream_trap_policy_id: GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID.to_string(),
             artifact_root_prefix: ARTIFACT_ROOT_PREFIX.to_string(),
             receipt_gate_id: RECEIPT_GATE_ID.to_string(),
             future_receipt_name: FUTURE_RECEIPT_NAME.to_string(),
@@ -340,6 +352,10 @@ impl GemmaDirectHarnessFirstRuntimeProofReceiptGate {
             .starts_with(UPSTREAM_COMMAND_CARD_PREFIX)
             || self.upstream_command_card_id
                 != GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_ID
+            || !self
+                .upstream_trap_policy_ref
+                .starts_with(UPSTREAM_TRAP_POLICY_PREFIX)
+            || self.upstream_trap_policy_id != GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID
         {
             return Err(GemmaDirectHarnessFirstRuntimeProofReceiptGateError::BadUpstreamRef);
         }
@@ -538,9 +554,11 @@ impl GemmaDirectHarnessFirstRuntimeProofReceiptGate {
         let mut aborts = self.required_abort_conditions.clone();
         aborts.sort();
         format!(
-            "gemma-first-runtime-proof-receipt-gate:v1:{}:{}:{}:{}:{}:{}",
+            "gemma-first-runtime-proof-receipt-gate:v2:{}:{}:{}:{}:{}:{}:{}:{}",
             self.upstream_command_card_ref,
             self.upstream_command_card_id,
+            self.upstream_trap_policy_ref,
+            self.upstream_trap_policy_id,
             self.runtime_lane,
             fields.join(","),
             termination.join(","),
@@ -618,7 +636,9 @@ pub enum GemmaDirectHarnessFirstRuntimeProofReceiptGateError {
 impl fmt::Display for GemmaDirectHarnessFirstRuntimeProofReceiptGateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::BadUpstreamRef => f.write_str("bad upstream command-card reference"),
+            Self::BadUpstreamRef => {
+                f.write_str("bad upstream command-card or trap-policy reference")
+            }
             Self::DuplicateOrMissingField(field) => {
                 write!(f, "duplicate or missing required set: {field}")
             }
@@ -695,9 +715,9 @@ mod tests {
         gate.validate()
             .expect("canonical first runtime proof receipt gate should validate");
         let metrics = gate.metrics();
-        assert_eq!(metrics.required_receipt_field_count, 35);
+        assert_eq!(metrics.required_receipt_field_count, 36);
         assert_eq!(metrics.required_termination_class_count, 6);
-        assert_eq!(metrics.required_abort_condition_count, 66);
+        assert_eq!(metrics.required_abort_condition_count, 67);
         assert_eq!(metrics.future_receipt_bytes_written, 0);
         assert_eq!(metrics.future_receipt_bytes_read, 0);
         assert_eq!(metrics.command_card_bytes_read, 0);
@@ -732,6 +752,22 @@ mod tests {
                     "required_termination_classes"
                 )
             )
+        ));
+    }
+
+    #[test]
+    fn bad_trap_policy_upstream_is_rejected() {
+        let mut gate = GemmaDirectHarnessFirstRuntimeProofReceiptGate::canonical();
+        gate.upstream_trap_policy_ref = "artifact:falsifiers/wrong/result.json#F-Wrong".to_string();
+        assert!(matches!(
+            gate.validate(),
+            Err(GemmaDirectHarnessFirstRuntimeProofReceiptGateError::BadUpstreamRef)
+        ));
+        let mut gate = GemmaDirectHarnessFirstRuntimeProofReceiptGate::canonical();
+        gate.upstream_trap_policy_id = "F-Wrong".to_string();
+        assert!(matches!(
+            gate.validate(),
+            Err(GemmaDirectHarnessFirstRuntimeProofReceiptGateError::BadUpstreamRef)
         ));
     }
 

@@ -17,6 +17,7 @@ use agent_core::uas::{
     GemmaDirectHarnessFirstRuntimeProofReceiptGate, ProStatus, ProductBuild,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_ID,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF,
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF,
 };
 
@@ -27,6 +28,8 @@ const RESULT: &str =
     "artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_receipt_gate/result.json";
 const UPSTREAM_RESULT: &str =
     "artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json";
+const UPSTREAM_TRAP_POLICY_RESULT: &str =
+    "artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/result.json";
 const CREATED_AT_MS: u64 = 1_779_840_000_000;
 
 fn main() -> std::process::ExitCode {
@@ -78,6 +81,7 @@ fn main() -> std::process::ExitCode {
 fn build_artifact(
 ) -> Result<agent_core::falsifier_artifacts::FalsifierArtifact, Box<dyn std::error::Error>> {
     let upstream_pass = upstream_gate_pass(UPSTREAM_RESULT)?;
+    let upstream_trap_policy_pass = upstream_gate_pass(UPSTREAM_TRAP_POLICY_RESULT)?;
     let gate = GemmaDirectHarnessFirstRuntimeProofReceiptGate::canonical();
     gate.validate()?;
     let reversed = GemmaDirectHarnessFirstRuntimeProofReceiptGate {
@@ -108,10 +112,18 @@ fn build_artifact(
 
     for (name, passed) in [
         ("upstream_command_card_gate_pass", upstream_pass),
+        ("upstream_trap_policy_gate_pass", upstream_trap_policy_pass),
         (
             "upstream_command_card_ref_bound",
             gate.upstream_command_card_ref
                 == GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF,
+        ),
+        (
+            "upstream_trap_policy_ref_bound",
+            gate.upstream_trap_policy_ref
+                == GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF
+                && red_pass(&red_results, "bad_trap_policy_ref")
+                && red_pass(&red_results, "bad_trap_policy_id"),
         ),
         (
             "local_gguf_runtime_lane_bound",
@@ -120,9 +132,9 @@ fn build_artifact(
         ),
         (
             "receipt_fields_termination_classes_and_abort_conditions_bound",
-            metrics.required_receipt_field_count == 35
+            metrics.required_receipt_field_count == 36
                 && metrics.required_termination_class_count == 6
-                && metrics.required_abort_condition_count == 66
+                && metrics.required_abort_condition_count == 67
                 && red_pass(&red_results, "missing_receipt_field")
                 && red_pass(&red_results, "duplicate_receipt_field")
                 && red_pass(&red_results, "missing_termination_class")
@@ -285,7 +297,7 @@ fn build_artifact(
             "required_receipt_field_count",
             metrics.required_receipt_field_count,
             "==",
-            35,
+            36,
             "fields",
         ),
         (
@@ -299,7 +311,7 @@ fn build_artifact(
             "required_abort_condition_count",
             metrics.required_abort_condition_count,
             "==",
-            66,
+            67,
             "conditions",
         ),
         (
@@ -427,7 +439,7 @@ fn build_artifact(
             "red_fixture_rejection_count",
             red_fixture_rejection_count,
             ">=",
-            70,
+            72,
             "fixtures",
         ),
     ] {
@@ -473,7 +485,7 @@ fn build_artifact(
         pass_per_axis,
         fallback_tier: FallbackTier::Primary,
         anomalies: Vec::new(),
-        notes: "metadata-only F-GemmaDirectHarnessFirstRuntimeProofReceiptGate: consumes the Gemma first-runtime proof command-card gate and freezes the digest-only receipt contract required before a future owner-approved local GGUF execution probe can count as evidence. It binds model/llama.cpp/command identity, argv/environment/workdir digests, exit and termination classification, timeout/cancel/teardown, timing and memory digests, stdout/stderr/first-token/prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion. It writes zero receipt bytes, reads zero command-card or receipt bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw private bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim.".to_string(),
+        notes: "metadata-only F-GemmaDirectHarnessFirstRuntimeProofReceiptGate: consumes the Gemma first-runtime proof command-card gate and the Gemma direct-harness trap-policy gate, then freezes the digest-only receipt contract required before a future owner-approved local GGUF execution probe can count as evidence. It binds model/llama.cpp/command identity, trap-policy digest, argv/environment/workdir digests, exit and termination classification, timeout/cancel/teardown, timing and memory digests, stdout/stderr/first-token/prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion. It writes zero receipt bytes, reads zero command-card or receipt bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw private bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim.".to_string(),
         timestamp_utc: now_utc_rfc3339(),
     }
     .build())
@@ -507,6 +519,17 @@ fn red_fixture_results(
         (
             "bad_upstream_id",
             Box::new(|g| g.upstream_command_card_id = "F-Wrong".to_string()),
+        ),
+        (
+            "bad_trap_policy_ref",
+            Box::new(|g| {
+                g.upstream_trap_policy_ref =
+                    "artifact:falsifiers/wrong/result.json#F-Wrong".to_string()
+            }),
+        ),
+        (
+            "bad_trap_policy_id",
+            Box::new(|g| g.upstream_trap_policy_id = "F-Wrong".to_string()),
         ),
         (
             "bad_artifact_root",
