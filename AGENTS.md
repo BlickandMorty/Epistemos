@@ -504,6 +504,20 @@ Runtime policy:
   arms/executes zero commands, starts zero servers, stores zero raw owner paths,
   loads zero model/runtime/provider bytes, and makes no Gemma
   live/default/L2/L3/T4/user-facing claim.
+- 2026-06-09 Gemma acquisition receipt-gate status:
+  `F-GemmaLocalArtifactAcquisitionReceiptGate` is landed as metadata-only
+  L1/T1. It consumes the acquisition command cards and binds the future receipt
+  contract: owner approval, selected command-card ID, model ID, filename,
+  source revision, expected bytes, acquisition mode, path digest, local sha256,
+  local byte count, tool/version digest, disk-space observation, rollback,
+  RunEventLog, AnswerPacket, abstention, reviewer summary, and non-promotion.
+  It writes zero receipts, reads zero receipts, opens zero local files,
+  computes zero hashes, canonicalizes zero paths, arms/executes zero commands,
+  starts zero downloads or servers, stores zero raw owner paths, loads zero
+  model/runtime/provider bytes, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. The next Gemma side-ladder unit is
+  again `gemma_direct_harness_owner_approved_first_runtime_execution_probe`,
+  but only after a real owner-approved acquisition receipt exists.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

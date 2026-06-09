@@ -28209,3 +28209,93 @@ Next research query:
 Which of the four command cards should become the first owner-approved
 acquisition receipt: existing local E2B, E2B HF quarantine download, E4B HF
 quarantine download, or 12B LiteRT-LM quarantine import?
+
+## Pass 231 - F-GemmaLocalArtifactAcquisitionReceiptGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaLocalArtifactAcquisitionReceiptGate` is now a landed metadata-only
+T1/L1 witness. It consumes the acquisition command-card witness and inserts a
+receipt gate before any owner-approved Gemma runtime execution probe.
+
+Mechanism:
+The witness freezes the future receipt contract for an actual acquisition. A
+real receipt must bind owner approval, selected command-card ID, model ID,
+filename, source revision, expected bytes, acquisition mode, quarantine or owner
+path root, local path digest, local sha256, local byte count, tool version
+digest, network/manual boundary, disk-space observation, rollback, RunEventLog,
+AnswerPacket, abstention, reviewer summary, and non-promotion. This pass
+defines the contract only; it does not create the receipt.
+
+Why it matters:
+This is the last paper cut before a real owner-approved model artifact step.
+Future work cannot treat download completion, HF cache paths, ETags, repo
+revisions, local endpoints, raw filesystem paths, or "file exists somewhere" as
+runtime proof. It must produce a receipt first.
+
+Epistemos organ:
+UAS model identity, owner path manifest, AppColdStore quarantine intake,
+SCOPE-Rex/SovereignGate owner approval, RuntimeRouter/System G non-admission,
+RunEventLog, AnswerPacket, rollback, and MAS/Pro claim discipline.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_local_artifact_acquisition_receipt_gate.rs`
+- `agent_core/src/bin/falsify_gemma_local_artifact_acquisition_receipt_gate.rs`
+- `Tools/falsifiers/f_gemma_local_artifact_acquisition_receipt_gate.sh`
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionReceiptGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_local_artifact_acquisition_receipt_gate/result.json`
+
+External refs:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 24 required receipt fields, 4 selectable command-card
+IDs, 12 denied shortcuts, 32 rejection policies, 36 red fixtures rejected, zero
+receipts written/read, zero local file opens, zero hashes, zero path
+canonicalizations, zero local sha256/byte-count verifications, zero downloads,
+zero command execution, zero servers, zero raw owner paths, zero model/runtime/
+provider bytes, zero route/default mutation, and zero promotion claims.
+
+Runtime proof:
+Not run. This is an acquisition receipt-contract witness only.
+
+User-visible proof:
+Not present. Future UI should still say "Gemma not configured" until a real
+local artifact receipt and first runtime receipt exist.
+
+Rollback:
+Bound as a required receipt field. No rollback action executed because no
+acquisition occurred.
+
+Privacy/stability/provenance risks:
+Closed at T1: raw path leakage, HF cache laundering, ETag-as-hash, repo
+revision-as-file-hash, server/endpoint proof, download-as-runtime proof, and
+default-route mutation. Still open: owner approval, real disk artifact,
+sha256/byte verification, disk-space check, first-token runtime receipt,
+quality replay, and release audit.
+
+Why it may be a breakthrough:
+It lets Epistemos move toward an actual Gemma file without weakening the proof
+system. The next action can be small and real: approve one acquisition path and
+produce one receipt.
+
+Why it may be wrong:
+The receipt schema may need extra fields once the exact acquisition method is
+chosen. A browser download, `hf` snapshot, or LiteRT import can expose different
+tool/version and provenance requirements.
+
+Next research query:
+What is the safest first real acquisition receipt: existing local E2B file,
+E2B quarantine download, E4B quarantine download, or 12B LiteRT-LM quarantine
+import?
