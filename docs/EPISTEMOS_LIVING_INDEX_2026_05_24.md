@@ -7795,6 +7795,35 @@ Correct phrasing: "Gemma now has a landed first-runtime proof receipt contract;
 Gemma is still not live, default, quality-proven, route-admitted, L2/L3, T4, or
 user-facing."
 
+### 2026-06-09 - Gemma Runtime Cutover Readiness Snapshot
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The practical Gemma route is now narrower and less abstract:
+`/opt/homebrew/bin/llama-cli` and `/opt/homebrew/bin/llama-server` are present
+at `version: 9370 (aa50b2c2a)` for Darwin arm64, but no owner-approved local
+Gemma GGUF/LiteRT-LM artifact was surfaced by the bounded local scan. The next
+Gemma runtime step therefore needs an exact local E2B/E4B QAT GGUF path or an
+owner-approved import/download plan; it should not treat `llama-cli -hf` or a
+local server as hidden product proof.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as research-to-build canon in
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 227.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no Gemma model bytes, runtime
+  receipt, settings row, default route, or user-facing capability was activated.
+
+Correct phrasing: "Gemma has a local llama.cpp executable ready for a tiny
+proof, but Epistemos still needs an approved local model artifact and receipt
+before Gemma can move toward L2/L3."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

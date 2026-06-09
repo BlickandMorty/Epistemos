@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 226 - Gemma First Runtime Proof Receipt Gate landed">
-  <meta name="epistemos-commit-sha" content="60af96a2e6e7280c4c0ea7965b26a13c97634340">
+  <meta name="epistemos-latest-research-pass" content="Pass 227 - Gemma Runtime Cutover Readiness Snapshot">
+  <meta name="epistemos-commit-sha" content="b5aa0d4140a4a803a3a510085a5ac8d8b56662e9">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1849,6 +1849,22 @@
   state, and does not make Gemma live/default/quality-proven/route-admitted/
   L2/L3/T4/user-facing. Next side-ladder unit:
   <code>gemma_direct_harness_owner_approved_first_runtime_execution_probe</code>.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 227 Gemma runtime cutover readiness folded.</strong>
+  The first real Gemma proof is now concrete: local <code>llama-cli</code> and
+  <code>llama-server</code> exist at <code>version: 9370 (aa50b2c2a)</code>
+  for Darwin arm64, but no owner-approved Gemma GGUF or LiteRT-LM artifact was
+  surfaced by the bounded local scan. The practical split is E2B/E4B QAT GGUF
+  through direct local-file <code>llama-cli -m &lt;approved GGUF&gt;</code> for
+  the first receipt-producing proof, and Gemma 4 12B as a Pro Gated LiteRT-LM
+  lane after package/API, endpoint, sandbox, cancellation, byte/KV,
+  RunEventLog, AnswerPacket, and release-audit witnesses. Do not treat
+  <code>llama-cli -hf</code> or <code>llama-server</code> as hidden product
+  proof. This update opens zero model bytes, arms zero commands, starts zero
+  servers, mutates zero RuntimeRouter/System G/default state, and makes no
+  Gemma live/default/L2/L3/T4/user-facing claim.
 </div>
 
 <div class="canon-hook">
