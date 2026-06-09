@@ -6654,3 +6654,25 @@ working Gemma capability. E2B QAT GGUF remains the first proof lane, E4B is the
 scale-repeat lane, 12B QAT GGUF/LiteRT-LM is the Pro flagship after small-lane
 proof, and 26B/31B/70B-class work remains Pro Research/cold assembly until the
 Gemma ladder proves where ordinary local runtime stops.
+
+### §28.37 Gemma direct lane runtime trap map (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 244 and `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 244 converts current upstream Gemma runtime risk into a pre-runtime trap
+map. The first Gemma proof should be text-only, direct local file, offline, no
+server, no hidden Hugging Face cache, no MTP/drafter, no multimodal `mmproj`
+sidecar, no Swift MLX loader assumption, and no RuntimeRouter/System G/default
+mutation.
+
+Candidate next gate: `F-GemmaDirectHarnessTrapPolicyGate`. It should reject
+`-hf`, URL/model-repo identifiers, `llama-server`, host/port/API flags,
+MTP/drafter flags, multimodal/mmproj flags, HF cache paths, provider paths,
+unbounded context flags, and route/default mutations before any first runtime
+execution probe opens bytes.
+
+Promotion truth: T0/T1 canon/backlog only. This pass lands no falsifier, runs
+no command, opens no model, admits no route, and makes no Gemma L2/L3/T4/user
+claim. It exists to make the later owner-approved E2B/E4B QAT GGUF proof safer
+and faster by removing ambiguous runtime shapes up front.

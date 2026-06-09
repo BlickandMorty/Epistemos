@@ -127,6 +127,15 @@ Runtime policy:
   RunEventLog, AnswerPacket, same-fixture replay, RuntimeRouter/System G
   dry-run admission, WRV, and release-audit evidence before any default,
   L2/L3, T4, or user-facing claim.
+- 2026-06-09 Gemma trap-policy lock: the first E2B/E4B QAT GGUF proof must be
+  text-only, direct local file, offline, no server, no hidden HF cache, no
+  MTP/drafter, no multimodal `mmproj` sidecar, no Swift MLX loader assumption,
+  and no route/default mutation. A future
+  `F-GemmaDirectHarnessTrapPolicyGate` should reject `-hf`, URL/model-repo
+  identifiers, `llama-server`, host/port/API flags, MTP/drafter flags,
+  multimodal/mmproj flags, HF cache paths, provider paths, unbounded context
+  flags, and RuntimeRouter/System G/default mutations before any first runtime
+  execution probe opens bytes.
 - 2026-06-08 release-audit bottleneck lock: do not try to make Gemma the main
   app model by bypassing the current product gate. The guard-owned bottleneck
   is still

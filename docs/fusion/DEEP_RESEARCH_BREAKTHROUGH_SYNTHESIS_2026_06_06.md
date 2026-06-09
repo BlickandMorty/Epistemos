@@ -29354,3 +29354,105 @@ Next research query:
 Which exact local artifact should become the first receipt: freshly acquired
 official E2B QAT GGUF, freshly acquired official E4B QAT GGUF, or the existing
 unverified E4B MLX manifest after a separate Swift-loader receipt?
+
+## Pass 244 - Gemma Direct Lane Runtime Trap Map
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass converts current upstream Gemma runtime signals into a pre-runtime
+trap map. The point is not to slow Gemma down. It is to make the first runtime
+probe boring: text-only, direct local file, offline, no server, no hidden HF
+cache, no MTP/drafter, no multimodal sidecar, no Swift-loader assumption, and
+no route mutation.
+
+Runtime trap map:
+
+| Trap | Source signal | Epistemos rule |
+| --- | --- | --- |
+| `-hf` convenience path | official HF Gemma QAT GGUF cards show `llama-cli -hf ...` examples | useful for acquisition/source cards only; first proof must use `--offline -m <approved local file>` |
+| server endpoint shortcut | official HF cards also show `llama-server -hf ...` examples | deny for first proof; no OpenAI-compatible local endpoint until route/admission/log proof exists |
+| multimodal sidecar drift | E2B/E4B cards include text GGUF plus `mmproj` files | first proof is text-only; deny `mmproj`, image input, and multimodal route claims until a separate artifact card exists |
+| MTP/drafter acceleration | llama.cpp and Gemma docs discuss MTP/speculative paths | deny MTP/drafter flags for first proof; add only after baseline deterministic first-token replay |
+| MLX Swift loader parity | local canon and upstream issue history keep Swift Gemma loader proof unlanded | do not use the existing E4B MLX manifest as the first GGUF proof; require separate Swift-loader receipt |
+| LiteRT-LM package optimism | Google/LiteRT docs make 12B promising on Apple Silicon | keep 12B LiteRT-LM as Pro flagship after E2B/E4B direct-file proof, not the first proof |
+
+Architecture fusion:
+
+The first Gemma direct harness should add a `GemmaDirectHarnessTrapPolicy`
+section to its receipt/runtime packet. It should record:
+
+- denied argv: `-hf`, URL/model repo identifiers, `llama-server`, `--host`,
+  `--port`, `--api-key`, multimodal/mmproj flags, MTP/drafter flags, cache
+  reuse flags, provider flags, unbounded context flags;
+- allowed argv: `llama-cli`, `--offline`, `-m`, approved local GGUF path,
+  synthetic prompt, small token cap, small context cap, timeout/log flags;
+- denied files: unapproved `mmproj`, safetensors, MLX folders, LiteRT bundles,
+  HF cache dirs, provider manifests, and model repos;
+- visible proof: redacted argv digest, tool version/help digest, model sha256,
+  byte count, no-network proof, no-server proof, cancellation, rollback,
+  RunEventLog, AnswerPacket, abstention.
+
+Ranked breakthrough candidate:
+The breakthrough is not a new quant format this pass. It is a fail-closed
+runtime trap policy that lets Epistemos use official Gemma GGUF immediately
+after owner approval without accidentally turning convenience tooling into
+hidden route authority.
+
+Candidate falsifier backlog:
+
+- `F-GemmaDirectHarnessTrapPolicyGate`: metadata-only fixture pack that rejects
+  `-hf`, server, MTP, mmproj, cache, provider, URL, and unbounded-context
+  shortcuts before the first runtime execution probe.
+- `F-GemmaDirectHarnessNoNetworkNoServerProof`: consumes a real first-token
+  receipt later and proves no network/server path was used.
+- `F-GemmaMMProjSeparateAdmissionCard`: future multimodal sidecar proof; not
+  part of first text-only Gemma.
+- `F-MLXSwiftGemmaLoaderParityCard`: future Swift MLX lane proof; separate
+  from GGUF direct-file proof.
+- `F-LiteRTLMGemma12BPackageAndCancellationCard`: future 12B Pro flagship lane.
+
+Tier and status:
+T0/T1 canon/backlog only. No new falsifier landed, no owner approval was
+granted, no model file was opened, no runtime command was run, no network or
+server path was used, no `mmproj`/MTP/MLX/LiteRT path was admitted, and no
+Gemma live/default/L2/L3/T4/user-facing claim was made.
+
+Best breakthrough candidate:
+`F-GemmaDirectHarnessTrapPolicyGate`, because it makes the next actual runtime
+probe safer and faster by eliminating ambiguous runtime shapes before bytes
+open.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessTrapPolicyGate` if continuing metadata hardening, or
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe` only after a real
+owner-approved local GGUF receipt exists.
+
+Best near-term code unit:
+Add a tiny trap-policy verifier consumed by the direct harness receipt packet,
+with exhaustive red fixtures for `-hf`, server, MTP, mmproj, HF cache, URL,
+provider, context, and route-mutation shortcuts.
+
+Biggest false-claim risk:
+Letting a server or `-hf` convenience example produce a token and then calling
+that "local Gemma in Epistemos." The proof must be direct local file, offline,
+redacted, rollback-bound, and non-authoritative until admitted.
+
+Biggest missing source:
+A real owner-approved local Gemma E2B/E4B QAT GGUF receipt plus the exact
+installed `llama-cli` version/help digest.
+
+External sources:
+
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf`
+- `https://github.com/ml-explore/mlx-swift-lm/issues/282`
+- `https://github.com/google-ai-edge/LiteRT-LM`
+- `https://github.com/ggml-org/llama.cpp`
+
+Next research query:
+What exact denylist/allowlist should `F-GemmaDirectHarnessTrapPolicyGate`
+enforce so the first E2B/E4B runtime proof cannot silently become HF-cache,
+server, multimodal, MTP, MLX, LiteRT, provider, or route-mutation proof?
