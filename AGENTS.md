@@ -393,6 +393,18 @@ Runtime policy:
   and makes no Gemma live/default/quality-proven/route-admitted/L2/L3/T4/user-
   facing claim. Next side-ladder unit is
   `gemma_direct_harness_owner_approved_system_g_dry_run_route_packet_gate`.
+- 2026-06-09 Gemma practical runtime cutover canon: future sessions should not
+  keep adding metadata gates without a path to runtime proof. The fastest
+  credible T2 attempt is owner-approved E2B/E4B QAT GGUF through direct
+  `llama-cli`, with no server, no network, bounded prompt/context, redacted
+  first-token receipt, timeout/cancel/teardown, memory/timing samples,
+  rollback, RunEventLog, AnswerPacket, and no hidden RuntimeRouter/System G
+  mutation. LiteRT-LM is the separate 12B Pro-native lane after source-card,
+  package/API, cancellation, sandbox, local endpoint, and byte/KV witnesses.
+  MLX remains one Apple Silicon lane after Swift loader proof. MTP/speculative
+  decoding is an acceleration packet only after base-route equivalence and
+  rollback proof. This pass updates canon only; it does not make Gemma live,
+  default, L2/L3, T4, MAS, or user-facing.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

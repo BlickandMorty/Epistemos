@@ -27246,3 +27246,144 @@ Why it may be wrong:
 the future System G dry-run packet may need stricter route-priority snapshots,
 policy digests, abstention ordering, and AnswerPacket route explanations before
 any user-visible Gemma setting is safe.
+
+## Pass 223 - Gemma Practical Runtime Cutover Canon
+
+Date: 2026-06-09.
+
+Best breakthrough candidate:
+stop treating the Gemma work as an endless metadata ladder. The fastest
+credible route to a usable local model is an owner-approved, non-server,
+single-turn `llama-cli` E2B or E4B QAT GGUF proof that emits a redacted
+first-token receipt, memory/timing samples, cancellation/teardown evidence,
+RunEventLog, and AnswerPacket references. This is the smallest proof that can
+begin moving Gemma from T1 toward T2 without pretending it is already product
+green.
+
+Mechanism:
+use official Google QAT GGUF as the first source lane, because Google states
+GGUF is ready for `llama.cpp` and the official Hugging Face model cards expose
+direct `llama-cli -hf google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0` style
+commands. Keep LiteRT-LM as a separate 12B Pro-native lane because the
+LiteRT-LM README now advertises Gemma 4 E4B/MTP CLI use on macOS, broad
+hardware acceleration, multimodality, tool use, and production edge scope. Keep
+MLX as an Apple Silicon lane only after Swift loader proof exists. Keep MTP as
+an acceleration packet only after the base target model route has visible
+output-digest equivalence and rollback.
+
+Epistemos organ:
+UAS source-card and owner-manifest proof feed AppColdStore candidate identity;
+SCOPE-Rex/SovereignGate admit only an owner-approved direct harness packet;
+RuntimeRouter/System G receives dry-run route evidence only after receipt and
+admission packets exist; RunEventLog and AnswerPacket make the proof visible.
+
+Local refs:
+
+- `AGENTS.md` runtime-plural and Gemma direct-harness locks.
+- `docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md`.
+- `docs/fusion/MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH_2026_06_06.md`.
+- `docs/falsifiers/F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate_2026_06_09.md`.
+- `artifacts/falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/result.json`.
+
+External refs:
+
+- Google Gemma 4 QAT announcement:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`.
+- Official E2B QAT GGUF card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`.
+- Official LiteRT-LM README:
+  `https://github.com/google-ai-edge/LiteRT-LM/blob/main/README.md`.
+- `llama.cpp` Gemma assistant support discussion and bug reports:
+  `https://github.com/ggml-org/llama.cpp/discussions/22735` and
+  `https://github.com/ggml-org/llama.cpp/issues/23161`.
+
+Runtime ladder:
+
+```text
+T0/T1 now:
+  Gemma source cards, owner manifests, byte envelopes, direct-harness receipt
+  contracts, admission contracts, and no-hidden-authority proof.
+
+Next T2 attempt:
+  E2B or E4B QAT GGUF via direct llama-cli, owner-approved local path, one
+  prompt, bounded context, redacted first-token receipt, timeout/cancel,
+  teardown, memory/timing samples, rollback, RunEventLog, AnswerPacket.
+
+Second T2 candidate:
+  12B QAT through LiteRT-LM or GGUF only after package/runtime/source-card,
+  cancellation, sandbox, local endpoint policy, memory/KV budget, and
+  no-hidden-sidecar witnesses exist.
+
+Later acceleration:
+  Gemma MTP/speculative decoding only after base route output equivalence,
+  target verification, acceptance counters, KV/accounting, latency win, and
+  rollback are witnessed.
+
+Larger model track:
+  26B A4B / 31B / future 70B-class stay Pro Research or cold assembly until
+  source pins, byte envelopes, active-parameter truth, cold miss ledgers, and
+  route leases prove fit without live dense-RAM claims.
+```
+
+Buildable falsifier backlog:
+
+- `F-GemmaDirectHarnessOwnerApprovedSystemGDryRunRoutePacketGate`: consume the
+  landed admission gate and require route-priority snapshot, System G policy
+  digest, dry-run route packet, no default mutation, route explanation,
+  rollback, RunEventLog, AnswerPacket, and abstention.
+- `F-GemmaDirectHarnessOwnerApprovedFirstUsableTokenRuntimeProbe`: owner-
+  approved only; runs exactly one direct `llama-cli` command against an
+  owner-supplied E2B/E4B QAT GGUF path; captures only redacted first-token and
+  digest evidence; enforces timeout, cancellation, teardown, memory sampling,
+  no server, no network, no hidden route, rollback, RunEventLog, and
+  AnswerPacket.
+- `F-GemmaRuntimeMainModelPromotionReview`: blocks "main model" copy until
+  repeated same-fixture quality, held-out tasks, local note/coding/writing
+  task families, route admission, settings WRV, release audit, and MAS/Pro
+  copy all pass.
+- `F-LiteRTLMGemma12BProNativeSourceCard`: pins LiteRT-LM repo/version, Swift
+  package/API status, macOS support, model package format, local endpoint
+  policy, cancellation, sandbox, package size, memory/KV budget, rollback,
+  RunEventLog, AnswerPacket, and no hidden sidecar/default route.
+- `F-GemmaMTPAccelerationEquivalencePacket`: compares base route and MTP route
+  on the same fixture, requires target-model output digest equivalence,
+  acceptance counters, latency win, Apple Silicon overhead accounting, and
+  rollback that disables MTP without disabling the base route.
+
+MAS/Pro status:
+E2B/E4B direct harness stays Pro Gated until L2/L3 proof. 12B LiteRT-LM stays
+Pro Gated. MTP stays Pro Research. 26B/31B/70B-class stay Pro Research/Vault
+cold-assembly. MAS receives no hidden server, no hidden subprocess inference,
+no model-default copy, and no live-large-model promise from this pass.
+
+Privacy/stability/provenance risks:
+
+- Public `llama-server`, Ollama, LM Studio, and local OpenAI-compatible server
+  examples are not acceptable hidden product defaults.
+- `-hf` convenience can download model bytes; the product path needs owner
+  path manifests and digest-bound local files before use.
+- Gemma assistant/MTP support is moving quickly and has visible upstream issue
+  history, so MTP must be quarantined until exact runtime revisions and
+  equivalence packets are bound.
+- Community GGUF forks can provide useful failure cases and performance motifs,
+  but official Google QAT Q4_0 remains the baseline until a fork-delta
+  quarantine replay beats it under Epistemos-owned fixtures.
+
+Why it may be a breakthrough:
+it turns the owner's "Gemma can be much easier" instinct into a concrete route:
+do not solve all runtimes first; prove one tiny local Gemma command with
+receipt, logs, rollback, and visible truth, then promote from there. This is
+how the architecture gets out of pure T1 and into capability work without
+weakening safety.
+
+Why it may be wrong:
+`llama.cpp` may be the fastest proof but not the best long-term app runtime.
+LiteRT-LM may become the superior native lane for 12B and smaller models.
+MLX may catch up with Swift loader proof. The canon therefore chooses a first
+runtime proof, not a permanent runtime monopoly.
+
+Next research query:
+What exact owner-approved E2B/E4B `llama-cli` command envelope should be used
+for the first T2 attempt, with no server, no network, bounded context, redacted
+receipt, cancellation/teardown, memory sample, RunEventLog, AnswerPacket, and
+rollback?
