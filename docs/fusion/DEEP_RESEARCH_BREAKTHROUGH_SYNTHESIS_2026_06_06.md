@@ -28678,3 +28678,88 @@ Next research query:
 Should the first owner-approved Gemma runtime proof use the existing unverified
 E4B MLX manifest record as loader bring-up material, or should it acquire an
 E2B/E4B QAT GGUF artifact for the stricter `llama-cli -m` first-token lane?
+
+## Pass 236 - Gemma Progress Cutover And Runtime Tool Reality
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Mechanism:
+This pass answers the "why does it feel slow?" failure mode and folds a more
+concrete Gemma cutover into canon. Adding a model descriptor is already cheap in
+the app. Gemma 4 descriptors and an unverified E4B MLX install-manifest record
+already exist. What is not yet done is the product-grade bridge: a verified
+local artifact receipt, bounded first-token runtime proof, same-fixture quality
+comparison, RuntimeRouter/System G admission, AnswerPacket evidence, and L3
+WRV/release-audit closure.
+
+Local tool reality:
+
+- `llama-cli` is installed on PATH.
+- `llama-server` is installed on PATH, but server mode remains denied as proof
+  for this lane because it can hide state and complicate rollback.
+- `hf` / `huggingface-cli` is not installed on PATH in this shell.
+- `swift` and `xcrun` are installed on PATH.
+- No model files were opened, hashed, loaded, served, or queried in this pass.
+
+External current facts checked:
+
+- Google/Hugging Face official Gemma 4 E2B QAT GGUF exposes llama.cpp local-app
+  examples including `llama-cli -hf google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0`.
+- Google/Hugging Face official Gemma 4 E4B QAT GGUF exposes the parallel
+  `llama-cli -hf google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0` convenience path.
+- The official E4B model card says the QAT family includes ready-to-deploy GGUF
+  Q4_0 variants for E2B, E4B, 12B, 26B A4B, and 31B, plus mobile and
+  compressed-tensors variants.
+- Google's Gemma 4 12B launch page lists LiteRT-LM CLI, llama.cpp, MLX,
+  Transformers, SGLang, and vLLM as development routes.
+
+Epistemos interpretation:
+Official `-hf`, Ollama, LM Studio, server, and provider examples prove
+ecosystem availability, not Epistemos product capability. The shortest safe
+route to real progress is therefore:
+
+```text
+owner-approved local GGUF or MLX receipt
+  -> path digest + sha256 + byte count + source revision
+  -> direct local-file first-token proof
+  -> same-fixture quality replay
+  -> RuntimeRouter/System G dry-run admission
+  -> AnswerPacket + RunEventLog
+  -> L3 WRV/release-audit closure
+```
+
+Near-term lane choice:
+Use E2B or E4B QAT GGUF with direct local-file `llama-cli -m <approved-file>` as
+the fastest proof lane. Treat the existing E4B MLX manifest record as a
+secondary loader-bring-up branch until Swift MLX support for this exact model
+is witnessed. Keep Gemma 4 12B as Pro Gated LiteRT-LM/GGUF research until the
+small lane produces stable receipt, cancellation, memory, and quality evidence.
+
+Why this is progress:
+The loop should stop spending primary energy on "can Gemma exist?" and start
+spending it on "which exact local file, with which digest, under which command,
+produced which receipt?" The installed `llama-cli` makes the next proof
+operationally close once an owner-approved artifact exists.
+
+Why it may be wrong:
+The official `-hf` path might work immediately on this Mac, but it mixes
+network/cache identity with runtime execution. Epistemos should not promote
+that shortcut into canon proof unless a separate receipt binds the downloaded
+local file identity, byte count, checksum, command, rollback, RunEventLog, and
+AnswerPacket.
+
+Tier and status:
+T0/T1 research-to-build canon only. L1 architecture/canon clarified; L2
+capability route remains red at
+`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`;
+L3 user-facing remains red. No RuntimeRouter/System G/default-model state
+changed.
+
+Next research query:
+What is the minimal owner-approved receipt emitter that can transform a local
+Gemma E2B/E4B QAT GGUF path into a redacted, digest-bound, rollback-aware
+first-token command packet without leaking raw paths or counting `-hf` cache
+state as product proof?

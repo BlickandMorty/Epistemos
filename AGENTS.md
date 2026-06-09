@@ -554,6 +554,16 @@ Runtime policy:
   runtime. Treat it as Pro Gated manifest evidence only: either owner-approve
   E4B MLX for loader bring-up with checksum/path receipt, or acquire E2B/E4B
   QAT GGUF for the stricter `llama-cli -m` first-token lane.
+- 2026-06-09 Gemma progress cutover lock: adding a Gemma descriptor is not the
+  bottleneck; verified local artifact receipt and runtime proof are. Host
+  inspection found `llama-cli`, `llama-server`, `swift`, and `xcrun` on PATH,
+  but not `hf` / `huggingface-cli`. Official Gemma E2B/E4B QAT GGUF `-hf`
+  examples and Gemma 4 12B LiteRT/llama.cpp/MLX/vLLM route docs are source-card
+  evidence only, not Epistemos proof. First practical proof should use
+  owner-approved direct local-file `llama-cli -m <approved-file>` with path
+  digest, sha256, byte count, source revision, rollback, RunEventLog,
+  AnswerPacket, no server, no hidden network/cache authority, and no
+  RuntimeRouter/System G/default mutation before admission.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

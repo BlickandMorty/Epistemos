@@ -8059,6 +8059,39 @@ Next practical fork: owner-approve the E4B MLX record for loader bring-up with
 checksum/path receipt, or acquire E2B/E4B QAT GGUF for the stricter
 `llama-cli -m` first-token lane.
 
+### 2026-06-09 - Gemma progress cutover and runtime tool reality
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This entry clarifies why the Gemma loop felt slower than "just add a model."
+The model-descriptor layer is already easy and partly present; the missing
+product bridge is verified local artifact receipt -> first-token runtime proof
+-> same-fixture quality replay -> RuntimeRouter/System G dry-run -> AnswerPacket
+-> L3 WRV/release-audit closure.
+
+Local host inspection found `llama-cli`, `llama-server`, `swift`, and `xcrun`
+on PATH, while `hf` / `huggingface-cli` was not on PATH. Official Gemma 4
+E2B/E4B QAT GGUF pages expose `llama-cli -hf ...:Q4_0` examples, and Google's
+Gemma 4 12B page names LiteRT-LM CLI, llama.cpp, MLX, Transformers, SGLang, and
+vLLM routes. Epistemos treats those as source-card evidence only.
+
+Layer truth:
+
+- L1 architecture/canon: clarified by
+  `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 236.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged and still red; no model bytes
+  were opened, hashed, loaded, served, queried, route-admitted, or made default.
+
+Next practical Gemma unit: owner-approved local E2B/E4B QAT GGUF receipt emitter
+or probe that binds path digest, sha256, byte count, source revision, rollback,
+RunEventLog, AnswerPacket, and a direct local-file `llama-cli -m` command before
+any first-token claim.
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
