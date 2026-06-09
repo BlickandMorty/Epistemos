@@ -480,6 +480,18 @@ Runtime policy:
   as proof. It starts zero downloads, opens zero files, hashes zero files, arms
   or executes zero commands, starts zero servers, loads zero model/runtime/
   provider bytes, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
+- 2026-06-09 Gemma main-model promotion ladder: Gemma can become the practical
+  local-model lane only by climbing source card -> owner-approved acquisition
+  -> direct local-file receipt -> same-fixture quality replay -> RuntimeRouter
+  admission -> System G dry-run -> WRV/release audit. E2B/E4B QAT GGUF via
+  direct `llama-cli -m <owner-approved-local-gguf>` are the proving lane; Gemma
+  4 12B LiteRT-LM/GGUF is the Pro flagship candidate after package/API,
+  sandbox, cancellation, byte/KV, rollback, RunEventLog, AnswerPacket, and
+  release-audit proof. Do not make a picker row, `llama-cli -hf`, `llama-server`,
+  LiteRT-LM `serve`, HF cache path, local endpoint, or model card count as main
+  model capability. The next buildable Gemma unit is still the owner-approved
+  first-runtime execution probe or a fail-closed acquisition/import step that
+  supplies the exact local GGUF/LiteRT artifact.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
