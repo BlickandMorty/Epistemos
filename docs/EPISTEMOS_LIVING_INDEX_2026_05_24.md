@@ -7937,6 +7937,38 @@ Layer truth:
 Correct phrasing: "Gemma now has an acquisition receipt contract; it still
 needs an owner-approved real receipt before runtime proof."
 
+### 2026-06-09 - Gemma official runtime source validation folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 232 updates
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` with current
+official-source validation for the Gemma-first build path. Official Hugging
+Face E2B/E4B QAT GGUF cards support the direct GGUF/llama.cpp source lane, and
+Google's Gemma 4 12B developer guide supports a LiteRT-LM reference lane for
+the Pro 12B target. This is build pressure only: `-hf`, `llama-server`,
+LiteRT-LM `serve`, local endpoints, Ollama/LM Studio/Pi/Hermes examples, and
+model-card snippets remain convenience references, not Epistemos proof. The
+required path remains source card -> owner-approved acquisition command ->
+acquisition receipt with sha256/byte/tool-version evidence -> direct local-file
+one-token receipt -> same-fixture replay -> RuntimeRouter admission -> System G
+dry-run -> WRV/release audit.
+
+Layer truth:
+
+- L1 architecture/canon: unchanged by this doc-only research pass; it clarifies
+  the build path after the landed acquisition receipt gate.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no Gemma local
+  artifact receipt, runtime receipt, route admission, or default setting exists.
+
+Correct phrasing: "Official Gemma sources make the local proof path easier;
+they do not make Gemma configured, live, default, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

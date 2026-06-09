@@ -100,6 +100,16 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > receipts written/read, zero file opens/hashes/path canonicalization, zero
 > downloads/commands/servers, zero raw owner paths, zero model/runtime/provider
 > bytes, and no Gemma live/default/L2/L3/T4 claim.
+> Pass 232 validates current official Gemma sources for the build path without
+> promoting runtime capability: the Hugging Face E2B/E4B QAT GGUF cards prove
+> llama.cpp-oriented source availability, and the Google Gemma 4 12B developer
+> guide proves a LiteRT-LM local-serving reference lane, but `-hf`,
+> `llama-server`, LiteRT-LM `serve`, local endpoints, Ollama/LM Studio/Pi/
+> Hermes examples, and model-card snippets are convenience references only.
+> The required Epistemos path remains source card -> owner-approved acquisition
+> command -> acquisition receipt with sha256/byte/tool-version evidence ->
+> direct local-file one-token receipt -> same-fixture replay -> RuntimeRouter
+> admission -> System G dry-run -> WRV/release audit.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,
