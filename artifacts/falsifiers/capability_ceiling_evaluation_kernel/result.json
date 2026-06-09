@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "3d0233dd6fbec195c221a873b2a537f8b4b360bf",
+  "commit_sha": "8392c3aed55292ded240deacbca11762aebf8b32",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-09T01:07:19Z",
+  "timestamp_utc": "2026-06-09T01:28:10Z",
   "result_digest": "sha256:b5f36d19adef1f579d73acd90fbf87d5577b67a723d12387e8fce1f395f416d9",
   "measurements": {
     "ablation_shadow_run_pass": {

@@ -27071,3 +27071,61 @@ the future token digest review may need stricter tokenizer/chat-template
 binding or additional transcript integrity fields. Those additions must remain
 owner-approved, visible, rollbackable, and non-promotional until L2 and L3
 evidence exists.
+
+## Pass 220 - F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate landed
+
+Date: 2026-06-09.
+
+Best breakthrough candidate:
+make any future Gemma first-token observation digest-only, owner-approved,
+reviewer-visible, rollbackable, and unable to influence quality or routing
+until same-fixture replay proof exists.
+
+Mechanism:
+`F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate` consumes the
+landed redacted dry-run receipt witness and binds the future first-token digest
+review shape. It requires owner/model/llama.cpp identity, prompt and
+first-token digests, tokenizer and chat-template identity, stdout/stderr/exit/
+memory/timing digests, rollback, RunEventLog, AnswerPacket, abstention,
+reviewer-visible summary, no-raw-token proof, and no quality or route claim.
+
+Epistemos organ:
+UAS + Verification plane, feeding the future same-fixture quality packet before
+any RuntimeRouter/System G admission, WRV, or product default can exist.
+
+Artifact:
+`artifacts/falsifiers/gemma_direct_harness_owner_approved_first_token_digest_review_gate/result.json`.
+
+Proof:
+the witness passed with 24 review fields, 46 abort conditions, 49 red-fixture
+rejections, zero receipt bytes read, zero review bytes written, zero live
+tokens observed, zero command arming or execution, zero process spawns, zero
+model/runtime/provider bytes, zero raw prompt/output/stdout/stderr/token bytes,
+zero RuntimeRouter/System G/settings/default mutation, and no Gemma
+live/default/L2/L3/T4 claim.
+
+Tier truth:
+
+- T0 research/canon: advanced.
+- T1/L1 architecture proof: advanced as metadata-only side-ladder evidence.
+- T2/L2 capability route: unchanged and red.
+- T3/L3 WRV/user-facing: unchanged and red.
+- T4/T5 green: no.
+
+Next single build unit:
+`F-GemmaDirectHarnessOwnerApprovedSameFixtureQualityPacketGate`, because the
+digest review contract exists, but there is still no same-fixture quality
+packet, route admission, settings WRV, product capability proof, or live
+default model.
+
+Biggest false-claim risk:
+calling a digest review contract "Gemma running." It is still not execution,
+not token proof, not quality proof, not memory-fit proof, and not a
+user-facing lane. It only blocks later evidence from retaining raw private
+token material or bypassing review.
+
+Why it may be wrong:
+the future same-fixture quality packet may require stricter scorer provenance,
+prompt contamination checks, or comparison against Apple Intelligence/Qwen
+baselines. Those additions must remain owner-approved, visible, rollbackable,
+and non-promotional until L2 and L3 evidence exists.

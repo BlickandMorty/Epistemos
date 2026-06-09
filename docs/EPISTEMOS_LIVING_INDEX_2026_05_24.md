@@ -7438,6 +7438,54 @@ Layer truth:
 Correct phrasing: "Gemma now has a landed redacted dry-run receipt contract;
 Gemma is still not live, default, L2/L3, T4, or user-facing."
 
+### 2026-06-09 - F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate` is now
+implemented as a metadata-only T1/L1 primary witness:
+
+- Source:
+  `agent_core/src/uas/gemma_direct_harness_owner_approved_first_token_digest_review_gate.rs`.
+- Falsifier:
+  `agent_core/src/bin/falsify_gemma_direct_harness_owner_approved_first_token_digest_review_gate.rs`.
+- Script:
+  `Tools/falsifiers/f_gemma_direct_harness_owner_approved_first_token_digest_review_gate.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate_2026_06_09.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_owner_approved_first_token_digest_review_gate/result.json`.
+
+The witness consumes the landed owner-approved redacted dry-run receipt gate,
+then binds 24 first-token review fields, 46 abort conditions, owner/model/
+llama.cpp identity, prompt and first-token digests, tokenizer and chat-template
+identity, stdout/stderr/exit/memory/timing digests, rollback, RunEventLog,
+AnswerPacket, abstention, reviewer-visible summary, no-raw-token proof, and no
+quality or route claim. It rejects 49 red fixtures, reads zero receipt bytes,
+writes zero review bytes, observes zero live tokens, arms zero commands,
+executes zero commands, spawns zero processes, loads zero model/runtime/
+provider bytes, captures zero raw prompt/output/stdout/stderr/token bytes,
+mutates zero RuntimeRouter/System G/settings/default state, and does not make
+Gemma live/default/L2/L3/T4/user facing.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate` advances as
+  metadata-only T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, first token, review file,
+  or product capability was activated.
+
+Correct phrasing: "Gemma now has a landed first-token digest review contract;
+Gemma is still not live, default, L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
