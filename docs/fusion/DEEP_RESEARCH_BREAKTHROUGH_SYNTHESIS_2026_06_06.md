@@ -27616,3 +27616,91 @@ Next research query:
 What local owner-approved Gemma E2B or E4B GGUF path and local `llama-cli`
 binary/version should the first execution probe bind, and should the first live
 receipt target one token, four tokens, or a tiny JSON object?
+
+## Pass 225 - F-GemmaDirectHarnessFirstRuntimeProofCommandCard landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaDirectHarnessFirstRuntimeProofCommandCard` is now a landed
+metadata-only T1/L1 primary witness. It converts Pass 224's command-card
+envelope from backlog into code, artifact, validator coverage, handbook/schema
+rows, Living Index canon, and lattice visibility.
+
+Mechanism:
+The command card constrains the first practical Gemma local runtime proof to an
+owner-approved local GGUF through direct `llama-cli -m <approved-file>`. It
+binds 36 command-card fields, 16 allowed argv flags, 21 denied argv/
+environment/server/provider flags, 16 future receipt fields, bounded context
+and prediction, fixed seed, digest-only prompt/grammar/receipt evidence,
+timeout/cancel/teardown, stdio caps, memory sampler, SCOPE-Rex, SovereignGate,
+rollback, RunEventLog, AnswerPacket, abstention, and non-promotion.
+
+Why it matters:
+This is the first concrete build step that makes "Gemma should be easy" true in
+Epistemos' own architecture. It does not run Gemma, but it removes ambiguity
+from the future run: no `-hf`, no server, no endpoint, no hidden provider, no
+unbounded generation, no raw transcript retention, no route/default mutation,
+and no product green claim from a token.
+
+Epistemos organ:
+RuntimeRouter/System G admission boundary, SCOPE-Rex/SovereignGate admission,
+RunEventLog, AnswerPacket, and UAS model identity.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_direct_harness_first_runtime_proof_command_card.rs`
+- `agent_core/src/bin/falsify_gemma_direct_harness_first_runtime_proof_command_card.rs`
+- `Tools/falsifiers/f_gemma_direct_harness_first_runtime_proof_command_card.sh`
+- `docs/falsifiers/F-GemmaDirectHarnessFirstRuntimeProofCommandCard_2026_06_09.md`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 77 red fixtures rejected, zero command-card bytes
+written/read, zero owner path opens, zero command arming/execution, zero process
+spawn, zero server start, zero network/hub/endpoint allowance, zero
+model/runtime/provider bytes, zero raw private bytes, zero mutation, zero hidden
+authority, and zero promotion claims.
+
+Runtime proof:
+not run. The next safe runtime-adjacent unit is
+`F-GemmaDirectHarnessFirstRuntimeProofReceiptGate`; only after that should an
+owner-approved `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`
+execute exactly one bounded local command-card.
+
+User-visible proof:
+not present. Future L3 needs settings/diagnostics and AnswerPacket visibility
+that say receipt captured, caveated, and non-default until release audit.
+
+Rollback:
+Future receipt/execution gates must bind rollback before any command evidence
+can feed RuntimeRouter/System G.
+
+Privacy/stability/provenance risks:
+The main closed risks are hidden Hugging Face download/cache authority,
+server/port/provider fallback, raw transcript retention, unbounded generation,
+and default-route mutation. Remaining risks are exact local model path,
+llama.cpp binary/version compatibility, actual memory behavior, and quality.
+
+Why it may be a breakthrough:
+It gives Gemma the smallest honest runtime bridge: one local file, one bounded
+command, one redacted receipt, then review. That is fast enough to satisfy the
+need for visible progress while still preserving Epistemos' proof law.
+
+Why it may be wrong:
+The first live command may need flag adjustments for the installed `llama-cli`
+version, and E2B vs E4B selection depends on what local GGUF file the owner
+approves. The command card therefore remains a contract until the receipt gate
+and owner-approved execution probe bind exact local materials.
+
+Next research query:
+Which local `llama-cli` binary/version and owner-approved Gemma E2B/E4B GGUF
+path should the first receipt-producing execution probe bind, and what is the
+smallest reviewer-useful output shape: one token, four tokens, or a tiny JSON
+object?

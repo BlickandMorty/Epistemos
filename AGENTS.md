@@ -418,6 +418,23 @@ Runtime policy:
   timeout/cancel/teardown evidence, timing/memory digests, rollback,
   RunEventLog, AnswerPacket, abstention, reviewer summary, and no-promotion
   flags.
+- 2026-06-09 Gemma first runtime proof command-card status:
+  `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` is now landed as
+  metadata-only L1/T1. It consumes the landed owner-approved RuntimeRouter
+  admission packet gate, binds 36 command-card fields, 16 allowed argv flags,
+  21 denied argv/environment/server/provider flags, local `llama-cli -m`
+  policy, single-turn/no-display-prompt/show-timings, bounded context and
+  prediction, fixed seed, digest-only prompt/grammar/receipt policy,
+  timeout/cancel/teardown, stdio cap, memory sampler, SCOPE-Rex,
+  SovereignGate, rollback, RunEventLog, AnswerPacket, abstention,
+  non-promotion, and 77 red-fixture rejections. It writes zero command-card
+  bytes, opens zero owner/model/llama.cpp paths, arms or executes zero
+  commands, spawns zero processes, starts zero servers, allows zero
+  network/hub/endpoint route, captures zero raw path/prompt/stdout/stderr/token
+  bytes, loads zero model/runtime/provider bytes, mutates zero RuntimeRouter/
+  System G/settings/default state, and makes no Gemma
+  live/default/quality-proven/route-admitted/L2/L3/T4/user-facing claim. Next
+  side-ladder unit is `gemma_direct_harness_first_runtime_proof_receipt_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,

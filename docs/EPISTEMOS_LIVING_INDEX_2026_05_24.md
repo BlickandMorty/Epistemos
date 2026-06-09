@@ -7692,6 +7692,57 @@ Layer truth:
 Correct phrasing: "Gemma now has an exact first-runtime-proof envelope; Gemma
 is still not live, default, route-admitted, L2/L3, T4, or user-facing."
 
+### 2026-06-09 - F-GemmaDirectHarnessFirstRuntimeProofCommandCard landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessFirstRuntimeProofCommandCard` is now implemented as a
+metadata-only T1/L1 primary witness:
+
+- Source:
+  `agent_core/src/uas/gemma_direct_harness_first_runtime_proof_command_card.rs`.
+- Falsifier:
+  `agent_core/src/bin/falsify_gemma_direct_harness_first_runtime_proof_command_card.rs`.
+- Script:
+  `Tools/falsifiers/f_gemma_direct_harness_first_runtime_proof_command_card.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessFirstRuntimeProofCommandCard_2026_06_09.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json`.
+
+The witness consumes the landed owner-approved RuntimeRouter admission packet
+gate, then binds 36 command-card fields, 16 allowed argv flags, 21 denied
+argv/environment/server/provider flags, direct local `llama-cli -m` GGUF policy,
+single-turn/no-display-prompt/show-timings, bounded context and prediction,
+fixed seed, digest-only prompt/grammar/receipt policy, timeout/cancel/teardown,
+stdio cap, memory sampler, SCOPE-Rex, SovereignGate, rollback, RunEventLog,
+AnswerPacket, abstention, non-promotion, and 77 red-fixture rejections. It
+writes zero command-card bytes, opens zero owner/model/llama.cpp paths, arms
+zero commands, executes zero commands, spawns zero processes, starts zero
+servers, allows zero network/hub/endpoint route, loads zero
+model/runtime/provider bytes, captures zero raw path/prompt/stdout/stderr/token
+bytes, mutates zero RuntimeRouter/System G/settings/default state, and does not
+make Gemma live/default/quality-proven/route-admitted/L2/L3/T4/user-facing.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` advances as metadata-only
+  T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, receipt, or product
+  capability was activated.
+
+Correct phrasing: "Gemma now has a landed first-runtime proof command-card
+contract; Gemma is still not live, default, quality-proven, route-admitted,
+L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

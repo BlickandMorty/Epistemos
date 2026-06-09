@@ -749,6 +749,24 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > unbounded generation, implicit context, MTP/draft flags, raw prompt/output
 > retention, MAS claims, route/default mutation, and L2/L3/T4 promotion. It
 > updates canon only; no command was armed or run.
+> Current addendum: `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` is now
+> landed as metadata-only T1/L1 evidence. Artifact:
+> `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json`.
+> It consumes the landed owner-approved RuntimeRouter admission packet gate,
+> binds 36 command-card fields, 16 allowed argv flags, 21 denied
+> argv/environment/server/provider flags, local `llama-cli -m` policy,
+> single-turn/no-display-prompt/show-timings, bounded context and prediction,
+> fixed seed, digest-only prompt/grammar/receipt policy, timeout/cancel/
+> teardown, stdio cap, memory sampler, SCOPE-Rex, SovereignGate, rollback,
+> RunEventLog, AnswerPacket, abstention, non-promotion, and 77 red-fixture
+> rejections. It writes zero command-card bytes, opens zero
+> owner/model/llama.cpp paths, arms or executes zero commands, spawns zero
+> processes, starts zero servers, allows zero network/hub/endpoint route,
+> captures zero raw path/prompt/stdout/stderr/token bytes, loads zero
+> model/runtime/provider bytes, mutates zero RuntimeRouter/System G/settings/
+> default state, and makes no Gemma live/default/quality-proven/route-admitted/
+> L2/L3/T4/user-facing claim. Next side-ladder unit:
+> `gemma_direct_harness_first_runtime_proof_receipt_gate`.
 > Current addendum: Deep Research Pass 153 in the same file folds current
 > Inspect AI, Hugging Face LightEval, EleutherAI lm-evaluation-harness,
 > LiveCodeBench, Terminal-Bench, SWE-bench Verified caution, and Ragas-style
