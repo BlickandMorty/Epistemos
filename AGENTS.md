@@ -545,6 +545,15 @@ Runtime policy:
   `gemma_owner_approved_local_artifact_receipt_probe`; do not scan Downloads,
   HF cache, or LiteRT imports without explicit owner approval and redacted
   receipt rules.
+- 2026-06-09 local Gemma E4B manifest reconciliation: the app install manifest
+  contains `mlx-community/gemma-4-e4b-it-4bit` at revision
+  `62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc`, recorded size `5,249,804,507`
+  bytes, installed `2026-04-18T17:34:41Z`, with no `checksumVerification`
+  field. Per `LocalModelInstallRecord`, missing checksum metadata decodes as
+  unverified legacy metadata. Do not call this a configured or live Gemma
+  runtime. Treat it as Pro Gated manifest evidence only: either owner-approve
+  E4B MLX for loader bring-up with checksum/path receipt, or acquire E2B/E4B
+  QAT GGUF for the stricter `llama-cli -m` first-token lane.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
