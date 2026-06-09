@@ -61,6 +61,7 @@ pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_direct_harness_artifact_receipt_map;
 pub mod gemma_direct_harness_owner_approved_command_envelope_gate;
+pub mod gemma_direct_harness_owner_approved_first_token_digest_review_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_emitter_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_preflight_packet_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_runbook_gate;
@@ -461,6 +462,18 @@ pub use gemma_direct_harness_owner_approved_command_envelope_gate::{
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_ID,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_UPSTREAM_REF,
+};
+pub use gemma_direct_harness_owner_approved_first_token_digest_review_gate::{
+    required_gemma_direct_harness_owner_approved_first_token_review_abort_conditions,
+    required_gemma_direct_harness_owner_approved_first_token_review_fields,
+    GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate,
+    GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGateError,
+    GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGateMetrics,
+    GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGateStatus,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_ID,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate::{
     required_gemma_direct_harness_owner_approved_redacted_receipt_abort_conditions,
