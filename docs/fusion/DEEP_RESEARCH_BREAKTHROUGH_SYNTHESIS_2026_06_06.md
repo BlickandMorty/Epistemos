@@ -28844,3 +28844,141 @@ Next research query:
 Can the next owner-approved receipt emitter bind `--offline` help/version proof
 and a local E2B/E4B GGUF file digest without opening or leaking raw paths before
 the actual one-token execution probe?
+
+## Pass 238 - Gemma Owner-Approved Artifact Receipt Cutline
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Mechanism:
+The next useful Gemma move is not another abstract model recommendation. It is
+a small owner-approved local-artifact receipt cutline that separates four
+states which future agents must not blur:
+
+```text
+official source card
+  != local candidate discovered
+  != owner-approved local artifact receipt
+  != runtime first-token receipt
+```
+
+The receipt should be a redacted, digest-only bridge from "a human approved
+this exact local Gemma artifact" to the already-landed first-runtime command
+card. It must bind model family, model id, source repo, source revision,
+expected filename, expected byte count, observed byte count, file sha256,
+redacted path digest, file type, runtime lane, approved command-card id,
+`llama-cli` version/help digest, `--offline` presence, rollback, RunEventLog,
+AnswerPacket, abstention, reviewer summary, and non-promotion.
+
+What changed in the research:
+External source validation now makes the split sharper:
+
+- Official Hugging Face Gemma 4 E2B QAT GGUF and E4B QAT GGUF cards expose
+  `llama-cli -hf ...:Q4_0` and `llama-server -hf ...:Q4_0` convenience paths.
+  These are source-card evidence only.
+- The E4B card says QAT GGUF Q4_0 formats are ready-to-deploy for broad
+  ecosystem compatibility and are available across E2B, E4B, 12B, 26B A4B, and
+  31B.
+- Google's Gemma 4 12B guide says LiteRT-LM supports offline Apple Silicon
+  execution and a local OpenAI-compatible `litert-lm serve` path.
+- Local `llama-cli --help` confirms `--offline` prevents network access while
+  `-hf`, `--hf-repo`, `--hf-file`, `--hf-token`, and `--model-url` are
+  hub/download/cache-facing surfaces.
+
+Epistemos translation:
+Use E2B/E4B QAT GGUF as the first owner-approved direct-file proof lane because
+it can be proven with one local file and one `llama-cli --offline -m` command.
+Keep Gemma 4 12B as the Pro flagship lane, but do not begin with LiteRT-LM
+server integration because a local endpoint would add sandbox, lifecycle,
+port, cache, prefix-state, and MAS/Pro boundary proof before the app has even
+shown one local artifact receipt. The 12B lane should follow once the E2B/E4B
+receipt and runtime proof machinery is boring.
+
+Buildable falsifier backlog:
+
+- `F-GemmaOwnerApprovedLocalArtifactReceiptProbe`: consumes the discovery
+  runbook and acquisition receipt gate, accepts only an explicit owner-approved
+  receipt fixture, binds model/source/path-digest/sha256/byte-count/runtime-lane
+  identity, stores zero raw paths, opens zero model bytes unless the owner
+  approval fixture explicitly authorizes metadata inspection, and makes no
+  runtime claim.
+- `F-GemmaDirectHarnessFirstRuntimeExecutionProbe`: consumes the local-artifact
+  receipt and command-card/receipt contracts, runs at most a one-token
+  synthetic non-user prompt only after owner approval, records digest-only
+  stdout/stderr/first-token/timing/memory/exit evidence, and leaves RuntimeRouter
+  and System G untouched.
+- `F-GemmaRuntimeProofToAdmissionBridge`: consumes a real runtime receipt plus
+  same-fixture quality replay, then produces a non-default Pro Gated admission
+  packet that RuntimeRouter/System G may dry-run without making Gemma the main
+  model.
+- `F-Gemma12BLiteRTLMProAdmissionSourcePacket`: source-card/API/sandbox/
+  lifecycle packet for the later 12B lane; it must deny `litert-lm serve` as
+  product capability until endpoint lifecycle, local-only proof, cancellation,
+  memory envelope, rollback, RunEventLog, and AnswerPacket are witnessed.
+
+Architecture fusion:
+The receipt cutline belongs in UAS/OAS for identity, AppColdStore for dormant
+artifact residency, SCOPE-Rex/SovereignGate for owner approval and non-promotion,
+RuntimeRouter/System G for later dry-run route admission, RunEventLog for
+replay, AnswerPacket for visible truth, and the MAS/Pro boundary for product
+copy. It should not be a hidden model picker state, hidden HF cache detector,
+or local endpoint shortcut.
+
+Runtime ladder:
+
+1. E2B QAT GGUF direct local artifact receipt.
+2. E2B QAT GGUF one-token `llama-cli --offline -m` synthetic proof.
+3. E2B same-fixture quality replay.
+4. E2B RuntimeRouter/System G dry-run admission with AnswerPacket.
+5. Repeat the same receipt/proof/replay path for E4B.
+6. Only then evaluate Gemma 4 12B GGUF or LiteRT-LM as Pro flagship.
+7. Return to 26B/31B/70B-class cold assembly only after the Gemma ladder proves
+   where ordinary local runtime stops.
+
+Privacy, stability, provenance:
+Do not store raw owner paths in artifacts. Do not treat HF cache paths,
+`llama-cli -hf`, `llama-server`, LiteRT-LM `serve`, Ollama, LM Studio, Pi,
+Hermes, or model-card examples as proof. Do not run a model from a prompt,
+Downloads scan, or cache hit without an explicit owner-approved receipt. Do not
+persist raw prompt/output/stdout/stderr/token bytes. Do not route user notes to
+Gemma until the admission bridge and WRV/release-audit evidence exist.
+
+Why it may be a breakthrough:
+It converts the large-model problem from "which runtime should we believe?" to
+"which exact local artifact, command, digest, and receipt earned the next
+permission?" That is the smallest bridge from research to a real local Gemma
+lane while preserving the 70B/cold-assembly ambition for later scale.
+
+Why it may be wrong:
+The first owner-approved local artifact might be the already-manifested E4B MLX
+record rather than an E2B/E4B GGUF file. If so, the same receipt cutline still
+applies, but the first runtime proof must use an MLX loader-specific path and
+cannot reuse the GGUF `llama-cli --offline -m` command-card without a new
+loader witness.
+
+Tier and status:
+T0/T1 research-to-build canon. No product code changed, no model bytes were
+opened, no owner path was scanned, no command was armed, and no Gemma route,
+default, L2, L3, T4, or user-facing capability was promoted.
+
+Sources:
+
+- Local: `AGENTS.md`, `CLAUDE.md`,
+  `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md`,
+  `docs/falsifiers/F-GemmaLocalArtifactDiscoveryRunbookGate_2026_06_09.md`,
+  `docs/falsifiers/F-GemmaDirectHarnessFirstRuntimeProofCommandCard_2026_06_09.md`.
+- External: `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`,
+  `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`,
+  `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`.
+- Local command evidence: `llama-cli --help` on this Mac exposes `--offline`,
+  `-hf`, `--hf-repo`, `--hf-file`, `--hf-token`, `--model-url`,
+  `--ctx-size`, `--predict`, `--single-turn`, `--no-display-prompt`,
+  `--show-timings`, and `--seed`.
+
+Next research query:
+What exact owner approval phrase and redacted receipt schema should
+`F-GemmaOwnerApprovedLocalArtifactReceiptProbe` require so it can hash an
+approved local Gemma file without leaking raw paths or becoming a general
+Downloads scanner?

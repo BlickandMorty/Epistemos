@@ -8118,6 +8118,39 @@ Layer truth:
 Correct phrasing: "The Gemma first-runtime command-card contract now requires
 `--offline`; Gemma is still not live/default/L2/L3/T4/user-facing."
 
+### 2026-06-09 - Gemma owner-approved artifact receipt cutline
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 238 turns the next Gemma step into a buildable receipt
+cutline:
+
+`official source card != local candidate discovered != owner-approved local
+artifact receipt != runtime first-token receipt`.
+
+The next practical falsifier should be
+`F-GemmaOwnerApprovedLocalArtifactReceiptProbe`. It should consume the landed
+Gemma discovery/acquisition gates, require an explicit owner-approved receipt
+fixture, bind model id, source repo/revision, expected filename, expected and
+observed bytes, sha256, redacted path digest, runtime lane, `llama-cli`
+version/help digest, `--offline` presence, rollback, RunEventLog, AnswerPacket,
+abstention, reviewer summary, and non-promotion.
+
+Layer truth:
+
+- L1 architecture/canon: Pass 238 advances research-to-build canon only.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged and still red; no owner path
+  was scanned, no model file was opened or hashed, no command was armed, and no
+  Gemma route/default/user surface was promoted.
+
+Correct phrasing: "The next Gemma step is an owner-approved artifact receipt,
+not a model picker flip or an HF/server shortcut."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
