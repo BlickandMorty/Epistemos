@@ -28982,3 +28982,71 @@ What exact owner approval phrase and redacted receipt schema should
 `F-GemmaOwnerApprovedLocalArtifactReceiptProbe` require so it can hash an
 approved local Gemma file without leaking raw paths or becoming a general
 Downloads scanner?
+
+## Pass 239 - F-GemmaOwnerApprovedLocalArtifactReceiptProbe landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedLocalArtifactReceiptProbe` is now a landed metadata-only
+T1/L1 witness, not just a research proposal. It consumes
+`F-GemmaLocalArtifactDiscoveryRunbookGate` and freezes the exact local-artifact
+receipt contract that must exist before any Gemma direct-harness runtime proof.
+
+Mechanism:
+The probe binds 28 receipt fields, 4 allowed model ids, 3 runtime lanes, 14
+denied shortcuts, 36 rejection policies, rollback, RunEventLog, AnswerPacket,
+abstention, non-promotion, and 46 rejected red fixtures. It explicitly requires
+owner approval while granting none.
+
+Architecture fusion:
+The new witness belongs in UAS/OAS and the Verification plane. It gives
+SCOPE-Rex/SovereignGate a hard precondition for the next owner-approved runtime
+probe: a future receipt may bind sha256, byte count, redacted path digest,
+source revision, runtime lane, and tool identity, but this metadata witness
+itself cannot open a file, hash a file, execute `llama-cli`, mutate System G,
+or feed RuntimeRouter.
+
+Files landed:
+
+- `agent_core/src/uas/gemma_owner_approved_local_artifact_receipt_probe.rs`
+- `agent_core/src/bin/falsify_gemma_owner_approved_local_artifact_receipt_probe.rs`
+- `Tools/falsifiers/f_gemma_owner_approved_local_artifact_receipt_probe.sh`
+- `docs/falsifiers/F-GemmaOwnerApprovedLocalArtifactReceiptProbe_2026_06_09.md`
+- `artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_probe/result.json`
+
+Tier and status:
+T1/L1 metadata-only. No owner path was scanned, no raw path was stored, no file
+was opened or hashed, no `llama-cli --help` or `--version` command ran, no
+command was armed, no server or network probe started, no model/runtime/provider
+bytes loaded, no RuntimeRouter/System G/settings/default mutation occurred, and
+no Gemma live/default/L2/L3/T4/user-facing claim was made.
+
+Best breakthrough candidate:
+Use E2B/E4B QAT GGUF as the first owner-approved direct-file proof lane, with
+Gemma 4 12B LiteRT-LM held as a Pro flagship after the direct-file harness is
+boring.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`, but only after a
+real owner-approved local artifact receipt exists.
+
+Best near-term code unit:
+Build the receipt emitter/reader boundary that accepts an owner-approved,
+redacted local artifact receipt and refuses raw paths, cache shortcuts, server
+shortcuts, network fallback, and hidden route authority.
+
+Biggest false-claim risk:
+Calling the receipt contract "Gemma is added." It is not. It is the last
+metadata rail before an owner-approved tiny runtime proof.
+
+Biggest missing source:
+A real owner-approved local E2B/E4B GGUF or approved MLX/LiteRT artifact
+receipt with file sha256, byte count, source revision, and redacted path digest.
+
+Next research query:
+What is the smallest owner-approved Gemma E2B/E4B local artifact receipt shape
+that can be produced without raw path leakage and then consumed by a one-token
+direct `llama-cli --offline -m <approved-file>` proof?

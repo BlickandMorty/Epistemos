@@ -8028,6 +8028,36 @@ Correct phrasing: "The local Gemma discovery runbook is safe and witnessed; no
 local Gemma artifact has been found, approved, opened, hashed, loaded, or
 promoted by this witness."
 
+### 2026-06-09 - F-GemmaOwnerApprovedLocalArtifactReceiptProbe landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedLocalArtifactReceiptProbe` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_probe/result.json`.
+It consumes the local discovery runbook and freezes the receipt fields required
+before an owner-approved local Gemma artifact can feed any first-token proof.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 28 receipt fields, 4
+  allowed model ids, 3 runtime lanes, 14 denied shortcuts, 36 rejection
+  policies, and 46 red fixtures are bound.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no owner
+  approval was granted, no receipt fixture was created, no path was scanned or
+  canonicalized, no file was opened or hashed, no `llama-cli` command ran, no
+  model/runtime/provider bytes loaded, and no Gemma route/default/user surface
+  changed.
+
+Correct phrasing: "The owner-approved Gemma local artifact receipt contract is
+witnessed; no Gemma artifact has been approved, opened, hashed, loaded,
+route-admitted, or promoted by this witness."
+
 ### 2026-06-09 - Local Gemma E4B manifest reconciliation
 
 North-star sentence: Epistemos is a local cognitive substrate where every
