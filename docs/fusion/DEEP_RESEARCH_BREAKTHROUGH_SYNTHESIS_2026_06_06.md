@@ -28413,3 +28413,95 @@ Next research query:
 What exact local acquisition receipt should be produced first, and can it use
 E2B QAT GGUF to minimize memory/cancellation risk while preserving the same
 fixture and admission path needed for E4B and 12B?
+
+## Pass 233 - F-GemmaOfficialConvenienceCommandDenylistGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaOfficialConvenienceCommandDenylistGate` is now a landed metadata-only
+T1/L1 witness. It consumes the Gemma acquisition receipt gate and turns Pass
+232's source-validation boundary into an executable falsifier.
+
+Mechanism:
+Official Gemma model cards and developer guides are preserved as source-card
+evidence, while convenience commands are denied as proof. The gate binds
+official source refs for E2B/E4B QAT GGUF and Gemma 4 12B, then denies
+`llama-cli -hf`, `llama-server`, LiteRT-LM `serve`, local OpenAI-compatible
+endpoints, Ollama/LM Studio/Pi/Hermes examples, and HF cache paths as artifact
+receipts, runtime proof, route admission, System G admission, or product
+capability.
+
+Why it matters:
+This makes Gemma easier and safer at the same time. Future agents can use
+official docs to select the right artifacts, but they cannot skip the owner
+approval, local sha256/byte-count receipt, direct local-file one-token receipt,
+same-fixture replay, RuntimeRouter admission, System G dry-run, and WRV/release
+audit path.
+
+Epistemos organ:
+UAS model identity, AppColdStore quarantine intake, SCOPE-Rex/SovereignGate
+owner approval, RuntimeRouter/System G non-admission, RunEventLog,
+AnswerPacket, rollback, and MAS/Pro claim discipline.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_official_convenience_command_denylist_gate.rs`
+- `agent_core/src/bin/falsify_gemma_official_convenience_command_denylist_gate.rs`
+- `Tools/falsifiers/f_gemma_official_convenience_command_denylist_gate.sh`
+- `docs/falsifiers/F-GemmaOfficialConvenienceCommandDenylistGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_official_convenience_command_denylist_gate/result.json`
+
+External refs:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://developers.googleblog.com/gemma-4-12b-the-developer-guide/`
+- `https://deepmind.google/models/gemma/gemma-4/`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 4 official source refs, 8 denied convenience commands,
+14 replacement proofs, 30 rejection policies, 32 red fixtures rejected, zero
+commands armed or executed, zero servers started, zero network runtime probes
+allowed, zero model/runtime/provider bytes loaded, zero RuntimeRouter/System
+G/settings/default mutations, and zero MAS/L2/L3/T4/Gemma-default/live-70B
+promotion claims.
+
+Runtime proof:
+Not run. No model was acquired, opened, hashed, loaded, served, or queried.
+
+User-visible proof:
+Not present. Future UI should still say "Gemma not configured" until a local
+artifact receipt and runtime receipt exist.
+
+Rollback:
+Bound as a required non-promotion proof field. No rollback action executed
+because no runtime or route state changed.
+
+Privacy/stability/provenance risks:
+Closed at T1: official-card laundering, `-hf` receipt bypass,
+server/endpoint-as-admission, HF-cache identity laundering, raw path/token
+leakage, network probe shortcuts, hidden authority, and false L2/L3/T4 claims.
+Still open: real owner approval, local artifact receipt, one-token runtime
+receipt, quality replay, admission, System G dry-run, and WRV/release audit.
+
+Why it may be a breakthrough:
+It lets Epistemos use official Gemma support aggressively without letting
+convenience APIs distort the proof chain. The project can now move to a real
+E2B/E4B local-file receipt with less ambiguity.
+
+Why it may be wrong:
+If a future official runtime offers a fully auditable in-process local-file API,
+the denylist may need a new adapter path. That still must preserve the same
+receipt, byte, cancellation, rollback, RunEventLog, and AnswerPacket evidence.
+
+Next research query:
+What is the smallest owner-approved local E2B QAT GGUF acquisition receipt that
+can satisfy this denylist gate and safely feed the first direct local-file
+one-token runtime proof?

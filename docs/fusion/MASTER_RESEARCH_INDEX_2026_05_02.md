@@ -110,6 +110,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > command -> acquisition receipt with sha256/byte/tool-version evidence ->
 > direct local-file one-token receipt -> same-fixture replay -> RuntimeRouter
 > admission -> System G dry-run -> WRV/release audit.
+> Pass 233 lands
+> `artifacts/falsifiers/gemma_official_convenience_command_denylist_gate/result.json`
+> as metadata-only T1/L1: 4 official source refs, 8 denied convenience
+> commands, 14 replacement proofs, 30 rejection policies, 32 red fixtures
+> rejected, zero commands armed/executed, zero servers, zero network runtime
+> probes, zero model/runtime/provider bytes, zero route/default mutations, and
+> no Gemma live/default/L2/L3/T4 claim. It converts the official-source
+> validation into a hard proof boundary: official examples are source evidence,
+> not receipts, admission, or product capability.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,

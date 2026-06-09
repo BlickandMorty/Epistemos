@@ -7969,6 +7969,35 @@ Layer truth:
 Correct phrasing: "Official Gemma sources make the local proof path easier;
 they do not make Gemma configured, live, default, or user-facing."
 
+### 2026-06-09 - F-GemmaOfficialConvenienceCommandDenylistGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOfficialConvenienceCommandDenylistGate` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_official_convenience_command_denylist_gate/result.json`.
+It consumes the acquisition receipt gate and proves official Gemma convenience
+commands remain source references, not acquisition receipts, runtime proof,
+route admission, System G admission, or product capability.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 4 official source
+  refs, 8 denied convenience commands, 14 replacement proofs, 30 rejection
+  policies, and 32 red fixtures are bound.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no Gemma
+  artifact was acquired, opened, hashed, loaded, served, route-admitted, or
+  made default.
+
+Correct phrasing: "`llama-cli -hf`, `llama-server`, LiteRT-LM `serve`, local
+endpoints, HF cache paths, and app examples are official source references
+only; Epistemos still needs local artifact and runtime receipts."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

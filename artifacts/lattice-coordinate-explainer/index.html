@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 232 - Gemma official runtime source validation folded">
-  <meta name="epistemos-commit-sha" content="0ab9c4c565">
+  <meta name="epistemos-latest-research-pass" content="Pass 233 - F-GemmaOfficialConvenienceCommandDenylistGate landed">
+  <meta name="epistemos-commit-sha" content="1da9d88a3e">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1952,6 +1952,25 @@
   references only until witnessed. This pass opens zero model bytes, runs zero
   commands, starts zero servers, mutates zero RuntimeRouter/System G/default
   state, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 233 Gemma convenience-command denylist gate landed.</strong>
+  <code>F-GemmaOfficialConvenienceCommandDenylistGate</code> is now a
+  metadata-only T1/L1 witness at
+  <code>artifacts/falsifiers/gemma_official_convenience_command_denylist_gate/result.json</code>.
+  It consumes the Gemma acquisition receipt gate and binds 4 official source
+  refs, 8 denied convenience commands, 14 replacement proofs, 30 rejection
+  policies, and 32 red-fixture rejections. Official model cards and guides
+  remain valuable source evidence, but <code>llama-cli -hf</code>,
+  <code>llama-server</code>, LiteRT-LM <code>serve</code>, local endpoints,
+  HF cache paths, Ollama/LM Studio/Pi/Hermes examples, and model-card snippets
+  cannot count as acquisition receipts, runtime proof, route admission, System
+  G admission, or product capability. The witness arms zero commands, executes
+  zero commands, starts zero servers, permits zero network runtime probes,
+  loads zero model/runtime/provider bytes, mutates zero RuntimeRouter/System
+  G/settings/default state, and makes no Gemma live/default/L2/L3/T4/user-
+  facing claim.
 </div>
 
 <div class="canon-hook">
