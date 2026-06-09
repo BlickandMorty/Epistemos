@@ -60,6 +60,7 @@ pub mod exotic_quant_source_pin_byte_budget_preflight;
 pub mod five_planes;
 pub mod gemma4_mtp_drafter_compatibility_card;
 pub mod gemma_direct_harness_artifact_receipt_map;
+pub mod gemma_direct_harness_owner_approved_command_envelope_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_emitter_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_preflight_packet_gate;
 pub mod gemma_direct_harness_owner_approved_receipt_runbook_gate;
@@ -447,6 +448,18 @@ pub use gemma_direct_harness_owner_approved_receipt_emitter_gate::{
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_ID,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_EMITTER_GATE_UPSTREAM_REF,
+};
+pub use gemma_direct_harness_owner_approved_command_envelope_gate::{
+    required_gemma_direct_harness_owner_approved_command_envelope_abort_conditions,
+    required_gemma_direct_harness_owner_approved_command_envelope_fields,
+    GemmaDirectHarnessOwnerApprovedCommandEnvelopeGate,
+    GemmaDirectHarnessOwnerApprovedCommandEnvelopeGateError,
+    GemmaDirectHarnessOwnerApprovedCommandEnvelopeGateMetrics,
+    GemmaDirectHarnessOwnerApprovedCommandEnvelopeGateStatus,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_ID,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_NEXT_CURSOR,
+    GEMMA_DIRECT_HARNESS_OWNER_APPROVED_COMMAND_ENVELOPE_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_owner_approved_receipt_runbook_gate::{
     required_gemma_direct_harness_owner_approved_runbook_abort_conditions,
