@@ -7052,7 +7052,9 @@ pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_AXES: &[&str] = &[
 
 pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_AXES: &[&str] = &[
     "upstream_command_card_gate_pass",
+    "upstream_trap_policy_gate_pass",
     "upstream_command_card_ref_bound",
+    "upstream_trap_policy_ref_bound",
     "local_gguf_runtime_lane_bound",
     "receipt_fields_termination_classes_and_abort_conditions_bound",
     "owner_model_llama_command_identity_bound",

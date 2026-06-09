@@ -27720,12 +27720,14 @@ canon, and lattice visibility.
 
 Mechanism:
 The receipt gate defines what a future local Gemma execution must prove after
-the command runs: 35 receipt fields, 6 termination classes, 66 abort
-conditions, owner/model/llama.cpp/command identity, argv/environment/workdir
-digests, exit/termination/timeout/teardown digests, timing/memory/stdout/
-stderr/first-token/prompt/output digest-only evidence, redaction proof,
-raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention,
-reviewer-visible summary, no-quality, no-route-admission, and non-promotion.
+the command runs. 2026-06-09 hardening now makes it consume both the command
+card and `F-GemmaDirectHarnessTrapPolicyGate`: 36 receipt fields, 6 termination
+classes, 67 abort conditions, trap-policy digest, owner/model/llama.cpp/command
+identity, argv/environment/workdir digests, exit/termination/timeout/teardown
+digests, timing/memory/stdout/stderr/first-token/prompt/output digest-only
+evidence, redaction proof, raw-byte-zero proof, rollback, RunEventLog,
+AnswerPacket, abstention, reviewer-visible summary, no-quality,
+no-route-admission, and non-promotion.
 
 Why it matters:
 This closes the last metadata gap before a tiny owner-approved Gemma execution
@@ -27749,7 +27751,7 @@ Tier and status:
 T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
 
 Falsifier evidence:
-The artifact passes with 71 red fixtures rejected, zero receipt bytes written
+The artifact passes with 73 red fixtures rejected, zero receipt bytes written
 or read, zero command-card bytes read, zero owner path opens, zero command
 arming/execution, zero process spawn, zero server start, zero
 network/hub/endpoint allowance, zero model/runtime/provider bytes, zero raw
@@ -29533,3 +29535,75 @@ Next research query:
 What is the smallest owner-approved local Gemma artifact receipt that can move
 from no-byte metadata to a real first-token proof without introducing raw-path,
 network, cache, server, or route-mutation risk?
+
+## Pass 246 - Gemma Receipt Gate Trap-Policy Binding Hardening
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass converts the trap-policy research from Pass 245 into an enforced
+receipt dependency. `F-GemmaDirectHarnessFirstRuntimeProofReceiptGate` now
+requires both the command-card upstream and `F-GemmaDirectHarnessTrapPolicyGate`
+before a future first-runtime receipt can count as evidence.
+
+Mechanism:
+
+- adds `upstream_trap_policy_ref` and `upstream_trap_policy_id` to the receipt
+  primitive;
+- adds `trap_policy_digest` to the required receipt fields;
+- adds `missing_trap_policy` to abort conditions;
+- adds red fixtures for bad trap-policy artifact ref and bad trap-policy id;
+- updates schema axes to require `upstream_trap_policy_gate_pass` and
+  `upstream_trap_policy_ref_bound`;
+- regenerates the receipt witness with 36 fields, 67 abort conditions, and 73
+  rejected red fixtures.
+
+Architecture fusion:
+
+The receipt gate now carries the fail-closed trap map forward. A future receipt
+cannot be considered well-formed if it bypasses the policy that denies `-hf`,
+server mode, HF cache, provider endpoints, MTP, `mmproj`, MLX/LiteRT
+substitution, unbounded generation, hidden authority, or route/default
+mutation.
+
+Tier and status:
+
+T1/L1 metadata-only. No local Gemma file was approved, opened, hashed, loaded,
+or tokenized. No `llama.cpp` command ran. No quality proof, route admission,
+settings visibility, release-audit proof, MAS default, L2, L3, T4, or live
+dense 70B claim exists.
+
+Best breakthrough candidate:
+Use the trap-bound receipt gate as the final no-byte wall before an
+owner-approved local E2B/E4B QAT GGUF first-token proof.
+
+Safest next falsifier:
+The owner-approved first-runtime execution probe, only after a real local
+artifact receipt exists and the owner explicitly allows the bounded run.
+
+Best near-term code unit:
+Create the first-token execution probe as a Pro Gated harness that consumes the
+trap-bound receipt contract, emits a redacted receipt, and refuses all server,
+HF-cache, provider, MTP, multimodal, route-mutation, and product-default paths.
+
+Biggest false-claim risk:
+Calling a trap-bound receipt schema "Gemma works." It only proves future
+receipt evidence cannot bypass the trap policy.
+
+Biggest missing source:
+A real owner-approved local Gemma E2B/E4B QAT GGUF artifact receipt and exact
+installed `llama-cli` version/help digest.
+
+External sources:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/tree/main`
+- `https://blog.google/innovation-and-ai/technology/developers-tools/introducing-gemma-4-12b/`
+- `https://github.com/ggml-org/llama.cpp`
+
+Next research query:
+Which owner-approved local Gemma E2B/E4B QAT GGUF path should produce the first
+redacted receipt, and should the first runtime proof use a single token, a
+four-token sanity answer, or a tiny structured-output fixture?

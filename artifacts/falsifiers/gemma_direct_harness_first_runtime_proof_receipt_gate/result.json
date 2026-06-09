@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "60af96a2e6e7280c4c0ea7965b26a13c97634340",
+  "commit_sha": "5d76573cb078d0e50214a5ccc150771efd832f11",
   "fixture_id": "gemma_direct_harness_first_runtime_proof_receipt_gate_v1",
-  "timestamp_utc": "2026-06-09T02:51:48Z",
-  "result_digest": "sha256:90ce4b42ee632605348929d341769a6489969502cc27cf2a350ddbcc307ac096",
+  "timestamp_utc": "2026-06-09T08:11:41Z",
+  "result_digest": "sha256:889efb76c45283d5a4c0a6314525a6327db3d9d9ddb944fe2abe0b72c86b8fec",
   "measurements": {
     "argv_environment_workdir_bound": {
       "value": true,
@@ -70,7 +70,7 @@
       "unit": "count"
     },
     "gemma_first_runtime_proof_receipt_gate_address": {
-      "value": "gemma_direct_harness_first_runtime_proof_receipt_gate:2d051c5795d9d25f8aea2a6beddefab01444c2f0363952b629a8c074e4f79392@1779840000000",
+      "value": "gemma_direct_harness_first_runtime_proof_receipt_gate:fa177388495cf88165283766901ec81aabddfc45b55c5e9403517d5367efddc1@1779840000000",
       "unit": "text"
     },
     "gemma_first_runtime_proof_receipt_gate_address_deterministic": {
@@ -158,15 +158,15 @@
       "unit": "bool"
     },
     "red_fixture_rejection_count": {
-      "value": 71,
+      "value": 73,
       "unit": "fixtures"
     },
     "required_abort_condition_count": {
-      "value": 66,
+      "value": 67,
       "unit": "conditions"
     },
     "required_receipt_field_count": {
-      "value": 35,
+      "value": 36,
       "unit": "fields"
     },
     "required_termination_class_count": {
@@ -198,6 +198,14 @@
       "unit": "bool"
     },
     "upstream_command_card_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_trap_policy_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_trap_policy_ref_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -364,17 +372,17 @@
     },
     "red_fixture_rejection_count": {
       "operator": ">=",
-      "value": 70,
+      "value": 72,
       "unit": "fixtures"
     },
     "required_abort_condition_count": {
       "operator": "==",
-      "value": 66,
+      "value": 67,
       "unit": "conditions"
     },
     "required_receipt_field_count": {
       "operator": "==",
-      "value": 35,
+      "value": 36,
       "unit": "fields"
     },
     "required_termination_class_count": {
@@ -413,6 +421,16 @@
       "unit": "bool"
     },
     "upstream_command_card_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_trap_policy_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_trap_policy_ref_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -466,10 +484,12 @@
     "timing_memory_stdio_token_prompt_output_bound": true,
     "upstream_command_card_gate_pass": true,
     "upstream_command_card_ref_bound": true,
+    "upstream_trap_policy_gate_pass": true,
+    "upstream_trap_policy_ref_bound": true,
     "zero_owner_path_command_process_server_network_model_runtime_provider_actions": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [],
-  "notes": "metadata-only F-GemmaDirectHarnessFirstRuntimeProofReceiptGate: consumes the Gemma first-runtime proof command-card gate and freezes the digest-only receipt contract required before a future owner-approved local GGUF execution probe can count as evidence. It binds model/llama.cpp/command identity, argv/environment/workdir digests, exit and termination classification, timeout/cancel/teardown, timing and memory digests, stdout/stderr/first-token/prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion. It writes zero receipt bytes, reads zero command-card or receipt bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw private bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim."
+  "notes": "metadata-only F-GemmaDirectHarnessFirstRuntimeProofReceiptGate: consumes the Gemma first-runtime proof command-card gate and the Gemma direct-harness trap-policy gate, then freezes the digest-only receipt contract required before a future owner-approved local GGUF execution probe can count as evidence. It binds model/llama.cpp/command identity, trap-policy digest, argv/environment/workdir digests, exit and termination classification, timeout/cancel/teardown, timing and memory digests, stdout/stderr/first-token/prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion. It writes zero receipt bytes, reads zero command-card or receipt bytes, opens zero owner/model/llama.cpp paths, arms or executes zero commands, spawns zero processes, starts zero servers, allows zero network/hub/endpoint route, loads zero model/runtime/provider bytes, captures zero raw private bytes, mutates no RuntimeRouter/System G/settings/default state, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, live dense 70B, or SSD-as-RAM claim."
 }

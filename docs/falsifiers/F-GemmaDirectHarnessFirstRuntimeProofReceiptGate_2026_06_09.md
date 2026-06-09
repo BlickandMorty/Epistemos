@@ -6,7 +6,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 
 PASS as a metadata-only T1/L1 primary witness.
 
-This gate consumes `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` and freezes the digest-only receipt contract required before a future owner-approved local Gemma GGUF execution probe can count as evidence.
+This gate consumes `F-GemmaDirectHarnessFirstRuntimeProofCommandCard` and `F-GemmaDirectHarnessTrapPolicyGate`, then freezes the digest-only receipt contract required before a future owner-approved local Gemma GGUF execution probe can count as evidence.
 
 It does not write or read a receipt, read the command card, open owner/model/llama.cpp paths, arm or execute a command, spawn a process, start a server, allow network/hub/endpoint routes, load model/runtime/provider bytes, capture raw path/prompt/output/stdout/stderr/token bytes, mutate RuntimeRouter/System G/settings/defaults, emit a user-facing AnswerPacket, or make Gemma live/default/L2/L3/T4.
 
@@ -20,11 +20,11 @@ It does not write or read a receipt, read the command card, open owner/model/lla
 
 ## Bound Axes
 
-- 35 required receipt fields.
+- 36 required receipt fields, including `trap_policy_digest`.
 - 6 required termination classes: success, nonzero exit, timeout, owner cancellation, signal termination, and teardown failure.
-- 66 required abort conditions.
+- 67 required abort conditions, including `missing_trap_policy`.
 - `stdio_capture_cap_bytes=65536`.
-- 71 red fixtures rejected.
+- 73 red fixtures rejected.
 - Zero receipt write/read bytes and zero command-card read bytes.
 - Zero owner path opens, command arming/execution, process spawn, server start, network/hub/endpoint allowance, file opens, model/runtime/provider bytes, raw private bytes, route/default mutation, hidden authority, and promotion claims.
 
@@ -38,7 +38,7 @@ Correct phrasing: "Gemma now has a landed first-runtime proof receipt contract; 
 
 ## Risk Closed
 
-This gate prevents a future local Gemma execution from laundering a token into capability. The receipt must classify exit/termination, timeout/cancel/teardown, timing and memory, stdout/stderr, first token, prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion before it can feed any later proof.
+This gate prevents a future local Gemma execution from laundering a token into capability. The receipt must bind the trap-policy digest, classify exit/termination, timeout/cancel/teardown, timing and memory, stdout/stderr, first token, prompt/output digests, redaction proof, raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible summary, no-quality, no-route-admission, and non-promotion before it can feed any later proof.
 
 ## Remaining Risk
 

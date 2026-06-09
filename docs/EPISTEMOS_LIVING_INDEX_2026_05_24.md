@@ -7764,13 +7764,15 @@ metadata-only T1/L1 primary witness:
 - Artifact:
   `artifacts/falsifiers/gemma_direct_harness_first_runtime_proof_receipt_gate/result.json`.
 
-The witness consumes the landed first-runtime proof command-card gate, then
-binds 35 receipt fields, 6 termination classes, 66 abort conditions,
+The witness consumes the landed first-runtime proof command-card gate and the
+landed trap-policy gate, then binds 36 receipt fields, 6 termination classes,
+67 abort conditions,
 owner/model/llama.cpp/command identity, argv/environment/workdir digests,
 exit/termination/timeout/teardown digests, timing/memory/stdout/stderr/
-first-token/prompt/output digest-only policy, redaction and raw-byte-zero
-proof, rollback, RunEventLog, AnswerPacket, abstention, reviewer-visible
-summary, no-quality, no-route-admission, non-promotion, and 71 red-fixture
+first-token/prompt/output digest-only policy, trap-policy digest, redaction and
+raw-byte-zero proof, rollback, RunEventLog, AnswerPacket, abstention,
+reviewer-visible summary, no-quality, no-route-admission, non-promotion, and
+73 red-fixture
 rejections. It writes zero receipt bytes, reads zero command-card or receipt
 bytes, opens zero owner/model/llama.cpp paths, arms zero commands, executes
 zero commands, spawns zero processes, starts zero servers, allows zero
@@ -7794,6 +7796,12 @@ Layer truth:
 Correct phrasing: "Gemma now has a landed first-runtime proof receipt contract;
 Gemma is still not live, default, quality-proven, route-admitted, L2/L3, T4, or
 user-facing."
+
+2026-06-09 hardening addendum: after `F-GemmaDirectHarnessTrapPolicyGate`
+landed, this receipt gate was regenerated so the future receipt contract
+explicitly consumes both the command-card gate and the trap-policy gate. This
+keeps official `-hf`/server/cache/MTP/mmproj/MLX/LiteRT/provider shortcuts from
+re-entering through a receipt-shaped artifact.
 
 ### 2026-06-09 - Gemma Runtime Cutover Readiness Snapshot
 
