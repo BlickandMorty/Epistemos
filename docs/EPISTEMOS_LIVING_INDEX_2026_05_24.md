@@ -7537,6 +7537,56 @@ Correct phrasing: "Gemma now has a landed same-fixture quality packet
 contract; Gemma is still not live, default, quality-proven, route-admitted,
 L2/L3, T4, or user-facing."
 
+### 2026-06-09 - F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` is now
+implemented as a metadata-only T1/L1 primary witness:
+
+- Source:
+  `agent_core/src/uas/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate.rs`.
+- Falsifier:
+  `agent_core/src/bin/falsify_gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate.rs`.
+- Script:
+  `Tools/falsifiers/f_gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate_2026_06_09.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/result.json`.
+
+The witness consumes the landed same-fixture quality packet gate, then binds 32
+admission fields, 55 rejection policies, direct harness runtime lane identity,
+quality summary, failure taxonomy, budget vector, memory/KV/latency envelopes,
+privacy class, MAS/Pro boundary, SCOPE-Rex verdict, SovereignGate verdict,
+fallback, abstention, cancellation, rollback, RunEventLog, AnswerPacket,
+visibility, default-model non-mutation, hidden-authority denial, and
+non-promotion. It rejects 72 red fixtures, reads zero admission packet bytes,
+performs zero admission, mutates zero route/default state, arms zero commands,
+executes zero commands, spawns zero processes, loads zero model/runtime/provider
+bytes, captures zero raw prompt/output bytes, suppresses zero AnswerPackets, and
+does not make Gemma live/default/quality-proven/route-admitted/L2/L3/T4/user
+facing.
+
+Layer truth:
+
+- L1 architecture/canon:
+  `F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` advances as
+  metadata-only T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, admission packet, System G
+  route packet, or product capability was activated.
+
+Correct phrasing: "Gemma now has a landed RuntimeRouter admission packet
+contract; Gemma is still not live, default, quality-proven, route-admitted,
+L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

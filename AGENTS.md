@@ -378,6 +378,21 @@ Runtime policy:
   live/default/quality-proven/route-admitted/L2/L3/T4/user-facing claim. Next
   side-ladder unit is
   `gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate`.
+- 2026-06-09 Gemma direct harness RuntimeRouter admission status:
+  `F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate` is now
+  landed as metadata-only L1/T1. It consumes the landed same-fixture quality
+  packet gate, binds 32 admission fields, 55 rejection policies, direct harness
+  runtime lane identity, quality summary, failure taxonomy, budget vector,
+  memory/KV/latency envelopes, privacy class, MAS/Pro boundary, SCOPE-Rex,
+  SovereignGate, fallback, abstention, cancellation, rollback, RunEventLog,
+  AnswerPacket, visibility, default-model non-mutation, hidden-authority denial,
+  non-promotion, and 72 red-fixture rejections. It reads zero admission packet
+  bytes, performs zero admission, mutates zero route/default state, arms or
+  executes zero commands, spawns zero processes, captures zero raw prompt/output
+  bytes, loads zero model/runtime/provider bytes, suppresses zero AnswerPackets,
+  and makes no Gemma live/default/quality-proven/route-admitted/L2/L3/T4/user-
+  facing claim. Next side-ladder unit is
+  `gemma_direct_harness_owner_approved_system_g_dry_run_route_packet_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
