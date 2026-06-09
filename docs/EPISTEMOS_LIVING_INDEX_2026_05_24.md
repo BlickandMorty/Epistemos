@@ -8028,6 +8028,37 @@ Correct phrasing: "The local Gemma discovery runbook is safe and witnessed; no
 local Gemma artifact has been found, approved, opened, hashed, loaded, or
 promoted by this witness."
 
+### 2026-06-09 - Local Gemma E4B manifest reconciliation
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Redacted manifest inspection corrected the local Gemma picture. The app install
+manifest contains `mlx-community/gemma-4-e4b-it-4bit` at revision
+`62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc`, recorded size `5,249,804,507`
+bytes, installed timestamp `2026-04-18T17:34:41Z`, but no
+`checksumVerification` field. In `LocalModelInstallRecord`, missing checksum
+metadata decodes as an unverified legacy install record.
+
+Layer truth:
+
+- L1 architecture/canon: updated as T0/T1 manifest evidence and research-to-build
+  guidance.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no file was
+  opened, hashed, loaded, route-admitted, or made default.
+
+Correct phrasing: "Gemma E4B is manifest-recorded locally, but checksum-unverified
+and MLX-lane only; it is not a proved GGUF/QAT artifact, runtime proof, or
+user-facing capability."
+
+Next practical fork: owner-approve the E4B MLX record for loader bring-up with
+checksum/path receipt, or acquire E2B/E4B QAT GGUF for the stricter
+`llama-cli -m` first-token lane.
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

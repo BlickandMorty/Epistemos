@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 234 - F-GemmaLocalArtifactDiscoveryRunbookGate landed">
-  <meta name="epistemos-commit-sha" content="6b2970573a">
+  <meta name="epistemos-latest-research-pass" content="Pass 235 - local Gemma E4B manifest reconciliation">
+  <meta name="epistemos-commit-sha" content="1ea50c7400">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -1989,6 +1989,23 @@
   live/default/L2/L3/T4/user-facing claim. Correct phrasing: the discovery
   runbook is witnessed; no local Gemma artifact has been found, approved,
   opened, hashed, loaded, or promoted by this witness.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 235 local Gemma E4B manifest reconciliation.</strong>
+  Redacted install-manifest inspection found a local
+  <code>mlx-community/gemma-4-e4b-it-4bit</code> manifest record at revision
+  <code>62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc</code>, recorded size
+  <code>5,249,804,507</code> bytes, installed timestamp
+  <code>2026-04-18T17:34:41Z</code>, with no
+  <code>checksumVerification</code> field. Per
+  <code>LocalModelInstallRecord</code>, that means legacy unverified checksum
+  metadata. Correct phrasing: Gemma E4B is manifest-recorded locally, but
+  checksum-unverified and MLX-lane only; it is not a proved GGUF/QAT artifact,
+  runtime proof, route admission, live default, or user-facing capability. Next
+  practical fork: owner-approve this E4B MLX record for loader bring-up with
+  checksum/path receipt, or acquire E2B/E4B QAT GGUF for the stricter
+  <code>llama-cli -m</code> first-token lane.
 </div>
 
 <div class="canon-hook">

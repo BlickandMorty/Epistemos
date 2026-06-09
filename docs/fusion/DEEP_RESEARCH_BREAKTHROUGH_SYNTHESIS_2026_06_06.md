@@ -1575,7 +1575,7 @@ Local code already contains most of the inventory spine:
 |---|---|---|---|
 | Catalog identity | `Epistemos/State/InferenceState.swift::LocalTextModelID` | model ID, family, display name, runtime kind, Gemma 4 loader caveat, memory policy | catalog presence is not installation, loadability, or route proof |
 | Descriptor catalog | `Epistemos/Engine/LocalModelInfrastructure.swift::LocalModelDescriptor` | revision, matching globs, approximate download bytes, minimum memory, capability role | pinned revision is snapshot evidence only |
-| Install manifest | `LocalModelInstallRecord` and `/Users/jojo/Library/Application Support/Epistemos/Models/manifests/install-state.json` | active directory, revision, sizeBytes, installedAt, checksum verification state | legacy manifest records without `checksumVerification` decode as unverified and must not promote |
+| Install manifest | `LocalModelInstallRecord` and the app install manifest under Application Support | active directory, revision, sizeBytes, installedAt, checksum verification state | legacy manifest records without `checksumVerification` decode as unverified and must not promote |
 | Hub detection | `LocalModelPaths::usableHubSnapshotDirectory` | catalog-driven repo slug plus `snapshots/<revision>` path and blob-presence detection | detected blobs prove only that files exist on disk, not that they can load |
 | Runtime preferences | `Epistemos/LocalAgent/RuntimeRouter.swift` | role-to-model preference evidence for later route-card candidates | preference table is not a candidate-card source authority |
 | Existing falsifier refs | `falsify_small_model_runtime_harness_*` | `model_catalog:*`, `model_snapshot:local:*`, AnswerPacket, RunEventLog, and missing-snapshot refs | L1 refs do not advance L2/L3 |
@@ -28586,3 +28586,95 @@ Next research query:
 What owner-approved receipt format should bind the first local Gemma E2B/E4B
 artifact path digest, sha256, byte count, source revision, llama.cpp identity,
 and privacy-safe reviewer summary before the first one-token runtime probe?
+
+## Pass 235 - Local Gemma E4B manifest reconciliation
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Mechanism:
+A redacted local install-manifest inspection reconciled the Gemma state without
+opening model blobs or emitting raw local paths. The app install manifest has a
+Gemma E4B MLX 4-bit record:
+
+- model id: `mlx-community/gemma-4-e4b-it-4bit`
+- revision: `62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc`
+- recorded size: `5,249,804,507` bytes
+- installed timestamp: `2026-04-18T17:34:41Z`
+- checksum verification: absent in the manifest record, therefore decoded by
+  `LocalModelInstallRecord` as unverified legacy metadata
+
+Why it matters:
+The honest state is not "there is no Gemma anywhere." It is: "there is a local
+Gemma E4B MLX manifest record, but it is not owner-approved, checksum-verified,
+loader-proven, route-admitted, or user-facing." This gives the next runtime
+work a concrete local lead while preserving the proof chain.
+
+Epistemos organ:
+LocalModelInstallRecord, model inventory candidate cards, UAS model identity,
+AppColdStore local material intake, SCOPE-Rex/SovereignGate owner approval,
+RuntimeRouter/System G non-admission, RunEventLog, AnswerPacket, rollback, and
+MAS/Pro claim discipline.
+
+Local refs:
+
+- `Epistemos/Engine/LocalModelInfrastructure.swift`:
+  `LocalModelInstallRecord` decodes missing `checksumVerification` as
+  unverified legacy metadata.
+- `Epistemos/Engine/LocalModelInfrastructure.swift`: Gemma E4B descriptor says
+  the preview weights remain loader bring-up material and are not recommended
+  for the shipping interactive stack until the Swift runtime loader lands.
+- `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 24.1:
+  model inventory zero-byte source policy.
+- `artifacts/falsifiers/gemma_local_artifact_discovery_runbook_gate/result.json`
+  Pass 234 discovery runbook.
+
+Tier and status:
+T0/T1 research-to-build evidence. Pro Gated. It does not advance L2, L3, T4,
+or live Gemma.
+
+Runtime proof:
+Not run. No model file was opened, hashed, loaded, served, or queried. No MLX,
+GGUF, llama.cpp, LiteRT-LM, or provider runtime was invoked.
+
+User-visible proof:
+Not present. Future UI should still treat Gemma as not configured for product
+capability unless a receipt, loader proof, route packet, AnswerPacket, and WRV
+evidence exist.
+
+Architecture fusion:
+This record should not feed the E2B GGUF `llama-cli -m` first-token lane
+directly because it is an MLX community E4B manifest record, not a GGUF QAT
+artifact receipt. It can feed one of two future branches:
+
+- `Gemma E4B MLX manifest receipt`: owner approval, path digest, checksum,
+  loader proof, Swift MLX loader caveat, memory envelope, first-token receipt,
+  and same-fixture replay.
+- `Gemma GGUF acquisition receipt`: keep E2B/E4B QAT GGUF as the direct
+  llama.cpp lane when the owner supplies or acquires a GGUF artifact with
+  sha256 and byte-count receipt.
+
+Privacy/stability/provenance risks:
+Closed in this pass: raw path is not repeated in canon, manifest metadata is
+not promoted, checksum absence is explicit, and MLX manifest evidence is not
+laundered into GGUF runtime proof. Still open: owner approval, exact checksum,
+path safety, loader proof, memory headroom, cancellation, first token, quality
+replay, RuntimeRouter/System G admission, and L3 WRV/release audit.
+
+Why it may be a breakthrough:
+It turns a vague bottleneck into a concrete fork: use the existing local E4B
+MLX record for loader bring-up once owner-approved, or acquire E2B/E4B GGUF for
+the fastest local-file proof. That makes the next runtime session less likely
+to waste time searching blindly.
+
+Why it may be wrong:
+The manifest record may point at stale, incomplete, moved, or incompatible
+local material. Because no file was opened or hashed, this pass is evidence of
+manifest metadata only.
+
+Next research query:
+Should the first owner-approved Gemma runtime proof use the existing unverified
+E4B MLX manifest record as loader bring-up material, or should it acquire an
+E2B/E4B QAT GGUF artifact for the stricter `llama-cli -m` first-token lane?

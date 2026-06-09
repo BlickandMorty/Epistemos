@@ -6453,3 +6453,22 @@ admit a route, or make Gemma user-facing. The next Gemma side unit is
 `gemma_owner_approved_local_artifact_receipt_probe`; the guard-owned product
 cursor remains
 `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+
+### §28.28 Local Gemma E4B manifest reconciliation (added 2026-06-09)
+
+**Canonical:** `docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md`
+Pass 235.
+
+Pass 235 reconciles the local Gemma state using redacted install-manifest
+metadata. The app install manifest contains `mlx-community/gemma-4-e4b-it-4bit`
+at revision `62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc`, recorded size
+`5,249,804,507` bytes, installed timestamp `2026-04-18T17:34:41Z`, but no
+`checksumVerification` field. Per `LocalModelInstallRecord`, that decodes as
+legacy unverified checksum metadata.
+
+Promotion truth: this is T0/T1 manifest evidence only. It does not open or hash
+the local file, prove the MLX loader, prove GGUF/QAT availability, produce a
+token, admit a route, or make Gemma live/default/user-facing. The practical fork
+is now explicit: either owner-approve this E4B MLX record for loader bring-up
+with checksum/path receipt, or acquire an E2B/E4B QAT GGUF artifact for the
+stricter `llama-cli -m` first-token lane.
