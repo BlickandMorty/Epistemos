@@ -27983,3 +27983,131 @@ Next research query:
 Which acquisition mode should be owner-approved first: existing local E2B file,
 HF snapshot download to quarantine, browser download to quarantine, or E4B
 instead of E2B for better quality?
+
+## Pass 229 - Gemma Main-Model Promotion Ladder
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Research-to-build result:
+The Gemma lane is now narrowed to a practical promotion ladder instead of a
+general "add model" wish. E2B/E4B QAT GGUF are the direct-harness proving lane,
+Gemma 4 12B is the Pro flagship candidate through LiteRT-LM or GGUF after
+native package/API proof, and 26B/31B/70B-class work remains cold-assembly/
+Pro Research unless the Gemma ladder fails or outgrows ordinary runtime proof.
+
+Mechanism:
+Use a monotonic ladder:
+
+1. Source card: official model repo, revision, filename, expected bytes, and
+   license/source-card evidence.
+2. Acquisition: owner-provided local file or owner-approved quarantine import;
+   no hidden HF cache, endpoint, server, or provider fallback.
+3. Local receipt: direct `llama-cli -m <owner-approved-local-gguf>` for E2B
+   first, then E4B; digest-only prompt/output/token evidence, memory/timing
+   samples, timeout/cancel/teardown, rollback, RunEventLog, and AnswerPacket.
+4. Same-fixture quality replay: one fixture/scorer bundle across E2B, E4B, and
+   later 12B; held-out tasks for notes, research, coding, writing, structured
+   output, refusal/abstention, and tool-plan discipline.
+5. RuntimeRouter admission: SCOPE-Rex/SovereignGate admits the route only with
+   receipt, quality, memory, cancellation, and rollback evidence.
+6. System G dry-run: route priority, policy digest, fallback path, and no
+   default mutation.
+7. Product WRV/release audit: settings/diagnostics visibility, logs, manual
+   runtime correlation, MAS/Pro copy, build-green evidence, and repeated
+   zero-fail release-audit checks before any "main model" claim.
+
+Why it matters:
+This keeps the user's speed instinct while removing the dangerous shortcut.
+Gemma can be much easier than the old 70B/custom-runtime path, but only if the
+first proof is one exact local file, one bounded command, one digest-only
+receipt, one quality replay, and one admission bridge. A model card, `-hf`
+command, local server, or app-visible picker row is not enough.
+
+Epistemos organ:
+UAS model identity, owner path manifest, AppColdStore acquisition discipline,
+SCOPE-Rex/SovereignGate admission, RuntimeRouter/System G, RunEventLog,
+AnswerPacket, release audit, and MAS/Pro capability copy.
+
+Local refs:
+
+- `AGENTS.md` Gemma-first runtime-plural addendum.
+- `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` June 9 L1/L2/L3 entries.
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionPlan_2026_06_09.md`.
+- `artifacts/falsifiers/gemma_local_artifact_acquisition_plan/result.json`.
+- `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json`.
+- `artifacts/falsifiers/architecture_pending_work_guard/result.json`.
+
+External refs:
+
+- Google Gemma 4 QAT announcement:
+  `https://blog.google/innovation-and-ai/technology/developers-tools/quantization-aware-training-gemma-4/`.
+- Google AI Edge Gemma 4 12B local workflows:
+  `https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/`.
+- Official E2B QAT GGUF model card:
+  `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`.
+- Official E4B QAT GGUF model card:
+  `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`.
+- Official 12B LiteRT-LM model repo:
+  `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`.
+
+Tier and status:
+T0/T1 research-to-build canon. Pro Gated. This pass adds no product code, runs
+no runtime, opens no model bytes, and makes no Gemma live/default/L2/L3/T4
+claim.
+
+Falsifier backlog:
+
+- `F-GemmaDirectHarnessOwnerApprovedFirstRuntimeExecutionProbe`: first tiny
+  E2B/E4B direct local-file runtime receipt once the owner approves a local
+  path or quarantine acquisition.
+- `F-GemmaRuntimeProofToAdmissionBridge`: consumes receipt plus same-fixture
+  quality evidence before RuntimeRouter can cite Gemma.
+- `F-GemmaMainModelPromotionReview`: blocks "main model" copy/defaults until
+  L2 route, L3 WRV, MAS/Pro copy, release audit, and rollback evidence exist.
+- `F-LiteRTLMGemma12BProAdmissionPacket`: source-card/package/API/sandbox/
+  cancellation proof for 12B as a Pro-native lane; local endpoint is not hidden
+  authority.
+- `F-GemmaFixtureScorerRegressionPack`: one stable fixture/scorer pack for
+  notes, research, coding, writing, structured output, and abstention across
+  E2B/E4B/12B and future forked GGUFs.
+
+Runtime proof:
+Not run. Official sources were revalidated only to refresh the ladder.
+
+User-visible proof:
+Not present. The correct near-term UI is still diagnostics/status copy such as
+"Gemma not configured" or "Gemma runtime proof captured" after a receipt, not a
+default model switch.
+
+Rollback:
+Future promotion must retain a rollback packet that can remove Gemma from route
+priority/default consideration without deleting the source card, artifact
+receipt, or research canon.
+
+Privacy/stability/provenance risks:
+The main risk is laundering convenience into capability: `llama-cli -hf`,
+`llama-server`, LiteRT-LM `serve`, HF cache paths, OpenAI-compatible endpoints,
+community GGUF forks, and model-picker UI can all look like progress while
+bypassing owner approval, local-file provenance, cancellation, memory budgets,
+and release audit. Keep those as source evidence or Pro Gated experiments until
+receipts and admission packets exist.
+
+Why it may be a breakthrough:
+It gives Epistemos a smaller honest path to useful large local models: prove
+Gemma E2B/E4B directly first, use 12B as the near-term flagship once the Pro
+native lane is proven, and reserve the 70B/cold-assembly architecture for the
+sizes and capabilities that still need it.
+
+Why it may be wrong:
+E2B may be too weak for coding/research quality, E4B may still be marginal, and
+12B may need LiteRT-LM integration work or GGUF runtime updates before it is
+stable enough for app use. The ladder must be allowed to fail closed and fall
+back to cold assembly or another local model family.
+
+Next research query:
+What is the smallest owner-approved E2B/E4B local GGUF acquisition path that
+can produce a redacted first-token receipt without using `-hf`, a server, or a
+hidden cache?

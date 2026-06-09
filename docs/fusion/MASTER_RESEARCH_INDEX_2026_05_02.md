@@ -78,6 +78,15 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > is the harness proving lane; Gemma 4 12B QAT remains the Pro Gated target;
 > and 31B/70B-class routes remain Pro Research/Vault until residency, routing,
 > transport, memory, rollback, RunEventLog, and AnswerPacket proof exists.
+> 2026-06-09 Pass 229 narrows the main-model promotion ladder: source card ->
+> owner-approved acquisition -> direct local-file receipt -> same-fixture
+> quality replay -> RuntimeRouter admission -> System G dry-run -> WRV/release
+> audit. E2B/E4B QAT GGUF via direct `llama-cli -m <owner-approved-local-gguf>`
+> are the proving lane; Gemma 4 12B LiteRT-LM/GGUF is the Pro flagship
+> candidate after package/API, sandbox, cancellation, byte/KV, rollback,
+> RunEventLog, AnswerPacket, and release-audit proof. No picker row, `-hf`
+> command, `llama-server`, LiteRT-LM `serve`, HF cache path, local endpoint, or
+> model card is main-model capability.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,

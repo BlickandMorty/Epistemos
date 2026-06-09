@@ -7855,6 +7855,33 @@ Correct phrasing: "Gemma has a fail-closed acquisition plan; Epistemos still
 needs an owner-approved local model file and runtime receipt before capability
 promotion."
 
+### 2026-06-09 - Gemma main-model promotion ladder folded
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The Gemma path is now intentionally narrower and more practical: E2B/E4B QAT
+GGUF are the direct local-file proving lane, Gemma 4 12B LiteRT-LM/GGUF is the
+Pro flagship candidate after native package/API and release-audit proof, and
+26B/31B/70B-class work remains Pro Research/cold assembly until Gemma stops
+being sufficient or ordinary runtime proof fails.
+
+Layer truth:
+
+- L1 architecture/canon: Pass 229 adds a promotion ladder only: source card ->
+  owner-approved acquisition -> direct local receipt -> same-fixture quality
+  replay -> RuntimeRouter admission -> System G dry-run -> WRV/release audit.
+- L2 capability route: unchanged and still red until a receipt, quality replay,
+  admission bridge, rollback, RunEventLog, and AnswerPacket exist.
+- L3 user-facing / release readiness: unchanged and still red; no picker row,
+  default model, local server, HF cache path, or model-card evidence may be
+  treated as Gemma main-model capability.
+
+Correct phrasing: "Gemma is the practical next local-model ladder, not yet the
+main app model."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
