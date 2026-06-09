@@ -8313,6 +8313,38 @@ Layer truth:
 Correct phrasing: "Official Gemma sources make the local proof path shorter;
 they do not make Gemma configured, live, default, L2/L3, T4, or user-facing."
 
+### 2026-06-09 - Gemma direct lane runtime trap map
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 244 turns current Gemma runtime-source risk into a buildable
+trap policy. The first Gemma proof should be boring by design: text-only,
+direct local file, offline, no server, no hidden HF cache, no MTP/drafter, no
+multimodal `mmproj` sidecar, no Swift MLX loader assumption, and no route
+mutation.
+
+The proposed next metadata gate is `F-GemmaDirectHarnessTrapPolicyGate`. It
+should reject `-hf`, URLs/model-repo identifiers, `llama-server`, host/port/API
+server flags, MTP/drafter flags, multimodal/mmproj flags, HF cache shortcuts,
+provider paths, unbounded context flags, and any RuntimeRouter/System G/default
+mutation before the first owner-approved runtime execution probe.
+
+Layer truth:
+
+- L1 architecture/canon: updated as T0/T1 trap-map guidance; no new falsifier
+  landed in this pass.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged and still red; no local Gemma
+  artifact was approved, opened, hashed, loaded, tokenized, route-admitted, or
+  made visible as working product capability.
+
+Correct phrasing: "Gemma direct runtime now has a trap map; no Gemma runtime
+proof has run and no shortcut path is product authority."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
