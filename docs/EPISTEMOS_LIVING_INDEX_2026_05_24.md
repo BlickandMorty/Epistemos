@@ -8119,6 +8119,38 @@ Correct phrasing: "The Gemma local artifact receipt emitter dry-run shape is
 witnessed; no receipt payload or Gemma artifact has been written, read,
 approved, opened, hashed, loaded, route-admitted, or promoted by this witness."
 
+### 2026-06-09 - F-GemmaOwnerApprovedReceiptMaterializationGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedReceiptMaterializationGate` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_owner_approved_receipt_materialization_gate/result.json`.
+It consumes the receipt-emitter dry-run gate and freezes the typed
+materialization contract for a future owner-approved local Gemma artifact
+receipt.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 18 materialization
+  fields, 4 materialization modes, 12 safety checks, 12 denied shortcuts, and
+  43 red fixtures are bound.
+- L2 capability route: unchanged and still
+  `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: unchanged and still red; no owner
+  approval was granted, no receipt payload was written or read, no raw path or
+  owner phrase was stored, no path was canonicalized, no file was opened or
+  hashed, no byte count was verified, no `llama-cli` command ran, no
+  model/runtime/provider bytes loaded, and no Gemma route/default/user surface
+  changed.
+
+Correct phrasing: "The Gemma owner-approved receipt materialization contract is
+witnessed; no receipt payload or Gemma artifact has been written, read,
+approved, opened, hashed, loaded, route-admitted, or promoted by this witness."
+
 ### 2026-06-09 - Local Gemma E4B manifest reconciliation
 
 North-star sentence: Epistemos is a local cognitive substrate where every
