@@ -7882,6 +7882,32 @@ Layer truth:
 Correct phrasing: "Gemma is the practical next local-model ladder, not yet the
 main app model."
 
+### 2026-06-09 - F-GemmaLocalArtifactAcquisitionCommandCard landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaLocalArtifactAcquisitionCommandCard` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_local_artifact_acquisition_command_card/result.json`.
+It consumes the acquisition plan and freezes four owner-approval-pending
+command cards: existing local E2B file, E2B HF snapshot quarantine download,
+E4B HF snapshot quarantine download, and 12B LiteRT-LM quarantine import.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 31 red fixtures
+  rejected, zero downloads, zero command execution, zero raw owner paths, and
+  zero model/runtime/provider bytes.
+- L2 capability route: unchanged and still red.
+- L3 user-facing / release readiness: unchanged and still red; no Gemma
+  artifact was acquired, loaded, run, route-admitted, or made default.
+
+Correct phrasing: "Gemma now has visible acquisition command cards; it still
+needs owner approval and a real local artifact receipt before runtime proof."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

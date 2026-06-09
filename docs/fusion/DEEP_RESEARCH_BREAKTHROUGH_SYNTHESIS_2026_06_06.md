@@ -28111,3 +28111,101 @@ Next research query:
 What is the smallest owner-approved E2B/E4B local GGUF acquisition path that
 can produce a redacted first-token receipt without using `-hf`, a server, or a
 hidden cache?
+
+## Pass 230 - F-GemmaLocalArtifactAcquisitionCommandCard landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Build result:
+`F-GemmaLocalArtifactAcquisitionCommandCard` is now a landed metadata-only
+T1/L1 witness. It consumes the Gemma local artifact acquisition plan and turns
+the future "get the model file" step into visible owner-approval-pending
+command cards.
+
+Mechanism:
+The witness defines four safe acquisition command cards:
+
+- owner provides an existing local E2B GGUF file
+- owner approves E2B HF snapshot download to quarantine
+- owner approves E4B HF snapshot download to quarantine
+- owner approves 12B LiteRT-LM import to quarantine
+
+Every card requires a later receipt with owner approval, selected model,
+filename, source revision, expected bytes, path digest, local sha256, local byte
+count, tool/version digest, rollback, RunEventLog, AnswerPacket, abstention,
+and non-promotion. The witness rejects raw owner-path storage, `llama-cli -hf`
+or `llama-server` as proof, unapproved modes, hidden cache/endpoint authority,
+default-route mutation, and L2/L3/T4 claims.
+
+Why it matters:
+The next Gemma move is now operationally exact without being dangerous. A
+future session can ask the owner for one local path or one explicit quarantine
+download/import approval, then produce an acquisition receipt before any
+runtime probe. This avoids the trap where "the model is downloadable" becomes
+"the app has Gemma."
+
+Epistemos organ:
+UAS model identity, AppColdStore acquisition quarantine, SCOPE-Rex/SovereignGate
+owner approval, RuntimeRouter/System G non-admission, RunEventLog, AnswerPacket,
+rollback, and MAS/Pro copy discipline.
+
+Local refs:
+
+- `agent_core/src/uas/gemma_local_artifact_acquisition_command_card.rs`
+- `agent_core/src/bin/falsify_gemma_local_artifact_acquisition_command_card.rs`
+- `Tools/falsifiers/f_gemma_local_artifact_acquisition_command_card.sh`
+- `docs/falsifiers/F-GemmaLocalArtifactAcquisitionCommandCard_2026_06_09.md`
+- `artifacts/falsifiers/gemma_local_artifact_acquisition_command_card/result.json`
+
+External refs:
+
+- `https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf`
+- `https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf`
+- `https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm`
+- `https://developers.googleblog.com/bringing-gemma-4-12b-to-your-laptop-unlocking-local-agentic-workflows-with-google-ai-edge/`
+
+Tier and status:
+T1 / L1 metadata-only. Pro Gated. L2, L3, T4, and user-facing Gemma remain red.
+
+Falsifier evidence:
+The artifact passes with 4 command cards, 3 acquisition-mode families, 17
+required receipt fields, 10 denied shortcuts, 30 rejection policies, planned
+artifact bytes `18401556672`, 31 red fixtures rejected, zero downloads, zero
+file opens, zero file hashes, zero path canonicalizations, zero armed/executed
+commands, zero servers, zero raw owner paths, zero model/runtime/provider
+bytes, zero route/default mutation, and zero promotion claims.
+
+Runtime proof:
+Not run. This is an acquisition command-card witness only.
+
+User-visible proof:
+Not present. Future UI should still say "Gemma not configured" until a local
+artifact receipt and runtime receipt exist.
+
+Rollback:
+Bound as a required receipt and non-promotion proof field. No rollback action
+executed because no acquisition occurred.
+
+Privacy/stability/provenance risks:
+Closed at T1: raw owner-path leakage, hidden HF cache proof, endpoint/server
+laundering, download-as-runtime proof, and default route mutation. Still open:
+owner approval, real local path, disk-space check, sha256/byte verification,
+first-token runtime receipt, quality replay, and release audit.
+
+Why it may be a breakthrough:
+It makes the first real Gemma acquisition a small, reviewable action rather
+than a fuzzy runtime adventure. This is how Gemma can become practical quickly
+without weakening Epistemos' privacy and proof discipline.
+
+Why it may be wrong:
+The command-card set may still need adjustment for the exact tool the owner
+chooses (`hf`, browser copy, or LiteRT-LM). If Google changes repo filenames or
+artifact revisions, the source cards must be refreshed before use.
+
+Next research query:
+Which of the four command cards should become the first owner-approved
+acquisition receipt: existing local E2B, E2B HF quarantine download, E4B HF
+quarantine download, or 12B LiteRT-LM quarantine import?

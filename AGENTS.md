@@ -492,6 +492,18 @@ Runtime policy:
   model capability. The next buildable Gemma unit is still the owner-approved
   first-runtime execution probe or a fail-closed acquisition/import step that
   supplies the exact local GGUF/LiteRT artifact.
+- 2026-06-09 Gemma acquisition command-card status:
+  `F-GemmaLocalArtifactAcquisitionCommandCard` is landed as metadata-only
+  L1/T1. It consumes the acquisition plan and binds four owner-approval-pending
+  acquisition cards: existing local E2B file, E2B HF snapshot quarantine
+  download, E4B HF snapshot quarantine download, and 12B LiteRT-LM quarantine
+  import. It requires later receipt fields for owner approval, selected model,
+  source revision, path digest, local sha256, byte count, tool digest,
+  rollback, RunEventLog, AnswerPacket, abstention, and non-promotion. It starts
+  zero downloads, opens zero files, hashes zero files, canonicalizes zero paths,
+  arms/executes zero commands, starts zero servers, stores zero raw owner paths,
+  loads zero model/runtime/provider bytes, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
