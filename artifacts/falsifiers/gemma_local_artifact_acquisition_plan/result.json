@@ -1,0 +1,475 @@
+{
+  "falsifier_id": "F-GemmaLocalArtifactAcquisitionPlan",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_local_artifact_acquisition_plan.sh",
+  "command_digest": "sha256:225ba3663ff56c59a76dfca360a3877f69c22f3b8acbbb969d7f6208871926b0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "a194e568f777f38410c81ce2c8a01a9063e4d169",
+  "fixture_id": "gemma_local_artifact_acquisition_plan_v1",
+  "timestamp_utc": "2026-06-09T03:33:20Z",
+  "result_digest": "sha256:7b17dab02fa2b243cd919bb55c44f8d01d551ef0bbb6804a0cd114a85ecbf7fa",
+  "measurements": {
+    "allowed_acquisition_mode_count": {
+      "value": 4,
+      "unit": "modes"
+    },
+    "allowed_acquisition_modes_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bytes_downloaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "denied_proof_shortcut_count": {
+      "value": 10,
+      "unit": "shortcuts"
+    },
+    "denied_proof_shortcuts_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "download_started_count": {
+      "value": 0,
+      "unit": "downloads"
+    },
+    "file_hash_count": {
+      "value": 0,
+      "unit": "hashes"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "opens"
+    },
+    "gemma_local_artifact_acquisition_plan_address": {
+      "value": "gemma_local_artifact_acquisition_plan:9f73106a3fe857e2ab01bea1b5deda66b15ae96022373ac206d45ecf45909991@1779845000000",
+      "unit": "text"
+    },
+    "gemma_local_artifact_acquisition_plan_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "local_artifact_present_count": {
+      "value": 0,
+      "unit": "artifacts"
+    },
+    "max_source_artifact_bytes": {
+      "value": 6547589312,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_and_local_artifact_absent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "value": 0,
+      "unit": "approvals"
+    },
+    "path_canonicalization_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "process_spawned_count": {
+      "value": 0,
+      "unit": "processes"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_rejection_count": {
+      "value": 38,
+      "unit": "fixtures"
+    },
+    "required_plan_field_count": {
+      "value": 15,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "value": 33,
+      "unit": "policies"
+    },
+    "required_source_field_count": {
+      "value": 11,
+      "unit": "fields"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_started_count": {
+      "value": 0,
+      "unit": "servers"
+    },
+    "source_card_count": {
+      "value": 3,
+      "unit": "cards"
+    },
+    "source_cards_e2b_e4b_litert12b_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_plan_and_rejection_fields_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "total_source_artifact_bytes": {
+      "value": 15052042560,
+      "unit": "bytes"
+    },
+    "upstream_receipt_gate_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_gate_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_server_runtime_actions": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_download_file_path_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "allowed_acquisition_mode_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "modes"
+    },
+    "allowed_acquisition_modes_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bytes_downloaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "denied_proof_shortcut_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "shortcuts"
+    },
+    "denied_proof_shortcuts_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "download_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "downloads"
+    },
+    "file_hash_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "hashes"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "opens"
+    },
+    "gemma_local_artifact_acquisition_plan_address": {
+      "operator": "==",
+      "value": "non_empty",
+      "unit": "text"
+    },
+    "gemma_local_artifact_acquisition_plan_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "local_artifact_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "artifacts"
+    },
+    "max_source_artifact_bytes": {
+      "operator": "==",
+      "value": 6547589312,
+      "unit": "bytes"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_and_local_artifact_absent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "approvals"
+    },
+    "path_canonicalization_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "process_spawned_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "processes"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 38,
+      "unit": "fixtures"
+    },
+    "required_plan_field_count": {
+      "operator": "==",
+      "value": 15,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 33,
+      "unit": "policies"
+    },
+    "required_source_field_count": {
+      "operator": "==",
+      "value": 11,
+      "unit": "fields"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "servers"
+    },
+    "source_card_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "cards"
+    },
+    "source_cards_e2b_e4b_litert12b_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_plan_and_rejection_fields_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "total_source_artifact_bytes": {
+      "operator": "==",
+      "value": 15052042560,
+      "unit": "bytes"
+    },
+    "upstream_receipt_gate_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_receipt_gate_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_server_runtime_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_download_file_path_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "allowed_acquisition_mode_count": true,
+    "allowed_acquisition_modes_bound": true,
+    "bytes_downloaded": true,
+    "command_armed_count": true,
+    "command_executed_count": true,
+    "denied_proof_shortcut_count": true,
+    "denied_proof_shortcuts_bound": true,
+    "download_started_count": true,
+    "file_hash_count": true,
+    "file_open_count": true,
+    "gemma_local_artifact_acquisition_plan_address": true,
+    "gemma_local_artifact_acquisition_plan_address_deterministic": true,
+    "hidden_authority_count": true,
+    "local_artifact_present_count": true,
+    "max_source_artifact_bytes": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_mutation": true,
+    "owner_approval_and_local_artifact_absent": true,
+    "owner_approval_granted_count": true,
+    "path_canonicalization_count": true,
+    "process_spawned_count": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "red_fixture_rejection_count": true,
+    "required_plan_field_count": true,
+    "required_rejection_policy_count": true,
+    "required_source_field_count": true,
+    "rollback_log_packet_abstention_bound": true,
+    "route_mutation_count": true,
+    "runtime_bytes_loaded": true,
+    "server_started_count": true,
+    "source_card_count": true,
+    "source_cards_e2b_e4b_litert12b_bound": true,
+    "source_plan_and_rejection_fields_bound": true,
+    "total_source_artifact_bytes": true,
+    "upstream_receipt_gate_pass": true,
+    "upstream_receipt_gate_ref_bound": true,
+    "zero_command_process_server_runtime_actions": true,
+    "zero_download_file_path_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaLocalArtifactAcquisitionPlan: consumes the landed Gemma first-runtime receipt gate, pins E2B/E4B GGUF and 12B LiteRT source artifacts, requires owner approval and local-file sha256/byte/path manifest after acquisition, starts zero downloads, opens zero files, arms zero commands, starts zero servers, loads zero model/runtime/provider bytes, and makes no Gemma L2/L3/T4/user-facing claim."
+}

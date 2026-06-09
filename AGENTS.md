@@ -467,6 +467,19 @@ Runtime policy:
   not download a model, open model bytes, arm or execute a command, start a
   server, mutate RuntimeRouter/System G/settings/default state, or make Gemma
   live/default/quality-proven/route-admitted/L2/L3/T4/user-facing.
+- 2026-06-09 Gemma local artifact acquisition plan status:
+  `F-GemmaLocalArtifactAcquisitionPlan` is landed as metadata-only L1/T1. It
+  consumes the first-runtime receipt gate and pins the exact public source
+  artifacts for E2B QAT GGUF (`3349514112` bytes), E4B QAT GGUF
+  (`5154939136` bytes), and 12B LiteRT-LM (`6547589312` bytes), while requiring
+  owner approval, quarantine import/download discipline, local-file sha256 and
+  byte-count proof after acquisition, owner path manifest, rollback,
+  RunEventLog, AnswerPacket, abstention, and non-promotion. It rejects
+  `llama-cli -hf`, `llama-server`, HF cache paths, model cards, repo revisions,
+  download completion, endpoints, hidden providers, and default-route mutation
+  as proof. It starts zero downloads, opens zero files, hashes zero files, arms
+  or executes zero commands, starts zero servers, loads zero model/runtime/
+  provider bytes, and makes no Gemma live/default/L2/L3/T4/user-facing claim.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
