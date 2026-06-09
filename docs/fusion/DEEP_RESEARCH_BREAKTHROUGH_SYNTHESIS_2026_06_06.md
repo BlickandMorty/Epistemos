@@ -29050,3 +29050,73 @@ Next research query:
 What is the smallest owner-approved Gemma E2B/E4B local artifact receipt shape
 that can be produced without raw path leakage and then consumed by a one-token
 direct `llama-cli --offline -m <approved-file>` proof?
+
+## Pass 240 - F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate` is now a landed
+metadata-only T1/L1 witness. It consumes
+`F-GemmaOwnerApprovedLocalArtifactReceiptProbe` and defines the fail-closed
+typed intake boundary for a future owner-approved local Gemma artifact receipt.
+
+Mechanism:
+The gate binds 8 intake sections, 30 canonical fields, 4 allowed receipt kinds,
+10 privacy rules, 14 denied shortcuts, 40 rejection policies, rollback,
+RunEventLog, AnswerPacket, abstention, non-promotion, and 47 rejected red
+fixtures. It requires owner approval but grants none.
+
+Architecture fusion:
+This is the bridge between UAS/OAS identity and future SCOPE-Rex/SovereignGate
+runtime admission. A future receipt may become evidence only after it satisfies
+the typed intake contract; raw local paths, owner approval plaintext, HF cache
+identity, source-card metadata, server endpoints, download completion, and
+hidden route authority are denied at the intake layer before RuntimeRouter or
+System G can see the claim.
+
+Files landed:
+
+- `agent_core/src/uas/gemma_owner_approved_local_artifact_receipt_intake_gate.rs`
+- `agent_core/src/bin/falsify_gemma_owner_approved_local_artifact_receipt_intake_gate.rs`
+- `Tools/falsifiers/f_gemma_owner_approved_local_artifact_receipt_intake_gate.sh`
+- `docs/falsifiers/F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate_2026_06_09.md`
+- `artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_intake_gate/result.json`
+
+Tier and status:
+T1/L1 metadata-only. No owner receipt payload was read or written, no raw path
+or owner phrase was stored, no path was canonicalized, no file was opened or
+hashed, no `llama-cli` command ran, no server or network probe started, no
+model/runtime/provider bytes loaded, no RuntimeRouter/System G/settings/default
+mutation occurred, and no Gemma live/default/L2/L3/T4/user-facing claim was
+made.
+
+Best breakthrough candidate:
+Keep the first real Gemma proof tiny and direct: E2B/E4B QAT GGUF, owner-
+approved local path, redacted receipt, then one-token `llama-cli --offline -m`
+proof. Keep 12B LiteRT-LM as the next Pro flagship lane after this rail works.
+
+Safest next falsifier:
+A redacted receipt fixture/emitter gate that satisfies this intake contract
+without reading raw paths into artifacts or treating cache/download/source-card
+evidence as proof.
+
+Best near-term code unit:
+Implement the receipt-emitter dry-run shape: accept owner-approved symbolic
+input, produce only digests/byte counts/reviewer-visible summary, and refuse to
+route or execute.
+
+Biggest false-claim risk:
+Treating the intake gate as "Gemma is installed" or "Gemma can run." It is a
+parser/admission boundary only.
+
+Biggest missing source:
+The actual owner-approved local Gemma E2B/E4B GGUF or approved MLX/LiteRT
+artifact receipt.
+
+Next research query:
+What is the smallest receipt-emitter dry-run that can produce the digest-only
+owner-approved Gemma artifact receipt required by this intake gate while still
+opening no model runtime and preserving raw-path privacy?

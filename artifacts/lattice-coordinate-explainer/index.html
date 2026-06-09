@@ -8,8 +8,8 @@
   <meta name="epistemos-artifact-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
   <meta name="epistemos-runtime-plural-cursor" content="runtime_plural_qat_lane_tournament_owner_approval_gate">
   <meta name="epistemos-research-to-build-cursor" content="small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe">
-  <meta name="epistemos-latest-research-pass" content="Pass 239 - F-GemmaOwnerApprovedLocalArtifactReceiptProbe landed">
-  <meta name="epistemos-commit-sha" content="3d164adf7a">
+  <meta name="epistemos-latest-research-pass" content="Pass 240 - F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate landed">
+  <meta name="epistemos-commit-sha" content="593a10889d">
   <meta name="epistemos-witness-disclaimer" content="planner metadata and falsifier witnesses do not promote live 70B or product runtime claims without L2/L3 proof">
   <title>Epistemos — Architecture Synthesis · v2026.06.01</title>
   <style>
@@ -2062,6 +2062,22 @@
   L2/L3 red. Next Gemma side unit:
   <code>gemma_direct_harness_owner_approved_first_runtime_execution_probe</code>,
   only after a real owner-approved local artifact receipt exists.
+</div>
+
+<div class="canon-hook">
+  <strong>2026-06-09 Pass 240 Gemma artifact receipt intake gate landed.</strong>
+  <code>F-GemmaOwnerApprovedLocalArtifactReceiptIntakeGate</code> is now a
+  metadata-only L1/T1 witness at
+  <code>artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_intake_gate/result.json</code>.
+  It consumes the receipt probe, binds 8 intake sections, 30 canonical fields,
+  4 receipt kinds, 10 privacy rules, 14 denied shortcuts, 40 rejection policies,
+  rollback, RunEventLog, AnswerPacket, abstention, non-promotion, and 47
+  red-fixture rejections. It reads zero receipt payload bytes, stores zero raw
+  paths or owner phrases, opens zero files, hashes zero files, executes zero
+  <code>llama-cli</code> probes, arms zero commands, loads zero model/runtime/
+  provider bytes, and keeps Gemma non-live/non-default with L2/L3 red. Next
+  safe Gemma unit: a redacted receipt-emitter dry run before any one-token
+  runtime execution.
 </div>
 
 <div class="canon-hook">
