@@ -7194,6 +7194,55 @@ Correct phrasing: "Gemma now has a landed owner-approved receipt-emitter
 contract for future direct harness artifacts; Gemma is still not live, default,
 L2/L3, or user-facing."
 
+### 2026-06-08 - F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate` is now implemented as a
+metadata-only T1/L1 primary witness:
+
+- Source:
+  `agent_core/src/uas/gemma_direct_harness_receipt_emitter_dry_run_artifact_gate.rs`.
+- Falsifier:
+  `agent_core/src/bin/falsify_gemma_direct_harness_receipt_emitter_dry_run_artifact_gate.rs`.
+- Script:
+  `Tools/falsifiers/f_gemma_direct_harness_receipt_emitter_dry_run_artifact_gate.sh`.
+- Witness doc:
+  `docs/falsifiers/F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate_2026_06_08.md`.
+- Artifact:
+  `artifacts/falsifiers/gemma_direct_harness_receipt_emitter_dry_run_artifact_gate/result.json`.
+
+The witness consumes the landed Gemma direct-harness receipt-emitter gate, then
+binds 36 dry-run artifact fields, 46 abort conditions, upstream emitter digest,
+dry-run schema and artifact digest, owner/model/llama.cpp/command placeholders,
+argv/environment/workdir/prompt/grammar policies, process/timeout/cancel/
+teardown/stdout/stderr policies, token redaction, timing and memory sampler
+plans, temp-path/atomic-write/cleanup policy, RunEventLog, AnswerPacket,
+rollback, abstention, and non-promotion. It rejects 60 red fixtures, writes
+zero dry-run artifact bytes, writes or reads zero receipt bytes, opens zero
+files, arms zero commands, executes zero commands, loads zero model/runtime/
+provider bytes, captures zero raw owner path/prompt/output/stdout/stderr/token
+bytes, mutates zero RuntimeRouter/System G/settings/default state, and does not
+make Gemma live/default/L2/L3/T4/user-facing.
+
+Layer truth:
+
+- L1 architecture/canon: `F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate`
+  advances as metadata-only T1/L1 side-ladder evidence.
+- L1 guard-owned product cursor: still
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L2 capability route: still `vault_research_route_with_packetized_mitigation`.
+- L3 user-facing / release readiness: still red; no direct harness process,
+  runtime, model bytes, route priority, settings row, first token, dry-run
+  artifact, or product capability was activated.
+
+Correct phrasing: "Gemma now has a landed dry-run receipt artifact contract for
+future direct harness receipts; Gemma is still not live, default, L2/L3, or
+user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

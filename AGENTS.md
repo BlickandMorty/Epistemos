@@ -273,8 +273,21 @@ Runtime policy:
   RuntimeRouter/System G/settings/default state, and makes no Gemma
   live/default/L2/L3/T4/user-facing claim. Next side-ladder unit is
   `gemma_direct_harness_receipt_emitter_dry_run_artifact_gate`.
-  Next side-ladder unit:
-  `gemma_direct_harness_owner_approved_receipt_emitter_gate`.
+- 2026-06-08 Gemma direct harness dry-run artifact status:
+  `F-GemmaDirectHarnessReceiptEmitterDryRunArtifactGate` is now landed as
+  metadata-only L1/T1. It consumes the landed direct-harness receipt-emitter
+  gate, binds 36 dry-run artifact fields, 46 abort conditions, upstream
+  emitter digest, dry-run schema and artifact digest, owner/model/llama.cpp/
+  command placeholders, argv/environment/workdir/prompt/grammar policies,
+  process/timeout/cancel/teardown/stdout/stderr policies, token redaction,
+  timing/memory sampler plans, temp-path/atomic-write/cleanup policy,
+  RunEventLog, AnswerPacket, rollback, abstention, non-promotion, and 60
+  red-fixture rejections. It writes zero dry-run artifact bytes, writes or
+  reads zero receipt bytes, opens zero files, arms or executes zero commands,
+  captures zero raw owner path/prompt/output/stdout/stderr/token bytes, mutates
+  zero RuntimeRouter/System G/settings/default state, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. Next side-ladder unit is
+  `gemma_direct_harness_owner_approved_receipt_runbook_gate`.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
