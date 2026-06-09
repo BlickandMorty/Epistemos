@@ -6676,3 +6676,30 @@ Promotion truth: T0/T1 canon/backlog only. This pass lands no falsifier, runs
 no command, opens no model, admits no route, and makes no Gemma L2/L3/T4/user
 claim. It exists to make the later owner-approved E2B/E4B QAT GGUF proof safer
 and faster by removing ambiguous runtime shapes up front.
+
+### §28.38 Gemma direct harness trap-policy gate landed (added 2026-06-09)
+
+**Canonical:** `docs/falsifiers/F-GemmaDirectHarnessTrapPolicyGate_2026_06_09.md`,
+`artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/result.json`,
+`docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md` Pass 245, and
+`docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md` §6.
+
+Pass 245 lands `F-GemmaDirectHarnessTrapPolicyGate` as the metadata-only L1/T1
+policy wall between the Gemma direct-file command card and any future execution
+receipt. It binds 29 required policy fields, 14 allowed runtime shapes, 29
+denied runtime shapes, 8 denied file classes, 59 red-fixture rejections, zero
+command/process/server/network/file/model/runtime/provider actions, zero raw
+private bytes, rollback, RunEventLog, AnswerPacket, abstention, hidden-authority
+denial, and non-promotion.
+
+The gate allows only text-only direct local GGUF `llama-cli --offline -m
+<approved local file>` proof shape. It denies `-hf`, URL/model-repo
+identifiers, `llama-server`, host/port/API flags, local endpoints, provider
+manifests, HF cache shortcuts, MTP/drafter flags, multimodal `mmproj`, image
+inputs, MLX folders, LiteRT bundles, safetensors substitution, unbounded
+context/prediction, route/default mutation, live Gemma claims, L2/L3/T4 claims,
+live dense 70B claims, and SSD-as-RAM claims.
+
+Promotion truth: L1 advanced only. It does not approve a local Gemma artifact,
+run `llama.cpp`, produce a token, prove quality, admit a RuntimeRouter/System G
+route, update user-facing surfaces, or make Gemma the app default.

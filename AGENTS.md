@@ -131,11 +131,13 @@ Runtime policy:
   text-only, direct local file, offline, no server, no hidden HF cache, no
   MTP/drafter, no multimodal `mmproj` sidecar, no Swift MLX loader assumption,
   and no route/default mutation. A future
-  `F-GemmaDirectHarnessTrapPolicyGate` should reject `-hf`, URL/model-repo
+  `F-GemmaDirectHarnessTrapPolicyGate` now lands this as an L1 metadata-only
+  witness and should reject `-hf`, URL/model-repo
   identifiers, `llama-server`, host/port/API flags, MTP/drafter flags,
   multimodal/mmproj flags, HF cache paths, provider paths, unbounded context
   flags, and RuntimeRouter/System G/default mutations before any first runtime
-  execution probe opens bytes.
+  execution probe opens bytes. It does not make Gemma live, default, L2/L3,
+  T4, quality-proven, or user-facing.
 - 2026-06-08 release-audit bottleneck lock: do not try to make Gemma the main
   app model by bypassing the current product gate. The guard-owned bottleneck
   is still

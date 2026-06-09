@@ -201,6 +201,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-GemmaDirectHarnessOwnerApprovedSameFixtureQualityPacketGate",
     "F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate",
     "F-GemmaDirectHarnessFirstRuntimeProofCommandCard",
+    "F-GemmaDirectHarnessTrapPolicyGate",
     "F-GemmaDirectHarnessFirstRuntimeProofReceiptGate",
     "F-GemmaLocalArtifactAcquisitionPlan",
     "F-GemmaLocalArtifactAcquisitionCommandCard",

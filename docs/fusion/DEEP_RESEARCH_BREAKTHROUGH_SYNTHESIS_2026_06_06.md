@@ -29456,3 +29456,80 @@ Next research query:
 What exact denylist/allowlist should `F-GemmaDirectHarnessTrapPolicyGate`
 enforce so the first E2B/E4B runtime proof cannot silently become HF-cache,
 server, multimodal, MTP, MLX, LiteRT, provider, or route-mutation proof?
+
+## Pass 245 - Gemma Direct Harness Trap-Policy Gate Landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass turns the Pass 244 trap map into a landed L1 metadata witness:
+`F-GemmaDirectHarnessTrapPolicyGate`. The mechanism is deliberately narrow. It
+does not make Gemma live; it makes the first future Gemma direct-file proof much
+harder to accidentally fake.
+
+Mechanism:
+
+- consumes `F-GemmaDirectHarnessFirstRuntimeProofCommandCard`;
+- permits only text-only direct local GGUF `llama-cli --offline -m <approved
+  local file>` proof shape;
+- rejects `-hf`, URL/model-repo identifiers, `llama-server`, host/port/API
+  flags, local endpoints, provider manifests, HF cache shortcuts, MTP/drafter
+  flags, multimodal `mmproj`, image inputs, MLX folder substitution, LiteRT
+  bundle substitution, safetensors substitution, unbounded context/predict
+  flags, route/default mutation, hidden authority, and product promotion;
+- records zero command arming, zero execution, zero process spawn, zero server,
+  zero file opens, zero model/runtime/provider bytes, zero raw private bytes,
+  zero mutation, and zero promotion claims.
+
+Architecture fusion:
+
+`GemmaDirectHarnessTrapPolicyGate` becomes the guardrail packet between the
+command-card contract and the receipt contract. Its value is speed through
+constraint: once owner approval and a real local E2B/E4B QAT GGUF artifact
+exist, agents should not re-litigate whether `-hf`, a server, an MLX folder, or
+a LiteRT bundle can substitute for the first direct-file proof.
+
+Evidence:
+
+- `agent_core/src/uas/gemma_direct_harness_trap_policy_gate.rs`
+- `agent_core/src/bin/falsify_gemma_direct_harness_trap_policy_gate.rs`
+- `Tools/falsifiers/f_gemma_direct_harness_trap_policy_gate.sh`
+- `artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/result.json`
+- `docs/falsifiers/F-GemmaDirectHarnessTrapPolicyGate_2026_06_09.md`
+
+Tier and status:
+
+T1/L1 metadata-only. No local Gemma file was approved, opened, hashed, loaded,
+or tokenized. No `llama.cpp` command ran. No quality proof, route admission,
+settings visibility, release-audit proof, MAS default, L2, L3, T4, or live
+dense 70B claim exists.
+
+Best breakthrough candidate:
+Use the landed trap policy as the last pre-runtime hardening wall before an
+owner-approved local E2B/E4B QAT GGUF receipt.
+
+Safest next falsifier:
+`F-GemmaDirectHarnessFirstRuntimeProofReceiptGate`, or the owner-approved
+first-runtime execution probe only after a real local artifact receipt exists.
+
+Best near-term code unit:
+Wire the trap-policy verdict into the first runtime receipt intake so any
+future command receipt that mentions `-hf`, server mode, MTP, `mmproj`, MLX,
+LiteRT, provider endpoints, or route/default mutation fails before evidence is
+recorded.
+
+Biggest false-claim risk:
+Calling this proof "Gemma works." It only proves the unsafe proof shapes are
+denied.
+
+Biggest missing source:
+A real owner-approved local Gemma E2B/E4B QAT GGUF artifact receipt with
+sha256, byte count, path digest, llama.cpp identity, and a bounded first-token
+run.
+
+Next research query:
+What is the smallest owner-approved local Gemma artifact receipt that can move
+from no-byte metadata to a real first-token proof without introducing raw-path,
+network, cache, server, or route-mutation risk?
