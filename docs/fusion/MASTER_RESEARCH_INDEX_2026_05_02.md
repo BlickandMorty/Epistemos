@@ -87,6 +87,12 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > RunEventLog, AnswerPacket, and release-audit proof. No picker row, `-hf`
 > command, `llama-server`, LiteRT-LM `serve`, HF cache path, local endpoint, or
 > model card is main-model capability.
+> Pass 230 lands
+> `artifacts/falsifiers/gemma_local_artifact_acquisition_command_card/result.json`
+> as metadata-only T1/L1: four owner-approval-pending acquisition command
+> cards, 17 receipt fields, 10 denied shortcuts, 30 rejection policies, 31 red
+> fixtures rejected, zero downloads, zero commands, zero raw owner paths, zero
+> model/runtime/provider bytes, and no Gemma live/default/L2/L3/T4 claim.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,

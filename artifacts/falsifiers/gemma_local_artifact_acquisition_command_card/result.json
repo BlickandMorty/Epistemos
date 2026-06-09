@@ -1,0 +1,425 @@
+{
+  "falsifier_id": "F-GemmaLocalArtifactAcquisitionCommandCard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_gemma_local_artifact_acquisition_command_card.sh",
+  "command_digest": "sha256:ba53ecaddff6499f46bc26119f6e1c5bcea7b19582afae333b6d51122fa844f5",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "192c60f1218fe09598e8cb00abd857221e8b643c",
+  "fixture_id": "gemma_local_artifact_acquisition_command_card_v1",
+  "timestamp_utc": "2026-06-09T03:57:03Z",
+  "result_digest": "sha256:e4633481f3305420839f9e0024b55b3fe1a4994f3d360bbe63d53a24732b77c1",
+  "measurements": {
+    "acquisition_mode_count": {
+      "value": 3,
+      "unit": "modes"
+    },
+    "command_armed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_card_count": {
+      "value": 4,
+      "unit": "cards"
+    },
+    "command_cards_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "value": 0,
+      "unit": "commands"
+    },
+    "denied_shortcut_count": {
+      "value": 10,
+      "unit": "shortcuts"
+    },
+    "download_started_count": {
+      "value": 0,
+      "unit": "downloads"
+    },
+    "file_hash_count": {
+      "value": 0,
+      "unit": "hashes"
+    },
+    "file_open_count": {
+      "value": 0,
+      "unit": "opens"
+    },
+    "gemma_local_artifact_acquisition_command_card_address": {
+      "value": "gemma_local_artifact_acquisition_command_card:81bbaa9a8d08b766d046919e9a9ed9204822e5df4b1a76251d5c62a8b6d55bf0@1779848000000",
+      "unit": "text"
+    },
+    "gemma_local_artifact_acquisition_command_card_address_deterministic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "value": 0,
+      "unit": "authorities"
+    },
+    "model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "value": 0,
+      "unit": "approvals"
+    },
+    "owner_approval_pending_and_unarmed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "path_canonicalization_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_path_denied": {
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_path_storage_count": {
+      "value": 0,
+      "unit": "paths"
+    },
+    "receipt_fields_shortcuts_and_rejections_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "value": 31,
+      "unit": "fixtures"
+    },
+    "required_receipt_field_count": {
+      "value": 17,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "value": 30,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_started_count": {
+      "value": 0,
+      "unit": "servers"
+    },
+    "total_planned_artifact_bytes": {
+      "value": 18401556672,
+      "unit": "bytes"
+    },
+    "upstream_acquisition_plan_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_acquisition_plan_ref_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_server_runtime_actions": {
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_download_file_path_actions": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "acquisition_mode_count": {
+      "operator": ">=",
+      "value": 3,
+      "unit": "modes"
+    },
+    "command_armed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "command_card_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
+    },
+    "command_cards_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "command_executed_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "commands"
+    },
+    "denied_shortcut_count": {
+      "operator": "==",
+      "value": 10,
+      "unit": "shortcuts"
+    },
+    "download_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "downloads"
+    },
+    "file_hash_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "hashes"
+    },
+    "file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "opens"
+    },
+    "gemma_local_artifact_acquisition_command_card_address": {
+      "operator": "!=",
+      "value": "",
+      "unit": "text"
+    },
+    "gemma_local_artifact_acquisition_command_card_address_deterministic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hidden_authority_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "authorities"
+    },
+    "model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
+      "unit": "text"
+    },
+    "next_cursor_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_hidden_authority_or_cloud_fallback": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_route_system_g_settings_mutation": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "owner_approval_granted_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "approvals"
+    },
+    "owner_approval_pending_and_unarmed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "path_canonicalization_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "privacy_raw_path_denied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "promotion_claim_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "claims"
+    },
+    "provider_calls_made": {
+      "operator": "==",
+      "value": 0,
+      "unit": "calls"
+    },
+    "raw_path_storage_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "paths"
+    },
+    "receipt_fields_shortcuts_and_rejections_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "red_fixture_rejection_count": {
+      "operator": ">=",
+      "value": 31,
+      "unit": "fixtures"
+    },
+    "required_receipt_field_count": {
+      "operator": "==",
+      "value": 17,
+      "unit": "fields"
+    },
+    "required_rejection_policy_count": {
+      "operator": "==",
+      "value": 30,
+      "unit": "policies"
+    },
+    "rollback_log_packet_abstention_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_mutation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "mutations"
+    },
+    "runtime_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "server_started_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "servers"
+    },
+    "total_planned_artifact_bytes": {
+      "operator": "==",
+      "value": 18401556672,
+      "unit": "bytes"
+    },
+    "upstream_acquisition_plan_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_acquisition_plan_ref_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_command_process_server_runtime_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "zero_download_file_path_actions": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "acquisition_mode_count": true,
+    "command_armed_count": true,
+    "command_card_count": true,
+    "command_cards_bound": true,
+    "command_executed_count": true,
+    "denied_shortcut_count": true,
+    "download_started_count": true,
+    "file_hash_count": true,
+    "file_open_count": true,
+    "gemma_local_artifact_acquisition_command_card_address": true,
+    "gemma_local_artifact_acquisition_command_card_address_deterministic": true,
+    "hidden_authority_count": true,
+    "model_bytes_loaded": true,
+    "next_cursor": true,
+    "next_cursor_bound": true,
+    "no_hidden_authority_or_cloud_fallback": true,
+    "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": true,
+    "no_route_system_g_settings_mutation": true,
+    "owner_approval_granted_count": true,
+    "owner_approval_pending_and_unarmed": true,
+    "path_canonicalization_count": true,
+    "privacy_raw_path_denied": true,
+    "promotion_claim_count": true,
+    "provider_calls_made": true,
+    "raw_path_storage_count": true,
+    "receipt_fields_shortcuts_and_rejections_bound": true,
+    "red_fixture_rejection_count": true,
+    "required_receipt_field_count": true,
+    "required_rejection_policy_count": true,
+    "rollback_log_packet_abstention_bound": true,
+    "route_mutation_count": true,
+    "runtime_bytes_loaded": true,
+    "server_started_count": true,
+    "total_planned_artifact_bytes": true,
+    "upstream_acquisition_plan_pass": true,
+    "upstream_acquisition_plan_ref_bound": true,
+    "zero_command_process_server_runtime_actions": true,
+    "zero_download_file_path_actions": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "metadata-only F-GemmaLocalArtifactAcquisitionCommandCard: consumes the landed acquisition plan and freezes four owner-approval-pending acquisition command cards for local file, HF quarantine download, E4B quarantine download, and LiteRT-LM quarantine import. It executes zero commands, starts zero downloads, opens zero files, stores zero raw paths, loads zero model/runtime/provider bytes, and makes no Gemma L2/L3/T4/user-facing claim."
+}
