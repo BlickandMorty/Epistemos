@@ -26,7 +26,8 @@ no Gemma live/default/L2/L3/T4/user-facing claim.
 
 The artifact passes with 4 command cards, 3 acquisition-mode families, 17
 required receipt fields, 10 denied shortcuts, 30 rejection policies, planned
-artifact bytes `18401556672`, and 31 red fixtures rejected.
+artifact bytes `18401556672`, 31 red fixtures rejected, and next cursor
+`gemma_local_artifact_acquisition_receipt_gate`.
 
 ## Meaning
 
@@ -41,6 +42,8 @@ paths are explicit and owner-gated:
 All paths still require post-acquisition local-file sha256, byte count, path
 digest, rollback, RunEventLog, AnswerPacket, abstention, and non-promotion
 proof before any runtime receipt or System G admission can consume them.
+This command-card rung feeds `F-GemmaLocalArtifactAcquisitionReceiptGate`
+before any owner-approved runtime execution probe.
 
 ## Layer Truth
 

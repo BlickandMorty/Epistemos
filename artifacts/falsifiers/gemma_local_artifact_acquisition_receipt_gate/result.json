@@ -1,5 +1,5 @@
 {
-  "falsifier_id": "F-GemmaLocalArtifactAcquisitionCommandCard",
+  "falsifier_id": "F-GemmaLocalArtifactAcquisitionReceiptGate",
   "schema_version": "2026-05-18.2",
   "artifact_kind": "primary_witness",
   "hardware_pin": {
@@ -9,8 +9,8 @@
     "unified_memory_gb": 16,
     "memory_bandwidth_gb_s": 200
   },
-  "command": "Tools/falsifiers/f_gemma_local_artifact_acquisition_command_card.sh",
-  "command_digest": "sha256:ba53ecaddff6499f46bc26119f6e1c5bcea7b19582afae333b6d51122fa844f5",
+  "command": "Tools/falsifiers/f_gemma_local_artifact_acquisition_receipt_gate.sh",
+  "command_digest": "sha256:17ba74c49c52f9d0b193b408e2393df9d3e82b605e269284f30c0109d15d6e97",
   "runner_environment": {
     "cwd": "repo_root",
     "shell": "zsh",
@@ -29,51 +29,47 @@
     "power_source": "unknown"
   },
   "commit_sha": "554dc008024b5ef74de4776e01bc5801d826d3aa",
-  "fixture_id": "gemma_local_artifact_acquisition_command_card_v1",
-  "timestamp_utc": "2026-06-09T04:27:44Z",
-  "result_digest": "sha256:7869ead0c097416a72b675202889ce85769814283deeebeb62ab0ede0e2a9703",
+  "fixture_id": "gemma_local_artifact_acquisition_receipt_gate_v1",
+  "timestamp_utc": "2026-06-09T04:27:45Z",
+  "result_digest": "sha256:3b1f0cac4f1d6f8ddda3edf80a5a58bd7b3374ac9c434c5808815d971197df2f",
   "measurements": {
-    "acquisition_mode_count": {
-      "value": 3,
-      "unit": "modes"
+    "allowed_selected_card_count": {
+      "value": 4,
+      "unit": "cards"
     },
     "command_armed_count": {
       "value": 0,
       "unit": "commands"
-    },
-    "command_card_count": {
-      "value": 4,
-      "unit": "cards"
-    },
-    "command_cards_bound": {
-      "value": true,
-      "unit": "bool"
     },
     "command_executed_count": {
       "value": 0,
       "unit": "commands"
     },
     "denied_shortcut_count": {
-      "value": 10,
+      "value": 12,
       "unit": "shortcuts"
     },
     "download_started_count": {
       "value": 0,
       "unit": "downloads"
     },
-    "file_hash_count": {
+    "future_receipt_bytes_read": {
       "value": 0,
-      "unit": "hashes"
+      "unit": "bytes"
     },
-    "file_open_count": {
+    "future_receipt_bytes_written": {
       "value": 0,
-      "unit": "opens"
+      "unit": "bytes"
     },
-    "gemma_local_artifact_acquisition_command_card_address": {
-      "value": "gemma_local_artifact_acquisition_command_card:81bbaa9a8d08b766d046919e9a9ed9204822e5df4b1a76251d5c62a8b6d55bf0@1779848000000",
+    "future_receipt_present_count": {
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_local_artifact_acquisition_receipt_gate_address": {
+      "value": "gemma_local_artifact_acquisition_receipt_gate:de9a5abb40e4ef1bc9f2caa5d861b018d83083c860bde76c41a4c4384e261a20@1779852000000",
       "unit": "text"
     },
-    "gemma_local_artifact_acquisition_command_card_address_deterministic": {
+    "gemma_local_artifact_acquisition_receipt_gate_address_deterministic": {
       "value": true,
       "unit": "bool"
     },
@@ -81,12 +77,32 @@
       "value": 0,
       "unit": "authorities"
     },
+    "local_file_byte_count_verified_count": {
+      "value": 0,
+      "unit": "verifications"
+    },
+    "local_file_hash_count": {
+      "value": 0,
+      "unit": "hashes"
+    },
+    "local_file_open_count": {
+      "value": 0,
+      "unit": "opens"
+    },
+    "local_file_present_count": {
+      "value": 0,
+      "unit": "files"
+    },
+    "local_file_sha256_present_count": {
+      "value": 0,
+      "unit": "hashes"
+    },
     "model_bytes_loaded": {
       "value": 0,
       "unit": "bytes"
     },
     "next_cursor": {
-      "value": "gemma_local_artifact_acquisition_receipt_gate",
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
       "unit": "text"
     },
     "next_cursor_bound": {
@@ -109,10 +125,6 @@
       "value": 0,
       "unit": "approvals"
     },
-    "owner_approval_pending_and_unarmed": {
-      "value": true,
-      "unit": "bool"
-    },
     "path_canonicalization_count": {
       "value": 0,
       "unit": "paths"
@@ -133,20 +145,24 @@
       "value": 0,
       "unit": "paths"
     },
-    "receipt_fields_shortcuts_and_rejections_bound": {
+    "receipt_contract_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_deferred_and_owner_approval_absent": {
       "value": true,
       "unit": "bool"
     },
     "red_fixture_rejection_count": {
-      "value": 31,
+      "value": 36,
       "unit": "fixtures"
     },
     "required_receipt_field_count": {
-      "value": 17,
+      "value": 24,
       "unit": "fields"
     },
     "required_rejection_policy_count": {
-      "value": 30,
+      "value": 32,
       "unit": "policies"
     },
     "rollback_log_packet_abstention_bound": {
@@ -161,51 +177,41 @@
       "value": 0,
       "unit": "bytes"
     },
+    "selected_card_and_shortcut_policy_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "server_started_count": {
       "value": 0,
       "unit": "servers"
     },
-    "total_planned_artifact_bytes": {
-      "value": 18401556672,
-      "unit": "bytes"
-    },
-    "upstream_acquisition_plan_pass": {
+    "upstream_acquisition_command_card_pass": {
       "value": true,
       "unit": "bool"
     },
-    "upstream_acquisition_plan_ref_bound": {
+    "upstream_acquisition_command_card_ref_bound": {
       "value": true,
       "unit": "bool"
     },
-    "zero_command_process_server_runtime_actions": {
+    "zero_command_download_server_runtime_actions": {
       "value": true,
       "unit": "bool"
     },
-    "zero_download_file_path_actions": {
+    "zero_local_file_hash_path_actions": {
       "value": true,
       "unit": "bool"
     }
   },
   "acceptance_thresholds": {
-    "acquisition_mode_count": {
-      "operator": ">=",
-      "value": 3,
-      "unit": "modes"
+    "allowed_selected_card_count": {
+      "operator": "==",
+      "value": 4,
+      "unit": "cards"
     },
     "command_armed_count": {
       "operator": "==",
       "value": 0,
       "unit": "commands"
-    },
-    "command_card_count": {
-      "operator": "==",
-      "value": 4,
-      "unit": "cards"
-    },
-    "command_cards_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
     },
     "command_executed_count": {
       "operator": "==",
@@ -214,7 +220,7 @@
     },
     "denied_shortcut_count": {
       "operator": "==",
-      "value": 10,
+      "value": 12,
       "unit": "shortcuts"
     },
     "download_started_count": {
@@ -222,22 +228,27 @@
       "value": 0,
       "unit": "downloads"
     },
-    "file_hash_count": {
+    "future_receipt_bytes_read": {
       "operator": "==",
       "value": 0,
-      "unit": "hashes"
+      "unit": "bytes"
     },
-    "file_open_count": {
+    "future_receipt_bytes_written": {
       "operator": "==",
       "value": 0,
-      "unit": "opens"
+      "unit": "bytes"
     },
-    "gemma_local_artifact_acquisition_command_card_address": {
+    "future_receipt_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "receipts"
+    },
+    "gemma_local_artifact_acquisition_receipt_gate_address": {
       "operator": "!=",
       "value": "",
       "unit": "text"
     },
-    "gemma_local_artifact_acquisition_command_card_address_deterministic": {
+    "gemma_local_artifact_acquisition_receipt_gate_address_deterministic": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -247,6 +258,31 @@
       "value": 0,
       "unit": "authorities"
     },
+    "local_file_byte_count_verified_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "verifications"
+    },
+    "local_file_hash_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "hashes"
+    },
+    "local_file_open_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "opens"
+    },
+    "local_file_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "files"
+    },
+    "local_file_sha256_present_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "hashes"
+    },
     "model_bytes_loaded": {
       "operator": "==",
       "value": 0,
@@ -254,7 +290,7 @@
     },
     "next_cursor": {
       "operator": "==",
-      "value": "gemma_local_artifact_acquisition_receipt_gate",
+      "value": "gemma_direct_harness_owner_approved_first_runtime_execution_probe",
       "unit": "text"
     },
     "next_cursor_bound": {
@@ -282,11 +318,6 @@
       "value": 0,
       "unit": "approvals"
     },
-    "owner_approval_pending_and_unarmed": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "path_canonicalization_count": {
       "operator": "==",
       "value": 0,
@@ -312,24 +343,29 @@
       "value": 0,
       "unit": "paths"
     },
-    "receipt_fields_shortcuts_and_rejections_bound": {
+    "receipt_contract_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "receipt_deferred_and_owner_approval_absent": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "red_fixture_rejection_count": {
       "operator": ">=",
-      "value": 31,
+      "value": 36,
       "unit": "fixtures"
     },
     "required_receipt_field_count": {
       "operator": "==",
-      "value": 17,
+      "value": 24,
       "unit": "fields"
     },
     "required_rejection_policy_count": {
       "operator": "==",
-      "value": 30,
+      "value": 32,
       "unit": "policies"
     },
     "rollback_log_packet_abstention_bound": {
@@ -347,50 +383,54 @@
       "value": 0,
       "unit": "bytes"
     },
+    "selected_card_and_shortcut_policy_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "server_started_count": {
       "operator": "==",
       "value": 0,
       "unit": "servers"
     },
-    "total_planned_artifact_bytes": {
-      "operator": "==",
-      "value": 18401556672,
-      "unit": "bytes"
-    },
-    "upstream_acquisition_plan_pass": {
+    "upstream_acquisition_command_card_pass": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "upstream_acquisition_plan_ref_bound": {
+    "upstream_acquisition_command_card_ref_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "zero_command_process_server_runtime_actions": {
+    "zero_command_download_server_runtime_actions": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "zero_download_file_path_actions": {
+    "zero_local_file_hash_path_actions": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     }
   },
   "pass_per_axis": {
-    "acquisition_mode_count": true,
+    "allowed_selected_card_count": true,
     "command_armed_count": true,
-    "command_card_count": true,
-    "command_cards_bound": true,
     "command_executed_count": true,
     "denied_shortcut_count": true,
     "download_started_count": true,
-    "file_hash_count": true,
-    "file_open_count": true,
-    "gemma_local_artifact_acquisition_command_card_address": true,
-    "gemma_local_artifact_acquisition_command_card_address_deterministic": true,
+    "future_receipt_bytes_read": true,
+    "future_receipt_bytes_written": true,
+    "future_receipt_present_count": true,
+    "gemma_local_artifact_acquisition_receipt_gate_address": true,
+    "gemma_local_artifact_acquisition_receipt_gate_address_deterministic": true,
     "hidden_authority_count": true,
+    "local_file_byte_count_verified_count": true,
+    "local_file_hash_count": true,
+    "local_file_open_count": true,
+    "local_file_present_count": true,
+    "local_file_sha256_present_count": true,
     "model_bytes_loaded": true,
     "next_cursor": true,
     "next_cursor_bound": true,
@@ -398,28 +438,28 @@
     "no_quality_l2_l3_t4_gemma_default_70b_or_ssd_claim": true,
     "no_route_system_g_settings_mutation": true,
     "owner_approval_granted_count": true,
-    "owner_approval_pending_and_unarmed": true,
     "path_canonicalization_count": true,
     "privacy_raw_path_denied": true,
     "promotion_claim_count": true,
     "provider_calls_made": true,
     "raw_path_storage_count": true,
-    "receipt_fields_shortcuts_and_rejections_bound": true,
+    "receipt_contract_bound": true,
+    "receipt_deferred_and_owner_approval_absent": true,
     "red_fixture_rejection_count": true,
     "required_receipt_field_count": true,
     "required_rejection_policy_count": true,
     "rollback_log_packet_abstention_bound": true,
     "route_mutation_count": true,
     "runtime_bytes_loaded": true,
+    "selected_card_and_shortcut_policy_bound": true,
     "server_started_count": true,
-    "total_planned_artifact_bytes": true,
-    "upstream_acquisition_plan_pass": true,
-    "upstream_acquisition_plan_ref_bound": true,
-    "zero_command_process_server_runtime_actions": true,
-    "zero_download_file_path_actions": true
+    "upstream_acquisition_command_card_pass": true,
+    "upstream_acquisition_command_card_ref_bound": true,
+    "zero_command_download_server_runtime_actions": true,
+    "zero_local_file_hash_path_actions": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [],
-  "notes": "metadata-only F-GemmaLocalArtifactAcquisitionCommandCard: consumes the landed acquisition plan and freezes four owner-approval-pending acquisition command cards for local file, HF quarantine download, E4B quarantine download, and LiteRT-LM quarantine import. It executes zero commands, starts zero downloads, opens zero files, stores zero raw paths, loads zero model/runtime/provider bytes, and makes no Gemma L2/L3/T4/user-facing claim."
+  "notes": "metadata-only F-GemmaLocalArtifactAcquisitionReceiptGate: consumes the Gemma acquisition command cards and freezes the future acquisition receipt contract. It writes zero receipts, reads zero receipts, opens zero local files, computes zero hashes, arms zero commands, starts zero downloads or servers, loads zero model/runtime/provider bytes, stores zero raw owner paths, and makes no Gemma L2/L3/T4/user-facing claim."
 }

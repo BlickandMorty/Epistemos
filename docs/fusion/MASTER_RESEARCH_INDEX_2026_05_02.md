@@ -93,6 +93,13 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > cards, 17 receipt fields, 10 denied shortcuts, 30 rejection policies, 31 red
 > fixtures rejected, zero downloads, zero commands, zero raw owner paths, zero
 > model/runtime/provider bytes, and no Gemma live/default/L2/L3/T4 claim.
+> Pass 231 lands
+> `artifacts/falsifiers/gemma_local_artifact_acquisition_receipt_gate/result.json`
+> as metadata-only T1/L1: 24 receipt fields, 4 selectable command-card IDs,
+> 12 denied shortcuts, 32 rejection policies, 36 red fixtures rejected, zero
+> receipts written/read, zero file opens/hashes/path canonicalization, zero
+> downloads/commands/servers, zero raw owner paths, zero model/runtime/provider
+> bytes, and no Gemma live/default/L2/L3/T4 claim.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,

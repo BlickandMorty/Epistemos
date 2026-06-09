@@ -73,6 +73,7 @@ pub mod gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate;
 pub mod gemma_direct_harness_receipt_emitter_dry_run_artifact_gate;
 pub mod gemma_local_artifact_acquisition_command_card;
 pub mod gemma_local_artifact_acquisition_plan;
+pub mod gemma_local_artifact_acquisition_receipt_gate;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
@@ -517,6 +518,19 @@ pub use gemma_local_artifact_acquisition_command_card::{
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_ID,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_NEXT_CURSOR,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_UPSTREAM_REF,
+};
+pub use gemma_local_artifact_acquisition_receipt_gate::{
+    allowed_gemma_acquisition_receipt_selected_card_ids,
+    denied_gemma_acquisition_receipt_shortcuts,
+    required_gemma_acquisition_receipt_gate_fields,
+    required_gemma_acquisition_receipt_rejection_policies,
+    GemmaLocalArtifactAcquisitionReceiptGate,
+    GemmaLocalArtifactAcquisitionReceiptGateError,
+    GemmaLocalArtifactAcquisitionReceiptGateMetrics,
+    GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_CURSOR,
+    GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_ID,
+    GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_NEXT_CURSOR,
+    GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_owner_approved_first_token_digest_review_gate::{
     required_gemma_direct_harness_owner_approved_first_token_review_abort_conditions,

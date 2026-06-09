@@ -18,7 +18,7 @@ pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_ID: &str =
 pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_CURSOR: &str =
     "gemma_local_artifact_acquisition_command_card";
 pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_NEXT_CURSOR: &str =
-    "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
+    "gemma_local_artifact_acquisition_receipt_gate";
 pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_COMMAND_CARD_UPSTREAM_REF: &str =
     "artifact:falsifiers/gemma_local_artifact_acquisition_plan/result.json#F-GemmaLocalArtifactAcquisitionPlan";
 

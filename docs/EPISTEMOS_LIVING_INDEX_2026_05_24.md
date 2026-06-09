@@ -7908,6 +7908,35 @@ Layer truth:
 Correct phrasing: "Gemma now has visible acquisition command cards; it still
 needs owner approval and a real local artifact receipt before runtime proof."
 
+### 2026-06-09 - F-GemmaLocalArtifactAcquisitionReceiptGate landed
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+`F-GemmaLocalArtifactAcquisitionReceiptGate` is now implemented as a
+metadata-only T1/L1 witness at
+`artifacts/falsifiers/gemma_local_artifact_acquisition_receipt_gate/result.json`.
+It consumes the acquisition command cards and freezes the future receipt
+contract for owner approval, selected command card, model identity, filename,
+source revision, expected bytes, acquisition mode, path digest, local sha256,
+local byte count, disk-space observation, rollback, RunEventLog, AnswerPacket,
+abstention, reviewer summary, and non-promotion.
+
+Layer truth:
+
+- L1 architecture/canon: advanced as metadata-only T1/L1; 36 red fixtures
+  rejected, zero receipts written/read, zero file opens, zero hashes, zero
+  downloads, zero command execution, zero raw owner paths, and zero model/
+  runtime/provider bytes.
+- L2 capability route: unchanged and still red.
+- L3 user-facing / release readiness: unchanged and still red; no Gemma
+  artifact was acquired, hashed, loaded, run, route-admitted, or made default.
+
+Correct phrasing: "Gemma now has an acquisition receipt contract; it still
+needs an owner-approved real receipt before runtime proof."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.
