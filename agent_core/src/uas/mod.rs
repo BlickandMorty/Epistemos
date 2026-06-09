@@ -75,6 +75,7 @@ pub mod gemma_local_artifact_acquisition_command_card;
 pub mod gemma_local_artifact_acquisition_plan;
 pub mod gemma_local_artifact_acquisition_receipt_gate;
 pub mod gemma_main_family_policy_source_card;
+pub mod gemma_official_convenience_command_denylist_gate;
 pub mod gemma_qat_byte_kv_app_envelope_preflight;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_gate;
 pub mod gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate;
@@ -531,6 +532,18 @@ pub use gemma_local_artifact_acquisition_receipt_gate::{
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_ID,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_NEXT_CURSOR,
     GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_UPSTREAM_REF,
+};
+pub use gemma_official_convenience_command_denylist_gate::{
+    denied_gemma_official_convenience_commands, official_gemma_convenience_source_refs,
+    required_gemma_convenience_rejection_policies,
+    required_gemma_convenience_replacement_proofs,
+    GemmaOfficialConvenienceCommandDenylistGate,
+    GemmaOfficialConvenienceCommandDenylistGateError,
+    GemmaOfficialConvenienceCommandDenylistGateMetrics,
+    GEMMA_OFFICIAL_CONVENIENCE_COMMAND_DENYLIST_GATE_CURSOR,
+    GEMMA_OFFICIAL_CONVENIENCE_COMMAND_DENYLIST_GATE_ID,
+    GEMMA_OFFICIAL_CONVENIENCE_COMMAND_DENYLIST_GATE_NEXT_CURSOR,
+    GEMMA_OFFICIAL_CONVENIENCE_COMMAND_DENYLIST_GATE_UPSTREAM_REF,
 };
 pub use gemma_direct_harness_owner_approved_first_token_digest_review_gate::{
     required_gemma_direct_harness_owner_approved_first_token_review_abort_conditions,

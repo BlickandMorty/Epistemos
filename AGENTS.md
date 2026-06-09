@@ -518,6 +518,20 @@ Runtime policy:
   live/default/L2/L3/T4/user-facing claim. The next Gemma side-ladder unit is
   again `gemma_direct_harness_owner_approved_first_runtime_execution_probe`,
   but only after a real owner-approved acquisition receipt exists.
+- 2026-06-09 Gemma official convenience-command denylist status:
+  `F-GemmaOfficialConvenienceCommandDenylistGate` is landed as metadata-only
+  L1/T1. It consumes the acquisition receipt gate and binds 4 official source
+  refs, 8 denied convenience commands, 14 replacement proofs, and 30 rejection
+  policies. Official Gemma model cards and guides are source evidence only:
+  `llama-cli -hf`, `llama-server`, LiteRT-LM `serve`, local endpoints, HF
+  cache paths, Ollama/LM Studio/Pi/Hermes examples, and model-card snippets
+  cannot count as acquisition receipts, runtime proof, route admission, System
+  G admission, product capability, or Gemma default. It arms zero commands,
+  executes zero commands, starts zero servers, permits zero network runtime
+  probes, loads zero model/runtime/provider bytes, and makes no Gemma
+  live/default/L2/L3/T4/user-facing claim. The next Gemma side-ladder unit is
+  still `gemma_direct_harness_owner_approved_first_runtime_execution_probe`,
+  but only after a real owner-approved acquisition receipt exists.
 - 2026-06-08 Gemma E2B path privacy status: `F-GemmaQATE2BOwnerPathManifestDigestGate`
   is landed as metadata-only L1/T1. It binds the future owner path manifest by
   digest, selected E2B source revision, filename, expected bytes, rollback,
