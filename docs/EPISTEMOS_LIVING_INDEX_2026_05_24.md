@@ -8274,6 +8274,45 @@ Layer truth:
 Correct phrasing: "The next Gemma step is an owner-approved artifact receipt,
 not a model picker flip or an HF/server shortcut."
 
+### 2026-06-09 - Gemma direct build cutover source refresh
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+Deep Research Pass 243 updates the Gemma build stance after current primary
+source validation. Official Google Gemma 4 QAT docs now make the practical path
+less speculative: GGUF is available for `llama.cpp`, mobile/compressed formats
+are published, LiteRT-LM is a candidate edge lane, and MLX remains a candidate
+Apple Silicon lane. Official Hugging Face E4B and 12B QAT GGUF cards expose
+convenience `llama-cli -hf ...:Q4_0` and `llama-server -hf ...:Q4_0` examples.
+
+Epistemos must not use those convenience commands as product proof. The first
+credible build lane remains:
+
+`owner-approved local E2B/E4B QAT GGUF receipt`
+-> `sha256/byte-count/tool identity verification`
+-> `llama-cli --offline -m <approved local file>`
+-> `RunEventLog + AnswerPacket`
+-> `same-fixture replay`
+-> `RuntimeRouter/System G dry-run admission`
+-> `settings/diagnostics WRV`
+-> release-audit evidence.
+
+Layer truth:
+
+- L1 architecture/canon: updated as T0/T1 source-refresh guidance only; no new
+  falsifier landed in this pass.
+- L2 capability route: unchanged and still red at
+  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L3 user-facing / release readiness: unchanged and still red; no local Gemma
+  artifact was approved, opened, hashed, loaded, route-admitted, made default,
+  or exposed as working product capability.
+
+Correct phrasing: "Official Gemma sources make the local proof path shorter;
+they do not make Gemma configured, live, default, L2/L3, T4, or user-facing."
+
 ## 11 · Cross-references (only descend when you need specific detail)
 
 Read these only when this index doesn't already answer your question.

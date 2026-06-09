@@ -118,6 +118,15 @@ Runtime policy:
   candidate lanes until loader/package/cancellation/product integration proof
   lands. A downloadable model or HF command example is source evidence, not an
   Epistemos product route.
+- 2026-06-09 direct-build cutover: current Google/Hugging Face Gemma 4 QAT
+  sources make Gemma easier to prove, but not automatically live. Official
+  `llama-cli -hf ...:Q4_0`, server, cache, Docker, Ollama, LM Studio, LiteRT,
+  and MLX examples remain source evidence. The first product-grade Gemma proof
+  must use an owner-approved local E2B/E4B QAT GGUF receipt, sha256/byte-count
+  verification, `llama-cli --offline -m <approved local file>`, rollback,
+  RunEventLog, AnswerPacket, same-fixture replay, RuntimeRouter/System G
+  dry-run admission, WRV, and release-audit evidence before any default,
+  L2/L3, T4, or user-facing claim.
 - 2026-06-08 release-audit bottleneck lock: do not try to make Gemma the main
   app model by bypassing the current product gate. The guard-owned bottleneck
   is still
