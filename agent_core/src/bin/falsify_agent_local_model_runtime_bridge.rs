@@ -3,9 +3,9 @@
 //!
 //! The product already has a real local model catalog, MLX/GGUF runtime
 //! clients, and a System G event seam. This harness keeps the deeper claim
-//! honest: a Rust `ProviderPolicy::LocalMlx` request may hand off to the Swift
-//! host, but the architecture is not promoted until a live local-model prompt
-//! suite proves the end-to-end path on this machine.
+//! honest: Rust local-provider policies may hand off to the Swift host, but the
+//! architecture is not promoted until a live local-model prompt suite proves the
+//! end-to-end path on this machine.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -84,6 +84,8 @@ fn build_report() -> BridgeReport {
         && gguf.contains("RoutedLocalRuntimeClient");
     let provider_policy_local_mlx_available =
         blueprint.exists && blueprint.contains("ProviderPolicy") && blueprint.contains("LocalMlx");
+    let provider_policy_local_gguf_available =
+        blueprint.exists && blueprint.contains("ProviderPolicy") && blueprint.contains("LocalGguf");
     let system_g_event_seam_available = system_g.exists
         && system_g.contains("MissionPacket")
         && system_g.contains("SystemGAgentEvent stream")
@@ -97,6 +99,13 @@ fn build_report() -> BridgeReport {
         && provider_policy_local_mlx_available
         && system_g.contains("start_run_with_provider_policy")
         && system_g.contains("ProviderPolicy::LocalMlx")
+        && system_g.contains("LocalModelHandoff")
+        && system_g.contains("provider_policy_json")
+        && system_g.contains("execute_provider_policy_route");
+    let rust_local_gguf_handoff_wired = system_g_event_seam_available
+        && provider_policy_local_gguf_available
+        && system_g.contains("start_run_with_provider_policy")
+        && system_g.contains("ProviderPolicy::LocalGguf")
         && system_g.contains("LocalModelHandoff")
         && system_g.contains("provider_policy_json")
         && system_g.contains("execute_provider_policy_route");
@@ -119,6 +128,7 @@ fn build_report() -> BridgeReport {
         .contains("actual `LocalAgentAdapter::dispatch` body lands")
         || !local_agent.contains("pub fn dispatch");
     let system_g_local_model_provider_dispatch_wired = rust_local_mlx_handoff_wired
+        && rust_local_gguf_handoff_wired
         && swift_local_model_handoff_event_wired
         && swift_local_model_handoff_consumed
         && app_bootstrap_local_client_registered;
@@ -136,9 +146,11 @@ fn build_report() -> BridgeReport {
         local_model_catalog_available,
         mlx_runtime_client_available || gguf_runtime_client_available,
         provider_policy_local_mlx_available,
+        provider_policy_local_gguf_available,
         system_g_event_seam_available,
         local_agent_adapter_dispatch_wired,
         rust_local_mlx_handoff_wired,
+        rust_local_gguf_handoff_wired,
         swift_local_model_handoff_event_wired,
         swift_local_model_handoff_consumed,
         app_bootstrap_local_client_registered,
@@ -218,6 +230,13 @@ fn build_report() -> BridgeReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "provider_policy_local_gguf_available",
+        provider_policy_local_gguf_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "system_g_event_seam_available",
         system_g_event_seam_available,
     );
@@ -234,6 +253,13 @@ fn build_report() -> BridgeReport {
         &mut pass_per_axis,
         "rust_local_mlx_handoff_wired",
         rust_local_mlx_handoff_wired,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "rust_local_gguf_handoff_wired",
+        rust_local_gguf_handoff_wired,
     );
     add_bool_axis(
         &mut measurements,
@@ -289,7 +315,9 @@ fn build_report() -> BridgeReport {
         &mut thresholds,
         &mut pass_per_axis,
         "rust_v1_dispatch_still_synthetic_but_provider_route_not_synthetic",
-        system_g_dispatch_is_synthetic && rust_local_mlx_handoff_wired,
+        system_g_dispatch_is_synthetic
+            && rust_local_mlx_handoff_wired
+            && rust_local_gguf_handoff_wired,
     );
     add_bool_axis(
         &mut measurements,
@@ -349,6 +377,7 @@ fn build_report() -> BridgeReport {
         anomalies: build_anomalies(
             system_g_dispatch_is_synthetic,
             rust_local_mlx_handoff_wired,
+            rust_local_gguf_handoff_wired,
             swift_local_model_handoff_consumed,
             live_agent_local_model_prompt_suite_passed,
             local_agent_adapter_is_scaffold,
@@ -356,10 +385,10 @@ fn build_report() -> BridgeReport {
         ),
         notes: format!(
             "local_model_agent_bridge_witness; next_bottleneck={next_bottleneck}; \
-             local catalog and runtime clients are present, Rust ProviderPolicy::LocalMlx now \
-             emits a local_model_handoff, and Swift consumes that handoff through the registered \
-             local client. Do not promote the architecture until the live prompt suite artifact \
-             proves real local-model generation on this machine."
+             local catalog and runtime clients are present, Rust ProviderPolicy::LocalMlx and \
+             ProviderPolicy::LocalGguf emit local_model_handoff events, and Swift consumes that \
+             handoff through the registered local client. Do not promote the architecture until \
+             the live prompt suite artifact proves real local-model generation on this machine."
         ),
         timestamp_utc: now_utc_rfc3339(),
     }
@@ -398,9 +427,11 @@ fn choose_next_bottleneck(
     local_model_catalog_available: bool,
     local_runtime_client_available: bool,
     provider_policy_local_mlx_available: bool,
+    provider_policy_local_gguf_available: bool,
     system_g_event_seam_available: bool,
     local_agent_adapter_dispatch_wired: bool,
     rust_local_mlx_handoff_wired: bool,
+    rust_local_gguf_handoff_wired: bool,
     swift_local_model_handoff_event_wired: bool,
     swift_local_model_handoff_consumed: bool,
     app_bootstrap_local_client_registered: bool,
@@ -415,12 +446,16 @@ fn choose_next_bottleneck(
         "restore_mlx_or_gguf_runtime_client".to_string()
     } else if !provider_policy_local_mlx_available {
         "add_agent_provider_policy_local_mlx".to_string()
+    } else if !provider_policy_local_gguf_available {
+        "add_agent_provider_policy_local_gguf".to_string()
     } else if !system_g_event_seam_available {
         "restore_system_g_event_answerpacket_seam".to_string()
     } else if !local_agent_adapter_dispatch_wired {
         "wire_local_agent_adapter_dispatch".to_string()
     } else if !rust_local_mlx_handoff_wired {
         "wire_rust_local_mlx_provider_handoff".to_string()
+    } else if !rust_local_gguf_handoff_wired {
+        "wire_rust_local_gguf_provider_handoff".to_string()
     } else if !swift_local_model_handoff_event_wired {
         "mirror_local_model_handoff_in_swift_events".to_string()
     } else if !swift_local_model_handoff_consumed {
@@ -443,6 +478,7 @@ fn choose_next_bottleneck(
 fn build_anomalies(
     system_g_dispatch_is_synthetic: bool,
     rust_local_mlx_handoff_wired: bool,
+    rust_local_gguf_handoff_wired: bool,
     swift_local_model_handoff_consumed: bool,
     live_agent_local_model_prompt_suite_passed: bool,
     local_agent_adapter_is_scaffold: bool,
@@ -459,6 +495,12 @@ fn build_anomalies(
         anomalies.push(serde_json::json!({
             "kind": "rust_local_mlx_handoff_wired",
             "detail": "Rust System G accepts ProviderPolicy::LocalMlx and terminates the Rust leg with local_model_handoff instead of falsely pretending Rust owns Swift/MLX generation."
+        }));
+    }
+    if rust_local_gguf_handoff_wired {
+        anomalies.push(serde_json::json!({
+            "kind": "rust_local_gguf_handoff_wired",
+            "detail": "Rust System G accepts ProviderPolicy::LocalGguf and terminates the Rust leg with local_model_handoff instead of falsely pretending Rust owns GGUF generation."
         }));
     }
     if swift_local_model_handoff_consumed {
@@ -643,34 +685,43 @@ mod tests {
     fn bottleneck_names_local_agent_handoff_sequence_before_live_prompt_suite() {
         assert_eq!(
             choose_next_bottleneck(
-                true, true, true, true, false, false, false, false, false, false, false, false,
-                false,
+                true, true, true, true, true, false, false, false, false, false, false, false,
+                false, false, false,
             ),
             "wire_local_agent_adapter_dispatch"
         );
         assert_eq!(
             choose_next_bottleneck(
-                true, true, true, true, true, false, false, false, false, false, false, false,
-                false,
+                true, true, true, true, true, true, false, false, false, false, false, false,
+                false, false, false,
             ),
             "wire_rust_local_mlx_provider_handoff"
         );
         assert_eq!(
             choose_next_bottleneck(
-                true, true, true, true, true, true, false, false, false, false, false, false,
-                false,
+                true, true, true, true, true, true, true, false, false, false, false, false, false,
+                false, false,
+            ),
+            "wire_rust_local_gguf_provider_handoff"
+        );
+        assert_eq!(
+            choose_next_bottleneck(
+                true, true, true, true, true, true, true, true, false, false, false, false, false,
+                false, false,
             ),
             "mirror_local_model_handoff_in_swift_events"
         );
         assert_eq!(
             choose_next_bottleneck(
-                true, true, true, true, true, true, true, true, true, true, true, false, false,
+                true, true, true, true, true, true, true, true, true, true, true, true, true,
+                false, false,
             ),
             "record_local_model_provenance_in_answerpacket"
         );
         assert_eq!(
             choose_next_bottleneck(
-                true, true, true, true, true, true, true, true, true, true, true, true, false,
+                true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                false,
             ),
             "run_live_agent_local_model_prompt_suite"
         );
@@ -691,6 +742,10 @@ mod tests {
             .artifact
             .pass_per_axis
             .contains_key("rust_local_mlx_handoff_wired"));
+        assert!(report
+            .artifact
+            .pass_per_axis
+            .contains_key("rust_local_gguf_handoff_wired"));
         assert!(report
             .artifact
             .pass_per_axis

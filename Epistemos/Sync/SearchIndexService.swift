@@ -2500,7 +2500,12 @@ actor SearchIndexService {
     }
 
     private nonisolated static func vaultRecallEffectiveQuery(_ query: String) -> String {
-        normalizedSearchTerms(query).joined(separator: " ")
+        let terms = normalizedSearchTerms(query)
+        let stripped = terms.filter { !vaultRecallBoilerplateTerms.contains($0) }
+        if stripped.isEmpty, !terms.isEmpty {
+            return ""
+        }
+        return stripped.joined(separator: " ")
     }
 
     private nonisolated static func vaultRecallGeneratedAtMs() -> UInt64 {

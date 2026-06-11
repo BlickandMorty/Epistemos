@@ -5,8 +5,9 @@ import Testing
 // Wiring #2 (T21 Vault Recall Contract -> ResourceService) Swift
 // integration test. Verifies the WRV "Verified" bar:
 //
-//   - `VaultRecallBridge.trace` returns a decoded `VaultRecallTrace`
-//     for a normal query.
+//   - `VaultRecallBridge.trace` returns a decoded production
+//     `VaultRecallTrace` for a normal query when the app-side search
+//     index provider is installed.
 //   - The trace records the Lexical signal and at least one candidate.
 //   - `VaultRecallMetrics.shared` records latency + signal summary
 //     after a successful trace (drives `VaultRecallHealthRow`).
@@ -15,23 +16,67 @@ import Testing
 //     this trace as weak evidence.
 //   - `VaultRecallFlags.isEnabled` toggles via UserDefaults + env.
 
-@Suite("Vault Recall Wiring #2")
+@Suite("Vault Recall Wiring #2", .serialized)
 struct VaultRecallWiringTests {
-
-    @Test("VaultRecallBridge.trace returns trace with Lexical signal for normal query")
-    func vaultRecallBridgeTraceReturnsLexicalTraceForNormalQuery() throws {
+    private func resetBridge() {
+        VaultRecallBridge.installTraceProvider(nil)
         VaultRecallMetrics.shared.reset()
+    }
+
+    private func makeSearchIndexService() throws -> SearchIndexService {
+        let databaseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vault-recall-search-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+        let service = try SearchIndexService(databaseURL: databaseURL)
+        try service.upsert(
+            id: "page-residency-governance",
+            title: "Residency Governance",
+            body: "Production-only vault recall evidence for residency governance and substrate terms.",
+            tags: "architecture",
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        try service.upsert(
+            id: "page-tier-compression",
+            title: "Tier Compression Doctrine",
+            body: "Tier compression doctrine keeps model and vault capabilities honest.",
+            tags: "models",
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_001)
+        )
+        return service
+    }
+
+    private func installSearchIndexTraceProvider(_ service: SearchIndexService, limit: Int = 20) {
+        VaultRecallBridge.installTraceProvider { query in
+            let results = try service.search(query: query, limit: limit)
+            return SearchIndexService.vaultRecallTrace(
+                query: query,
+                limit: limit,
+                results: results
+            )
+        }
+    }
+
+    @Test("VaultRecallBridge.trace uses installed SearchIndexService provider for normal query")
+    func vaultRecallBridgeTraceUsesInstalledSearchIndexProviderForNormalQuery() throws {
+        resetBridge()
+        defer { resetBridge() }
+        installSearchIndexTraceProvider(try makeSearchIndexService())
 
         let trace = try #require(VaultRecallBridge.trace(query: "residency governance"))
         #expect(trace.query == "residency governance")
+        #expect(trace.ladderTier == "vault-search-index-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
         #expect(trace.signalSummary.contains(.lexical), "Lexical signal must be present")
         #expect(trace.candidatesRetained > 0)
         #expect(trace.candidates.count == trace.candidatesRetained)
+        #expect(!trace.candidates.contains { $0.path == "notes/sample.md" })
     }
 
     @Test("VaultRecallBridge.trace records latency + signal summary into VaultRecallMetrics")
     func vaultRecallBridgeRecordsMetricsOnSuccess() throws {
-        VaultRecallMetrics.shared.reset()
+        resetBridge()
+        defer { resetBridge() }
+        installSearchIndexTraceProvider(try makeSearchIndexService())
 
         _ = try #require(VaultRecallBridge.trace(query: "tier compression doctrine"))
         let snap = VaultRecallMetrics.shared.snapshot()
@@ -39,12 +84,15 @@ struct VaultRecallWiringTests {
         #expect(snap.lastCandidatesRetained > 0)
         #expect(snap.lastQueryAt != nil)
         #expect(snap.lastErrorDescription == nil)
+        #expect(snap.lastBackend == .real)
         #expect(snap.lastSignalSummary.contains(.lexical))
     }
 
     @Test("VaultRecallBridge.trace flags all-chatter fallback for chatter-only inputs")
     func vaultRecallBridgeFlagsAllChatterFallback() throws {
-        VaultRecallMetrics.shared.reset()
+        resetBridge()
+        defer { resetBridge() }
+        installSearchIndexTraceProvider(try makeSearchIndexService())
 
         let trace = try #require(VaultRecallBridge.trace(query: "show me my notes"))
         #expect(trace.allChatterFallback,
@@ -55,14 +103,15 @@ struct VaultRecallWiringTests {
                 "metrics must surface the fallback for the health-row warning chip")
     }
 
-    @Test("VaultRecallBridge.detectedBackend reads .stub from the scaffold-lexical ladder tier")
-    func vaultRecallBridgeDetectsStubBackendFromLadderTier() throws {
-        VaultRecallMetrics.shared.reset()
+    @Test("VaultRecallBridge.trace falls back to scaffold when no production provider is installed")
+    func vaultRecallBridgeTraceFallsBackToScaffoldWithoutProductionProvider() throws {
+        resetBridge()
+        defer { resetBridge() }
 
         let trace = try #require(VaultRecallBridge.trace(query: "residency governance"))
         let backend = VaultRecallBridge.detectedBackend(from: trace)
         #expect(backend == .stub,
-                "today the Rust side returns ladder_tier=scaffold-lexical; Swift must surface this honestly")
+                "without an installed production provider, the Rust scaffold must remain visibly marked as stub")
     }
 
     @Test("VaultRecallBridge.detectedBackend reads .real for vault-prefixed ladder tiers (forward-compat)")
@@ -157,15 +206,17 @@ struct VaultRecallWiringTests {
 
     @Test("VaultRecallMetrics.Snapshot.lastBackend reflects the most recent trace's backend origin")
     func vaultRecallMetricsSnapshotCarriesLastBackend() throws {
-        VaultRecallMetrics.shared.reset()
+        resetBridge()
+        defer { resetBridge() }
+        installSearchIndexTraceProvider(try makeSearchIndexService())
         let before = VaultRecallMetrics.shared.snapshot()
         #expect(before.lastBackend == .unknown,
                 "before any trace the backend is unknown")
 
         _ = try #require(VaultRecallBridge.trace(query: "tier compression doctrine"))
         let after = VaultRecallMetrics.shared.snapshot()
-        #expect(after.lastBackend == .stub,
-                "after a scaffold-lexical trace the snapshot must surface .stub")
+        #expect(after.lastBackend == .real,
+                "after a SearchIndexService trace the snapshot must surface .real")
     }
 
     @Test("SearchIndexService production results emit real VaultRecall trace")

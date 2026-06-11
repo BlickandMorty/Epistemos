@@ -92,10 +92,11 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("EDITOR_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/Editor\""))
         #expect(script.contains("EDITOR_BUNDLE_DIR=\"$RESOURCES_DIR/Editor\""))
         #expect(script.contains("bundle_editor_resources"))
+        #expect(script.contains("bundle_default_skills"))
         #expect(script.contains("rsync -a --delete \"$EDITOR_SOURCE_DIR/\" \"$EDITOR_BUNDLE_DIR/\""))
         #expect(script.contains("find \"$EDITOR_SOURCE_DIR\" -type f -print0"))
         #expect(script.contains("rm -f \"$RESOURCES_DIR/$(basename \"$source_file\")\""))
-        #expect(script.contains("bundle_editor_resources\n\nif is_app_store_build"))
+        #expect(script.contains("bundle_editor_resources\nbundle_default_skills\n\nif is_app_store_build"))
     }
 
     @Test("xcodebuild helper mirrors explicit local sweep overrides into hosted test fallback")
@@ -272,6 +273,33 @@ struct ReleaseScriptAuditTests {
             #expect(script.contains("CODE_SIGNING_ALLOWED=NO"))
             #expect(script.contains("-derivedDataPath"))
         }
+    }
+
+    @Test("small model automated release gate uses no-sign local Xcode validation")
+    func smallModelAutomatedReleaseGateUsesNoSignLocalXcodeValidation() throws {
+        let script = try loadReleaseScript(
+            "Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe.sh"
+        )
+
+        #expect(script.contains("run_check xcodebuild_build"))
+        #expect(script.contains("run_check xcodebuild_test"))
+        #expect(script.contains(#"XCODEBUILD_WRAPPER="$ROOT/scripts/xcodebuild_epistemos.sh""#))
+        #expect(script.contains("EPI_RELEASE_AUDIT_DERIVED_DATA_ROOT"))
+        #expect(script.contains("EPI_RELEASE_AUDIT_XCODEBUILD_BUILD_TIMEOUT_SECONDS"))
+        #expect(script.contains("EPI_RELEASE_AUDIT_XCODEBUILD_TEST_TIMEOUT_SECONDS"))
+        #expect(script.contains("terminate_process_tree"))
+        #expect(script.contains("append_hang_diagnostics"))
+        #expect(script.contains("code=124"))
+        #expect(script.contains("cp \"$TMP_LEDGER\" \"$LEDGER\""))
+        #expect(script.contains("${TMPDIR:-/tmp}/epistemos-release-audit-derived-data/"))
+        #expect(script.contains("-derivedDataPath \"$XCODE_DERIVED_DATA_ROOT/build\""))
+        #expect(script.contains("-derivedDataPath \"$XCODE_DERIVED_DATA_ROOT/test\""))
+        #expect(script.contains("-resultBundlePath \"$XCODE_RESULT_BUNDLE_DIR/xcodebuild_test.xcresult\""))
+        #expect(script.contains("-collect-test-diagnostics on-failure"))
+        #expect(!script.contains("\n  xcodebuild -project Epistemos.xcodeproj"))
+        #expect(script.contains("CODE_SIGNING_ALLOWED=NO"))
+        #expect(script.contains("CODE_SIGNING_REQUIRED=NO"))
+        #expect(script.contains(#"CODE_SIGN_IDENTITY="""#))
     }
 
     @Test("release workflow fails closed when dmg creation breaks")

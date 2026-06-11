@@ -779,6 +779,89 @@ struct ControlPlaneSurfaceTests {
         #expect(entries.first(where: { $0.identifier == "release-audit" })?.tags == ["release", "audit"])
     }
 
+    @Test("skill discovery catalog collapses duplicate identifiers with bundled skills first")
+    func skillDiscoveryCatalogCollapsesDuplicateIdentifiersWithBundledSkillsFirst() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bundledSkill = root
+            .appendingPathComponent(".agents", isDirectory: true)
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("note-read", isDirectory: true)
+        let codexSkill = root
+            .appendingPathComponent(".codex", isDirectory: true)
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("note-read", isDirectory: true)
+
+        try fileManager.createDirectory(at: bundledSkill, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: codexSkill, withIntermediateDirectories: true)
+        try writeSkill(
+            at: bundledSkill.appendingPathComponent("SKILL.md"),
+            name: "note-read",
+            description: "Bundled note reader.",
+            category: "notes",
+            tags: ["bundled"]
+        )
+        try writeSkill(
+            at: codexSkill.appendingPathComponent("SKILL.md"),
+            name: "note-read",
+            description: "External duplicate note reader.",
+            category: "external",
+            tags: ["codex"]
+        )
+
+        let entries = SkillDiscoveryCatalog.discoverSkillEntries(
+            inRoots: [
+                SkillDiscoveryRoot(
+                    url: root.appendingPathComponent(".codex/skills", isDirectory: true),
+                    source: .codex
+                ),
+                SkillDiscoveryRoot(
+                    url: root.appendingPathComponent(".agents/skills", isDirectory: true),
+                    source: .bundled
+                ),
+            ],
+            fileManager: fileManager
+        )
+
+        #expect(entries.map(\.identifier) == ["note-read"])
+        #expect(entries.first?.source == .bundled)
+        #expect(entries.first?.description == "Bundled note reader.")
+    }
+
+    @Test("skill discovery catalog treats SourceMirror agent skills as bundled app skills")
+    func skillDiscoveryCatalogTreatsSourceMirrorAgentSkillsAsBundledAppSkills() throws {
+        let fileManager = FileManager.default
+        let resourceRoot = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sourceMirrorSkill = resourceRoot
+            .appendingPathComponent("SourceMirror", isDirectory: true)
+            .appendingPathComponent(".agents", isDirectory: true)
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("note-read", isDirectory: true)
+
+        try fileManager.createDirectory(at: sourceMirrorSkill, withIntermediateDirectories: true)
+        try writeSkill(
+            at: sourceMirrorSkill.appendingPathComponent("SKILL.md"),
+            name: "note-read",
+            description: "Read a note from the vault.",
+            category: "notes",
+            tags: ["vault", "read"]
+        )
+
+        let roots = SkillDiscoveryCatalog.bundledSkillRoots(
+            resourceURL: resourceRoot,
+            fileManager: fileManager
+        )
+        let entries = SkillDiscoveryCatalog.discoverSkillEntries(
+            inRoots: roots,
+            fileManager: fileManager
+        )
+
+        #expect(roots.map(\.source) == [.bundled])
+        #expect(entries.map(\.identifier) == ["note-read"])
+        #expect(entries.first?.source == .bundled)
+        #expect(entries.first?.category == "notes")
+    }
+
     @Test("skill authoring draft builds managed create payload with normalized metadata")
     func skillAuthoringDraftBuildsManagedCreatePayloadWithNormalizedMetadata() throws {
         let draft = SkillAuthoringDraft(

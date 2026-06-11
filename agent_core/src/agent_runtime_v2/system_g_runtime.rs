@@ -250,24 +250,34 @@ fn execute_v1_dispatch(packet: &MissionPacket, turn_id: &str) -> (Vec<SystemGAge
     (events, answer_packet_id)
 }
 
-/// Compose the provider-aware route. `ProviderPolicy::LocalMlx` is a real
-/// host handoff: Rust admits the route and records the exact provider policy,
-/// then Swift performs live MLX/GGUF generation and appends token chunks to the
-/// same RunEventLog. Other provider families remain fail-closed until their
+/// Compose the provider-aware route. Local MLX/GGUF policies are real host
+/// handoffs: Rust admits the route and records the exact provider policy, then
+/// Swift performs live local generation and appends token chunks to the same
+/// RunEventLog. Other provider families remain fail-closed until their
 /// executors are bound.
 fn execute_provider_policy_route(
     packet: &MissionPacket,
     provider_policy: &ProviderPolicy,
     turn_id: &str,
 ) -> Vec<SystemGAgentEvent> {
-    if let ProviderPolicy::LocalMlx { model_id } = provider_policy {
-        let provider_policy_json = serde_json::to_string(provider_policy)
-            .unwrap_or_else(|_| "{\"kind\":\"local_mlx\",\"model_id\":\"<encode_error>\"}".into());
+    if let Some((model_id, provider_label)) = match provider_policy {
+        ProviderPolicy::LocalMlx { model_id } => Some((model_id, "ProviderPolicy::LocalMlx")),
+        ProviderPolicy::LocalGguf { model_id } => Some((model_id, "ProviderPolicy::LocalGguf")),
+        _ => None,
+    } {
+        let provider_policy_json = serde_json::to_string(provider_policy).unwrap_or_else(|_| {
+            let fallback_kind = match provider_policy {
+                ProviderPolicy::LocalMlx { .. } => "local_mlx",
+                ProviderPolicy::LocalGguf { .. } => "local_gguf",
+                _ => "local_unknown",
+            };
+            format!("{{\"kind\":\"{fallback_kind}\",\"model_id\":\"<encode_error>\"}}")
+        });
         return vec![
             SystemGAgentEvent::PlanStart {
                 turn_id: turn_id.to_string(),
                 plan: format!(
-                    "Execute mission with ProviderPolicy::LocalMlx model_id={model_id}: {}",
+                    "Execute mission with {provider_label} model_id={model_id}: {}",
                     packet.user_prompt
                 ),
             },
@@ -280,7 +290,9 @@ fn execute_provider_policy_route(
     }
 
     let (plan, error) = match provider_policy {
-        ProviderPolicy::LocalMlx { .. } => unreachable!("local mlx handled above"),
+        ProviderPolicy::LocalMlx { .. } | ProviderPolicy::LocalGguf { .. } => {
+            unreachable!("local providers handled above")
+        }
         ProviderPolicy::AnthropicMessages { model } => (
             format!(
                 "Execute mission with AnthropicMessages model={model}: {}",
@@ -341,6 +353,9 @@ fn validate_provider_policy_for_system_g(
     match provider_policy {
         ProviderPolicy::LocalMlx { model_id } => {
             validate_provider_policy_field("LocalMlx model_id", model_id)?;
+        }
+        ProviderPolicy::LocalGguf { model_id } => {
+            validate_provider_policy_field("LocalGguf model_id", model_id)?;
         }
         ProviderPolicy::AnthropicMessages { model } => {
             validate_provider_policy_field("AnthropicMessages model", model)?;
@@ -634,11 +649,36 @@ mod tests {
     fn start_run_with_local_mlx_provider_emits_handoff_without_token_chunks() {
         let _guard = test_registry_lock();
         reset_for_test();
-        let provider_policy = serde_json::to_string(&ProviderPolicy::LocalMlx {
-            model_id: "qwen3-8b-mlx-4bit".into(),
-        })
-        .expect("provider encode");
-        let run_id = start_run_with_provider_policy(&good_mission_json(), &provider_policy)
+        assert_local_provider_handoff(
+            ProviderPolicy::LocalMlx {
+                model_id: "qwen3-8b-mlx-4bit".into(),
+            },
+            "qwen3-8b-mlx-4bit",
+            "local_mlx",
+        );
+    }
+
+    #[test]
+    fn start_run_with_local_gguf_provider_emits_handoff_without_token_chunks() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        assert_local_provider_handoff(
+            ProviderPolicy::LocalGguf {
+                model_id: "google/gemma-4-E2B-it-qat-q4_0-gguf".into(),
+            },
+            "google/gemma-4-E2B-it-qat-q4_0-gguf",
+            "local_gguf",
+        );
+    }
+
+    fn assert_local_provider_handoff(
+        provider_policy: ProviderPolicy,
+        expected_model_id: &str,
+        expected_kind: &str,
+    ) {
+        let provider_policy_json =
+            serde_json::to_string(&provider_policy).expect("provider encode");
+        let run_id = start_run_with_provider_policy(&good_mission_json(), &provider_policy_json)
             .expect("provider-aware start");
         let events = drain_events(&run_id).expect("drain");
         assert_eq!(
@@ -653,10 +693,11 @@ mod tests {
                 provider_policy_json,
                 ..
             } => {
-                assert_eq!(model_id, "qwen3-8b-mlx-4bit");
+                assert_eq!(model_id, expected_model_id);
                 assert!(
-                    provider_policy_json.contains("\"kind\":\"local_mlx\"")
-                        && provider_policy_json.contains("\"model_id\":\"qwen3-8b-mlx-4bit\""),
+                    provider_policy_json.contains(&format!("\"kind\":\"{expected_kind}\""))
+                        && provider_policy_json
+                            .contains(&format!("\"model_id\":\"{expected_model_id}\"")),
                     "handoff must preserve exact provider policy JSON: {provider_policy_json}"
                 );
             }
@@ -709,6 +750,36 @@ mod tests {
             registry_stats_full().2,
             dispatched_before,
             "invalid provider policy must not bump the lifetime counter"
+        );
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_empty_local_gguf_model_id_without_dispatch() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+        let provider_policy = serde_json::to_string(&ProviderPolicy::LocalGguf {
+            model_id: "  ".into(),
+        })
+        .expect("provider encode");
+
+        let err = start_run_with_provider_policy(&good_mission_json(), &provider_policy)
+            .expect_err("empty local GGUF model id must reject before dispatch");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("provider policy invalid"),
+            "unexpected error message: {message}"
+        );
+        assert_eq!(
+            registry_stats(),
+            (0, 0),
+            "invalid local GGUF provider policy must not insert a run"
+        );
+        assert_eq!(
+            registry_stats_full().2,
+            dispatched_before,
+            "invalid local GGUF provider policy must not bump the lifetime counter"
         );
     }
 

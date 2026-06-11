@@ -205,6 +205,41 @@ struct SystemGRunSeamTests {
         #expect(packet?.attentionMode == .unavailable)
     }
 
+    @Test("RealSystemGRunSeam labels Gemma GGUF local missions as local_gguf without default promotion")
+    @MainActor func realSystemGRunSeamLabelsGemmaGGUFLocalMission() async throws {
+        let client = SystemGRecordingLocalClient(streamChunks: ["gemma ", "gguf answer"])
+        let seam = RealSystemGRunSeam(localModelClient: client)
+        let modelID = "google/gemma-4-E2B-it-qat-q4_0-gguf"
+        let mission = AgentMissionPacket(
+            id: "m-local-system-g-gemma-gguf",
+            createdAt: Date(),
+            blueprintName: "gemma-local-blueprint",
+            role: "local research agent",
+            objective: "Use the Gemma GGUF local route.",
+            model: .local(
+                modelID: modelID,
+                displayName: "Gemma 4 E2B QAT GGUF"
+            ),
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let log = try await seam.run(mission: mission)
+        #expect(client.streamCallCount == 1)
+        #expect(client.generateCallCount == 0)
+        #expect(client.lastModelID == modelID)
+        guard case .localModelHandoff(_, let handoffModelID, let providerPolicyJSON) = log.events[1] else {
+            Issue.record("second event must be Rust local_model_handoff, got \(log.events[1])")
+            return
+        }
+        #expect(handoffModelID == modelID)
+        #expect(providerPolicyJSON.contains(#""kind":"local_gguf""#))
+        #expect(providerPolicyJSON.contains(#""model_id":"google/gemma-4-E2B-it-qat-q4_0-gguf""#))
+        #expect(!RuntimeRouter.modelPreferenceTable.values.flatMap { $0 }.contains(modelID))
+        #expect(log.answerPacketId == "system-g-local-m-local-system-g-gemma-gguf")
+    }
+
     @Test("RealSystemGRunSeam live local model bridge writes falsifier artifact")
     @MainActor func realSystemGLiveLocalModelBridgeWritesArtifact() async throws {
         guard Self.liveSystemGLocalBridgeRequested() else {

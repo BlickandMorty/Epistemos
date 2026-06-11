@@ -40,6 +40,9 @@ pub enum ProviderPolicy {
     LocalMlx {
         model_id: String,
     },
+    LocalGguf {
+        model_id: String,
+    },
     AnthropicMessages {
         model: String,
     },
@@ -1085,26 +1088,29 @@ mod tests {
     }
 
     #[test]
-    fn provider_policy_variant_count_is_six() {
+    fn provider_policy_variant_count_is_seven() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across every closed-taxonomy enum
         // (BudgetTerm 5, AgentEventErrorKind 4, AgentRuntimeV2Mode
-        // 3, CliAdapter 6, VariantTier 3, ProviderPolicy 6 here).
-        // ProviderPolicy has 6 variants (LocalMlx, AnthropicMessages,
-        // OpenAIResponses, OpenAICompatible, Mcp, ProCli) —
+        // 3, CliAdapter 6, VariantTier 3, ProviderPolicy 7 here).
+        // ProviderPolicy has 7 variants (LocalMlx, LocalGguf,
+        // AnthropicMessages, OpenAIResponses, OpenAICompatible, Mcp, ProCli) —
         // every supported executor adapter family.
         //
         // ProviderPolicy is unusual: its variants carry data, so
         // pairwise-distinctness against a single fixture matters
         // less than the cardinality assertion + per-variant
-        // discriminant check. A future addition (e.g., a 7th
-        // family for HuggingFaceInference or LocalGGUF) requires:
+        // discriminant check. A future addition (e.g., an 8th
+        // family for HuggingFaceInference or LiteRT) requires:
         //   - check_against_mode update (MAS / Pro / Research gate)
         //   - is_subprocess_provider update if applicable
         //   - serde kind discriminator + negative-serde pin updates
         //   - vault file migration path
         let variants = [
             ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
+            ProviderPolicy::LocalGguf {
                 model_id: "m".into(),
             },
             ProviderPolicy::AnthropicMessages { model: "c".into() },
@@ -1121,7 +1127,7 @@ mod tests {
                 command: "c".into(),
             },
         ];
-        assert_eq!(variants.len(), 6);
+        assert_eq!(variants.len(), 7);
         // Pairwise distinctness — each variant is structurally
         // different from the others (different discriminants).
         for i in 0..variants.len() {
@@ -1135,18 +1141,24 @@ mod tests {
     }
 
     #[test]
-    fn provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants() {
+    fn provider_policy_serde_kind_discriminator_pins_snake_case_for_all_seven_variants() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // ProviderPolicy serialises with `tag = "kind"` + snake_case;
         // every variant string is load-bearing for replay of older
         // AgentBlueprint JSONs. A rename here silently breaks replay.
-        // Pin all six variant kind strings to their snake_case form.
+        // Pin all seven variant kind strings to their snake_case form.
         let cases = [
             (
                 ProviderPolicy::LocalMlx {
                     model_id: "m".into(),
                 },
                 "local_mlx",
+            ),
+            (
+                ProviderPolicy::LocalGguf {
+                    model_id: "m".into(),
+                },
+                "local_gguf",
             ),
             (
                 ProviderPolicy::AnthropicMessages { model: "c".into() },
@@ -1200,6 +1212,12 @@ mod tests {
                 },
             ),
             (
+                "LocalGguf",
+                ProviderPolicy::LocalGguf {
+                    model_id: "m".into(),
+                },
+            ),
+            (
                 "AnthropicMessages",
                 ProviderPolicy::AnthropicMessages { model: "c".into() },
             ),
@@ -1245,14 +1263,14 @@ mod tests {
         // iter-75, VariantTier iter-78, CliAdapter iter-80,
         // RunEventEntry kind iter-81). ProviderPolicy is persisted
         // inside vault/agents/<id>.json blueprint files; the `kind`
-        // discriminator routes to one of 6 executor adapter families.
+        // discriminator routes to one of 7 executor adapter families.
         // A stray kind string in a tampered or cross-version blueprint
         // must fail to deserialise — not silently route to a default
         // family (which would silently dispatch to the wrong
         // provider).
         //
-        // The 6 valid kinds, locked by iter-49's positive pin, are:
-        // local_mlx, anthropic_messages, open_a_i_responses,
+        // The 7 valid kinds, locked by iter-49's positive pin, are:
+        // local_mlx, local_gguf, anthropic_messages, open_a_i_responses,
         // open_a_i_compatible, mcp, pro_cli. (The "open_a_i_*"
         // form is serde's default snake_case conversion of PascalCase
         // "OpenAI*" — preserved verbatim here as part of the
@@ -1266,6 +1284,9 @@ mod tests {
             r#"{"kind":"LocalMlx","model_id":"m"}"#,
             r#"{"kind":"Local_Mlx","model_id":"m"}"#,
             r#"{"kind":"localMlx","model_id":"m"}"#,
+            r#"{"kind":"LocalGguf","model_id":"m"}"#,
+            r#"{"kind":"Local_Gguf","model_id":"m"}"#,
+            r#"{"kind":"localGguf","model_id":"m"}"#,
             r#"{"kind":"PRO_CLI","adapter":"codex","command":"c"}"#,
             // Adjacent canonical-looking spellings (NOT matching the
             // serde-default snake_case form — these are the kind of
@@ -1293,6 +1314,12 @@ mod tests {
                     model_id: "qwen".into(),
                 },
                 "local_mlx",
+            ),
+            (
+                ProviderPolicy::LocalGguf {
+                    model_id: "gemma.gguf".into(),
+                },
+                "local_gguf",
             ),
             (
                 ProviderPolicy::AnthropicMessages {
@@ -1358,6 +1385,7 @@ mod tests {
     fn provider_policy_valid_kinds_with_missing_payload_fields_fail_to_deserialise() {
         for bad in [
             r#"{"kind":"local_mlx"}"#,
+            r#"{"kind":"local_gguf"}"#,
             r#"{"kind":"anthropic_messages"}"#,
             r#"{"kind":"open_a_i_responses"}"#,
             r#"{"kind":"open_a_i_compatible","base_url":"http://localhost"}"#,
@@ -1410,25 +1438,26 @@ mod tests {
     }
 
     #[test]
-    fn provider_policy_kind_discriminators_are_pairwise_distinct_across_all_six_variants() {
+    fn provider_policy_kind_discriminators_are_pairwise_distinct_across_all_seven_variants() {
         // Phase 1 hardening — pairwise-distinct kind-discriminator pin.
-        // Companion to provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        // Companion to provider_policy_serde_kind_discriminator_pins_snake_case_for_all_seven_variants
         // (which locks each kind individually) and to the CliAdapter/
         // LocalAgent pairwise-distinct family (iter-533, iter-537).
-        // A 7th ProviderPolicy variant added with #[serde(rename = "mcp")]
+        // An 8th ProviderPolicy variant added with #[serde(rename = "mcp")]
         // would silently collide with an existing kind and misroute
-        // deserialised payloads. Pin asserts all 6 kind discriminators
+        // deserialised payloads. Pin asserts all 7 kind discriminators
         // are pairwise-distinct so the collision surfaces here at
         // PR review.
         let kinds: Vec<&'static str> = vec![
             "local_mlx",
+            "local_gguf",
             "anthropic_messages",
             "open_a_i_responses",
             "open_a_i_compatible",
             "mcp",
             "pro_cli",
         ];
-        assert_eq!(kinds.len(), 6, "expected exactly 6 ProviderPolicy variants");
+        assert_eq!(kinds.len(), 7, "expected exactly 7 ProviderPolicy variants");
         for i in 0..kinds.len() {
             for j in (i + 1)..kinds.len() {
                 assert_ne!(
@@ -1439,7 +1468,7 @@ mod tests {
             }
         }
         // Cross-verify that each kind appears in the canonical pin set
-        // (provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        // (provider_policy_serde_kind_discriminator_pins_snake_case_for_all_seven_variants
         // line 1063-1090) — this pin and the per-variant pin must list
         // the same set of strings.
         let canonical = [
@@ -1448,6 +1477,12 @@ mod tests {
                     model_id: "m".into(),
                 },
                 "local_mlx",
+            ),
+            (
+                ProviderPolicy::LocalGguf {
+                    model_id: "m".into(),
+                },
+                "local_gguf",
             ),
             (
                 ProviderPolicy::AnthropicMessages { model: "c".into() },
@@ -1625,7 +1660,7 @@ mod tests {
         // discriminator. Companion to:
         //   - cli_adapter_serde_charset_is_lowercase_snake_case_only
         //     (iter just prior)
-        //   - provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        //   - provider_policy_serde_kind_discriminator_pins_snake_case_for_all_seven_variants
         //     (per-string pin for each kind tag)
         //
         // ProviderPolicy uses #[serde(rename_all = "snake_case", tag = "kind")];
@@ -1640,9 +1675,12 @@ mod tests {
         //   - non-empty
         //   - every char is ASCII lowercase or '_'
         //   - no leading / trailing underscore (no anchor underscore)
-        // across all 6 ProviderPolicy variants.
+        // across all 7 ProviderPolicy variants.
         let variants = [
             ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
+            ProviderPolicy::LocalGguf {
                 model_id: "m".into(),
             },
             ProviderPolicy::AnthropicMessages { model: "m".into() },
@@ -2173,11 +2211,11 @@ mod tests {
     }
 
     #[test]
-    fn blueprint_round_trips_through_json_for_all_six_provider_policy_variants() {
+    fn blueprint_round_trips_through_json_for_all_seven_provider_policy_variants() {
         // Phase 1 hardening — completeness companion to
         // blueprint_round_trips_through_json (which exercises ONLY
         // the ProCli variant). The closed-taxonomy ProviderPolicy has
-        // 6 variants; the JSON round-trip contract MUST hold for every
+        // 7 variants; the JSON round-trip contract MUST hold for every
         // one of them — otherwise a vault file written under one
         // variant could fail to read back.
         //
@@ -2189,6 +2227,12 @@ mod tests {
                 "LocalMlx",
                 ProviderPolicy::LocalMlx {
                     model_id: "qwen3.5-8b".into(),
+                },
+            ),
+            (
+                "LocalGguf",
+                ProviderPolicy::LocalGguf {
+                    model_id: "gemma-4-E2B_q4_0-it.gguf".into(),
                 },
             ),
             (
