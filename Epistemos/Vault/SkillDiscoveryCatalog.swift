@@ -40,16 +40,25 @@ nonisolated enum SkillDiscoveryCatalog {
         inRoots roots: [SkillDiscoveryRoot] = defaultRoots(),
         fileManager: FileManager = .default
     ) -> [SkillDiscoveryEntry] {
-        roots
+        let sortedEntries = roots
             .flatMap { root in
                 discoverSkillEntries(in: root, fileManager: fileManager)
             }
             .sorted {
                 if $0.identifier == $1.identifier {
-                    return $0.source.rawValue < $1.source.rawValue
+                    let leftPriority = sourcePriority($0.source)
+                    let rightPriority = sourcePriority($1.source)
+                    if leftPriority == rightPriority {
+                        return $0.sourcePath < $1.sourcePath
+                    }
+                    return leftPriority < rightPriority
                 }
                 return $0.identifier < $1.identifier
             }
+        var seenIdentifiers: Set<String> = []
+        return sortedEntries.filter { entry in
+            seenIdentifiers.insert(entry.identifier).inserted
+        }
     }
 
     static func derivedIdentifier(forLocalPath path: String) -> String {
@@ -119,19 +128,29 @@ nonisolated enum SkillDiscoveryCatalog {
             }
         }
 
-        // Shipped skills bundled with the app. This is what makes note-first
-        // skills available to the agent in a deployed build — the cwd root
-        // above is only reachable when running from the repo directly, and
-        // most user launches will not have a matching layout there.
-        if let resourceURL = Bundle.main.resourceURL {
-            let bundledRoot = resourceURL
-                .appendingPathComponent("DefaultSkills", isDirectory: true)
-            if fileManager.fileExists(atPath: bundledRoot.path) {
-                roots.append(SkillDiscoveryRoot(url: bundledRoot, source: .bundled))
-            }
-        }
+        roots.append(contentsOf: bundledSkillRoots(resourceURL: Bundle.main.resourceURL, fileManager: fileManager))
 
         return roots
+    }
+
+    static func bundledSkillRoots(
+        resourceURL: URL?,
+        fileManager: FileManager = .default
+    ) -> [SkillDiscoveryRoot] {
+        guard let resourceURL else { return [] }
+
+        let candidates = [
+            resourceURL.appendingPathComponent("DefaultSkills", isDirectory: true),
+            resourceURL
+                .appendingPathComponent("SourceMirror", isDirectory: true)
+                .appendingPathComponent(".agents", isDirectory: true)
+                .appendingPathComponent("skills", isDirectory: true),
+        ]
+
+        return candidates.compactMap { url in
+            guard fileManager.fileExists(atPath: url.path) else { return nil }
+            return SkillDiscoveryRoot(url: url, source: .bundled)
+        }
     }
 
     private static func discoverSkillEntries(
@@ -212,6 +231,13 @@ nonisolated enum SkillDiscoveryCatalog {
 
     private static func isIdentifierSeparator(_ character: Character) -> Bool {
         character == "-" || character == "_" || character == "."
+    }
+
+    private static func sourcePriority(_ source: SkillDiscoverySource) -> Int {
+        switch source {
+        case .bundled: 0
+        case .codex: 1
+        }
     }
 
     private static func parseFrontmatter(_ content: String) -> [String: String] {

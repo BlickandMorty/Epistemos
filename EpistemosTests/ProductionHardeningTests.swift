@@ -519,13 +519,31 @@ struct ReleasePackagingHardeningTests {
     func directBuildCopiesNightBrainLaunchAgentToLibraryLocation() throws {
         let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
 
+        #expect(bundler.contains("is_no_sign_build()"))
+        #expect(bundler.contains("[[ \"${CODE_SIGNING_ALLOWED:-}\" == \"NO\" ]]"))
+        #expect(bundler.contains("prune_nightbrain_launchagent()"))
         #expect(bundler.contains("Contents/Library/LaunchAgents"))
         #expect(bundler.contains("com.epistemos.nightbrain.plist"))
         #expect(bundler.contains("NightBrain LaunchAgent bundled"))
+        #expect(bundler.contains("NightBrain LaunchAgent skipped for no-sign local build"))
         #expect(bundler.contains("rm -f \"$RESOURCES_DIR/LaunchAgents/com.epistemos.nightbrain.plist\""))
         let appStoreGuard = try #require(bundler.range(of: "if is_app_store_build; then"))
-        let bundleCall = try #require(bundler.range(of: "\nbundle_nightbrain_launchagent\n"))
-        #expect(appStoreGuard.lowerBound < bundleCall.lowerBound)
+        let noSignGuard = try #require(bundler.range(of: "if is_no_sign_build; then"))
+        let bundleCall = try #require(bundler.range(of: "else\n    bundle_nightbrain_launchagent\nfi"))
+        #expect(appStoreGuard.lowerBound < noSignGuard.lowerBound)
+        #expect(noSignGuard.lowerBound < bundleCall.lowerBound)
+    }
+
+    @Test("runtime asset bundler ships default skills from agent canon")
+    func runtimeAssetBundlerShipsDefaultSkillsFromAgentCanon() throws {
+        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
+
+        #expect(bundler.contains("DEFAULT_SKILLS_SOURCE_DIR=\"$SRCROOT/.agents/skills\""))
+        #expect(bundler.contains("DEFAULT_SKILLS_DIR=\"$RESOURCES_DIR/DefaultSkills\""))
+        #expect(bundler.contains("bundle_default_skills()"))
+        #expect(bundler.contains("rsync -a --delete --prune-empty-dirs"))
+        #expect(bundler.contains("--include='SKILL.md'"))
+        #expect(bundler.contains("bundle_default_skills\n\nif is_app_store_build"))
     }
 
     @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
@@ -738,30 +756,34 @@ struct ReleasePackagingHardeningTests {
 		let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
 		let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
 		let nightBrain = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainService.swift")
-		let nightBrainScheduler = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainScheduler.swift")
-		let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
-		let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+			let nightBrainScheduler = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainScheduler.swift")
+			let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
+			let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+			let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
 
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Configure Knowledge Fusion at boot"))
-        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Initialize iMessage driver"))
+        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // Initialize iMessage driver"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
-		#expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // W10.10-FIX"))
-		#expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        if NightBrainScheduler.shouldRunFallbackInline()"))
-		let appStoreExceptionStart = try #require(project.range(
-			of: "Exceptions for \"Epistemos\" folder in \"Epistemos-AppStore\" target"
-		))
-		let appStoreExceptionTarget = try #require(project[appStoreExceptionStart.lowerBound...].range(
-			of: "target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;"
-		))
-		let appStoreExceptionBlock = project[appStoreExceptionStart.lowerBound..<appStoreExceptionTarget.upperBound]
-		#expect(appStoreExceptionBlock.contains("Resources/LaunchAgents/com.epistemos.nightbrain.plist"))
-		#expect(nightBrainScheduler.contains("public static func bundledLaunchAgentURL(bundle: Bundle = .main) -> URL"))
+        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // W10.10-FIX"))
+        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        if NightBrainScheduler.shouldRunFallbackInline()"))
+			let appStoreExceptionBlocks = project.components(separatedBy: "\n\t\t};").filter {
+				$0.contains("isa = PBXFileSystemSynchronizedBuildFileExceptionSet;") &&
+					$0.contains("target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;")
+			}.joined(separator: "\n")
+			#expect(appStoreExceptionBlocks.contains("Engine/ClaudeManagedRuntime.swift"))
+			#expect(appStoreExceptionBlocks.contains("Engine/LocalRustRuntime.swift"))
+			#expect(appStoreExceptionBlocks.contains("Omega/Knowledge/ODIATraceGenerator.swift"))
+			let sanitizerStart = try #require(bundler.range(of: "sanitize_app_store_resources() {"))
+			let sanitizerEnd = try #require(bundler[sanitizerStart.lowerBound...].range(of: "\n}"))
+			let sanitizerBody = bundler[sanitizerStart.lowerBound..<sanitizerEnd.upperBound]
+			#expect(sanitizerBody.contains("prune_nightbrain_launchagent"))
+			#expect(nightBrainScheduler.contains("public static func bundledLaunchAgentURL(bundle: Bundle = .main) -> URL"))
 		#expect(nightBrainScheduler.contains("Contents/Library/LaunchAgents"))
 		#expect(nightBrainScheduler.contains("guard bundledLaunchAgentExists() else"))
 		let bundledAgentGuard = try #require(nightBrainScheduler.range(of: "guard bundledLaunchAgentExists() else"))
 		let agentStatusRead = try #require(nightBrainScheduler.range(of: "let current = agent.status"))
 		#expect(bundledAgentGuard.lowerBound < agentStatusRead.lowerBound)
-		#expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
+        #expect(environment.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            .environment(bootstrap.iMessageDriver)"))
         #expect(nightBrain.contains("#if EPISTEMOS_APP_STORE\n        Self.log.info(\"NightBrain: scheduler skipped in App Store build\")"))
         #expect(nightBrain.contains("let bgScheduler = NSBackgroundActivityScheduler(identifier: \"com.epistemos.nightbrain\")"))
         #expect(app.contains("#if EPISTEMOS_APP_STORE"))
@@ -812,16 +834,18 @@ struct ReleasePackagingHardeningTests {
         #expect(registry.contains("must not be registered in mas-sandbox"))
     }
 
-    @Test("debug and test targets default to local signing without removing real signing support")
-    func debugAndTestsDefaultToLocalSigning() throws {
+    @Test("debug/test specs keep local signing while generated release configs keep paid-team support")
+    func debugAndTestsKeepLocalSigningWhileReleaseConfigsKeepPaidTeamSupport() throws {
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
 
         #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"-\""))
         #expect(projectSpec.contains("DEVELOPMENT_TEAM: \"\""))
         #expect(project.contains("CODE_SIGN_IDENTITY = \"-\";"))
-        #expect(project.contains("DEVELOPMENT_TEAM = \"\";"))
+        #expect(project.contains("DEVELOPMENT_TEAM = 3BNL2669SL;"))
         #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"Apple Development\""))
+        #expect(projectSpec.contains("DEVELOPMENT_TEAM: 3BNL2669SL"))
+        #expect(project.contains("CODE_SIGN_IDENTITY = \"Apple Development\";"))
     }
 
     @Test("project keeps syntax core and bolt ffi bridge wired for editor and graph surfaces")
@@ -1026,15 +1050,16 @@ struct AuditHardeningRegressionTests {
         let resetRange = try #require(appBootstrap.range(of: "func resetAllData() async {"))
         let resetBody = appBootstrap[resetRange.lowerBound...]
 
-        #expect(vaultSync.contains("func stopWatchingAsync(preserveData: Bool = false) async -> Bool"))
+        #expect(vaultSync.contains("func stopWatchingAsync(preserveData: Bool = false, skipRecoverySnapshot: Bool = false) async -> Bool"))
         #expect(vaultSync.contains("func switchToVaultAsync("))
         #expect(vaultSync.contains("private func snapshotLocalStateOffMain() async throws"))
         #expect(vaultSync.contains("Task.detached(priority: .utility)"))
-        #expect(vaultSync.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
+        #expect(vaultSync.contains("let didClear = await vaultSync.stopWatchingAsync("))
+        #expect(vaultSync.contains("skipRecoverySnapshot: true"))
         #expect(vaultSync.contains("if didClear {"))
         #expect(vaultSync.contains("vaultSync.dismissRecoveryIssue()"))
         #expect(vaultSync.contains("func forceClearDerivedLocalStateForFullReset() async"))
-        #expect(vaultSync.contains("let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)"))
+        #expect(vaultSync.contains("let didSwitch = await vaultSync.switchToVaultAsync("))
         #expect(vaultSync.contains("if didSwitch {"))
         #expect(vaultSync.contains("vaultSync.persistVaultSelection("))
         #expect(setupAssistant.contains("VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)"))
@@ -1055,12 +1080,14 @@ struct AuditHardeningRegressionTests {
     @MainActor func omegaPlannerSchemasStayAligned() throws {
         let runtime = MCPBridge()
 
-        let data = try #require(OmegaToolRegistry.planningSchemasJson.data(using: .utf8))
+        let data = try #require(OmegaToolRegistry.planningSchemasJson(
+            distribution: .proResearch
+        ).data(using: .utf8))
         let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
 
         #expect(!schemas.isEmpty)
-        #expect(schemas.count == runtime.toolCount)
-        #expect(schemas.count == OmegaToolRegistry.all.count)
+        #expect(schemas.count == OmegaToolRegistry.surfacedTools(distribution: .proResearch).count)
+        #expect(runtime.toolCount == OmegaToolRegistry.all.count)
     }
 
     @Test("main-actor inference bridges use timeout-guarded continuations")

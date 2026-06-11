@@ -11,11 +11,17 @@ AGENT_RUNTIME_DIR="$RESOURCES_DIR/AgentRuntime"
 HERMES_RUNTIME_DIR="$AGENT_RUNTIME_DIR/hermes-agent"
 EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/Editor"
 EDITOR_BUNDLE_DIR="$RESOURCES_DIR/Editor"
+DEFAULT_SKILLS_SOURCE_DIR="$SRCROOT/.agents/skills"
+DEFAULT_SKILLS_DIR="$RESOURCES_DIR/DefaultSkills"
 
 is_app_store_build() {
     [[ "${TARGET_NAME:-}" == "Epistemos-AppStore" ]] ||
         [[ "${PRODUCT_BUNDLE_IDENTIFIER:-}" == "com.epistemos.appstore" ]] ||
         [[ " ${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-} " == *" EPISTEMOS_APP_STORE "* ]]
+}
+
+is_no_sign_build() {
+    [[ "${CODE_SIGNING_ALLOWED:-}" == "NO" ]]
 }
 
 sanitize_app_store_resources() {
@@ -24,6 +30,7 @@ sanitize_app_store_resources() {
     rm -rf "$KNOWLEDGE_FUSION_DIR/MoLoRA"
     rm -rf "$KNOWLEDGE_FUSION_DIR/MOHAWK"
     rm -rf "$AGENT_RUNTIME_DIR"
+    prune_nightbrain_launchagent
 
     find "$RESOURCES_DIR" -type f \( \
         -name '*.py' -o \
@@ -53,6 +60,34 @@ bundle_editor_resources() {
     while IFS= read -r -d '' source_file; do
         rm -f "$RESOURCES_DIR/$(basename "$source_file")"
     done < <(find "$EDITOR_SOURCE_DIR" -type f -print0)
+}
+
+bundle_default_skills() {
+    if [ ! -d "$DEFAULT_SKILLS_SOURCE_DIR" ]; then
+        rm -rf "$DEFAULT_SKILLS_DIR"
+        return
+    fi
+
+    mkdir -p "$DEFAULT_SKILLS_DIR"
+    rsync -a --delete --prune-empty-dirs \
+        --include='*/' \
+        --include='SKILL.md' \
+        --exclude='*' \
+        "$DEFAULT_SKILLS_SOURCE_DIR/" \
+        "$DEFAULT_SKILLS_DIR/"
+}
+
+prune_nightbrain_launchagent() {
+    local plist_name="com.epistemos.nightbrain.plist"
+    local contents_dir="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH:-${WRAPPER_NAME:-}/Contents}"
+
+    if [ -n "$contents_dir" ]; then
+        rm -f "$contents_dir/Library/LaunchAgents/$plist_name"
+        rmdir "$contents_dir/Library/LaunchAgents" 2>/dev/null || true
+    fi
+
+    rm -f "$RESOURCES_DIR/LaunchAgents/$plist_name"
+    rmdir "$RESOURCES_DIR/LaunchAgents" 2>/dev/null || true
 }
 
 bundle_nightbrain_launchagent() {
@@ -87,13 +122,19 @@ cp "$SRCROOT/config/model_manifest.json" \
     "$RESOURCES_DIR/model_manifest.json"
 
 bundle_editor_resources
+bundle_default_skills
 
 if is_app_store_build; then
     sanitize_app_store_resources
     exit 0
 fi
 
-bundle_nightbrain_launchagent
+if is_no_sign_build; then
+    prune_nightbrain_launchagent
+    echo "NightBrain LaunchAgent skipped for no-sign local build"
+else
+    bundle_nightbrain_launchagent
+fi
 
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py" \
     "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_knowledge.py"

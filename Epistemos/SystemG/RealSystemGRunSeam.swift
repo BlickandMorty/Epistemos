@@ -307,9 +307,14 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
 
     private static func localProviderPolicyJSON(modelID: String) throws -> String {
         try encodeJSON(
-            LocalProviderPolicyWire(kind: .localMlx, modelID: modelID),
+            LocalProviderPolicyWire(kind: localProviderKind(for: modelID), modelID: modelID),
             label: "provider policy"
         )
+    }
+
+    private static func localProviderKind(for modelID: String) -> LocalProviderPolicyWire.Kind {
+        let lowercased = modelID.lowercased()
+        return lowercased.contains("gguf") ? .localGguf : .localMlx
     }
 
     private static func encodeJSON<T: Encodable>(_ value: T, label: String) throws -> String {
@@ -373,6 +378,7 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
     private struct LocalProviderPolicyWire: Codable, Sendable {
         enum Kind: String, Codable, Sendable {
             case localMlx = "local_mlx"
+            case localGguf = "local_gguf"
         }
 
         let kind: Kind

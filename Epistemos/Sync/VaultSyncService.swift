@@ -2466,6 +2466,7 @@ final class VaultSyncService {
         do {
             let svc = try SearchIndexService(databaseURL: searchDatabaseURLOverride)
             self.searchService = svc
+            installVaultRecallTraceProvider(searchService: svc)
             AppBootstrap.shared?.queryEngine.invalidateRuntime()
         } catch {
             log.error("Failed to create SearchIndexService: \(error.localizedDescription, privacy: .public)")
@@ -2606,6 +2607,7 @@ final class VaultSyncService {
         stopFileWatcher()
         indexActor = nil
         searchService = nil
+        VaultRecallBridge.installTraceProvider(nil)
         AppBootstrap.shared?.queryEngine.invalidateRuntime()
         ambientManifest = nil
         AppBootstrap.shared?.ambientManifest = nil
@@ -3047,6 +3049,29 @@ final class VaultSyncService {
             trace,
             latencyMs: Date().timeIntervalSince(startedAt) * 1_000
         )
+    }
+
+    private func installVaultRecallTraceProvider(searchService: SearchIndexService) {
+        VaultRecallBridge.installTraceProvider { query in
+            let limit = 20
+            if RRFFusionFlags.isEnabled {
+                let fusedResults = try searchService.fusedSearch(
+                    query: query,
+                    weights: FusionWeights(maxResults: limit)
+                )
+                return SearchIndexService.vaultRecallTrace(
+                    query: query,
+                    limit: limit,
+                    fusedResults: fusedResults
+                )
+            }
+            let results = try searchService.search(query: query, limit: limit)
+            return SearchIndexService.vaultRecallTrace(
+                query: query,
+                limit: limit,
+                results: results
+            )
+        }
     }
 
     /// Translate a `FusedResult` (RRF Phase 3) into the legacy

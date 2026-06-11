@@ -28,16 +28,16 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fb7f8bf32bc67271641dc8ddab4a4c1ec066fab3",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "agent_local_model_runtime_bridge_source_audit_v1",
-  "timestamp_utc": "2026-05-30T12:59:41Z",
-  "result_digest": "sha256:46a74a5184a0f106622567db212e17d0d8bf4676b6543d875e54c9b185dc02b5",
+  "timestamp_utc": "2026-06-11T10:26:14Z",
+  "result_digest": "sha256:c1349dd864a243f767264a13ec8f620ee6fc9df98a8ba027db03bedad6d31544",
   "measurements": {
     "agent_blueprint_source": {
       "value": {
         "path": "agent_core/src/agent_runtime_v2/blueprint.rs",
         "exists": true,
-        "bytes": 97344
+        "bytes": 98696
       },
       "unit": "object"
     },
@@ -49,7 +49,7 @@
       "value": {
         "path": "Epistemos/App/AppBootstrap.swift",
         "exists": true,
-        "bytes": 165647
+        "bytes": 166787
       },
       "unit": "object"
     },
@@ -123,7 +123,7 @@
       "value": {
         "path": "Epistemos/Engine/LocalModelInfrastructure.swift",
         "exists": true,
-        "bytes": 105143
+        "bytes": 114472
       },
       "unit": "object"
     },
@@ -143,6 +143,10 @@
       "value": "ready_for_capability_ceiling_recheck",
       "unit": "label"
     },
+    "provider_policy_local_gguf_available": {
+      "value": true,
+      "unit": "bool"
+    },
     "provider_policy_local_mlx_available": {
       "value": true,
       "unit": "bool"
@@ -155,9 +159,13 @@
       "value": {
         "path": "Epistemos/SystemG/RealSystemGRunSeam.swift",
         "exists": true,
-        "bytes": 16972
+        "bytes": 17254
       },
       "unit": "object"
+    },
+    "rust_local_gguf_handoff_wired": {
+      "value": true,
+      "unit": "bool"
     },
     "rust_local_mlx_handoff_wired": {
       "value": true,
@@ -199,7 +207,7 @@
       "value": {
         "path": "EpistemosTests/SystemGRunSeamTests.swift",
         "exists": true,
-        "bytes": 22205
+        "bytes": 23942
       },
       "unit": "object"
     },
@@ -207,7 +215,7 @@
       "value": {
         "path": "agent_core/src/agent_runtime_v2/system_g_runtime.rs",
         "exists": true,
-        "bytes": 43493
+        "bytes": 50989
       },
       "unit": "object"
     }
@@ -263,12 +271,22 @@
       "value": true,
       "unit": "bool"
     },
+    "provider_policy_local_gguf_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "provider_policy_local_mlx_available": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "qwen3_floor_fallback_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_local_gguf_handoff_wired": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -320,8 +338,10 @@
     "local_agent_adapter_not_scaffold": true,
     "local_model_catalog_available": true,
     "mlx_runtime_client_available": true,
+    "provider_policy_local_gguf_available": true,
     "provider_policy_local_mlx_available": true,
     "qwen3_floor_fallback_preserved": true,
+    "rust_local_gguf_handoff_wired": true,
     "rust_local_mlx_handoff_wired": true,
     "rust_v1_dispatch_still_synthetic_but_provider_route_not_synthetic": true,
     "source_files_present": true,
@@ -342,6 +362,10 @@
       "detail": "Rust System G accepts ProviderPolicy::LocalMlx and terminates the Rust leg with local_model_handoff instead of falsely pretending Rust owns Swift/MLX generation."
     },
     {
+      "kind": "rust_local_gguf_handoff_wired",
+      "detail": "Rust System G accepts ProviderPolicy::LocalGguf and terminates the Rust leg with local_model_handoff instead of falsely pretending Rust owns GGUF generation."
+    },
+    {
       "kind": "swift_local_model_handoff_consumed",
       "detail": "Swift consumes local_model_handoff and streams through the registered local client, then emits local-model AnswerPacket provenance."
     },
@@ -350,5 +374,5 @@
       "detail": "ready_for_capability_ceiling_recheck"
     }
   ],
-  "notes": "local_model_agent_bridge_witness; next_bottleneck=ready_for_capability_ceiling_recheck; local catalog and runtime clients are present, Rust ProviderPolicy::LocalMlx now emits a local_model_handoff, and Swift consumes that handoff through the registered local client. Do not promote the architecture until the live prompt suite artifact proves real local-model generation on this machine."
+  "notes": "local_model_agent_bridge_witness; next_bottleneck=ready_for_capability_ceiling_recheck; local catalog and runtime clients are present, Rust ProviderPolicy::LocalMlx and ProviderPolicy::LocalGguf emit local_model_handoff events, and Swift consumes that handoff through the registered local client. Do not promote the architecture until the live prompt suite artifact proves real local-model generation on this machine."
 }
