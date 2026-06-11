@@ -709,10 +709,11 @@ final class ChatState {
         isError: Bool = false,
         loadedNoteTitles: [String]? = nil,
         vaultRecallTrace: VaultRecallTrace? = nil,
-        contextAttachments: [ContextAttachment]? = nil
+        contextAttachments: [ContextAttachment]? = nil,
+        contentBlocks: [MessageContentBlock]? = nil
     ) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty || !(contentBlocks?.isEmpty ?? true) else { return }
 
         showLanding = false
 
@@ -730,7 +731,8 @@ final class ChatState {
                 isError: isError,
                 loadedNoteTitles: loadedNoteTitles,
                 vaultRecallTrace: vaultRecallTrace,
-                contextAttachments: contextAttachments
+                contextAttachments: contextAttachments,
+                contentBlocks: contentBlocks
             )
         )
         markTranscriptChanged()
@@ -751,7 +753,8 @@ final class ChatState {
             content: content,
             loadedNoteTitles: loadedNoteTitles ?? metadata.noteTitles,
             vaultRecallTrace: vaultRecallTrace ?? metadata.vaultRecallTrace,
-            contextAttachments: metadata.contextAttachments
+            contextAttachments: metadata.contextAttachments,
+            contentBlocks: completedContentBlocks(for: content)
         )
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()

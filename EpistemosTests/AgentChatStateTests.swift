@@ -104,6 +104,43 @@ struct AgentChatStateTests {
         #expect(!agentChat.messages.isEmpty)
     }
 
+    @Test("completed local assistant messages preserve pending tool evidence")
+    func completedLocalAssistantMessagesPreservePendingToolEvidence() {
+        let state = ChatState()
+        state.setCurrentChat("tool-evidence")
+        state.recordToolUse(
+            id: "tool-1",
+            name: "vault.search",
+            inputJson: #"{"query":"canon"}"#
+        )
+        state.recordToolResult(
+            toolUseId: "tool-1",
+            result: #"{"matches":1}"#,
+            isError: false
+        )
+
+        state.appendCompletedLocalAssistantMessage(content: "Found the matching note.")
+
+        guard let blocks = state.messages.last?.contentBlocks else {
+            Issue.record("assistant message should retain tool evidence blocks")
+            return
+        }
+        #expect(blocks.count == 3)
+        #expect(blocks.contains(.toolUse(
+            id: "tool-1",
+            name: "vault.search",
+            input: ["query": .string("canon")]
+        )))
+        #expect(blocks.contains(.toolResult(
+            toolUseId: "tool-1",
+            content: #"{"matches":1}"#,
+            isError: false
+        )))
+        #expect(blocks.contains(.text("Found the matching note.")))
+        #expect(state.pendingContentBlocks.isEmpty)
+        #expect(state.activeToolName == nil)
+    }
+
     // MARK: - Clear
 
     @Test func clearMessages() {
