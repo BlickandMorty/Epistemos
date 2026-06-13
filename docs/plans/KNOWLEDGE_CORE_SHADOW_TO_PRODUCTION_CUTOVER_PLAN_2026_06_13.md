@@ -154,3 +154,50 @@ No parser changes made at scoping time; held for owner.
 - An outline parity test (`knowledgeCoreOutlineMatchesLiveBlockParser`) confirms **KC outline ≅ the live `BlockParser`, both line-based** (one block per non-empty line, equal counts).
 - Therefore the AST canonicalization (A) is **NOT needed** for cutover parity and would actually *diverge* from the line-based live model. The line-based parser is the correct cutover target.
 - Only remaining parser cleanup: optionally delete the dead `_parser`/`_org` stubs (B, a per-ingest perf win). The owner fork is closed — **no AST rewrite**.
+
+## 10. Slice 2 persistence — scoping (2026-06-13, decision-ready; NOT implemented)
+
+Current state (`graph-engine/src/knowledge_core/store.rs`): `DatalogStore` (l.486) holds an
+**in-memory** Cozo `DbInstance::new("mem", "", "")` (l.507) + a `tx_id` counter and
+`last_mutation_envelope` (only the LAST `MutationEnvelope`, l.496). Each mutation
+(ingest/insert/move/delete) increments `tx_id` and emits a typed `MutationEnvelope`
+(l.57, `to_envelope` l.413). No durable storage — KC rebuilds empty every launch.
+
+**(A) Persistent Cozo engine.** Swap `DbInstance::new("mem", …)` → `"sqlite"`/`"rocksdb"` with a
+vault-scoped path (`<vault>/.epcache/kc.<engine>`); Cozo handles durability.
+- Pros: minimal store-logic change; battle-tested durability.
+- Cons: needs the cozo dep to enable the storage-engine feature (Cargo.toml + bigger build —
+  VERIFY against cozo docs first); schema must be create-if-not-exists + versioned; the 38 store
+  tests assume a fresh in-memory db → need temp-file isolation; persistent-engine txn/locking
+  semantics differ from `mem`.
+
+**(B) Replay transaction log + snapshot — RECOMMENDED.** Keep the fast in-memory Cozo; durably
+append every `MutationEnvelope` to `<vault>/.epcache/kc-oplog.bin`; replay on startup; periodic
+snapshots bound replay time.
+- Pros: leverages the EXISTING `MutationEnvelope` primitive + the canon invariant "every mutation
+  produces a typed transaction-log entry"; no engine swap → no perf regression, no Cargo feature;
+  the in-memory query path (and the 38 tests) is unchanged; deterministic rebuild + provenance +
+  a foundation for sync.
+- Cons: must accumulate envelopes (today only `last` is kept) + implement durable append, replay,
+  snapshot, and format versioning.
+
+**Recommendation: (B).** Aligns with the existing event-sourcing primitive + canon, keeps the
+in-memory path (lowest regression risk to the 38-test floor), and is easy to isolate in tests.
+Fall back to (A) only if replay/snapshot complexity exceeds budget.
+
+**Migration path (B):** (1) append-only `OpLog` writer keyed off `MutationEnvelope` (reuse the
+rkyv/serde path used for `QueryDiffEnvelope`), written alongside the ring publish; (2)
+`DatalogStore::replay(oplog) -> Self` re-applying envelopes in tx_id order into a fresh store;
+(3) periodic snapshot (serialize facts) + truncate replayed log → replay = snapshot + tail;
+(4) wire open/replay into `KnowledgeCoreShadowRuntime` startup, flag-gated + rollback (fresh-empty
+if the log is corrupt/missing).
+
+**Test strategy (cargo, additive — keeps the 38 floor):** `oplog_roundtrip` (write N envelopes →
+replay into fresh store → query results match original); `snapshot_plus_tail_equals_full_replay`;
+`corrupt_log_falls_back_to_empty` (no panic, rollback). Existing 38 store tests stay in-memory.
+
+**Regression risk: LOW** for the 38-test floor (in-memory path untouched); new risk is confined to
+the replay/snapshot code, covered by the new tests above.
+
+**Gate:** `state:candidate` — owner sign-off + RunEventLog/AnswerPacket/WRV/rollback before any
+promotion. This scoping is decision-ready: a one-word "persistence" go starts Slice 2 on path (B).
