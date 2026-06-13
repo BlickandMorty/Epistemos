@@ -131,3 +131,20 @@ Autonomous-headless ceiling for the task read-side reached. Remaining work and w
 - **Runtime shadow probe on the real vault corpus** (flag `EPISTEMOS_KNOWLEDGECORE_READ_V0`, default off) + parity health row — the *build* is autonomous; real-corpus exercise needs the **user's vault**.
 - **Persistence** (Slice 2) + **promotion** (Slice 3) — **owner sign-off** + falsifier/RunEventLog/AnswerPacket/WRV/rollback.
 - **Parser canonicalization** (Rust, cargo-verifiable) — prerequisite for Outline/prefix parity; substantial standalone track.
+
+## 9. Parser canonicalization — investigated + deferred (2026-06-13)
+
+Green floor: `cargo test --lib knowledge_core` = **37 passed / 0 failed** (parser + store + ffi); full graph-engine ≈ 2,780 tests.
+
+`parser.rs` confirms the dead-AST issue: `parse_markdown` builds `Parser::new_ext(text, Options::all())` then **discards it** and runs line-based `parse_lines`; `parse_org` builds `Org::parse(text)` then discards it. A full-document AST parse is computed and thrown away on every ingest; all extraction (blocks/tasks/properties/links) is line-based.
+
+**No minimal safe increment exists:**
+- Wiring the AST is a **rewrite** — the AST model (events / byte offsets) differs from the line-based model (`block_id = {page}::{line:08}`, depth = indentation count). It would change block boundaries/IDs and break the 3 parser tests + downstream `store`/projection tests inside the 37-test floor. Too entangled for one cautious slice.
+- The only *small* safe change — deleting the dead `_parser`/`_org` (a real per-ingest perf win) — **reverses** the canonicalization intent (removes the stubs that are meant to be wired). Not done autonomously.
+
+**Owner decision fork:**
+- **(A) Wire the AST** — deliberate multi-step Rust effort (~40-min cargo cycles); must keep the 37-test floor green (re-baselining several store/parser tests). Best as a focused session.
+- **(B) Remove dead stubs** — safe perf cleanup now; re-add proper AST parsing when (A) is scheduled.
+- **(C) Defer canon; close the prefix gap additively** in the line-based parser instead — but only after confirming KC's task target (TextCapturePipeline vs BlockParser; the impedance question), which fixes the parity direction.
+
+No parser changes made; held for owner.
