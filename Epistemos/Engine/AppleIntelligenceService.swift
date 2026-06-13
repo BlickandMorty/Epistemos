@@ -232,8 +232,11 @@ final class AppleIntelligenceService {
                     _cachedSessionSystemPrompt = normalizedSystemPrompt
                     _sessionCreatedAt = Date()
                     let content: String = try await withTimeout(seconds: 30.0) {
-                        let response = try await freshSession.respond(to: prompt)
-                        return response.content
+                        // App-wide serialization: FoundationModels can't run two
+                        // generations at once (see AFMSerialGate.shared).
+                        try await AFMSerialGate.shared.run {
+                            try await freshSession.respond(to: prompt).content
+                        }
                     }
                     return content
                 }
@@ -243,8 +246,9 @@ final class AppleIntelligenceService {
         // Normal path with exceededContextWindowSize catch-and-retry
         do {
             let content: String = try await withTimeout(seconds: 30.0) {
-                let response = try await session.respond(to: prompt)
-                return response.content
+                try await AFMSerialGate.shared.run {
+                    try await session.respond(to: prompt).content
+                }
             }
             return content
         } catch let error as LanguageModelSession.GenerationError {
@@ -260,8 +264,9 @@ final class AppleIntelligenceService {
                 _cachedSessionSystemPrompt = normalizedSystemPrompt
                 _sessionCreatedAt = Date()
                 let content: String = try await withTimeout(seconds: 30.0) {
-                    let response = try await freshSession.respond(to: prompt)
-                    return response.content
+                    try await AFMSerialGate.shared.run {
+                        try await freshSession.respond(to: prompt).content
+                    }
                 }
                 return content
             }
@@ -458,8 +463,11 @@ final class AppleIntelligenceService {
         }
         let transcriptText = parts.joined(separator: "\n")
         guard !transcriptText.isEmpty else { return "" }
-        let response = try await summarizerSession.respond(to: transcriptText)
-        return response.content
+        // App-wide serialization (see AFMSerialGate.shared). Runs before the
+        // caller's own gated respond, so there is no gate re-entry.
+        return try await AFMSerialGate.shared.run {
+            try await summarizerSession.respond(to: transcriptText).content
+        }
         #else
         return ""
         #endif

@@ -66,7 +66,9 @@ public actor AFMSessionPool {
     /// threads simultaneously in FoundationModels). Routing all classifier
     /// generations through one gate guarantees no two ever overlap. Background
     /// classifiers are not latency-coupled, so the serialization cost is benign.
-    private let respondGate = AFMSerialGate()
+    /// Uses the app-wide shared gate so pool generations also can't overlap
+    /// AppleIntelligenceService chat generation.
+    private let respondGate = AFMSerialGate.shared
 
     private init() {}
 
@@ -176,9 +178,18 @@ public actor AFMSessionPool {
 /// Serial async executor: each `run` waits for the previously-enqueued `run`
 /// to finish before its body executes, so bodies never overlap even across
 /// `await` suspension points (a plain actor would allow reentrancy there). A
-/// body that throws does not block the next in line. Used by `AFMSessionPool`
-/// to guarantee one-at-a-time FoundationModels generation.
+/// body that throws does not block the next in line.
+///
+/// `AFMSerialGate.shared` is the ONE app-wide FoundationModels generation gate:
+/// FoundationModels shares the on-device model + ANE across ALL sessions, so
+/// every consumer (AFMSessionPool classifiers AND AppleIntelligenceService chat)
+/// must route generation through this single instance to guarantee no two
+/// `respond(...)` calls ever overlap anywhere in the app.
 actor AFMSerialGate {
+    /// App-wide FoundationModels generation gate. Use this from every site that
+    /// calls `LanguageModelSession.respond(...)`.
+    static let shared = AFMSerialGate()
+
     private var tail: Task<Void, Never> = Task {}
 
     func run<T: Sendable>(_ body: @Sendable @escaping () async throws -> T) async throws -> T {
