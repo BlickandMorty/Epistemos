@@ -3867,6 +3867,51 @@ final class AppBootstrap {
         }
     }
 
+    /// KC cutover Slice 3 — re-ingest a single changed page into the runtime so
+    /// the projection tracks the live vault between launches. Fires on
+    /// `.vaultPageChanged` (the same debounced save signal the shadow reindex
+    /// uses), so re-ingest frequency follows save frequency, not keystrokes.
+    /// No-op unless the runtime flag is on and a runtime is standing.
+    ///
+    /// Re-ingest replaces the page's blocks (idempotent at the store) and
+    /// journals one mutation to the oplog — the intended durable record of an
+    /// edit. (Oplog compaction/snapshotting was deferred in Slice 2; per-edit
+    /// growth is bounded by edit volume and acceptable while KC is shadow-only.)
+    private func reingestKnowledgeCorePageIfReady(pageId: String) {
+        // Fast-path: when the flag is off the runtime is never instantiated, so
+        // the nil check short-circuits every page save without a flags read.
+        guard let runtime = knowledgeCoreRuntime,
+              EpistemosRuntimeFeatureFlags.load().knowledgeCoreRuntimeV0 else {
+            return
+        }
+
+        // Resolve the page's on-disk reference on main, then load + ingest the
+        // body off-main through the bridge actor.
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == pageId }
+        )
+        guard let page = try? context.fetch(descriptor).first else { return }
+        // A page that became archived/templated since the seed should be dropped
+        // from KC rather than re-ingested, but DeleteDocument is not yet on the
+        // runtime surface; skip it for now (stale entry is harmless shadow-side).
+        guard !page.isArchived, page.templateId == nil else { return }
+        let filePath = page.filePath
+
+        Task { @MainActor [weak self] in
+            guard self?.knowledgeCoreRuntime != nil else { return }
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: pageId,
+                filePath: filePath
+            )
+            guard !body.isEmpty else { return }
+            let ok = await runtime.ingestDocument(pageId: pageId, format: .markdown, text: body)
+            Log.app.debug(
+                "KC runtime re-ingest: page \(pageId, privacy: .public) ok=\(ok, privacy: .public)"
+            )
+        }
+    }
+
     private func enqueueShadowPageReindexIfReady(pageId: String) {
         guard let vaultURL = vaultSync.vaultURL else { return }
         let vaultPath = vaultURL.path
@@ -4072,6 +4117,11 @@ final class AppBootstrap {
                 )
             case .vaultPageChanged(let pageId):
                 self.enqueueShadowPageReindexIfReady(pageId: pageId)
+                // KC cutover Slice 3 — keep the KnowledgeCore projection current
+                // with the live vault by re-ingesting the changed page (no-op
+                // unless the runtime flag is on). Closes the seed-then-trust
+                // staleness gap without a full vault re-walk.
+                self.reingestKnowledgeCorePageIfReady(pageId: pageId)
             default:
                 break
             }
