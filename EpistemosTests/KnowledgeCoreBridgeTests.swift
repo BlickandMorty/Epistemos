@@ -164,12 +164,11 @@ struct KnowledgeCoreBridgeTests {
         #expect(kcSummary.matches(liveSummary))
     }
 
-    @Test("tracked divergence: live recognizes prefix tasks knowledge-core does not")
-    func livePipelineRecognizesPrefixTasksKnowledgeCoreDoesNot() async throws {
-        // KC parses "[ ]/[x]/TODO <space>/DONE <space>"; the live pipeline ALSO
-        // recognizes "FIXME:/ACTION:/TASK:/TODO:" colon prefixes. This asymmetry
-        // is a tracked gap — checkbox tasks are the safe first cutover surface;
-        // prefix/outline parity is gated on parser canonicalization (separate track).
+    @Test("knowledge-core now matches live on colon-prefix tasks (Slice 1.3 divergence closed)")
+    func knowledgeCoreMatchesLiveOnColonPrefixTasks() async throws {
+        // KC's parser now recognizes "FIXME:/ACTION:/TASK:/TODO:" colon prefixes
+        // (matching the live TextCapturePipeline) — the Slice 1.3 divergence is
+        // closed. Checkbox + colon-prefix tasks now reach count-parity.
         let bridge = try #require(KnowledgeCoreBridge(peerId: 23))
         let subscriptionId = await bridge.subscribeTasks(pageId: "tasks-divergence")
         #expect(subscriptionId != nil)
@@ -195,12 +194,11 @@ struct KnowledgeCoreBridgeTests {
             )
         }
 
-        // Live finds the checkbox AND the FIXME: prefix; KC finds only the
-        // checkbox. Robust (count-direction) assertion of the tracked gap.
-        #expect(liveSummary.total >= 2)
-        #expect(kcSummary.total >= 1)
-        #expect(kcSummary.total < liveSummary.total)
-        #expect(!kcSummary.matches(liveSummary))
+        // The colon-prefix gap is now CLOSED in the KC parser: both find the
+        // checkbox + the FIXME: task (2 total, 1 done).
+        #expect(liveSummary.total == 2)
+        #expect(kcSummary.total == 2)
+        #expect(kcSummary.matches(liveSummary))
     }
 
     @Test("read-parity probe aggregates a checkbox corpus to full task parity")
