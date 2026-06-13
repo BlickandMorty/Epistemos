@@ -201,3 +201,25 @@ the replay/snapshot code, covered by the new tests above.
 
 **Gate:** `state:candidate` — owner sign-off + RunEventLog/AnswerPacket/WRV/rollback before any
 promotion. This scoping is decision-ready: a one-word "persistence" go starts Slice 2 on path (B).
+
+## 11. Slice 2 DONE + Slice 3 reframed by discovery (2026-06-13)
+
+**Slice 2 persistence: COMPLETE + verified.** 2.1 (`e8aafc5770`) oplog.rs replay-log core
+(39 cargo tests); 2.2 (`15447fbf59`) `graph_engine_kc_enable_persistence` FFI + bridge
+`oplogPath` wiring (22 Swift tests incl. `bridgePersistsAndReplaysAcrossRestart` — a fresh
+bridge replays a prior session's log across a restart). Restart-survivable durable persistence.
+
+**Key discovery — KC is UNWIRED from the app.** `KnowledgeCoreShadowRuntime` is instantiated
+**nowhere** in the app; `AppBootstrap` has zero KC references. So the entire KC subsystem
+(parser, store, persistence, FFI, bridge, subscriptions) is built + tested + persisting but is
+NOT connected to the running app. "Promotion" (Slice 3) is therefore the real app integration,
+not a flag flip:
+1. Instantiate `KnowledgeCoreShadowRuntime` in `AppBootstrap` (flag-gated; pass `<vault>/.epcache/kc-oplog.jsonl` for persistence).
+2. Feed it the vault's notes (ingest on vault sync).
+3. Drive the actual SwiftUI views from KC diffs (the cutover) — but note KC emits subscription
+   diffs (outline/tasks/properties/links), NOT QueryResults, so this is the Notes/sidebar/tasks
+   surface, not the QueryRuntime search seam (Slice 0).
+
+Steps 1-2 are buildable + compile-verifiable headless (flag-gated-OFF → no default-app behavior
+change). Step 3 (driving real UI state) is high-stakes and **runtime-verifiable only in a
+dev-cert app build** — build flag-off + verify on `Product ▸ Run` before promoting (flag on).
