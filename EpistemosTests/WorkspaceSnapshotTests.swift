@@ -508,7 +508,7 @@ struct EventStoreTests {
         let store = try #require(EventStore(databaseURL: dbURL))
         let now = Date()
         let old = now.addingTimeInterval(-10 * 86_400).timeIntervalSince1970
-        let recent = now.timeIntervalSince1970
+        let recent = now.addingTimeInterval(-1).timeIntervalSince1970
 
         try executeSQL("""
             INSERT INTO snapshots (timestamp, session_id, snapshot_json, summary, user_note)

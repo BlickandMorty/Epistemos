@@ -9,10 +9,8 @@ pub const AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_CURSOR: &str =
     "automated_checks_fresh_test_products_evidence_envelope";
 pub const AUTOMATED_CHECKS_FRESH_TEST_PRODUCTS_EVIDENCE_ENVELOPE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-pub const COMMAND_SPEC_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_test_products_command_spec/result.json#F-GraphFilterVisibilityTestProductsCommandSpec";
-pub const AUTOMATED_CHECKS_REF: &str =
-    "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
+pub const COMMAND_SPEC_REF: &str = "artifact:falsifiers/graph_filter_visibility_test_products_command_spec/result.json#F-GraphFilterVisibilityTestProductsCommandSpec";
+pub const AUTOMATED_CHECKS_REF: &str = "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
 
 const REQUIRED_DIGEST_FIELDS: [&str; 8] = [
     "source_commit_sha",

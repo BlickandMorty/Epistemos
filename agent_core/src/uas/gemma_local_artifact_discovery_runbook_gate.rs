@@ -19,8 +19,7 @@ pub const GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_CURSOR: &str =
     "gemma_local_artifact_discovery_runbook_gate";
 pub const GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_NEXT_CURSOR: &str =
     "gemma_owner_approved_local_artifact_receipt_probe";
-pub const GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_official_convenience_command_denylist_gate/result.json#F-GemmaOfficialConvenienceCommandDenylistGate";
+pub const GEMMA_LOCAL_ARTIFACT_DISCOVERY_RUNBOOK_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_official_convenience_command_denylist_gate/result.json#F-GemmaOfficialConvenienceCommandDenylistGate";
 
 const UPSTREAM_PREFIX: &str =
     "artifact:falsifiers/gemma_official_convenience_command_denylist_gate/";

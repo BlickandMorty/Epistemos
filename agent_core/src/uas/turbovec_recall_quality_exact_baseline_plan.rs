@@ -434,17 +434,35 @@ impl fmt::Display for TurboVecRecallQualityError {
             Self::BadUpstreamCursor => write!(f, "bad upstream persistent-index cursor"),
             Self::EmptyPlans => write!(f, "TurboVec recall-quality plan set is empty"),
             Self::DuplicatePlanId(id) => write!(f, "duplicate recall-quality plan id `{id}`"),
-            Self::BadProductBuild(build) => write!(f, "bad product build for recall-quality plan: {build:?}"),
-            Self::BadProStatus(status) => write!(f, "bad ProStatus for recall-quality plan: {status:?}"),
+            Self::BadProductBuild(build) => {
+                write!(f, "bad product build for recall-quality plan: {build:?}")
+            }
+            Self::BadProStatus(status) => {
+                write!(f, "bad ProStatus for recall-quality plan: {status:?}")
+            }
             Self::BadStatus(status) => write!(f, "bad recall-quality status: {status:?}"),
-            Self::BadPromotionTier(tier) => write!(f, "bad recall-quality promotion tier: {tier:?}"),
-            Self::MetadataBudgetExceeded { metadata_bytes_read, fixture_bytes_read } => write!(
+            Self::BadPromotionTier(tier) => {
+                write!(f, "bad recall-quality promotion tier: {tier:?}")
+            }
+            Self::MetadataBudgetExceeded {
+                metadata_bytes_read,
+                fixture_bytes_read,
+            } => write!(
                 f,
                 "metadata budget exceeded: metadata={metadata_bytes_read} fixture={fixture_bytes_read}"
             ),
-            Self::SetPromotionAllowed => write!(f, "recall-quality set promoted product capability"),
-            Self::BadPrefix { field, value, expected } => {
-                write!(f, "field `{field}` value `{value}` must start with `{expected}`")
+            Self::SetPromotionAllowed => {
+                write!(f, "recall-quality set promoted product capability")
+            }
+            Self::BadPrefix {
+                field,
+                value,
+                expected,
+            } => {
+                write!(
+                    f,
+                    "field `{field}` value `{value}` must start with `{expected}`"
+                )
             }
             Self::MissingField { field, plan_id } => {
                 write!(f, "plan `{plan_id}` missing required field `{field}`")
@@ -453,16 +471,25 @@ impl fmt::Display for TurboVecRecallQualityError {
             Self::InvalidPolicy(reason) => write!(f, "invalid recall-quality policy: {reason}"),
             Self::EmptyQueries(plan_id) => write!(f, "plan `{plan_id}` has no query fixtures"),
             Self::DuplicateQueryId(id) => write!(f, "duplicate recall-quality query id `{id}`"),
-            Self::MissingQueryCoverage(plan_id) => write!(f, "plan `{plan_id}` missing query coverage"),
+            Self::MissingQueryCoverage(plan_id) => {
+                write!(f, "plan `{plan_id}` missing query coverage")
+            }
             Self::InvalidQuery { query_id, reason } => {
                 write!(f, "invalid recall-quality query `{query_id}`: {reason}")
             }
             Self::RuntimeOrIndexNotDeferred(id) => {
-                write!(f, "plan `{id}` opened/loaded runtime, model, provider, or index bytes")
+                write!(
+                    f,
+                    "plan `{id}` opened/loaded runtime, model, provider, or index bytes"
+                )
             }
             Self::HiddenAuthority(id) => write!(f, "plan `{id}` allows hidden route authority"),
-            Self::ProductPromotionAllowed(id) => write!(f, "plan `{id}` promoted product capability"),
-            Self::LiveLargeModelClaimed(id) => write!(f, "plan `{id}` claimed live large-model capability"),
+            Self::ProductPromotionAllowed(id) => {
+                write!(f, "plan `{id}` promoted product capability")
+            }
+            Self::LiveLargeModelClaimed(id) => {
+                write!(f, "plan `{id}` claimed live large-model capability")
+            }
             Self::SsdAsRamClaimed(id) => write!(f, "plan `{id}` claimed SSD as RAM"),
         }
     }

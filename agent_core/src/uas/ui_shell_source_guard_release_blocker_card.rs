@@ -9,10 +9,8 @@ pub const UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "ui_shell_source_guard_release_blocker_card";
 pub const UI_SHELL_SOURCE_GUARD_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "runtime_performance_policy_release_blocker_card";
-pub const UI_SHELL_SOURCE_GUARD_UPSTREAM_REF: &str =
-    "artifact:falsifiers/editor_epdoc_surface_release_blocker_card/result.json#F-EditorEpdocSurface-ReleaseBlockerCard";
-pub const UI_SHELL_SOURCE_GUARD_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#ui_shell_source_guard";
+pub const UI_SHELL_SOURCE_GUARD_UPSTREAM_REF: &str = "artifact:falsifiers/editor_epdoc_surface_release_blocker_card/result.json#F-EditorEpdocSurface-ReleaseBlockerCard";
+pub const UI_SHELL_SOURCE_GUARD_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#ui_shell_source_guard";
 
 const REQUIRED_SOURCE_REFS: [&str; 14] = [
     "Epistemos/App/AppEnvironment.swift",

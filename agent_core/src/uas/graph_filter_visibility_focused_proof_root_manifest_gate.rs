@@ -9,8 +9,7 @@ pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_CURSOR: &str 
     "graph_filter_visibility_focused_proof_root_manifest_gate";
 pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json#F-AutomatedChecksFreshTestProductsEvidenceEnvelope";
+pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_MANIFEST_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/automated_checks_fresh_test_products_evidence_envelope/result.json#F-AutomatedChecksFreshTestProductsEvidenceEnvelope";
 
 const REQUIRED_MANIFEST_FIELDS: [&str; 13] = [
     "source_commit_sha",

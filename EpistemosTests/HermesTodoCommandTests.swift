@@ -52,7 +52,7 @@ struct HermesTodoCommandTests {
         #expect(result.slashToken == .builtinMode(.todo))
         #expect(result.cleanedQuery == "add Finish M3")
         #expect(ACCSlashCommand.todo.defaultOperatingMode == .agent)
-        #expect(ACCSlashCommand.todo.preferredToolNames == ["todo"])
+        #expect(ACCSlashCommand.todo.preferredToolNames == ["system.todo"])
         #expect(ACCSlashCommand.todo.helpText.localizedCaseInsensitiveContains("native agent task"))
     }
 

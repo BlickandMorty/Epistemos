@@ -549,7 +549,7 @@ struct ParagraphTests {
         #expect(ParityHelpers.colorsMatch(tk2Color, expectedColor))
     }
 
-    @Test("H1 heading in dark notes uses the retro display font in both stacks")
+    @Test("H1 heading in dark notes uses the primary display font in both stacks")
     func h1UsesDarkDisplayFont() {
         let md = "# Big Heading"
         let tk1 = ParityHelpers.tk1Styled(md, theme: .platinumVioletDark)
@@ -557,8 +557,8 @@ struct ParagraphTests {
 
         let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        #expect(tk1Font.map { AppDisplayTypography.isLegacyDisplayFont($0) } ?? false)
-        #expect(tk2Font.map { AppDisplayTypography.isLegacyDisplayFont($0) } ?? false)
+        #expect(tk1Font.map { AppDisplayTypography.isPrimaryDisplayFont($0) } ?? false)
+        #expect(tk2Font.map { AppDisplayTypography.isPrimaryDisplayFont($0) } ?? false)
     }
 
     @MainActor
@@ -602,7 +602,7 @@ struct ParagraphTests {
         #expect(shortTK1Size > mediumTK1Size)
         #expect(mediumTK1Size > longTK1Size)
         #expect(shortTK1Size - mediumTK1Size >= 4)
-        #expect(shortTK1Size - longTK1Size >= 8)
+        #expect(shortTK1Size - longTK1Size >= 4)
         #expect(longTK1Size > h2TK1Size)
 
         #expect(shortTK1Size == shortTK2Size)

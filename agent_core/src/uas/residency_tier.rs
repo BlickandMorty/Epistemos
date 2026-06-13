@@ -164,7 +164,10 @@ mod tests {
             ResidencyTier::CapabilityCeiling,
         ]
         .len();
-        assert_eq!(count, 3, "§4.G three-tier LOCK — adding a 4th tier requires canonical doctrine §3 revision first");
+        assert_eq!(
+            count, 3,
+            "§4.G three-tier LOCK — adding a 4th tier requires canonical doctrine §3 revision first"
+        );
     }
 
     /// Anti-drift assertion: the wire tags MUST stay snake_case for cross-

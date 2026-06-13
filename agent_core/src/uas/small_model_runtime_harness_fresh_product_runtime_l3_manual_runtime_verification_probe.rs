@@ -15,6 +15,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VE
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe";
+pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const UPSTREAM_LOG_CORRELATION_ARTIFACT_PREFIX: &str =
     "artifact:small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe:";
@@ -31,6 +33,15 @@ const MIN_MANUAL_STEPS: u64 = 5;
 const MIN_SOURCE_REFS: u64 = 10;
 const MIN_TEST_REFS: u64 = 4;
 const MIN_VISIBLE_SURFACES: u64 = 3;
+
+pub fn small_model_fresh_product_runtime_l3_manual_or_advanced_cursor(cursor: &str) -> bool {
+    matches!(
+        cursor,
+        SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+    )
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 // UAS: uas:small-model-runtime-harness-fresh-product-runtime-l3-manual-runtime-verification-probe:phase
@@ -391,19 +402,18 @@ impl SmallModelFreshProductRuntimeL3ManualRuntimeVerificationWitness {
             &self.upstream_log_correlation_artifact_ref,
             UPSTREAM_LOG_CORRELATION_ARTIFACT_PREFIX,
         )?;
-        if self.guard_next_existing_work
-            != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR
-            && self.guard_next_existing_work
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR
-        {
-            return Err(SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError::GuardCursorMismatch);
+        if !small_model_fresh_product_runtime_l3_manual_or_advanced_cursor(
+            &self.guard_next_existing_work,
+        ) {
+            return Err(
+                SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError::GuardCursorMismatch,
+            );
         }
         if self.capability_overall_pass
             || self.capability_route_status != "vault_research_route_with_packetized_mitigation"
-            || (self.capability_next_bottleneck
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR
-                && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR)
+            || !small_model_fresh_product_runtime_l3_manual_or_advanced_cursor(
+                &self.capability_next_bottleneck,
+            )
         {
             return Err(
                 SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError::CapabilityStatusMismatch,
@@ -797,6 +807,18 @@ mod tests {
             error,
             SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError::LatticeCursorMissing
         ));
+    }
+
+    #[test]
+    fn release_audit_successor_cursor_is_accepted_as_advanced() {
+        let mut witness = witness();
+        witness.guard_next_existing_work =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR.to_string();
+        witness.capability_next_bottleneck =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR.to_string();
+        witness
+            .validate()
+            .expect("release-audit cursor is an advanced successor");
     }
 
     #[test]

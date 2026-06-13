@@ -8,6 +8,7 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 
+use super::small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR;
 use crate::falsifier_artifacts::sha256_hex;
 use crate::uas::{ProStatus, ProductBuild, SmallModelProductRouteCapabilityBlocker};
 
@@ -16,10 +17,20 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEO
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe";
 
-const UPSTREAM_MANUAL_VERIFICATION_ARTIFACT_PREFIX: &str =
-    "artifact:small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe:";
+const UPSTREAM_MANUAL_VERIFICATION_ARTIFACT_PREFIX: &str = "artifact:small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe:";
 const MIN_BLOCKER_COUNT: usize = 8;
 const MAX_METADATA_BYTES: u64 = 768 * 1024;
+
+pub fn small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+    cursor: &str,
+) -> bool {
+    matches!(
+        cursor,
+        SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+    )
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 // UAS: uas:small-model-runtime-harness-fresh-product-runtime-l3-capability-closeout-probe:phase
@@ -272,19 +283,18 @@ impl SmallModelFreshProductRuntimeL3CapabilityCloseoutWitness {
             &self.upstream_manual_verification_artifact_ref,
             UPSTREAM_MANUAL_VERIFICATION_ARTIFACT_PREFIX,
         )?;
-        if self.guard_next_existing_work
-            != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR
-            && self.guard_next_existing_work
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR
-        {
-            return Err(SmallModelFreshProductRuntimeL3CapabilityCloseoutError::GuardCursorMismatch);
+        if !small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+            &self.guard_next_existing_work,
+        ) {
+            return Err(
+                SmallModelFreshProductRuntimeL3CapabilityCloseoutError::GuardCursorMismatch,
+            );
         }
         if self.capability_overall_pass
             || self.capability_route_status != "vault_research_route_with_packetized_mitigation"
-            || (self.capability_next_bottleneck
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR
-                && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR)
+            || !small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+                &self.capability_next_bottleneck,
+            )
         {
             return Err(
                 SmallModelFreshProductRuntimeL3CapabilityCloseoutError::CapabilityStatusMismatch,
@@ -621,6 +631,22 @@ mod tests {
         );
         assert_eq!(valid_witness.metrics().closeout_runtime_bytes_loaded, 0);
         assert_eq!(valid_witness.address(), witness().address());
+    }
+
+    #[test]
+    fn release_audit_successor_cursor_is_accepted_as_advanced() {
+        let mut advanced = witness();
+        advanced.guard_next_existing_work =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR.to_string();
+        advanced.capability_next_bottleneck =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR.to_string();
+
+        assert!(
+            small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+                &advanced.guard_next_existing_work
+            )
+        );
+        assert!(advanced.validate().is_ok());
     }
 
     #[test]

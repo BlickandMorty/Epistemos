@@ -9,8 +9,7 @@ pub const AGENT_ROUTE_POLICY_LARGE_MODEL_NO_HIDDEN_AUTHORITY_CURSOR: &str =
     "agent_route_policy_large_model_no_hidden_authority";
 pub const AGENT_ROUTE_POLICY_LARGE_MODEL_NO_HIDDEN_AUTHORITY_NEXT_CURSOR: &str =
     "visible_output_sanitization_release_blocker_card";
-pub const AGENT_ROUTE_POLICY_UPSTREAM_REF: &str =
-    "artifact:falsifiers/model_vault_catalog_release_blocker_card/result.json#F-ModelVaultCatalog-ReleaseBlockerCard";
+pub const AGENT_ROUTE_POLICY_UPSTREAM_REF: &str = "artifact:falsifiers/model_vault_catalog_release_blocker_card/result.json#F-ModelVaultCatalog-ReleaseBlockerCard";
 pub const AGENT_ROUTE_POLICY_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#agent_route_policy";
 

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "13973d49d0e6589a20f58d8e63f806534a1720e5",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_v1",
-  "timestamp_utc": "2026-06-08T07:03:15Z",
-  "result_digest": "sha256:0926a46cc5f75fc2a0549c326a973f76878ff3abc6a306d181858debe2c5a831",
+  "timestamp_utc": "2026-06-11T08:56:37Z",
+  "result_digest": "sha256:4be47a95fc17c4c024a92dffef6129ee536fc647a31c93703af326b0f6a73fb5",
   "measurements": {
     "answer_packet_runtime_claim_rejected": {
       "value": true,
@@ -54,8 +54,12 @@
       "unit": "bool"
     },
     "failed_check_count": {
-      "value": 1,
+      "value": 0,
       "unit": "count"
+    },
+    "failure_count_without_issue_count_rejected": {
+      "value": true,
+      "unit": "bool"
     },
     "five_command_logs_digest_bound": {
       "value": true,
@@ -74,7 +78,7 @@
       "unit": "bool"
     },
     "log_bytes_total": {
-      "value": 7297056,
+      "value": 12802563,
       "unit": "bytes"
     },
     "log_digest_count": {
@@ -87,31 +91,31 @@
           "check_id": "graph_engine_cargo_test",
           "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/graph_engine_cargo_test.log",
           "bytes": 247538,
-          "sha256": "sha256:f2d29079e2c903ce928891375f3364ed433b7596331edbf1014de481e1339adb"
+          "sha256": "sha256:b67465fde44dc842e3302bc1e7f5f556a2b76cdac73693e5877aeaed19f15688"
         },
         {
           "check_id": "omega_ax_cargo_test",
           "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/omega_ax_cargo_test.log",
-          "bytes": 1343,
-          "sha256": "sha256:eb532ecc4960ab29643055af6d3c8877a1dd457a343dc528f18253068029a652"
+          "bytes": 1344,
+          "sha256": "sha256:60513f456ffdb3e64480a174b2fadbbcd4af2b340019104c8815ec3a9f25e4e9"
         },
         {
           "check_id": "omega_mcp_cargo_test",
           "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/omega_mcp_cargo_test.log",
-          "bytes": 11654,
-          "sha256": "sha256:1384e293b61b85aad632f88585a44b3e9ceeecf6f94ccb008c4615471b0a795f"
+          "bytes": 11655,
+          "sha256": "sha256:9e1720122db9a675bbaf118287cc07d3107c4685a9276a39c3c37bda9315c736"
         },
         {
           "check_id": "xcodebuild_build",
           "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_build.log",
-          "bytes": 704829,
-          "sha256": "sha256:da1ffef54e2a11e07ebb3b00fb1c013a17716c94e9a11752f58f9ae06f4895f4"
+          "bytes": 5285322,
+          "sha256": "sha256:175140588c195e9074a7993c4ba4c05089e40226774c8fee038d58fdcc30f101"
         },
         {
           "check_id": "xcodebuild_test",
           "log_ref": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_test.log",
-          "bytes": 6331692,
-          "sha256": "sha256:23e9662ff637c2e1dca63183acf037525b87ca1b25cce45a2b2f2fb259b5dadc"
+          "bytes": 7256704,
+          "sha256": "sha256:640b323dae0feeb80669da6bc81fb6929dfab6bacf2381e53331db95bb32daa8"
         }
       ],
       "unit": "redacted_log_digests"
@@ -249,15 +253,15 @@
       "unit": "log_evidence_probe"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_address": {
-      "value": "sha256:9605a49d8905288390f73a06fcad76e8a807bab0710954e5c53f22c1f1d4f299",
+      "value": "sha256:e34d86d4837648cbaf6ef9437dbb95b62c387dedc91282825d554c24961866f1",
       "unit": "sha256"
     },
     "top_xcodebuild_test_failure_family": {
-      "value": "graph_filter_visibility",
+      "value": "",
       "unit": "family"
     },
     "upstream_automated_checks_address": {
-      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "value": "sha256:e79bfba4d1c2305528385210e5973a8e737ffb99ae72e3c8a931eaa292492a83",
       "unit": "sha256"
     },
     "upstream_automated_checks_address_bound": {
@@ -268,11 +272,11 @@
       "value": true,
       "unit": "bool"
     },
-    "upstream_automated_checks_red_bound": {
+    "upstream_automated_checks_green_bound": {
       "value": true,
       "unit": "bool"
     },
-    "upstream_green_laundered_rejected": {
+    "upstream_automated_checks_not_green_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -281,18 +285,14 @@
       "unit": "bool"
     },
     "xcodebuild_test_issue_count": {
-      "value": 161,
+      "value": 0,
       "unit": "issues"
     },
     "xcodebuild_test_unique_failure_count": {
-      "value": 84,
+      "value": 0,
       "unit": "tests"
     },
     "zero_fail_pass_count_claim_rejected": {
-      "value": true,
-      "unit": "bool"
-    },
-    "zero_xcodebuild_issue_count_rejected": {
       "value": true,
       "unit": "bool"
     }
@@ -325,8 +325,13 @@
     },
     "failed_check_count": {
       "operator": "==",
-      "value": 1,
+      "value": 0,
       "unit": "count"
+    },
+    "failure_count_without_issue_count_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     },
     "five_command_logs_digest_bound": {
       "operator": "==",
@@ -530,17 +535,17 @@
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_address": {
       "operator": "eq",
-      "value": "sha256:9605a49d8905288390f73a06fcad76e8a807bab0710954e5c53f22c1f1d4f299",
+      "value": "sha256:e34d86d4837648cbaf6ef9437dbb95b62c387dedc91282825d554c24961866f1",
       "unit": "sha256"
     },
     "top_xcodebuild_test_failure_family": {
       "operator": "eq",
-      "value": "graph_filter_visibility",
+      "value": "",
       "unit": "family"
     },
     "upstream_automated_checks_address": {
       "operator": "eq",
-      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "value": "sha256:e79bfba4d1c2305528385210e5973a8e737ffb99ae72e3c8a931eaa292492a83",
       "unit": "sha256"
     },
     "upstream_automated_checks_address_bound": {
@@ -553,12 +558,12 @@
       "value": true,
       "unit": "bool"
     },
-    "upstream_automated_checks_red_bound": {
+    "upstream_automated_checks_green_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
-    "upstream_green_laundered_rejected": {
+    "upstream_automated_checks_not_green_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -570,20 +575,15 @@
     },
     "xcodebuild_test_issue_count": {
       "operator": ">=",
-      "value": 1,
+      "value": 0,
       "unit": "issues"
     },
     "xcodebuild_test_unique_failure_count": {
       "operator": ">=",
-      "value": 1,
+      "value": 0,
       "unit": "tests"
     },
     "zero_fail_pass_count_claim_rejected": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "zero_xcodebuild_issue_count_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -596,6 +596,7 @@
     "checks_tsv_bound": true,
     "distribution_compliance_claim_rejected": true,
     "failed_check_count": true,
+    "failure_count_without_issue_count_rejected": true,
     "five_command_logs_digest_bound": true,
     "l2_green_claim_rejected": true,
     "l3_green_claim_rejected": true,
@@ -641,13 +642,12 @@
     "upstream_automated_checks_address": true,
     "upstream_automated_checks_address_bound": true,
     "upstream_automated_checks_artifact_present": true,
-    "upstream_automated_checks_red_bound": true,
-    "upstream_green_laundered_rejected": true,
+    "upstream_automated_checks_green_bound": true,
+    "upstream_automated_checks_not_green_rejected": true,
     "xcodebuild_test_failure_family_bound": true,
     "xcodebuild_test_issue_count": true,
     "xcodebuild_test_unique_failure_count": true,
-    "zero_fail_pass_count_claim_rejected": true,
-    "zero_xcodebuild_issue_count_rejected": true
+    "zero_fail_pass_count_claim_rejected": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",

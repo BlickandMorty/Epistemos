@@ -1404,7 +1404,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     @objc private func toggleKnowledgeGraphFromMenu(_ sender: NSMenuItem) {
-        KnowledgeGraphShortcutDispatcher.toggle()
+        HologramController.shared.toggle()
     }
 
     @objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?) {

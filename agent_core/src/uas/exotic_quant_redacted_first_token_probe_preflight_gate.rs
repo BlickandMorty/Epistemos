@@ -17,8 +17,7 @@ pub const EXOTIC_QUANT_REDACTED_FIRST_TOKEN_PROBE_PREFLIGHT_GATE_CURSOR: &str =
     "exotic_quant_redacted_first_token_probe_preflight_gate";
 pub const EXOTIC_QUANT_REDACTED_FIRST_TOKEN_PROBE_PREFLIGHT_GATE_NEXT_CURSOR: &str =
     "exotic_quant_owner_approved_redacted_first_token_runtime_probe_gate";
-pub const EXOTIC_QUANT_DRY_RUN_TRANSCRIPT_UPSTREAM_REF: &str =
-    "artifact:falsifiers/exotic_quant_owner_approved_dry_run_transcript_preflight_gate/result.json#F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate";
+pub const EXOTIC_QUANT_DRY_RUN_TRANSCRIPT_UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_owner_approved_dry_run_transcript_preflight_gate/result.json#F-ExoticQuantOwnerApprovedDryRunTranscriptPreflightGate";
 pub const REDACTED_FIRST_TOKEN_METADATA_BUDGET_BYTES: u64 = 128 * 1024;
 pub const REDACTED_FIRST_TOKEN_MEMORY_SAMPLE_SLOT_COUNT: usize = 4;
 

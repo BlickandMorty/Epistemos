@@ -19,8 +19,7 @@ pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_CURSOR: &str =
     "gemma_local_artifact_acquisition_receipt_gate";
 pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
-pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_local_artifact_acquisition_command_card/result.json#F-GemmaLocalArtifactAcquisitionCommandCard";
+pub const GEMMA_LOCAL_ARTIFACT_ACQUISITION_RECEIPT_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_local_artifact_acquisition_command_card/result.json#F-GemmaLocalArtifactAcquisitionCommandCard";
 
 const UPSTREAM_PREFIX: &str = "artifact:falsifiers/gemma_local_artifact_acquisition_command_card/";
 const ARTIFACT_ROOT_PREFIX: &str =

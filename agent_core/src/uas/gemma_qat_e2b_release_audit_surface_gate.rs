@@ -23,8 +23,7 @@ pub const GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_CURSOR: &str =
     "gemma_qat_e2b_release_audit_surface_gate";
 pub const GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_product_capability_recheck_gate";
-pub const GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_settings_diagnostics_wrv_gate/result.json#F-GemmaQATE2BSettingsDiagnosticsWRVGate";
+pub const GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_settings_diagnostics_wrv_gate/result.json#F-GemmaQATE2BSettingsDiagnosticsWRVGate";
 
 const UPSTREAM_SETTINGS_DIAGNOSTICS_WRV_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_settings_diagnostics_wrv_gate/";
@@ -33,7 +32,7 @@ const RELEASE_SURFACE_CARD_ID: &str = "gemma-e2b-gguf-release-audit-surface-gate
 const FUTURE_RELEASE_PACKET_NAME: &str = "gemma-e2b-gguf-release-audit-surface-v1";
 const RELEASE_AUDIT_SKILL_REF: &str = ".agents/skills/epistemos_release_audit/SKILL.md";
 const PRODUCT_BLOCKER_CURSOR: &str =
-    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const GRAPH_FILTER_PROOF_ROOT_COMMAND_CARD: &str =
     "F-GraphFilterVisibilityFocusedProofRootCommandCard";
 const GRAPH_FILTER_PROOF_ROOT_EXECUTION_ARTIFACT_GATE: &str =
@@ -45,7 +44,7 @@ const MAX_METADATA_BYTES: u64 = 448 * 1024;
 const REQUIRED_RELEASE_SURFACE_FIELDS: &[&str] = &[
     "upstream_settings_diagnostics_wrv_digest",
     "release_audit_skill_ref",
-    "automated_checks_blocker_ref",
+    "release_completion_blocker_ref",
     "focused_proof_root_command_card_ref",
     "focused_proof_root_execution_artifact_gate_ref",
     "owner_approval_runbook_ref",
@@ -89,7 +88,7 @@ const REQUIRED_REJECTION_POLICIES: &[&str] = &[
     "missing_upstream_settings_diagnostics_wrv",
     "settings_diagnostics_wrv_digest_mismatch",
     "missing_release_audit_skill_ref",
-    "missing_automated_checks_blocker_ref",
+    "missing_release_completion_blocker_ref",
     "missing_focused_proof_root_command_card_ref",
     "missing_focused_proof_root_execution_artifact_gate_ref",
     "missing_owner_approval_runbook_ref",
@@ -188,7 +187,7 @@ pub struct GemmaQatE2bReleaseAuditSurfaceGate {
     pub product_build: ProductBuild,
     pub pro_status: ProStatus,
     pub release_audit_skill_ref: String,
-    pub automated_checks_blocker_ref: String,
+    pub release_completion_blocker_ref: String,
     pub focused_proof_root_command_card_ref: String,
     pub focused_proof_root_execution_artifact_gate_ref: String,
     pub owner_approval_runbook_ref: String,
@@ -285,7 +284,7 @@ impl GemmaQatE2bReleaseAuditSurfaceGate {
             product_build: ProductBuild::Pro,
             pro_status: ProStatus::Gated,
             release_audit_skill_ref: RELEASE_AUDIT_SKILL_REF.to_string(),
-            automated_checks_blocker_ref: PRODUCT_BLOCKER_CURSOR.to_string(),
+            release_completion_blocker_ref: PRODUCT_BLOCKER_CURSOR.to_string(),
             focused_proof_root_command_card_ref: GRAPH_FILTER_PROOF_ROOT_COMMAND_CARD.to_string(),
             focused_proof_root_execution_artifact_gate_ref:
                 GRAPH_FILTER_PROOF_ROOT_EXECUTION_ARTIFACT_GATE.to_string(),
@@ -402,8 +401,8 @@ impl GemmaQatE2bReleaseAuditSurfaceGate {
             RELEASE_AUDIT_SKILL_REF,
         )?;
         validate_exact(
-            "automated_checks_blocker_ref",
-            &self.automated_checks_blocker_ref,
+            "release_completion_blocker_ref",
+            &self.release_completion_blocker_ref,
             PRODUCT_BLOCKER_CURSOR,
         )?;
         validate_exact(

@@ -939,8 +939,7 @@ mod tests {
     use super::*;
     use std::str::FromStr;
 
-    const UPSTREAM: &str =
-        "turbovec_real_adapter_dependency_envelope_probe:f59dcce8a5c6691d3cf9c132f99e80c44a42b85c784d9b49745d1d435d26d2f5@1779040900000";
+    const UPSTREAM: &str = "turbovec_real_adapter_dependency_envelope_probe:f59dcce8a5c6691d3cf9c132f99e80c44a42b85c784d9b49745d1d435d26d2f5@1779040900000";
 
     fn upstream() -> UasAddress {
         UasAddress::from_str(UPSTREAM).expect("valid upstream test address")

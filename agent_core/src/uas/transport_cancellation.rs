@@ -978,7 +978,7 @@ mod tests {
             id,
             format!("answer_packet:surface:{id}"),
             format!("run_event_log:surface:{id}"),
-            "metadata-only cancellation surface: L1 records route epoch, cancellation, stale slab rejection, AnswerPacket, RunEventLog, and rollback; L2 remains vault research and L3 product runtime is unchanged."
+            "metadata-only cancellation surface: L1 records route epoch, cancellation, stale slab rejection, AnswerPacket, RunEventLog, and rollback; L2 remains vault research and L3 product runtime is unchanged.",
         )
     }
 

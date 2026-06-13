@@ -72,6 +72,13 @@ pub mod gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate
 pub mod gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate;
 pub mod gemma_direct_harness_receipt_emitter_dry_run_artifact_gate;
 pub mod gemma_direct_harness_trap_policy_gate;
+pub mod gemma_first_runtime_execution_probe;
+pub mod gemma_first_runtime_quality_packet_materializer;
+pub mod gemma_first_runtime_quality_replay_execution_gate;
+pub mod gemma_first_runtime_route_answer_packet_visibility_materializer;
+pub mod gemma_first_runtime_runtime_router_admission_packet_materializer;
+pub mod gemma_first_runtime_settings_diagnostics_wrv_materializer;
+pub mod gemma_first_runtime_system_g_dry_run_route_packet_materializer;
 pub mod gemma_local_artifact_acquisition_command_card;
 pub mod gemma_local_artifact_acquisition_plan;
 pub mod gemma_local_artifact_acquisition_receipt_gate;
@@ -79,6 +86,7 @@ pub mod gemma_local_artifact_discovery_runbook_gate;
 pub mod gemma_main_family_policy_source_card;
 pub mod gemma_official_convenience_command_denylist_gate;
 pub mod gemma_owner_approved_local_artifact_receipt_intake_gate;
+pub mod gemma_owner_approved_local_artifact_receipt_materializer;
 pub mod gemma_owner_approved_local_artifact_receipt_probe;
 pub mod gemma_owner_approved_receipt_emitter_dry_run_gate;
 pub mod gemma_owner_approved_receipt_materialization_gate;
@@ -232,9 +240,9 @@ pub use app_cold_store::{
     AppColdStoreRouteCardTotals, AppColdStoreUnit,
 };
 pub use cache_policy_pollution::{
-    CachePolicyLane, CachePolicyMetrics, CachePolicyPollutionError, CachePolicyPollutionWitness,
-    CachePolicySurface, CachePolicyTrial, CACHE_POLICY_POLLUTION_CURSOR,
-    CACHE_POLICY_POLLUTION_NEXT_CURSOR,
+    cache_policy_pollution_or_advanced_cursor, CachePolicyLane, CachePolicyMetrics,
+    CachePolicyPollutionError, CachePolicyPollutionWitness, CachePolicySurface, CachePolicyTrial,
+    CACHE_POLICY_POLLUTION_CURSOR, CACHE_POLICY_POLLUTION_NEXT_CURSOR,
 };
 pub use coactivation_tile::{
     CoactivationTile, CoactivationTileError, CoactivationTileUnit, CoactivationTileUnitKind,
@@ -259,9 +267,10 @@ pub use coldstream::{
     ColdStreamPageRun, ColdStreamPriority, ColdStreamTransportManifest, ColdStreamTransportTrace,
 };
 pub use coldstream_vs_mmap::{
-    ColdStreamBaselineKind, ColdStreamBaselineRow, ColdStreamVsMmapError, ColdStreamVsMmapFixture,
-    ColdStreamVsMmapMetrics, ColdStreamVsMmapSurface, ColdStreamVsMmapWitness,
-    COLDSTREAM_VS_MMAP_CURSOR, COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+    coldstream_vs_mmap_or_advanced_cursor, ColdStreamBaselineKind, ColdStreamBaselineRow,
+    ColdStreamVsMmapError, ColdStreamVsMmapFixture, ColdStreamVsMmapMetrics,
+    ColdStreamVsMmapSurface, ColdStreamVsMmapWitness, COLDSTREAM_VS_MMAP_CURSOR,
+    COLDSTREAM_VS_MMAP_NEXT_CURSOR,
 };
 pub use compressed_route_answer_packet_dry_run::{
     CompressedRouteAnswerPacketDryRun, CompressedRouteAnswerPacketDryRunSet,
@@ -502,6 +511,23 @@ pub use gemma_direct_harness_trap_policy_gate::{
     GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_UPSTREAM_REF,
 };
+pub use gemma_first_runtime_execution_probe::{
+    build_first_runtime_execution_receipt, execute_first_runtime_probe,
+    first_runtime_execution_receipt_json_pretty, validate_first_runtime_execution_receipt,
+    GemmaFirstRuntimeExecutionObservation, GemmaFirstRuntimeExecutionProbeError,
+    GemmaFirstRuntimeExecutionProbeReceipt, GemmaFirstRuntimeExecutionProbeRequest,
+    GEMMA_FIRST_RUNTIME_EXECUTION_PROBE_COMMAND_CARD_ID,
+    GEMMA_FIRST_RUNTIME_EXECUTION_PROBE_CURSOR, GEMMA_FIRST_RUNTIME_EXECUTION_PROBE_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_EXECUTION_PROBE_SCHEMA_VERSION,
+};
+pub use gemma_first_runtime_quality_packet_materializer::{
+    first_runtime_quality_packet_json_pretty, materialize_first_runtime_quality_packet,
+    validate_first_runtime_quality_packet, GemmaFirstRuntimeQualityPacket,
+    GemmaFirstRuntimeQualityPacketMaterializerError, GemmaFirstRuntimeQualityPacketRequest,
+    GemmaFirstRuntimeQualityTaskPacket, GEMMA_FIRST_RUNTIME_QUALITY_PACKET_MATERIALIZER_CURSOR,
+    GEMMA_FIRST_RUNTIME_QUALITY_PACKET_MATERIALIZER_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_QUALITY_PACKET_MATERIALIZER_SCHEMA_VERSION,
+};
 pub use gemma_direct_harness_first_runtime_proof_receipt_gate::{
     required_gemma_direct_harness_first_runtime_proof_receipt_abort_conditions,
     required_gemma_direct_harness_first_runtime_proof_receipt_gate_fields,
@@ -577,6 +603,18 @@ pub use gemma_owner_approved_local_artifact_receipt_intake_gate::{
     GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_NEXT_CURSOR,
     GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_UPSTREAM_REF,
 };
+pub use gemma_owner_approved_local_artifact_receipt_materializer::{
+    build_receipt_from_observed_material, llama_cli_identity_for_path,
+    materialize_owner_approved_local_artifact_receipt, receipt_json_pretty,
+    redacted_path_digest_for_path, sha256_file, validate_receipt, GemmaLlamaCliIdentityDigest,
+    GemmaOwnerApprovedLocalArtifactReceipt,
+    GemmaOwnerApprovedLocalArtifactReceiptMaterializationRequest,
+    GemmaOwnerApprovedLocalArtifactReceiptMaterializerError,
+    GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_MATERIALIZER_COMMAND_CARD_ID,
+    GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_MATERIALIZER_CURSOR,
+    GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_MATERIALIZER_NEXT_CURSOR,
+    GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_SCHEMA_VERSION,
+};
 pub use gemma_owner_approved_receipt_emitter_dry_run_gate::{
     GemmaOwnerApprovedReceiptEmitterDryRunGate,
     GemmaOwnerApprovedReceiptEmitterDryRunGateError,
@@ -642,6 +680,62 @@ pub use gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_ID,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_NEXT_CURSOR,
     GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RUNTIME_ROUTER_ADMISSION_PACKET_GATE_UPSTREAM_REF,
+};
+pub use gemma_first_runtime_quality_replay_execution_gate::{
+    execute_first_runtime_quality_replay, first_runtime_quality_replay_artifact_json_pretty,
+    validate_first_runtime_quality_replay_artifact, GemmaFirstRuntimeQualityReplayArtifact,
+    GemmaFirstRuntimeQualityReplayExecutionError, GemmaFirstRuntimeQualityReplayObservationEnvelope,
+    GemmaFirstRuntimeQualityReplayRequest, GemmaFirstRuntimeQualityTaskObservation,
+    GemmaFirstRuntimeQualityTaskReplayResult,
+    GEMMA_FIRST_RUNTIME_QUALITY_REPLAY_EXECUTION_GATE_CURSOR,
+    GEMMA_FIRST_RUNTIME_QUALITY_REPLAY_EXECUTION_GATE_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_QUALITY_REPLAY_EXECUTION_GATE_SCHEMA_VERSION,
+};
+pub use gemma_first_runtime_runtime_router_admission_packet_materializer::{
+    first_runtime_runtime_router_admission_packet_json_pretty,
+    materialize_first_runtime_runtime_router_admission_packet,
+    validate_first_runtime_runtime_router_admission_packet,
+    GemmaFirstRuntimeRuntimeRouterAdmissionPacket,
+    GemmaFirstRuntimeRuntimeRouterAdmissionPacketMaterializerError,
+    GemmaFirstRuntimeRuntimeRouterAdmissionPacketRequest,
+    GEMMA_FIRST_RUNTIME_RUNTIME_ROUTER_ADMISSION_PACKET_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_RUNTIME_ROUTER_ADMISSION_PACKET_SCHEMA_VERSION,
+};
+pub use gemma_first_runtime_system_g_dry_run_route_packet_materializer::{
+    first_runtime_system_g_dry_run_route_packet_json_pretty,
+    materialize_first_runtime_system_g_dry_run_route_packet,
+    validate_first_runtime_system_g_dry_run_route_packet,
+    GemmaFirstRuntimeSystemGDryRunRoutePacket,
+    GemmaFirstRuntimeSystemGDryRunRoutePacketMaterializerError,
+    GemmaFirstRuntimeSystemGDryRunRoutePacketRequest,
+    GEMMA_FIRST_RUNTIME_SYSTEM_G_DRY_RUN_ROUTE_PACKET_CURSOR,
+    GEMMA_FIRST_RUNTIME_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_ID,
+    GEMMA_FIRST_RUNTIME_SYSTEM_G_DRY_RUN_ROUTE_PACKET_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_SYSTEM_G_DRY_RUN_ROUTE_PACKET_SCHEMA_VERSION,
+};
+pub use gemma_first_runtime_route_answer_packet_visibility_materializer::{
+    first_runtime_route_answer_packet_visibility_json_pretty,
+    materialize_first_runtime_route_answer_packet_visibility,
+    validate_first_runtime_route_answer_packet_visibility,
+    GemmaFirstRuntimeRouteAnswerPacketVisibilityMaterializerError,
+    GemmaFirstRuntimeRouteAnswerPacketVisibilityPacket,
+    GemmaFirstRuntimeRouteAnswerPacketVisibilityRequest,
+    GEMMA_FIRST_RUNTIME_ROUTE_ANSWER_PACKET_VISIBILITY_CURSOR,
+    GEMMA_FIRST_RUNTIME_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_ID,
+    GEMMA_FIRST_RUNTIME_ROUTE_ANSWER_PACKET_VISIBILITY_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_ROUTE_ANSWER_PACKET_VISIBILITY_SCHEMA_VERSION,
+};
+pub use gemma_first_runtime_settings_diagnostics_wrv_materializer::{
+    first_runtime_settings_diagnostics_wrv_json_pretty,
+    materialize_first_runtime_settings_diagnostics_wrv,
+    validate_first_runtime_settings_diagnostics_wrv,
+    GemmaFirstRuntimeSettingsDiagnosticsWrvMaterializerError,
+    GemmaFirstRuntimeSettingsDiagnosticsWrvPacket,
+    GemmaFirstRuntimeSettingsDiagnosticsWrvRequest,
+    GEMMA_FIRST_RUNTIME_SETTINGS_DIAGNOSTICS_WRV_CURSOR,
+    GEMMA_FIRST_RUNTIME_SETTINGS_DIAGNOSTICS_WRV_GATE_ID,
+    GEMMA_FIRST_RUNTIME_SETTINGS_DIAGNOSTICS_WRV_NEXT_CURSOR,
+    GEMMA_FIRST_RUNTIME_SETTINGS_DIAGNOSTICS_WRV_SCHEMA_VERSION,
 };
 pub use gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate::{
     required_gemma_direct_harness_owner_approved_redacted_receipt_abort_conditions,
@@ -970,8 +1064,9 @@ pub use llama_cpp_slot_prompt_cache_command_card::{
     LLAMA_CPP_SLOT_PROMPT_CACHE_COMMAND_CARD_NEXT_CURSOR,
 };
 pub use large_model_deferral::{
-    LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,
-    LargeModelProviderDeferralCard, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,
+    large_model_provider_reference_deferred_or_advanced_cursor, LargeModelActiveLane,
+    LargeModelDeferralError, LargeModelDeferredLane, LargeModelProviderDeferralCard,
+    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,
 };
 pub use lattice_state_controller::{
     LatticeControllerBaseline, LatticeRouteAction, LatticeStateController,
@@ -1276,6 +1371,7 @@ pub use small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout
     fresh_product_runtime_l3_capability_closeout_metadata_budget_bytes,
     required_fresh_product_runtime_l3_capability_closeout_blockers,
     required_fresh_product_runtime_l3_capability_closeout_phases,
+    small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor,
     SmallModelFreshProductRuntimeL3CapabilityCloseoutError,
     SmallModelFreshProductRuntimeL3CapabilityCloseoutMetrics,
     SmallModelFreshProductRuntimeL3CapabilityCloseoutPhase,
@@ -1297,6 +1393,7 @@ pub use small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_pro
 pub use small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe::{
     fresh_product_runtime_l3_manual_runtime_verification_metadata_budget_bytes,
     required_fresh_product_runtime_l3_manual_runtime_verification_phases,
+    small_model_fresh_product_runtime_l3_manual_or_advanced_cursor,
     SmallModelFreshProductRuntimeL3ManualRuntimeObservation,
     SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError,
     SmallModelFreshProductRuntimeL3ManualRuntimeVerificationMetrics,
@@ -1304,6 +1401,7 @@ pub use small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_veri
     SmallModelFreshProductRuntimeL3ManualRuntimeVerificationWitness,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe::{
     fresh_product_runtime_l3_release_audit_preflight_metadata_budget_bytes,
@@ -1318,6 +1416,7 @@ pub use small_model_runtime_harness_fresh_product_runtime_l3_release_audit_prefl
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_PREFLIGHT_PROBE_NEXT_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe::{
+    fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor,
     fresh_product_runtime_l3_release_audit_automated_checks_metadata_budget_bytes,
     fresh_product_runtime_l3_release_audit_automated_checks_skill_path,
     required_fresh_product_runtime_l3_release_audit_automated_check_blockers,
@@ -1331,6 +1430,7 @@ pub use small_model_runtime_harness_fresh_product_runtime_l3_release_audit_autom
     SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksWitness,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR,
+    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_COMPLETION_CURSOR,
 };
 pub use small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe::{
     required_fresh_product_runtime_l3_release_audit_log_evidence_checks,

@@ -15,9 +15,8 @@ use agent_core::falsifier_artifacts::{
     ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
 use agent_core::uas::{
-    CachePolicyLane, CachePolicyPollutionError, CachePolicyPollutionWitness, CachePolicySurface,
-    CachePolicyTrial, ProStatus, ProductBuild, CACHE_POLICY_POLLUTION_CURSOR,
-    CACHE_POLICY_POLLUTION_NEXT_CURSOR,
+    cache_policy_pollution_or_advanced_cursor, CachePolicyLane, CachePolicyPollutionError,
+    CachePolicyPollutionWitness, CachePolicySurface, CachePolicyTrial, ProStatus, ProductBuild,
 };
 
 const FALSIFIER_ID: &str = "F-CachePolicy-Pollution";
@@ -146,8 +145,7 @@ fn build_artifact(
         ),
         (
             "guard_cursor_cache_policy_pollution_or_advanced",
-            evidence.guard_next_existing_work == CACHE_POLICY_POLLUTION_CURSOR
-                || evidence.guard_next_existing_work == CACHE_POLICY_POLLUTION_NEXT_CURSOR,
+            cache_policy_pollution_or_advanced_cursor(&evidence.guard_next_existing_work),
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -156,8 +154,7 @@ fn build_artifact(
         ),
         (
             "capability_next_bottleneck_cache_policy_pollution_or_advanced",
-            evidence.capability_next_bottleneck == CACHE_POLICY_POLLUTION_CURSOR
-                || evidence.capability_next_bottleneck == CACHE_POLICY_POLLUTION_NEXT_CURSOR,
+            cache_policy_pollution_or_advanced_cursor(&evidence.capability_next_bottleneck),
         ),
         (
             "product_status_research_only",

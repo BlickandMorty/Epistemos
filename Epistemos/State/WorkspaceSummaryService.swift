@@ -149,7 +149,8 @@ final class WorkspaceSummaryService {
 
         var results: [(title: String, summary: String)] = []
         for document in liveDocuments.prefix(8) {
-            let body = NoteWindowManager.shared.currentBody(for: document.pageId, mapped: true)
+            let pageId = document.pageId
+            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
             let sourceText = body.isEmpty
                 ? "\(document.preview)\n\n\(document.tailPreview)"
                 : body
@@ -228,7 +229,8 @@ final class WorkspaceSummaryService {
         // Semantic diffs (what changed, not raw content)
         var diffLines: [String] = []
         for note in digest.editedNotes.prefix(5) {
-            let body = NoteWindowManager.shared.currentBody(for: note.pageId, mapped: true)
+            let pageId = note.pageId
+            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
             let paragraphs = body.components(separatedBy: "\n\n")
             // Show the LAST few paragraphs (most likely recently edited) rather than
             // the first 3 (which are often just the title/header and never change).

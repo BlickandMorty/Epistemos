@@ -20,8 +20,7 @@ pub const GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_CURSOR: &str =
     "gemma_owner_approved_local_artifact_receipt_intake_gate";
 pub const GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
-pub const GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_owner_approved_local_artifact_receipt_probe/result.json#F-GemmaOwnerApprovedLocalArtifactReceiptProbe";
+pub const GEMMA_OWNER_APPROVED_LOCAL_ARTIFACT_RECEIPT_INTAKE_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_owner_approved_local_artifact_receipt_probe/result.json#F-GemmaOwnerApprovedLocalArtifactReceiptProbe";
 
 const UPSTREAM_PREFIX: &str =
     "artifact:falsifiers/gemma_owner_approved_local_artifact_receipt_probe/";

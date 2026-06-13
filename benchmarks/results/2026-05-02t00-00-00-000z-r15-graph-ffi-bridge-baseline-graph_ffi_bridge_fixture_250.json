@@ -1,10 +1,10 @@
 {
   "generated_at" : "2026-05-02T00:00:00.000Z",
-  "max" : 67723083,
+  "max" : 69709875,
   "measurement" : "graph_ffi_bridge_fixture_250",
   "metadata" : {
     "baseline_kind" : "r15_pr7_graph_ffi_bridge",
-    "checksum" : "19320",
+    "checksum" : "21665",
     "edge_count" : "280",
     "fixture_status" : "live_graph_engine_ffi_fixture",
     "graph_engine_authority" : "GraphEngine(device:layer:)",
@@ -14,17 +14,17 @@
     "sample_source" : "focused_xcode_test",
     "surface_set" : "create_add_commit_search_position_visibility_force"
   },
-  "min" : 66551000,
-  "p50" : 67453583,
-  "p95" : 67705358.2,
-  "p99" : 67719538.04,
+  "min" : 68155417,
+  "p50" : 68626708,
+  "p95" : 69513883.2,
+  "p99" : 69670676.64,
   "sample_count" : 5,
   "samples" : [
-    66551000,
-    66897959.00000001,
-    67453583,
-    67634459,
-    67723083
+    68155417,
+    68615333,
+    68626708,
+    68729916,
+    69709875
   ],
   "schema_version" : 1,
   "suite" : "R15 Graph FFI Bridge Baseline",

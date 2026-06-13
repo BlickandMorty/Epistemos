@@ -486,7 +486,9 @@ impl fmt::Display for TurboVecFilterBeforeRankError {
             ),
             Self::EmptyPlans => write!(f, "TurboVec filter-before-rank plan set is empty"),
             Self::DuplicatePlanId(id) => write!(f, "duplicate TurboVec privacy plan `{id}`"),
-            Self::DuplicateScenarioId(id) => write!(f, "duplicate TurboVec privacy scenario `{id}`"),
+            Self::DuplicateScenarioId(id) => {
+                write!(f, "duplicate TurboVec privacy scenario `{id}`")
+            }
             Self::MissingField { plan_id, field } => {
                 write!(f, "TurboVec privacy plan `{plan_id}` missing `{field}`")
             }
@@ -510,14 +512,22 @@ impl fmt::Display for TurboVecFilterBeforeRankError {
             }
             Self::InvalidOrgans(id) => write!(f, "TurboVec privacy plan `{id}` has invalid organs"),
             Self::MissingScenarioCoverage(id) => {
-                write!(f, "TurboVec privacy plan `{id}` lacks required red/green scenarios")
+                write!(
+                    f,
+                    "TurboVec privacy plan `{id}` lacks required red/green scenarios"
+                )
             }
             Self::InvalidScenario(id) => write!(f, "TurboVec privacy scenario `{id}` is unsafe"),
             Self::InvalidCandidate {
                 candidate_id,
                 reason,
-            } => write!(f, "TurboVec privacy candidate `{candidate_id}` invalid: {reason}"),
-            Self::InvalidAllowlist(id) => write!(f, "TurboVec privacy scenario `{id}` has unsafe allowlist"),
+            } => write!(
+                f,
+                "TurboVec privacy candidate `{candidate_id}` invalid: {reason}"
+            ),
+            Self::InvalidAllowlist(id) => {
+                write!(f, "TurboVec privacy scenario `{id}` has unsafe allowlist")
+            }
             Self::InvalidPolicy(id) => write!(f, "TurboVec privacy plan `{id}` has unsafe policy"),
             Self::InvalidProofRefs(id) => {
                 write!(f, "TurboVec privacy plan `{id}` has unsafe proof refs")

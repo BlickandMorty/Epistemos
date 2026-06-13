@@ -189,9 +189,11 @@ nonisolated enum EpdocGraphProjector {
     // MARK: - Wikilink scanner
 
     /// Walk a ProseMirror tree pulling every `[[label]]` substring
-    /// out of every text node. Returns labels in declaration order;
-    /// duplicates are preserved (the persistence step dedupes by
-    /// `(source, target, kind)` triple).
+    /// out of each contiguous inline text run. Returns labels in declaration
+    /// order; duplicates are preserved (the persistence step dedupes by
+    /// `(source, target, kind)` triple). Scanning the inline run instead of
+    /// each text node independently keeps marked wikilinks such as
+    /// `[[` + bold label + `]]` visible to the graph projector.
     static func wikilinkLabels(in node: ProseMirrorNode) -> [String] {
         var hits: [String] = []
         scanText(in: node, into: &hits)
@@ -216,11 +218,41 @@ nonisolated enum EpdocGraphProjector {
     }
 
     private static func scanText(in node: ProseMirrorNode, into hits: inout [String]) {
+        if node.type != "doc", let body = contiguousInlineText(in: node) {
+            extractWikilinks(from: body, into: &hits)
+            return
+        }
         if node.type == "text", let body = node.text {
             extractWikilinks(from: body, into: &hits)
+            return
         }
         for child in node.content ?? [] {
             scanText(in: child, into: &hits)
+        }
+    }
+
+    private static func contiguousInlineText(in node: ProseMirrorNode) -> String? {
+        var buffer = ""
+        guard appendInlineText(in: node, into: &buffer), !buffer.isEmpty else {
+            return nil
+        }
+        return buffer
+    }
+
+    private static func appendInlineText(in node: ProseMirrorNode, into buffer: inout String) -> Bool {
+        switch node.type {
+        case "text":
+            buffer.append(node.text ?? "")
+            return true
+        case "hard_break":
+            buffer.append("\n")
+            return true
+        default:
+            guard let children = node.content, !children.isEmpty else { return false }
+            for child in children {
+                guard appendInlineText(in: child, into: &buffer) else { return false }
+            }
+            return true
         }
     }
 

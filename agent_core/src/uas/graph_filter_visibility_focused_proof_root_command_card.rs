@@ -9,8 +9,7 @@ pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_CURSOR: &str =
     "graph_filter_visibility_focused_proof_root_command_card";
 pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_UPSTREAM_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_focused_proof_root_manifest_gate/result.json#F-GraphFilterVisibilityFocusedProofRootManifestGate";
+pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_COMMAND_CARD_UPSTREAM_REF: &str = "artifact:falsifiers/graph_filter_visibility_focused_proof_root_manifest_gate/result.json#F-GraphFilterVisibilityFocusedProofRootManifestGate";
 
 const REQUIRED_COMMAND_TEMPLATES: [&str; 3] = [
     "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination platform=macOS -derivedDataPath $PROOF_ROOT/DerivedData build-for-testing -resultBundlePath $PROOF_ROOT/build-for-testing.xcresult",

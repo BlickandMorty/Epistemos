@@ -25,8 +25,7 @@ pub const GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_CURSOR: &str =
     "gemma_qat_e2b_route_answer_packet_visibility_gate";
 pub const GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_settings_diagnostics_wrv_gate";
-pub const GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_system_g_dry_run_route_packet_gate/result.json#F-GemmaQATE2BSystemGDryRunRoutePacketGate";
+pub const GEMMA_QAT_E2B_ROUTE_ANSWER_PACKET_VISIBILITY_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_system_g_dry_run_route_packet_gate/result.json#F-GemmaQATE2BSystemGDryRunRoutePacketGate";
 
 const UPSTREAM_DRY_RUN_ROUTE_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_system_g_dry_run_route_packet_gate/";

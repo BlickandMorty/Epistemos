@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "4e716c47173b21abe119a433a2a6d6990e7c9208",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_v1",
-  "timestamp_utc": "2026-06-05T19:32:04Z",
-  "result_digest": "sha256:88d9ee72df189600dd15cfe9cfd59e8d19cc5a25ca2cfc07be19789851704089",
+  "timestamp_utc": "2026-06-11T08:56:52Z",
+  "result_digest": "sha256:b16dcdf17bec70e83705047e44c1edc686bc18c1e9fab7c9c20c79835d3e8e99",
   "measurements": {
     "answer_packet_run_event_log_bound": {
       "value": true,
@@ -247,7 +247,7 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_address": {
-      "value": "sha256:8e40e6adec37e5b7c90251b805fdf714801998ee5bd01b9b7b6f9bb90c860cb0",
+      "value": "sha256:99f704e0233565f333ed13e88751b718ddc0569f24ac3cac92fb881d0ba47cd1",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_address_deterministic": {
@@ -550,7 +550,7 @@
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_address": {
       "operator": "==",
-      "value": "sha256:8e40e6adec37e5b7c90251b805fdf714801998ee5bd01b9b7b6f9bb90c860cb0",
+      "value": "sha256:99f704e0233565f333ed13e88751b718ddc0569f24ac3cac92fb881d0ba47cd1",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_address_deterministic": {

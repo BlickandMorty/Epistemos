@@ -163,6 +163,69 @@ struct LocalGGUFClientTests {
     }
 
     @MainActor
+    @Test("gguf client resolves installed catalog models without prepared runtime config")
+    func ggufClientResolvesInstalledCatalogModelsWithoutPreparedRuntimeConfig() async throws {
+        let candidate = try #require(GemmaQATRuntimeLadder.nextScaleCandidate)
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: candidate.id))
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let paths = LocalModelPaths(rootDirectory: root)
+        let activeDirectory = paths.activeDirectory(for: descriptor)
+        try FileManager.default.createDirectory(at: activeDirectory, withIntermediateDirectories: true)
+        try Data("gguf".utf8).write(
+            to: activeDirectory.appendingPathComponent(candidate.expectedFilename),
+            options: [.atomic]
+        )
+
+        let runtime = makeRuntime(output: "Gemma QAT route output")
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx, .gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: false
+            )
+        )
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            ),
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setInstalledLocalTextModelIDs([candidate.id])
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setPreferredLocalTextModelID(candidate.id)
+
+        let client = LocalGGUFClient(
+            runtime: runtime,
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            paths: paths
+        )
+
+        let output = try await client.generate(
+            prompt: "Say hello",
+            systemPrompt: "Be concise.",
+            maxTokens: 24,
+            reasoningMode: .fast,
+            modelID: candidate.id,
+            requestedRuntimeKind: .gguf,
+            steeringHintsJSON: nil
+        )
+
+        #expect(output == "Gemma QAT route output")
+        let profile = await runtime.profilingSnapshot()
+        #expect(profile?.modelID == candidate.id)
+        #expect(profile?.resolvedRuntimeKind == .gguf)
+        #expect(profile?.modelURL.lastPathComponent == candidate.expectedFilename)
+    }
+
+    @MainActor
     @Test("gguf client generate records sanitized AgentEvents")
     func ggufClientGenerateRecordsSanitizedAgentEvents() async throws {
         let fixture = try makeGGUFFixture(named: [
@@ -768,6 +831,8 @@ struct LocalGGUFClientTests {
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwopus27Bv3.rawValue])
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwopus27Bv3.rawValue)
         let controlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(

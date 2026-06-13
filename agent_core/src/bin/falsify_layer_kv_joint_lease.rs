@@ -281,10 +281,22 @@ fn build_artifact() -> Result<agent_core::falsifier_artifacts::FalsifierArtifact
     );
 
     for (name, pass) in registry.axis_bools(&lease_address) {
-        add_bool_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, name, pass);
+        add_bool_axis(
+            &mut measurements,
+            &mut thresholds,
+            &mut pass_per_axis,
+            name,
+            pass,
+        );
     }
     for (name, pass) in invalid_fixture_axes(&leases) {
-        add_bool_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, name, pass);
+        add_bool_axis(
+            &mut measurements,
+            &mut thresholds,
+            &mut pass_per_axis,
+            name,
+            pass,
+        );
     }
 
     add_count_eq_axis(
@@ -522,7 +534,8 @@ impl LayerKvJointLeaseRegistry {
             metrics.depth_only_baseline_bps = metrics
                 .depth_only_baseline_bps
                 .max(lease.depth_only_baseline_bps);
-            metrics.kv_only_baseline_bps = metrics.kv_only_baseline_bps.max(lease.kv_only_baseline_bps);
+            metrics.kv_only_baseline_bps =
+                metrics.kv_only_baseline_bps.max(lease.kv_only_baseline_bps);
             metrics.independent_greedy_baseline_bps = metrics
                 .independent_greedy_baseline_bps
                 .max(lease.independent_greedy_baseline_bps);
@@ -606,12 +619,23 @@ impl LayerKvJointLeaseRegistry {
     fn axis_bools(&self, lease_address: &str) -> Vec<(&'static str, bool)> {
         let metrics = self.metrics();
         vec![
-            ("layer_kv_joint_lease_fixture_present", !self.leases.is_empty()),
-            ("lease_ids_bound", self.leases.iter().all(|lease| !lease.lease_id.is_empty())),
-            ("mission_ids_bound", self.leases.iter().all(|lease| !lease.mission_id.is_empty())),
+            (
+                "layer_kv_joint_lease_fixture_present",
+                !self.leases.is_empty(),
+            ),
+            (
+                "lease_ids_bound",
+                self.leases.iter().all(|lease| !lease.lease_id.is_empty()),
+            ),
+            (
+                "mission_ids_bound",
+                self.leases.iter().all(|lease| !lease.mission_id.is_empty()),
+            ),
             (
                 "answer_packet_refs_bound",
-                self.leases.iter().all(|lease| !lease.answer_packet_ref.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.answer_packet_ref.is_empty()),
             ),
             (
                 "upstream_certificate_refs_bound",
@@ -621,19 +645,27 @@ impl LayerKvJointLeaseRegistry {
             ),
             (
                 "route_card_refs_bound",
-                self.leases.iter().all(|lease| !lease.route_card_ref.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.route_card_ref.is_empty()),
             ),
             (
                 "joint_decision_refs_bound",
-                self.leases.iter().all(|lease| !lease.joint_decision_ref.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.joint_decision_ref.is_empty()),
             ),
             (
                 "depth_plans_bound",
-                self.leases.iter().all(|lease| !lease.depth_plan.selected_layers.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.depth_plan.selected_layers.is_empty()),
             ),
             (
                 "kv_page_choices_bound",
-                self.leases.iter().all(|lease| lease.kv_pages.iter().any(|page| page.selected)),
+                self.leases
+                    .iter()
+                    .all(|lease| lease.kv_pages.iter().any(|page| page.selected)),
             ),
             (
                 "depth_kv_coupling_bound",
@@ -676,9 +708,9 @@ impl LayerKvJointLeaseRegistry {
             ),
             (
                 "full_depth_fallback_bound",
-                self.leases
-                    .iter()
-                    .all(|lease| lease.depth_plan.full_depth_layer > lease.depth_plan.shallow_exit_layer),
+                self.leases.iter().all(|lease| {
+                    lease.depth_plan.full_depth_layer > lease.depth_plan.shallow_exit_layer
+                }),
             ),
             (
                 "answer_packet_required_fields_bound",
@@ -686,15 +718,21 @@ impl LayerKvJointLeaseRegistry {
             ),
             (
                 "fallback_bound",
-                self.leases.iter().all(|lease| !lease.fallback_route.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.fallback_route.is_empty()),
             ),
             (
                 "rollback_bound",
-                self.leases.iter().all(|lease| !lease.rollback_handle.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.rollback_handle.is_empty()),
             ),
             (
                 "run_event_log_bound",
-                self.leases.iter().all(|lease| !lease.run_event_log_ref.is_empty()),
+                self.leases
+                    .iter()
+                    .all(|lease| !lease.run_event_log_ref.is_empty()),
             ),
             (
                 "route_authority_shadow_only",
@@ -716,17 +754,34 @@ impl LayerKvJointLeaseRegistry {
             ),
             (
                 "no_runtime_bytes_loaded",
-                self.leases.iter().all(|lease| lease.runtime_bytes_loaded == 0),
+                self.leases
+                    .iter()
+                    .all(|lease| lease.runtime_bytes_loaded == 0),
             ),
             (
                 "layer_kv_joint_lease_address_deterministic",
                 lease_address.starts_with("uas:layer-kv-joint-lease:"),
             ),
-            ("selected_pages_fit_hot_budget", metrics.max_hot_bytes <= MAX_HOT_BYTES),
-            ("selected_pages_fit_kv_budget", metrics.max_kv_bytes <= MAX_KV_BYTES),
-            ("selected_pages_fit_cold_budget", metrics.max_cold_bytes <= MAX_COLD_BYTES),
-            ("joint_latency_bound", metrics.max_latency_ms <= MAX_LATENCY_MS),
-            ("extra_layer_bound", metrics.max_extra_layers <= MAX_EXTRA_LAYERS),
+            (
+                "selected_pages_fit_hot_budget",
+                metrics.max_hot_bytes <= MAX_HOT_BYTES,
+            ),
+            (
+                "selected_pages_fit_kv_budget",
+                metrics.max_kv_bytes <= MAX_KV_BYTES,
+            ),
+            (
+                "selected_pages_fit_cold_budget",
+                metrics.max_cold_bytes <= MAX_COLD_BYTES,
+            ),
+            (
+                "joint_latency_bound",
+                metrics.max_latency_ms <= MAX_LATENCY_MS,
+            ),
+            (
+                "extra_layer_bound",
+                metrics.max_extra_layers <= MAX_EXTRA_LAYERS,
+            ),
             (
                 "lease_beats_depth_only_baseline",
                 metrics.lease_success_bps > metrics.depth_only_baseline_bps,
@@ -790,7 +845,10 @@ fn validate_lease(lease: &LayerKvJointLeaseFixture) -> Result<(), LayerKvJointLe
         return Err(LayerKvJointLeaseError::JointCouplingMissing);
     }
     let selected_pages: Vec<_> = lease.kv_pages.iter().filter(|page| page.selected).collect();
-    let selected_bytes = selected_pages.iter().map(|page| page.page_bytes).sum::<u64>();
+    let selected_bytes = selected_pages
+        .iter()
+        .map(|page| page.page_bytes)
+        .sum::<u64>();
     if lease.hot_byte_budget == 0 || selected_bytes > lease.hot_byte_budget {
         return Err(LayerKvJointLeaseError::HotBudgetExceeded);
     }
@@ -904,7 +962,10 @@ fn validate_pages(pages: &[KvPageChoice]) -> Result<(), LayerKvJointLeaseError> 
     if !pages.iter().any(|page| page.selected) {
         return Err(LayerKvJointLeaseError::MissingSelectedKvPage);
     }
-    if !pages.iter().any(|page| page.selected && page.required_evidence) {
+    if !pages
+        .iter()
+        .any(|page| page.selected && page.required_evidence)
+    {
         return Err(LayerKvJointLeaseError::MissingRequiredEvidencePage);
     }
     let mut page_ids = BTreeSet::new();
@@ -965,60 +1026,192 @@ fn joint_coupling_present(lease: &LayerKvJointLeaseFixture) -> bool {
 }
 
 fn answer_packet_fields_present(lease: &LayerKvJointLeaseFixture) -> bool {
-    REQUIRED_PACKET_FIELDS
-        .iter()
-        .all(|field| lease.answer_packet_visible_fields.iter().any(|present| present == field))
+    REQUIRED_PACKET_FIELDS.iter().all(|field| {
+        lease
+            .answer_packet_visible_fields
+            .iter()
+            .any(|present| present == field)
+    })
 }
 
 fn valid_privacy(value: &str) -> bool {
-    matches!(value, "local_private" | "local_sensitive" | "project_private")
+    matches!(
+        value,
+        "local_private" | "local_sensitive" | "project_private"
+    )
 }
 
-fn invalid_fixture_axes(
-    fixtures: &[LayerKvJointLeaseFixture],
-) -> Vec<(&'static str, bool)> {
-    let cases: Vec<(&'static str, fn(&mut Vec<LayerKvJointLeaseFixture>), LayerKvJointLeaseError)> = vec![
-        ("duplicate_lease_rejected", |leases| leases.push(leases[0].clone()), LayerKvJointLeaseError::DuplicateLease),
-        ("duplicate_kv_page_rejected", |leases| {
-            let duplicate = leases[0].kv_pages[0].clone();
-            leases[0].kv_pages.push(duplicate);
-        }, LayerKvJointLeaseError::DuplicateKvPage),
-        ("missing_depth_plan_rejected", |leases| leases[0].depth_plan.selected_layers.clear(), LayerKvJointLeaseError::MissingDepthPlan),
-        ("missing_selected_kv_page_rejected", |leases| leases[0].kv_pages.iter_mut().for_each(|page| page.selected = false), LayerKvJointLeaseError::MissingSelectedKvPage),
-        ("missing_joint_decision_rejected", |leases| leases[0].joint_decision_ref.clear(), LayerKvJointLeaseError::MissingJointDecision),
-        ("uncoupled_depth_kv_rejected", |leases| leases[0].joint_decision_ref = "lease:uncoupled".to_string(), LayerKvJointLeaseError::JointCouplingMissing),
-        ("stale_kv_page_rejected", |leases| leases[0].kv_pages[0].stale = true, LayerKvJointLeaseError::StalePageSelected),
-        ("incompatible_depth_fence_rejected", |leases| leases[0].depth_plan.compatibility_fence = "fence:model:other".to_string(), LayerKvJointLeaseError::IncompatibleDepthFence),
-        ("incompatible_page_fence_rejected", |leases| leases[0].kv_pages[0].compatibility_fence = "fence:model:other".to_string(), LayerKvJointLeaseError::IncompatiblePageFence),
-        ("invalid_privacy_class_rejected", |leases| leases[0].kv_pages[0].privacy_class = "public_cloud".to_string(), LayerKvJointLeaseError::InvalidPrivacyClass),
-        ("over_hot_budget_rejected", |leases| leases[0].hot_byte_budget = 1, LayerKvJointLeaseError::HotBudgetExceeded),
-        ("over_kv_budget_rejected", |leases| leases[0].kv_byte_budget = 1, LayerKvJointLeaseError::KvBudgetExceeded),
-        ("over_cold_budget_rejected", |leases| leases[0].cold_byte_budget = 1, LayerKvJointLeaseError::ColdBudgetExceeded),
-        ("over_latency_rejected", |leases| leases[0].latency_budget_ms = MAX_LATENCY_MS + 1, LayerKvJointLeaseError::LatencyBudgetExceeded),
-        ("over_extra_layers_rejected", |leases| leases[0].depth_plan.max_extra_layers = MAX_EXTRA_LAYERS + 1, LayerKvJointLeaseError::ExtraLayerBudgetExceeded),
-        ("attention_error_too_high_rejected", |leases| leases[0].expected_attention_error_bps = MAX_ATTENTION_ERROR_BPS + 1, LayerKvJointLeaseError::AttentionErrorTooHigh),
-        ("verifier_margin_too_low_rejected", |leases| leases[0].verifier_margin_bps = MIN_VERIFIER_MARGIN_BPS - 1, LayerKvJointLeaseError::VerifierMarginTooLow),
-        ("missing_full_depth_fallback_rejected", |leases| leases[0].fallback_route = "cheap_retry".to_string(), LayerKvJointLeaseError::MissingFullDepthFallback),
-        ("missing_rollback_rejected", |leases| leases[0].rollback_handle.clear(), LayerKvJointLeaseError::MissingRollback),
-        ("missing_run_event_log_rejected", |leases| leases[0].run_event_log_ref.clear(), LayerKvJointLeaseError::MissingRunEventLog),
-        ("missing_answer_packet_field_rejected", |leases| {
-            let _ = leases[0].answer_packet_visible_fields.pop();
-        }, LayerKvJointLeaseError::MissingAnswerPacketField),
-        ("hidden_live_authority_rejected", |leases| leases[0].route_authority = "live_route".to_string(), LayerKvJointLeaseError::HiddenLiveAuthority),
-        ("live_route_promotion_rejected", |leases| leases[0].live_route_promoted = true, LayerKvJointLeaseError::LiveRoutePromotion),
-        ("hidden_chain_exposure_rejected", |leases| leases[0].hidden_chain_exposed = true, LayerKvJointLeaseError::HiddenChainExposure),
-        ("cloud_source_rejected", |leases| leases[0].hidden_cloud = true, LayerKvJointLeaseError::CloudSource),
-        ("runtime_bytes_rejected", |leases| leases[0].runtime_bytes_loaded = 1, LayerKvJointLeaseError::RuntimeBytesLoaded),
-        ("metadata_budget_rejected", |leases| leases[0].lease_metadata_bytes = MAX_LEASE_METADATA_BYTES + 1, LayerKvJointLeaseError::MetadataBudgetExceeded),
-        ("shallow_wrong_page_negative_rejected", |leases| leases[0].shallow_wrong_page_baseline_bps = leases[0].lease_success_bps, LayerKvJointLeaseError::ShallowWrongPageAccepted),
-        ("unbeaten_baseline_rejected", |leases| leases[0].independent_greedy_baseline_bps = leases[0].lease_success_bps, LayerKvJointLeaseError::UnbeatenBaseline),
+fn invalid_fixture_axes(fixtures: &[LayerKvJointLeaseFixture]) -> Vec<(&'static str, bool)> {
+    let cases: Vec<(
+        &'static str,
+        fn(&mut Vec<LayerKvJointLeaseFixture>),
+        LayerKvJointLeaseError,
+    )> = vec![
+        (
+            "duplicate_lease_rejected",
+            |leases| leases.push(leases[0].clone()),
+            LayerKvJointLeaseError::DuplicateLease,
+        ),
+        (
+            "duplicate_kv_page_rejected",
+            |leases| {
+                let duplicate = leases[0].kv_pages[0].clone();
+                leases[0].kv_pages.push(duplicate);
+            },
+            LayerKvJointLeaseError::DuplicateKvPage,
+        ),
+        (
+            "missing_depth_plan_rejected",
+            |leases| leases[0].depth_plan.selected_layers.clear(),
+            LayerKvJointLeaseError::MissingDepthPlan,
+        ),
+        (
+            "missing_selected_kv_page_rejected",
+            |leases| {
+                leases[0]
+                    .kv_pages
+                    .iter_mut()
+                    .for_each(|page| page.selected = false)
+            },
+            LayerKvJointLeaseError::MissingSelectedKvPage,
+        ),
+        (
+            "missing_joint_decision_rejected",
+            |leases| leases[0].joint_decision_ref.clear(),
+            LayerKvJointLeaseError::MissingJointDecision,
+        ),
+        (
+            "uncoupled_depth_kv_rejected",
+            |leases| leases[0].joint_decision_ref = "lease:uncoupled".to_string(),
+            LayerKvJointLeaseError::JointCouplingMissing,
+        ),
+        (
+            "stale_kv_page_rejected",
+            |leases| leases[0].kv_pages[0].stale = true,
+            LayerKvJointLeaseError::StalePageSelected,
+        ),
+        (
+            "incompatible_depth_fence_rejected",
+            |leases| leases[0].depth_plan.compatibility_fence = "fence:model:other".to_string(),
+            LayerKvJointLeaseError::IncompatibleDepthFence,
+        ),
+        (
+            "incompatible_page_fence_rejected",
+            |leases| leases[0].kv_pages[0].compatibility_fence = "fence:model:other".to_string(),
+            LayerKvJointLeaseError::IncompatiblePageFence,
+        ),
+        (
+            "invalid_privacy_class_rejected",
+            |leases| leases[0].kv_pages[0].privacy_class = "public_cloud".to_string(),
+            LayerKvJointLeaseError::InvalidPrivacyClass,
+        ),
+        (
+            "over_hot_budget_rejected",
+            |leases| leases[0].hot_byte_budget = 1,
+            LayerKvJointLeaseError::HotBudgetExceeded,
+        ),
+        (
+            "over_kv_budget_rejected",
+            |leases| leases[0].kv_byte_budget = 1,
+            LayerKvJointLeaseError::KvBudgetExceeded,
+        ),
+        (
+            "over_cold_budget_rejected",
+            |leases| leases[0].cold_byte_budget = 1,
+            LayerKvJointLeaseError::ColdBudgetExceeded,
+        ),
+        (
+            "over_latency_rejected",
+            |leases| leases[0].latency_budget_ms = MAX_LATENCY_MS + 1,
+            LayerKvJointLeaseError::LatencyBudgetExceeded,
+        ),
+        (
+            "over_extra_layers_rejected",
+            |leases| leases[0].depth_plan.max_extra_layers = MAX_EXTRA_LAYERS + 1,
+            LayerKvJointLeaseError::ExtraLayerBudgetExceeded,
+        ),
+        (
+            "attention_error_too_high_rejected",
+            |leases| leases[0].expected_attention_error_bps = MAX_ATTENTION_ERROR_BPS + 1,
+            LayerKvJointLeaseError::AttentionErrorTooHigh,
+        ),
+        (
+            "verifier_margin_too_low_rejected",
+            |leases| leases[0].verifier_margin_bps = MIN_VERIFIER_MARGIN_BPS - 1,
+            LayerKvJointLeaseError::VerifierMarginTooLow,
+        ),
+        (
+            "missing_full_depth_fallback_rejected",
+            |leases| leases[0].fallback_route = "cheap_retry".to_string(),
+            LayerKvJointLeaseError::MissingFullDepthFallback,
+        ),
+        (
+            "missing_rollback_rejected",
+            |leases| leases[0].rollback_handle.clear(),
+            LayerKvJointLeaseError::MissingRollback,
+        ),
+        (
+            "missing_run_event_log_rejected",
+            |leases| leases[0].run_event_log_ref.clear(),
+            LayerKvJointLeaseError::MissingRunEventLog,
+        ),
+        (
+            "missing_answer_packet_field_rejected",
+            |leases| {
+                let _ = leases[0].answer_packet_visible_fields.pop();
+            },
+            LayerKvJointLeaseError::MissingAnswerPacketField,
+        ),
+        (
+            "hidden_live_authority_rejected",
+            |leases| leases[0].route_authority = "live_route".to_string(),
+            LayerKvJointLeaseError::HiddenLiveAuthority,
+        ),
+        (
+            "live_route_promotion_rejected",
+            |leases| leases[0].live_route_promoted = true,
+            LayerKvJointLeaseError::LiveRoutePromotion,
+        ),
+        (
+            "hidden_chain_exposure_rejected",
+            |leases| leases[0].hidden_chain_exposed = true,
+            LayerKvJointLeaseError::HiddenChainExposure,
+        ),
+        (
+            "cloud_source_rejected",
+            |leases| leases[0].hidden_cloud = true,
+            LayerKvJointLeaseError::CloudSource,
+        ),
+        (
+            "runtime_bytes_rejected",
+            |leases| leases[0].runtime_bytes_loaded = 1,
+            LayerKvJointLeaseError::RuntimeBytesLoaded,
+        ),
+        (
+            "metadata_budget_rejected",
+            |leases| leases[0].lease_metadata_bytes = MAX_LEASE_METADATA_BYTES + 1,
+            LayerKvJointLeaseError::MetadataBudgetExceeded,
+        ),
+        (
+            "shallow_wrong_page_negative_rejected",
+            |leases| leases[0].shallow_wrong_page_baseline_bps = leases[0].lease_success_bps,
+            LayerKvJointLeaseError::ShallowWrongPageAccepted,
+        ),
+        (
+            "unbeaten_baseline_rejected",
+            |leases| leases[0].independent_greedy_baseline_bps = leases[0].lease_success_bps,
+            LayerKvJointLeaseError::UnbeatenBaseline,
+        ),
     ];
     cases
         .into_iter()
         .map(|(axis, mutate, expected)| {
             let mut leases = fixtures.to_vec();
             mutate(&mut leases);
-            (axis, validate_leases(&leases).is_err_and(|error| error == expected))
+            (
+                axis,
+                validate_leases(&leases).is_err_and(|error| error == expected),
+            )
         })
         .collect()
 }
@@ -1049,7 +1242,8 @@ fn fixture_leases() -> Vec<LayerKvJointLeaseFixture> {
             answer_packet_ref: "answer:local-summary:packet:001".to_string(),
             upstream_certificate_ref: "sparse-cert:local-summary:001".to_string(),
             route_card_ref: "route-card:local-summary:proof-visible".to_string(),
-            joint_decision_ref: "joint-depth-kv:exit-18:pages-source-a-source-b-source-c".to_string(),
+            joint_decision_ref: "joint-depth-kv:exit-18:pages-source-a-source-b-source-c"
+                .to_string(),
             depth_plan: DepthPlan {
                 shallow_exit_layer: 18,
                 full_depth_layer: 32,
@@ -1276,7 +1470,10 @@ fn add_label_axis(
             unit: "address".to_string(),
         },
     );
-    pass_per_axis.insert(name.to_string(), value.starts_with("uas:layer-kv-joint-lease:"));
+    pass_per_axis.insert(
+        name.to_string(),
+        value.starts_with("uas:layer-kv-joint-lease:"),
+    );
 }
 
 #[cfg(test)]

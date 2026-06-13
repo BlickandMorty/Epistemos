@@ -268,7 +268,7 @@ final class ChatState {
     var pendingComposerDraft: String?
     private(set) var pendingComposerDraftRevision: UInt = 0
     var pendingGraphChatRequest: GraphChatRequest?
-    private var pendingSlashCommand: ACCSlashCommand?
+    private var pendingSlashToken: ParsedSlashToken?
 
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
@@ -626,7 +626,7 @@ final class ChatState {
         pendingContextAttachments = []
         activeTurnContextAttachments = []
         pendingGraphChatRequest = nil
-        pendingSlashCommand = nil
+        pendingSlashToken = nil
         // startNewChat nils the activeChatId and lets the next
         // submitQuery assign a fresh one. The brain-snapshot dict is
         // keyed by chatId so any old chat's history stays put; when
@@ -695,12 +695,16 @@ final class ChatState {
     }
 
     func queuePendingSlashCommand(_ command: ACCSlashCommand?) {
-        pendingSlashCommand = command
+        pendingSlashToken = command.map(ParsedSlashToken.builtinMode)
     }
 
-    func consumePendingSlashCommand() -> ACCSlashCommand? {
-        defer { pendingSlashCommand = nil }
-        return pendingSlashCommand
+    func queuePendingSlashToken(_ token: ParsedSlashToken?) {
+        pendingSlashToken = token
+    }
+
+    func consumePendingSlashToken() -> ParsedSlashToken? {
+        defer { pendingSlashToken = nil }
+        return pendingSlashToken
     }
 
     func appendLocalMessage(

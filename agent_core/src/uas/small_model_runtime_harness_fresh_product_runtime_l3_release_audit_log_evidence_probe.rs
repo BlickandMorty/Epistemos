@@ -26,7 +26,7 @@ const REQUIRED_CHECK_IDS: [&str; 5] = [
 ];
 
 const REQUIRED_PHASES: [&str; 12] = [
-    "upstream_automated_checks_red_bound",
+    "upstream_automated_checks_green_bound",
     "checks_tsv_bound",
     "five_command_logs_digest_bound",
     "xcodebuild_test_failure_family_bound",
@@ -42,11 +42,11 @@ const REQUIRED_PHASES: [&str; 12] = [
 
 const REQUIRED_REJECTION_POLICIES: [&str; 16] = [
     "missing_upstream_artifact",
-    "upstream_green_laundering",
+    "upstream_automated_checks_not_green",
     "missing_checks_tsv",
     "missing_required_log",
     "bad_log_digest",
-    "zero_xcodebuild_issue_count",
+    "failure_count_without_issue_count",
     "missing_top_failure_family",
     "runtime_oslog_claim",
     "answer_packet_runtime_claim",
@@ -121,7 +121,7 @@ impl SmallModelReleaseAuditLogEvidenceProbe {
         Self {
             upstream_artifact_ref: SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_UPSTREAM_REF.to_string(),
             upstream_artifact_address: upstream_artifact_address.into(),
-            upstream_overall_pass: false,
+            upstream_overall_pass: true,
             checks_tsv_ref: SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_CHECKS_TSV.to_string(),
             log_root_ref: SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_LOG_ROOT.to_string(),
             required_check_ids: REQUIRED_CHECK_IDS.iter().map(|value| value.to_string()).collect(),
@@ -154,6 +154,25 @@ impl SmallModelReleaseAuditLogEvidenceProbe {
         }
     }
 
+    pub fn automated_failure_counts_bound(&self) -> bool {
+        (self.failed_check_count == 0
+            && self.xcodebuild_test_issue_count == 0
+            && self.xcodebuild_test_unique_failure_count == 0
+            && self.top_xcodebuild_test_failure_family.is_empty())
+            || (self.failed_check_count == 1
+                && self.xcodebuild_test_issue_count > 0
+                && self.xcodebuild_test_unique_failure_count > 0
+                && self.top_xcodebuild_test_failure_family == "graph_filter_visibility")
+    }
+
+    pub fn expected_top_failure_family(&self) -> &'static str {
+        if self.failed_check_count == 0 {
+            ""
+        } else {
+            "graph_filter_visibility"
+        }
+    }
+
     pub fn validate(&self) -> Result<(), SmallModelReleaseAuditLogEvidenceError> {
         validate_exact(
             "upstream_artifact_ref",
@@ -161,8 +180,8 @@ impl SmallModelReleaseAuditLogEvidenceProbe {
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_LOG_EVIDENCE_UPSTREAM_REF,
         )?;
         validate_sha("upstream_artifact_address", &self.upstream_artifact_address)?;
-        if self.upstream_overall_pass {
-            return Err(SmallModelReleaseAuditLogEvidenceError::UpstreamGreenLaundered);
+        if !self.upstream_overall_pass {
+            return Err(SmallModelReleaseAuditLogEvidenceError::UpstreamAutomatedChecksNotGreen);
         }
         validate_exact(
             "checks_tsv_ref",
@@ -205,17 +224,16 @@ impl SmallModelReleaseAuditLogEvidenceProbe {
                 return Err(SmallModelReleaseAuditLogEvidenceError::MissingRequiredLog);
             }
         }
-        if self.failed_check_count != 1
-            || self.xcodebuild_test_issue_count == 0
-            || self.xcodebuild_test_unique_failure_count == 0
-        {
+        if !self.automated_failure_counts_bound() {
             return Err(SmallModelReleaseAuditLogEvidenceError::FailureCountsInvalid);
         }
-        validate_token(
-            "top_xcodebuild_test_failure_family",
-            &self.top_xcodebuild_test_failure_family,
-        )?;
-        if self.top_xcodebuild_test_failure_family != "graph_filter_visibility" {
+        if self.failed_check_count > 0 {
+            validate_token(
+                "top_xcodebuild_test_failure_family",
+                &self.top_xcodebuild_test_failure_family,
+            )?;
+        }
+        if self.top_xcodebuild_test_failure_family != self.expected_top_failure_family() {
             return Err(SmallModelReleaseAuditLogEvidenceError::FailureFamilyInvalid);
         }
         if self.runtime_oslog_entries_bound != 0
@@ -314,7 +332,7 @@ pub enum SmallModelReleaseAuditLogEvidenceError {
     InvalidSha(&'static str),
     InvalidPrefix(&'static str),
     InvalidCheckId(String),
-    UpstreamGreenLaundered,
+    UpstreamAutomatedChecksNotGreen,
     MissingRequiredLog,
     DuplicateLog,
     FailureCountsInvalid,
@@ -451,6 +469,34 @@ mod tests {
     #[test]
     fn canonical_probe_validates() {
         canonical().validate().unwrap();
+    }
+
+    #[test]
+    fn repaired_automated_checks_probe_validates_with_no_failure_family() {
+        let probe = SmallModelReleaseAuditLogEvidenceProbe::canonical(
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            REQUIRED_CHECK_IDS.iter().map(|id| digest(id)).collect(),
+            0,
+            0,
+            0,
+            "",
+        );
+        probe.validate().unwrap();
+        assert_eq!(probe.expected_top_failure_family(), "");
+        assert!(probe.automated_failure_counts_bound());
+    }
+
+    #[test]
+    fn rejects_non_green_automated_checks_upstream() {
+        let mut probe = canonical();
+        probe.upstream_overall_pass = false;
+        let error = probe
+            .validate()
+            .expect_err("log evidence requires green automated-check upstream");
+        assert!(matches!(
+            error,
+            SmallModelReleaseAuditLogEvidenceError::UpstreamAutomatedChecksNotGreen
+        ));
     }
 
     #[test]

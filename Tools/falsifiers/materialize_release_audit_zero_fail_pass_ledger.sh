@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+cargo run --manifest-path agent_core/Cargo.toml --release \
+  --bin materialize_release_audit_zero_fail_pass_ledger
+
+cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- \
+  artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json

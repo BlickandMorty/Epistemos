@@ -781,8 +781,7 @@ impl std::error::Error for GemmaQatSmallLaneOwnerPathManifestError {}
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/gemma_main_family_policy_source_card/result.json#F-GemmaMainFamilyPolicySourceCard";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/gemma_main_family_policy_source_card/result.json#F-GemmaMainFamilyPolicySourceCard";
 
     fn ledger() -> GemmaQatSmallLaneOwnerPathManifestLedger {
         GemmaQatSmallLaneOwnerPathManifestLedger::new(

@@ -233,25 +233,7 @@ nonisolated struct UniFFICallbackThroughputTests {
     }
 
     private func configuredResultsDirectory() -> (url: URL, removeAfterRun: Bool) {
-        if let override = ProcessInfo.processInfo.environment["EPISTEMOS_BENCHMARK_RESULTS_DIR"] {
-            return (URL(fileURLWithPath: override, isDirectory: true), false)
-        }
-
-        let repoResultsDirectory = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("benchmarks", isDirectory: true)
-            .appendingPathComponent("results", isDirectory: true)
-        if FileManager.default.fileExists(atPath: repoResultsDirectory.path) {
-            return (repoResultsDirectory, false)
-        }
-
-        return (
-            FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString, isDirectory: true),
-            true
-        )
+        BenchmarkRunRecorder.configuredResultsDirectory()
     }
 }
 

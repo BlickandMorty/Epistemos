@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "8faf1c7910b3fe79e4635631c9fe1386ae330bdf",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_v1",
-  "timestamp_utc": "2026-06-05T18:51:56Z",
-  "result_digest": "sha256:d6dae995e9057e43ad820d41418ebe3f99bce6d6495543c858273d7c6e6b1b26",
+  "timestamp_utc": "2026-06-11T08:56:51Z",
+  "result_digest": "sha256:87bf86ed90fe174fb61aa96507edafa111674a896d170bf7ec3fd5c92f19eda4",
   "measurements": {
     "answer_packet_observed": {
       "value": true,
@@ -154,7 +154,7 @@
       "unit": "bool"
     },
     "metadata_bytes": {
-      "value": 695739,
+      "value": 201392,
       "unit": "bytes"
     },
     "missing_answer_packet_rejected": {
@@ -262,7 +262,7 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address": {
-      "value": "sha256:0ebd0987f7648a9a6630e64dd70fe77d5b083c34c75e09007f9ecd7936bfa463",
+      "value": "sha256:14af9d270d3b0c23e76f20398d0fea3f93e8683a474980ba6b2dc44cac7fd2d3",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address_deterministic": {
@@ -602,7 +602,7 @@
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address": {
       "operator": "==",
-      "value": "sha256:0ebd0987f7648a9a6630e64dd70fe77d5b083c34c75e09007f9ecd7936bfa463",
+      "value": "sha256:14af9d270d3b0c23e76f20398d0fea3f93e8683a474980ba6b2dc44cac7fd2d3",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_address_deterministic": {

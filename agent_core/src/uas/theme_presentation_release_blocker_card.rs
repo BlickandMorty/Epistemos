@@ -9,8 +9,7 @@ pub const THEME_PRESENTATION_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "theme_presentation_release_blocker_card";
 pub const THEME_PRESENTATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "distribution_project_integrity_release_blocker_card";
-pub const THEME_PRESENTATION_UPSTREAM_REF: &str =
-    "artifact:falsifiers/research_tool_catalog_no_hidden_authority/result.json#F-ResearchToolCatalog-NoHiddenAuthority";
+pub const THEME_PRESENTATION_UPSTREAM_REF: &str = "artifact:falsifiers/research_tool_catalog_no_hidden_authority/result.json#F-ResearchToolCatalog-NoHiddenAuthority";
 pub const THEME_PRESENTATION_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#theme_presentation";
 

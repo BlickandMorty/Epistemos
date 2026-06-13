@@ -9,8 +9,7 @@ pub const RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_CURSOR: &str =
     "release_audit_failure_family_source_card";
 pub const RELEASE_AUDIT_FAILURE_FAMILY_SOURCE_CARD_NEXT_CURSOR: &str =
     "model_vault_catalog_release_blocker_card";
-pub const RELEASE_AUDIT_AUTOMATED_CHECKS_UPSTREAM_REF: &str =
-    "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
+pub const RELEASE_AUDIT_AUTOMATED_CHECKS_UPSTREAM_REF: &str = "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
 
 const REQUIRED_FAMILIES: [&str; 15] = [
     "agent_route_policy",
@@ -340,8 +339,13 @@ fn family_spec(family_id: &str) -> Option<ReleaseAuditFailureFamilySpec> {
     let spec = match family_id {
         "agent_route_policy" => ReleaseAuditFailureFamilySpec {
             organ: ReleaseAuditFailureFamilyOrgan::RuntimeRouterPolicy,
-            source_refs: &["Epistemos/Engine", "EpistemosTests/AgentCommandCenterStateTests.swift"],
-            focused_commands: &["xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests"],
+            source_refs: &[
+                "Epistemos/Engine",
+                "EpistemosTests/AgentCommandCenterStateTests.swift",
+            ],
+            focused_commands: &[
+                "xcodebuild test -only-testing:EpistemosTests/AgentCommandCenterStateTests",
+            ],
             falsifier_backlog: "F-AgentRoutePolicy-LargeModelNoHiddenAuthority",
         },
         "body_read_checksum" => ReleaseAuditFailureFamilySpec {
@@ -352,8 +356,13 @@ fn family_spec(family_id: &str) -> Option<ReleaseAuditFailureFamilySpec> {
         },
         "distribution_project_integrity" => ReleaseAuditFailureFamilySpec {
             organ: ReleaseAuditFailureFamilyOrgan::DistributionIntegrity,
-            source_refs: &["Epistemos.xcodeproj", "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md"],
-            focused_commands: &["xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build"],
+            source_refs: &[
+                "Epistemos.xcodeproj",
+                "docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md",
+            ],
+            focused_commands: &[
+                "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build",
+            ],
             falsifier_backlog: "F-DistributionProjectIntegrity-ReleaseBlockerCard",
         },
         "editor_epdoc_surface" => ReleaseAuditFailureFamilySpec {
@@ -364,7 +373,10 @@ fn family_spec(family_id: &str) -> Option<ReleaseAuditFailureFamilySpec> {
         },
         "graph_filter_visibility" => ReleaseAuditFailureFamilySpec {
             organ: ReleaseAuditFailureFamilyOrgan::EidosGraphVisibility,
-            source_refs: &["Epistemos/Graph", "EpistemosTests/FilterEngineComprehensiveTests.swift"],
+            source_refs: &[
+                "Epistemos/Graph",
+                "EpistemosTests/FilterEngineComprehensiveTests.swift",
+            ],
             focused_commands: &[
                 "xcodebuild test -only-testing:EpistemosTests/FilterEngineComprehensiveTests",
                 "xcodebuild test -only-testing:EpistemosTests/ResourceExhaustionTests",
@@ -373,7 +385,10 @@ fn family_spec(family_id: &str) -> Option<ReleaseAuditFailureFamilySpec> {
         },
         "model_vault_catalog" => ReleaseAuditFailureFamilySpec {
             organ: ReleaseAuditFailureFamilyOrgan::ModelVaultCatalog,
-            source_refs: &["Epistemos/Engine", "docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md"],
+            source_refs: &[
+                "Epistemos/Engine",
+                "docs/fusion/TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE_2026_06_06.md",
+            ],
             focused_commands: &["xcodebuild test -only-testing:EpistemosTests"],
             falsifier_backlog: "F-ModelVaultCatalog-ReleaseBlockerCard",
         },
@@ -421,8 +436,13 @@ fn family_spec(family_id: &str) -> Option<ReleaseAuditFailureFamilySpec> {
         },
         "visible_output_sanitization" => ReleaseAuditFailureFamilySpec {
             organ: ReleaseAuditFailureFamilyOrgan::AnswerPacketSanitization,
-            source_refs: &["Epistemos/Engine", "EpistemosTests/UserFacingModelOutputTests.swift"],
-            focused_commands: &["xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests"],
+            source_refs: &[
+                "Epistemos/Engine",
+                "EpistemosTests/UserFacingModelOutputTests.swift",
+            ],
+            focused_commands: &[
+                "xcodebuild test -only-testing:EpistemosTests/UserFacingModelOutputTests",
+            ],
             falsifier_backlog: "F-VisibleOutputSanitization-ReleaseBlockerCard",
         },
         "xpc_trust_configuration" => ReleaseAuditFailureFamilySpec {

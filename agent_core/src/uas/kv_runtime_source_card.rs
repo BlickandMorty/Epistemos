@@ -11,14 +11,12 @@ use std::fmt;
 
 use crate::uas::construction_card::{pro_status_preimage, product_build_preimage};
 use crate::uas::{
-    CompressedModelPromotionTier, ProStatus, ProductBuild,
-    ProprietaryCompressionAllowedAction, ProprietaryCompressionImportMode, SourceSignalGraph,
-    UasAddress, UasKind,
+    CompressedModelPromotionTier, ProStatus, ProductBuild, ProprietaryCompressionAllowedAction,
+    ProprietaryCompressionImportMode, SourceSignalGraph, UasAddress, UasKind,
 };
 
 pub const KV_RUNTIME_SOURCE_CARD_CURSOR: &str = "kv_runtime_source_card";
-pub const KV_RUNTIME_SOURCE_CARD_NEXT_CURSOR: &str =
-    "kv_source_card_fork_and_daemon_boundary";
+pub const KV_RUNTIME_SOURCE_CARD_NEXT_CURSOR: &str = "kv_source_card_fork_and_daemon_boundary";
 
 const FALSIFIER_PREFIX: &str = "falsifier:";
 const ROLLBACK_PREFIX: &str = "rollback:";
@@ -349,25 +347,34 @@ impl KvRuntimeSourceCardSet {
                 .iter()
                 .filter(|card| {
                     card.runtime_shape == KvRuntimeShape::DistributedCluster
-                        || card.default_deployment_shape == KvDefaultDeploymentShape::ProVaultDistributed
+                        || card.default_deployment_shape
+                            == KvDefaultDeploymentShape::ProVaultDistributed
                 })
                 .count() as u64,
             remote_storage_source_count: self
                 .cards
                 .iter()
                 .filter(|card| {
-                    card.storage_tiers
-                        .iter()
-                        .any(|tier| matches!(tier, KvRuntimeStorageTier::RemoteObjectStore | KvRuntimeStorageTier::DistributedKvStore))
+                    card.storage_tiers.iter().any(|tier| {
+                        matches!(
+                            tier,
+                            KvRuntimeStorageTier::RemoteObjectStore
+                                | KvRuntimeStorageTier::DistributedKvStore
+                        )
+                    })
                 })
                 .count() as u64,
             local_only_source_count: self
                 .cards
                 .iter()
                 .filter(|card| {
-                    !card.storage_tiers
-                        .iter()
-                        .any(|tier| matches!(tier, KvRuntimeStorageTier::RemoteObjectStore | KvRuntimeStorageTier::DistributedKvStore))
+                    !card.storage_tiers.iter().any(|tier| {
+                        matches!(
+                            tier,
+                            KvRuntimeStorageTier::RemoteObjectStore
+                                | KvRuntimeStorageTier::DistributedKvStore
+                        )
+                    })
                 })
                 .count() as u64,
             kv_quantization_source_count: self
@@ -404,7 +411,10 @@ impl KvRuntimeSourceCardSet {
                 .iter()
                 .filter(|card| {
                     card.quality_caveat_ref.starts_with(QUALITY_CAVEAT_PREFIX)
-                        && card.proof_refs.quality_caveat_ref.starts_with(QUALITY_CAVEAT_PREFIX)
+                        && card
+                            .proof_refs
+                            .quality_caveat_ref
+                            .starts_with(QUALITY_CAVEAT_PREFIX)
                 })
                 .count() as u64,
             mas_pro_boundary_ref_count: self
@@ -480,7 +490,10 @@ pub enum KvRuntimeSourceCardError {
     DuplicateCardId(String),
     DuplicateSourceId(String),
     MissingCompressedModelSourceCardRef(String),
-    BadProofRefPrefix { card_id: String, field: &'static str },
+    BadProofRefPrefix {
+        card_id: String,
+        field: &'static str,
+    },
     MissingCacheIdentity(String),
     MissingCompatibilityField(String),
     MissingByteLedger(String),
@@ -661,7 +674,9 @@ fn validate_set_inputs(
             ));
         }
         let Some(expected_digest) = accepted_sources.get(card.source_id.as_str()) else {
-            return Err(KvRuntimeSourceCardError::UnknownSourceId(card.source_id.clone()));
+            return Err(KvRuntimeSourceCardError::UnknownSourceId(
+                card.source_id.clone(),
+            ));
         };
         if *expected_digest != card.source_digest {
             return Err(KvRuntimeSourceCardError::SourceDigestMismatch(
@@ -682,8 +697,14 @@ fn validate_card_common(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSourc
         ("source_digest", card.source_digest.as_str()),
         ("project_ref", card.project_ref.as_str()),
         ("quality_caveat_ref", card.quality_caveat_ref.as_str()),
-        ("server_daemon_boundary", card.server_daemon_boundary.as_str()),
-        ("remote_storage_boundary", card.remote_storage_boundary.as_str()),
+        (
+            "server_daemon_boundary",
+            card.server_daemon_boundary.as_str(),
+        ),
+        (
+            "remote_storage_boundary",
+            card.remote_storage_boundary.as_str(),
+        ),
     ] {
         validate_nonempty(field, value)?;
     }
@@ -716,9 +737,9 @@ fn validate_card_common(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSourc
 
 fn validate_card_shape(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSourceCardError> {
     if card.compressed_model_source_card_ref.is_none() {
-        return Err(KvRuntimeSourceCardError::MissingCompressedModelSourceCardRef(
-            card.card_id.clone(),
-        ));
+        return Err(
+            KvRuntimeSourceCardError::MissingCompressedModelSourceCardRef(card.card_id.clone()),
+        );
     }
     if card.cache_identity_fields.is_empty() {
         return Err(KvRuntimeSourceCardError::MissingCacheIdentity(
@@ -778,10 +799,12 @@ fn validate_card_shape(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSource
             card.card_id.clone(),
         ));
     }
-    let has_remote_storage = card
-        .storage_tiers
-        .iter()
-        .any(|tier| matches!(tier, KvRuntimeStorageTier::RemoteObjectStore | KvRuntimeStorageTier::DistributedKvStore));
+    let has_remote_storage = card.storage_tiers.iter().any(|tier| {
+        matches!(
+            tier,
+            KvRuntimeStorageTier::RemoteObjectStore | KvRuntimeStorageTier::DistributedKvStore
+        )
+    });
     if has_remote_storage
         && matches!(
             card.default_deployment_shape,
@@ -824,8 +847,14 @@ fn validate_card_shape(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSource
         ));
     }
     if card.mechanism == KvRuntimeMechanism::ActivationLocality
-        && (!card.cache_identity_fields.iter().any(|field| field == "predictor_ref")
-            || !card.cache_policy_fields.iter().any(|field| field == "fallback"))
+        && (!card
+            .cache_identity_fields
+            .iter()
+            .any(|field| field == "predictor_ref")
+            || !card
+                .cache_policy_fields
+                .iter()
+                .any(|field| field == "fallback"))
     {
         return Err(KvRuntimeSourceCardError::ActivationLocalityFallbackGap(
             card.card_id.clone(),
@@ -844,15 +873,14 @@ fn validate_card_shape(card: &KvRuntimeSourceCard) -> Result<(), KvRuntimeSource
             card.card_id.clone(),
         ));
     }
-    if matches!(
-        card.mas_status,
-        KvMasStatus::MasEligibleMetadataOnly
-    ) && matches!(
-        card.runtime_shape,
-        KvRuntimeShape::ServerFramework
-            | KvRuntimeShape::DaemonCacheLayer
-            | KvRuntimeShape::DistributedCluster
-    ) {
+    if matches!(card.mas_status, KvMasStatus::MasEligibleMetadataOnly)
+        && matches!(
+            card.runtime_shape,
+            KvRuntimeShape::ServerFramework
+                | KvRuntimeShape::DaemonCacheLayer
+                | KvRuntimeShape::DistributedCluster
+        )
+    {
         return Err(KvRuntimeSourceCardError::MasLiveFromServerDaemon(
             card.card_id.clone(),
         ));
@@ -1078,15 +1106,14 @@ fn push_card_preimage(preimage: &mut String, card: &KvRuntimeSourceCard) {
     preimage.push('\n');
 }
 
-fn validate_nonempty(
-    field: &'static str,
-    value: &str,
-) -> Result<(), KvRuntimeSourceCardError> {
+fn validate_nonempty(field: &'static str, value: &str) -> Result<(), KvRuntimeSourceCardError> {
     if value.is_empty() {
         return Err(KvRuntimeSourceCardError::MissingField(field));
     }
     if value.trim() != value {
-        return Err(KvRuntimeSourceCardError::FieldHasSurroundingWhitespace(field));
+        return Err(KvRuntimeSourceCardError::FieldHasSurroundingWhitespace(
+            field,
+        ));
     }
     if value.chars().any(char::is_control) {
         return Err(KvRuntimeSourceCardError::FieldContainsControlCharacter(
@@ -1160,7 +1187,10 @@ mod tests {
         let mut cards = fixture_cards(&graph);
         cards[0].default_deployment_shape = KvDefaultDeploymentShape::ProductEligibleInProcess;
         let error = build_set(&graph, cards).expect_err("server-as-product must reject");
-        assert!(matches!(error, KvRuntimeSourceCardError::ServerAsProduct(_)));
+        assert!(matches!(
+            error,
+            KvRuntimeSourceCardError::ServerAsProduct(_)
+        ));
     }
 
     #[test]
@@ -1176,7 +1206,9 @@ mod tests {
     fn rejects_quantization_without_residual_caveat() {
         let graph = graph();
         let mut cards = fixture_cards(&graph);
-        cards[2].compatibility_fields.retain(|field| field != "residual_length");
+        cards[2]
+            .compatibility_fields
+            .retain(|field| field != "residual_length");
         let error = build_set(&graph, cards).expect_err("missing residual length must reject");
         assert!(matches!(
             error,
@@ -1187,7 +1219,10 @@ mod tests {
     fn graph() -> SourceSignalGraph {
         SourceSignalGraph::intake(
             vec![
-                source_card("source:repo:sglang", "https://github.com/sgl-project/sglang"),
+                source_card(
+                    "source:repo:sglang",
+                    "https://github.com/sgl-project/sglang",
+                ),
                 source_card("source:repo:lmcache", "https://github.com/LMCache/LMCache"),
                 source_card(
                     "source:repo:transformers",
@@ -1292,16 +1327,27 @@ mod tests {
             card_id: card_id.to_string(),
             source_id: source_id.to_string(),
             source_digest: digest_for(graph, source_id),
-            compressed_model_source_card_ref: Some(format!("compressed_model_source_card:{card_id}")),
+            compressed_model_source_card_ref: Some(format!(
+                "compressed_model_source_card:{card_id}"
+            )),
             project_ref: format!("project:{card_id}"),
             mechanism,
             runtime_shape,
             default_deployment_shape,
             storage_tiers,
-            cache_identity_fields: cache_identity_fields.into_iter().map(str::to_string).collect(),
-            compatibility_fields: compatibility_fields.into_iter().map(str::to_string).collect(),
+            cache_identity_fields: cache_identity_fields
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            compatibility_fields: compatibility_fields
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
             byte_ledger_fields: byte_ledger_fields.into_iter().map(str::to_string).collect(),
-            cache_policy_fields: cache_policy_fields.into_iter().map(str::to_string).collect(),
+            cache_policy_fields: cache_policy_fields
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
             quality_caveat_ref: format!("quality:{card_id}"),
             server_daemon_boundary: format!("boundary:server-daemon:{card_id}"),
             remote_storage_boundary: format!("boundary:remote-storage:{card_id}"),

@@ -20,8 +20,7 @@ pub const GEMMA_OWNER_APPROVED_RECEIPT_MATERIALIZATION_GATE_CURSOR: &str =
     "gemma_owner_approved_receipt_materialization_gate";
 pub const GEMMA_OWNER_APPROVED_RECEIPT_MATERIALIZATION_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
-pub const GEMMA_OWNER_APPROVED_RECEIPT_MATERIALIZATION_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/result.json#F-GemmaOwnerApprovedReceiptEmitterDryRunGate";
+pub const GEMMA_OWNER_APPROVED_RECEIPT_MATERIALIZATION_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/result.json#F-GemmaOwnerApprovedReceiptEmitterDryRunGate";
 
 const UPSTREAM_PREFIX: &str =
     "artifact:falsifiers/gemma_owner_approved_receipt_emitter_dry_run_gate/";

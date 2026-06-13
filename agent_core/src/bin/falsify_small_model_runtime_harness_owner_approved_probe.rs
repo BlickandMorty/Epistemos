@@ -148,7 +148,8 @@ fn build_artifact(
         ),
         (
             "guard_cursor_owner_probe_or_advanced",
-            evidence.guard_next_existing_work == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
+            evidence.guard_next_existing_work
+                == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
                 || evidence.guard_next_existing_work
                     == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR,
         ),
@@ -239,10 +240,11 @@ fn build_artifact(
         ),
         (
             "model_snapshot_refs_bound",
-            witness
-                .leases
-                .iter()
-                .all(|lease| lease.model_snapshot_ref.starts_with("model_snapshot:local:")),
+            witness.leases.iter().all(|lease| {
+                lease
+                    .model_snapshot_ref
+                    .starts_with("model_snapshot:local:")
+            }),
         ),
         (
             "prompt_envelope_refs_bound",
@@ -253,10 +255,11 @@ fn build_artifact(
         ),
         (
             "serialized_executor_bound",
-            witness
-                .leases
-                .iter()
-                .all(|lease| lease.serialized_executor_ref.starts_with("serialized_executor:")),
+            witness.leases.iter().all(|lease| {
+                lease
+                    .serialized_executor_ref
+                    .starts_with("serialized_executor:")
+            }),
         ),
         (
             "cancellation_bound",
@@ -332,7 +335,10 @@ fn build_artifact(
             "required_lanes_bound",
             metrics.required_lane_count >= MIN_REQUIRED_LANE_COUNT,
         ),
-        ("required_phases_bound", metrics.phase_count >= MIN_PHASE_COUNT),
+        (
+            "required_phases_bound",
+            metrics.phase_count >= MIN_PHASE_COUNT,
+        ),
         (
             "approval_bound_to_dry_run",
             witness
@@ -396,10 +402,7 @@ fn build_artifact(
         ),
         (
             "no_subprocess_spawn",
-            witness
-                .leases
-                .iter()
-                .all(|lease| !lease.subprocess_spawned),
+            witness.leases.iter().all(|lease| !lease.subprocess_spawned),
         ),
         (
             "no_autogenous_kernel_attempt",
@@ -445,7 +448,10 @@ fn build_artifact(
             "runtime_budget_bound",
             metrics.max_runtime_seconds <= MAX_RUNTIME_SECONDS,
         ),
-        ("metadata_bound", witness.metadata_bytes <= MAX_METADATA_BYTES),
+        (
+            "metadata_bound",
+            witness.metadata_bytes <= MAX_METADATA_BYTES,
+        ),
         (
             "small_model_runtime_harness_owner_approved_probe_address_deterministic",
             deterministic,
@@ -454,8 +460,14 @@ fn build_artifact(
             "missing_required_lane_rejected",
             invalid_axes.missing_required_lane_rejected,
         ),
-        ("duplicate_lease_rejected", invalid_axes.duplicate_lease_rejected),
-        ("missing_phase_rejected", invalid_axes.missing_phase_rejected),
+        (
+            "duplicate_lease_rejected",
+            invalid_axes.duplicate_lease_rejected,
+        ),
+        (
+            "missing_phase_rejected",
+            invalid_axes.missing_phase_rejected,
+        ),
         (
             "missing_dry_run_artifact_rejected",
             invalid_axes.missing_dry_run_artifact_rejected,
@@ -488,7 +500,10 @@ fn build_artifact(
             "missing_cancellation_rejected",
             invalid_axes.missing_cancellation_rejected,
         ),
-        ("missing_rollback_rejected", invalid_axes.missing_rollback_rejected),
+        (
+            "missing_rollback_rejected",
+            invalid_axes.missing_rollback_rejected,
+        ),
         (
             "missing_run_event_log_rejected",
             invalid_axes.missing_run_event_log_rejected,
@@ -497,8 +512,14 @@ fn build_artifact(
             "missing_answer_packet_rejected",
             invalid_axes.missing_answer_packet_rejected,
         ),
-        ("missing_privacy_rejected", invalid_axes.missing_privacy_rejected),
-        ("missing_budget_rejected", invalid_axes.missing_budget_rejected),
+        (
+            "missing_privacy_rejected",
+            invalid_axes.missing_privacy_rejected,
+        ),
+        (
+            "missing_budget_rejected",
+            invalid_axes.missing_budget_rejected,
+        ),
         (
             "missing_admission_rejected",
             invalid_axes.missing_admission_rejected,
@@ -542,12 +563,18 @@ fn build_artifact(
         ),
         ("hidden_chain_rejected", invalid_axes.hidden_chain_rejected),
         ("hidden_cloud_rejected", invalid_axes.hidden_cloud_rejected),
-        ("subprocess_spawn_rejected", invalid_axes.subprocess_spawn_rejected),
+        (
+            "subprocess_spawn_rejected",
+            invalid_axes.subprocess_spawn_rejected,
+        ),
         (
             "autogenous_kernel_rejected",
             invalid_axes.autogenous_kernel_rejected,
         ),
-        ("seventy_b_probe_rejected", invalid_axes.seventy_b_probe_rejected),
+        (
+            "seventy_b_probe_rejected",
+            invalid_axes.seventy_b_probe_rejected,
+        ),
         (
             "context_budget_overflow_rejected",
             invalid_axes.context_budget_overflow_rejected,
@@ -564,10 +591,22 @@ fn build_artifact(
             "runtime_budget_overflow_rejected",
             invalid_axes.runtime_budget_overflow_rejected,
         ),
-        ("mas_overclaim_rejected", invalid_axes.mas_overclaim_rejected),
-        ("l2_green_claim_rejected", invalid_axes.l2_green_claim_rejected),
-        ("l3_green_claim_rejected", invalid_axes.l3_green_claim_rejected),
-        ("runtime_bytes_rejected", invalid_axes.runtime_bytes_rejected),
+        (
+            "mas_overclaim_rejected",
+            invalid_axes.mas_overclaim_rejected,
+        ),
+        (
+            "l2_green_claim_rejected",
+            invalid_axes.l2_green_claim_rejected,
+        ),
+        (
+            "l3_green_claim_rejected",
+            invalid_axes.l3_green_claim_rejected,
+        ),
+        (
+            "runtime_bytes_rejected",
+            invalid_axes.runtime_bytes_rejected,
+        ),
         ("model_bytes_rejected", invalid_axes.model_bytes_rejected),
         (
             "transport_runtime_bytes_rejected",
@@ -837,7 +876,10 @@ impl EvidenceSnapshot {
                 .unwrap_or_else(|| "unset".to_string()),
             capability_next_bottleneck: measurement_string(&capability, "next_bottleneck")
                 .unwrap_or_else(|| "unset".to_string()),
-            dry_run_pass: artifact_all_axes_true(&dry_run, SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES),
+            dry_run_pass: artifact_all_axes_true(
+                &dry_run,
+                SMALL_MODEL_RUNTIME_HARNESS_DRY_RUN_WITNESS_AXES,
+            ),
         })
     }
 }
@@ -895,7 +937,9 @@ fn fixture_witness(
     ];
     let metadata_bytes = leases
         .iter()
-        .map(|lease| lease.lease_id.len() + lease.model_catalog_ref.len() + lease.model_snapshot_ref.len())
+        .map(|lease| {
+            lease.lease_id.len() + lease.model_catalog_ref.len() + lease.model_snapshot_ref.len()
+        })
         .sum::<usize>() as u64
         + 8192;
     Ok(SmallModelRuntimeHarnessOwnerProbeWitness::new(
@@ -1070,16 +1114,21 @@ struct InvalidAxes {
     metadata_budget_rejected: bool,
 }
 
-fn invalid_fixture_axes(evidence: &EvidenceSnapshot) -> Result<InvalidAxes, OwnerProbeWitnessError> {
+fn invalid_fixture_axes(
+    evidence: &EvidenceSnapshot,
+) -> Result<InvalidAxes, OwnerProbeWitnessError> {
     Ok(InvalidAxes {
         missing_required_lane_rejected: reject_witness(evidence, |w| {
-            w.leases.retain(|lease| lease.lane_id != "coding_tool_dry_run_smoke");
+            w.leases
+                .retain(|lease| lease.lane_id != "coding_tool_dry_run_smoke");
         })?,
         duplicate_lease_rejected: reject_witness(evidence, |w| {
             w.leases[1] = w.leases[0].clone();
         })?,
         missing_phase_rejected: reject_lease(evidence, |lease| {
-            lease.phases.remove(&SmallModelOwnerProbePhase::RuntimeExecutionDeferred);
+            lease
+                .phases
+                .remove(&SmallModelOwnerProbePhase::RuntimeExecutionDeferred);
         })?,
         missing_dry_run_artifact_rejected: reject_lease(evidence, |lease| {
             lease.dry_run_artifact_ref = "artifact:missing:result".to_string();

@@ -201,6 +201,10 @@ struct AgentBlueprintSettingsView: View {
                         .font(.headline)
                     Spacer()
                     ChannelStatusPill(title: "\(selectedToolNames.count) selected", tint: selectedToolNames.isEmpty ? .orange : .green)
+                    ChannelStatusPill(
+                        title: "\(blueprintUnavailableToolNames.count) not in packet",
+                        tint: blueprintUnavailableToolNames.isEmpty ? .green : .secondary
+                    )
                 }
 
                 if commandCenter.availableTools.isEmpty {
@@ -212,6 +216,12 @@ struct AgentBlueprintSettingsView: View {
                         ForEach(commandCenter.availableTools.sorted(by: toolSort), id: \.name) { tool in
                             toolToggle(tool)
                         }
+                    }
+                    if !blueprintUnavailableToolNames.isEmpty {
+                        Text("Not sent to this MissionPacket: \(blueprintUnavailableToolNames.prefix(8).joined(separator: ", "))\(blueprintUnavailableToolNames.count > 8 ? " (+more)" : "")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
                     }
                 }
             }
@@ -618,6 +628,10 @@ struct AgentBlueprintSettingsView: View {
             scope: scope,
             approvalMode: approvalMode
         )
+    }
+
+    private var blueprintUnavailableToolNames: [String] {
+        commandCenter.disabledToolNames(for: Array(selectedToolNames))
     }
 
     private var modelChoice: AgentBlueprintModelChoice {

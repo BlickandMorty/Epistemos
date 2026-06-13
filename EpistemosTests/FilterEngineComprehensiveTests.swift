@@ -621,7 +621,8 @@ struct FilterEngineTypeFilterSpecificTests {
     @Test("all seven node types can be toggled")
     func allSevenTypesCanBeToggled() {
         let engine = FilterEngine()
-        
+        engine.setActiveNodeTypes(Set(GraphNodeType.visibleCases))
+
         for type in GraphNodeType.visibleCases {
             engine.toggleType(type)
             #expect(!engine.activeNodeTypes.contains(type), "Type \(type) should be toggled off")

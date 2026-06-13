@@ -248,17 +248,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             let level = Int(metadata & 0xFF)
             let notesSpec = theme.notesMatchingHeadingSpec(level: level)
             let weight = notesSpec?.nsWeight ?? MarkdownHeadingDisplay.noteHeadingWeight(for: level)
-            let rawFontSize = MarkdownHeadingDisplay.noteHeadingFontSize(
+            let fontSize = MarkdownHeadingDisplay.themedNoteHeadingFontSize(
                 for: level,
                 text: line,
+                theme: theme,
                 baseFontSize: baseFontSize
             )
-            // 2026-05-30: Classic H2/H3 share Ember Tan's notes spec
-            // exactly; Classic H1 and Platinum still use the shrink
-            // multiplier to avoid oversized Matrix headings.
-            let fontSize: CGFloat = (1...3).contains(level)
-                ? (notesSpec?.size ?? rawFontSize) * theme.headingSizeMultiplier(level: level)
-                : rawFontSize
             let headingParagraph = MarkdownEditorStyle.headingParagraphStyle(
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading

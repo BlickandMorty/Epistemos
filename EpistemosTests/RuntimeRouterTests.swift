@@ -405,6 +405,9 @@ struct RuntimeRouterTests {
         #expect(verified.state == .honest)
         #expect(verified.title == "HONEST")
         #expect(verified.lane == .mlx)
+        #expect(verified.nativeGrammar == .qwenXML)
+        #expect(verified.toolCallMode == .native)
+        #expect(verified.reason.contains("witnessed local tool path"))
         #expect(verified.witness.contains("RuntimeRouter"))
         #expect(verified.falsifier == "F-LocalToolUse")
 
@@ -413,7 +416,16 @@ struct RuntimeRouterTests {
         )
         #expect(experimental.state == .experimental)
         #expect(experimental.title == "EXPERIMENTAL")
+        #expect(experimental.toolCallMode == .softGuidance)
         #expect(experimental.falsifier == "F-LocalToolUse pending")
+
+        let gemmaPreview = RuntimeRouter.agentCapabilityBadgeData(
+            forLocalModelID: LocalTextModelID.gemma4_27BA4B4Bit.rawValue
+        )
+        #expect(gemmaPreview.state == .off)
+        #expect(gemmaPreview.toolCallMode == .none)
+        #expect(gemmaPreview.falsifier == "F-LocalToolUse unavailable")
+        #expect(gemmaPreview.reason.contains("Swift MLX loader"))
 
         let off = RuntimeRouter.agentCapabilityBadgeData(
             forLocalModelID: LocalTextModelID.smolLM3_3B4Bit.rawValue

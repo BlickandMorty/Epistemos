@@ -684,7 +684,7 @@ fn validate_format_class(
         _ => {
             return Err(ExoticQuantQuarantineRouteError::FormatClassMismatch(
                 card.card_id.clone(),
-            ))
+            ));
         }
     };
     if card.quarantine_class != expected.0 || card.allowed_action != expected.1 {
@@ -1059,10 +1059,8 @@ fn is_lower_hex_sha(value: &str) -> bool {
 mod tests {
     use super::*;
 
-    const CATALOG_REF: &str =
-        "artifact:falsifiers/hardware_tiered_model_catalog_source_card/result.json#F-HardwareTieredModelCatalog-SourceCard";
-    const MOE_REF: &str =
-        "artifact:falsifiers/moe_active_params_memory_truth/result.json#F-MoEActiveParamsMemoryTruth";
+    const CATALOG_REF: &str = "artifact:falsifiers/hardware_tiered_model_catalog_source_card/result.json#F-HardwareTieredModelCatalog-SourceCard";
+    const MOE_REF: &str = "artifact:falsifiers/moe_active_params_memory_truth/result.json#F-MoEActiveParamsMemoryTruth";
     const CREATED_AT_MS: u64 = 1_779_240_000_000;
 
     fn build_ledger(

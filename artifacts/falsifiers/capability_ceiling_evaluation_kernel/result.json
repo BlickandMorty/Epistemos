@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "5d76573cb078d0e50214a5ccc150771efd832f11",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "capability_ceiling_gate_rollup_v1",
-  "timestamp_utc": "2026-06-09T08:11:30Z",
-  "result_digest": "sha256:b5f36d19adef1f579d73acd90fbf87d5577b67a723d12387e8fce1f395f416d9",
+  "timestamp_utc": "2026-06-10T08:39:40Z",
+  "result_digest": "sha256:173cb7d6596644e35dfeaa183c41a90e84721f7c655777fc48fc4d979ca4b915",
   "measurements": {
     "ablation_shadow_run_pass": {
       "value": true,
@@ -554,7 +554,7 @@
       "unit": "object"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "value": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes",
       "unit": "label"
     },
     "ordered_build_queue": {
@@ -1497,7 +1497,7 @@
       "unit": "object"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass": {
-      "value": false,
+      "value": true,
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_summary": {
@@ -1505,9 +1505,9 @@
         "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json",
         "exists": true,
         "schema_normalized": true,
-        "overall_pass": false,
+        "overall_pass": true,
         "status_pass": false,
-        "pass_axes_all_true": false,
+        "pass_axes_all_true": true,
         "fallback_tier": "Primary"
       },
       "unit": "object"
@@ -2541,7 +2541,7 @@
     "small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_pass": true,
-    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass": false,
+    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_pass": true,
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_pass": true,
@@ -2590,12 +2590,12 @@
     },
     {
       "kind": "next_bottleneck",
-      "detail": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"
+      "detail": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes"
     },
     {
-      "kind": "small_model_harness_fresh_product_runtime_l3_release_audit_zero_fail_gate_red",
-      "detail": "Zero-fail release audit gate is present: automated checks, log evidence, manual runtime review, distribution/compliance review, and three uninterrupted passes remain blockers; no ship call, L2 green claim, or product capability promotion is authorized."
+      "kind": "small_model_harness_fresh_product_runtime_l3_release_audit_distribution_three_pass_blocker",
+      "detail": "Release-audit automated checks, log evidence, manual runtime review, capability closeout, preflight, and zero-fail blocker witnesses are present. Distribution/compliance review and three uninterrupted zero-fail passes remain unproven; no ship call, L2 green claim, or product capability promotion is authorized."
     }
   ],
-  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass; 128K local probes require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"
 }

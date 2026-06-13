@@ -125,8 +125,8 @@ fn build_artifact(
         (
             "release_audit_skill_and_blocker_bound",
             gate.release_audit_skill_ref == ".agents/skills/epistemos_release_audit/SKILL.md"
-                && gate.automated_checks_blocker_ref
-                    == "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"
+                && gate.release_completion_blocker_ref
+                    == "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes"
                 && red_pass(&red_results, "bad_release_audit_skill")
                 && red_pass(&red_results, "bad_product_blocker"),
         ),
@@ -484,7 +484,7 @@ fn build_artifact(
         pass_per_axis,
         fallback_tier: FallbackTier::Primary,
         anomalies: Vec::new(),
-        notes: "metadata-only F-GemmaQATE2BReleaseAuditSurfaceGate: consumes the E2B settings/diagnostics WRV gate and defines the release-audit surface required before a fast Gemma row can become any product route or default-model claim. It binds the release-audit skill, red automated-check blocker, graph-filter proof-root command card, execution-artifact parser gate, owner-approval runbook, log/manual/distribution/repeated-zero-fail requirements, settings and diagnostics copy, AnswerPacket, RunEventLog, rollback, abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion, fast-row gated visibility, owner action, and product-capability recheck deferral. It reads zero release packet bytes, wires zero settings or diagnostics surfaces, emits zero user-visible AnswerPackets, runs zero Xcode commands, mutates zero routes/defaults, arms or executes zero model commands, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim.".to_string(),
+        notes: "metadata-only F-GemmaQATE2BReleaseAuditSurfaceGate: consumes the E2B settings/diagnostics WRV gate and defines the release-audit surface required before a fast Gemma row can become any product route or default-model claim. It binds the release-audit skill, distribution/compliance plus three-pass completion blocker, graph-filter proof-root command card, execution-artifact parser gate, owner-approval runbook, repaired automated/log/manual evidence chain, remaining distribution/repeated-zero-fail requirements, settings and diagnostics copy, AnswerPacket, RunEventLog, rollback, abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion, fast-row gated visibility, owner action, and product-capability recheck deferral. It reads zero release packet bytes, wires zero settings or diagnostics surfaces, emits zero user-visible AnswerPackets, runs zero Xcode commands, mutates zero routes/defaults, arms or executes zero model commands, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim.".to_string(),
         timestamp_utc: now_utc_rfc3339(),
     }
     .build())
@@ -548,7 +548,7 @@ fn red_fixture_results(gate: &GemmaQatE2bReleaseAuditSurfaceGate) -> Vec<(&'stat
         ),
         (
             "bad_product_blocker",
-            Box::new(|g| g.automated_checks_blocker_ref = "wrong".to_string()),
+            Box::new(|g| g.release_completion_blocker_ref = "wrong".to_string()),
         ),
         (
             "bad_command_card",

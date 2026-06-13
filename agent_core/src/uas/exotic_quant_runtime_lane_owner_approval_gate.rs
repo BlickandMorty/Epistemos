@@ -1057,8 +1057,7 @@ mod tests {
     use super::*;
 
     const CREATED_AT_MS: u64 = 1_779_327_200_000;
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json#F-ExoticQuantSourcePinAndByteBudgetPreflight";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_source_pin_byte_budget_preflight/result.json#F-ExoticQuantSourcePinAndByteBudgetPreflight";
 
     fn upstream_address() -> UasAddress {
         UasAddress::new(

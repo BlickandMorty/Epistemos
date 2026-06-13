@@ -4,25 +4,7 @@ import Testing
 @Suite("Stash 6 Non-Chat Donor Closeout")
 struct Stash6NonChatDonorCloseoutTests {
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-
-        for _ in 0..<8 {
-            let agents = cursor.appendingPathComponent("AGENTS.md")
-            let editorManifest = cursor.appendingPathComponent("js-editor/package.json")
-            if FileManager.default.fileExists(atPath: agents.path),
-               FileManager.default.fileExists(atPath: editorManifest.path) {
-                return try String(
-                    contentsOf: cursor.appendingPathComponent(relativePath),
-                    encoding: .utf8
-                )
-            }
-
-            let parent = cursor.deletingLastPathComponent()
-            guard parent.path != cursor.path else { break }
-            cursor = parent
-        }
-
-        throw CocoaError(.fileNoSuchFile)
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     @Test("phase two deck preserves addressable neural substrate dispatch rules")

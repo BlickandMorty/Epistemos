@@ -408,7 +408,7 @@ final class ChatCoordinator {
     }
     let availableBrainsClosure: @MainActor () -> [ACCBrainSelection] = { accState.availableBrains }
     let preferredAutoBrainClosure: @MainActor () -> ACCBrainSelection? = {
-      self.currentCommandCenterAutoBrain()
+      self.currentCommandCenterAutoBrain(operatingMode: accState.selectedOperatingMode)
     }
     // Rust owns the tool catalog per PLAN_V2 §3.1 / §4.1. Swift only
     // hands Rust the path to the active vault; Rust builds the
@@ -1352,8 +1352,8 @@ final class ChatCoordinator {
     }
   }
 
-  private func currentCommandCenterAutoBrain() -> ACCBrainSelection? {
-    switch inferenceState.preferredChatModelSelection {
+  private func currentCommandCenterAutoBrain(operatingMode: EpistemosOperatingMode) -> ACCBrainSelection? {
+    switch inferenceState.effectiveChatSurfaceSelection(for: operatingMode) {
     case .localMLX(let requestedModelID):
       let effectiveModelID =
         inferenceState.effectiveLocalAgentTextModelID
@@ -1386,7 +1386,7 @@ final class ChatCoordinator {
       summary: String,
       allowedToolNames: [String]
     ),
-    requestedSlashCommand: ACCSlashCommand?,
+    requestedSlashToken: ParsedSlashToken?,
     contextAttachments: [ContextAttachment],
     loadedNoteTitles: [String],
     requiredContextContract: String?,
@@ -1404,7 +1404,7 @@ final class ChatCoordinator {
     let sections = Self.buildMainChatBrainSections(
       originalQuery: originalQuery,
       resolvedQuery: resolvedQuery,
-      requestedSlashCommand: requestedSlashCommand,
+      requestedSlashToken: requestedSlashToken,
       requiredContextContract: requiredContextContract,
       slashContextSection: slashContextSection,
       vaultBriefingContext: vaultBriefingContext,
@@ -1435,7 +1435,7 @@ final class ChatCoordinator {
   private static func buildMainChatBrainSections(
     originalQuery: String,
     resolvedQuery: String,
-    requestedSlashCommand: ACCSlashCommand?,
+    requestedSlashToken: ParsedSlashToken?,
     requiredContextContract: String?,
     slashContextSection: String?,
     vaultBriefingContext: String?,
@@ -1451,11 +1451,11 @@ final class ChatCoordinator {
     if resolvedQuery != originalQuery {
       sections.append(ChatBrainSection(title: "Resolved Request", body: resolvedQuery))
     }
-    if let requestedSlashCommand {
+    if let requestedSlashToken {
       sections.append(
         ChatBrainSection(
           title: "Requested Command",
-          body: "/\(requestedSlashCommand.rawValue) • \(requestedSlashCommand.displayName)"
+          body: Self.requestedSlashTokenSummary(requestedSlashToken)
         )
       )
     }
@@ -1523,25 +1523,50 @@ final class ChatCoordinator {
     )
   }
 
-  private static func slashCommandContextSection(for command: ACCSlashCommand?) -> String? {
-    guard let command else { return nil }
+  private static func slashCommandContextSection(for token: ParsedSlashToken?) -> String? {
+    guard let token else { return nil }
 
-    let preferredTools = command.preferredToolNames.sorted()
-    let experts = command.expertAllowlist.joined(separator: ", ")
-    let toolSummary = preferredTools.isEmpty ? "None" : preferredTools.joined(separator: ", ")
+    switch token {
+    case .builtinMode(let command):
+      let preferredTools = command.preferredToolNames.sorted()
+      let experts = command.expertAllowlist.joined(separator: ", ")
+      let toolSummary = preferredTools.isEmpty ? "None" : preferredTools.joined(separator: ", ")
 
-    return wrapSupplementalContextSection(
-      title: "Requested Command",
-      instruction:
-        "Treat this as the user-selected posture for the turn. Keep the answer aligned to it even if the draft prompt is brief.",
-      body: """
-        Command: /\(command.rawValue) (\(command.displayName))
-        Focus: \(command.focusSummary)
-        Posture: \(command.postureSummary)
-        Preferred experts: \(experts)
-        Preferred tools: \(toolSummary)
-        """
-    )
+      return wrapSupplementalContextSection(
+        title: "Requested Command",
+        instruction:
+          "Treat this as the user-selected posture for the turn. Keep the answer aligned to it even if the draft prompt is brief.",
+        body: """
+          Command: /\(command.rawValue) (\(command.displayName))
+          Focus: \(command.focusSummary)
+          Posture: \(command.postureSummary)
+          Preferred experts: \(experts)
+          Preferred tools: \(toolSummary)
+          """
+      )
+
+    case .skill(let skill):
+      return wrapSupplementalContextSection(
+        title: "Requested Skill",
+        instruction:
+          "Treat this as the user-selected skill posture for the turn. Use the skill name as the requested working method, but do not claim the skill executed unless a tool or runtime explicitly reports execution.",
+        body: """
+          Skill: /\(skill.identifier) (\(skill.title))
+          Category: \(skill.category)
+          Source: \(skill.source.title)
+          Description: \(skill.description)
+          """
+      )
+    }
+  }
+
+  private static func requestedSlashTokenSummary(_ token: ParsedSlashToken) -> String {
+    switch token {
+    case .builtinMode(let command):
+      return "/\(command.rawValue) • \(command.displayName)"
+    case .skill(let skill):
+      return "/\(skill.identifier) • \(skill.title) • skill"
+    }
   }
 
   private static func augmentedExecutionPlan(
@@ -1768,7 +1793,13 @@ final class ChatCoordinator {
 
         let mode = inferenceState.inferenceMode
         Log.pipeline.info("handleQuery — hasVault=\(hasVault)")
-        let requestedSlashCommand = chatState.consumePendingSlashCommand()
+        let requestedSlashToken = chatState.consumePendingSlashToken()
+        let requestedSlashCommand: ACCSlashCommand? = {
+          guard case .some(.builtinMode(let command)) = requestedSlashToken else {
+            return nil
+          }
+          return command
+        }()
 
         // Wire active session ID and vault root to MLX inference for SSM state scoping
         let sessionID = chatState.activeChatId ?? UUID().uuidString
@@ -1811,7 +1842,7 @@ final class ChatCoordinator {
           chatState.currentVaultRecallTrace = nil
         }
         let slashContextSection = Self.slashCommandContextSection(
-          for: requestedSlashCommand
+          for: requestedSlashToken
         )
         let graphContextSection = Self.graphContextSection(
           from: chatState.consumePendingGraphChatRequest()
@@ -1992,7 +2023,7 @@ final class ChatCoordinator {
           operatingMode: operatingMode,
           executionPlan: executionPlan,
           snapshotRouteContext: snapshotRouteContext,
-          requestedSlashCommand: requestedSlashCommand,
+          requestedSlashToken: requestedSlashToken,
           contextAttachments: turnContextAttachments,
           loadedNoteTitles: chatState.loadedNoteTitles,
           requiredContextContract: requiredContextContract,
@@ -2563,16 +2594,20 @@ final class ChatCoordinator {
     // using (or skipping) them. Regenerated per turn so the model
     // always reads from fresh state. Persisted to disk for user
     // inspection (no-op if dir write fails).
+    let manifestEnabledToolNames = Array(executionPlan.allowedToolNames).sorted()
+    let manifestDisabledToolNames = bootstrap.agentCommandCenterState.disabledToolNames(
+      for: manifestEnabledToolNames
+    )
     let manifestContext = CapabilityManifestBuilder.Context(
       providerLabel: Self.mainChatProviderLabel(for: selectedSurface),
       modelLabel: selectedSurface.displayName,
       operatingMode: surfaceOperatingMode,
       reasoningTier: inferenceState.chatReasoningTier,
-      enabledToolNames: Array(executionPlan.allowedToolNames).sorted(),
-      disabledToolNames: [],
+      enabledToolNames: manifestEnabledToolNames,
+      disabledToolNames: manifestDisabledToolNames,
       vaultName: bootstrap.vaultSync.vaultURL?.lastPathComponent,
       vaultNoteCount: nil,
-      skillNames: [],
+      skillNames: bootstrap.agentCommandCenterState.availableSkills.map(\.title).sorted(),
       maxContextTokens: Int(chatState.maxContextTokens)
     )
     let manifest = CapabilityManifestBuilder.render(manifestContext)

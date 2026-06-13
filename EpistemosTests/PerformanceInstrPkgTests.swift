@@ -30,76 +30,144 @@ nonisolated struct PerformanceInstrPkgTests {
     static let canonicalSubsystem = "io.epistemos.core"
 
     private static func loadText(_ relative: String) throws -> String {
-        try loadMirroredSourceTextFile(relative)
+        String(decoding: try loadMirroredSourceDataFile(relative), as: UTF8.self)
     }
 
-    // MARK: - file presence
-
-    @Test("Performance.instrpkg exists at the canonical path")
-    func instrPkgExists() throws {
+    @Test("Performance.instrpkg mirrors Sig.swift")
+    func instrPkgMirrorsSigSwift() throws {
         let url = try sourceMirrorURL(for: "Tools/Performance.instrpkg")
-        #expect(FileManager.default.fileExists(atPath: url.path),
-                "Tools/Performance.instrpkg must exist (Wave 2.2 deliverable)")
-    }
+        #expect(
+            FileManager.default.fileExists(atPath: url.path),
+            "Tools/Performance.instrpkg must exist (Wave 2.2 deliverable)"
+        )
 
-    // MARK: - XML well-formedness
-
-    @Test("Performance.instrpkg parses as well-formed XML")
-    func instrPkgIsWellFormedXML() throws {
-        let url = try sourceMirrorURL(for: "Tools/Performance.instrpkg")
-        // Use xmllint via Process — fast, deterministic, and doesn't try
-        // to resolve external entities the way XMLDocument can. xmllint
-        // ships with macOS so this works on any developer machine and on
-        // the macos-15 GitHub Actions runner.
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/xmllint")
-        proc.arguments = ["--noout", "--nonet", url.path]
-        let stderr = Pipe()
-        proc.standardError = stderr
-        proc.standardOutput = Pipe()
-        try proc.run()
-        proc.waitUntilExit()
-        let errData = (try? stderr.fileHandleForReading.readToEnd()) ?? Data()
-        let errText = String(data: errData, encoding: .utf8) ?? ""
-        #expect(proc.terminationStatus == 0,
-                "Tools/Performance.instrpkg must parse as well-formed XML — xmllint exit \(proc.terminationStatus)\n\(errText)")
-    }
-
-    // MARK: - canonical surface
-
-    @Test("Performance.instrpkg references the canonical subsystem")
-    func instrPkgReferencesCanonicalSubsystem() throws {
         let xml = try Self.loadText("Tools/Performance.instrpkg")
-        #expect(xml.contains("\"\(Self.canonicalSubsystem)\""),
-                "Tools/Performance.instrpkg must reference subsystem \"\(Self.canonicalSubsystem)\" (matches Sig.swift)")
-    }
+        let shapeError = Self.xmlShapeError(in: xml)
+        #expect(
+            shapeError == nil,
+            "Tools/Performance.instrpkg must parse as well-formed XML — \(shapeError ?? "unknown parser error")"
+        )
 
-    @Test("Performance.instrpkg declares an interval schema for every Sig category")
-    func instrPkgCoversEverySigCategory() throws {
-        let xml = try Self.loadText("Tools/Performance.instrpkg")
+        #expect(
+            xml.contains("\"\(Self.canonicalSubsystem)\""),
+            "Tools/Performance.instrpkg must reference subsystem \"\(Self.canonicalSubsystem)\" (matches Sig.swift)"
+        )
+
         for category in Self.canonicalCategories {
-            #expect(xml.contains("\"\(category)\""),
-                    "Tools/Performance.instrpkg must reference category \"\(category)\"")
-            #expect(xml.contains("io.epistemos.core.\(category)-intervals"),
-                    "Tools/Performance.instrpkg must declare an interval schema id 'io.epistemos.core.\(category)-intervals'")
+            #expect(
+                xml.contains("\"\(category)\""),
+                "Tools/Performance.instrpkg must reference category \"\(category)\""
+            )
+            #expect(
+                xml.contains("io.epistemos.core.\(category)-intervals"),
+                "Tools/Performance.instrpkg must declare an interval schema id 'io.epistemos.core.\(category)-intervals'"
+            )
         }
-    }
 
-    /// Cross-check: every category we expect here MUST be the same set
-    /// Sig.swift declares. Drift in either direction (a Sig category
-    /// without an instrpkg schema, or vice versa) breaks the test.
-    @Test("Performance.instrpkg category list matches Sig.swift category list exactly")
-    func instrPkgCategoriesMatchSigSwift() throws {
         let sigSource = try Self.loadText("Epistemos/Telemetry/Sig.swift")
         for category in Self.canonicalCategories {
-            #expect(sigSource.contains("static let \(category)"),
-                    "Sig.swift must declare canonical category '\(category)' — mirror of PerformanceInstrPkgTests.canonicalCategories")
+            #expect(
+                sigSource.contains("static let \(category)"),
+                "Sig.swift must declare canonical category '\(category)' — mirror of PerformanceInstrPkgTests.canonicalCategories"
+            )
         }
         // Also assert there is no EXTRA `static let X = OSSignposter(`
         // declaration in Sig.swift beyond our six. Cheap regex-y check
         // by counting OSSignposter inits.
         let signposterInitCount = sigSource.components(separatedBy: "OSSignposter(subsystem:").count - 1
-        #expect(signposterInitCount == Self.canonicalCategories.count,
-                "Sig.swift must declare exactly \(Self.canonicalCategories.count) OSSignposter instances; found \(signposterInitCount). Add the new category to Tools/Performance.instrpkg AND to PerformanceInstrPkgTests.canonicalCategories.")
+        #expect(
+            signposterInitCount == Self.canonicalCategories.count,
+            "Sig.swift must declare exactly \(Self.canonicalCategories.count) OSSignposter instances; found \(signposterInitCount). Add the new category to Tools/Performance.instrpkg AND to PerformanceInstrPkgTests.canonicalCategories."
+        )
+    }
+
+    private static func xmlShapeError(in xml: String) -> String? {
+        let characters = Array(xml)
+        var index = characters.startIndex
+        var stack: [String] = []
+        var rootCount = 0
+
+        func starts(with token: String, at position: Int) -> Bool {
+            let tokenCharacters = Array(token)
+            guard position + tokenCharacters.count <= characters.count else { return false }
+            return Array(characters[position..<(position + tokenCharacters.count)]) == tokenCharacters
+        }
+
+        func scan(until token: String, from position: Int) -> Int? {
+            var cursor = position
+            while cursor < characters.count {
+                if starts(with: token, at: cursor) {
+                    return cursor + token.count
+                }
+                cursor += 1
+            }
+            return nil
+        }
+
+        while index < characters.count {
+            guard characters[index] == "<" else {
+                index += 1
+                continue
+            }
+
+            if starts(with: "<!--", at: index) {
+                guard let next = scan(until: "-->", from: index + 4) else {
+                    return "unterminated XML comment"
+                }
+                index = next
+                continue
+            }
+
+            if starts(with: "<?", at: index) {
+                guard let next = scan(until: "?>", from: index + 2) else {
+                    return "unterminated XML processing instruction"
+                }
+                index = next
+                continue
+            }
+
+            guard let closeIndex = scan(until: ">", from: index + 1) else {
+                return "unterminated XML tag"
+            }
+
+            let rawTag = String(characters[(index + 1)..<(closeIndex - 1)])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rawTag.isEmpty else {
+                return "empty XML tag"
+            }
+
+            if rawTag.hasPrefix("/") {
+                let name = rawTag.dropFirst()
+                    .split(whereSeparator: { $0.isWhitespace })
+                    .first
+                    .map(String.init) ?? ""
+                guard stack.popLast() == name else {
+                    return "mismatched closing tag \(name)"
+                }
+            } else if !rawTag.hasPrefix("!") {
+                let isSelfClosing = rawTag.hasSuffix("/")
+                let name = rawTag
+                    .dropLast(isSelfClosing ? 1 : 0)
+                    .split(whereSeparator: { $0.isWhitespace })
+                    .first
+                    .map(String.init) ?? ""
+                guard !name.isEmpty else {
+                    return "missing XML tag name"
+                }
+                if stack.isEmpty {
+                    rootCount += 1
+                }
+                if !isSelfClosing {
+                    stack.append(name)
+                }
+            }
+
+            index = closeIndex
+        }
+
+        if !stack.isEmpty {
+            return "unclosed XML tags: \(stack.joined(separator: ", "))"
+        }
+        return rootCount == 1 ? nil : "expected one XML root element, found \(rootCount)"
     }
 }

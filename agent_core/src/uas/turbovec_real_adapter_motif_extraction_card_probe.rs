@@ -24,8 +24,7 @@ const SOURCE_INSPECTION_POLICY_PREFIX: &str =
     "turbovec_real_adapter_source_inspection_policy_probe:";
 const PINNED_REVISION: &str = "efe29a184986cbf562a9847c2ac52a2990bfaca2";
 const SOURCE_URL: &str = "https://github.com/RyanCodrai/turbovec";
-const RAW_URL_PREFIX: &str =
-    "https://raw.githubusercontent.com/RyanCodrai/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2/";
+const RAW_URL_PREFIX: &str = "https://raw.githubusercontent.com/RyanCodrai/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2/";
 const ISSUE_URL_PREFIX: &str = "https://github.com/RyanCodrai/turbovec/issues/";
 const PR_URL_PREFIX: &str = "https://github.com/RyanCodrai/turbovec/pull/";
 const FORK_URL_PREFIX: &str = "https://github.com/";

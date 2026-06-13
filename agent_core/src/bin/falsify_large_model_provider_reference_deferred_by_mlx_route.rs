@@ -15,9 +15,10 @@ use agent_core::falsifier_artifacts::{
     write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
 use agent_core::uas::{
-    LargeModelActiveLane, LargeModelDeferralError, LargeModelDeferredLane,
+    large_model_provider_reference_deferred_or_advanced_cursor, LargeModelActiveLane,
+    LargeModelDeferralError, LargeModelDeferredLane,
     LargeModelProviderDeferralCard, ProStatus, ProductBuild,
-    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,
+    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR, PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR,
 };
 
 const FALSIFIER_ID: &str = "F-LargeModelProviderReference-DeferredByMlxRoute";
@@ -31,7 +32,6 @@ const CAPABILITY_PATH: &str =
 const PROVIDER_READINESS_PATH: &str =
     "artifacts/falsifiers/provider_reference_prompt_level_readiness/result.json";
 const LOCAL_70B_PATH: &str = "artifacts/falsifiers/70b_local_cocktail_lite/result.json";
-const PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR: &str = "provider_route_copy_source_guard";
 const CREATED_AT_MS: u64 = 1_779_552_000_000;
 const MIN_FIXTURE_COUNT: u64 = 2;
 const MIN_DEFERRED_LANE_COUNT: u64 = 4;
@@ -274,8 +274,9 @@ fn build_artifact(
         ("guard_artifact_pass", evidence.guard_overall_pass),
         (
             "guard_cursor_deferred_or_advanced_by_mlx_route",
-            evidence.guard_next_existing_work == LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR
-                || evidence.guard_next_existing_work == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR,
+            large_model_provider_reference_deferred_or_advanced_cursor(
+                &evidence.guard_next_existing_work,
+            ) || evidence.guard_next_existing_work == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -284,7 +285,9 @@ fn build_artifact(
         ),
         (
             "capability_next_bottleneck_deferred_or_advanced_by_mlx_route",
-            evidence.capability_next_bottleneck == LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR
+            large_model_provider_reference_deferred_or_advanced_cursor(
+                &evidence.capability_next_bottleneck,
+            )
                 || (evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR
                     && evidence.capability_deferral_pass_consumed),
         ),

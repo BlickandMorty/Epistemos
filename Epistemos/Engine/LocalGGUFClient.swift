@@ -95,14 +95,20 @@ nonisolated enum LocalGGUFModelLocator {
             return nil
         }
 
-        let candidates = [
+        var candidates = [
             artifactID,
             modelID,
+            LocalModelCatalog.descriptor(for: modelID)?.displayName,
             LocalTextModelID(rawValue: modelID)?.displayName,
             LocalTextModelID(rawValue: modelID)?.compactDisplayName,
             standardizedRoot.lastPathComponent,
         ]
         .compactMap { $0 }
+        if let descriptor = LocalModelCatalog.descriptor(for: modelID) {
+            candidates.append(
+                contentsOf: descriptor.matchingGlobs.filter { !$0.contains("*") }
+            )
+        }
 
         var rankedMatches: [(score: Int, url: URL)] = []
         for case let candidateURL as URL in enumerator {
@@ -611,6 +617,7 @@ extension RoutedLocalRuntimeClient {
 final class LocalGGUFClient: RoutedLocalRuntimeClient {
     private let runtime: any LocalGGUFRuntime
     private let inference: InferenceState
+    private let paths: LocalModelPaths?
     private let runtimeControlPlane: BackendRuntimeControlPlane
     private let agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private let prepareForRequest: @MainActor @Sendable () async -> Void
@@ -623,11 +630,13 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         runtime: any LocalGGUFRuntime,
         inference: InferenceState,
         runtimeControlPlane: BackendRuntimeControlPlane,
+        paths: LocalModelPaths? = nil,
         agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         prepareForRequest: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.runtime = runtime
         self.inference = inference
+        self.paths = paths
         self.runtimeControlPlane = runtimeControlPlane
         self.agentProvenanceRecorder = agentProvenanceRecorder
         self.prepareForRequest = prepareForRequest
@@ -1052,15 +1061,26 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
     }
 
     private func preferredModelIDForCurrentRuntime() -> String {
-        guard let preferredModel = LocalTextModelID(rawValue: inference.preferredLocalTextModelID),
-              preferredModel.runtimeKind == .gguf else {
+        guard LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID)?.runtimeKind == .gguf else {
             return ""
         }
-        return preferredModel.rawValue
+        return inference.preferredLocalTextModelID
     }
 
     private func resolvedModelDirectory(for modelID: String) -> URL? {
-        preparedGenerationRuntimeConfiguration?.resolvedModelDirectory(for: modelID)
+        if let preparedDirectory = preparedGenerationRuntimeConfiguration?.resolvedModelDirectory(for: modelID) {
+            return preparedDirectory
+        }
+        guard let paths,
+              let descriptor = LocalModelCatalog.descriptor(for: modelID),
+              descriptor.runtimeKind == .gguf else {
+            return nil
+        }
+        let activeDirectory = paths.activeDirectory(for: descriptor)
+        if FileManager.default.fileExists(atPath: activeDirectory.path) {
+            return activeDirectory
+        }
+        return paths.usableHubSnapshotDirectory(for: descriptor)
     }
 
     private func backendGenerationRequest(for request: LocalGGUFRequest) -> BackendGenerationRequest {

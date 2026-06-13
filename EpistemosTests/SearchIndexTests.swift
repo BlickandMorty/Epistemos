@@ -101,7 +101,7 @@ struct SearchIndexTests {
     @Test("column filter syntax is neutralized")
     func columnFilterNeutralized() {
         let result = SearchIndexService.sanitizeFTS5Query("title:search body:hack")
-        // Colon splits "title" and "search" into separate words
-        #expect(result == "\"title\"* \"search\"* \"body\"* \"hack\"*")
+        // Colon syntax is neutralized, and vault-query boilerplate terms are dropped.
+        #expect(result == "\"body\"* \"hack\"*")
     }
 }

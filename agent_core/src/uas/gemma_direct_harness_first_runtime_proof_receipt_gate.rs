@@ -23,10 +23,8 @@ pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_CURSOR: &str =
     "gemma_direct_harness_first_runtime_proof_receipt_gate";
 pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_first_runtime_execution_probe";
-pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json#F-GemmaDirectHarnessFirstRuntimeProofCommandCard";
-pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_trap_policy_gate/result.json#F-GemmaDirectHarnessTrapPolicyGate";
+pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json#F-GemmaDirectHarnessFirstRuntimeProofCommandCard";
+pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_RECEIPT_GATE_TRAP_POLICY_REF: &str = "artifact:falsifiers/gemma_direct_harness_trap_policy_gate/result.json#F-GemmaDirectHarnessTrapPolicyGate";
 
 const UPSTREAM_COMMAND_CARD_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/";

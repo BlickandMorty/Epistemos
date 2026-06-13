@@ -778,7 +778,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 "AppColdStore route cards require at least one hot runway unit"
             ),
             Self::DuplicateVerifier { verifier } => {
-                write!(f, "AppColdStore route-card verifier was duplicated: {verifier}")
+                write!(
+                    f,
+                    "AppColdStore route-card verifier was duplicated: {verifier}"
+                )
             }
             Self::RoutePriorTaskMismatch => write!(
                 f,

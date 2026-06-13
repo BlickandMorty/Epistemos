@@ -23,8 +23,7 @@ pub const GEMMA_QAT_E2B_MODEL_FILE_AND_LLAMA_CPP_DIGEST_GATE_CURSOR: &str =
     "gemma_qat_e2b_model_file_and_llama_cpp_digest_gate";
 pub const GEMMA_QAT_E2B_MODEL_FILE_AND_LLAMA_CPP_DIGEST_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_owner_approved_first_token_runtime_probe";
-pub const GEMMA_QAT_E2B_MODEL_FILE_AND_LLAMA_CPP_DIGEST_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_owner_path_manifest_digest_gate/result.json#F-GemmaQATE2BOwnerPathManifestDigestGate";
+pub const GEMMA_QAT_E2B_MODEL_FILE_AND_LLAMA_CPP_DIGEST_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_owner_path_manifest_digest_gate/result.json#F-GemmaQATE2BOwnerPathManifestDigestGate";
 
 const UPSTREAM_OWNER_MANIFEST_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_owner_path_manifest_digest_gate/";

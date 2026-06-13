@@ -478,12 +478,12 @@ struct ChatView: View {
     /// execution flags change so the ChatCapabilityPill reads live without
     /// the caller having to touch it by hand.
     ///
-    /// IMPORTANT: reads preferredChatModelSelection (the model the next
-    /// turn will ACTUALLY run on) — NOT activeAIProvider (a cloud-provider
-    /// preference that can coexist with a local pick). Reading the wrong
-    /// one caused the pill to read "Cloud" while a local MLX model was
-    /// selected in the composer picker; the pill is a user-facing honesty
-    /// contract and must not lie.
+    /// IMPORTANT: reads the effective route for the selected operating mode —
+    /// NOT activeAIProvider (a cloud-provider preference that can coexist with
+    /// a local pick) or a stale preferred picker value. Reading the wrong one
+    /// caused the pill to read "Cloud" while a local MLX model was selected in
+    /// the composer picker; the pill is a user-facing honesty contract and
+    /// must not lie.
     private func refreshChatCapability() {
         if (chat.isAgentExecuting || pipeline.isProcessing),
            let snapshot = chat.latestBrainSnapshot {

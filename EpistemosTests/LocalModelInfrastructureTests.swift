@@ -294,13 +294,99 @@ struct LocalModelInfrastructureTests {
 
     @Test("gemma preview models stay out of baseline recommendation copy")
     func gemmaPreviewModelsStayOutOfBaselineRecommendationCopy() throws {
+        let e2bDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_2B4Bit.rawValue))
         let fastDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
         let proDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
+        let jangDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_31BJANG.rawValue))
 
+        #expect(!e2bDescriptor.summary.contains("Ideal for routing"))
         #expect(!fastDescriptor.summary.contains("Recommended fast local default"))
         #expect(!proDescriptor.summary.contains("Optional high-end local pro tier"))
+        #expect(!jangDescriptor.summary.contains("Uncensored"))
+        #expect([e2bDescriptor, fastDescriptor, proDescriptor, jangDescriptor].allSatisfy {
+            $0.summary.contains("loader")
+                || $0.summary.contains("not a shipping route")
+                || $0.summary.contains("not part of the shipping route")
+        })
         #expect(!LocalModelCatalog.descriptors(forRole: .fastLocal).contains(where: { $0.id == fastDescriptor.id }))
         #expect(!LocalModelCatalog.descriptors(forRole: .highEndLocal).contains(where: { $0.id == proDescriptor.id }))
+    }
+
+    @Test("Gemma QAT GGUF ladder exposes E2B through 12B without release selection")
+    func gemmaQATGGUFLadderExposes2To12BWithoutReleaseSelection() {
+        let candidates = GemmaQATRuntimeLadder.candidates
+
+        #expect(candidates.map(\.id) == [
+            "google/gemma-4-E2B-it-qat-q4_0-gguf",
+            "google/gemma-4-E4B-it-qat-q4_0-gguf",
+            "google/gemma-4-12B-it-qat-q4_0-gguf",
+        ])
+        #expect(candidates.map(\.expectedFilename) == [
+            "gemma-4-E2B_q4_0-it.gguf",
+            "gemma-4-E4B_q4_0-it.gguf",
+            "gemma-4-12b-it-qat-q4_0.gguf",
+        ])
+        #expect(candidates.map(\.expectedFileBytes) == [
+            3_349_514_112,
+            5_154_939_136,
+            6_975_877_728,
+        ])
+        #expect(candidates.map(\.expectedSHA256) == [
+            "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd",
+            "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+            "faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1",
+        ])
+        #expect(candidates.map(\.acquisitionLaneArgument) == ["e2b", "e4b", "12b"])
+        #expect(candidates.allSatisfy { $0.runtimeLane == "gguf_llama_cpp_offline" })
+        #expect(candidates.allSatisfy { !$0.isReleaseSelectableForInteractiveChat })
+        #expect(candidates.allSatisfy { !$0.allowsDefaultRouteMutation })
+        #expect(candidates.allSatisfy { $0.hasCompleteRouteEvidencePacketChain })
+        #expect(candidates.map(\.routeIntegrationStatusLabel) == [
+            "route integration pending",
+            "scale route integration pending",
+            "Pro route integration pending",
+        ])
+        #expect(GemmaQATRuntimeLadder.firstRuntimeHarnessCandidate?.id == "google/gemma-4-E2B-it-qat-q4_0-gguf")
+        #expect(GemmaQATRuntimeLadder.nextScaleCandidate?.id == "google/gemma-4-E4B-it-qat-q4_0-gguf")
+        #expect(GemmaQATRuntimeLadder.proFlagshipCandidate?.id == "google/gemma-4-12B-it-qat-q4_0-gguf")
+        #expect(GemmaQATRuntimeLadder.productRouteIntegrationCursor == "gemma_product_route_integration_gate")
+        #expect(GemmaQATRuntimeLadder.productRouteIntegrationCandidate?.id == "google/gemma-4-E2B-it-qat-q4_0-gguf")
+        #expect(GemmaQATRuntimeLadder.productRouteIntegrationCandidates.map(\.id) == [
+            "google/gemma-4-E2B-it-qat-q4_0-gguf",
+            "google/gemma-4-E4B-it-qat-q4_0-gguf",
+            "google/gemma-4-12B-it-qat-q4_0-gguf",
+        ])
+        #expect(GemmaQATRuntimeLadder.candidate(forFilename: "gemma-4-E2B_q4_0-it.gguf")?.stage == .firstRuntimeHarness)
+        #expect(GemmaQATRuntimeLadder.candidate(forFilename: "gemma-4-E4B_q4_0-it.gguf")?.stage == .nextScaleLane)
+        #expect(GemmaQATRuntimeLadder.candidate(forFilename: "gemma-4-12b-it-qat-q4_0.gguf")?.stage == .proFlagshipCandidate)
+        #expect(GemmaQATRuntimeLadder.firstRuntimeHarnessCandidate?.localExecutionProofArtifactRef != nil)
+        #expect(GemmaQATRuntimeLadder.nextScaleCandidate?.localExecutionProofArtifactRef != nil)
+        #expect(GemmaQATRuntimeLadder.proFlagshipCandidate?.localExecutionProofArtifactRef != nil)
+    }
+
+    @Test("Gemma QAT GGUF ladder exposes installable GGUF route descriptors without baseline promotion")
+    func gemmaQATLadderExposesInstallableGGUFRouteDescriptorsWithoutBaselinePromotion() throws {
+        let releaseKnownIDs = Set(LocalTextModelID.allCases.map(\.rawValue))
+        let curated = Set(LocalModelCatalog.curatedBaselineModelIDs)
+        let optional = Set(LocalModelCatalog.optionalBaselineModelIDs)
+
+        for candidate in GemmaQATRuntimeLadder.candidates {
+            #expect(!releaseKnownIDs.contains(candidate.id))
+            #expect(!curated.contains(candidate.id))
+            #expect(!optional.contains(candidate.id))
+
+            let descriptor = try #require(LocalModelCatalog.descriptor(for: candidate.id))
+            #expect(descriptor.id == candidate.id)
+            #expect(descriptor.runtimeKind == .gguf)
+            #expect(descriptor.displayName == candidate.displayName)
+            #expect(descriptor.familyName == "Gemma 4 QAT GGUF")
+            #expect(descriptor.approximateDownloadBytes == candidate.expectedFileBytes)
+            #expect(descriptor.minimumRecommendedMemoryGB == candidate.minimumRecommendedMemoryGB)
+            #expect(descriptor.revision == candidate.sourceRevision)
+            #expect(descriptor.matchingGlobs.contains(candidate.expectedFilename))
+            #expect(descriptor.summary.contains("Text-only"))
+            #expect(descriptor.summary.contains("direct local GGUF runtime"))
+        }
     }
 
     @Test("hardware recommendations stay on mlx-installable local models")
@@ -398,6 +484,40 @@ struct LocalModelInfrastructureTests {
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
 
         #expect(inference.availableOperatingModes == [.fast, .agent])
+    }
+
+    @MainActor
+    @Test("Gemma QAT GGUF route lanes require GGUF runtime and stay text-only")
+    func gemmaQATGGUFRouteLanesRequireGGUFRuntimeAndStayTextOnly() throws {
+        let candidates = GemmaQATRuntimeLadder.productRouteIntegrationCandidates
+        let e4b = try #require(GemmaQATRuntimeLadder.nextScaleCandidate)
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setInstalledLocalTextModelIDs(Set(candidates.map(\.id)))
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx])
+        inference.setPreferredLocalTextModelID(e4b.id)
+
+        #expect(inference.releaseSelectableInstalledLocalTextModelIDs.isEmpty)
+        #expect(inference.effectiveLocalTextModelID == nil)
+        #expect(!inference.supportsLocalAgentLoop)
+
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setPreferredLocalTextModelID(e4b.id)
+
+        #expect(inference.releaseSelectableInstalledLocalTextModelIDs == candidates.map(\.id))
+        #expect(inference.effectiveLocalTextModelID == e4b.id)
+        #expect(inference.activeChatModelDisplayName == e4b.displayName)
+        #expect(inference.localModelPickerDisplayName(for: e4b.id) == e4b.displayName)
+        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.availableOperatingModes(for: .localMLX(e4b.id)) == [.fast])
+        #expect(inference.chatSurfaceRouteDescription(for: .fast).headline == e4b.displayName)
+        #expect(!inference.supportsLocalAgentLoop)
+        #expect(inference.effectiveLocalAgentTextModelID == nil)
     }
 
     @MainActor
@@ -1929,10 +2049,18 @@ private actor FakeLocalModelInstaller: LocalModelArtifactInstalling {
 
 @Suite("ModelDownloadManager Integrity", .serialized)
 struct ModelDownloadManagerIntegrityTests {
-    @Test("installer records verified, unverified, and rejected checksum states")
-    func installerRecordsChecksumStates() async throws {
+    @Test("installer records verified checksum state")
+    func installerRecordsVerifiedChecksumState() async throws {
         try await Self.verifyMatchingLFSMetadataRecordsVerifiedState()
+    }
+
+    @Test("installer records unverified checksum state")
+    func installerRecordsUnverifiedChecksumState() async throws {
         try await Self.verifyMissingHashMetadataRecordsUnverifiedState()
+    }
+
+    @Test("installer rejects checksum mismatches and cleans staging")
+    func installerRejectsChecksumMismatchesAndCleansStaging() async throws {
         try await Self.verifyChecksumMismatchRejectsAndCleansStaging()
     }
 
@@ -1993,7 +2121,12 @@ struct ModelDownloadManagerIntegrityTests {
             )
         )
 
-        await #expect(throws: LocalModelManagerError.checksumMismatch(modelID: descriptor.id, file: "model.safetensors")) {
+        await #expect(
+            throws: LocalModelManagerError.checksumMismatch(
+                modelID: descriptor.id,
+                file: "model.safetensors"
+            )
+        ) {
             try await manager.install(
                 descriptor: descriptor,
                 paths: root,
@@ -2102,33 +2235,39 @@ private nonisolated final class ModelDownloadURLProtocol: URLProtocol {
     ) throws -> (HTTPURLResponse, Data) {
         let revision = "1234567890abcdef1234567890abcdef12345678"
         if url.path == "/api/models/fixture/model/tree/\(revision)" {
+            let weightOID = fixture.isLFS ? fixture.remoteETag : "weights"
             let tree = """
             [
               {"path": "config.json", "type": "file", "oid": "config", "size": 2},
               {"path": "tokenizer.json", "type": "file", "oid": "tokenizer", "size": 2},
-              {"path": "model.safetensors", "type": "file", "oid": "weights", "size": \(fixture.weightBytes.count)}
+              {"path": "model.safetensors", "type": "file", "oid": "\(weightOID)", "size": \(fixture.weightBytes.count)}
             ]
             """
             return (try httpResponse(url: url, headers: ["Content-Type": "application/json"]), Data(tree.utf8))
         }
 
         let payload: Data
+        let etag: String
+        let isWeightPath = url.path.hasSuffix("/model.safetensors")
         if url.path.hasSuffix("/config.json") {
             payload = Data("{}".utf8)
+            etag = String(repeating: "c", count: 40)
         } else if url.path.hasSuffix("/tokenizer.json") {
             payload = Data("{}".utf8)
+            etag = String(repeating: "d", count: 40)
         } else if url.path.hasSuffix("/model.safetensors") {
             payload = fixture.weightBytes
+            etag = fixture.remoteETag
         } else {
             throw URLError(.fileDoesNotExist)
         }
 
         var headers = [
             "Content-Length": "\(payload.count)",
-            "ETag": "\"\(fixture.remoteETag)\"",
+            "ETag": "\"\(etag)\"",
             "X-Repo-Commit": revision,
         ]
-        if fixture.isLFS {
+        if fixture.isLFS, isWeightPath {
             headers["X-Linked-Size"] = "\(payload.count)"
             headers["X-Linked-Etag"] = "\"\(fixture.remoteETag)\""
         }

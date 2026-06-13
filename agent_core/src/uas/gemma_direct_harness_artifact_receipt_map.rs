@@ -26,8 +26,7 @@ pub const GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_CURSOR: &str =
 pub const GEMMA_DIRECT_HARNESS_ARTIFACT_RECEIPT_MAP_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_receipt_emitter_gate";
 
-const DIRECT_HARNESS_RAIL_REF: &str =
-    "docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md#Pass-211-Gemma-Direct-Harness-Admission-Rail";
+const DIRECT_HARNESS_RAIL_REF: &str = "docs/fusion/DEEP_RESEARCH_BREAKTHROUGH_SYNTHESIS_2026_06_06.md#Pass-211-Gemma-Direct-Harness-Admission-Rail";
 const ARTIFACT_ROOT_PREFIX: &str =
     "artifacts/falsifiers/gemma_direct_harness_artifact_receipt_map/";
 const RECEIPT_CARD_ID: &str = "gemma-direct-harness-artifact-receipt-map-v1";
