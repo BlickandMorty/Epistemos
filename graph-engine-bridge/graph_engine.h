@@ -841,6 +841,10 @@ KnowledgeCore* graph_engine_kc_create(
     uint64_t peer_id
 );
 
+/// Replay an existing on-disk command log into `core`, then enable durable
+/// logging of future mutations to it. Returns 1 on success, 0 on failure.
+uint8_t graph_engine_kc_enable_persistence(KnowledgeCore* core, const char* oplog_path);
+
 /// Destroy a knowledge core and release the mapped ring buffer.
 void graph_engine_kc_destroy(KnowledgeCore* core);
 
