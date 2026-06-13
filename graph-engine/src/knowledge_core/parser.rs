@@ -241,6 +241,15 @@ fn parse_task_state(content: &str) -> (Option<&'static str>, bool, Cow<'_, str>)
     if let Some(rest) = trimmed.strip_prefix("DONE ") {
         return (Some("DONE"), true, Cow::Borrowed(rest));
     }
+    // Colon-prefixed open-task markers, matching the live TextCapturePipeline
+    // (TODO:/FIXME:/ACTION:/TASK:). Closes the KC<->live task divergence
+    // characterized in the cutover (Slice 1.3). All map to an open TODO since
+    // the KC task model is {TODO, DONE}; parity is on count + done-state.
+    for marker in ["TODO:", "FIXME:", "ACTION:", "TASK:"] {
+        if let Some(rest) = trimmed.strip_prefix(marker) {
+            return (Some("TODO"), false, Cow::Borrowed(rest.trim_start()));
+        }
+    }
     (None, false, Cow::Borrowed(content))
 }
 
@@ -353,6 +362,18 @@ mod tests {
                 .iter()
                 .all(|property| property.block_id == document.blocks[0].block_id)
         );
+    }
+
+    #[test]
+    fn markdown_recognizes_colon_prefix_tasks() {
+        let document = parse_document(
+            "page-1",
+            DocumentFormat::Markdown,
+            "FIXME: investigate\nACTION: follow up\nTODO: ship\n- [x] done",
+        );
+        // 3 colon-prefix open tasks + 1 checkbox done task = 4 tasks, 1 done.
+        assert_eq!(document.tasks.len(), 4);
+        assert_eq!(document.tasks.iter().filter(|task| task.done).count(), 1);
     }
 
     #[test]
