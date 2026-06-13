@@ -1120,6 +1120,23 @@ final class AppBootstrap {
     private var lastShadowIndexedVaultPath: String?
     private var shadowIndexingInFlightVaultPath: String?
 
+    /// KC cutover Slice 3 — the in-app KnowledgeCore shadow runtime, held
+    /// here so it survives across vault-sync ticks and isn't GC'd mid-poll.
+    /// Instantiated only when `knowledgeCoreRuntimeV0` is on (default OFF);
+    /// `nil` otherwise, so default-build behavior is unchanged. Persists its
+    /// mutation log to `<vault>/.epcache/kc-oplog.jsonl` and replays it on
+    /// open, so the projected fact state survives a restart.
+    private var knowledgeCoreRuntime: KnowledgeCoreShadowRuntime?
+    private var lastKnowledgeCoreVaultPath: String?
+
+    /// Minimal Sendable note reference captured from the SwiftData context on
+    /// main, then carried into the off-main KC seed loop (see
+    /// `feedKnowledgeCoreRuntimeIfReady`).
+    private struct KnowledgeCoreFeedPageRef: Sendable {
+        let id: String
+        let filePath: String?
+    }
+
     private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
     private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
     private nonisolated static let deferredRuntimeServicesDelay: Duration = .milliseconds(250)
@@ -2226,6 +2243,11 @@ final class AppBootstrap {
         // the V1 "type a sentence, see a related thought appear" demo
         // fails on day one. Idempotent on repeat launches.
         initializeShadowBackendIfReady()
+
+        // KC cutover Slice 3 — stand up the in-app KnowledgeCore shadow runtime
+        // (flag-gated behind knowledgeCoreRuntimeV0, default OFF). No-op unless
+        // the flag is on, so default-build startup is unchanged.
+        initializeKnowledgeCoreRuntimeIfReady()
 
         // W-46.1 (Terminal A 2026-05-23) — open the production Eidos
         // vault index with a vault-path-stable signature so the
@@ -3707,6 +3729,137 @@ final class AppBootstrap {
         }
     }
 
+    /// KC cutover Slice 3 (step 1) — stand up the in-app KnowledgeCore shadow
+    /// runtime, flag-gated behind `knowledgeCoreRuntimeV0` (default OFF). When
+    /// on, the runtime opens against `<vault>/.epcache/kc-oplog.jsonl`, replays
+    /// any prior mutation log (so projected fact state survives a restart), and
+    /// is held in `knowledgeCoreRuntime` across vault-sync ticks.
+    ///
+    /// Idempotent: re-running for the same vault is a no-op; switching vaults
+    /// rotates the runtime. With the flag off (the default) the runtime is torn
+    /// down and this method has no effect on app behavior.
+    ///
+    /// Step 1 only stands the runtime up. Feeding it the vault's notes (so it
+    /// has facts to project) is `feedKnowledgeCoreRuntimeIfReady()` (step 2),
+    /// and driving live SwiftUI surfaces from its diffs is step 3 (dev-cert
+    /// runtime-verify only). The oplog replay runs synchronously during the
+    /// bridge open; for a personal vault's edit log this is a bounded
+    /// local-CPU cost, and the heavy vault feed is deferred off-main.
+    private func initializeKnowledgeCoreRuntimeIfReady() {
+        let enabled = EpistemosRuntimeFeatureFlags.load().knowledgeCoreRuntimeV0
+        guard enabled, let vaultURL = vaultSync.vaultURL else {
+            if knowledgeCoreRuntime != nil {
+                knowledgeCoreRuntime = nil
+                lastKnowledgeCoreVaultPath = nil
+                Log.app.info("KC runtime: torn down (flag off or no active vault)")
+            }
+            return
+        }
+
+        let vaultPath = vaultURL.path
+        if vaultPath == lastKnowledgeCoreVaultPath, knowledgeCoreRuntime != nil {
+            return
+        }
+        // Vault changed (or first open): rotate the runtime.
+        knowledgeCoreRuntime = nil
+        lastKnowledgeCoreVaultPath = nil
+
+        let oplogURL = Self.knowledgeCoreOplogURL(for: vaultURL)
+        do {
+            try FileManager.default.createDirectory(
+                at: oplogURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Log.app.error(
+                "KC runtime: failed to create .epcache dir at \(oplogURL.deletingLastPathComponent().path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+
+        // Seed gate: opening the runtime replays any prior mutation log, which
+        // restores the projected fact state from the last session. Re-feeding
+        // the whole vault on every open would append a full ingest set to the
+        // log each launch (unbounded growth) and duplicate replayed work — so
+        // we seed (feed every note) ONLY when there is no prior log to replay.
+        // Once seeded + journaled, later opens trust the replayed state and the
+        // oplog stays bounded. (Incremental note-edit → KC mutation wiring is
+        // step 3; until then KC trusts its persisted projection — harmless
+        // while it is shadow-only and drives no user-visible surface.)
+        let priorLogAttrs = try? FileManager.default.attributesOfItem(atPath: oplogURL.path)
+        let priorLogBytes = (priorLogAttrs?[.size] as? Int) ?? 0
+        let needsSeed = priorLogBytes == 0
+
+        guard let runtime = KnowledgeCoreShadowRuntime(oplogPath: oplogURL.path) else {
+            Log.app.error("KC runtime: KnowledgeCoreShadowRuntime init returned nil")
+            return
+        }
+        knowledgeCoreRuntime = runtime
+        lastKnowledgeCoreVaultPath = vaultPath
+        Log.app.info(
+            "KC runtime: opened at \(oplogURL.path, privacy: .public) (vault \(vaultPath, privacy: .public), seed=\(needsSeed, privacy: .public))"
+        )
+
+        if needsSeed {
+            feedKnowledgeCoreRuntimeIfReady(vaultURL: vaultURL, vaultPath: vaultPath)
+        }
+    }
+
+    /// KC cutover Slice 3 (step 2) — seed the active vault's notes into the
+    /// KnowledgeCore runtime, so it has facts to project. Each ingest is
+    /// idempotent at the store level (re-ingesting a page replaces its blocks)
+    /// and is journaled to the oplog, so a later restart replays straight from
+    /// the log without re-walking the vault.
+    ///
+    /// Page metadata is read from the canonical SwiftData context on main; each
+    /// body is then loaded off the managed store and ingested through the bridge
+    /// actor (parse/store work runs off-main on the actor's executor). The
+    /// `await` points keep startup responsive even on a large vault, and the
+    /// loop bails if the vault rotates out mid-feed.
+    private func feedKnowledgeCoreRuntimeIfReady(vaultURL: URL, vaultPath: String) {
+        guard let runtime = knowledgeCoreRuntime else { return }
+
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
+        )
+        let pageRefs: [KnowledgeCoreFeedPageRef]
+        do {
+            pageRefs = try context.fetch(descriptor).map {
+                KnowledgeCoreFeedPageRef(id: $0.id, filePath: $0.filePath)
+            }
+        } catch {
+            Log.app.error(
+                "KC runtime feed: page fetch failed — \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+        guard !pageRefs.isEmpty else {
+            Log.app.info("KC runtime feed: no notes to seed for \(vaultPath, privacy: .public)")
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            var ingested = 0
+            for ref in pageRefs {
+                // Bail if the vault rotated out from under us mid-seed.
+                guard self?.lastKnowledgeCoreVaultPath == vaultPath,
+                      self?.knowledgeCoreRuntime != nil else { return }
+                let body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: ref.id,
+                    filePath: ref.filePath
+                )
+                guard !body.isEmpty else { continue }
+                if await runtime.ingestDocument(pageId: ref.id, format: .markdown, text: body) {
+                    ingested += 1
+                }
+            }
+            Log.app.info(
+                "KC runtime feed: seeded \(ingested)/\(pageRefs.count) notes for \(vaultPath, privacy: .public)"
+            )
+        }
+    }
+
     private func enqueueShadowPageReindexIfReady(pageId: String) {
         guard let vaultURL = vaultSync.vaultURL else { return }
         let vaultPath = vaultURL.path
@@ -3793,6 +3946,15 @@ final class AppBootstrap {
             .appendingPathComponent(".epcache", isDirectory: true)
             .appendingPathComponent("etl", isDirectory: true)
             .appendingPathComponent("queue.sqlite", isDirectory: false)
+    }
+
+    /// KC cutover Slice 3 — durable mutation replay log for the in-app
+    /// KnowledgeCore shadow runtime. Lives under the same `.epcache`
+    /// sibling directory as the Halo shadow + ETL queue.
+    nonisolated private static func knowledgeCoreOplogURL(for vaultURL: URL) -> URL {
+        vaultURL
+            .appendingPathComponent(".epcache", isDirectory: true)
+            .appendingPathComponent("kc-oplog.jsonl", isDirectory: false)
     }
 
     private static func backgroundIndexingPauseReason(
@@ -3891,6 +4053,9 @@ final class AppBootstrap {
             case .vaultChanged:
                 self.initializeRustResourceServiceIfReady()
                 self.initializeShadowBackendIfReady()
+                // KC cutover Slice 3 — rotate the KnowledgeCore runtime onto the
+                // new vault (path-equality gate makes repeat fires a no-op).
+                self.initializeKnowledgeCoreRuntimeIfReady()
                 // W-46.1 — re-open the Eidos vault index against the
                 // new vault path so the manifest_id flips with the
                 // user's vault switch. Idempotent for repeat fires of

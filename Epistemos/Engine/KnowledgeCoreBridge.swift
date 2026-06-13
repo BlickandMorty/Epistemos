@@ -1012,8 +1012,8 @@ final class KnowledgeCoreShadowRuntime {
     private(set) var stringCacheMisses: UInt64 = 0
     private(set) var lastError: KnowledgeCoreBridgeError?
 
-    init?(peerId: UInt64 = 1) {
-        guard let bridge = KnowledgeCoreBridge(peerId: peerId) else {
+    init?(peerId: UInt64 = 1, oplogPath: String? = nil) {
+        guard let bridge = KnowledgeCoreBridge(peerId: peerId, oplogPath: oplogPath) else {
             return nil
         }
         self.bridge = bridge
