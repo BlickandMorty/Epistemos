@@ -528,6 +528,17 @@ impl DatalogStore {
         self.last_mutation_envelope.as_ref()
     }
 
+    /// (blocks, tasks, properties, links) fact-mirror counts — used by the
+    /// Slice 2 replay-parity tests to compare reconstructed vs original state.
+    pub fn fact_counts(&self) -> (usize, usize, usize, usize) {
+        (
+            self.blocks.len(),
+            self.tasks.len(),
+            self.properties.len(),
+            self.links.len(),
+        )
+    }
+
     pub fn replace_page(
         &mut self,
         document: NormalizedDocument,

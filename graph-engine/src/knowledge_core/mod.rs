@@ -1,5 +1,6 @@
 pub mod archived;
 pub mod crdt;
+pub mod oplog;
 pub mod parser;
 pub mod ring;
 pub mod store;
@@ -13,6 +14,7 @@ use self::archived::QueryDiffEnvelope;
 use self::crdt::{OutlineCrdt, OutlineError};
 use self::parser::{NormalizedBlock, parse_document};
 use self::ring::{RingError, SharedRingBuffer};
+use self::oplog::{MutationCommand, OpLog};
 use self::store::{DatalogStore, StoreError, SubscriptionSpec};
 
 #[repr(u8)]
@@ -125,6 +127,7 @@ pub struct KnowledgeCore {
     transport_stats: KnowledgeCoreTransportStats,
     last_error_code: KnowledgeCoreErrorCode,
     last_error_message: String,
+    oplog: Option<OpLog>,
 }
 
 impl KnowledgeCore {
@@ -154,6 +157,7 @@ impl KnowledgeCore {
             transport_stats: KnowledgeCoreTransportStats::default(),
             last_error_code: KnowledgeCoreErrorCode::None,
             last_error_message: String::new(),
+            oplog: None,
         })
     }
 
@@ -243,6 +247,11 @@ impl KnowledgeCore {
     ) -> Result<(), KnowledgeCoreError> {
         let document = parse_document(page_id, format, text);
         let diffs = self.store.replace_page(document)?;
+        self.log_command(&MutationCommand::IngestDocument {
+            page_id: page_id.to_string(),
+            format: format as u8,
+            text: text.to_string(),
+        });
         self.publish_diffs(diffs)
     }
 
@@ -289,6 +298,13 @@ impl KnowledgeCore {
             })
             .collect::<Vec<_>>();
         let diffs = self.store.upsert_block(block, task, properties, links)?;
+        self.log_command(&MutationCommand::InsertBlock {
+            page_id: page_id.to_string(),
+            block_id: block_id.to_string(),
+            parent_id: parent_id.map(str::to_string),
+            index,
+            content: content.to_string(),
+        });
         self.publish_diffs(diffs)
     }
 
@@ -307,6 +323,12 @@ impl KnowledgeCore {
             Some(&placement.parent_id),
             &placement.order_key,
         )?;
+        self.log_command(&MutationCommand::MoveBlock {
+            page_id: page_id.to_string(),
+            block_id: block_id.to_string(),
+            parent_id: parent_id.map(str::to_string),
+            index,
+        });
         self.publish_diffs(diffs)
     }
 
@@ -318,7 +340,76 @@ impl KnowledgeCore {
         let outline = self.outline_mut(page_id)?;
         outline.delete_block(block_id)?;
         let diffs = self.store.delete_block(page_id, block_id)?;
+        self.log_command(&MutationCommand::DeleteBlock {
+            page_id: page_id.to_string(),
+            block_id: block_id.to_string(),
+        });
         self.publish_diffs(diffs)
+    }
+
+    // MARK: - Slice 2 persistence (replay log)
+
+    /// Enable durable command logging to `path` (append mode). Call AFTER any
+    /// replay so the replay itself is not re-logged. Flag-gated at the call site.
+    pub fn enable_oplog(&mut self, path: impl Into<std::path::PathBuf>) {
+        self.oplog = Some(OpLog::new(path));
+    }
+
+    /// Rebuild state by replaying a command-log file with logging disabled.
+    /// Missing/corrupt logs roll back to a clean prefix (best-effort). Returns
+    /// the number of commands applied.
+    pub fn replay_from_oplog(&mut self, path: impl AsRef<std::path::Path>) -> usize {
+        let mut applied = 0usize;
+        for command in OpLog::read_all(path) {
+            if self.apply_command(&command).is_ok() {
+                applied += 1;
+            }
+        }
+        applied
+    }
+
+    /// Re-apply a logged command (replay path). Dispatches to the live mutation
+    /// methods; does not itself log (oplog must be None during replay).
+    pub fn apply_command(&mut self, command: &MutationCommand) -> Result<(), KnowledgeCoreError> {
+        match command {
+            MutationCommand::IngestDocument {
+                page_id,
+                format,
+                text,
+            } => {
+                let fmt = DocumentFormat::from_ffi(*format).unwrap_or(DocumentFormat::Markdown);
+                self.ingest_document(page_id, fmt, text)
+            }
+            MutationCommand::InsertBlock {
+                page_id,
+                block_id,
+                parent_id,
+                index,
+                content,
+            } => self.insert_block(page_id, block_id, parent_id.as_deref(), *index, content),
+            MutationCommand::MoveBlock {
+                page_id,
+                block_id,
+                parent_id,
+                index,
+            } => self.move_block(page_id, block_id, parent_id.as_deref(), *index),
+            MutationCommand::DeleteBlock { page_id, block_id } => {
+                self.delete_block(page_id, block_id)
+            }
+        }
+    }
+
+    fn log_command(&mut self, command: &MutationCommand) {
+        if let Some(oplog) = &self.oplog {
+            if let Err(error) = oplog.append(command) {
+                self.last_error_message = format!("knowledge-core oplog append failed: {error}");
+            }
+        }
+    }
+
+    /// (blocks, tasks, properties, links) fact counts — for replay-parity tests.
+    pub fn fact_counts(&self) -> (usize, usize, usize, usize) {
+        self.store.fact_counts()
     }
 
     fn subscribe(&mut self, spec: SubscriptionSpec) -> Result<u64, KnowledgeCoreError> {
@@ -366,5 +457,44 @@ impl KnowledgeCore {
             .outlines
             .get_mut(page_id)
             .expect("outline must exist after insertion"))
+    }
+}
+
+#[cfg(test)]
+mod oplog_tests {
+    use super::*;
+
+    #[test]
+    fn oplog_replay_reconstructs_fact_state() {
+        let path = std::env::temp_dir()
+            .join(format!("epistemos_kc_oplog_{}.jsonl", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+
+        // Original session: enable the durable oplog, apply mutations (auto-logged).
+        let original_counts = {
+            let mut kc = KnowledgeCore::new(0, 0, 1).expect("kc");
+            kc.enable_oplog(path.clone());
+            kc.ingest_document("p1", DocumentFormat::Markdown, "- [ ] A [[link]]\n- B")
+                .expect("ingest p1");
+            kc.ingest_document("p2", DocumentFormat::Markdown, "- C")
+                .expect("ingest p2");
+            kc.fact_counts()
+        };
+        assert!(original_counts.0 > 0, "expected non-trivial block state");
+
+        // Restart: a fresh KC replays the durable log → identical fact state.
+        let mut restored = KnowledgeCore::new(0, 0, 2).expect("kc");
+        let applied = restored.replay_from_oplog(&path);
+        assert_eq!(applied, 2, "two ingest commands replayed");
+        assert_eq!(restored.fact_counts(), original_counts);
+
+        // Missing/corrupt log → clean empty state (rollback), no panic.
+        let mut empty = KnowledgeCore::new(0, 0, 3).expect("kc");
+        let applied_none =
+            empty.replay_from_oplog(std::env::temp_dir().join("epistemos-kc-nope.jsonl"));
+        assert_eq!(applied_none, 0);
+        assert_eq!(empty.fact_counts(), (0, 0, 0, 0));
+
+        let _ = std::fs::remove_file(&path);
     }
 }
