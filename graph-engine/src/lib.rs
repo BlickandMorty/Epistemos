@@ -2822,6 +2822,10 @@ pub extern "C" fn graph_engine_kc_enable_persistence(
         let path = path.to_string();
         core.replay_from_oplog(&path);
         core.enable_oplog(path);
+        // Bound the on-disk log: collapse commands a later full-page ingest
+        // superseded (e.g. N per-edit re-ingests of one page → one ingest).
+        // State-equivalent, so the next replay reproduces identical state.
+        core.compact_oplog();
         1
     })
 }
