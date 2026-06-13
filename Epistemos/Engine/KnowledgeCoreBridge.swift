@@ -72,6 +72,24 @@ nonisolated struct KnowledgeCoreFactCounts: Sendable, Equatable {
     var total: UInt64 { blocks + tasks + properties + links }
 }
 
+/// One outline row read from the KnowledgeCore store (block id, indent depth,
+/// content) in document order — the content-bearing shape the UI cutover binds
+/// to, read on-demand via `graph_engine_kc_page_outline_json` (separate from the
+/// zero-copy diff poller).
+nonisolated struct KnowledgeCoreOutlineRow: Sendable, Equatable, Identifiable, Decodable {
+    let blockId: String
+    let depth: Int
+    let content: String
+
+    var id: String { blockId }
+
+    enum CodingKeys: String, CodingKey {
+        case blockId = "block_id"
+        case depth
+        case content
+    }
+}
+
 nonisolated struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
     let rowKind: KnowledgeCoreRowKind
     let pageId: String
@@ -558,6 +576,22 @@ actor KnowledgeCoreBridge {
             properties: counts.properties,
             links: counts.links
         )
+    }
+
+    /// A page's outline rows (block id, depth, content) in document order, read
+    /// on-demand from the store. Returns `[]` on any FFI/decoding failure.
+    func pageOutline(pageId: String) -> [KnowledgeCoreOutlineRow] {
+        guard let raw = pageId.withCString({ graph_engine_kc_page_outline_json(core, $0) }) else {
+            return []
+        }
+        // Rust allocated this via CString::into_raw; release it once we have copied.
+        defer { graph_engine_free_string(UnsafeMutablePointer(mutating: raw)) }
+        let json = String(cString: raw)
+        guard let data = json.data(using: .utf8),
+              let rows = try? JSONDecoder().decode([KnowledgeCoreOutlineRow].self, from: data) else {
+            return []
+        }
+        return rows
     }
 
     func drainSummaries(limit: Int = .max) -> [KnowledgeCorePayloadSummary] {
@@ -1107,6 +1141,13 @@ final class KnowledgeCoreShadowRuntime {
     /// show how much the runtime currently projects (after a seed or replay).
     func factCounts() async -> KnowledgeCoreFactCounts {
         await bridge.factCounts()
+    }
+
+    /// A page's outline rows (block id, depth, content) in document order, read
+    /// on-demand. The content read the UI cutover binds to — separate from the
+    /// zero-copy diff poller, so a view can render KC's projection of a page.
+    func pageOutline(pageId: String) async -> [KnowledgeCoreOutlineRow] {
+        await bridge.pageOutline(pageId: pageId)
     }
 
     func startIfNeeded(

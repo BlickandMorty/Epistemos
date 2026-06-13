@@ -984,6 +984,7 @@ private struct GeneralDetailView: View {
                 OpLogProjectionHealthRow()
                 KnowledgeCoreReadParityHealthRow()
                 KnowledgeCoreRuntimeHealthRow()
+                KnowledgeCoreOutlinePreview()
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
                 AgentBlueprintSettingsView()

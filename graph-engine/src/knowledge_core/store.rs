@@ -443,6 +443,15 @@ struct BlockFact {
     content: String,
 }
 
+/// One outline row returned by `Store::page_outline` — the content-bearing read
+/// shape the UI cutover consumes. Serialized to JSON across the FFI boundary.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct OutlineRowData {
+    pub block_id: String,
+    pub depth: u16,
+    pub content: String,
+}
+
 #[derive(Clone, Debug)]
 struct TaskFact {
     page_id: String,
@@ -537,6 +546,28 @@ impl DatalogStore {
             self.properties.len(),
             self.links.len(),
         )
+    }
+
+    /// A page's outline rows (block_id, depth, content) in document order, read
+    /// directly from the in-memory block mirror. This is the synchronous,
+    /// content-materializing read API the UI cutover binds to — deliberately
+    /// separate from the zero-copy diff/ring poller, which stays string-free.
+    pub fn page_outline(&self, page_id: &str) -> Vec<OutlineRowData> {
+        let mut facts: Vec<&BlockFact> = self
+            .blocks
+            .iter()
+            .filter(|((page, _), _)| page == page_id)
+            .map(|(_, fact)| fact)
+            .collect();
+        facts.sort_by(|a, b| a.order_key.cmp(&b.order_key));
+        facts
+            .into_iter()
+            .map(|fact| OutlineRowData {
+                block_id: fact.block_id.clone(),
+                depth: fact.depth,
+                content: fact.content.clone(),
+            })
+            .collect()
     }
 
     pub fn replace_page(

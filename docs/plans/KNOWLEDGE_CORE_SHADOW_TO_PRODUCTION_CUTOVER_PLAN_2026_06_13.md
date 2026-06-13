@@ -266,8 +266,24 @@ post-ingest-kept-in-order, independent-per-page, idempotent, no-ingest-keep-all,
 + `oplog_compaction_collapses_edits_but_preserves_state` integration (4 ingests → compact → 2 →
 replay → identical fact counts). Rust KC suite 49/49.
 
-**Still ahead (step 3 — the cutover proper, dev-cert-gated):** subscribe a real SwiftUI surface
-(Notes outline / task list / sidebar) to the runtime's projected diffs, build it flag-off, then
-verify on `Product ▸ Run` before any promotion. This is the only remaining KC-cutover work that is
-NOT headless-verifiable; everything below it (persistence, instantiate, seed, read API, edit-track,
-compaction) is landed + verified.
+## 14. Step 3 read path LANDED — KC drives a SwiftUI surface (2026-06-13)
+
+The design tension (the runtime's diff poller is intentionally zero-copy / string-free, so it can't
+feed a content view) is resolved by a SEPARATE on-demand **content read API**, not a change to the
+poller: `Store::page_outline(page_id)` reads the in-memory block mirror directly (ordered by
+order_key) → `graph_engine_kc_page_outline_json` FFI (JSON via the `graph_engine_free_string`
+convention) → bridge/runtime `pageOutline(pageId:)` → `[KnowledgeCoreOutlineRow]`. Content is
+materialized ONLY here, on demand; the streaming hot path stays string-free.
+
+`KnowledgeCoreOutlinePreview` (Settings ▸ Diagnostics) is the first SwiftUI surface driven by the KC
+projection: it reads a real vault page's outline through that API and renders it indented by depth,
+with page-cycling. Read-only, flag-gated (`knowledgeCoreRuntimeV0`), honest "runtime not running"
+empty state. Tests: `page_outline_returns_ordered_content_rows` (Rust), `bridgeReadsPageOutline`
+(Swift). Rust 50/50, app BUILD SUCCEEDED, KnowledgeCoreBridge 26/26.
+
+**Still ahead (production binding, dev-cert-gated):** point the REAL Notes outline / sidebar at the
+same `pageOutline` read (+ refresh on the poller's diff signal for live updates), build flag-off,
+verify on `Product ▸ Run` before promotion. The read path + a working preview surface are now
+landed + verified; only wiring the production view and live-refresh remain, and those are the
+dev-cert step. Everything else (persistence, instantiate, seed, read APIs, edit-track, compaction,
+outline read + preview) is headless-verified.

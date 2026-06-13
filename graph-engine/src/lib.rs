@@ -2857,6 +2857,36 @@ pub extern "C" fn graph_engine_kc_fact_counts(
     )
 }
 
+/// A page's outline as a JSON array of `{block_id, depth, content}` in document
+/// order — the content-bearing read the UI cutover binds to. Returns a heap
+/// C string the caller MUST free with `graph_engine_free_string`; null on a null
+/// core/page or panic. Empty page → `"[]"`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_page_outline_json(
+    core: *mut KnowledgeCore,
+    page_id: *const c_char,
+) -> *const c_char {
+    ffi_catch_unwind_or!("graph_engine_kc_page_outline_json", std::ptr::null(), {
+        if core.is_null() || page_id.is_null() {
+            return std::ptr::null();
+        }
+        // SAFETY: `core` is non-null (checked) and borrowed immutably only for this call.
+        let core = unsafe { &*core };
+        // SAFETY: `page_id` is non-null (checked) and a valid NUL-terminated C string from Swift.
+        let Ok(page) = (unsafe { CStr::from_ptr(page_id) }).to_str() else {
+            return std::ptr::null();
+        };
+        let rows = core.page_outline(page);
+        match serde_json::to_string(&rows) {
+            Ok(json) => match CString::new(json) {
+                Ok(cs) => cs.into_raw(),
+                Err(_) => std::ptr::null(),
+            },
+            Err(_) => std::ptr::null(),
+        }
+    })
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
     ffi_catch_unwind!("graph_engine_kc_destroy", {
