@@ -114,3 +114,20 @@ views bind to `QueryEngine.currentResult` and never see the executor; ReactiveQu
 - Slice 1+: new `KnowledgeCoreQueryExecutorTests` (mock ring fixtures) + `F-KnowledgeCoreReadParity` falsifier
   artifact under `artifacts/falsifiers/`; parity health row mirrors the Search Fusion observability shape.
 - No SwiftUI consumer test changes (views are insulated from the executor by design).
+
+## 8. Status & empirical findings (2026-06-13)
+
+Landed + verified (signing-disabled, headless):
+- **Slice 0** (`93b18967c9`) — `QueryExecutor` seam. `ReactiveQuery` holds `any QueryExecutor`; behavior-preserving; 38 guard tests green (incl. QueryRuntime source-mirror guards).
+- **Slice 1.1** (`068adb5db4`) — `KnowledgeCoreTaskParitySummary` + ground-truth probe. KC emits correct task rows on checkbox ingest (3 tasks / 1 done).
+- **Slice 1.2** (`69d3db90a9`) — KC ≅ live `TextCapturePipeline` on checkbox tasks (both 4 tasks / 2 done). Core task-side parity invariant holds.
+- **Slice 1.3** (`5174a757b2`) — tracked KC↔live divergence: live recognizes `FIXME:/ACTION:/TASK:/TODO:` colon prefixes KC does not (KC parses checkboxes + `TODO /DONE ` space prefixes). Asserted gap, not a regression.
+
+Design refinements (verified against source, not assumed):
+- KC is **subscription/diff-based** (ring), not plan-based. A KC `QueryExecutor` for the *search* path would need a projection/translation layer; it is NOT the seam for KC's structured note-data (tasks/outline). KC task rows carry `{pageId, blockId, marker, done}` and **omit task text** → only **count-level** parity (total/done) is comparable for tasks.
+- Checkbox tasks are the safe first surface (parity holds). `FIXME:/ACTION:`-prefix and **Outline** parity are gated on **parser canonicalization** (`parser.rs` is line-based; the orgize/pulldown parser is instantiated-then-discarded).
+
+Autonomous-headless ceiling for the task read-side reached. Remaining work and who it needs:
+- **Runtime shadow probe on the real vault corpus** (flag `EPISTEMOS_KNOWLEDGECORE_READ_V0`, default off) + parity health row — the *build* is autonomous; real-corpus exercise needs the **user's vault**.
+- **Persistence** (Slice 2) + **promotion** (Slice 3) — **owner sign-off** + falsifier/RunEventLog/AnswerPacket/WRV/rollback.
+- **Parser canonicalization** (Rust, cargo-verifiable) — prerequisite for Outline/prefix parity; substantial standalone track.
