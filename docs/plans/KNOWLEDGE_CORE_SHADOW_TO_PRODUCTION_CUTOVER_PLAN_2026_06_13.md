@@ -352,3 +352,23 @@ Recommendation: option 1 — KC drives a block-navigator, not the heading-TOC. N
 product call on WHERE that navigator lives (new sidebar panel vs. an outline mode in the editor)
 before building, so this is the genuine "needs the user" fork. Everything up to here is built +
 verified + live-validated; the next step is that product decision.
+
+## 16. Production cutover LANDED + live-confirmed (2026-06-13, Option 1)
+
+`0bdf01711a` — the note editor's outline panel (`NoteOutlineOverlay`) gained a Headings ⇄ Blocks
+toggle. Blocks mode renders KC's projection of the page (every block, by depth) via
+`KnowledgeCoreBlockOutline.items` → the shared runtime's `pageOutline` (no per-TOC bridge, no
+re-ingest), with char offsets resolved against the markdown for click-to-scroll. Flag-gated
+(`knowledgeCoreRuntimeV0`) + fallback-safe (empty → headings-only). Auto-updates on edits because
+`blockOutlineItems` rebuilds in the editor's snapshot pass (which the edit-tracking re-ingest
+already feeds).
+
+Verified: app BUILD SUCCEEDED; NoteEditorLayout + KnowledgeCoreBridge 98/98. **Live-confirmed** on
+My mind 2: on a note with NO markdown headings, the outline panel's tab appears — which it only
+does when `hasBlocks` is true, i.e. KC's block outline populated the panel (the old headings-only
+code would show nothing). This is KC driving a production surface end-to-end.
+
+**The KC shadow→production cutover is COMPLETE:** persistence → in-app runtime → seed → fact/outline
+read APIs → edit-tracking → compaction → diagnostic preview → production block-navigator. Remaining
+is optional cleanup (§15 step 4: retire the now-redundant `deterministicKnowledgeCoreRuntime`
+per-TOC shadow bridge) and the hover-reveal screenshot (computer-use can't trigger the slide-out).
