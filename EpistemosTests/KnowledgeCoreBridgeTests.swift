@@ -589,7 +589,8 @@ struct KnowledgeCoreBridgeTests {
             borrowedKnowledgeRows: false,
             rawThoughtsBulkLane: false,
             staticArtifactRouting: false,
-            graphEdgePrefetch: false
+            graphEdgePrefetch: false,
+            knowledgeCoreReadParityV0: false
         )
     }
 }
