@@ -88,11 +88,16 @@ nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
 /// to stay working while the model is downloading or when the query language
 /// is not supported.
 nonisolated struct AppleContextualEmbeddingLookup: TextEmbeddingLookup, @unchecked Sendable {
-    // SAFETY: NLContextualEmbedding is a Foundation-bridged ObjC class. It is
-    // effectively immutable after init (we only call `embeddingResult(...)` and
-    // read `dimension`/`hasAvailableAssets`), and Apple documents those paths as
-    // safe to invoke without external synchronization.
-    private let embedding: NLContextualEmbedding?
+    // SAFETY: NLContextualEmbedding is NOT thread-safe. `embeddingResult(...)`
+    // builds an NLTagger internally (-[NLContextualEmbedding _taggerForString:])
+    // and mutates it (setString:); concurrent calls on one instance corrupt that
+    // shared tagger and crash in objc_release (verified: crash 2026-06-12,
+    // EXC_BAD_ACCESS / SIGSEGV in -[NLTagger setString:] under overlapping
+    // EmbeddingService.computeAndPush tasks). The instance and an NSLock live in a
+    // shared reference holder, so every value-type copy of this struct serializes
+    // against the same lock — all embeddingResult/dimension access is mutually
+    // exclusive. This is the synchronization the `@unchecked Sendable` promises.
+    private let storage: ContextualEmbeddingStorage
     private let language: NLLanguage
 
     init(language: NLLanguage = .english) {
@@ -101,23 +106,18 @@ nonisolated struct AppleContextualEmbeddingLookup: TextEmbeddingLookup, @uncheck
         // Asset download is not kicked off from here to keep the lookup
         // Sendable-clean; the hybrid lookup falls back to word embeddings until
         // assets land via other Apple-framework paths.
-        self.embedding = NLContextualEmbedding(language: language)
+        self.storage = ContextualEmbeddingStorage(language: language)
     }
 
-    var dimension: Int {
-        guard let embedding, embedding.hasAvailableAssets else { return 0 }
-        return Int(embedding.dimension)
-    }
+    var dimension: Int { storage.dimension }
 
     func vector(for token: String) -> [Float]? { nil }
 
     func textVector(for text: String) -> [Float]? {
-        guard let embedding, embedding.hasAvailableAssets else { return nil }
-        guard let result = try? embedding.embeddingResult(for: text, language: language) else { return nil }
-        return Self.meanPool(result, dimension: Int(embedding.dimension))
+        storage.textVector(for: text, language: language)
     }
 
-    private static func meanPool(_ result: NLContextualEmbeddingResult, dimension: Int) -> [Float]? {
+    fileprivate static func meanPool(_ result: NLContextualEmbeddingResult, dimension: Int) -> [Float]? {
         guard dimension > 0 else { return nil }
         var sum = [Float](repeating: 0, count: dimension)
         var count = 0
@@ -134,6 +134,38 @@ nonisolated struct AppleContextualEmbeddingLookup: TextEmbeddingLookup, @uncheck
         var scaled = [Float](repeating: 0, count: dimension)
         vDSP.multiply(1.0 / Float(count), sum, result: &scaled)
         return scaled
+    }
+}
+
+/// Shared, lock-guarded owner of the non-thread-safe `NLContextualEmbedding`.
+/// A reference type so all value-copies of `AppleContextualEmbeddingLookup`
+/// share one instance + one lock; the lock serializes every framework call so
+/// overlapping background tasks can never enter `embeddingResult` concurrently.
+/// Mean-pooling runs inside the lock too, because the result can alias the
+/// embedding's internal token state.
+private nonisolated final class ContextualEmbeddingStorage: @unchecked Sendable {
+    private let lock = NSLock()
+    private let embedding: NLContextualEmbedding?
+
+    init(language: NLLanguage) {
+        self.embedding = NLContextualEmbedding(language: language)
+    }
+
+    var dimension: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let embedding, embedding.hasAvailableAssets else { return 0 }
+        return Int(embedding.dimension)
+    }
+
+    func textVector(for text: String, language: NLLanguage) -> [Float]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let embedding, embedding.hasAvailableAssets else { return nil }
+        guard let result = try? embedding.embeddingResult(for: text, language: language) else {
+            return nil
+        }
+        return AppleContextualEmbeddingLookup.meanPool(result, dimension: Int(embedding.dimension))
     }
 }
 
