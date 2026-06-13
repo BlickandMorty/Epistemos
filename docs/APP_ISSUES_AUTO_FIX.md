@@ -67,7 +67,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-16-015: Cannot use higher models — RAM gate is stale + per-model agent creation is too restrictive
 
-Status: Open
+Status: Open — sub-causes #2 (silent fallback, `1011c679d1`) + #3 (structured-tool gate probed true + regression-guarded, 2026-06-13) RESOLVED; only #1 (32 GB RAM gate) remains, INTENTIONALLY held per the 2026-05-27 Capability Ceiling reclassification pending `F-70B-Local-Cocktail`. See Investigation Log.
 Priority: P1 (user-blocking, names a doctrinal contradiction)
 First Observed: 2026-05-16
 Affected Version: `main` at `9d61c415a`
@@ -204,6 +204,26 @@ Investigation Log:
   pending `F-70B-Local-Cocktail`) and sub-cause #3 (the `CMLXStructured`
   runtime-resolution probe still not run). The honest-surfacing half is shipped;
   these two memory/structured-tool gates remain.
+- 2026-06-13 (Claude): **Sub-cause #3 PROBED + RESOLVED (not a bug).** The
+  long-open "runtime probe" deliverable ran. Build-artifact check confirmed all
+  three modules compile into the app build (`CMLXStructured.o`,
+  `MLXStructured.swiftmodule`, `JSONSchema.swiftmodule` + CMLXStructured PCMs in
+  `SwiftExplicitPrecompiledModules`). Added permanent regression guard
+  `LocalToolGrammarTests.structuredToolCallingGateResolvesTrue` asserting
+  `LocalToolGrammar.supportsStructuredToolCalling == true` +
+  `supportsLocalAgentLoop == true` + `buildToolCallingPlan(...).backend ==
+  .mlxStructured`. **Test passes** → `canImport(CMLXStructured)` DOES resolve in
+  the current build; structured tool calling is live and local models are NOT
+  silently denied agent mode by this gate. The 2026-05-16 worry that
+  CMLXStructured (an internal target, not a product) wouldn't resolve is
+  unfounded for the standard macOS build. The new test converts any future
+  silent regression (all-local-agent-off) into a loud red. No `Destructive Fix`
+  #4 (adding explicit CMLXStructured/JSONSchema product deps) is needed.
+  **Remaining open:** only sub-cause #1 (the 32 GB `primaryAgentModelMinHostRAMGB`
+  gate), which is INTENTIONALLY held per the 2026-05-27 Capability Ceiling
+  reclassification pending `F-70B-Local-Cocktail` — i.e. deliberately frozen, not
+  a stale bug. Sub-causes #2 (silent fallback) and #3 (structured-tool gate) are
+  both now closed.
 
 ---
 

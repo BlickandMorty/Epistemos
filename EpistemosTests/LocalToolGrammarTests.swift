@@ -19,6 +19,24 @@ struct LocalToolGrammarTests {
         )
     }
 
+    @Test("structured tool-calling gate resolves true — guards silent all-local-agent-off (ISSUE-2026-05-16-015 #3)")
+    func structuredToolCallingGateResolvesTrue() {
+        // `canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema)`
+        // is evaluated at COMPILE time; this asserts the value the app was actually
+        // built with. If any of the three modules stops resolving (a project-dep
+        // regression), `supportsStructuredToolCalling` silently flips to false —
+        // every local model then loses `supportsAgentMode` and the MLX-masked
+        // grammar backend, degrading to soft-guidance with no UI signal. This test
+        // converts that silent failure into a loud red instead of a quiet
+        // agent-mode-off for all local models.
+        #expect(LocalToolGrammar.supportsStructuredToolCalling == true)
+        // The local agent loop must stay reachable either way (structured OR soft).
+        #expect(LocalToolGrammar.supportsLocalAgentLoop == true)
+        // With structured calling live, the canonical backend is the MLX-masked one.
+        let plan = LocalToolGrammar.buildToolCallingPlan(tools: [sampleTool()], forceThinking: false)
+        #expect(plan.backend == .mlxStructured)
+    }
+
     @Test("tool calling plan canonicalizes legacy names before constrained prompting")
     func toolCallingPlanCanonicalizesLegacyNamesBeforeConstrainedPrompting() {
         let plan = LocalToolGrammar.buildToolCallingPlan(
