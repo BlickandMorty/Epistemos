@@ -188,6 +188,22 @@ Investigation Log:
   red artifact under `artifacts/falsifiers/70b_local_cocktail_lite/result.json`
   and validates it, but exits non-zero until the real prompt-level 70B/ACS/UAS
   composition metrics replace the sentinel failures.
+- 2026-06-13 (Claude): Capability-truth surface landed + verified (commit
+  `1011c679d1`). `ComposerModelToolTruth` + `ChatCapabilityPill` now expose
+  honest per-model tool/skill availability across all chat composers
+  (main/mini/note/landing), the AgentControl per-model compatibility matrix,
+  and `RuntimeTruthHealthRow`. **Sub-cause #2 (silent fallback) is directly
+  addressed**: cloud-without-agent-tier and gated-local routes now say so
+  explicitly ("Cloud direct stream (managed tools unavailable)" / "Local agent
+  unavailable · <reason>") instead of degrading silently; honest
+  HONEST/EXPERIMENTAL/OFF badges ship via
+  `RuntimeRouter.agentCapabilityBadgeData`. Verified by 120 capability-truth
+  tests (AgentCapabilityTruthCloseoutTests + 4 suites) passing headless.
+  **Still Open**: sub-cause #1 (the 32 GB `primaryAgentModelMinHostRAMGB` gate
+  remains intentionally, per the 2026-05-27 Capability Ceiling reclassification
+  pending `F-70B-Local-Cocktail`) and sub-cause #3 (the `CMLXStructured`
+  runtime-resolution probe still not run). The honest-surfacing half is shipped;
+  these two memory/structured-tool gates remain.
 
 ---
 
