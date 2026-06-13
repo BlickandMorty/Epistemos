@@ -231,6 +231,34 @@ struct KnowledgeCoreBridgeTests {
         #expect(report.parityRate == 1.0)
     }
 
+    @Test("knowledge-core outline blocks reach count-parity with the live BlockParser")
+    func knowledgeCoreOutlineMatchesLiveBlockParser() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 25))
+        let subscriptionId = await bridge.subscribeOutline(pageId: "outline-parity")
+        #expect(subscriptionId != nil)
+        _ = await bridge.drainPayloads()
+
+        let text = "- Alpha\n- Beta\n- Gamma"
+        #expect(await bridge.ingestDocument(
+            pageId: "outline-parity",
+            format: .markdown,
+            text: text
+        ))
+
+        let kcBlocks = (await bridge.drainPayloads())
+            .filter { $0.kind == .outline }
+            .flatMap(\.added)
+        let liveBlocks = BlockParser.parse(text)
+
+        // Both KC (parser.rs) and the live BlockParser are line-based — one block
+        // per non-empty line — so block counts match. This confirms the cutover
+        // does NOT need an AST parser rewrite for outline parity: the live model
+        // is itself line-based, so canonicalizing KC to an AST would *diverge* from it.
+        #expect(liveBlocks.count == 3)
+        #expect(kcBlocks.count == 3)
+        #expect(kcBlocks.count == liveBlocks.count)
+    }
+
     @Test("shadow runtime batches summaries onto MainActor state")
     func shadowRuntimeBatchesSummaries() async throws {
         let runtime = try await MainActor.run {
