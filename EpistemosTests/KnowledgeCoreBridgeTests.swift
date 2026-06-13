@@ -203,6 +203,36 @@ struct KnowledgeCoreBridgeTests {
         #expect(!kcSummary.matches(liveSummary))
     }
 
+    @Test("read-parity probe aggregates a checkbox corpus to full task parity")
+    func readParityProbeAggregatesCheckboxCorpus() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 24))
+        let corpus: [(pageId: String, text: String)] = [
+            (pageId: "corpus-1", text: "- [ ] a\n- [x] b"),
+            (pageId: "corpus-2", text: "- [x] c"),
+            (pageId: "corpus-3", text: "- [ ] d\n- [ ] e\n- [x] f"),
+        ]
+
+        let report = await KnowledgeCoreReadParityProbe.taskParity(
+            over: corpus,
+            bridge: bridge,
+            liveTaskCounts: { text in
+                await MainActor.run {
+                    let live = TextCapturePipeline().extractTasks(from: text)
+                    return KnowledgeCoreTaskParitySummary(
+                        total: live.count,
+                        done: live.filter(\.isCompleted).count
+                    )
+                }
+            }
+        )
+
+        // All notes are checkbox-only → KC count-parity with live on every note.
+        #expect(report.noteCount == 3)
+        #expect(report.taskParityMatches == 3)
+        #expect(report.divergentNoteCount == 0)
+        #expect(report.parityRate == 1.0)
+    }
+
     @Test("shadow runtime batches summaries onto MainActor state")
     func shadowRuntimeBatchesSummaries() async throws {
         let runtime = try await MainActor.run {
