@@ -82,6 +82,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
         static let staticArtifactRouting = "staticArtifactRouting"
         static let graphEdgePrefetch = "graphEdgePrefetch"
         static let knowledgeCoreReadParityV0 = "knowledgeCoreReadParityV0"
+        static let knowledgeCoreRuntimeV0 = "knowledgeCoreRuntimeV0"
     }
 
     enum EnvironmentKey {
@@ -91,6 +92,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
         static let staticArtifactRouting = "EPISTEMOS_STATIC_ARTIFACT_ROUTING"
         static let graphEdgePrefetch = "EPISTEMOS_GRAPH_EDGE_PREFETCH"
         static let knowledgeCoreReadParityV0 = "EPISTEMOS_KNOWLEDGECORE_READ_V0"
+        static let knowledgeCoreRuntimeV0 = "EPISTEMOS_KNOWLEDGECORE_RUNTIME_V0"
     }
 
     let deterministicKnowledgeCoreRuntime: Bool
@@ -99,6 +101,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
     let staticArtifactRouting: Bool
     let graphEdgePrefetch: Bool
     let knowledgeCoreReadParityV0: Bool
+    let knowledgeCoreRuntimeV0: Bool
 
     static let disabled = EpistemosRuntimeFeatureFlags(
         deterministicKnowledgeCoreRuntime: false,
@@ -106,7 +109,8 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
         rawThoughtsBulkLane: false,
         staticArtifactRouting: false,
         graphEdgePrefetch: false,
-        knowledgeCoreReadParityV0: false
+        knowledgeCoreReadParityV0: false,
+        knowledgeCoreRuntimeV0: false
     )
 
     static func load(
@@ -147,6 +151,12 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
             knowledgeCoreReadParityV0: flag(
                 Key.knowledgeCoreReadParityV0,
                 environmentKey: EnvironmentKey.knowledgeCoreReadParityV0,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            knowledgeCoreRuntimeV0: flag(
+                Key.knowledgeCoreRuntimeV0,
+                environmentKey: EnvironmentKey.knowledgeCoreRuntimeV0,
                 userDefaults: userDefaults,
                 environment: environment
             )

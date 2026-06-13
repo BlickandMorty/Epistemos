@@ -59,6 +59,36 @@ struct KnowledgeCoreBridgeTests {
         #expect(blocks.count == 2)
     }
 
+    @Test("shadow runtime forwards its oplog path to durable persistence (Slice 3 step 1)")
+    func shadowRuntimePersistsThroughOplogPath() async throws {
+        let path = NSTemporaryDirectory() + "epistemos-kc-runtime-\(UUID().uuidString).jsonl"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        // Session 1: a persistence-enabled SHADOW RUNTIME ingests a page, then is
+        // released. This is the exact object AppBootstrap holds — with the
+        // oplogPath forwarding wired in Slice 3 step 1. Ingest takes no poller,
+        // so the journaled command is durable the moment the await returns.
+        do {
+            let runtime = try #require(KnowledgeCoreShadowRuntime(oplogPath: path))
+            #expect(await runtime.ingestDocument(
+                pageId: "rt-persist-1",
+                format: .markdown,
+                text: "- Gamma\n- Delta"
+            ))
+        }
+
+        // Session 2: a fresh bridge on the same oplog replays the runtime's
+        // journaled ingest — proving the runtime forwarded oplogPath all the way
+        // to the FFI. (Read back through the bridge, not a second runtime, so the
+        // runtime's background poller can't race the assertion.)
+        let restored = try #require(KnowledgeCoreBridge(peerId: 34, oplogPath: path))
+        _ = await restored.subscribeOutline(pageId: "rt-persist-1")
+        let blocks = (await restored.drainPayloads())
+            .filter { $0.kind == .outline }
+            .flatMap(\.added)
+        #expect(blocks.count == 2)
+    }
+
     @Test("outline payload decoding covers added updated and removed sections")
     func outlinePayloadDecodingCoversAllSections() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 16))
@@ -674,7 +704,8 @@ struct KnowledgeCoreBridgeTests {
             rawThoughtsBulkLane: false,
             staticArtifactRouting: false,
             graphEdgePrefetch: false,
-            knowledgeCoreReadParityV0: false
+            knowledgeCoreReadParityV0: false,
+            knowledgeCoreRuntimeV0: false
         )
     }
 }
