@@ -59,6 +59,19 @@ nonisolated struct KnowledgeCoreTransportStatsSnapshot: Sendable, Equatable {
     let ringFullFailures: UInt64
 }
 
+/// Projected fact-state counts for the KnowledgeCore store — the first read
+/// API into KC state, surfaced by the in-app diagnostics row.
+nonisolated struct KnowledgeCoreFactCounts: Sendable, Equatable {
+    let blocks: UInt64
+    let tasks: UInt64
+    let properties: UInt64
+    let links: UInt64
+
+    static let zero = KnowledgeCoreFactCounts(blocks: 0, tasks: 0, properties: 0, links: 0)
+
+    var total: UInt64 { blocks + tasks + properties + links }
+}
+
 nonisolated struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
     let rowKind: KnowledgeCoreRowKind
     let pageId: String
@@ -534,6 +547,16 @@ actor KnowledgeCoreBridge {
             droppedFrames: stats.dropped_frames,
             coalescedFrames: stats.coalesced_frames,
             ringFullFailures: stats.ring_full_failures
+        )
+    }
+
+    func factCounts() -> KnowledgeCoreFactCounts {
+        let counts = graph_engine_kc_fact_counts(core)
+        return KnowledgeCoreFactCounts(
+            blocks: counts.blocks,
+            tasks: counts.tasks,
+            properties: counts.properties,
+            links: counts.links
         )
     }
 
@@ -1077,6 +1100,13 @@ final class KnowledgeCoreShadowRuntime {
 
     func drainPayloads(limit: Int = .max) async -> [KnowledgeCorePayloadSnapshot] {
         await bridge.drainPayloads(limit: limit)
+    }
+
+    /// Current (blocks, tasks, properties, links) fact counts held by the store.
+    /// The first read API into KC state — used by the in-app diagnostics row to
+    /// show how much the runtime currently projects (after a seed or replay).
+    func factCounts() async -> KnowledgeCoreFactCounts {
+        await bridge.factCounts()
     }
 
     func startIfNeeded(

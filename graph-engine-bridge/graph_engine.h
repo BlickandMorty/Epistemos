@@ -834,6 +834,13 @@ typedef struct {
     uint64_t ring_full_failures;
 } KnowledgeCoreTransportStatsFFI;
 
+typedef struct {
+    uint64_t blocks;
+    uint64_t tasks;
+    uint64_t properties;
+    uint64_t links;
+} KnowledgeCoreFactCountsFFI;
+
 /// Create a shared-memory knowledge core.
 KnowledgeCore* graph_engine_kc_create(
     uint32_t slot_count,
@@ -844,6 +851,10 @@ KnowledgeCore* graph_engine_kc_create(
 /// Replay an existing on-disk command log into `core`, then enable durable
 /// logging of future mutations to it. Returns 1 on success, 0 on failure.
 uint8_t graph_engine_kc_enable_persistence(KnowledgeCore* core, const char* oplog_path);
+
+/// Read the store's current (blocks, tasks, properties, links) fact counts.
+/// On a null core or panic returns all-zero counts.
+KnowledgeCoreFactCountsFFI graph_engine_kc_fact_counts(KnowledgeCore* core);
 
 /// Destroy a knowledge core and release the mapped ring buffer.
 void graph_engine_kc_destroy(KnowledgeCore* core);

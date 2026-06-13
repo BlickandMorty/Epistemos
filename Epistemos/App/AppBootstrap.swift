@@ -1126,8 +1126,15 @@ final class AppBootstrap {
     /// `nil` otherwise, so default-build behavior is unchanged. Persists its
     /// mutation log to `<vault>/.epcache/kc-oplog.jsonl` and replays it on
     /// open, so the projected fact state survives a restart.
-    private var knowledgeCoreRuntime: KnowledgeCoreShadowRuntime?
+    private(set) var knowledgeCoreRuntime: KnowledgeCoreShadowRuntime?
     private var lastKnowledgeCoreVaultPath: String?
+
+    /// Filesystem path of the KC runtime's durable oplog for the active vault
+    /// (`<vault>/.epcache/kc-oplog.jsonl`), or `nil` when no vault is open. Read
+    /// by the diagnostics row to show that persistence is happening.
+    var knowledgeCoreOplogPath: String? {
+        vaultSync.vaultURL.map { Self.knowledgeCoreOplogURL(for: $0).path }
+    }
 
     /// Minimal Sendable note reference captured from the SwiftData context on
     /// main, then carried into the off-main KC seed loop (see

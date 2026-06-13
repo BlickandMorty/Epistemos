@@ -245,6 +245,19 @@ pub struct KnowledgeCoreTransportStatsFFI {
     pub ring_full_failures: u64,
 }
 
+/// Projected fact-state counts for the KnowledgeCore store — the first read
+/// API into KC's state, used by the in-app diagnostics surface to show how
+/// many facts the runtime currently holds (e.g. after a vault seed or an
+/// oplog replay). Counts are reported as `u64` for stable FFI width.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct KnowledgeCoreFactCountsFFI {
+    pub blocks: u64,
+    pub tasks: u64,
+    pub properties: u64,
+    pub links: u64,
+}
+
 /// Null-guard for engine pointer in void-returning FFI functions.
 macro_rules! ffi_engine {
     ($ptr:ident) => {
@@ -2813,6 +2826,33 @@ pub extern "C" fn graph_engine_kc_enable_persistence(
     })
 }
 
+/// Read the KnowledgeCore store's current (blocks, tasks, properties, links)
+/// fact counts. The first read API into KC state; on a null core or panic
+/// returns all-zero counts.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_fact_counts(
+    core: *mut KnowledgeCore,
+) -> KnowledgeCoreFactCountsFFI {
+    ffi_catch_unwind_or!(
+        "graph_engine_kc_fact_counts",
+        KnowledgeCoreFactCountsFFI::default(),
+        {
+            if core.is_null() {
+                return KnowledgeCoreFactCountsFFI::default();
+            }
+            // SAFETY: `core` is non-null (checked) and borrowed immutably only for this call.
+            let core = unsafe { &*core };
+            let (blocks, tasks, properties, links) = core.fact_counts();
+            KnowledgeCoreFactCountsFFI {
+                blocks: blocks as u64,
+                tasks: tasks as u64,
+                properties: properties as u64,
+                links: links as u64,
+            }
+        }
+    )
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
     ffi_catch_unwind!("graph_engine_kc_destroy", {
@@ -3858,7 +3898,8 @@ mod knowledge_core_ffi_tests {
     use super::{
         GraphEngineRingLayout, GraphEngineSharedMemoryRegion, GraphEngineStringSlice,
         KnowledgePayloadSummaryFFI, KnowledgeQueryRowFFI, graph_engine_kc_backpressure_policy,
-        graph_engine_kc_create, graph_engine_kc_destroy, graph_engine_kc_ingest_document,
+        graph_engine_kc_create, graph_engine_kc_destroy, graph_engine_kc_fact_counts,
+        graph_engine_kc_ingest_document,
         graph_engine_kc_last_error_code, graph_engine_kc_last_error_message,
         graph_engine_kc_move_block, graph_engine_kc_payload_kind, graph_engine_kc_payload_row,
         graph_engine_kc_payload_row_count, graph_engine_kc_payload_rows,
@@ -3875,6 +3916,33 @@ mod knowledge_core_ffi_tests {
         kind: u16,
         flags: u16,
         version: u64,
+    }
+
+    #[test]
+    fn knowledge_core_fact_counts_reflect_ingested_state() {
+        // Null core → all-zero, never a panic.
+        let zero = graph_engine_kc_fact_counts(std::ptr::null_mut());
+        assert_eq!((zero.blocks, zero.tasks, zero.properties, zero.links), (0, 0, 0, 0));
+
+        let core = graph_engine_kc_create(4, 2048, 91);
+        assert!(!core.is_null());
+
+        let before = graph_engine_kc_fact_counts(core);
+        assert_eq!(before.blocks, 0);
+
+        let page = CString::new("facts-1").expect("page id should be valid");
+        // Two outline blocks, one of which is a checkbox task.
+        let text = CString::new("- Alpha\n- [ ] Beta").expect("text should be valid");
+        assert_eq!(
+            graph_engine_kc_ingest_document(core, page.as_ptr(), 0, text.as_ptr()),
+            1
+        );
+
+        let after = graph_engine_kc_fact_counts(core);
+        assert_eq!(after.blocks, 2, "two outline blocks ingested");
+        assert_eq!(after.tasks, 1, "one checkbox task extracted");
+
+        graph_engine_kc_destroy(core);
     }
 
     #[test]
