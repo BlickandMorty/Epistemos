@@ -529,6 +529,22 @@ final class RetrievalRuntime {
     }
 }
 
+// MARK: - QueryExecutor
+
+/// Swappable query-execution seam — Slice 0 of the knowledge-core cutover
+/// (docs/plans/KNOWLEDGE_CORE_SHADOW_TO_PRODUCTION_CUTOVER_PLAN_2026_06_13.md).
+///
+/// `QueryRuntime` is the only conformer today; a knowledge-core-backed
+/// executor is introduced in a later slice behind a default-OFF flag. This is
+/// behavior-preserving: every existing caller passes a `QueryRuntime`, which
+/// already satisfies `any QueryExecutor`. No logic changes here.
+@MainActor
+protocol QueryExecutor: AnyObject {
+    func execute(_ plan: QueryPlan) -> QueryResult
+}
+
+extension QueryRuntime: QueryExecutor {}
+
 // MARK: - QueryRuntime
 // Executes QueryPlan against the appropriate backends.
 
