@@ -1,0 +1,116 @@
+# Knowledge-Core Shadow → Production Cutover Plan (2026-06-13)
+
+**Status:** PLAN / SCOPING. `state:candidate` per the Canon-Hardening Protocol —
+**implementation past Slice 0 requires explicit owner sign-off.** This document is
+blue-architecture proof only until promoted by the falsifiers + WRV + rollback
+machinery named below.
+
+**Author:** Claude (consolidate+drive session 2026-06-13). Grounded in a verified
+read of the live + staged paths (file:symbol refs below confirmed against source,
+not just agent assertion).
+
+Supersedes nothing. Background: `docs/plans/2026-03-19-knowledge-core-implementation-plan.md`
+(original KC build plan, pre-shadow). See `ARCHITECTURE_MAP.md` §1–§5 for the
+staged-vs-live split this plan closes.
+
+---
+
+## 1. Goal
+
+Promote the staged knowledge-core (KC) from a **shadow path that only collects
+metrics** to a **first-class driver of app query/UI state**, additively and behind
+a rollback flag, without regressing the live SwiftData → GraphStore → QueryRuntime
+path. Cut over the **read/query side first** (lowest blast radius); treat the
+write/parser-canonicalization side as a separate, later track.
+
+## 2. Verified current state
+
+### Live query path (the thing we must not break)
+```
+GraphStore mutation → .graphStoreDidChange → ReactiveQuery (35ms debounce)
+  → QueryRuntime.execute(plan) → RetrievalRuntime.fullText (Eidos/RRF/index)
+  → QueryResult → ReactiveQuery AsyncStream → QueryEngine.currentResult (@Observable @MainActor)
+  → SwiftUI (HologramSearchSidebar → QueryResultsView)
+```
+- `QueryEngine` — `Epistemos/Engine/QueryEngine.swift`: `private var runtime: QueryRuntime?` (l.29);
+  `resolvedRuntime()` **hardcodes** `let runtime = QueryRuntime(...)` (l.66–73). **No executor seam today.**
+- `QueryRuntime` — `Epistemos/Engine/QueryRuntime.swift:536` `final class`; single convergence
+  point `func execute(_ plan: QueryPlan) -> QueryResult` (l.560).
+- Precedent for DI swap: `PreparedRetrievalRuntimeResolving` protocol (QueryRuntime.swift:206) already
+  swaps *scorers*; flag-gating precedent: `EidosFlags` / RRF (`EPISTEMOS_RRF_FUSION_V1`).
+
+### Staged KC (real, off by default)
+- Rust `graph-engine/src/knowledge_core/`: `store.rs` (in-memory Cozo `DbInstance`, **no persistence**),
+  `parser.rs` (**line-based fallback only** — orgize/pulldown parser instantiated then discarded),
+  `ring.rs` (rkyv `QueryDiffEnvelope` over shared-mem ring), `crdt.rs` (Loro outline), `archived.rs`.
+- `QueryDiffEnvelope{ tx_id, subscription_id, kind: Outline|Tasks|Properties|Links, added/updated/removed }`.
+- 27 `graph_engine_kc_*` FFI entry points (subscribe / ingest / mutate / ring / payload).
+- Swift: `KnowledgeCoreShadowRuntime` (`Epistemos/Engine/KnowledgeCoreBridge.swift:916`) **polls the ring
+  and collects counters only** — does NOT drive SwiftData, search index, sidebar tree, or any view.
+- Flag: `deterministicKnowledgeCoreRuntime` (Log.swift:79 / env `EPISTEMOS_DETERMINISTIC_KNOWLEDGE_CORE_RUNTIME`
+  l.87, default **false**); `KnowledgeRuntimeAdapter.apply()` (KnowledgeCoreBridge.swift:177) gates on it.
+
+### The gap (one sentence)
+KC computes correct-shaped diffs and ships them to Swift, but **nothing consumes them as truth**, KC has
+**no persistence**, and its **parser diverges** from the live `BlockParser`.
+
+## 3. The seam decision
+
+Introduce one protocol at the single convergence point and route through it. This is the whole
+architectural move; everything else is filling it in.
+
+```swift
+// NEW Epistemos/Engine/QueryExecutor.swift
+@MainActor protocol QueryExecutor: AnyObject { func execute(_ plan: QueryPlan) -> QueryResult }
+extension QueryRuntime: QueryExecutor {}            // behavior-preserving conformance
+// QueryEngine.resolvedRuntime() returns `any QueryExecutor`, chosen by flag.
+```
+Why here: it's the *only* place all query kinds converge before `QueryResult`; it's already `@MainActor`;
+views bind to `QueryEngine.currentResult` and never see the executor; ReactiveQuery/GraphStore are untouched.
+
+## 4. Phased slices (each: flag · verification · rollback)
+
+- **Slice 0 — Enabling refactor (SAFE, signable now).** Add `QueryExecutor`; conform `QueryRuntime`
+  (zero logic change); `QueryEngine` holds `any QueryExecutor?`. No flag, no behavior change.
+  *Verify:* existing QueryEngine + ReactiveQuery tests stay green. *Rollback:* trivial (pure refactor).
+  *This is the only slice that does not implement candidate KC logic — safe to do on sign-off of this doc alone.*
+
+- **Slice 1 — Shadow-read parity harness.** `KnowledgeCoreQueryExecutor` for **Tasks only** (bounded,
+  structured). Behind new flag `EPISTEMOS_KNOWLEDGECORE_READ_V0` (default off): execute BOTH, **serve the
+  live result**, record agree/diverge in a `KnowledgeCoreParityHealthRow` (mirror `SearchFusionHealthRow`).
+  *Verify:* new falsifier `F-KnowledgeCoreReadParity` — parity ≥ threshold over a fixture corpus; zero
+  user-visible change. *Rollback:* flag off.
+
+- **Slice 2 — Persistence (prerequisite to truth).** KC is in-memory only; pick ONE: persisted Cozo backend,
+  or a replay transaction log + snapshot. KC cannot be a source of truth across sessions without this.
+  *Verify:* restart-replay parity test. *Rollback:* flag off → falls back to live path. (Heaviest slice; may
+  be scoped/deferred — Slices 1/3 can run session-local first.)
+
+- **Slice 3 — Promote one read surface.** With Slice 1 parity green + Slice 2 persistence, flip the flag to
+  **serve** KC Tasks results in one surface, instant rollback. AnswerPacket + WRV visible per the proof culture.
+
+- **Slice 4+ — Broaden.** Outline → Notes sidebar tree; Properties; Links. Each repeats Slice-1→3 shadow→promote.
+
+- **Separate track — Parser canonicalization.** Replace `parser.rs` line-based fallback with the
+  event-normalized AST. **Prerequisite to promoting Outline** (today KC outline diverges from `BlockParser`).
+  Do not couple to the read-side cutover.
+
+## 5. Risks → mitigations
+- **Parser divergence** (line-based KC vs `BlockParser`) → parity harness (Slice 1) catches it; gate Outline
+  promotion on the parser track.
+- **No persistence** → Slice 2 gates any "source of truth" promotion; Slice 1/3 stay session-local until then.
+- **Main-thread block** from ring polling → keep KC executor off the hot path; reuse the existing background
+  drain in `KnowledgeCoreShadowRuntime`; assert no `@MainActor` sync waits.
+- **Dual-run cost** during shadow → Tasks-only scope + sampling; flag default off.
+
+## 6. Sign-off gate (Canon-Hardening)
+- **Safe on sign-off of THIS doc:** Slice 0 (pure refactor).
+- **Requires explicit owner approval + the full machinery** (falsifier, RunEventLog, AnswerPacket, rollback,
+  WRV, MAS/Pro boundary review): Slices 1–4 and the parser track. Each promotion is L3-gated; **L1 source-guard
+  green is blue proof only**, never a green/usable claim.
+
+## 7. Test strategy
+- Slice 0: existing `QueryEngineTests` / `ReactiveQueryTests` unchanged + green.
+- Slice 1+: new `KnowledgeCoreQueryExecutorTests` (mock ring fixtures) + `F-KnowledgeCoreReadParity` falsifier
+  artifact under `artifacts/falsifiers/`; parity health row mirrors the Search Fusion observability shape.
+- No SwiftUI consumer test changes (views are insulated from the executor by design).
