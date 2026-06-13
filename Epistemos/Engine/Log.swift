@@ -81,6 +81,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
         static let rawThoughtsBulkLane = "rawThoughtsBulkLane"
         static let staticArtifactRouting = "staticArtifactRouting"
         static let graphEdgePrefetch = "graphEdgePrefetch"
+        static let knowledgeCoreReadParityV0 = "knowledgeCoreReadParityV0"
     }
 
     enum EnvironmentKey {
@@ -89,6 +90,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
         static let rawThoughtsBulkLane = "EPISTEMOS_RAW_THOUGHTS_BULK_LANE"
         static let staticArtifactRouting = "EPISTEMOS_STATIC_ARTIFACT_ROUTING"
         static let graphEdgePrefetch = "EPISTEMOS_GRAPH_EDGE_PREFETCH"
+        static let knowledgeCoreReadParityV0 = "EPISTEMOS_KNOWLEDGECORE_READ_V0"
     }
 
     let deterministicKnowledgeCoreRuntime: Bool
@@ -96,13 +98,15 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
     let rawThoughtsBulkLane: Bool
     let staticArtifactRouting: Bool
     let graphEdgePrefetch: Bool
+    let knowledgeCoreReadParityV0: Bool
 
     static let disabled = EpistemosRuntimeFeatureFlags(
         deterministicKnowledgeCoreRuntime: false,
         borrowedKnowledgeRows: false,
         rawThoughtsBulkLane: false,
         staticArtifactRouting: false,
-        graphEdgePrefetch: false
+        graphEdgePrefetch: false,
+        knowledgeCoreReadParityV0: false
     )
 
     static func load(
@@ -137,6 +141,12 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
             graphEdgePrefetch: flag(
                 Key.graphEdgePrefetch,
                 environmentKey: EnvironmentKey.graphEdgePrefetch,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            knowledgeCoreReadParityV0: flag(
+                Key.knowledgeCoreReadParityV0,
+                environmentKey: EnvironmentKey.knowledgeCoreReadParityV0,
                 userDefaults: userDefaults,
                 environment: environment
             )
