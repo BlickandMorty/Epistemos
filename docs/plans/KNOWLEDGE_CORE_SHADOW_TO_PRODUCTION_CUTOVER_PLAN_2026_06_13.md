@@ -243,8 +243,14 @@ byte size). Honest `VerifiedFloorChipStrip`: `productionWired:false`, shadow-onl
 user-visible surface yet." Tests: `knowledge_core_fact_counts_reflect_ingested_state` (Rust),
 `bridgeFactCountsReflectIngestedState` + `shadowRuntimePersistsThroughOplogPath` (Swift).
 
+**Edit-tracking LANDED.** `reingestKnowledgeCorePageIfReady(pageId:)` fires on `.vaultPageChanged`
+(the same debounced save signal the shadow reindex uses) and re-ingests the changed page, so the
+KC projection tracks the live vault between launches instead of going stale after the one-time
+seed. Re-ingest is a `store.replace_page` (idempotent block replace, NOT append — locked by
+`bridgeReingestReplacesBlocks`) and journals one mutation per save. Fast-path: the runtime is nil
+when the flag is off, so the default build short-circuits every save with no flags read.
+
 **Still ahead (step 3 — the cutover proper, dev-cert-gated):** subscribe a real SwiftUI surface
 (Notes outline / task list / sidebar) to the runtime's projected diffs, build it flag-off, then
-verify on `Product ▸ Run` before any promotion. Incremental note-edit → KC mutation wiring (so KC
-tracks edits without a full re-seed) is the other half of making KC authoritative; until then KC
-trusts its persisted projection, which is safe precisely because it is shadow-only.
+verify on `Product ▸ Run` before any promotion. Oplog compaction/snapshotting (Slice 2 deferred)
+becomes worthwhile once edit volume is high — per-edit append growth is fine while shadow-only.

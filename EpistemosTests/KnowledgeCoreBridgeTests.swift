@@ -105,6 +105,26 @@ struct KnowledgeCoreBridgeTests {
         #expect(counts.tasks == 1)
     }
 
+    @Test("re-ingesting a page replaces its blocks rather than appending (Slice 3 edit tracking)")
+    func bridgeReingestReplacesBlocks() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 37))
+        #expect(await bridge.ingestDocument(
+            pageId: "edit-1",
+            format: .markdown,
+            text: "- One\n- Two\n- Three"
+        ))
+        #expect(await bridge.factCounts().blocks == 3)
+
+        // Edit: same page id, fewer blocks. The edit-tracking path re-ingests on
+        // every save, so this MUST replace the page's blocks, not append them.
+        #expect(await bridge.ingestDocument(
+            pageId: "edit-1",
+            format: .markdown,
+            text: "- Only"
+        ))
+        #expect(await bridge.factCounts().blocks == 1, "re-ingest replaces the page's blocks")
+    }
+
     @Test("outline payload decoding covers added updated and removed sections")
     func outlinePayloadDecodingCoversAllSections() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 16))
