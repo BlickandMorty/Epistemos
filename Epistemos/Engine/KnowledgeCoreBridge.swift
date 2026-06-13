@@ -338,7 +338,8 @@ actor KnowledgeCoreBridge {
     init?(
         slotCount: UInt32 = 0,
         slotPayloadBytes: UInt32 = 0,
-        peerId: UInt64 = 1
+        peerId: UInt64 = 1,
+        oplogPath: String? = nil
     ) {
         guard let core = graph_engine_kc_create(slotCount, slotPayloadBytes, peerId) else {
             Log.ffiBoundary.fault("KnowledgeCoreBridge creation returned a null core")
@@ -349,6 +350,12 @@ actor KnowledgeCoreBridge {
                 metadata: ["peerId": "\(peerId)"]
             )
             return nil
+        }
+
+        // Slice 2 persistence: replay any prior command log + enable durable
+        // logging of future mutations. Off unless a path is supplied.
+        if let oplogPath {
+            _ = oplogPath.withCString { graph_engine_kc_enable_persistence(core, $0) }
         }
 
         let region = graph_engine_kc_ring_region(core)

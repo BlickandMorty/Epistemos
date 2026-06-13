@@ -2789,6 +2789,30 @@ pub extern "C" fn graph_engine_kc_create(
     })
 }
 
+/// Replay an existing on-disk command log into `core`, then enable durable
+/// logging of future mutations to it. Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_kc_enable_persistence(
+    core: *mut KnowledgeCore,
+    oplog_path: *const c_char,
+) -> u8 {
+    ffi_catch_unwind_or!("graph_engine_kc_enable_persistence", 0, {
+        if core.is_null() || oplog_path.is_null() {
+            return 0;
+        }
+        // SAFETY: `core` is non-null (checked) and borrowed mutably only for this call.
+        let core = unsafe { &mut *core };
+        // SAFETY: `oplog_path` is non-null (checked) and a valid NUL-terminated C string from Swift.
+        let Ok(path) = (unsafe { CStr::from_ptr(oplog_path) }).to_str() else {
+            return 0;
+        };
+        let path = path.to_string();
+        core.replay_from_oplog(&path);
+        core.enable_oplog(path);
+        1
+    })
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_destroy(core: *mut KnowledgeCore) {
     ffi_catch_unwind!("graph_engine_kc_destroy", {

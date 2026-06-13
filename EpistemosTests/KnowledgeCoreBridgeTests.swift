@@ -31,6 +31,34 @@ struct KnowledgeCoreBridgeTests {
         #expect(payload.added.map(\.content) == ["First", "Second"])
     }
 
+    @Test("knowledge-core bridge persists + replays mutations across a restart")
+    func bridgePersistsAndReplaysAcrossRestart() async throws {
+        let path = NSTemporaryDirectory() + "epistemos-kc-bridge-\(UUID().uuidString).jsonl"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        // Session 1: a persistence-enabled bridge ingests a page, then is released.
+        do {
+            let bridge = try #require(KnowledgeCoreBridge(peerId: 31, oplogPath: path))
+            _ = await bridge.subscribeOutline(pageId: "persist-1")
+            _ = await bridge.drainPayloads()
+            #expect(await bridge.ingestDocument(
+                pageId: "persist-1",
+                format: .markdown,
+                text: "- Alpha\n- Beta"
+            ))
+        }
+
+        // Session 2: a fresh bridge on the same oplog replays it on startup, so
+        // subscribing to the page yields the 2 reconstructed outline blocks.
+        let restored = try #require(KnowledgeCoreBridge(peerId: 32, oplogPath: path))
+        let subscriptionId = await restored.subscribeOutline(pageId: "persist-1")
+        #expect(subscriptionId != nil)
+        let blocks = (await restored.drainPayloads())
+            .filter { $0.kind == .outline }
+            .flatMap(\.added)
+        #expect(blocks.count == 2)
+    }
+
     @Test("outline payload decoding covers added updated and removed sections")
     func outlinePayloadDecodingCoversAllSections() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 16))
