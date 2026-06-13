@@ -250,7 +250,24 @@ seed. Re-ingest is a `store.replace_page` (idempotent block replace, NOT append 
 `bridgeReingestReplacesBlocks`) and journals one mutation per save. Fast-path: the runtime is nil
 when the flag is off, so the default build short-circuits every save with no flags read.
 
+## 13. Oplog compaction LANDED (Slice 2.4 — bounds per-edit growth)
+
+The edit-tracking path appends one ingest per save, so the log grew unbounded over a long-lived
+vault. `OpLog::compact()` collapses it to its minimal state-equivalent form: since
+`IngestDocument` is a full `replace_page`, each page's LAST ingest is a reset point — every command
+recorded before it is dead and dropped; commands after it (block insert/move/delete) are kept in
+order; pages with no ingest keep everything. Replaying the compacted log reproduces identical
+state. Rewrite is crash-safe (temp file + atomic rename — a mid-write crash leaves the original log
+intact). Wired into `graph_engine_kc_enable_persistence` so the log is bounded on every
+persistence-enabled open (no-op when already minimal). N edits of one page → one ingest.
+
+Tests (9, all green): 8 `compaction_tests` units (empty, repeated-collapse, pre-ingest-dropped,
+post-ingest-kept-in-order, independent-per-page, idempotent, no-ingest-keep-all, rewrite-round-trip)
++ `oplog_compaction_collapses_edits_but_preserves_state` integration (4 ingests → compact → 2 →
+replay → identical fact counts). Rust KC suite 49/49.
+
 **Still ahead (step 3 — the cutover proper, dev-cert-gated):** subscribe a real SwiftUI surface
 (Notes outline / task list / sidebar) to the runtime's projected diffs, build it flag-off, then
-verify on `Product ▸ Run` before any promotion. Oplog compaction/snapshotting (Slice 2 deferred)
-becomes worthwhile once edit volume is high — per-edit append growth is fine while shadow-only.
+verify on `Product ▸ Run` before any promotion. This is the only remaining KC-cutover work that is
+NOT headless-verifiable; everything below it (persistence, instantiate, seed, read API, edit-track,
+compaction) is landed + verified.

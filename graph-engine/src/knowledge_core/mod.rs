@@ -368,6 +368,27 @@ impl KnowledgeCore {
         applied
     }
 
+    /// Compact the durable oplog in place to its minimal state-equivalent form,
+    /// dropping commands a later full-page ingest superseded. Bounds long-run log
+    /// growth from per-edit re-ingests (N edits of one page collapse to one
+    /// ingest). No-op unless persistence is enabled and the log actually shrinks;
+    /// the rewrite is atomic (temp + rename). Returns (before, after) counts.
+    pub fn compact_oplog(&mut self) -> (usize, usize) {
+        let Some(path) = self.oplog.as_ref().map(|oplog| oplog.path().to_path_buf()) else {
+            return (0, 0);
+        };
+        let original = OpLog::read_all(&path);
+        let compacted = OpLog::compact(&original);
+        if compacted.len() < original.len() {
+            if let Err(error) = OpLog::new(&path).rewrite(&compacted) {
+                self.last_error_message =
+                    format!("knowledge-core oplog compaction failed: {error}");
+                return (original.len(), original.len());
+            }
+        }
+        (original.len(), compacted.len())
+    }
+
     /// Re-apply a logged command (replay path). Dispatches to the live mutation
     /// methods; does not itself log (oplog must be None during replay).
     pub fn apply_command(&mut self, command: &MutationCommand) -> Result<(), KnowledgeCoreError> {
@@ -494,6 +515,42 @@ mod oplog_tests {
             empty.replay_from_oplog(std::env::temp_dir().join("epistemos-kc-nope.jsonl"));
         assert_eq!(applied_none, 0);
         assert_eq!(empty.fact_counts(), (0, 0, 0, 0));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn oplog_compaction_collapses_edits_but_preserves_state() {
+        let path = std::env::temp_dir()
+            .join(format!("epistemos_kc_compact_int_{}.jsonl", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+
+        // Original session: "edit" p1 three times (each re-ingest replaces the
+        // page) plus a separate page p2 — exactly the per-edit re-ingest pattern.
+        let (final_counts, before, after) = {
+            let mut kc = KnowledgeCore::new(0, 0, 1).expect("kc");
+            kc.enable_oplog(path.clone());
+            kc.ingest_document("p1", DocumentFormat::Markdown, "- one")
+                .expect("p1 v1");
+            kc.ingest_document("p1", DocumentFormat::Markdown, "- one\n- two")
+                .expect("p1 v2");
+            kc.ingest_document("p1", DocumentFormat::Markdown, "- final")
+                .expect("p1 v3");
+            kc.ingest_document("p2", DocumentFormat::Markdown, "- C")
+                .expect("p2");
+            let counts = kc.fact_counts();
+            let (before, after) = kc.compact_oplog();
+            (counts, before, after)
+        };
+
+        assert_eq!(before, 4, "four ingests recorded");
+        assert_eq!(after, 2, "three p1 edits collapse to one, plus p2");
+
+        // Restart from the COMPACTED log → identical fact state.
+        let mut restored = KnowledgeCore::new(0, 0, 2).expect("kc");
+        let applied = restored.replay_from_oplog(&path);
+        assert_eq!(applied, 2);
+        assert_eq!(restored.fact_counts(), final_counts);
 
         let _ = std::fs::remove_file(&path);
     }
