@@ -982,6 +982,7 @@ private struct GeneralDetailView: View {
                 ProcessMemoryHealthRow()
                 ArenaHealthRow()
                 OpLogProjectionHealthRow()
+                KnowledgeCoreReadParityHealthRow()
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
                 AgentBlueprintSettingsView()
