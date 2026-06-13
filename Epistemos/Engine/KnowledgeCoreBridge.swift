@@ -104,6 +104,49 @@ nonisolated struct KnowledgeCoreTaskParitySummary: Sendable, Equatable {
     }
 }
 
+/// Aggregate KC-vs-live task parity over a corpus of notes. Drives the
+/// (flag-gated) read-side shadow probe; the same machinery runs over a fixture
+/// corpus headlessly or the real vault when `EPISTEMOS_KNOWLEDGECORE_READ_V0`
+/// is enabled. See docs/plans/KNOWLEDGE_CORE_SHADOW_TO_PRODUCTION_CUTOVER_PLAN_2026_06_13.md.
+nonisolated struct KnowledgeCoreReadParityReport: Sendable, Equatable {
+    let noteCount: Int
+    let taskParityMatches: Int
+    var divergentNoteCount: Int { max(0, noteCount - taskParityMatches) }
+    var parityRate: Double { noteCount == 0 ? 1.0 : Double(taskParityMatches) / Double(noteCount) }
+}
+
+enum KnowledgeCoreReadParityProbe {
+    /// Ingest each note into KC and compare its task count against the live
+    /// extractor (injected, so this stays decoupled from the @MainActor
+    /// TextCapturePipeline). Per-note page-scoped subscribe→drain→ingest→drain
+    /// mirrors the verified single-note path. Read-only; never mutates app state.
+    nonisolated static func taskParity(
+        over corpus: [(pageId: String, text: String)],
+        bridge: KnowledgeCoreBridge,
+        liveTaskCounts: @Sendable (String) async -> KnowledgeCoreTaskParitySummary
+    ) async -> KnowledgeCoreReadParityReport {
+        var matches = 0
+        for note in corpus {
+            _ = await bridge.subscribeTasks(pageId: note.pageId)
+            _ = await bridge.drainPayloads()
+            _ = await bridge.ingestDocument(
+                pageId: note.pageId,
+                format: .markdown,
+                text: note.text
+            )
+            let kcRows = (await bridge.drainPayloads())
+                .filter { $0.kind == .tasks }
+                .flatMap(\.added)
+            let kc = KnowledgeCoreTaskParitySummary(knowledgeCoreTaskRows: kcRows)
+            let live = await liveTaskCounts(note.text)
+            if kc.total == live.total {
+                matches += 1
+            }
+        }
+        return KnowledgeCoreReadParityReport(noteCount: corpus.count, taskParityMatches: matches)
+    }
+}
+
 nonisolated struct KnowledgeCorePayloadSnapshot: Sendable, Equatable {
     let txId: UInt64
     let subscriptionId: UInt64
