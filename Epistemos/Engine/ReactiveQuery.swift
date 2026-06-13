@@ -9,7 +9,7 @@ import Combine
 @MainActor
 final class ReactiveQuery {
 
-    private let runtime: QueryRuntime
+    private let runtime: any QueryExecutor
     private let plan: QueryPlan
     private let dependencies: Set<QueryDependencyKey>
     private var streamToken = UUID()
@@ -22,7 +22,7 @@ final class ReactiveQuery {
     // on top of upstream mutations.
     private let debounceInterval: Duration = .milliseconds(35)
 
-    init(runtime: QueryRuntime, plan: QueryPlan) {
+    init(runtime: any QueryExecutor, plan: QueryPlan) {
         self.runtime = runtime
         self.plan = plan
         self.dependencies = plan.dependencies
@@ -147,13 +147,13 @@ extension Notification.Name {
 
 extension ReactiveQuery {
     /// Create a reactive query from a QueryAST (auto-compiles to plan).
-    convenience init(runtime: QueryRuntime, ast: QueryAST) {
+    convenience init(runtime: any QueryExecutor, ast: QueryAST) {
         self.init(runtime: runtime, plan: QueryCompiler.compile(ast))
     }
 
     /// Create a reactive query from a string query (auto-parses and compiles).
     /// Routes ?-prefix to StructuredQueryParser, natural language to QueryParser.
-    convenience init?(runtime: QueryRuntime, query: String) {
+    convenience init?(runtime: any QueryExecutor, query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
