@@ -198,14 +198,6 @@ public final class ConversationStateClassifier {
         priorState: ConversationState?,
         turnNumber: Int
     ) async throws -> ConversationState {
-        // AP6 — shared AFM session pool. Each AFM-backed classifier
-        // gets its own pool entry keyed on (useCase, instructions
-        // hash) so the daemon shares weights across all four.
-        let session = await AFMSessionPool.shared.session(
-            useCase: .contentTagging,
-            instructions: Self.systemPrompt,
-            useCaseLabel: "ConversationStateClassifier"
-        )
         var prompt = """
         Update the ConversationState. Current turn number: \(turnNumber).
         Recent transcript:
@@ -216,12 +208,19 @@ public final class ConversationStateClassifier {
            let priorString = String(data: priorJSON, encoding: .utf8) {
             prompt += "\n\nPrior state to merge into:\n\(priorString)"
         }
+        // Immutable snapshot so the @Sendable generation closure captures a
+        // constant, not the mutable `prompt` var.
+        let finalPrompt = prompt
         do {
-            let response = try await session.respond(
-                to: prompt,
-                generating: ConversationState.self
-            )
-            return response.content
+            // AP6 — shared warm session, serialized via the pool so AFM is never
+            // entered concurrently (see AFMSessionPool.withSession).
+            return try await AFMSessionPool.shared.withSession(
+                useCase: .contentTagging,
+                instructions: Self.systemPrompt,
+                useCaseLabel: "ConversationStateClassifier"
+            ) { s in
+                try await s.respond(to: finalPrompt, generating: ConversationState.self).content
+            }
         } catch let error as LanguageModelSession.GenerationError {
             throw SteneoError.modelRefused(String(describing: error))
         } catch {

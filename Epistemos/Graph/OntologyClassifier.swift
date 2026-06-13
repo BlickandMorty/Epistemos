@@ -258,24 +258,7 @@ public final class OntologyClassifier {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() async -> LanguageModelSession {
-        // AP6 — share warm sessions across all AFM-backed classifiers
-        // via AFMSessionPool. The pool key is (useCase, instructions
-        // hash) so OntologyClassifier and SessionTelemetryClassifier
-        // (different instructions) get separate sessions, but two
-        // OntologyClassifier calls share one. Saves ~40% tokens +
-        // ~5.7× latency cut across the trio per the perf agent's
-        // measurement.
-        await AFMSessionPool.shared.session(
-            useCase: .contentTagging,
-            instructions: Self.systemPrompt,
-            useCaseLabel: "OntologyClassifier"
-        )
-    }
-
-    @available(macOS 26.0, *)
     private func runAFM(_ text: String) async throws -> OntologyNode {
-        let s = await ensureSession()
         let prompt = """
         Classify this input into one parent domain and one primary child
         concept. Respond with the OntologyNode schema — the framework
@@ -285,15 +268,20 @@ public final class OntologyClassifier {
         \(text)
         """
         do {
-            // Canonical structured-output path: respond(to:generating:)
-            // returns Response<OntologyNode> with token-level constraint
-            // masking against the @Generable schema. No JSON round-trip
-            // needed; no markdown-fence stripping required.
-            let response = try await s.respond(
-                to: prompt,
-                generating: OntologyNode.self
-            )
-            return response.content
+            // AP6 — share warm sessions across AFM-backed classifiers via
+            // AFMSessionPool, routed through withSession so AFM generation is
+            // serialized (two OntologyClassifier calls would otherwise share one
+            // one-request-at-a-time session and trap inside FoundationModels).
+            // Canonical structured-output path: respond(to:generating:) returns
+            // Response<OntologyNode> with token-level constraint masking against
+            // the @Generable schema — no JSON round-trip / fence stripping.
+            return try await AFMSessionPool.shared.withSession(
+                useCase: .contentTagging,
+                instructions: Self.systemPrompt,
+                useCaseLabel: "OntologyClassifier"
+            ) { s in
+                try await s.respond(to: prompt, generating: OntologyNode.self).content
+            }
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error {
                 throw ClassifyError.decodeFailed(
