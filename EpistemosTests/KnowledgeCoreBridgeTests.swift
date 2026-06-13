@@ -164,6 +164,45 @@ struct KnowledgeCoreBridgeTests {
         #expect(kcSummary.matches(liveSummary))
     }
 
+    @Test("tracked divergence: live recognizes prefix tasks knowledge-core does not")
+    func livePipelineRecognizesPrefixTasksKnowledgeCoreDoesNot() async throws {
+        // KC parses "[ ]/[x]/TODO <space>/DONE <space>"; the live pipeline ALSO
+        // recognizes "FIXME:/ACTION:/TASK:/TODO:" colon prefixes. This asymmetry
+        // is a tracked gap — checkbox tasks are the safe first cutover surface;
+        // prefix/outline parity is gated on parser canonicalization (separate track).
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 23))
+        let subscriptionId = await bridge.subscribeTasks(pageId: "tasks-divergence")
+        #expect(subscriptionId != nil)
+        _ = await bridge.drainPayloads()
+
+        let text = "- [x] shipped\nFIXME: investigate the leak"
+        #expect(await bridge.ingestDocument(
+            pageId: "tasks-divergence",
+            format: .markdown,
+            text: text
+        ))
+
+        let kcSummary = KnowledgeCoreTaskParitySummary(
+            knowledgeCoreTaskRows: (await bridge.drainPayloads())
+                .filter { $0.kind == .tasks }
+                .flatMap(\.added)
+        )
+        let liveSummary = await MainActor.run {
+            let live = TextCapturePipeline().extractTasks(from: text)
+            return KnowledgeCoreTaskParitySummary(
+                total: live.count,
+                done: live.filter(\.isCompleted).count
+            )
+        }
+
+        // Live finds the checkbox AND the FIXME: prefix; KC finds only the
+        // checkbox. Robust (count-direction) assertion of the tracked gap.
+        #expect(liveSummary.total >= 2)
+        #expect(kcSummary.total >= 1)
+        #expect(kcSummary.total < liveSummary.total)
+        #expect(!kcSummary.matches(liveSummary))
+    }
+
     @Test("shadow runtime batches summaries onto MainActor state")
     func shadowRuntimeBatchesSummaries() async throws {
         let runtime = try await MainActor.run {
