@@ -147,4 +147,10 @@ Green floor: `cargo test --lib knowledge_core` = **37 passed / 0 failed** (parse
 - **(B) Remove dead stubs** — safe perf cleanup now; re-add proper AST parsing when (A) is scheduled.
 - **(C) Defer canon; close the prefix gap additively** in the line-based parser instead — but only after confirming KC's task target (TextCapturePipeline vs BlockParser; the impedance question), which fixes the parity direction.
 
-No parser changes made; held for owner.
+No parser changes made at scoping time; held for owner.
+
+**RESOLVED 2026-06-13 (by data, no longer held).** Decided (C), rejected (A):
+- KC's `parse_task_state` now recognizes `TODO:/FIXME:/ACTION:/TASK:` colon prefixes (`f69e90923e`), closing the markdown task divergence — KC ≅ live `TextCapturePipeline` on tasks.
+- An outline parity test (`knowledgeCoreOutlineMatchesLiveBlockParser`) confirms **KC outline ≅ the live `BlockParser`, both line-based** (one block per non-empty line, equal counts).
+- Therefore the AST canonicalization (A) is **NOT needed** for cutover parity and would actually *diverge* from the line-based live model. The line-based parser is the correct cutover target.
+- Only remaining parser cleanup: optionally delete the dead `_parser`/`_org` stubs (B, a per-ingest perf win). The owner fork is closed — **no AST rewrite**.
