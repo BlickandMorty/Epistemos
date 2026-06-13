@@ -324,3 +324,31 @@ make the TOC DISPLAY KC's projected items, sourced from the shared seeded runtim
 This is the final cutover step. Everything beneath it (persistence, instantiate, seed, read APIs,
 edit-track, compaction, outline read + preview, app-wide AFM serialization, NL-embedding fix) is
 landed + verified, with the headline pieces live-validated on the real vault.
+
+### 15.1 CORRECTION — the heading-TOC is the wrong cutover target (model mismatch)
+
+Reading `TOCItem` invalidates §15 step 1's "drive the TOC from `pageOutline`": `TOCItem` is
+`{level: 1–5 (markdown heading), title, charOffset (scroll target), kind}` and the TOC shows ONLY
+headings. KC's `pageOutline` returns EVERY block with outline `depth` — no markdown heading level
+and no char offset. The two are different abstractions:
+
+- Heading-TOC: sparse headings + char offsets, for jump-to-section navigation.
+- KC outline: every block + nesting depth, the document's full structural projection.
+
+That mismatch is exactly why the existing `deterministicKnowledgeCoreRuntime` path keeps
+`items = fallbackHeadings` — KC's block outline can't directly populate a heading-TOC. So the
+production cutover is a PRODUCT DECISION, not a mechanical wire-up. Two honest options:
+
+1. **New block-outline surface (preferred):** promote `KnowledgeCoreOutlinePreview` into a real
+   Notes block-navigator / sidebar that shows the full block structure (KC's native model). KC
+   drives a surface that MATCHES it; the heading-TOC keeps its regex headings. Lowest risk, no KC
+   schema change, and the preview is already that surface in diagnostic form.
+2. **Extend KC to feed the heading-TOC:** add char-offset + heading-level to the block facts
+   (parser already sees the markdown line, so heading level is derivable; char offset needs the
+   ingest to record byte spans). Then the heading-TOC can read headings-with-offsets from KC.
+   Larger (KC schema + parser + FFI change) and only worth it to retire the regex parser.
+
+Recommendation: option 1 — KC drives a block-navigator, not the heading-TOC. Needs a one-line
+product call on WHERE that navigator lives (new sidebar panel vs. an outline mode in the editor)
+before building, so this is the genuine "needs the user" fork. Everything up to here is built +
+verified + live-validated; the next step is that product decision.
