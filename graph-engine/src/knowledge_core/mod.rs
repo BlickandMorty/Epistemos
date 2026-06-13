@@ -433,6 +433,12 @@ impl KnowledgeCore {
         self.store.fact_counts()
     }
 
+    /// A page's outline rows (block_id, depth, content) in document order. The
+    /// synchronous content read the UI cutover binds to (see Store::page_outline).
+    pub fn page_outline(&self, page_id: &str) -> Vec<crate::knowledge_core::store::OutlineRowData> {
+        self.store.page_outline(page_id)
+    }
+
     fn subscribe(&mut self, spec: SubscriptionSpec) -> Result<u64, KnowledgeCoreError> {
         let (subscription_id, initial) = self.store.subscribe(spec)?;
         self.publish_diff(&initial)?;
@@ -553,5 +559,32 @@ mod oplog_tests {
         assert_eq!(restored.fact_counts(), final_counts);
 
         let _ = std::fs::remove_file(&path);
+    }
+}
+
+#[cfg(test)]
+mod read_api_tests {
+    use super::*;
+
+    #[test]
+    fn page_outline_returns_ordered_content_rows() {
+        let mut kc = KnowledgeCore::new(0, 0, 1).expect("kc");
+        kc.ingest_document("p1", DocumentFormat::Markdown, "- Alpha\n- Beta\n- Gamma")
+            .expect("ingest p1");
+        kc.ingest_document("p2", DocumentFormat::Markdown, "- Other")
+            .expect("ingest p2");
+
+        let outline = kc.page_outline("p1");
+        // Three blocks for p1, in document order, with their content.
+        assert_eq!(outline.len(), 3);
+        let contents: Vec<&str> = outline.iter().map(|r| r.content.as_str()).collect();
+        assert!(contents[0].contains("Alpha"));
+        assert!(contents[1].contains("Beta"));
+        assert!(contents[2].contains("Gamma"));
+        // Page isolation: p2's block is not in p1's outline.
+        assert!(outline.iter().all(|r| !r.content.contains("Other")));
+
+        // Unknown page → empty, never a panic.
+        assert!(kc.page_outline("nope").is_empty());
     }
 }

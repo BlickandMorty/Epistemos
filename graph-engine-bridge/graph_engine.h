@@ -856,6 +856,11 @@ uint8_t graph_engine_kc_enable_persistence(KnowledgeCore* core, const char* oplo
 /// On a null core or panic returns all-zero counts.
 KnowledgeCoreFactCountsFFI graph_engine_kc_fact_counts(KnowledgeCore* core);
 
+/// A page's outline as a JSON array of {block_id, depth, content} in document
+/// order. Returns a heap C string the caller MUST free with
+/// graph_engine_free_string; null on a null core/page or panic; "[]" if empty.
+const char* graph_engine_kc_page_outline_json(KnowledgeCore* core, const char* page_id);
+
 /// Destroy a knowledge core and release the mapped ring buffer.
 void graph_engine_kc_destroy(KnowledgeCore* core);
 

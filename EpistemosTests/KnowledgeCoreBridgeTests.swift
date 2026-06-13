@@ -105,6 +105,25 @@ struct KnowledgeCoreBridgeTests {
         #expect(counts.tasks == 1)
     }
 
+    @Test("bridge reads a page's outline in document order (Slice 3 UI read path)")
+    func bridgeReadsPageOutline() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 38))
+        #expect(await bridge.ingestDocument(
+            pageId: "outline-1",
+            format: .markdown,
+            text: "- Alpha\n- Beta\n- Gamma"
+        ))
+
+        let rows = await bridge.pageOutline(pageId: "outline-1")
+        #expect(rows.count == 3)
+        #expect(rows[0].content.contains("Alpha"))
+        #expect(rows[1].content.contains("Beta"))
+        #expect(rows[2].content.contains("Gamma"))
+
+        // Unknown page → empty, no decode crash.
+        #expect(await bridge.pageOutline(pageId: "missing").isEmpty)
+    }
+
     @Test("re-ingesting a page replaces its blocks rather than appending (Slice 3 edit tracking)")
     func bridgeReingestReplacesBlocks() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 37))
