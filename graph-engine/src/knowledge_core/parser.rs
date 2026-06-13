@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
 use memchr::memmem;
-use orgize::Org;
-use pulldown_cmark::{Options, Parser};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DocumentFormat {
@@ -71,12 +69,13 @@ pub fn parse_document(page_id: &str, format: DocumentFormat, text: &str) -> Norm
 }
 
 fn parse_markdown(page_id: &str, text: &str) -> NormalizedDocument {
-    let _parser = Parser::new_ext(text, Options::all());
+    // Line-based by design: outline parity with the live (also line-based)
+    // BlockParser requires it — an AST parse here would diverge. See the cutover
+    // plan §9 (parser canonicalization fork resolved 2026-06-13: no AST rewrite).
     parse_lines(page_id, text.lines(), Syntax::Markdown)
 }
 
 fn parse_org(page_id: &str, text: &str) -> NormalizedDocument {
-    let _org = Org::parse(text);
     parse_lines(page_id, text.lines(), Syntax::Org)
 }
 
