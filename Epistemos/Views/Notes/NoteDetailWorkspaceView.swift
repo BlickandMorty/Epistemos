@@ -615,6 +615,9 @@ struct NoteDetailWorkspaceView: View {
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
+    /// KC block-outline rows for the outline panel's Blocks mode (Slice 3 cutover,
+    /// Option 1). Empty unless the knowledgeCoreRuntimeV0 runtime is standing.
+    @State private var blockOutlineItems: [TOCItem] = []
     @State private var hasModelDerivedSidecar = false
     @State private var deterministicOutlineState: KnowledgeCoreOutlineProjectionState
     @State private var wordCountDebounce: Task<Void, Never>?
@@ -999,7 +1002,8 @@ struct NoteDetailWorkspaceView: View {
                     onNavigate: { charOffset in
                         scrollEditorTo(charOffset: charOffset)
                     },
-                    externalItems: tocItems.isEmpty ? nil : tocItems
+                    externalItems: tocItems.isEmpty ? nil : tocItems,
+                    blockItems: blockOutlineItems.isEmpty ? nil : blockOutlineItems
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1586,6 +1590,14 @@ struct NoteDetailWorkspaceView: View {
                 if tocItems != nextHeadings {
                     tocItems = nextHeadings
                 }
+            }
+            // Slice 3 cutover (Option 1) — KC block outline for the panel's Blocks
+            // mode. Returns [] when the knowledgeCoreRuntimeV0 runtime is off, so
+            // this is inherently flag-gated and the panel keeps headings-only.
+            let nextBlocks = await KnowledgeCoreBlockOutline.items(pageId: pageId, markdown: body)
+            guard !Task.isCancelled else { return }
+            if blockOutlineItems != nextBlocks {
+                blockOutlineItems = nextBlocks
             }
         }
     }
