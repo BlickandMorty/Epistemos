@@ -75,6 +75,35 @@ nonisolated struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
     let taskDone: Bool
 }
 
+/// Count-level parity summary for knowledge-core Task rows — the empirical
+/// foundation of the KC read-side cutover (Slice 1, flag-gated shadow only).
+///
+/// KC task rows carry {pageId, blockId, marker, done} but NOT the task text,
+/// so text-level alignment with the live extractor is impossible; total +
+/// done counts are the comparable invariant. Used by the parity probe/tests to
+/// check KC task extraction against ground truth and (later) the live pipeline.
+/// See docs/plans/KNOWLEDGE_CORE_SHADOW_TO_PRODUCTION_CUTOVER_PLAN_2026_06_13.md.
+nonisolated struct KnowledgeCoreTaskParitySummary: Sendable, Equatable {
+    let total: Int
+    let done: Int
+    var undone: Int { max(0, total - done) }
+
+    init(total: Int, done: Int) {
+        self.total = total
+        self.done = done
+    }
+
+    /// Summarize the `added` task rows drained from a `.tasks` payload.
+    init(knowledgeCoreTaskRows rows: [KnowledgeCoreRowSnapshot]) {
+        self.init(total: rows.count, done: rows.filter(\.taskDone).count)
+    }
+
+    /// Count-level parity: same total and same done-count.
+    func matches(_ other: KnowledgeCoreTaskParitySummary) -> Bool {
+        total == other.total && done == other.done
+    }
+}
+
 nonisolated struct KnowledgeCorePayloadSnapshot: Sendable, Equatable {
     let txId: UInt64
     let subscriptionId: UInt64

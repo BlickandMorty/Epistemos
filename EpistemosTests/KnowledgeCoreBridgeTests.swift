@@ -101,6 +101,32 @@ struct KnowledgeCoreBridgeTests {
         #expect(second.isEmpty)
     }
 
+    @Test("knowledge-core extracts checkbox tasks with correct done/undone counts")
+    func knowledgeCoreTaskExtractionSummaryOnCheckboxes() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 21))
+        let subscriptionId = await bridge.subscribeTasks(pageId: "tasks-parity")
+        #expect(subscriptionId != nil)
+        _ = await bridge.drainPayloads()
+
+        // Common syntax both KC and the live pipeline parse: markdown checkboxes.
+        let text = "- [ ] Alpha\n- [x] Beta\n- [ ] Gamma"
+        let ingested = await bridge.ingestDocument(
+            pageId: "tasks-parity",
+            format: .markdown,
+            text: text
+        )
+        #expect(ingested)
+
+        let payloads = await bridge.drainPayloads()
+        let taskRows = payloads.filter { $0.kind == .tasks }.flatMap(\.added)
+        let summary = KnowledgeCoreTaskParitySummary(knowledgeCoreTaskRows: taskRows)
+
+        // Ground truth for this fixture: 3 tasks, 1 done (Beta), 2 undone.
+        #expect(summary.total == 3)
+        #expect(summary.done == 1)
+        #expect(summary.undone == 2)
+    }
+
     @Test("shadow runtime batches summaries onto MainActor state")
     func shadowRuntimeBatchesSummaries() async throws {
         let runtime = try await MainActor.run {
