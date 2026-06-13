@@ -1,0 +1,84 @@
+{
+  "schema_version": "gemma-first-runtime-same-fixture-quality-packet-v1",
+  "upstream_runtime_receipt_digest": "sha256:5c87698c6bdaf4d8855430f8d9d8e1cc07f034707fda1ad119b2ba718182423f",
+  "selected_model_id": "google/gemma-4-12B-it-qat-q4_0-gguf",
+  "owner_approval_phrase_digest": "sha256:5cb9464b507d139a9701619380d5c4b3b3699cd7965c20999b412c0c6cbc01fb",
+  "model_identity_digest": "sha256:b84ffcd8ac83bfdfaae6506e6a5a823a4135c25176e5c1fd4a4d9320f4798199",
+  "llama_cli_identity_digest": "sha256:a25236d035c5bc73cd0fc8145f87827ed0f468a96f7e18b97434d4f977d56f43",
+  "prompt_digest": "sha256:c072824f1aefd4a6f913d5c608b0d26a69ad62632adacbffca9127a0cb5e79c6",
+  "command_argv_digest": "sha256:9934e6cefdc1f4931da9f1b57d811d05cec74f3a5b44ca4c3666fc7e5a6f95ad",
+  "stdout_digest": "sha256:1b3137f49d3e4ca70a0c468561c068de3938c6c6a5489e11d638cd54eaa12284",
+  "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "first_token_digest": "sha256:dc380888c4e2c7762212480ff86eb39150ec70b45009c33bc6adcbd0041384b1",
+  "same_fixture_pack_digest": "fixture_pack:sha256:gemma-direct-harness-same-fixture-quality-pack-v1",
+  "scorer_bundle_digest": "scorer_bundle:sha256:gemma-direct-harness-deterministic-quality-scorer-v1",
+  "task_family_digest": "sha256:c709f70e3fe829445a9367a933b7877e4d2479d5017d15a321154290e4c844e9",
+  "task_packets": [
+    {
+      "task_family": "note_synthesis",
+      "task_descriptor_digest": "sha256:1d6c751461296d5fa9c23c9aff3ced36dbc69294b96d9dd9633559ca314e52bb",
+      "expected_output_shape_digest": "sha256:00deeac883d30afc9c382362fee0302a71a96c803df18362671610db2497f715",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "citation_grounded_research",
+      "task_descriptor_digest": "sha256:c9ba62b3ee93a6d27992ad78dc0e0dea4af6bf26079f53347119ef590332369f",
+      "expected_output_shape_digest": "sha256:5ab91dee1b57f1cec6928d24167d1cd6ae230a116f1c2439639620c8297d6483",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "structured_tool_json",
+      "task_descriptor_digest": "sha256:c27ae77e2d1407ee783a659cdbd77b4f94698f5d3a6fe0cf9b9ae3524deac890",
+      "expected_output_shape_digest": "sha256:6b086bab9ce1799ee8caf9c85616550224f3f83592c05d951528c88580871812",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "cache_deletion_reuse",
+      "task_descriptor_digest": "sha256:42edf2dbef83cd4930c77161ca2476a74dc59434f8dea0ebb9a509d96a95a779",
+      "expected_output_shape_digest": "sha256:85cfb358b1ada23accb597420e8eb13cf8e91f47e982a64368a7cebde7204460",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "writing_edit",
+      "task_descriptor_digest": "sha256:ab488ceeeaeb38b475006e92b0ac58f57f2ff9752352dd3cfc2df41a2213f8ea",
+      "expected_output_shape_digest": "sha256:b812c8e713b953a9bdd8df89f2b2589b43542d10923f1f8ec09d00d20cd91c91",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "coding_patch",
+      "task_descriptor_digest": "sha256:631be0aa2a2129482a83f9182b998d666f9cadc9c762c86c2bd2af6dfbb446d1",
+      "expected_output_shape_digest": "sha256:64c10622fba775cf3d10d488fb15cacc7e02cd76b28e44d6131a67802eb66827",
+      "scoring_status": "not_scored_replay_pending"
+    },
+    {
+      "task_family": "refusal_abstention",
+      "task_descriptor_digest": "sha256:f107f07c8abee2446d9053c2efc1c905bc533b90e97abe50e0bf5319adcf635d",
+      "expected_output_shape_digest": "sha256:85919243d90e19194883a88c5a690973d84a17b7b8d0f1f10e32902edd234320",
+      "scoring_status": "not_scored_replay_pending"
+    }
+  ],
+  "runtime_receipt_present_count": 1,
+  "quality_replay_performed_count": 0,
+  "scorer_executions": 0,
+  "fixture_payload_bytes_opened": 0,
+  "raw_prompt_bytes_captured": 0,
+  "raw_context_bytes_captured": 0,
+  "raw_output_bytes_captured": 0,
+  "raw_judge_bytes_captured": 0,
+  "runtime_router_mutation_count": 0,
+  "system_g_mutation_count": 0,
+  "settings_default_mutation_count": 0,
+  "quality_claim": false,
+  "live_gemma_claim": false,
+  "l2_l3_t4_claim": false,
+  "live_dense_70b_claim": false,
+  "reviewer_visible_summary": "Gemma first-runtime receipt is packaged for same-fixture quality replay; no fixture payload, scorer, judge, route admission, System G mutation, or quality claim has run.",
+  "rollback_ref": "rollback:gemma-first-runtime-quality-packet-materializer-v1",
+  "run_event_log_ref": "run_event_log:gemma-first-runtime-quality-packet-materializer-v1",
+  "answer_packet_ref": "answer_packet:gemma-first-runtime-quality-packet-materializer-v1",
+  "abstention_ref": "abstention:gemma-first-runtime-quality-packet-materializer-v1",
+  "non_promotion_ref": "non_promotion:gemma-first-runtime-quality-packet-materializer-v1",
+  "metadata_bytes": 65536,
+  "next_cursor": "gemma_direct_harness_owner_approved_same_fixture_quality_replay_execution_gate",
+  "packet_digest": "sha256:d97352f4c27cec13717aac74329e3884eaafc678ba59301778e3aed081693552"
+}

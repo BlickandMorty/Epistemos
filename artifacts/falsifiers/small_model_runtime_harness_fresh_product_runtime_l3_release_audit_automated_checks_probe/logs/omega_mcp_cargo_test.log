@@ -7,86 +7,87 @@
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
    Compiling omega-mcp v0.1.0 (/Users/jojo/Downloads/Epistemos/omega-mcp)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.24s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.03s
      Running unittests src/lib.rs (omega-mcp/target/aarch64-apple-darwin/debug/deps/omega_mcp-dc8fe40e0c691895)
 
 running 175 tests
-test arena::tests::arena_reset_returns_to_same_address ... ok
 test arena::tests::arena_supports_bump_string_collection ... ok
+test arena::tests::arena_reset_returns_to_same_address ... ok
 test arena::tests::nested_with_frame_panics ... ok
 test catalog::tests::destructive_tools_require_confirmation ... ok
+test catalog::tests::builtin_tool_names_are_unique ... ok
+test catalog::tests::builtin_catalog_exposes_d3_web_search_verbs ... ok
 test catalog::tests::builtin_catalog_has_all_agents ... ok
 test catalog::tests::builtin_catalog_exposes_d3_memory_verbs ... ok
-test catalog::tests::builtin_catalog_exposes_d3_web_search_verbs ... ok
-test catalog::tests::builtin_catalog_exposes_d2_graph_verbs ... ok
 test catalog::tests::builtin_catalog_exposes_d3_filesystem_verbs ... ok
-test catalog::tests::builtin_tool_names_are_unique ... ok
+test catalog::tests::builtin_catalog_exposes_d2_graph_verbs ... ok
 test catalog::tests::builtin_catalog_exposes_d3_git_verbs ... ok
 test catalog::tests::builtin_catalog_exposes_d3_github_verbs ... ok
 test catalog::tests::all_schemas_are_valid_json ... ok
 test dataset_formatter::tests::test_format_traces ... ok
 test dataset_formatter::tests::test_mix_empty_categories ... ok
-test dataset_formatter::tests::test_sample_with_repeat ... ok
 test dataset_formatter::tests::test_mix_training_data ... ok
-test config::tests::test_get_nonexistent ... ok
-test config::tests::test_keys ... ok
-test config::tests::test_set_and_get ... ok
-test config::tests::test_delete ... ok
+test dataset_formatter::tests::test_sample_with_repeat ... ok
 test config::tests::test_upsert ... ok
-test dispatcher::tests::test_dispatch_tools_call_valid ... ok
-test dispatcher::tests::test_destructive_tool_flagged_in_dispatch ... ok
-test dispatcher::tests::test_dispatch_invalid_json ... ok
-test dispatcher::tests::test_dispatch_tools_call_destructive ... ok
+test config::tests::test_get_nonexistent ... ok
+test config::tests::test_delete ... ok
+test config::tests::test_set_and_get ... ok
+test config::tests::test_keys ... ok
 test dispatcher::tests::test_dispatch_tools_call_not_found ... ok
 test dispatcher::tests::test_dispatch_tools_call_missing_required_arg ... ok
+test dispatcher::tests::test_destructive_tool_flagged_in_dispatch ... ok
+test dispatcher::tests::test_dispatch_invalid_json ... ok
+test dispatcher::tests::test_dispatch_tools_call_valid ... ok
+test dispatcher::tests::test_dispatch_tools_call_destructive ... ok
+test dispatcher::tests::test_concurrent_logging ... ok
 test dispatcher::tests::test_dispatch_unknown_method ... ok
 test dispatcher::tests::test_dispatch_tools_list ... ok
-test dispatcher::tests::test_concurrent_logging ... ok
 test github::tests::github_credentials_are_rejected_in_tool_args ... ok
+test dispatcher::tests::test_full_tool_lifecycle ... ok
 test github::tests::github_issues_normalization_filters_pull_requests ... ok
 test github::tests::github_repo_endpoint_rejects_path_traversal_owner ... ok
 test github::tests::github_unknown_tool_returns_not_found ... ok
-test graph_search_backend::tests::bm25_like_scorer_clamps_to_unit_interval ... ok
 test graph_search_backend::tests::bm25_like_scorer_is_byte_stable_across_calls ... ok
+test graph_search_backend::tests::bm25_like_scorer_clamps_to_unit_interval ... ok
 test graph_search_backend::tests::bm25_like_scorer_returns_none_for_no_match ... ok
-test dispatcher::tests::test_list_tools_json ... ok
-test graph_search_backend::tests::bm25_like_scorer_scores_higher_for_more_matches ... ok
-test graph_search_backend::tests::graph_search_backend_constructs_scorers_for_both_variants ... ok
-test dispatcher::tests::test_full_tool_lifecycle ... ok
-test graph_search_backend::tests::graph_search_backend_default_is_in_memory_deterministic ... ok
-test dispatcher::tests::test_log_and_query ... ok
-test dispatcher::tests::test_get_tool_json ... ok
 test dispatcher::tests::test_register_and_count ... ok
-test dispatcher::tests::test_unregister_tool ... ok
+test graph_search_backend::tests::graph_search_backend_constructs_scorers_for_both_variants ... ok
+test graph_search_backend::tests::bm25_like_scorer_scores_higher_for_more_matches ... ok
 test dispatcher::tests::test_validation_roundtrip ... ok
+test graph_search_backend::tests::graph_search_backend_default_is_in_memory_deterministic ... ok
+test dispatcher::tests::test_list_tools_json ... ok
+test dispatcher::tests::test_get_tool_json ... ok
 test graph_search_backend::tests::trigram_semantic_scorer_handles_short_queries ... ok
 test graph_search_backend::tests::trigram_semantic_scorer_is_byte_stable ... ok
+test dispatcher::tests::test_unregister_tool ... ok
 test graph_search_backend::tests::trigram_semantic_scorer_returns_higher_for_similar_text ... ok
-test memory::tests::memory_keeps_episode_and_semantic_append_only ... ok
+test dispatcher::tests::test_log_and_query ... ok
 test logger::tests::test_open_in_memory ... ok
-test memory::tests::memory_put_get_search_roundtrip_uses_schema_id ... ok
-test logger::tests::test_empty_queries ... ok
-test memory::tests::memory_rejects_unknown_schema_and_bad_id ... ok
-test memory::tests::memory_allows_mutable_soul_replacement_only_when_requested ... ok
+test memory::tests::memory_keeps_episode_and_semantic_append_only ... ok
 test logger::tests::test_by_tool_filter ... ok
+test logger::tests::test_empty_queries ... ok
 test logger::tests::test_recent_ordering ... ok
 test logger::tests::test_log_and_retrieve ... ok
-test orchestrator::tests::test_agent_toolset_validation ... ok
-test moa::tests::test_consensus_picks_longest ... ok
 test moa::tests::test_caps_at_max_parallel ... ok
+test memory::tests::memory_allows_mutable_soul_replacement_only_when_requested ... ok
 test moa::tests::test_mixed_success_failure ... ok
-test orchestrator::tests::test_agent_toolset_validation_accepts_legacy_aliases ... ok
 test moa::tests::test_parallel_execution ... ok
+test orchestrator::tests::test_agent_toolset_validation ... ok
+test orchestrator::tests::test_agent_toolset_validation_accepts_legacy_aliases ... ok
+test memory::tests::memory_rejects_unknown_schema_and_bad_id ... ok
 test orchestrator::tests::test_confirmation_gate ... ok
-test orchestrator::tests::test_default_agents ... ok
+test moa::tests::test_consensus_picks_longest ... ok
 test orchestrator::tests::test_graph_completion ... ok
+test orchestrator::tests::test_default_agents ... ok
 test orchestrator::tests::test_graph_failure ... ok
+test memory::tests::memory_put_get_search_roundtrip_uses_schema_id ... ok
 test orchestrator::tests::test_heuristic_default_is_notes ... ok
 test orchestrator::tests::test_heuristic_delete_is_high_risk ... ok
 test orchestrator::tests::test_heuristic_list_files ... ok
 test orchestrator::tests::test_heuristic_open_routes_to_safari ... ok
 test orchestrator::tests::test_heuristic_search_routes_to_safari ... ok
 test orchestrator::tests::test_heuristic_shell_command ... ok
+test dispatcher::tests::test_file_persistence ... ok
 test orchestrator::tests::test_heuristic_write_routes_to_notes ... ok
 test orchestrator::tests::test_task_graph_ready_steps ... ok
 test osascript::tests::test_app_not_running_error_is_retryable ... ok
@@ -105,11 +106,10 @@ test osascript::tests::test_tool_result_err ... ok
 test osascript::tests::test_tool_result_ok ... ok
 test pty::tests::build_hardened_envp_includes_term_dumb ... ok
 test pty::tests::build_hardened_envp_excludes_ld_preload ... ok
-test pty::tests::pty_denylist_and_allowlist_are_disjoint ... ok
 test pty::tests::build_hardened_envp_only_contains_allowlist_or_extras ... ok
+test pty::tests::pty_denylist_and_allowlist_are_disjoint ... ok
 test pty::tests::pty_denylist_covers_canonical_24_vector_doctrine ... ok
 test pty::tests::spawn_rejects_relative_shell_path ... ok
-test dispatcher::tests::test_file_persistence ... ok
 test osascript::tests::test_run_command_echo ... ok
 test quality_filter::tests::test_empty_steps_rejected ... ok
 test quality_filter::tests::test_failed_step_rejected ... ok
@@ -121,14 +121,14 @@ test recipe::tests::test_delete ... ok
 test recipe::tests::test_increment_use ... ok
 test recipe::tests::test_list_sorted_by_use ... ok
 test recipe::tests::test_not_found ... ok
+test osascript::tests::test_run_command_scrubs_provider_secrets ... ok
 test recipe::tests::test_save_and_load ... ok
-test recipe::tests::test_upsert ... ok
 test registry::tests::test_duplicate_registration ... ok
 test registry::tests::test_invalid_schema_rejected ... ok
 test registry::tests::test_list_tools ... ok
+test recipe::tests::test_upsert ... ok
 test registry::tests::test_not_found ... ok
 test registry::tests::test_register_and_get ... ok
-test osascript::tests::test_run_command_scrubs_provider_secrets ... ok
 test registry::tests::test_unregister ... ok
 test registry::tests::test_validate_args_invalid_json ... ok
 test registry::tests::test_validate_args_missing_required ... ok
@@ -187,7 +187,7 @@ test pty::tests::test_pty_timeout ... ok
 test pty::tests::test_pty_working_dir_persistence ... ok
 test pty::tests::test_strip_ansi ... ok
 
-test result: ok. 175 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.53s
+test result: ok. 175 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
 
      Running unittests src/bin/uniffi_bindgen.rs (omega-mcp/target/aarch64-apple-darwin/debug/deps/uniffi_bindgen-a0131c0b3d69eaca)
 
@@ -201,3 +201,4 @@ running 1 test
 test src/arena.rs - arena (line 14) ... ignored
 
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

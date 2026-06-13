@@ -28,26 +28,26 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "75d2133a0863ca2c24bfb224350f3dffbcaa6f41",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "gemma_qat_e2b_product_capability_recheck_gate_v1",
-  "timestamp_utc": "2026-06-08T22:43:03Z",
-  "result_digest": "sha256:2b75a3b7803ac2dadc8df58469cc81258c75d5a2e55871c9f47266de044ec483",
+  "timestamp_utc": "2026-06-11T09:42:21Z",
+  "result_digest": "sha256:697fb1da7b9487c0b1e513fdde67b8e79ce0bf856415c28947f3561f6f2c2e3d",
   "measurements": {
     "action_leak_count": {
       "value": 0,
       "unit": "actions"
     },
     "blocked_truth_count": {
-      "value": 9,
+      "value": 5,
       "unit": "blocked_truths"
-    },
-    "capability_kernel_red_status_bound": {
-      "value": true,
-      "unit": "bool"
     },
     "expected_file_size_bytes": {
       "value": 3349514112,
       "unit": "bytes"
+    },
+    "first_runtime_wrv_chain_bound": {
+      "value": true,
+      "unit": "bool"
     },
     "gated_surface_count": {
       "value": 6,
@@ -58,14 +58,10 @@
       "unit": "bool"
     },
     "gemma_e2b_product_capability_recheck_gate_address": {
-      "value": "gemma_qat_e2b_product_capability_recheck_gate:9d7cd90e2fafb78cf46f82f8b49cb4968c5bd3d00e80ddefb3f18cac5759fd5d@1779582000000",
+      "value": "gemma_qat_e2b_product_capability_recheck_gate:3f861163d105c8a5dd019d9313fd6eb2b68a94da3c8e5931104a866d6e65e83c@1779582000000",
       "unit": "text"
     },
     "gemma_e2b_product_capability_recheck_gate_address_deterministic": {
-      "value": true,
-      "unit": "bool"
-    },
-    "guard_cursor_and_release_blocker_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -73,12 +69,16 @@
       "value": 0,
       "unit": "claims"
     },
+    "live_route_integration_pending_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "model_bytes_loaded": {
       "value": 0,
       "unit": "bytes"
     },
     "next_cursor": {
-      "value": "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+      "value": "gemma_product_route_integration_gate",
       "unit": "text"
     },
     "next_cursor_bound": {
@@ -90,10 +90,6 @@
       "unit": "bool"
     },
     "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
-      "value": true,
-      "unit": "bool"
-    },
-    "pending_product_evidence_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -126,15 +122,19 @@
       "unit": "bool"
     },
     "red_fixture_rejection_count": {
-      "value": 62,
+      "value": 61,
       "unit": "fixtures"
     },
+    "release_audit_zero_fail_ledger_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "required_recheck_field_count": {
-      "value": 36,
+      "value": 37,
       "unit": "fields"
     },
     "required_rejection_policy_count": {
-      "value": 52,
+      "value": 53,
       "unit": "policies"
     },
     "runtime_bytes_loaded": {
@@ -166,18 +166,18 @@
     },
     "blocked_truth_count": {
       "operator": "==",
-      "value": 9,
+      "value": 5,
       "unit": "blocked_truths"
-    },
-    "capability_kernel_red_status_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
     },
     "expected_file_size_bytes": {
       "operator": "==",
       "value": 3349514112,
       "unit": "bytes"
+    },
+    "first_runtime_wrv_chain_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     },
     "gated_surface_count": {
       "operator": "==",
@@ -199,15 +199,15 @@
       "value": true,
       "unit": "bool"
     },
-    "guard_cursor_and_release_blocker_bound": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
     "hidden_authority_count": {
       "operator": "==",
       "value": 0,
       "unit": "claims"
+    },
+    "live_route_integration_pending_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     },
     "model_bytes_loaded": {
       "operator": "==",
@@ -216,7 +216,7 @@
     },
     "next_cursor": {
       "operator": "==",
-      "value": "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+      "value": "gemma_product_route_integration_gate",
       "unit": "text"
     },
     "next_cursor_bound": {
@@ -230,11 +230,6 @@
       "unit": "bool"
     },
     "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
-    },
-    "pending_product_evidence_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -279,14 +274,19 @@
       "value": 55,
       "unit": "fixtures"
     },
+    "release_audit_zero_fail_ledger_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "required_recheck_field_count": {
       "operator": "==",
-      "value": 36,
+      "value": 37,
       "unit": "fields"
     },
     "required_rejection_policy_count": {
       "operator": "==",
-      "value": 52,
+      "value": 53,
       "unit": "policies"
     },
     "runtime_bytes_loaded": {
@@ -318,20 +318,19 @@
   "pass_per_axis": {
     "action_leak_count": true,
     "blocked_truth_count": true,
-    "capability_kernel_red_status_bound": true,
     "expected_file_size_bytes": true,
+    "first_runtime_wrv_chain_bound": true,
     "gated_surface_count": true,
     "gated_surfaces_and_owner_action_bound": true,
     "gemma_e2b_product_capability_recheck_gate_address": true,
     "gemma_e2b_product_capability_recheck_gate_address_deterministic": true,
-    "guard_cursor_and_release_blocker_bound": true,
     "hidden_authority_count": true,
+    "live_route_integration_pending_bound": true,
     "model_bytes_loaded": true,
     "next_cursor": true,
     "next_cursor_bound": true,
     "no_hidden_authority_or_cloud_fallback": true,
     "no_mas_l2_l3_t4_product_gemma_default_quality_or_large_model_claim": true,
-    "pending_product_evidence_bound": true,
     "privacy_preserved": true,
     "promotion_claim_count": true,
     "proof_surfaces_required": true,
@@ -340,6 +339,7 @@
     "raw_prompt_bytes_captured": true,
     "recheck_fields_and_rejection_policies_bound": true,
     "red_fixture_rejection_count": true,
+    "release_audit_zero_fail_ledger_bound": true,
     "required_recheck_field_count": true,
     "required_rejection_policy_count": true,
     "runtime_bytes_loaded": true,
@@ -351,5 +351,5 @@
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [],
-  "notes": "metadata-only F-GemmaQATE2BProductCapabilityRecheckGate: consumes the E2B release-audit surface gate and rechecks product truth against the current red capability kernel. It passes only when the Gemma E2B product route remains blocked by the release-audit automated-check bottleneck, with focused proof-root, log correlation, manual runtime, distribution/compliance, and repeated-zero-fail evidence still pending. It runs no Xcode command, wires no settings or diagnostics product surface, emits no user AnswerPacket, arms or executes no model command, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim."
+  "notes": "metadata-only F-GemmaQATE2BProductCapabilityRecheckGate: consumes the E2B release-audit surface, the 3/3 release-audit zero-fail ledger, and the E2B first-runtime Settings/diagnostics WRV packet. It passes only when the local proof ladder and release floor are present while live RuntimeRouter/System G/default route integration remains blocked. It runs no Xcode command, wires no product picker/default route, emits no user AnswerPacket, arms or executes no model command, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim."
 }

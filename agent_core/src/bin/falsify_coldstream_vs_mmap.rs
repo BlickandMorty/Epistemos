@@ -16,9 +16,9 @@ use agent_core::falsifier_artifacts::{
     AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
 use agent_core::uas::{
-    ColdStreamBaselineKind, ColdStreamBaselineRow, ColdStreamVsMmapError, ColdStreamVsMmapFixture,
-    ColdStreamVsMmapSurface, ColdStreamVsMmapWitness, ProStatus, ProductBuild,
-    COLDSTREAM_VS_MMAP_CURSOR, COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+    coldstream_vs_mmap_or_advanced_cursor, ColdStreamBaselineKind, ColdStreamBaselineRow,
+    ColdStreamVsMmapError, ColdStreamVsMmapFixture, ColdStreamVsMmapSurface,
+    ColdStreamVsMmapWitness, ProStatus, ProductBuild,
 };
 
 const FALSIFIER_ID: &str = "F-ColdStream-vs-Mmap";
@@ -137,8 +137,7 @@ fn build_artifact(
         ("upstream_ssd_wear_budget_pass", evidence.ssd_wear_pass),
         (
             "guard_cursor_coldstream_vs_mmap_or_advanced",
-            evidence.guard_next_existing_work == COLDSTREAM_VS_MMAP_CURSOR
-                || evidence.guard_next_existing_work == COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+            coldstream_vs_mmap_or_advanced_cursor(&evidence.guard_next_existing_work),
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -147,8 +146,7 @@ fn build_artifact(
         ),
         (
             "capability_next_bottleneck_coldstream_vs_mmap_or_advanced",
-            evidence.capability_next_bottleneck == COLDSTREAM_VS_MMAP_CURSOR
-                || evidence.capability_next_bottleneck == COLDSTREAM_VS_MMAP_NEXT_CURSOR,
+            coldstream_vs_mmap_or_advanced_cursor(&evidence.capability_next_bottleneck),
         ),
         (
             "product_status_research_only",

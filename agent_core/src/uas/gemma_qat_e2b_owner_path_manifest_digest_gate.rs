@@ -23,8 +23,7 @@ pub const GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_CURSOR: &str =
     "gemma_qat_e2b_owner_path_manifest_digest_gate";
 pub const GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_model_file_and_llama_cpp_digest_gate";
-pub const GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_gate/result.json#F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate";
+pub const GEMMA_QAT_E2B_OWNER_PATH_MANIFEST_DIGEST_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_first_token_runtime_artifact_review_gate/result.json#F-GemmaQATE2BFirstTokenRuntimeArtifactReviewGate";
 
 pub const GEMMA_QAT_E2B_SOURCE_REVISION: &str = "1894d1fc0a19d86697abd40483f5983c867df03f";
 pub const GEMMA_QAT_E2B_EXPECTED_FILE_BYTES: u64 = 3_349_514_112;

@@ -59,11 +59,26 @@ nonisolated private func sourceCheckoutRootURL() -> URL? {
 }
 
 nonisolated func loadMirroredSourceDataFile(_ relativePath: String) throws -> Data {
-    try Data(contentsOf: sourceMirrorURL(for: relativePath))
+    let url = try regularMirroredSourceFileURL(for: relativePath)
+    let handle = try FileHandle(forReadingFrom: url)
+    defer {
+        try? handle.close()
+    }
+    return try handle.readToEnd() ?? Data()
 }
 
 nonisolated func loadMirroredSourceTextFile(_ relativePath: String) throws -> String {
-    try String(contentsOf: sourceMirrorURL(for: relativePath), encoding: .utf8)
+    String(decoding: try loadMirroredSourceDataFile(relativePath), as: UTF8.self)
+}
+
+nonisolated private func regularMirroredSourceFileURL(for relativePath: String) throws -> URL {
+    let url = try sourceMirrorURL(for: relativePath)
+    var isDirectory = ObjCBool(false)
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+          !isDirectory.boolValue else {
+        throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: url.path])
+    }
+    return url
 }
 
 nonisolated func mirroredSourceFileURLs(

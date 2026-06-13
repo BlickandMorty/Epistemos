@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "a194e568f777f38410c81ce2c8a01a9063e4d169",
+  "commit_sha": "749b025cfb783f9957c5fbaedd17590340eeb8ac",
   "fixture_id": "gemma_local_artifact_acquisition_plan_v1",
-  "timestamp_utc": "2026-06-09T03:33:20Z",
+  "timestamp_utc": "2026-06-11T17:00:11Z",
   "result_digest": "sha256:7b17dab02fa2b243cd919bb55c44f8d01d551ef0bbb6804a0cd114a85ecbf7fa",
   "measurements": {
     "allowed_acquisition_mode_count": {

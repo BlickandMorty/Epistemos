@@ -227,7 +227,7 @@ nonisolated enum GraphInteractionRenderPolicy {
     }
 
     static func selectedNodeSampleIntervalFrames(isInteracting: Bool) -> Int {
-        1
+        isInteracting ? 2 : 1
     }
 }
 

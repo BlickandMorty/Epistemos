@@ -14,7 +14,7 @@ struct SidebarShellValidationTests {
 
         #expect(browserSource.contains("SidebarShell(allPages: allPages, allFolders: allFolders)"))
         #expect(shellSource.contains("ModeSwitcherControl(modeStore: modeStore)"))
-        #expect(shellSource.contains("PinnedStripView()"))
+        #expect(!shellSource.contains("PinnedStripView()"))
         #expect(shellSource.contains("case .myVault:"))
         #expect(shellSource.contains("case .modelVaults:"))
         #expect(shellSource.contains("case .system:"))

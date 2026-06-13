@@ -1559,7 +1559,7 @@ private struct InferenceDetailView: View {
 
     private func localModelPickerLabel(for modelID: String) -> String {
         let badge = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
-        return "\(inference.localModelPickerDisplayName(for: modelID)) · \(badge.title)"
+        return "\(inference.localModelPickerDisplayName(for: modelID)) · \(badge.title) · \(badge.toolCallMode.displayName)"
     }
 
     var body: some View {
@@ -1664,6 +1664,8 @@ private struct InferenceDetailView: View {
                         .font(.system(.caption, design: .monospaced))
                 }
 
+                GemmaQATProofLaneSummary()
+
                 Label(
                     "Relaunch Epistemos after changing this so launch-time model catalogs and hardware checks re-read the gate.",
                     systemImage: "arrow.clockwise.circle"
@@ -1767,8 +1769,14 @@ private struct InferenceDetailView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(activeLocalAgentBadgeData.title)
                             .font(.caption.weight(.semibold))
+                        Text("\(activeLocalAgentBadgeData.toolCallMode.displayName) tools · \(activeLocalAgentBadgeData.nativeGrammar.displayName) · \(activeLocalAgentBadgeData.lane.stableID)")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
                         Text("\(activeLocalAgentBadgeData.falsifier) · \(activeLocalAgentBadgeData.witness)")
                             .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        Text(activeLocalAgentBadgeData.reason)
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3060,6 +3068,93 @@ private struct InferenceDetailView: View {
                 cloudAPIKeyDrafts[provider] = newValue
             }
         )
+    }
+}
+
+private struct GemmaQATProofLaneSummary: View {
+    @State private var capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "memorychip")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Gemma QAT proof lanes")
+                    .font(.caption.weight(.semibold))
+                Spacer(minLength: 0)
+                Text("proof-only")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.orange)
+            }
+
+            Text("E2B / E4B / 12B QAT GGUF only. These are not picker rows, not defaults, and not the older unsupported MLX preview rows.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(proofLaneStatusText)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(capabilityCeiling.gemmaAllQATProofLanesWRVReady ? .green : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(GemmaQATRuntimeLadder.candidates) { candidate in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle()
+                        .fill(gemmaStageTint(candidate.stage))
+                        .frame(width: 6, height: 6)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(candidate.displayName)
+                            .font(.caption2.weight(.semibold))
+                        Text("\(candidate.stage.displayName) · \(candidate.expectedByteCountLabel) · \(candidate.runtimeLane)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        Text("\(capabilityCeiling.gemmaLocalArtifactStatus(for: candidate)) · \(capabilityCeiling.gemmaProofStatus(for: candidate))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        Text("\(candidate.routeIntegrationStatusLabel) · picker/default locked")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            Text("Visible here for model setup clarity. Runtime receipts, GGUF selection, and proof controls remain in Substrate Health; these lanes do not mutate chat defaults or claim live Gemma routing.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(.secondary.opacity(0.18), lineWidth: 0.75)
+        }
+        .onAppear {
+            capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
+        }
+    }
+
+    private var proofLaneStatusText: String {
+        let completed = capabilityCeiling.gemmaCompletedProofLaneSummary
+        let laneSummary = completed.isEmpty
+            ? "No retained QAT proof lane is complete yet"
+            : completed
+        return "\(laneSummary) · \(capabilityCeiling.gemmaProductRouteIntegrationDetail)"
+    }
+
+    private func gemmaStageTint(_ stage: GemmaQATRuntimeStage) -> Color {
+        switch stage {
+        case .firstRuntimeHarness:
+            return .green
+        case .nextScaleLane:
+            return .orange
+        case .proFlagshipCandidate:
+            return .purple
+        }
     }
 }
 

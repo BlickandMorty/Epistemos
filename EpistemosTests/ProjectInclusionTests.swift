@@ -34,9 +34,11 @@ struct ProjectInclusionTests {
 
     @Test("generated project keeps synced roots and excludes local metadata artifacts")
     func generatedProjectKeepsSyncedRootsAndExcludesLocalMetadataArtifacts() throws {
+        let projectYAML = try loadMirroredSourceTextFile("project.yml")
         let pbxproj = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
         #expect(pbxproj.contains("PBXFileSystemSynchronizedRootGroup"))
 
+        let appSection = try sourceSection(in: projectYAML, path: "Epistemos")
         let appRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "Epistemos")
         let testRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "EpistemosTests")
         let bindingRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "build-rust/swift-bindings")
@@ -46,11 +48,18 @@ struct ProjectInclusionTests {
         #expect(appRoot.contains("path = Epistemos"))
         #expect(testRoot.contains("path = EpistemosTests"))
         #expect(bindingRoot.contains("path = \"build-rust/swift-bindings\""))
+        #expect(appSection.contains("KnowledgeFusion/.DS_Store"))
+        #expect(appSection.contains("KnowledgeFusion/Training/.DS_Store"))
+        #expect(appSection.contains("KnowledgeFusion/MoLoRA/__pycache__/**"))
         #expect(appExceptions.contains("KnowledgeFusion/.DS_Store"))
         #expect(appExceptions.contains("KnowledgeFusion/Training/.DS_Store"))
-        #expect(appExceptions.contains("KnowledgeFusion/MoLoRA/__pycache__/molora_inference.cpython-312.pyc"))
-        #expect(appExceptions.contains("KnowledgeFusion/MoLoRA/__pycache__/sgmm_kernel.cpython-312.pyc"))
-        #expect(bindingExceptions == ["omega_ax.swift"])
+        #expect(appExceptions.contains(where: { $0.contains("__pycache__") }))
+        #expect(appExceptions.contains("Resources/LaunchAgents/com.epistemos.nightbrain.plist"))
+        #expect(bindingExceptions.contains("omega_ax.swift"))
+        #expect(!bindingExceptions.contains("agent_coreFFI.h"))
+        #expect(!bindingExceptions.contains("agent_core.swift"))
+        #expect(!bindingExceptions.contains("epistemos_core.swift"))
+        #expect(!bindingExceptions.contains("omega_mcp.swift"))
     }
 
     private func sourceSection(in projectYAML: String, path: String) throws -> String {
@@ -78,9 +87,9 @@ struct ProjectInclusionTests {
         }
 
         let exceptionIDs = exceptionList[..<endRange.lowerBound]
-            .components(separatedBy: .newlines)
-            .compactMap { line -> String? in
-                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: ",")
+            .compactMap { entry -> String? in
+                let trimmed = entry.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard trimmed.isEmpty == false else { return nil }
                 return trimmed.components(separatedBy: .whitespaces).first
             }

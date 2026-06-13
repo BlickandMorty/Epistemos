@@ -1,5 +1,7 @@
+import AppKit
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 private enum MiniChatLayout {
     static let messageColumnMaxWidth: CGFloat = 560
@@ -621,6 +623,7 @@ private struct MiniChatInputBar: View {
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @AppStorage("epistemos.miniChatOperatingMode")
@@ -635,11 +638,18 @@ private struct MiniChatInputBar: View {
     // @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var mentionKeyboardIndex = 0
     @State private var mentionPickerAutofocus = false
     @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var snapshotStore = MiniChatSnapshotStore()
     @State private var recallDebounceBox = ChatRecallDebounceBox()
+    @State private var pendingFileAttachments: [FileAttachment] = []
+    @State private var showPermissionGrantPopover = false
+    @State private var showSlashMenu = false
+    @State private var slashFilter = ""
+    @State private var slashKeyboardIndex = 0
+    @State private var selectedSlashItem: ComposerSlashCommandItem?
 
     let chatID: String
 
@@ -686,7 +696,12 @@ private struct MiniChatInputBar: View {
     }
 
     private var composerIsActive: Bool {
-        isFocused || canSend || isProcessing || !activeContextAttachments.isEmpty
+        isFocused
+            || canSend
+            || isProcessing
+            || !activeContextAttachments.isEmpty
+            || !pendingFileAttachments.isEmpty
+            || selectedSlashItem != nil
     }
     private var composerStatusPhase: AssistantComposerStatusPhase {
         AssistantComposerStatusPhase.resolve(
@@ -752,10 +767,83 @@ private struct MiniChatInputBar: View {
         )
     }
 
+    private var mentionKeyboardChoices: [ComposerReferenceChoice] {
+        ComposerReferenceKeyboardSelection.choices(
+            from: mentionSearchResults,
+            style: referencePopoverStyle
+        )
+    }
+
+    private var supportedSlashCommands: [ACCSlashCommand] {
+        ACCSlashCommand.availableCommands(for: supportedOperatingModes)
+    }
+
+    private var supportedSlashItems: [ComposerSlashCommandItem] {
+        ComposerSlashCommandItem.all(
+            commands: supportedSlashCommands,
+            skills: agentCommandCenter.availableSkills
+        )
+    }
+
+    private var filteredSlashItems: [ComposerSlashCommandItem] {
+        SlashCommandPopover.filteredItems(
+            items: supportedSlashItems,
+            filter: slashFilter
+        )
+    }
+
+    private var highlightedSlashItem: ComposerSlashCommandItem? {
+        guard !filteredSlashItems.isEmpty else { return nil }
+        return filteredSlashItems[clamped(slashKeyboardIndex, count: filteredSlashItems.count)]
+    }
+
+    private var activeSelectedSlashItem: ComposerSlashCommandItem? {
+        if let selectedSlashItem,
+           supportedSlashItems.contains(selectedSlashItem) {
+            return selectedSlashItem
+        }
+
+        let result = CommandInputParser.parse(
+            text,
+            availableSkills: agentCommandCenter.availableSkills,
+            availableSlashCommands: supportedSlashCommands
+        )
+        guard let token = result.slashToken else {
+            return nil
+        }
+        let item = ComposerSlashCommandItem(token: token)
+        return supportedSlashItems.contains(item) ? item : nil
+    }
+
+    private var activeSelectedSlashToken: ParsedSlashToken? {
+        activeSelectedSlashItem?.token
+    }
+
+    private var currentAccessPlan: ComposerCurrentAccessPlan {
+        ComposerCurrentAccessPlan(
+            vaultURL: vaultSync.vaultURL,
+            contextAttachments: activeContextAttachments,
+            fileAttachments: pendingFileAttachments,
+            compiledAllowedToolNames: inference.providerNativeCapabilityToolNameList(
+                for: selectedOperatingMode
+            )
+        )
+    }
+
+    private var permissionGrantRows: [ComposerResourceGrantRow] {
+        currentAccessPlan.rows
+    }
+
+    private var permissionSummaryText: String {
+        currentAccessPlan.summaryText
+    }
+
     private var composerControlResetKey: String {
         supportedOperatingModes.map(\.rawValue).joined(separator: "|")
             + "::"
             + inference.activeChatModelDisplayName
+            + "::"
+            + (selectedSlashItem?.id ?? "none")
     }
 
     private var isCloudProviderSelection: Bool {
@@ -784,33 +872,97 @@ private struct MiniChatInputBar: View {
         )
     }
 
+    private var composerPillDetail: String? {
+        if let activeTool = threadState.miniChatActiveToolName(chatID: chatID),
+           !activeTool.isEmpty {
+            return ToolActivityNarrator.phrase(
+                name: activeTool,
+                inputJson: threadState.miniChatActiveToolInputJson(chatID: chatID)
+            )
+        }
+
+        return ComposerModelToolTruth.detail(
+            for: inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
+            capability: composerCapability
+        )
+    }
+
+    private var cloudSurfaceSupportsAgentTier: Bool {
+        guard case .cloud(let model) = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) else {
+            return false
+        }
+        return model.provider.supportsAgentTier
+    }
+
+    private var needsSharedToolRouteWarning: Bool {
+        guard !isProcessing, !isUsingSharedCoordinator else { return false }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard isCloudProviderSelection, !cloudSurfaceSupportsAgentTier else { return false }
+        return draftCapabilityPrediction.predicted == .agent
+            || draftCapabilityPrediction.predicted == .research
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
                 quickActions
             }
 
-            if !activeContextAttachments.isEmpty {
+            if !activeContextAttachments.isEmpty || !pendingFileAttachments.isEmpty {
                 composerAttachmentChips
             }
 
+            if pendingFileAttachments.contains(where: { $0.type == .image }),
+               !inference.chatSurfaceSupportsVision(for: selectedOperatingMode) {
+                imageAttachmentWarning
+            }
+
+            permissionVisibilityChip
+                .padding(.horizontal, 12)
+
             VStack(alignment: .leading, spacing: 0) {
                 composerTextArea
+                    .onChange(of: text) { _, newValue in
+                        refreshSlashMenu(for: newValue)
+                    }
+                    .popover(isPresented: $showSlashMenu, arrowEdge: .top) {
+                        SlashCommandPopover(
+                            items: supportedSlashItems,
+                            filter: slashFilter,
+                            selectedItem: highlightedSlashItem,
+                            onSelect: { item in
+                                applySlashItem(item)
+                            }
+                        )
+                    }
+
+                if needsSharedToolRouteWarning {
+                    sharedToolRouteWarningBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        if !supportedSlashItems.isEmpty {
+                            slashButton
+                        }
+                        if let activeSelectedSlashItem {
+                            selectedSlashPill(for: activeSelectedSlashItem)
+                        }
                         LocalModelToolbarMenu(
                             variant: .toolbar,
                             operatingMode: operatingModeBinding,
                             availableOperatingModes: supportedOperatingModes
                         )
                             .accessibilityLabel("Chat model")
+                        attachButton
                     }
 
                     Spacer(minLength: 4)
 
                     ChatCapabilityPill(
-                        capability: composerCapability
+                        capability: composerCapability,
+                        detail: composerPillDetail
                     )
 
                     ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
@@ -886,13 +1038,50 @@ private struct MiniChatInputBar: View {
         }
     }
 
+    private var sharedToolRouteWarningBanner: some View {
+        Button {
+            inference.setActiveAIProvider(.openAI)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "cloud.bolt.fill")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+                Text("This needs tools. Tap to switch to OpenAI before sending from Mini Chat.")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(Color.orange.opacity(0.72))
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(Color.orange.opacity(theme.isDark ? 0.12 : 0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.orange.opacity(theme.isDark ? 0.30 : 0.24), lineWidth: 0.75)
+        )
+        .padding(.top, 6)
+        .accessibilityLabel(
+            "Switch to OpenAI before sending from Mini Chat. This prompt needs tools but the selected cloud model does not support the tool tier."
+        )
+        .accessibilityAddTraits(.isButton)
+    }
+
     private var composerTextArea: some View {
         ChatComposerTextEditor(
             text: $text,
             height: $composerHeight,
             isFocused: $isFocused,
             theme: theme,
-            isProcessing: isProcessing
+            isProcessing: isProcessing,
+            onCommand: { selector, modifierFlags in
+                handleComposerCommand(selector, modifierFlags: modifierFlags)
+            }
         ) {
             send()
         }
@@ -929,11 +1118,13 @@ private struct MiniChatInputBar: View {
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 referencePopoverStyle = .mention
                 mentionFilter = filter
+                mentionKeyboardIndex = 0
                 mentionPickerAutofocus = false
                 if !showMentionDropdown { showMentionDropdown = true }
             } else if showMentionDropdown {
                 showMentionDropdown = false
                 referencePopoverStyle = .mention
+                mentionKeyboardIndex = 0
                 mentionPickerAutofocus = false
                 referenceSearch.reset()
             }
@@ -1034,10 +1225,394 @@ private struct MiniChatInputBar: View {
                     .background(theme.mutedForeground.opacity(0.08), in: Capsule())
                     .foregroundStyle(theme.mutedForeground.opacity(0.7))
                 }
+
+                ForEach(pendingFileAttachments) { attachment in
+                    let isSupported = inference.chatSurfaceSupportedFileTypes(
+                        for: selectedOperatingMode
+                    ).contains(attachment.type)
+                    HStack(spacing: 4) {
+                        if !isSupported {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.orange)
+                        }
+                        Image(systemName: iconForType(attachment.type))
+                            .font(.epSmall)
+                        Text(attachment.name)
+                            .font(.epSmall)
+                            .lineLimit(1)
+                        Button {
+                            removePendingFileAttachment(attachment.id)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.epSmall)
+                                .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        (isSupported ? theme.mutedForeground.opacity(0.08) : Color.orange.opacity(0.1)),
+                        in: Capsule()
+                    )
+                    .foregroundStyle(isSupported ? theme.mutedForeground.opacity(0.7) : .orange)
+                    .help(isSupported ? attachment.name : "Current model doesn't support \(attachment.type.rawValue) files")
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
         }
+    }
+
+    private var imageAttachmentWarning: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+            Text("Current model doesn't support images. Switch to a vision-capable model to use image attachments.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: MiniChatLayout.composerMaxWidth, alignment: .leading)
+        .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, 12)
+    }
+
+    private var permissionVisibilityChip: some View {
+        Button {
+            showPermissionGrantPopover.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                Text(permissionSummaryText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(theme.mutedForeground.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(theme.border.opacity(0.45), lineWidth: 0.7)
+            )
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPermissionGrantPopover, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Stored Resource Grants")
+                    .font(.headline)
+
+                Text("Removing an attachment revokes the corresponding scoped resource grant immediately for this mini chat.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(permissionGrantRows) { row in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: row.systemImage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(theme.resolved.accent.color)
+                                .frame(width: 16, alignment: .center)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text(row.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            if row.isRevocable {
+                                Button("Revoke") {
+                                    revokePermissionGrant(row.id)
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption.weight(.semibold))
+                            }
+                        }
+
+                        if row.id != permissionGrantRows.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .frame(width: 340, alignment: .leading)
+        }
+        .accessibilityLabel("Current resource grants")
+    }
+
+    private var attachButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "plus",
+            variant: .toolbar,
+            helpText: "Attach File",
+            accessibilityLabel: "Attach file"
+        ) {
+            openFilePicker()
+        }
+        .disabled(isProcessing)
+    }
+
+    private var slashButton: some View {
+        ToolbarCapsuleButton(
+            title: "/",
+            systemImage: "command",
+            variant: .toolbar,
+            helpText: "Commands",
+            accessibilityLabel: "Open commands"
+        ) {
+            openSlashCommandMenu()
+        }
+        .disabled(isProcessing)
+    }
+
+    private func selectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
+        ToolbarCapsuleButton(
+            title: "/\(item.rawValue)",
+            systemImage: item.icon,
+            variant: .toolbar,
+            helpText: item.helpText,
+            accessibilityLabel: "Selected command \(item.displayName)"
+        ) {
+            selectedSlashItem = nil
+        }
+        .disabled(isProcessing)
+    }
+
+    private func openFilePicker() {
+        Task { @MainActor in
+            await Task.yield()
+
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = true
+            var allowedTypes: [UTType] = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
+            if let markdownType = UTType(filenameExtension: "md") {
+                allowedTypes.insert(markdownType, at: 2)
+            }
+            panel.allowedContentTypes = allowedTypes
+            panel.canChooseDirectories = false
+
+            let urls = await presentFilePicker(panel)
+            guard !urls.isEmpty else { return }
+
+            let attachments = await FileAttachmentBuilder.buildAll(from: urls)
+            for attachment in attachments {
+                appendPendingFileAttachment(attachment)
+            }
+
+            for url in urls {
+                guard let contextAttachment = ComposerReferenceHelpers.fileContextAttachment(
+                    for: url,
+                    displayName: url.lastPathComponent
+                ) else { continue }
+                threadState.addMiniChatContextAttachment(contextAttachment, chatID: chatID)
+            }
+            persistMiniChatSession()
+        }
+    }
+
+    @MainActor
+    private func presentFilePicker(_ panel: NSOpenPanel) async -> [URL] {
+        await withCheckedContinuation { continuation in
+            let handler: (NSApplication.ModalResponse) -> Void = { response in
+                continuation.resume(returning: response == .OK ? panel.urls : [])
+            }
+
+            if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+                panel.beginSheetModal(for: window, completionHandler: handler)
+            } else {
+                panel.begin(completionHandler: handler)
+            }
+        }
+    }
+
+    private func appendPendingFileAttachment(_ attachment: FileAttachment) {
+        guard !pendingFileAttachments.contains(where: { $0.uri == attachment.uri }) else { return }
+        pendingFileAttachments.append(attachment)
+    }
+
+    private func removePendingFileAttachment(_ id: String) {
+        guard let attachment = pendingFileAttachments.first(where: { $0.id == id }) else { return }
+        pendingFileAttachments.removeAll { $0.id == id }
+        if let url = URL(string: attachment.uri) {
+            threadState.removeMiniChatContextAttachment("file:\(url.absoluteString)", chatID: chatID)
+            persistMiniChatSession()
+        }
+    }
+
+    private func iconForType(_ type: AttachmentType) -> String {
+        switch type {
+        case .image: return "photo"
+        case .pdf: return "doc.richtext"
+        case .csv: return "tablecells"
+        case .text: return "doc.text"
+        case .other: return "paperclip"
+        }
+    }
+
+    private func revokePermissionGrant(_ id: String) {
+        if id.hasPrefix("context:"), let contextID = id.split(separator: ":", maxSplits: 1).last {
+            threadState.removeMiniChatContextAttachment(String(contextID), chatID: chatID)
+            persistMiniChatSession()
+            return
+        }
+        if id.hasPrefix("file:"), let fileID = id.split(separator: ":", maxSplits: 1).last {
+            removePendingFileAttachment(String(fileID))
+        }
+    }
+
+    private func refreshSlashMenu(for newValue: String) {
+        let trimmedLeading = newValue.drop(while: \.isWhitespace)
+        guard trimmedLeading.first == "/" else {
+            if showSlashMenu {
+                showSlashMenu = false
+                slashFilter = ""
+                slashKeyboardIndex = 0
+            }
+            return
+        }
+
+        let afterSlash = String(trimmedLeading.dropFirst())
+        if !afterSlash.isEmpty {
+            selectedSlashItem = nil
+        }
+        if afterSlash.contains(where: { $0.isWhitespace || $0.isNewline }) {
+            showSlashMenu = false
+            slashFilter = ""
+            slashKeyboardIndex = 0
+            return
+        }
+        slashFilter = afterSlash
+        slashKeyboardIndex = 0
+        showSlashMenu = true
+    }
+
+    private func applySlashItem(_ item: ComposerSlashCommandItem) {
+        if let command = item.command {
+            selectedOperatingMode = command.defaultOperatingMode
+        }
+        selectedSlashItem = item
+
+        let leadingWhitespace = text.prefix { $0.isWhitespace }
+        let afterLeading = text.dropFirst(leadingWhitespace.count)
+        if afterLeading.hasPrefix("/") {
+            let slug = "/" + item.rawValue
+            if afterLeading.hasPrefix(slug) {
+                let suffix = afterLeading.dropFirst(slug.count)
+                text = String(leadingWhitespace) + suffix
+            } else {
+                let afterSlash = afterLeading.dropFirst()
+                let partialEnd = afterSlash.firstIndex(where: { $0.isWhitespace }) ?? afterSlash.endIndex
+                let remainder = afterSlash[partialEnd...]
+                text = String(leadingWhitespace) + String(remainder)
+            }
+        }
+
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let suggestedPrompt = item.suggestedPrompt {
+            text = suggestedPrompt
+        }
+
+        showSlashMenu = false
+        slashFilter = ""
+        slashKeyboardIndex = 0
+    }
+
+    private func openSlashCommandMenu() {
+        guard !supportedSlashItems.isEmpty else { return }
+        slashFilter = ""
+        slashKeyboardIndex = 0
+        showSlashMenu = true
+        isFocused = true
+    }
+
+    private func handleComposerCommand(
+        _ selector: Selector,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> Bool {
+        guard let command = ChatComposerKeyHandling.overlayCommand(
+            for: selector,
+            modifierFlags: modifierFlags
+        ) else {
+            return false
+        }
+
+        if showMentionDropdown {
+            return handleMentionOverlayCommand(command)
+        }
+        if showSlashMenu {
+            return handleSlashOverlayCommand(command)
+        }
+        return false
+    }
+
+    private func handleMentionOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
+        let choices = mentionKeyboardChoices
+        switch command {
+        case .moveDown:
+            guard !choices.isEmpty else { return true }
+            mentionKeyboardIndex = clamped(mentionKeyboardIndex + 1, count: choices.count)
+            return true
+        case .moveUp:
+            guard !choices.isEmpty else { return true }
+            mentionKeyboardIndex = clamped(mentionKeyboardIndex - 1, count: choices.count)
+            return true
+        case .confirm:
+            guard !choices.isEmpty else { return true }
+            attachMentionReference(choices[clamped(mentionKeyboardIndex, count: choices.count)])
+            return true
+        case .cancel:
+            dismissReferencePopover()
+            return true
+        }
+    }
+
+    private func handleSlashOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
+        let items = filteredSlashItems
+        switch command {
+        case .moveDown:
+            guard !items.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex + 1, count: items.count)
+            return true
+        case .moveUp:
+            guard !items.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex - 1, count: items.count)
+            return true
+        case .confirm:
+            guard !items.isEmpty else { return true }
+            applySlashItem(items[clamped(slashKeyboardIndex, count: items.count)])
+            return true
+        case .cancel:
+            showSlashMenu = false
+            slashFilter = ""
+            slashKeyboardIndex = 0
+            return true
+        }
+    }
+
+    private func clamped(_ index: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(index, 0), count - 1)
     }
 
     // MARK: - Quick Actions
@@ -1299,14 +1874,36 @@ private struct MiniChatInputBar: View {
     // MARK: - Send with Streaming + Action Detection
 
     private func send() {
+        if showMentionDropdown {
+            _ = handleMentionOverlayCommand(.confirm)
+            return
+        }
+        if showSlashMenu {
+            _ = handleSlashOverlayCommand(.confirm)
+            return
+        }
+
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady else { return }
+        let fileAttachments = pendingFileAttachments
+        let requestedSlashToken = activeSelectedSlashToken
 
         threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
         refreshMiniChatLabel(using: trimmed)
         persistMiniChatSession()
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
+        pendingFileAttachments = []
+        selectedSlashItem = nil
+        showMentionDropdown = false
+        showSlashMenu = false
+        slashFilter = ""
+        slashKeyboardIndex = 0
+        referencePopoverStyle = .mention
+        mentionKeyboardIndex = 0
+        mentionPickerAutofocus = false
+        mentionFilter = ""
+        referenceSearch.reset()
         isProcessing = true
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
@@ -1321,12 +1918,18 @@ private struct MiniChatInputBar: View {
                 let page = activePage()
                 let currentThread = threadState.miniChatSession(id: chatID)
                 let attachments = currentThread?.contextAttachments ?? []
-                let shouldUseSharedCoordinator = shouldUseSharedCoordinator(for: trimmed)
+                let shouldUseSharedCoordinator = shouldUseSharedCoordinator(
+                    for: trimmed,
+                    fileAttachments: fileAttachments,
+                    requestedSlashToken: requestedSlashToken
+                )
 
                 if shouldUseSharedCoordinator {
                     try await runSharedCoordinatorTurn(
                         query: trimmed,
                         attachments: attachments,
+                        fileAttachments: fileAttachments,
+                        requestedSlashToken: requestedSlashToken,
                         page: page
                     )
                     return
@@ -1395,6 +1998,12 @@ private struct MiniChatInputBar: View {
                 var promptParts: [String] = []
                 if let context = notesContext.context {
                     promptParts.append(context)
+                }
+                if let fileAttachmentContext = ChatCoordinator.buildFileAttachmentContext(
+                    from: fileAttachments,
+                    supportsVision: inference.chatSurfaceSupportsVision(for: selectedOperatingMode)
+                ) {
+                    promptParts.append(fileAttachmentContext)
                 }
                 if allMessages.count > 1 {
                     let history = allMessages.dropLast().suffix(10)
@@ -1492,9 +2101,16 @@ private struct MiniChatInputBar: View {
         }
     }
 
-    private func shouldUseSharedCoordinator(for query: String) -> Bool {
+    private func shouldUseSharedCoordinator(
+        for query: String,
+        fileAttachments: [FileAttachment] = [],
+        requestedSlashToken: ParsedSlashToken? = nil
+    ) -> Bool {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
+        if !fileAttachments.isEmpty || requestedSlashToken != nil {
+            return true
+        }
 
         switch selectedOperatingMode {
         case .agent, .pro:
@@ -1518,13 +2134,19 @@ private struct MiniChatInputBar: View {
     private func runSharedCoordinatorTurn(
         query: String,
         attachments: [ContextAttachment],
+        fileAttachments: [FileAttachment],
+        requestedSlashToken: ParsedSlashToken?,
         page: SDPage?
     ) async throws {
         guard let bootstrap = AppBootstrap.shared else {
             throw AgentRuntimeError(message: "Mini chat couldn't access the shared chat runtime.")
         }
 
-        let bridgeState = bridgeChatState(attachments: attachments)
+        let bridgeState = bridgeChatState(
+            attachments: attachments,
+            fileAttachments: fileAttachments,
+            requestedSlashToken: requestedSlashToken
+        )
         let baselineMessageCount = bridgeState.messages.count
         isUsingSharedCoordinator = true
         defer { isUsingSharedCoordinator = false }
@@ -1568,7 +2190,11 @@ private struct MiniChatInputBar: View {
         )
     }
 
-    private func bridgeChatState(attachments: [ContextAttachment]) -> ChatState {
+    private func bridgeChatState(
+        attachments: [ContextAttachment],
+        fileAttachments: [FileAttachment],
+        requestedSlashToken: ParsedSlashToken?
+    ) -> ChatState {
         let bridgeState = ChatState()
         let existingMessages = threadState.miniChatSession(id: chatID)?.messages ?? []
 
@@ -1592,6 +2218,12 @@ private struct MiniChatInputBar: View {
         }
         bridgeState.hasMessages = !bridgeState.messages.isEmpty
         bridgeState.pendingContextAttachments = attachments
+        bridgeState.pendingAttachments = fileAttachments
+        if let lastUserIndex = bridgeState.messages.lastIndex(where: { $0.role == .user }) {
+            bridgeState.messages[lastUserIndex].attachments = fileAttachments
+            bridgeState.messages[lastUserIndex].contextAttachments = attachments.isEmpty ? nil : attachments
+        }
+        bridgeState.queuePendingSlashToken(requestedSlashToken)
         if let thread = miniChatThread {
             bridgeState.loadedNoteIds = Set(thread.loadedNoteIds)
             bridgeState.loadedNoteTitles = thread.loadedNoteTitles
@@ -1761,6 +2393,7 @@ private struct MiniChatInputBar: View {
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         referencePopoverStyle = .mention
+        mentionKeyboardIndex = 0
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
@@ -1768,7 +2401,10 @@ private struct MiniChatInputBar: View {
 
     private func dismissReferencePopover() {
         showMentionDropdown = false
+        mentionKeyboardIndex = 0
         mentionPickerAutofocus = false
+        mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func updateMentionReferenceSearch(filter: String) {

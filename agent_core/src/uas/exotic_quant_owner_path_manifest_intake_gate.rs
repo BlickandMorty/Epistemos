@@ -1030,10 +1030,7 @@ fn canonical_card(
             upstream_availability_gate_ref: upstream_availability_gate_ref.to_string(),
             source_pin_card_ref: format!("{SOURCE_PIN_CARD_PREFIX}{}", profile.source_pin_card_id),
             byte_budget_ref: format!("{BYTE_BUDGET_PREFIX}{}", profile.source_pin_card_id),
-            manifest_schema_ref: format!(
-                "{MANIFEST_SCHEMA_PREFIX}{}",
-                profile.source_pin_card_id
-            ),
+            manifest_schema_ref: format!("{MANIFEST_SCHEMA_PREFIX}{}", profile.source_pin_card_id),
             path_policy_ref: format!("{PATH_POLICY_PREFIX}{}", profile.source_pin_card_id),
             command_envelope_ref: format!(
                 "{COMMAND_ENVELOPE_PREFIX}{}",
@@ -1089,8 +1086,7 @@ fn canonical_card(
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json#F-ExoticQuantLocalArtifactAvailabilityOwnerGate";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_local_artifact_availability_owner_gate/result.json#F-ExoticQuantLocalArtifactAvailabilityOwnerGate";
     const CREATED_AT_MS: u64 = 1_779_421_800_000;
 
     fn ledger(

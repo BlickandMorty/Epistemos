@@ -22,6 +22,21 @@ nonisolated struct BenchmarkRunReport: Codable {
 }
 
 nonisolated enum BenchmarkRunRecorder {
+    static func configuredResultsDirectory(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> (url: URL, removeAfterRun: Bool) {
+        if let override = environment["EPISTEMOS_BENCHMARK_RESULTS_DIR"],
+           !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return (URL(fileURLWithPath: override, isDirectory: true), false)
+        }
+
+        return (
+            FileManager.default.temporaryDirectory
+                .appendingPathComponent("epistemos-benchmark-results-\(UUID().uuidString)", isDirectory: true),
+            true
+        )
+    }
+
     static func record(
         suite: String,
         measurement: String,
@@ -57,9 +72,7 @@ nonisolated enum BenchmarkRunRecorder {
             metadata: metadata
         )
 
-        let resultsDirectory = overrideResultsDirectory ?? repoRoot()
-            .appendingPathComponent("benchmarks", isDirectory: true)
-            .appendingPathComponent("results", isDirectory: true)
+        let resultsDirectory = overrideResultsDirectory ?? configuredResultsDirectory().url
         try FileManager.default.createDirectory(at: resultsDirectory, withIntermediateDirectories: true)
 
         let filename = [
@@ -72,7 +85,7 @@ nonisolated enum BenchmarkRunRecorder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(report)
-        try data.write(to: outputURL, options: [.atomic])
+        try data.write(to: outputURL)
         return outputURL
     }
 
@@ -80,13 +93,6 @@ nonisolated enum BenchmarkRunRecorder {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }
-
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
     }
 
     private static func percentile(_ sortedSamples: [Double], _ percentile: Double) -> Double {

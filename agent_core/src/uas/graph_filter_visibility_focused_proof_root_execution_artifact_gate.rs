@@ -9,8 +9,7 @@ pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_CUR
     "graph_filter_visibility_focused_proof_root_execution_artifact_gate";
 pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_focused_proof_root_command_card/result.json#F-GraphFilterVisibilityFocusedProofRootCommandCard";
+pub const GRAPH_FILTER_VISIBILITY_FOCUSED_PROOF_ROOT_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/graph_filter_visibility_focused_proof_root_command_card/result.json#F-GraphFilterVisibilityFocusedProofRootCommandCard";
 
 const REQUIRED_EXECUTION_MANIFEST_FIELDS: [&str; 18] = [
     "source_commit_sha",

@@ -11,10 +11,8 @@ pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_CURSOR: &str =
     "release_audit_automated_checks_closure_matrix";
 pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_NEXT_CURSOR: &str =
     "graph_filter_visibility_focused_repair_packet";
-pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_UPSTREAM_REF: &str =
-    "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
-pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard";
+pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_UPSTREAM_REF: &str = "artifact:falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json#F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe";
+pub const RELEASE_AUDIT_AUTOMATED_CHECKS_CLOSURE_MATRIX_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard";
 
 const REQUIRED_CHECK_IDS: [&str; 5] = [
     "xcodebuild_build",

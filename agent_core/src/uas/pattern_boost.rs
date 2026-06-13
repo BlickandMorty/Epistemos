@@ -787,10 +787,9 @@ impl std::fmt::Display for UasAssemblyGenomeError {
         match self {
             Self::MissingMissionFamily => write!(f, "mission_family is required"),
             Self::MissingRuntimeRoute => write!(f, "runtime_route_id is required"),
-            Self::MissingUasSupport => write!(
-                f,
-                "at least one selected UAS support object is required"
-            ),
+            Self::MissingUasSupport => {
+                write!(f, "at least one selected UAS support object is required")
+            }
             Self::MissingVerifierLane => write!(f, "selected_verifier_lanes is required"),
             Self::MissingSparseAttentionPattern => {
                 write!(f, "sparse_attention_pattern is required")
@@ -838,10 +837,9 @@ impl std::fmt::Display for UasAssemblyGenomeError {
                 f,
                 "answer_packet_caveat_ref must name a visible AnswerPacket caveat, got {answer_packet_caveat_ref}"
             ),
-            Self::UnsupportedRuntimeRouteAuthority { field, route } => write!(
-                f,
-                "{field} must route through RuntimeRouter, got {route}"
-            ),
+            Self::UnsupportedRuntimeRouteAuthority { field, route } => {
+                write!(f, "{field} must route through RuntimeRouter, got {route}")
+            }
             Self::DuplicateAddress { field } => {
                 write!(f, "{field} must not contain duplicate UAS addresses")
             }

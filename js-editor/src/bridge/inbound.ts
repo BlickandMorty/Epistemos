@@ -6,7 +6,7 @@
 // Tiptap editor; unknown commands return false (callers can fall back).
 
 import type { Editor } from '@tiptap/core';
-import type { ResolvedPos } from '@tiptap/pm/model';
+import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
 import { postBridge } from './outbound';
@@ -84,6 +84,14 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         }
         return didRun;
       }
+      if (name === 'requestHTMLWorkspace') {
+        editor.commands.focus();
+        postBridge({
+          type: 'requestHTMLWorkspace',
+          source: 'dock',
+        });
+        return true;
+      }
       if (name === 'insertEpdocFrontmatter') {
         const didRun = insertEpdocFrontmatter(editor);
         if (didRun) {
@@ -149,6 +157,9 @@ function setHeadingLevel(editor: Editor, level: number): boolean {
   const { state, view } = editor;
   const depth = textblockDepth(state.selection.$from);
   if (depth === null || depth <= 0) return false;
+  if (splitTextblockAroundHardBreaks(editor, depth)) {
+    return setHeadingLevel(editor, level);
+  }
 
   const node = state.selection.$from.node(depth);
   const headingType = state.schema.nodes.heading;
@@ -172,6 +183,9 @@ function setParagraph(editor: Editor): boolean {
   const { state, view } = editor;
   const depth = textblockDepth(state.selection.$from);
   if (depth === null || depth <= 0) return false;
+  if (splitTextblockAroundHardBreaks(editor, depth)) {
+    return setParagraph(editor);
+  }
 
   const node = state.selection.$from.node(depth);
   const paragraphType = state.schema.nodes.paragraph;
@@ -195,6 +209,41 @@ function textblockDepth($pos: ResolvedPos): number | null {
     if ($pos.node(depth).isTextblock) return depth;
   }
   return null;
+}
+
+function splitTextblockAroundHardBreaks(editor: Editor, depth: number): boolean {
+  const { state, view } = editor;
+  const node = state.selection.$from.node(depth);
+  if (!node.isTextblock || node.childCount === 0) return false;
+
+  let sawHardBreak = false;
+  let current: ProseMirrorNode[] = [];
+  const pieces: ProseMirrorNode[] = [];
+  node.forEach((child) => {
+    if (child.type.name !== 'hardBreak') {
+      current.push(child);
+      return;
+    }
+    sawHardBreak = true;
+    pieces.push(node.type.create(
+      node.attrs,
+      current.length > 0 ? Fragment.fromArray(current) : undefined,
+    ));
+    current = [];
+  });
+  if (!sawHardBreak) return false;
+
+  pieces.push(node.type.create(
+    node.attrs,
+    current.length > 0 ? Fragment.fromArray(current) : undefined,
+  ));
+
+  const from = state.selection.$from.before(depth);
+  const to = from + node.nodeSize;
+  const tr = state.tr.replaceWith(from, to, Fragment.fromArray(pieces)).scrollIntoView();
+  view.dispatch(tr);
+  view.focus();
+  return true;
 }
 
 function headingLevelFromArgs(args: unknown[]): number | null {

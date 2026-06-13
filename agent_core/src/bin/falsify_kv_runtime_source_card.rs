@@ -119,7 +119,9 @@ fn build_artifact(
         ),
         (
             "source_digests_bound",
-            cards.iter().all(|card| card.source_digest == digest_for(&graph, &card.source_id)),
+            cards
+                .iter()
+                .all(|card| card.source_digest == digest_for(&graph, &card.source_id)),
         ),
         (
             "source_cards_have_provenance_mode",
@@ -212,7 +214,13 @@ fn build_artifact(
             set.set_address == reversed.set_address,
         ),
     ] {
-        add_bool_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, name, pass);
+        add_bool_axis(
+            &mut measurements,
+            &mut thresholds,
+            &mut pass_per_axis,
+            name,
+            pass,
+        );
     }
 
     for (name, pass) in &red_results {
@@ -475,11 +483,15 @@ fn red_fixture_results(
         ("empty_card_set", build_set(graph, Vec::new()).is_err()),
         (
             "duplicate_card_id",
-            reject_cards(graph, cards, |cards| cards[1].card_id = cards[0].card_id.clone()),
+            reject_cards(graph, cards, |cards| {
+                cards[1].card_id = cards[0].card_id.clone()
+            }),
         ),
         (
             "duplicate_source_id",
-            reject_cards(graph, cards, |cards| cards[1].source_id = cards[0].source_id.clone()),
+            reject_cards(graph, cards, |cards| {
+                cards[1].source_id = cards[0].source_id.clone()
+            }),
         ),
         (
             "unknown_source_id",
@@ -497,11 +509,15 @@ fn red_fixture_results(
         ),
         (
             "source_digest_mismatch",
-            reject_card(graph, cards, |card| card.source_digest = digest("wrong-digest")),
+            reject_card(graph, cards, |card| {
+                card.source_digest = digest("wrong-digest")
+            }),
         ),
         (
             "missing_compressed_model_ref",
-            reject_card(graph, cards, |card| card.compressed_model_source_card_ref = None),
+            reject_card(graph, cards, |card| {
+                card.compressed_model_source_card_ref = None
+            }),
         ),
         (
             "missing_cache_identity",
@@ -521,15 +537,21 @@ fn red_fixture_results(
         ),
         (
             "missing_quality_caveat",
-            reject_card(graph, cards, |card| card.quality_caveat_ref = "claim:quality".to_string()),
+            reject_card(graph, cards, |card| {
+                card.quality_caveat_ref = "claim:quality".to_string()
+            }),
         ),
         (
             "missing_server_daemon_boundary",
-            reject_card(graph, cards, |card| card.server_daemon_boundary = "server ok".to_string()),
+            reject_card(graph, cards, |card| {
+                card.server_daemon_boundary = "server ok".to_string()
+            }),
         ),
         (
             "missing_remote_storage_boundary",
-            reject_card(graph, cards, |card| card.remote_storage_boundary = "remote ok".to_string()),
+            reject_card(graph, cards, |card| {
+                card.remote_storage_boundary = "remote ok".to_string()
+            }),
         ),
         (
             "server_as_product",
@@ -560,7 +582,8 @@ fn red_fixture_results(
         (
             "kv_quantization_caveat_gap",
             reject_named_card(graph, cards, "kivi_asymmetric_kv", |card| {
-                card.compatibility_fields.retain(|field| field != "residual_length");
+                card.compatibility_fields
+                    .retain(|field| field != "residual_length");
             }),
         ),
         (
@@ -610,7 +633,9 @@ fn red_fixture_results(
         ),
         (
             "runtime_bytes_loaded",
-            reject_card(graph, cards, |card| card.byte_scope.runtime_bytes_loaded = 1),
+            reject_card(graph, cards, |card| {
+                card.byte_scope.runtime_bytes_loaded = 1
+            }),
         ),
         (
             "provider_call_made",
@@ -618,11 +643,15 @@ fn red_fixture_results(
         ),
         (
             "source_tree_bytes_imported",
-            reject_card(graph, cards, |card| card.byte_scope.source_tree_bytes_read = 1),
+            reject_card(graph, cards, |card| {
+                card.byte_scope.source_tree_bytes_read = 1
+            }),
         ),
         (
             "product_file_copied",
-            reject_card(graph, cards, |card| card.byte_scope.product_files_copied = 1),
+            reject_card(graph, cards, |card| {
+                card.byte_scope.product_files_copied = 1
+            }),
         ),
         (
             "live_dense_70b_claim",
@@ -658,15 +687,51 @@ fn red_fixture_results(
 fn source_graph() -> Result<SourceSignalGraph, Box<dyn std::error::Error>> {
     Ok(SourceSignalGraph::intake(
         vec![
-            source_card("source:repo:vllm", "https://github.com/vllm-project/vllm", "Apache-2.0"),
-            source_card("source:repo:lmcache", "https://github.com/LMCache/LMCache", "Apache-2.0"),
-            source_card("source:repo:sglang", "https://github.com/sgl-project/sglang", "Apache-2.0"),
-            source_card("source:repo:ktransformers", "https://github.com/kvcache-ai/ktransformers", "Apache-2.0; quarantine source-card only"),
-            source_card("source:repo:flexllmgen", "https://github.com/FMInference/FlexGen", "Apache-2.0; research-only source-card"),
-            source_card("source:repo:powerinfer", "https://github.com/SJTU-IPADS/PowerInfer", "Apache-2.0; research-only source-card"),
-            source_card("source:repo:kivi", "https://github.com/jy-yuan/KIVI", "research license note; clean-room motif only"),
-            source_card("source:repo:transformers", "https://github.com/huggingface/transformers", "Apache-2.0"),
-            source_card("source:repo:llama-cpp", "https://github.com/ggml-org/llama.cpp", "MIT"),
+            source_card(
+                "source:repo:vllm",
+                "https://github.com/vllm-project/vllm",
+                "Apache-2.0",
+            ),
+            source_card(
+                "source:repo:lmcache",
+                "https://github.com/LMCache/LMCache",
+                "Apache-2.0",
+            ),
+            source_card(
+                "source:repo:sglang",
+                "https://github.com/sgl-project/sglang",
+                "Apache-2.0",
+            ),
+            source_card(
+                "source:repo:ktransformers",
+                "https://github.com/kvcache-ai/ktransformers",
+                "Apache-2.0; quarantine source-card only",
+            ),
+            source_card(
+                "source:repo:flexllmgen",
+                "https://github.com/FMInference/FlexGen",
+                "Apache-2.0; research-only source-card",
+            ),
+            source_card(
+                "source:repo:powerinfer",
+                "https://github.com/SJTU-IPADS/PowerInfer",
+                "Apache-2.0; research-only source-card",
+            ),
+            source_card(
+                "source:repo:kivi",
+                "https://github.com/jy-yuan/KIVI",
+                "research license note; clean-room motif only",
+            ),
+            source_card(
+                "source:repo:transformers",
+                "https://github.com/huggingface/transformers",
+                "Apache-2.0",
+            ),
+            source_card(
+                "source:repo:llama-cpp",
+                "https://github.com/ggml-org/llama.cpp",
+                "MIT",
+            ),
             blocked_source_card(
                 "source:repo:blocked-kv-runtime",
                 "https://example.invalid/blocked-kv-runtime",
@@ -720,7 +785,10 @@ fn accepted_cards(graph: &SourceSignalGraph) -> Vec<KvRuntimeSourceCard> {
                 mechanism: KvRuntimeMechanism::VirtualBlockTable,
                 runtime_shape: KvRuntimeShape::ServerFramework,
                 deployment: KvDefaultDeploymentShape::ProResearchServer,
-                storage_tiers: vec![KvRuntimeStorageTier::GpuMemory, KvRuntimeStorageTier::CpuMemory],
+                storage_tiers: vec![
+                    KvRuntimeStorageTier::GpuMemory,
+                    KvRuntimeStorageTier::CpuMemory,
+                ],
                 cache_identity: vec!["block_table_id", "sequence_id", "page_size"],
                 compatibility: vec!["model_id", "tokenizer_id", "block_size", "backend"],
                 byte_ledger: vec!["kv_block_bytes", "eviction_bytes", "swap_bytes"],
@@ -771,7 +839,11 @@ fn accepted_cards(graph: &SourceSignalGraph) -> Vec<KvRuntimeSourceCard> {
                 cache_identity: vec!["radix_prefix", "request_id", "tokenizer_id"],
                 compatibility: vec!["model_id", "tokenizer_id", "page_size", "remote_schema"],
                 byte_ledger: vec!["gpu_kv_bytes", "cpu_kv_bytes", "remote_bytes"],
-                cache_policy: vec!["remote_disabled_by_default", "visible_abstention", "rollback"],
+                cache_policy: vec![
+                    "remote_disabled_by_default",
+                    "visible_abstention",
+                    "rollback",
+                ],
                 apple_status: KvAppleSiliconStatus::SourceOnly,
                 mas_status: KvMasStatus::DeniedServerOrDaemon,
                 import_mode: ProprietaryCompressionImportMode::ResearchOnly,
@@ -836,7 +908,10 @@ fn accepted_cards(graph: &SourceSignalGraph) -> Vec<KvRuntimeSourceCard> {
                 mechanism: KvRuntimeMechanism::ActivationLocality,
                 runtime_shape: KvRuntimeShape::CppRuntime,
                 deployment: KvDefaultDeploymentShape::ResearchOnly,
-                storage_tiers: vec![KvRuntimeStorageTier::CpuMemory, KvRuntimeStorageTier::LocalSsd],
+                storage_tiers: vec![
+                    KvRuntimeStorageTier::CpuMemory,
+                    KvRuntimeStorageTier::LocalSsd,
+                ],
                 cache_identity: vec!["predictor_ref", "neuron_cluster_id", "task_signature"],
                 compatibility: vec!["model_id", "activation_predictor", "backend", "fallback"],
                 byte_ledger: vec!["hot_neuron_bytes", "cold_neuron_bytes", "miss_bytes"],
@@ -897,7 +972,12 @@ fn accepted_cards(graph: &SourceSignalGraph) -> Vec<KvRuntimeSourceCard> {
                     KvRuntimeStorageTier::PromptCacheFile,
                     KvRuntimeStorageTier::LocalSsd,
                 ],
-                cache_identity: vec!["model_id", "tokenizer_id", "prompt_digest", "cache_file_digest"],
+                cache_identity: vec![
+                    "model_id",
+                    "tokenizer_id",
+                    "prompt_digest",
+                    "cache_file_digest",
+                ],
                 compatibility: vec![
                     "model_id",
                     "tokenizer_id",

@@ -42,21 +42,22 @@ struct LandingOptimizationTests {
         #expect(LiquidGreetingTiming.untypingDelay(forStep: 0) != LiquidGreetingTiming.untypingDelay(forStep: 1))
     }
 
-    @Test("session intelligence landing feature files are removed")
-    func sessionIntelligenceLandingFeatureFilesAreRemoved() {
-        let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let retiredOverlay = repoRoot.appendingPathComponent("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+    @Test("session intelligence landing feature is detached from the live landing path")
+    func sessionIntelligenceLandingFeatureIsDetachedFromLivePath() throws {
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(!FileManager.default.fileExists(atPath: retiredOverlay.path))
+        #expect(!app.contains("toggleSessionIntelligence"))
+        #expect(!root.contains("SessionIntelligenceOverlay"))
+        #expect(!landing.contains("SessionIntelligenceOverlay"))
     }
 
     @Test("landing search composer uses the label line and hides secondary tools behind Tools")
     func landingSearchComposerUsesLabelLineAndToolsReveal() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landing.contains("PixelPanelTitle(text: \"Search\", theme: theme, size: 27)"))
+        #expect(landing.contains("private var landingSearchInputLine: some View"))
         #expect(landing.contains("ChatComposerTextEditor(\n                        text: $landingSearchText"))
         #expect(landing.contains("preferSplitToolbarControls: false"))
         #expect(landing.contains("landingSearchToolsToggle"))

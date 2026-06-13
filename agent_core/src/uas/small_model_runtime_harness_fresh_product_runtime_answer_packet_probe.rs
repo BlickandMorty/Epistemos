@@ -330,7 +330,9 @@ impl SmallModelFreshProductRuntimeAnswerPacketSurface {
             validate_clean("forbidden_marker", marker)?;
             if surface.observed_text.contains(marker) {
                 return Err(
-                    SmallModelFreshProductRuntimeAnswerPacketProbeError::ForbiddenMarker(marker.clone()),
+                    SmallModelFreshProductRuntimeAnswerPacketProbeError::ForbiddenMarker(
+                        marker.clone(),
+                    ),
                 );
             }
         }
@@ -648,7 +650,9 @@ impl SmallModelFreshProductRuntimeAnswerPacketPacket {
             .any(|claim| claim.kind == ClaimKind::Empirical)
         {
             return Err(
-                SmallModelFreshProductRuntimeAnswerPacketProbeError::PacketClaimKindMissing("empirical"),
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::PacketClaimKindMissing(
+                    "empirical",
+                ),
             );
         }
         if !self
@@ -808,9 +812,11 @@ impl SmallModelFreshProductRuntimeAnswerPacketPacket {
             );
         }
         if self.gate_bypass_attempted {
-            return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::GateBypass(
-                self.packet_id.clone(),
-            ));
+            return Err(
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::GateBypass(
+                    self.packet_id.clone(),
+                ),
+            );
         }
         if self.answer_packet_suppressed {
             return Err(
@@ -1037,7 +1043,9 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
             }
         }
         if !self.l1_l2_l3_separated {
-            return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::MissingLayerSeparation);
+            return Err(
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::MissingLayerSeparation,
+            );
         }
         if self.mas_overclaim_attempted {
             return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::MasOverclaimAttempted);
@@ -1049,7 +1057,9 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
             return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::L3GreenClaimAttempted);
         }
         if self.metadata_bytes > MAX_METADATA_BYTES {
-            return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::MetadataBudgetExceeded);
+            return Err(
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::MetadataBudgetExceeded,
+            );
         }
         Ok(())
     }
@@ -1131,8 +1141,8 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
     }
 }
 
-pub fn required_fresh_product_runtime_answer_packet_probe_phases() -> [SmallModelFreshProductRuntimeAnswerPacketPhase; 12]
-{
+pub fn required_fresh_product_runtime_answer_packet_probe_phases(
+) -> [SmallModelFreshProductRuntimeAnswerPacketPhase; 12] {
     [
         SmallModelFreshProductRuntimeAnswerPacketPhase::FreshLiveArtifactBound,
         SmallModelFreshProductRuntimeAnswerPacketPhase::LiveProbeSidecarBound,
@@ -1182,12 +1192,16 @@ fn validate_clean(
     }
     if value.trim() != value {
         return Err(
-            SmallModelFreshProductRuntimeAnswerPacketProbeError::FieldHasSurroundingWhitespace(field),
+            SmallModelFreshProductRuntimeAnswerPacketProbeError::FieldHasSurroundingWhitespace(
+                field,
+            ),
         );
     }
     if value.chars().any(|ch| ch.is_control()) {
         return Err(
-            SmallModelFreshProductRuntimeAnswerPacketProbeError::FieldContainsControlCharacter(field),
+            SmallModelFreshProductRuntimeAnswerPacketProbeError::FieldContainsControlCharacter(
+                field,
+            ),
         );
     }
     Ok(())
@@ -1356,7 +1370,9 @@ mod tests {
         );
         assert!(matches!(
             bad.validate(),
-            Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::StaticFallbackContradiction(_))
+            Err(
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::StaticFallbackContradiction(_)
+            )
         ));
     }
 
@@ -1450,7 +1466,11 @@ mod tests {
         bad.long_context_shard_probe_attempted = true;
         assert!(matches!(
             bad.validate(),
-            Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::LongContextShardProbeAttempt(_))
+            Err(
+                SmallModelFreshProductRuntimeAnswerPacketProbeError::LongContextShardProbeAttempt(
+                    _
+                )
+            )
         ));
     }
 }

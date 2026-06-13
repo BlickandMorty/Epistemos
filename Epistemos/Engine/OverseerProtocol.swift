@@ -578,6 +578,7 @@ final class OverseerComplexityRouter {
             return false
         }()
         let shouldPlanToolsInChat = shouldUseOverseerLocalExecution(
+            query: query,
             analysis: analysis,
             intent: intent,
             hasExplicitContext: hasExplicitContext,
@@ -591,7 +592,12 @@ final class OverseerComplexityRouter {
             contentLength: contentLength,
             attachmentCount: attachmentCount
         ) {
-            return .managedAgentSession
+            if case .cloud = effectiveSelection {
+                return .managedAgentSession
+            }
+            if shouldUseManagedAgentForLongRunningWork(query: query) || !shouldPlanToolsInChat {
+                return .managedAgentSession
+            }
         }
 
         if operatingMode == .fast,
@@ -638,6 +644,16 @@ final class OverseerComplexityRouter {
         }
 
         return .localOnly
+    }
+
+    private func shouldUseManagedAgentForLongRunningWork(query: String) -> Bool {
+        let normalized = query.lowercased()
+        return normalized.contains("for a few hours")
+            || normalized.contains("for hours")
+            || normalized.contains("keep iterating")
+            || normalized.contains("keep monitoring")
+            || normalized.contains("keep watching")
+            || normalized.contains("until you have a final")
     }
 
     private func selectedLocalOperatingMode(
@@ -775,6 +791,7 @@ final class OverseerComplexityRouter {
     }
 
     private func shouldUseOverseerLocalExecution(
+        query: String,
         analysis: QueryAnalysis,
         intent: InferenceTaskIntent,
         hasExplicitContext: Bool,
@@ -789,12 +806,41 @@ final class OverseerComplexityRouter {
             return true
         }
 
+        if explicitlyRequestsToolSurface(query) {
+            return true
+        }
+
         switch intent {
         case .coding, .debugging, .graphAnalysis:
             return true
         case .simpleAsk, .rewrite, .summarize, .brainstorm, .comparison, .synthesis, .noteAnalysis:
             return false
         }
+    }
+
+    private func explicitlyRequestsToolSurface(_ query: String) -> Bool {
+        let normalized = query.lowercased()
+        let tokens = Set(normalized.split { !$0.isLetter && !$0.isNumber }.map(String.init))
+
+        if normalized.contains("search up")
+            || normalized.contains("look up")
+            || normalized.contains("search for")
+            || normalized.contains("search the web")
+            || normalized.contains("web search")
+            || normalized.contains("latest")
+            || normalized.contains("current")
+            || normalized.contains("today")
+            || normalized.contains("weather")
+            || normalized.contains("news") {
+            return true
+        }
+
+        if (tokens.contains("create") || tokens.contains("write") || tokens.contains("save") || tokens.contains("update"))
+            && (tokens.contains("note") || tokens.contains("notes") || tokens.contains("file") || tokens.contains("doc")) {
+            return true
+        }
+
+        return false
     }
 
     private func expertAllowlist(

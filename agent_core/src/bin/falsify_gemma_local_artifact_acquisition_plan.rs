@@ -6,7 +6,7 @@
 //! Gemma route.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use agent_core::falsifier_artifacts::axes::GEMMA_LOCAL_ARTIFACT_ACQUISITION_PLAN_AXES;
 use agent_core::falsifier_artifacts::{
@@ -458,15 +458,34 @@ fn build_artifact(
 }
 
 fn upstream_gate_pass(path: &str) -> Result<bool, Box<dyn std::error::Error>> {
-    if !Path::new(path).exists() {
+    let resolved = resolve_repo_path(path);
+    if !resolved.exists() {
         return Ok(false);
     }
-    let bytes = std::fs::read(path)?;
+    let bytes = std::fs::read(resolved)?;
     let json: serde_json::Value = serde_json::from_slice(&bytes)?;
     Ok(json
         .get("overall_pass")
         .and_then(|value| value.as_bool())
         .unwrap_or(false))
+}
+
+fn resolve_repo_path(path: &str) -> PathBuf {
+    let direct = PathBuf::from(path);
+    if direct.exists() {
+        return direct;
+    }
+    let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    loop {
+        let candidate = current.join(path);
+        if candidate.exists() {
+            return candidate;
+        }
+        if !current.pop() {
+            break;
+        }
+    }
+    direct
 }
 
 fn red_fixture_results(plan: &GemmaLocalArtifactAcquisitionPlan) -> Vec<(&'static str, bool)> {

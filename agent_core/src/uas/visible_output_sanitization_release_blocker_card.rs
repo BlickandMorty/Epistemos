@@ -9,10 +9,8 @@ pub const VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "visible_output_sanitization_release_blocker_card";
 pub const VISIBLE_OUTPUT_SANITIZATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "graph_filter_visibility_release_blocker_card";
-pub const VISIBLE_OUTPUT_SANITIZATION_UPSTREAM_REF: &str =
-    "artifact:falsifiers/agent_route_policy_large_model_no_hidden_authority/result.json#F-AgentRoutePolicy-LargeModelNoHiddenAuthority";
-pub const VISIBLE_OUTPUT_SANITIZATION_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#visible_output_sanitization";
+pub const VISIBLE_OUTPUT_SANITIZATION_UPSTREAM_REF: &str = "artifact:falsifiers/agent_route_policy_large_model_no_hidden_authority/result.json#F-AgentRoutePolicy-LargeModelNoHiddenAuthority";
+pub const VISIBLE_OUTPUT_SANITIZATION_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#visible_output_sanitization";
 
 const REQUIRED_SOURCE_REFS: [&str; 9] = [
     "Epistemos/Engine/Extensions.swift",

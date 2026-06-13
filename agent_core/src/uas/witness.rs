@@ -227,6 +227,10 @@ mod tests {
                 migrated_at_ms: 0,
             },
         ];
-        assert_eq!(events.len(), 5, "five-event LOCK — adding a 6th event requires canonical doctrine §5 row #1 acceptance revision");
+        assert_eq!(
+            events.len(),
+            5,
+            "five-event LOCK — adding a 6th event requires canonical doctrine §5 row #1 acceptance revision"
+        );
     }
 }

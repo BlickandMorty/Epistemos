@@ -532,8 +532,8 @@ impl SmallModelRuntimeHarnessOwnerProbeWitness {
             seventy_b_probe_count += u64::from(lease.seventy_b_probe_attempted);
             runtime_bytes_loaded = runtime_bytes_loaded.saturating_add(lease.runtime_bytes_loaded);
             model_bytes_loaded = model_bytes_loaded.saturating_add(lease.model_bytes_loaded);
-            transport_runtime_bytes_loaded = transport_runtime_bytes_loaded
-                .saturating_add(lease.transport_runtime_bytes_loaded);
+            transport_runtime_bytes_loaded =
+                transport_runtime_bytes_loaded.saturating_add(lease.transport_runtime_bytes_loaded);
         }
 
         SmallModelRuntimeHarnessOwnerProbeMetrics {
@@ -627,9 +627,15 @@ fn validate_witness(
 ) -> Result<(), SmallModelRuntimeHarnessOwnerProbeError> {
     validate_clean("witness_id", &witness.witness_id)?;
     validate_clean("dry_run_artifact_ref", &witness.dry_run_artifact_ref)?;
-    validate_clean("guard_next_existing_work", &witness.guard_next_existing_work)?;
+    validate_clean(
+        "guard_next_existing_work",
+        &witness.guard_next_existing_work,
+    )?;
     validate_clean("capability_route_status", &witness.capability_route_status)?;
-    validate_clean("capability_next_bottleneck", &witness.capability_next_bottleneck)?;
+    validate_clean(
+        "capability_next_bottleneck",
+        &witness.capability_next_bottleneck,
+    )?;
     validate_clean("route_authority", &witness.route_authority)?;
     validate_prefix(
         &witness.dry_run_artifact_ref,
@@ -676,9 +682,9 @@ fn validate_witness(
     }
     for required_lane in REQUIRED_LANES {
         if !lane_ids.contains(required_lane) {
-            return Err(SmallModelRuntimeHarnessOwnerProbeError::MissingRequiredLane(
-                required_lane,
-            ));
+            return Err(
+                SmallModelRuntimeHarnessOwnerProbeError::MissingRequiredLane(required_lane),
+            );
         }
     }
     let mut surface_ids = HashSet::with_capacity(witness.surfaces.len());
@@ -718,9 +724,9 @@ fn validate_surface(
     for marker in &surface.required_markers {
         validate_clean("required_marker", marker)?;
         if !surface.observed_text.contains(marker) {
-            return Err(SmallModelRuntimeHarnessOwnerProbeError::MissingRequiredMarker(
-                marker.clone(),
-            ));
+            return Err(
+                SmallModelRuntimeHarnessOwnerProbeError::MissingRequiredMarker(marker.clone()),
+            );
         }
     }
     for marker in &surface.forbidden_markers {
@@ -849,19 +855,17 @@ fn validate_lease(
         }
     }
     if !lease.approval_bound_to_dry_run {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::OwnerApprovalNotBound(
-            id,
-        ));
+        return Err(SmallModelRuntimeHarnessOwnerProbeError::OwnerApprovalNotBound(id));
     }
     if !lease.runtime_probe_armed {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::RuntimeProbeNotArmed(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::RuntimeProbeNotArmed(lease.lease_id.clone()),
+        );
     }
     if lease.runtime_probe_executed {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::RuntimeProbeExecuted(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::RuntimeProbeExecuted(lease.lease_id.clone()),
+        );
     }
     if lease.mutation_committed {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::MutationCommitted(
@@ -869,9 +873,9 @@ fn validate_lease(
         ));
     }
     if lease.route_policy_mutated {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::RoutePolicyMutation(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::RoutePolicyMutation(lease.lease_id.clone()),
+        );
     }
     if lease.gate_bypass {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::GateBypass(
@@ -880,23 +884,25 @@ fn validate_lease(
     }
     if lease.answer_packet_suppressed {
         return Err(
-            SmallModelRuntimeHarnessOwnerProbeError::AnswerPacketSuppression(lease.lease_id.clone()),
+            SmallModelRuntimeHarnessOwnerProbeError::AnswerPacketSuppression(
+                lease.lease_id.clone(),
+            ),
         );
     }
     if lease.hidden_route_authority {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::HiddenRouteAuthority(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::HiddenRouteAuthority(lease.lease_id.clone()),
+        );
     }
     if lease.hidden_chain_exposed {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::HiddenChainExposure(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::HiddenChainExposure(lease.lease_id.clone()),
+        );
     }
     if lease.hidden_cloud_fallback {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::HiddenCloudFallback(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::HiddenCloudFallback(lease.lease_id.clone()),
+        );
     }
     if lease.subprocess_spawned {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::SubprocessSpawn(
@@ -904,14 +910,16 @@ fn validate_lease(
         ));
     }
     if lease.autogenous_kernel_attempted {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::AutogenousKernelAttempt(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::AutogenousKernelAttempt(
+                lease.lease_id.clone(),
+            ),
+        );
     }
     if lease.seventy_b_probe_attempted {
-        return Err(SmallModelRuntimeHarnessOwnerProbeError::SeventyBProbeAttempt(
-            lease.lease_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessOwnerProbeError::SeventyBProbeAttempt(lease.lease_id.clone()),
+        );
     }
     if lease.max_context_tokens > MAX_CONTEXT_TOKENS {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::BudgetExceeded(

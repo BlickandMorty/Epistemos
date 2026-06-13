@@ -80,6 +80,21 @@ struct SettingsTruthFloorTests {
                 "the row tooltip must spell out the T0 truth rule")
     }
 
+    @Test("runtime truth row reports effective route instead of stale preferred selection")
+    func runtimeTruthRowReportsEffectiveRoute() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/RuntimeTruthHealthRow.swift"
+        )
+
+        #expect(source.contains("private var effectiveSelection: ChatModelSelection"))
+        #expect(source.contains("inference.effectiveChatSurfaceSelection(for: mode)"))
+        #expect(source.contains("ComposerModelToolTruth.summary("))
+        #expect(!source.contains("private func cloudToolLoopSummary"))
+        #expect(!source.contains("private func localToolLoopSummary"))
+        #expect(!source.contains("switch inference.preferredChatModelSelection"))
+        #expect(!source.contains("if case .cloud = inference.preferredChatModelSelection"))
+    }
+
     @Test("audit document enumerates every guarded Settings row")
     func auditDocumentEnumeratesEveryGuardedSettingsRow() throws {
         let audit = try loadMirroredSourceTextFile(

@@ -670,7 +670,8 @@ impl ProofPressureSignalRegistry {
                 metrics.max_tactic_state_entropy_bps = metrics
                     .max_tactic_state_entropy_bps
                     .max(signal.tactic_state_entropy_bps);
-                metrics.max_pressure_tokens = metrics.max_pressure_tokens.max(signal.pressure_tokens);
+                metrics.max_pressure_tokens =
+                    metrics.max_pressure_tokens.max(signal.pressure_tokens);
                 metrics.max_pressure_metadata_bytes = metrics
                     .max_pressure_metadata_bytes
                     .max(signal.pressure_metadata_bytes);
@@ -788,13 +789,19 @@ impl ProofPressureSignalRegistry {
                 self.signals()
                     .all(|signal| valid_route_pressure(&signal.route_pressure)),
             ),
-            ("retrieve_pressure_bound", self.has_route_pressure("retrieve")),
+            (
+                "retrieve_pressure_bound",
+                self.has_route_pressure("retrieve"),
+            ),
             ("repair_pressure_bound", self.has_route_pressure("repair")),
             (
                 "deeper_model_pressure_bound",
                 self.has_route_pressure("deeper_model"),
             ),
-            ("verifier_pressure_bound", self.has_route_pressure("verifier")),
+            (
+                "verifier_pressure_bound",
+                self.has_route_pressure("verifier"),
+            ),
             ("abstain_pressure_bound", self.has_route_pressure("abstain")),
             (
                 "test_refs_bound",
@@ -807,7 +814,8 @@ impl ProofPressureSignalRegistry {
             ),
             (
                 "scope_rex_refs_bound",
-                self.signals().all(|signal| !signal.scope_rex_ref.is_empty()),
+                self.signals()
+                    .all(|signal| !signal.scope_rex_ref.is_empty()),
             ),
             (
                 "sovereign_gate_refs_bound",
@@ -901,7 +909,9 @@ impl ProofPressureSignalRegistry {
                 self.fixtures
                     .iter()
                     .all(|fixture| fixture.runtime_bytes_loaded == 0)
-                    && self.signals().all(|signal| signal.runtime_bytes_loaded == 0),
+                    && self
+                        .signals()
+                        .all(|signal| signal.runtime_bytes_loaded == 0),
             ),
             (
                 "no_model_bytes_loaded",
@@ -962,7 +972,8 @@ impl ProofPressureSignalRegistry {
     }
 
     fn has_route_pressure(&self, pressure: &str) -> bool {
-        self.signals().any(|signal| signal.route_pressure == pressure)
+        self.signals()
+            .any(|signal| signal.route_pressure == pressure)
     }
 
     fn proof_pressure_signal_address(&self) -> String {
@@ -1455,8 +1466,7 @@ fn invalid_fixture_axes(fixtures: &[ProofPressureSignalFixture]) -> Vec<(&'stati
         (
             "static_proof_route_baseline_unbeaten_rejected",
             |fixtures| {
-                fixtures[0].static_proof_route_baseline_bps =
-                    fixtures[0].held_out_route_success_bps
+                fixtures[0].static_proof_route_baseline_bps = fixtures[0].held_out_route_success_bps
             },
             ProofPressureSignalError::StaticProofRouteBaselineUnbeaten,
         ),
@@ -1470,8 +1480,7 @@ fn invalid_fixture_axes(fixtures: &[ProofPressureSignalFixture]) -> Vec<(&'stati
         (
             "no_pressure_memory_baseline_unbeaten_rejected",
             |fixtures| {
-                fixtures[0].no_pressure_memory_baseline_bps =
-                    fixtures[0].held_out_route_success_bps
+                fixtures[0].no_pressure_memory_baseline_bps = fixtures[0].held_out_route_success_bps
             },
             ProofPressureSignalError::NoPressureMemoryBaselineUnbeaten,
         ),
@@ -1963,8 +1972,7 @@ mod tests {
 
     #[test]
     fn proof_pressure_signal_address_is_order_stable() {
-        let registry =
-            ProofPressureSignalRegistry::new(fixture_proof_pressure_signals()).unwrap();
+        let registry = ProofPressureSignalRegistry::new(fixture_proof_pressure_signals()).unwrap();
         let address = registry.proof_pressure_signal_address();
         let mut reversed = fixture_proof_pressure_signals();
         reversed.reverse();

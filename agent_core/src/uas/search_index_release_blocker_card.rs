@@ -8,8 +8,7 @@ pub const SEARCH_INDEX_RELEASE_BLOCKER_CARD_ID: &str = "F-SearchIndex-ReleaseBlo
 pub const SEARCH_INDEX_RELEASE_BLOCKER_CARD_CURSOR: &str = "search_index_release_blocker_card";
 pub const SEARCH_INDEX_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "source_guard_drift_release_blocker_card";
-pub const SEARCH_INDEX_UPSTREAM_REF: &str =
-    "artifact:falsifiers/body_read_checksum_release_blocker_card/result.json#F-BodyReadChecksum-ReleaseBlockerCard";
+pub const SEARCH_INDEX_UPSTREAM_REF: &str = "artifact:falsifiers/body_read_checksum_release_blocker_card/result.json#F-BodyReadChecksum-ReleaseBlockerCard";
 pub const SEARCH_INDEX_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#search_index";
 

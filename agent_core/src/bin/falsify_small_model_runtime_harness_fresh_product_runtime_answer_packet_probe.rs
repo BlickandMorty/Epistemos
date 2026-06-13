@@ -765,7 +765,9 @@ fn build_artifact(
         AcceptanceThreshold {
             operator: "==".to_string(),
             value: measurements
-                .get("small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_address")
+                .get(
+                    "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_address",
+                )
                 .map(|measurement| measurement.value.clone())
                 .unwrap_or_else(|| serde_json::json!("")),
             unit: "sha256".to_string(),
@@ -915,7 +917,8 @@ fn fixture_witness(
                 evidence.living_index.clone(),
                 vec![
                     "Epistemos is a local cognitive substrate".to_string(),
-                    "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe".to_string(),
+                    "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe"
+                        .to_string(),
                     "AnswerPacket".to_string(),
                     "RunEventLog".to_string(),
                 ],
@@ -926,7 +929,8 @@ fn fixture_witness(
                 evidence.lattice_html.clone(),
                 vec![
                     "Epistemos is a local cognitive substrate".to_string(),
-                    "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe".to_string(),
+                    "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe"
+                        .to_string(),
                     "F-SmallModelRuntimeHarnessFreshProductRuntimeLiveProbe".to_string(),
                 ],
             )?,
@@ -1096,11 +1100,12 @@ fn invalid_fixture_axes(
         mutator(&mut packet);
         packet.validate().is_err()
     };
-    let mutate_witness = |mutator: fn(&mut SmallModelFreshProductRuntimeAnswerPacketProbeWitness)| {
-        let mut candidate = witness.clone();
-        mutator(&mut candidate);
-        candidate.validate().is_err()
-    };
+    let mutate_witness =
+        |mutator: fn(&mut SmallModelFreshProductRuntimeAnswerPacketProbeWitness)| {
+            let mut candidate = witness.clone();
+            mutator(&mut candidate);
+            candidate.validate().is_err()
+        };
     Ok(InvalidAxes {
         missing_fresh_live_artifact_rejected: mutate_packet(|packet| {
             packet.fresh_live_artifact_ref.clear();

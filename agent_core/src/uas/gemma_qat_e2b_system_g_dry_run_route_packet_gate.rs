@@ -23,8 +23,7 @@ pub const GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_CURSOR: &str =
     "gemma_qat_e2b_system_g_dry_run_route_packet_gate";
 pub const GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_route_answer_packet_visibility_gate";
-pub const GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_runtime_router_admission_packet_gate/result.json#F-GemmaQATE2BRuntimeRouterAdmissionPacketGate";
+pub const GEMMA_QAT_E2B_SYSTEM_G_DRY_RUN_ROUTE_PACKET_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_runtime_router_admission_packet_gate/result.json#F-GemmaQATE2BRuntimeRouterAdmissionPacketGate";
 
 const UPSTREAM_ADMISSION_PACKET_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_runtime_router_admission_packet_gate/";

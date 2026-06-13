@@ -55,7 +55,7 @@ struct ProseTextView2Tests {
         #expect(
             TestColorAssertions.colorsMatch(
                 textView.backgroundColor,
-                EpistemosTheme.sunny.resolved.background.nsColor
+                ProseTextView2.editorBackgroundColor(for: .sunny)
             )
         )
 
@@ -63,7 +63,7 @@ struct ProseTextView2Tests {
         #expect(
             TestColorAssertions.colorsMatch(
                 textView.backgroundColor,
-                EpistemosTheme.ember.resolved.background.nsColor
+                ProseTextView2.editorBackgroundColor(for: .ember)
             )
         )
     }
@@ -536,7 +536,7 @@ struct TextKit2ThemeRestyleTests {
         #expect(
             TestColorAssertions.colorsMatch(
                 textView.backgroundColor,
-                EpistemosTheme.ember.resolved.background.nsColor
+                ProseTextView2.editorBackgroundColor(for: .ember)
             )
         )
         #expect(textView.string == "# Heading\nBody text")

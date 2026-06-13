@@ -291,6 +291,23 @@ fn quoted_segments(query: &str) -> Vec<String> {
     segments
 }
 
+fn contains_normalized_phrase(value: &str, phrase: &str) -> bool {
+    let value_terms = normalized_query_terms(value);
+    let phrase_terms = normalized_query_terms(phrase);
+    if value_terms.is_empty() || phrase_terms.is_empty() || phrase_terms.len() > value_terms.len() {
+        return false;
+    }
+    value_terms
+        .windows(phrase_terms.len())
+        .any(|window| window == phrase_terms.as_slice())
+}
+
+fn document_matches_quoted_segments(segments: &[String], path: &str, content: &str) -> bool {
+    segments.iter().all(|segment| {
+        contains_normalized_phrase(content, segment) || contains_normalized_phrase(path, segment)
+    })
+}
+
 fn suffix_after_marker(query: &str, markers: &[&str]) -> Vec<String> {
     let parts: Vec<&str> = query.split_whitespace().collect();
     let mut suffixes = Vec::new();
@@ -1559,6 +1576,7 @@ impl VaultBackend for VaultStore {
         let pool_size = top_docs.len();
         let page_gather_score_source: Vec<f32> =
             top_docs.iter().map(|(score, _address)| *score).collect();
+        let quoted_query_segments = quoted_segments(query);
         let mut results = Vec::new();
         let mut trace_candidates: HashMap<String, (String, UasAddress)> = HashMap::new();
         let mut semantic_signal_scores: HashMap<String, (f64, f64)> = HashMap::new();
@@ -1580,6 +1598,11 @@ impl VaultBackend for VaultStore {
             let tags = Self::extract_tags(content);
 
             if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+            if !quoted_query_segments.is_empty()
+                && !document_matches_quoted_segments(&quoted_query_segments, &path, content)
+            {
                 continue;
             }
 
@@ -1643,13 +1666,14 @@ impl VaultBackend for VaultStore {
             results.truncate(limit);
         }
 
-        let semantic_matches = if !all_chatter_fallback && results.is_empty() {
-            let existing_paths: HashSet<String> =
-                results.iter().map(|result| result.path.clone()).collect();
-            self.semantic_fallback_search(effective_query, limit, tag_filter, &existing_paths)?
-        } else {
-            Vec::new()
-        };
+        let semantic_matches =
+            if !all_chatter_fallback && quoted_query_segments.is_empty() && results.is_empty() {
+                let existing_paths: HashSet<String> =
+                    results.iter().map(|result| result.path.clone()).collect();
+                self.semantic_fallback_search(effective_query, limit, tag_filter, &existing_paths)?
+            } else {
+                Vec::new()
+            };
         let semantic_match_count = semantic_matches.len();
         for hit in semantic_matches {
             let path = hit.result.path.clone();
@@ -2218,6 +2242,37 @@ mod tests {
                 .iter()
                 .all(|result| result.path != "notes/design_general_system.md"),
             "quoted phrase lookup must not promote partial title/path overlap: {:?}",
+            results
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_quoted_phrase_keeps_adjacent_body_match() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "notes/design-system.md",
+                "This note explains the design system tokens and spacing rules.",
+                None,
+                false,
+            )
+            .await
+            .expect("write matching note");
+        store.reload_index().expect("reload index");
+
+        let (results, _trace) = store
+            .hybrid_search_with_trace("\"design system\"", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("notes/design-system.md"),
+            "quoted phrase lookup should retain adjacent body matches: {:?}",
             results
         );
     }

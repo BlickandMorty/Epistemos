@@ -10,10 +10,8 @@ pub const TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "tool_execution_surface_release_blocker_card";
 pub const TOOL_EXECUTION_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "xpc_trust_configuration_release_blocker_card";
-pub const TOOL_EXECUTION_SURFACE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/source_guard_drift_release_blocker_card/result.json#F-SourceGuardDrift-ReleaseBlockerCard";
-pub const TOOL_EXECUTION_SURFACE_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#tool_execution_surface";
+pub const TOOL_EXECUTION_SURFACE_UPSTREAM_REF: &str = "artifact:falsifiers/source_guard_drift_release_blocker_card/result.json#F-SourceGuardDrift-ReleaseBlockerCard";
+pub const TOOL_EXECUTION_SURFACE_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#tool_execution_surface";
 
 const REQUIRED_SOURCE_REFS: [&str; 12] = [
     "Epistemos/LocalAgent/LocalAgentLoop.swift",

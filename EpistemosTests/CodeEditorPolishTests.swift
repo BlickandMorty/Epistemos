@@ -148,9 +148,10 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("@State private var contentDebouncer: CodeEditorContentDebouncer?"),
                 "CodeEditorView must retain the Phase-S debouncer instead of leaving it as standalone scaffold.")
-        #expect(source.contains("let debouncer = contentDebouncer ?? CodeEditorContentDebouncer"),
+        #expect(source.contains("let debouncer = ensureContentDebouncer()"),
                 "CodeEditorView should construct the canonical debouncer in its coordinator setup path.")
-        #expect(source.contains("debouncer?.enqueue(newText)"),
+        #expect(source.contains("ensureContentDebouncer().enqueue(newText)")
+                && source.contains("debouncer?.enqueue(newText)"),
                 "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
                 "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")

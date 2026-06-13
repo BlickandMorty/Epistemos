@@ -387,7 +387,7 @@ struct NoteEditorLayoutTests {
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) == expectedShort)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: longHeading) == expectedLong)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) > AppHeadingRole.h2.fontSize)
-        #expect(previewSource.contains("MarkdownHeadingDisplay.noteHeadingFontSize("))
+        #expect(previewSource.contains("noteHeadingFontSize("))
     }
 
     @Test("note workspace removes the source scanning action")

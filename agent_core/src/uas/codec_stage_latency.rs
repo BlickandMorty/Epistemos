@@ -938,7 +938,7 @@ mod tests {
             id,
             format!("answer_packet:surface:{id}"),
             format!("run_event_log:surface:{id}"),
-            "metadata-only CodecStage surface: L1 records read separate codec latency, copy count, checksum, AnswerPacket and rollback; L2 route and L3 runtime unchanged."
+            "metadata-only CodecStage surface: L1 records read separate codec latency, copy count, checksum, AnswerPacket and rollback; L2 route and L3 runtime unchanged.",
         )
     }
 

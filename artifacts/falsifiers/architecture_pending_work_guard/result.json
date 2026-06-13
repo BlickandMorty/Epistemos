@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "5d76573cb078d0e50214a5ccc150771efd832f11",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-06-09T08:11:05Z",
-  "result_digest": "sha256:56aa4866a3d2fb4c84efd25ce4bae40675bd9e1248a3718c3bf0e7c0e7ff5fdd",
+  "timestamp_utc": "2026-06-10T08:39:41Z",
+  "result_digest": "sha256:a0e82782a75b6ace343c1ad830e662614c756bba20d984a7329c61e72b638153",
   "measurements": {
     "ablation_shadow_run_available": {
       "value": true,
@@ -356,7 +356,7 @@
           },
           "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/result.json",
-            "available": false
+            "available": true
           },
           "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe": {
             "path": "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe/result.json",
@@ -714,11 +714,11 @@
       "unit": "bool"
     },
     "next_bottleneck": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "value": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes",
       "unit": "label"
     },
     "next_existing_work": {
-      "value": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe",
+      "value": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes",
       "unit": "label"
     },
     "no_duplicate_rebuild_risk": {
@@ -1540,5 +1540,5 @@
       "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 5 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
     }
   ],
-  "notes": "pending_work_guard; next_existing_work=small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
+  "notes": "pending_work_guard; next_existing_work=release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes; heavy_long_context_enabled=false; 128K Qwen/GGUF shard and 70B provider-reference work are deferred unless EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 is set; continue non-heavy architecture work before creating new long-context surfaces"
 }

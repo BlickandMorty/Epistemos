@@ -249,10 +249,10 @@ fn build_artifact(
         ),
         (
             "serialized_executor_bound",
-            witness
-                .runs
-                .iter()
-                .all(|run| run.serialized_executor_ref.starts_with("serialized_executor:")),
+            witness.runs.iter().all(|run| {
+                run.serialized_executor_ref
+                    .starts_with("serialized_executor:")
+            }),
         ),
         (
             "cancellation_bound",
@@ -342,7 +342,10 @@ fn build_artifact(
             "required_lanes_bound",
             metrics.required_lane_count >= MIN_REQUIRED_LANE_COUNT,
         ),
-        ("required_phases_bound", metrics.phase_count >= MIN_PHASE_COUNT),
+        (
+            "required_phases_bound",
+            metrics.phase_count >= MIN_PHASE_COUNT,
+        ),
         (
             "probe_attempted",
             metrics.probe_attempted_count == metrics.run_count,
@@ -382,7 +385,10 @@ fn build_artifact(
             "no_route_policy_mutation",
             witness.runs.iter().all(|run| !run.route_policy_mutated),
         ),
-        ("no_gate_bypass", witness.runs.iter().all(|run| !run.gate_bypass)),
+        (
+            "no_gate_bypass",
+            witness.runs.iter().all(|run| !run.gate_bypass),
+        ),
         (
             "no_answer_packet_suppression",
             witness.runs.iter().all(|run| !run.answer_packet_suppressed),
@@ -401,11 +407,17 @@ fn build_artifact(
         ),
         (
             "no_autogenous_kernel_attempt",
-            witness.runs.iter().all(|run| !run.autogenous_kernel_attempted),
+            witness
+                .runs
+                .iter()
+                .all(|run| !run.autogenous_kernel_attempted),
         ),
         (
             "no_70b_probe_attempt",
-            witness.runs.iter().all(|run| !run.seventy_b_probe_attempted),
+            witness
+                .runs
+                .iter()
+                .all(|run| !run.seventy_b_probe_attempted),
         ),
         (
             "no_mutation_committed",
@@ -445,7 +457,10 @@ fn build_artifact(
             "observed_elapsed_bound",
             metrics.max_observed_elapsed_ms <= MAX_OBSERVED_ELAPSED_MS,
         ),
-        ("metadata_bound", witness.metadata_bytes <= MAX_METADATA_BYTES),
+        (
+            "metadata_bound",
+            witness.metadata_bytes <= MAX_METADATA_BYTES,
+        ),
         (
             "small_model_runtime_harness_abortable_runtime_probe_address_deterministic",
             deterministic,
@@ -454,8 +469,14 @@ fn build_artifact(
             "missing_required_lane_rejected",
             invalid_axes.missing_required_lane_rejected,
         ),
-        ("duplicate_run_rejected", invalid_axes.duplicate_run_rejected),
-        ("missing_phase_rejected", invalid_axes.missing_phase_rejected),
+        (
+            "duplicate_run_rejected",
+            invalid_axes.duplicate_run_rejected,
+        ),
+        (
+            "missing_phase_rejected",
+            invalid_axes.missing_phase_rejected,
+        ),
         (
             "missing_owner_probe_artifact_rejected",
             invalid_axes.missing_owner_probe_artifact_rejected,
@@ -488,7 +509,10 @@ fn build_artifact(
             "missing_abort_reason_rejected",
             invalid_axes.missing_abort_reason_rejected,
         ),
-        ("missing_rollback_rejected", invalid_axes.missing_rollback_rejected),
+        (
+            "missing_rollback_rejected",
+            invalid_axes.missing_rollback_rejected,
+        ),
         (
             "missing_run_event_log_rejected",
             invalid_axes.missing_run_event_log_rejected,
@@ -497,8 +521,14 @@ fn build_artifact(
             "missing_answer_packet_rejected",
             invalid_axes.missing_answer_packet_rejected,
         ),
-        ("missing_privacy_rejected", invalid_axes.missing_privacy_rejected),
-        ("missing_budget_rejected", invalid_axes.missing_budget_rejected),
+        (
+            "missing_privacy_rejected",
+            invalid_axes.missing_privacy_rejected,
+        ),
+        (
+            "missing_budget_rejected",
+            invalid_axes.missing_budget_rejected,
+        ),
         (
             "missing_admission_rejected",
             invalid_axes.missing_admission_rejected,
@@ -523,7 +553,10 @@ fn build_artifact(
             "cancellation_not_armed_rejected",
             invalid_axes.cancellation_not_armed_rejected,
         ),
-        ("abort_not_observed_rejected", invalid_axes.abort_not_observed_rejected),
+        (
+            "abort_not_observed_rejected",
+            invalid_axes.abort_not_observed_rejected,
+        ),
         (
             "runtime_start_not_suppressed_rejected",
             invalid_axes.runtime_start_not_suppressed_rejected,
@@ -555,12 +588,18 @@ fn build_artifact(
         ),
         ("hidden_chain_rejected", invalid_axes.hidden_chain_rejected),
         ("hidden_cloud_rejected", invalid_axes.hidden_cloud_rejected),
-        ("subprocess_spawn_rejected", invalid_axes.subprocess_spawn_rejected),
+        (
+            "subprocess_spawn_rejected",
+            invalid_axes.subprocess_spawn_rejected,
+        ),
         (
             "autogenous_kernel_rejected",
             invalid_axes.autogenous_kernel_rejected,
         ),
-        ("seventy_b_probe_rejected", invalid_axes.seventy_b_probe_rejected),
+        (
+            "seventy_b_probe_rejected",
+            invalid_axes.seventy_b_probe_rejected,
+        ),
         (
             "context_budget_overflow_rejected",
             invalid_axes.context_budget_overflow_rejected,
@@ -585,10 +624,22 @@ fn build_artifact(
             "deadline_overrun_rejected",
             invalid_axes.deadline_overrun_rejected,
         ),
-        ("mas_overclaim_rejected", invalid_axes.mas_overclaim_rejected),
-        ("l2_green_claim_rejected", invalid_axes.l2_green_claim_rejected),
-        ("l3_green_claim_rejected", invalid_axes.l3_green_claim_rejected),
-        ("runtime_bytes_rejected", invalid_axes.runtime_bytes_rejected),
+        (
+            "mas_overclaim_rejected",
+            invalid_axes.mas_overclaim_rejected,
+        ),
+        (
+            "l2_green_claim_rejected",
+            invalid_axes.l2_green_claim_rejected,
+        ),
+        (
+            "l3_green_claim_rejected",
+            invalid_axes.l3_green_claim_rejected,
+        ),
+        (
+            "runtime_bytes_rejected",
+            invalid_axes.runtime_bytes_rejected,
+        ),
         ("model_bytes_rejected", invalid_axes.model_bytes_rejected),
         (
             "transport_runtime_bytes_rejected",
@@ -609,31 +660,256 @@ fn build_artifact(
         );
     }
 
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "run_count", metrics.run_count, ">=", MIN_RUN_COUNT, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "surface_count", metrics.surface_count, ">=", MIN_SURFACE_COUNT, "surfaces");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "required_lane_count", metrics.required_lane_count, ">=", MIN_REQUIRED_LANE_COUNT, "lanes");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "phase_count", metrics.phase_count, ">=", MIN_PHASE_COUNT, "phases");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "probe_attempted_count", metrics.probe_attempted_count, "==", metrics.run_count, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "cancellation_armed_count", metrics.cancellation_armed_count, "==", metrics.run_count, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "abort_observed_count", metrics.abort_observed_count, "==", metrics.run_count, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "runtime_start_suppressed_count", metrics.runtime_start_suppressed_count, "==", metrics.run_count, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "runtime_completed_count", metrics.runtime_completed_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "model_open_attempted_count", metrics.model_open_attempted_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "mutation_committed_count", metrics.mutation_committed_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "cloud_fallback_count", metrics.cloud_fallback_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "subprocess_spawn_count", metrics.subprocess_spawn_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "seventy_b_probe_count", metrics.seventy_b_probe_count, "==", 0, "runs");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_context_tokens", metrics.max_context_tokens, "<=", MAX_CONTEXT_TOKENS, "tokens");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_prompt_tokens", metrics.max_prompt_tokens, "<=", MAX_PROMPT_TOKENS, "tokens");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_decode_tokens", metrics.max_decode_tokens, "<=", MAX_DECODE_TOKENS, "tokens");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_memory_budget_bytes", metrics.max_memory_budget_bytes, "<=", MAX_MEMORY_BUDGET_BYTES, "bytes");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_runtime_seconds", metrics.max_runtime_seconds, "<=", MAX_RUNTIME_SECONDS, "seconds");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_deadline_ms", metrics.max_deadline_ms, "<=", MAX_DEADLINE_MS, "ms");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "max_observed_elapsed_ms", metrics.max_observed_elapsed_ms, "<=", MAX_OBSERVED_ELAPSED_MS, "ms");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "runtime_bytes_loaded", metrics.runtime_bytes_loaded, "==", 0, "bytes");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "model_bytes_loaded", metrics.model_bytes_loaded, "==", 0, "bytes");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "transport_runtime_bytes_loaded", metrics.transport_runtime_bytes_loaded, "==", 0, "bytes");
-    add_u64_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, "metadata_bytes", witness.metadata_bytes, "<=", MAX_METADATA_BYTES, "bytes");
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "run_count",
+        metrics.run_count,
+        ">=",
+        MIN_RUN_COUNT,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "surface_count",
+        metrics.surface_count,
+        ">=",
+        MIN_SURFACE_COUNT,
+        "surfaces",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "required_lane_count",
+        metrics.required_lane_count,
+        ">=",
+        MIN_REQUIRED_LANE_COUNT,
+        "lanes",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "phase_count",
+        metrics.phase_count,
+        ">=",
+        MIN_PHASE_COUNT,
+        "phases",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "probe_attempted_count",
+        metrics.probe_attempted_count,
+        "==",
+        metrics.run_count,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cancellation_armed_count",
+        metrics.cancellation_armed_count,
+        "==",
+        metrics.run_count,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "abort_observed_count",
+        metrics.abort_observed_count,
+        "==",
+        metrics.run_count,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "runtime_start_suppressed_count",
+        metrics.runtime_start_suppressed_count,
+        "==",
+        metrics.run_count,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "runtime_completed_count",
+        metrics.runtime_completed_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "model_open_attempted_count",
+        metrics.model_open_attempted_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "mutation_committed_count",
+        metrics.mutation_committed_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cloud_fallback_count",
+        metrics.cloud_fallback_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "subprocess_spawn_count",
+        metrics.subprocess_spawn_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "seventy_b_probe_count",
+        metrics.seventy_b_probe_count,
+        "==",
+        0,
+        "runs",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_context_tokens",
+        metrics.max_context_tokens,
+        "<=",
+        MAX_CONTEXT_TOKENS,
+        "tokens",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_prompt_tokens",
+        metrics.max_prompt_tokens,
+        "<=",
+        MAX_PROMPT_TOKENS,
+        "tokens",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_decode_tokens",
+        metrics.max_decode_tokens,
+        "<=",
+        MAX_DECODE_TOKENS,
+        "tokens",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_memory_budget_bytes",
+        metrics.max_memory_budget_bytes,
+        "<=",
+        MAX_MEMORY_BUDGET_BYTES,
+        "bytes",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_runtime_seconds",
+        metrics.max_runtime_seconds,
+        "<=",
+        MAX_RUNTIME_SECONDS,
+        "seconds",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_deadline_ms",
+        metrics.max_deadline_ms,
+        "<=",
+        MAX_DEADLINE_MS,
+        "ms",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "max_observed_elapsed_ms",
+        metrics.max_observed_elapsed_ms,
+        "<=",
+        MAX_OBSERVED_ELAPSED_MS,
+        "ms",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "runtime_bytes_loaded",
+        metrics.runtime_bytes_loaded,
+        "==",
+        0,
+        "bytes",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "model_bytes_loaded",
+        metrics.model_bytes_loaded,
+        "==",
+        0,
+        "bytes",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "transport_runtime_bytes_loaded",
+        metrics.transport_runtime_bytes_loaded,
+        "==",
+        0,
+        "bytes",
+    );
+    add_u64_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "metadata_bytes",
+        witness.metadata_bytes,
+        "<=",
+        MAX_METADATA_BYTES,
+        "bytes",
+    );
     measurements.insert(
         "small_model_runtime_harness_abortable_runtime_probe_address".to_string(),
         Measurement {
@@ -955,7 +1231,8 @@ fn invalid_fixture_axes(
 ) -> Result<InvalidAxes, AbortableProbeWitnessError> {
     Ok(InvalidAxes {
         missing_required_lane_rejected: reject_witness(evidence, |w| {
-            w.runs.retain(|run| run.lane_id != "coding_tool_dry_run_smoke");
+            w.runs
+                .retain(|run| run.lane_id != "coding_tool_dry_run_smoke");
         })?,
         duplicate_run_rejected: reject_witness(evidence, |w| {
             w.runs[1] = w.runs[0].clone();

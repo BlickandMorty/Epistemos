@@ -16,7 +16,7 @@ struct FallbackChainTests {
         let fallback = resolver.resolveFallback(failedStep: step, failedResult: result)
         #expect(fallback != nil)
         #expect(fallback?.agent == "terminal")
-        #expect(fallback?.toolName == "run_persistent")
+        #expect(fallback?.toolName == "action.terminal")
     }
 
     @Test("GUI type failure suggests CLI fallback")

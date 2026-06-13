@@ -1,8 +1,9 @@
 //! Gemma QAT E2B product capability recheck gate.
 //!
-//! This primitive consumes the E2B release-audit surface gate and rechecks
-//! product truth against the still-red capability kernel. It is metadata-only:
-//! the correct current outcome is blocked, not product-green.
+//! This primitive consumes the E2B release-audit surface, release zero-fail
+//! ledger, and first-runtime WRV packet. It is metadata-only: the correct
+//! current outcome is "proof ladder ready, live route integration still
+//! blocked", not product-green.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -20,37 +21,41 @@ pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ID: &str =
 pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_CURSOR: &str =
     "gemma_qat_e2b_product_capability_recheck_gate";
 pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_NEXT_CURSOR: &str =
-    "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate";
-pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_release_audit_surface_gate/result.json#F-GemmaQATE2BReleaseAuditSurfaceGate";
+    "gemma_product_route_integration_gate";
+pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_release_audit_surface_gate/result.json#F-GemmaQATE2BReleaseAuditSurfaceGate";
+pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ZERO_FAIL_LEDGER_REF: &str = "artifact:falsifiers/release_audit_zero_fail_pass_ledger/result.json#F-ReleaseAuditZeroFailPassLedger";
+pub const GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_FIRST_RUNTIME_WRV_REF: &str = "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json#GemmaFirstRuntimeSettingsDiagnosticsWRV";
 
 const UPSTREAM_RELEASE_AUDIT_SURFACE_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_release_audit_surface_gate/";
+const RELEASE_AUDIT_ZERO_FAIL_LEDGER_PREFIX: &str =
+    "artifact:falsifiers/release_audit_zero_fail_pass_ledger/";
+const FIRST_RUNTIME_WRV_PREFIX: &str =
+    "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/";
 const ARTIFACT_ROOT_PREFIX: &str =
     "artifacts/falsifiers/gemma_qat_e2b_product_capability_recheck_gate/";
-const CAPABILITY_KERNEL_RESULT: &str =
-    "artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json";
-const GUARD_RESULT: &str = "artifacts/falsifiers/architecture_pending_work_guard/result.json";
-const PRODUCT_BLOCKER_CURSOR: &str =
-    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-const ROUTE_STATUS_BLOCKED: &str = "vault_research_route_with_packetized_mitigation";
+const RELEASE_AUDIT_READY_CURSOR: &str = "gemma_product_capability_recheck_after_release_audit";
+const FIRST_RUNTIME_WRV_RELEASE_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
+const ROUTE_STATUS_BLOCKED: &str = "proof_ladder_ready_live_route_integration_pending";
 const RECHECK_CARD_ID: &str = "gemma-e2b-gguf-product-capability-recheck-gate";
 const MAX_METADATA_BYTES: u64 = 384 * 1024;
 
 const REQUIRED_RECHECK_FIELDS: &[&str] = &[
     "upstream_release_audit_surface_digest",
-    "capability_kernel_result_ref",
-    "capability_kernel_red_status",
-    "capability_kernel_next_bottleneck",
-    "guard_result_ref",
-    "guard_next_existing_work",
-    "release_audit_automated_checks_blocker",
-    "xcode_test_red_status",
-    "focused_proof_root_pending",
-    "log_correlation_pending",
-    "manual_runtime_pending",
-    "distribution_compliance_pending",
-    "repeated_zero_fail_pending",
+    "release_audit_zero_fail_ledger_ref",
+    "release_audit_zero_fail_count",
+    "release_audit_remaining_zero_fail_count",
+    "release_audit_completion_not_required",
+    "release_audit_next_cursor",
+    "first_runtime_wrv_ref",
+    "first_runtime_wrv_passed",
+    "first_runtime_selected_model_id",
+    "first_runtime_release_cursor",
+    "live_route_integration_pending",
+    "live_route_default_mutation_zero",
+    "live_route_runtime_router_mutation_zero",
+    "live_route_system_g_mutation_zero",
     "settings_row_gated_only",
     "diagnostics_row_gated_only",
     "runtime_route_blocked",
@@ -79,19 +84,20 @@ const REQUIRED_RECHECK_FIELDS: &[&str] = &[
 const REQUIRED_REJECTION_POLICIES: &[&str] = &[
     "missing_upstream_release_surface",
     "release_surface_digest_mismatch",
-    "missing_capability_kernel_result",
-    "capability_kernel_green_laundering",
-    "wrong_capability_kernel_bottleneck",
-    "wrong_route_status",
-    "missing_guard_result",
-    "wrong_guard_cursor",
-    "automated_checks_blocker_missing",
-    "xcode_test_green_laundering",
-    "focused_proof_root_claimed_done",
-    "log_correlation_claimed_done",
-    "manual_runtime_claimed_done",
-    "distribution_compliance_claimed_done",
-    "repeated_zero_fail_claimed_done",
+    "missing_zero_fail_ledger",
+    "zero_fail_ledger_red",
+    "zero_fail_count_under_three",
+    "remaining_zero_fail_nonzero",
+    "release_completion_still_required",
+    "wrong_release_next_cursor",
+    "missing_first_runtime_wrv",
+    "first_runtime_wrv_red",
+    "wrong_first_runtime_model",
+    "wrong_first_runtime_release_cursor",
+    "live_route_integration_claimed_done",
+    "default_model_mutated",
+    "runtime_router_mutated",
+    "system_g_mutated",
     "settings_row_unlocked",
     "diagnostics_row_unlocked",
     "runtime_route_unblocked",
@@ -147,6 +153,8 @@ pub enum GemmaQatE2bProductCapabilityRecheckGateStatus {
 pub struct GemmaQatE2bProductCapabilityRecheckGate {
     pub upstream_release_audit_surface_ref: String,
     pub upstream_release_audit_surface_id: String,
+    pub release_audit_zero_fail_ledger_ref: String,
+    pub first_runtime_settings_wrv_ref: String,
     pub artifact_root_prefix: String,
     pub recheck_card_id: String,
     pub selected_model_id: String,
@@ -157,21 +165,21 @@ pub struct GemmaQatE2bProductCapabilityRecheckGate {
     pub command_path: String,
     pub product_build: ProductBuild,
     pub pro_status: ProStatus,
-    pub capability_kernel_result_ref: String,
-    pub guard_result_ref: String,
-    pub expected_next_bottleneck: String,
+    pub expected_release_audit_next_cursor: String,
+    pub expected_first_runtime_wrv_next_cursor: String,
     pub expected_route_status: String,
     pub required_recheck_fields: Vec<String>,
     pub required_rejection_policies: Vec<String>,
-    pub capability_kernel_red_required: bool,
-    pub guard_cursor_match_required: bool,
-    pub automated_checks_blocker_required: bool,
-    pub xcode_test_red_required: bool,
-    pub focused_proof_root_pending_required: bool,
-    pub log_correlation_pending_required: bool,
-    pub manual_runtime_pending_required: bool,
-    pub distribution_compliance_pending_required: bool,
-    pub repeated_zero_fail_pending_required: bool,
+    pub release_audit_zero_fail_ledger_pass_required: bool,
+    pub release_audit_next_cursor_match_required: bool,
+    pub release_audit_three_pass_count_required: bool,
+    pub first_runtime_wrv_pass_required: bool,
+    pub first_runtime_selected_model_match_required: bool,
+    pub first_runtime_release_cursor_match_required: bool,
+    pub live_route_integration_pending_required: bool,
+    pub live_route_default_mutation_zero_required: bool,
+    pub live_route_runtime_router_mutation_zero_required: bool,
+    pub live_route_system_g_mutation_zero_required: bool,
     pub settings_row_gated_only: bool,
     pub diagnostics_row_gated_only: bool,
     pub runtime_route_blocked: bool,
@@ -220,6 +228,10 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
             upstream_release_audit_surface_ref: upstream_release_audit_surface_ref.into(),
             upstream_release_audit_surface_id: GEMMA_QAT_E2B_RELEASE_AUDIT_SURFACE_GATE_ID
                 .to_string(),
+            release_audit_zero_fail_ledger_ref:
+                GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ZERO_FAIL_LEDGER_REF.to_string(),
+            first_runtime_settings_wrv_ref:
+                GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_FIRST_RUNTIME_WRV_REF.to_string(),
             artifact_root_prefix: ARTIFACT_ROOT_PREFIX.to_string(),
             recheck_card_id: RECHECK_CARD_ID.to_string(),
             selected_model_id: GEMMA_QAT_RUNTIME_REPLAY_SELECTED_MODEL_ID.to_string(),
@@ -230,9 +242,8 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
             command_path: GEMMA_QAT_RUNTIME_REPLAY_COMMAND_PATH.to_string(),
             product_build: ProductBuild::Pro,
             pro_status: ProStatus::Blocked,
-            capability_kernel_result_ref: CAPABILITY_KERNEL_RESULT.to_string(),
-            guard_result_ref: GUARD_RESULT.to_string(),
-            expected_next_bottleneck: PRODUCT_BLOCKER_CURSOR.to_string(),
+            expected_release_audit_next_cursor: RELEASE_AUDIT_READY_CURSOR.to_string(),
+            expected_first_runtime_wrv_next_cursor: FIRST_RUNTIME_WRV_RELEASE_CURSOR.to_string(),
             expected_route_status: ROUTE_STATUS_BLOCKED.to_string(),
             required_recheck_fields: REQUIRED_RECHECK_FIELDS
                 .iter()
@@ -242,15 +253,16 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
                 .iter()
                 .map(|value| (*value).to_string())
                 .collect(),
-            capability_kernel_red_required: true,
-            guard_cursor_match_required: true,
-            automated_checks_blocker_required: true,
-            xcode_test_red_required: true,
-            focused_proof_root_pending_required: true,
-            log_correlation_pending_required: true,
-            manual_runtime_pending_required: true,
-            distribution_compliance_pending_required: true,
-            repeated_zero_fail_pending_required: true,
+            release_audit_zero_fail_ledger_pass_required: true,
+            release_audit_next_cursor_match_required: true,
+            release_audit_three_pass_count_required: true,
+            first_runtime_wrv_pass_required: true,
+            first_runtime_selected_model_match_required: true,
+            first_runtime_release_cursor_match_required: true,
+            live_route_integration_pending_required: true,
+            live_route_default_mutation_zero_required: true,
+            live_route_runtime_router_mutation_zero_required: true,
+            live_route_system_g_mutation_zero_required: true,
             settings_row_gated_only: true,
             diagnostics_row_gated_only: true,
             runtime_route_blocked: true,
@@ -302,6 +314,16 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
         {
             return Err(GemmaQatE2bProductCapabilityRecheckGateError::BadUpstreamRef);
         }
+        if !self
+            .release_audit_zero_fail_ledger_ref
+            .starts_with(RELEASE_AUDIT_ZERO_FAIL_LEDGER_PREFIX)
+            || self.first_runtime_settings_wrv_ref.is_empty()
+            || !self
+                .first_runtime_settings_wrv_ref
+                .starts_with(FIRST_RUNTIME_WRV_PREFIX)
+        {
+            return Err(GemmaQatE2bProductCapabilityRecheckGateError::BadProofRef);
+        }
         validate_exact(
             "artifact_root_prefix",
             &self.artifact_root_prefix,
@@ -309,15 +331,14 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
         )?;
         validate_exact("recheck_card_id", &self.recheck_card_id, RECHECK_CARD_ID)?;
         validate_exact(
-            "capability_kernel_result_ref",
-            &self.capability_kernel_result_ref,
-            CAPABILITY_KERNEL_RESULT,
+            "expected_release_audit_next_cursor",
+            &self.expected_release_audit_next_cursor,
+            RELEASE_AUDIT_READY_CURSOR,
         )?;
-        validate_exact("guard_result_ref", &self.guard_result_ref, GUARD_RESULT)?;
         validate_exact(
-            "expected_next_bottleneck",
-            &self.expected_next_bottleneck,
-            PRODUCT_BLOCKER_CURSOR,
+            "expected_first_runtime_wrv_next_cursor",
+            &self.expected_first_runtime_wrv_next_cursor,
+            FIRST_RUNTIME_WRV_RELEASE_CURSOR,
         )?;
         validate_exact(
             "expected_route_status",
@@ -351,15 +372,16 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
         {
             return Err(GemmaQatE2bProductCapabilityRecheckGateError::UnsafeState);
         }
-        if !self.capability_kernel_red_required
-            || !self.guard_cursor_match_required
-            || !self.automated_checks_blocker_required
-            || !self.xcode_test_red_required
-            || !self.focused_proof_root_pending_required
-            || !self.log_correlation_pending_required
-            || !self.manual_runtime_pending_required
-            || !self.distribution_compliance_pending_required
-            || !self.repeated_zero_fail_pending_required
+        if !self.release_audit_zero_fail_ledger_pass_required
+            || !self.release_audit_next_cursor_match_required
+            || !self.release_audit_three_pass_count_required
+            || !self.first_runtime_wrv_pass_required
+            || !self.first_runtime_selected_model_match_required
+            || !self.first_runtime_release_cursor_match_required
+            || !self.live_route_integration_pending_required
+            || !self.live_route_default_mutation_zero_required
+            || !self.live_route_runtime_router_mutation_zero_required
+            || !self.live_route_system_g_mutation_zero_required
             || !self.settings_row_gated_only
             || !self.diagnostics_row_gated_only
             || !self.runtime_route_blocked
@@ -419,15 +441,11 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
         GemmaQatE2bProductCapabilityRecheckGateMetrics {
             required_recheck_field_count: self.required_recheck_fields.len() as u64,
             required_rejection_policy_count: self.required_rejection_policies.len() as u64,
-            blocked_truth_count: self.capability_kernel_red_required as u64
-                + self.guard_cursor_match_required as u64
-                + self.automated_checks_blocker_required as u64
-                + self.xcode_test_red_required as u64
-                + self.focused_proof_root_pending_required as u64
-                + self.log_correlation_pending_required as u64
-                + self.manual_runtime_pending_required as u64
-                + self.distribution_compliance_pending_required as u64
-                + self.repeated_zero_fail_pending_required as u64,
+            blocked_truth_count: self.live_route_integration_pending_required as u64
+                + self.runtime_route_blocked as u64
+                + self.default_model_blocked as u64
+                + self.answer_packet_user_surface_blocked as u64
+                + self.owner_action_required as u64,
             gated_surface_count: self.settings_row_gated_only as u64
                 + self.diagnostics_row_gated_only as u64
                 + self.runtime_route_blocked as u64
@@ -476,10 +494,12 @@ impl GemmaQatE2bProductCapabilityRecheckGate {
         let mut policies = self.required_rejection_policies.clone();
         policies.sort();
         format!(
-            "gemma-e2b-product-capability-recheck-gate:v1:{}:{}:{}:{}:{}:{}:{}:{}",
+            "gemma-e2b-product-capability-recheck-gate:v2:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
             self.upstream_release_audit_surface_ref,
+            self.release_audit_zero_fail_ledger_ref,
+            self.first_runtime_settings_wrv_ref,
             self.selected_model_id,
-            self.expected_next_bottleneck,
+            self.expected_release_audit_next_cursor,
             self.expected_route_status,
             self.required_filename,
             fields.join(","),
@@ -528,6 +548,7 @@ pub fn required_gemma_qat_e2b_product_capability_recheck_rejection_policies() ->
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GemmaQatE2bProductCapabilityRecheckGateError {
     BadUpstreamRef,
+    BadProofRef,
     BadSelectedLane,
     DuplicateOrMissingField(&'static str),
     BadField(&'static str),
@@ -542,6 +563,7 @@ impl fmt::Display for GemmaQatE2bProductCapabilityRecheckGateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::BadUpstreamRef => f.write_str("bad upstream release-audit surface reference"),
+            Self::BadProofRef => f.write_str("bad release-audit ledger or first-runtime WRV reference"),
             Self::BadSelectedLane => f.write_str("bad selected E2B recheck lane"),
             Self::DuplicateOrMissingField(field) => {
                 write!(f, "duplicate or missing required set: {field}")
@@ -606,9 +628,9 @@ mod tests {
         gate.validate()
             .expect("canonical product capability recheck should validate");
         let metrics = gate.metrics();
-        assert_eq!(metrics.required_recheck_field_count, 36);
-        assert_eq!(metrics.required_rejection_policy_count, 52);
-        assert_eq!(metrics.blocked_truth_count, 9);
+        assert_eq!(metrics.required_recheck_field_count, 37);
+        assert_eq!(metrics.required_rejection_policy_count, 53);
+        assert_eq!(metrics.blocked_truth_count, 5);
         assert_eq!(metrics.gated_surface_count, 6);
         assert_eq!(metrics.action_leak_count, 0);
         assert_eq!(metrics.model_bytes_loaded, 0);

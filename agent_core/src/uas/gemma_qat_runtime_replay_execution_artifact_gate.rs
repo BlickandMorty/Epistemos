@@ -20,8 +20,7 @@ pub const GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_CURSOR: &str =
     "gemma_qat_runtime_replay_execution_artifact_gate";
 pub const GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_NEXT_CURSOR: &str =
     "gemma_qat_owner_approved_runtime_replay_execution_probe";
-pub const GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_owner_approved_runtime_replay_probe/result.json#F-GemmaQATOwnerApprovedRuntimeReplayProbe";
+pub const GEMMA_QAT_RUNTIME_REPLAY_EXECUTION_ARTIFACT_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_owner_approved_runtime_replay_probe/result.json#F-GemmaQATOwnerApprovedRuntimeReplayProbe";
 
 const UPSTREAM_PROBE_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_owner_approved_runtime_replay_probe/";

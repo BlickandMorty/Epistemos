@@ -155,7 +155,7 @@ struct ArenaTests {
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ArenaHealthRow.swift")
 
         #expect(settings.contains("ArenaHealthRow()"))
-        #expect(settings.contains("Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority"))
+        #expect(row.contains("Shared arena path and bridge budget constants are visible."))
         #expect(!settings.contains("Cognitive DAG (V2 final lane)"))
         #expect(row.contains("ArenaPathResolver.resolve(container: container)"))
         #expect(row.contains("ArenaBridge.arenaVersion"))
@@ -198,18 +198,22 @@ struct ArenaTests {
         #expect(source.contains("appGroupContainer.migrateLegacyDatabasesIfNeeded()"))
     }
 
-    @Test("App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail")
-    func appStoreEntitlementCarriesTemporaryAppGroupRestorationTrail() throws {
+    @Test("entitlements carry restored paid-team App Group without donor drift")
+    func entitlementsCarryRestoredPaidTeamAppGroupWithoutDonorDrift() throws {
         let appStore = try loadMirroredSourceTextFile("Epistemos/Epistemos-AppStore.entitlements")
         let direct = try loadMirroredSourceTextFile("Epistemos/Epistemos.entitlements")
         let debug = try loadMirroredSourceTextFile("Epistemos/Epistemos-Debug.entitlements")
 
-        #expect(appStore.contains("TEMP-FREE-TIER NOTE"))
-        #expect(appStore.contains("Restore the App Group key with value `group.com.epistemos.shared`"))
-        #expect(!appStore.contains("<key>com.apple.security.application-groups</key>"))
+        #expect(appStore.contains("<key>com.apple.security.application-groups</key>"))
+        #expect(appStore.contains("<string>group.com.epistemos.shared</string>"))
+        #expect(direct.contains("<key>com.apple.security.application-groups</key>"))
+        #expect(direct.contains("<string>group.com.epistemos.shared</string>"))
+        #expect(debug.contains("<key>com.apple.security.application-groups</key>"))
+        #expect(debug.contains("<string>group.com.epistemos.shared</string>"))
+        #expect(!appStore.contains("TEMP-FREE-TIER NOTE"))
         #expect(!appStore.contains("group.com.epistenos.shared"))
-        #expect(!direct.contains("com.apple.security.application-groups"))
-        #expect(!debug.contains("com.apple.security.application-groups"))
+        #expect(!direct.contains("group.com.epistenos.shared"))
+        #expect(!debug.contains("group.com.epistenos.shared"))
     }
 
     @MainActor

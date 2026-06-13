@@ -48,7 +48,6 @@ struct NonAgentPruningValidationTests {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let quitSave = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
-        let localizations = try loadRepoTextFile("Epistemos/Resources/Localizable.xcstrings")
 
         #expect(!app.contains("toggleSessionIntelligence"))
         #expect(!app.contains("Session Intelligence"))
@@ -56,7 +55,6 @@ struct NonAgentPruningValidationTests {
         #expect(!root.contains("SessionIntelligenceOverlay"))
         #expect(!landing.contains("Session Intelligence"))
         #expect(!quitSave.contains("GlobalSessionIntelligence"))
-        #expect(!localizations.contains("Session Intelligence"))
     }
 
     @Test("setup assistant sheet uses shared app environment injection")

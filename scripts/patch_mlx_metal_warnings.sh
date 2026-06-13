@@ -176,23 +176,29 @@ prepare_swiftlint_plugin_output_dirs() {
 }
 
 patched_any=0
-while IFS= read -r file; do
-  if patch_file "${file}"; then
-    patched_any=1
-  fi
-done < <(/usr/bin/printf '%s\n' "${candidate_files[@]}" | /usr/bin/sort -u)
+if [[ "${#candidate_files[@]}" -gt 0 ]]; then
+  while IFS= read -r file; do
+    if patch_file "${file}"; then
+      patched_any=1
+    fi
+  done < <(/usr/bin/printf '%s\n' "${candidate_files[@]}" | /usr/bin/sort -u)
+fi
 
-while IFS= read -r file; do
-  if patch_jit_file "${file}"; then
-    patched_any=1
-  fi
-done < <(/usr/bin/printf '%s\n' "${candidate_jit_files[@]}" | /usr/bin/sort -u)
+if [[ "${#candidate_jit_files[@]}" -gt 0 ]]; then
+  while IFS= read -r file; do
+    if patch_jit_file "${file}"; then
+      patched_any=1
+    fi
+  done < <(/usr/bin/printf '%s\n' "${candidate_jit_files[@]}" | /usr/bin/sort -u)
+fi
 
-while IFS= read -r root; do
-  if prepare_swiftlint_plugin_output_dirs "${root}"; then
-    patched_any=1
-  fi
-done < <(/usr/bin/printf '%s\n' "${candidate_swiftlint_plugin_roots[@]}" | /usr/bin/sort -u)
+if [[ "${#candidate_swiftlint_plugin_roots[@]}" -gt 0 ]]; then
+  while IFS= read -r root; do
+    if prepare_swiftlint_plugin_output_dirs "${root}"; then
+      patched_any=1
+    fi
+  done < <(/usr/bin/printf '%s\n' "${candidate_swiftlint_plugin_roots[@]}" | /usr/bin/sort -u)
+fi
 
 if [[ "${patched_any}" == "0" ]]; then
   echo "MLX Metal warning patch: no mlx-swift checkout found yet"

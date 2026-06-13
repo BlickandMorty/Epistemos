@@ -8,6 +8,10 @@ import Testing
 struct VaultLifecycleResetTests {
     @Test("graph lifecycle reset clears visible store, FFI queues, selection, and filters")
     func graphLifecycleResetClearsVisibleStoreAndQueues() {
+        let visibilityDefaultsKey = "epistemos.graph.visibleNodeTypes"
+        UserDefaults.standard.removeObject(forKey: visibilityDefaultsKey)
+        defer { UserDefaults.standard.removeObject(forKey: visibilityDefaultsKey) }
+
         let state = GraphState()
         let now = Date()
         let node = GraphNodeRecord(

@@ -9,10 +9,8 @@ pub const DISTRIBUTION_PROJECT_INTEGRITY_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "distribution_project_integrity_release_blocker_card";
 pub const DISTRIBUTION_PROJECT_INTEGRITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "editor_epdoc_surface_release_blocker_card";
-pub const DISTRIBUTION_PROJECT_INTEGRITY_UPSTREAM_REF: &str =
-    "artifact:falsifiers/theme_presentation_release_blocker_card/result.json#F-ThemePresentation-ReleaseBlockerCard";
-pub const DISTRIBUTION_PROJECT_INTEGRITY_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#distribution_project_integrity";
+pub const DISTRIBUTION_PROJECT_INTEGRITY_UPSTREAM_REF: &str = "artifact:falsifiers/theme_presentation_release_blocker_card/result.json#F-ThemePresentation-ReleaseBlockerCard";
+pub const DISTRIBUTION_PROJECT_INTEGRITY_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#distribution_project_integrity";
 
 const REQUIRED_SOURCE_REFS: [&str; 14] = [
     "project.yml",

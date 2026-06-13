@@ -25488,16 +25488,16 @@ release-audit surface without laundering the still-red automated-check gate?"
 Gemma E2B settings/diagnostics WRV gate
   -> Gemma E2B release-audit surface gate
   -> product capability recheck shape
-  -> still blocked by red release-audit automated checks
-  -> owner-approved focused product proof
-  -> full automated-check pass
-  -> log/manual/distribution/repeated-zero-fail evidence
+  -> repaired automated/log/manual/closeout chain acknowledged
+  -> still blocked by distribution/compliance plus three-pass release proof
 ```
 
-The landed gate binds the release-audit skill, red automated-check blocker,
+The landed gate binds the release-audit skill, distribution/compliance plus
+three-pass completion blocker,
 graph-filter proof-root command card, execution-artifact parser gate,
-owner-approval runbook, log/manual/distribution/repeated-zero-fail
-requirements, settings and diagnostics copy, AnswerPacket, RunEventLog,
+owner-approval runbook, repaired automated/log/manual evidence chain,
+remaining distribution/repeated-zero-fail requirements, settings and
+diagnostics copy, AnswerPacket, RunEventLog,
 rollback, abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion,
 fast-row gated visibility, owner action, and product-capability recheck
 deferral.
@@ -25527,9 +25527,10 @@ That is the clean bridge from research-to-build for Gemma E2B, then E4B, then
 ### Why It May Be Wrong
 
 The next capability recheck could still become theater if it consumes this
-metadata PASS while ignoring the red automated-check gate. The next gate must
-therefore preserve the product blocker explicitly and refuse to call Gemma live
-until release-audit evidence exists.
+metadata PASS while ignoring the release-audit completion gate. The next gate
+must therefore preserve the product blocker explicitly and refuse to call Gemma
+live until distribution/compliance plus three uninterrupted zero-fail pass
+evidence exists.
 
 ## Pass 205 - Gemma E2B Product Capability Recheck Gate Landed
 
@@ -25538,8 +25539,8 @@ Date: 2026-06-08.
 Best breakthrough candidate:
 make the current product-capability recheck itself falsifiable. The new
 `F-GemmaQATE2BProductCapabilityRecheckGate` consumes the release-audit surface
-and passes only when it verifies Gemma E2B is still blocked by the red
-release-audit automated-check cursor.
+and passes only when it verifies Gemma E2B is still blocked by the
+distribution/compliance plus three uninterrupted zero-fail pass cursor.
 
 Safest next falsifier:
 `gemma_qat_e2b_release_audit_blocker_repair_bridge_gate`. It should bind the
@@ -25557,8 +25558,8 @@ gate passes because it sees the capability kernel is red and preserves the
 blocker.
 
 Biggest missing source:
-a current-HEAD automated-check artifact with `xcodebuild_test_passed=true` and
-the log/manual/distribution/repeated-zero-fail proof required after that.
+distribution/compliance review evidence and three uninterrupted zero-fail
+release-audit passes after the repaired automated/log/manual/closeout chain.
 
 Next research query: "How can
 `gemma_qat_e2b_release_audit_blocker_repair_bridge_gate` connect the blocked
@@ -29607,3 +29608,56 @@ Next research query:
 Which owner-approved local Gemma E2B/E4B QAT GGUF path should produce the first
 redacted receipt, and should the first runtime proof use a single token, a
 four-token sanity answer, or a tiny structured-output fixture?
+
+## Pass 247 - Gemma E2B QAT Local First-Runtime Chain Materialized
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+This pass records the first local Gemma E2B QAT proof chain that goes beyond
+metadata without crossing into product authority. The selected model is
+`google/gemma-4-E2B-it-qat-q4_0-gguf`; the observed local GGUF is recorded only
+through byte count, sha256, redacted path digest, and llama.cpp identity.
+
+Materialized artifacts:
+
+- `artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_materializer/receipt.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_execution_probe/receipt.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_quality_packet/packet.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_quality_replay/result.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/admission.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/system_g_dry_run.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/visibility.redacted.json`
+- `artifacts/falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json`
+
+Measured result:
+
+- Same-fixture replay: `passed_task_count=7`, `failed_task_count=0`.
+- RuntimeRouter admission packet: `quality_replay_passed=true`,
+  `runtime_router_admission_packet_ready=true`,
+  `system_g_dry_run_packet_ready=true`.
+- System G dry-run and route visibility packets materialized with zero
+  RuntimeRouter/System G/default mutations.
+- Settings/diagnostics WRV: `settings_diagnostics_wrv_passed=true`,
+  `release_audit_automated_checks_ready=true`, and next cursor
+  `release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes`.
+
+Tier and status:
+
+L1/T1 local proof advanced. This is not a live/default/T4 claim. It does not
+make Gemma the main app model, does not unlock a picker toggle, does not mutate
+RuntimeRouter/System G/default state, does not emit a user-visible AnswerPacket,
+does not claim 12B/70B capability, and does not complete release readiness.
+
+Best next code unit:
+Run the release-completion evidence gate: distribution/compliance review plus
+three uninterrupted zero-fail passes, then repeat the Gemma product-capability
+recheck against the new proof chain.
+
+Biggest false-claim risk:
+Calling the E2B proof chain "T4 best" or "Gemma in the app." The evidence now
+proves the local direct-file E2B QAT lane can run, replay, and produce
+RuntimeRouter/System G dry-run packets. Product capability still requires
+release-completion evidence and visible route admission rules.

@@ -166,9 +166,18 @@ fn build_artifact(
         ("reachable_axis_bound", witness.reachable),
         ("visible_axis_bound", witness.visible),
         ("verified_axis_bound", witness.verified),
-        ("triage_policy_source_bound", evidence.source_present("source:triage_policy")),
-        ("llm_service_source_bound", evidence.source_present("source:llm_service")),
-        ("note_chat_source_bound", evidence.source_present("source:note_chat")),
+        (
+            "triage_policy_source_bound",
+            evidence.source_present("source:triage_policy"),
+        ),
+        (
+            "llm_service_source_bound",
+            evidence.source_present("source:llm_service"),
+        ),
+        (
+            "note_chat_source_bound",
+            evidence.source_present("source:note_chat"),
+        ),
         (
             "local_serial_controller_source_bound",
             evidence.source_present("source:local_serial_controller"),
@@ -193,7 +202,10 @@ fn build_artifact(
             "serial_controller_tests_bound",
             evidence.test_present("test:serial_controller"),
         ),
-        ("answer_packet_tests_bound", evidence.test_present("test:answer_packet")),
+        (
+            "answer_packet_tests_bound",
+            evidence.test_present("test:answer_packet"),
+        ),
         (
             "substrate_settings_tests_bound",
             evidence.test_present("test:substrate_settings"),
@@ -264,7 +276,10 @@ fn build_artifact(
             evidence.living_index_has_north_star && evidence.master_index_has_north_star,
         ),
         ("l1_l2_l3_separation_bound", witness.l1_l2_l3_separated),
-        ("mas_floor_preserved", !witness.mas_live_agent_overclaim_attempted),
+        (
+            "mas_floor_preserved",
+            !witness.mas_live_agent_overclaim_attempted,
+        ),
         (
             "no_mas_live_agent_overclaim",
             !witness.mas_live_agent_overclaim_attempted,
@@ -276,23 +291,38 @@ fn build_artifact(
         ),
         (
             "no_hidden_route_authority",
-            witness.surfaces.iter().all(|surface| !surface.hidden_route_authority),
+            witness
+                .surfaces
+                .iter()
+                .all(|surface| !surface.hidden_route_authority),
         ),
         (
             "no_hidden_cloud_fallback",
-            witness.surfaces.iter().all(|surface| !surface.hidden_cloud_fallback),
+            witness
+                .surfaces
+                .iter()
+                .all(|surface| !surface.hidden_cloud_fallback),
         ),
         (
             "no_hidden_chain",
-            witness.surfaces.iter().all(|surface| !surface.hidden_chain_exposed),
+            witness
+                .surfaces
+                .iter()
+                .all(|surface| !surface.hidden_chain_exposed),
         ),
         (
             "no_route_policy_mutation",
-            witness.surfaces.iter().all(|surface| !surface.route_policy_mutated),
+            witness
+                .surfaces
+                .iter()
+                .all(|surface| !surface.route_policy_mutated),
         ),
         (
             "no_gate_bypass",
-            witness.surfaces.iter().all(|surface| !surface.gate_bypassed),
+            witness
+                .surfaces
+                .iter()
+                .all(|surface| !surface.gate_bypassed),
         ),
         (
             "no_answer_packet_suppression",
@@ -347,12 +377,18 @@ fn build_artifact(
             "missing_source_marker_rejected",
             invalid_axes.missing_source_marker_rejected,
         ),
-        ("missing_surface_rejected", invalid_axes.missing_surface_rejected),
+        (
+            "missing_surface_rejected",
+            invalid_axes.missing_surface_rejected,
+        ),
         (
             "missing_test_marker_rejected",
             invalid_axes.missing_test_marker_rejected,
         ),
-        ("missing_wired_axis_rejected", invalid_axes.missing_wired_axis_rejected),
+        (
+            "missing_wired_axis_rejected",
+            invalid_axes.missing_wired_axis_rejected,
+        ),
         (
             "missing_reachable_axis_rejected",
             invalid_axes.missing_reachable_axis_rejected,
@@ -385,9 +421,18 @@ fn build_artifact(
             "missing_compatibility_fence_rejected",
             invalid_axes.missing_compatibility_fence_rejected,
         ),
-        ("missing_privacy_rejected", invalid_axes.missing_privacy_rejected),
-        ("missing_budget_rejected", invalid_axes.missing_budget_rejected),
-        ("hidden_authority_rejected", invalid_axes.hidden_authority_rejected),
+        (
+            "missing_privacy_rejected",
+            invalid_axes.missing_privacy_rejected,
+        ),
+        (
+            "missing_budget_rejected",
+            invalid_axes.missing_budget_rejected,
+        ),
+        (
+            "hidden_authority_rejected",
+            invalid_axes.hidden_authority_rejected,
+        ),
         ("hidden_cloud_rejected", invalid_axes.hidden_cloud_rejected),
         ("hidden_chain_rejected", invalid_axes.hidden_chain_rejected),
         (
@@ -427,7 +472,10 @@ fn build_artifact(
             "l3_runtime_green_claim_rejected",
             invalid_axes.l3_runtime_green_claim_rejected,
         ),
-        ("runtime_bytes_rejected", invalid_axes.runtime_bytes_rejected),
+        (
+            "runtime_bytes_rejected",
+            invalid_axes.runtime_bytes_rejected,
+        ),
         ("model_bytes_rejected", invalid_axes.model_bytes_rejected),
         (
             "metadata_budget_rejected",
@@ -651,7 +699,8 @@ fn product_surfaces() -> Vec<SmallModelProductWrvSurface> {
             surface_id: format!("surface:{id}"),
             admission_ref: "admission:scope_rex:small_model_product_wrv_source_only".to_string(),
             rollback_ref: "rollback:no_product_mutation:source_wrv_probe".to_string(),
-            answer_packet_ref: "answer_packet:product_route:diagnostic_and_message_chip".to_string(),
+            answer_packet_ref: "answer_packet:product_route:diagnostic_and_message_chip"
+                .to_string(),
             run_event_log_ref: "run_event_log:system_g:replay_projection_bound".to_string(),
             compatibility_fence_ref: "compat:mas_pro_l1_l2_l3_separated".to_string(),
             privacy_ref: "privacy:no_prompt_text_no_token_text_no_hidden_chain".to_string(),
@@ -737,11 +786,15 @@ impl EvidenceSnapshot {
     }
 
     fn source_present(&self, ref_id: &str) -> bool {
-        self.source_refs.iter().any(|source| source.ref_id == ref_id)
+        self.source_refs
+            .iter()
+            .any(|source| source.ref_id == ref_id)
     }
 
     fn test_present(&self, ref_id: &str) -> bool {
-        self.test_refs.iter().any(|test_ref| test_ref.ref_id == ref_id)
+        self.test_refs
+            .iter()
+            .any(|test_ref| test_ref.ref_id == ref_id)
     }
 }
 
@@ -763,17 +816,29 @@ const SOURCE_SPECS: &[MarkerSpec] = &[
     MarkerSpec {
         ref_id: "source:note_chat",
         path: "Epistemos/State/NoteChatState.swift",
-        markers: &["triageService.stream", "lastAssistantInferenceMode", "makeAssistantMessage"],
+        markers: &[
+            "triageService.stream",
+            "lastAssistantInferenceMode",
+            "makeAssistantMessage",
+        ],
     },
     MarkerSpec {
         ref_id: "source:local_serial_controller",
         path: "Epistemos/Engine/LocalInferenceSerialController.swift",
-        markers: &["beginGpuCompute", "beginSsdRead", "Disk reads are forbidden"],
+        markers: &[
+            "beginGpuCompute",
+            "beginSsdRead",
+            "Disk reads are forbidden",
+        ],
     },
     MarkerSpec {
         ref_id: "source:answer_packet_emitter",
         path: "Epistemos/Engine/AnswerPacketEmitter.swift",
-        markers: &["turnCompletionStub", "maxRingSize = 100", "emit(_ packet: AnswerPacket)"],
+        markers: &[
+            "turnCompletionStub",
+            "maxRingSize = 100",
+            "emit(_ packet: AnswerPacket)",
+        ],
     },
     MarkerSpec {
         ref_id: "source:streaming_delegate_packet_emit",
@@ -787,12 +852,19 @@ const SOURCE_SPECS: &[MarkerSpec] = &[
     MarkerSpec {
         ref_id: "source:message_packet_visibility",
         path: "Epistemos/Views/Chat/MessageBubble.swift",
-        markers: &["AnswerPacketChipRow", "LatestAnswerPacketSink.shared", "answerPacketId"],
+        markers: &[
+            "AnswerPacketChipRow",
+            "LatestAnswerPacketSink.shared",
+            "answerPacketId",
+        ],
     },
     MarkerSpec {
         ref_id: "source:settings_visibility",
         path: "Epistemos/Views/Settings/SubstrateHealthPanel.swift",
-        markers: &["AnswerPacketHealthRow()", "LocalAgentDiagnosticsHealthRow()"],
+        markers: &[
+            "AnswerPacketHealthRow()",
+            "LocalAgentDiagnosticsHealthRow()",
+        ],
     },
     MarkerSpec {
         ref_id: "source:local_agent_diagnostics",
@@ -806,7 +878,11 @@ const SOURCE_SPECS: &[MarkerSpec] = &[
     MarkerSpec {
         ref_id: "source:system_g_run_event_log",
         path: "Epistemos/SystemG/RealSystemGRunSeam.swift",
-        markers: &["RunEventLog", "RunEventLogReplayProjection.answerPacket", "AnswerPacketEmitter.shared.emit"],
+        markers: &[
+            "RunEventLog",
+            "RunEventLogReplayProjection.answerPacket",
+            "AnswerPacketEmitter.shared.emit",
+        ],
     },
 ];
 
@@ -909,7 +985,9 @@ fn invalid_rejections(witness: &SmallModelProductWrvWitness) -> InvalidAxes {
         missing_reachable_axis_rejected: mutate(|candidate| candidate.reachable = false),
         missing_visible_axis_rejected: mutate(|candidate| candidate.visible = false),
         missing_verified_axis_rejected: mutate(|candidate| candidate.verified = false),
-        missing_admission_rejected: mutate_surface(witness, |surface| surface.admission_ref.clear()),
+        missing_admission_rejected: mutate_surface(witness, |surface| {
+            surface.admission_ref.clear()
+        }),
         missing_rollback_rejected: mutate_surface(witness, |surface| surface.rollback_ref.clear()),
         missing_answer_packet_rejected: mutate_surface(witness, |surface| {
             surface.answer_packet_ref.clear();
@@ -1051,16 +1129,14 @@ fn measurement_string(value: &serde_json::Value, key: &str) -> Option<String> {
 }
 
 fn artifact_all_axes_true(value: &serde_json::Value) -> bool {
-    value.get("overall_pass").and_then(serde_json::Value::as_bool) == Some(true)
+    value
+        .get("overall_pass")
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
         && value
             .get("pass_per_axis")
             .and_then(serde_json::Value::as_object)
-            .map(|axes| {
-                !axes.is_empty()
-                    && axes
-                        .values()
-                        .all(|axis| axis.as_bool() == Some(true))
-            })
+            .map(|axes| !axes.is_empty() && axes.values().all(|axis| axis.as_bool() == Some(true)))
             .unwrap_or(false)
 }
 

@@ -498,6 +498,18 @@ public final class RuntimeRouter {
         let grammar = LocalToolGrammar.nativeGrammar(forModelID: modelID)
         let witness = "RuntimeRouter \(lane.stableID) lane capability + LocalTextModelID witness"
 
+        if model?.isAwaitingSwiftRuntimeLoader == true {
+            return RuntimeAgentCapabilityBadgeData(
+                state: .off,
+                lane: lane,
+                nativeGrammar: grammar,
+                toolCallMode: .none,
+                witness: witness,
+                falsifier: "F-LocalToolUse unavailable",
+                reason: "Swift MLX loader is unavailable for this Gemma 4 preview row; use the gated QAT GGUF proof lanes instead."
+            )
+        }
+
         guard laneCapability.toolCallMode != .none else {
             return RuntimeAgentCapabilityBadgeData(
                 state: .off,

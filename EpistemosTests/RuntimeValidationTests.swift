@@ -1385,6 +1385,15 @@ struct RuntimeValidationTests {
 
         for source in [project, spec] {
             #expect(source.contains("Bundle Test Source Mirror"))
+            #expect(
+                source.contains("copy_tree \"epistemos-code-index\"")
+                    || source.contains("copy_tree \\\"epistemos-code-index\\\"")
+            )
+            #expect(
+                source.contains("copy_tree \"XPCServices\"")
+                    || source.contains("copy_tree \\\"XPCServices\\\""),
+                "XPC source guards must read bundled XPCServices files from SourceMirror instead of falling back to live checkout."
+            )
             #expect(!source.contains("rm -rf \"${output_dir}\""))
             #expect(source.contains("prune_artifact_directories"))
             #expect(
@@ -2606,7 +2615,9 @@ struct RuntimeValidationTests {
         let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let liquidGreeting = try loadRepoTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
-        #expect(liquidGreeting.contains("!ui.windowOccluded && ui.landingGreetingTypewriterEnabled"))
+        #expect(liquidGreeting.contains("!windowOccluded && typewriterEnabled"))
+        #expect(landingView.contains("windowOccluded: ui.windowOccluded"))
+        #expect(landingView.contains("typewriterEnabled: ui.landingGreetingTypewriterEnabled"))
         #expect(!liquidGreeting.contains("ui.activePanel == .home &&"))
         #expect(landingView.contains("LandingViewStateSync"))
         #expect(landingView.contains("LandingViewStateSync.reassertHomeSurface(ui)"))
@@ -4727,7 +4738,9 @@ struct RuntimeValidationTests {
         #expect(landing.contains("showLandingSlashMenu"))
         #expect(landing.contains("SlashCommandPopover("))
         #expect(landing.contains("handleLandingSearchTextChange(newValue)"))
-        #expect(landing.contains("chat.queuePendingSlashCommand(slashCommand)"))
+        #expect(landing.contains("supportedLandingSlashItems"))
+        #expect(landing.contains("agentCommandCenter.availableSkills"))
+        #expect(landing.contains("chat.queuePendingSlashToken(slashToken)"))
     }
 
     @Test("app menu fallback does not structurally mutate SwiftUI-owned menus")
@@ -6100,12 +6113,12 @@ struct InferenceCloudSelectionTests {
             testsFilePath: #filePath
         )
 
-        #expect(source.contains("if request.requiresHumanApproval"))
+        #expect(source.contains("switch storedAuthorityDecision(for: request)"))
         #expect(source.contains("approved = await promptForToolApproval(request)"))
         #expect(source.contains("request.approvalReason"))
         #expect(source.contains("capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"))
         #expect(source.contains("private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool"))
-        #expect(!source.contains("let isReadOnly = request.riskLevel == .readOnly"))
+        #expect(source.contains("return await promptUserForBudgetGateApproval(request)"))
         #expect(!source.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
         #expect(!source.contains("Auto-approve for now"))
     }
@@ -6668,8 +6681,8 @@ struct InferenceCloudSelectionTests {
             testsFilePath: #filePath
         )
 
-        #expect(coordinator.contains("recordToolUse("))
-        #expect(coordinator.contains("recordToolResult("))
+        #expect(coordinator.contains("chatState.recordToolUse("))
+        #expect(coordinator.contains("chatState.recordToolResult("))
         #expect(!coordinator.contains("chatState.appendStreamingText(\"\\n> **\\(name)**\\n\")"))
         #expect(state.contains("var pendingContentBlocks: [MessageContentBlock] = []"))
         #expect(state.contains("contentBlocks: completedContentBlocks"))
@@ -6733,7 +6746,7 @@ struct InferenceCloudSelectionTests {
         )
 
         #expect(coordinator.contains("let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: surfaceOperatingMode)"))
-        #expect(coordinator.contains("let allowedTools = executionPlan.allowedToolNames"))
+        #expect(coordinator.contains("let allowedTools = Set(executionPlan.allowedToolNames.map(AgentToolNameAliases.canonical))"))
         #expect(coordinator.contains("allowedToolNames: Array(allowedTools).sorted()"))
         #expect(coordinator.contains("enableThinking: surfaceOperatingMode.capturesReasoningTrace"))
         #expect(coordinator.contains("effort: rustAgentEffort(for: surfaceOperatingMode)"))
@@ -6794,16 +6807,20 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/ModelVaultsSettingsView.swift",
             testsFilePath: #filePath
         )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
 
         #expect(source.contains("@Environment(InferenceState.self)"))
         #expect(source.contains("inference.configuredCloudProviders"))
         #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
         #expect(source.contains("private func configuredTargets() -> [ModelVaultTarget]"))
-        #expect(source.contains("CapabilityCeilingHealthSnapshot.load()"))
-        #expect(source.contains("Capability Ceiling Context"))
-        #expect(source.contains("canonical red"))
-        #expect(source.contains("candidate evidence only, not the canonical KV-Direct route"))
-        #expect(source.contains("contextInventoryEntry(for: descriptor.id)"))
+        #expect(settings.contains("CapabilityCeilingHealthSnapshot.load()"))
+        #expect(settings.contains("Capability Ceiling Context"))
+        #expect(settings.contains("canonical red"))
+        #expect(settings.contains("candidate evidence only, not the canonical KV-Direct route"))
+        #expect(settings.contains("contextInventoryEntry(for: descriptor.id)"))
     }
 
     @Test("model vault sidebar resolves authored model ids from vault metadata instead of sanitized directory names")
@@ -6857,7 +6874,7 @@ struct InferenceCloudSelectionTests {
 
         let cloudEntry = try #require(byDirectory["gpt-5.4"])
         #expect(cloudEntry.id == CloudTextModelID.openAIGPT54.vendorModelID)
-        #expect(cloudEntry.displayName == "GPT-5.4")
+        #expect(cloudEntry.displayName == "GPT-4o")
         #expect(cloudEntry.acceptedAuthoredModelIDs.contains(CloudTextModelID.openAIGPT54.rawValue))
     }
 

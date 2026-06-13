@@ -37,6 +37,9 @@ struct AgentControlDetailView: View {
     @Environment(MCPBridge.self) private var mcpBridge
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ChatState.self) private var chat
+    @Environment(InferenceState.self) private var inference
+    @AppStorage(MainChatOperatingModePreference.defaultsKey)
+    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var recentExecutions: [MCPExecutionEntry] = []
     @State private var sessionResults: [SessionBrowser.SessionInfo] = []
@@ -47,6 +50,8 @@ struct AgentControlDetailView: View {
     @State private var customToolStatusMessage: String?
     @State private var customToolStatusIsError = false
     @State private var isMutatingCustomTools = false
+    @State private var diagnosticRuntimeTools: [OmegaToolDefinition] = []
+    @State private var diagnosticDiscoveredSkills: [SkillDiscoveryEntry] = []
     @State private var allowlistDraft: String = ""
     @State private var blocklistDraft: String = ""
     // Phase R.5 — Rust-backed permission grants (I-009/I-010). Populated
@@ -63,7 +68,9 @@ struct AgentControlDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 headerCard
+                modelToolCompatibilityCard
                 toolInventoryCard
+                skillInventoryCard
                 // Custom tool registration is a Pro capability — registered
                 // tools route through the agent loop's tool tier filter,
                 // which `ToolSurfacePolicy.coreAppStoreAllowedToolNames`
@@ -83,11 +90,15 @@ struct AgentControlDetailView: View {
         .task {
             refreshExecutions()
             refreshSessions()
+            refreshDiagnosticRuntimeTools()
+            refreshDiagnosticSkillCatalog()
             await refreshRustBackedGrants()
         }
         .task(id: vaultSync.vaultURL?.path) {
             refreshSessions()
             refreshApprovalPolicy()
+            refreshDiagnosticRuntimeTools()
+            refreshDiagnosticSkillCatalog()
             #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             await refreshCustomTools()
             #endif
@@ -106,6 +117,116 @@ struct AgentControlDetailView: View {
                 Text("This is the operator-facing view of Epistemos: registered MCP tools, recent tool activity, and cross-session recall. It makes the runtime feel closer to an always-on employee console instead of a single chat box.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var modelToolCompatibilityCard: some View {
+        let summary = agentControlToolSummary
+        return SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Route Compatibility")
+                        .font(.headline)
+                    Spacer()
+                    ChannelStatusPill(
+                        title: summary.toolsAvailable ? "app tools available" : "app tools unavailable",
+                        tint: summary.toolsAvailable ? .green : .secondary
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(summary.label, systemImage: summary.systemImage)
+                        .font(.subheadline.weight(.semibold))
+                    Text(summary.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    ChannelStatusPill(title: "\(surfacedDiagnosticTools.count) app tools visible", tint: .blue)
+                    ChannelStatusPill(
+                        title: "\(providerNativeToolNames.count) provider-native",
+                        tint: providerNativeToolNames.isEmpty ? .secondary : .green
+                    )
+                    ChannelStatusPill(title: "\(diagnosticDiscoveredSkills.count) skills", tint: .purple)
+                }
+
+                Text(agentControlCompatibilityGuidance)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if !providerNativeToolNames.isEmpty {
+                    Text("Provider-native: \(providerNativeToolNames.joined(separator: ", "))")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .textSelection(.enabled)
+                }
+
+                Divider()
+                    .padding(.vertical, 2)
+
+                compatibilityMatrixSection
+            }
+        }
+    }
+
+    private var compatibilityMatrixSection: some View {
+        let rows = modelToolCompatibilityRows
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Compatibility Matrix")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(rows.count) routes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                    compatibilityMatrixRow(row)
+                    if index < rows.count - 1 {
+                        Divider()
+                    }
+                }
+            }
+        }
+    }
+
+    private func compatibilityMatrixRow(
+        _ row: ComposerModelToolTruth.CompatibilityRow
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label(row.title, systemImage: row.summary.systemImage)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if row.isCurrent {
+                    ChannelStatusPill(title: "current", tint: .accentColor)
+                }
+                ChannelStatusPill(
+                    title: row.appToolStateLabel,
+                    tint: row.summary.toolsAvailable ? .green : .secondary
+                )
+            }
+
+            Text(row.summary.detail)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Text(row.sourceLabel)
+                Text(row.providerNativeStateLabel)
+                Text(row.skillStateLabel)
+            }
+            .font(.caption2.monospaced())
+            .foregroundStyle(.tertiary)
+
+            Text(row.skillHandlingDetail)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 
@@ -526,15 +647,24 @@ struct AgentControlDetailView: View {
                 // Center, not from this row. The clarifier makes that
                 // explicit so users + auditors don't think this is the
                 // invocation surface.
-                Text("Read-only diagnostic. Tools are invoked through chat / Agent Center; this card shows what is registered + how often it ran.")
+                Text("Read-only diagnostic. Tools are invoked through chat / Agent Center; this card shows the Rust-backed Agent-tier tools visible to the current build and vault.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
+                HStack {
+                    ChannelStatusPill(title: "Agent tier", tint: .purple)
+                    Spacer()
+                    Button("Refresh") {
+                        refreshDiagnosticRuntimeTools()
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+
                 HStack(spacing: 12) {
-                    ChannelStatusPill(title: "\(mcpBridge.toolCount) tools", tint: .blue)
+                    ChannelStatusPill(title: "\(surfacedDiagnosticTools.count) visible tools", tint: .blue)
                     ChannelStatusPill(title: "\(mcpBridge.executionCount) executions", tint: .green)
                     ChannelStatusPill(
-                        title: "\(OmegaToolRegistry.all.filter(\.requiresConfirmation).count) approvals",
+                        title: "\(surfacedDiagnosticTools.filter(\.requiresConfirmation).count) approvals",
                         tint: .orange
                     )
                 }
@@ -558,6 +688,12 @@ struct AgentControlDetailView: View {
                     if group.id != toolGroups.last?.id {
                         Divider()
                     }
+                }
+
+                if surfacedDiagnosticTools.isEmpty {
+                    Text("No runtime tools reported for this build or vault. Chat will run without tool calls until the Rust tool bridge reports a catalog.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -618,6 +754,59 @@ struct AgentControlDetailView: View {
         }
     }
 
+    private var skillInventoryCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Skill Plane")
+                        .font(.headline)
+                    Spacer()
+                    Button("Refresh") {
+                        refreshDiagnosticSkillCatalog()
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+
+                Text("Read-only diagnostic. Skills are instruction sheets discovered from bundled app and Codex-compatible roots. Native tool models can pair them with direct tool calls; soft-guidance and preview models use them as supervised instructions. Tool execution still follows MCP Tool Plane.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 12) {
+                    ChannelStatusPill(title: "\(diagnosticDiscoveredSkills.count) discovered skills", tint: .blue)
+                    ChannelStatusPill(title: "\(skillCount(from: .bundled)) bundled", tint: .green)
+                    ChannelStatusPill(title: "\(skillCount(from: .codex)) Codex", tint: .purple)
+                }
+
+                ForEach(skillDiscoveryGroups) { group in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(group.title)
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text("\(group.skills.count)")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text(group.skills.map(\.identifier).joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if group.id != skillDiscoveryGroups.last?.id {
+                        Divider()
+                    }
+                }
+
+                if diagnosticDiscoveredSkills.isEmpty {
+                    Text("No skills reported by discovery. Chat can still answer normally, but slash-skill routing will stay unavailable until bundled or Codex-compatible skills are found.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     private var sessionsCard: some View {
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
@@ -672,10 +861,98 @@ struct AgentControlDetailView: View {
     }
 
     private var toolGroups: [ToolInventoryGroup] {
-        let grouped = Dictionary(grouping: OmegaToolRegistry.all, by: \.agent)
+        let grouped = Dictionary(grouping: surfacedDiagnosticTools, by: \.agent)
         return grouped
             .map { ToolInventoryGroup(title: $0.key.capitalized, tools: $0.value.sorted { $0.name < $1.name }) }
             .sorted { $0.title < $1.title }
+    }
+
+    private var skillDiscoveryGroups: [SkillDiscoveryGroup] {
+        let grouped = Dictionary(grouping: diagnosticDiscoveredSkills, by: \.source)
+        return grouped
+            .map {
+                SkillDiscoveryGroup(
+                    source: $0.key,
+                    skills: $0.value.sorted { $0.identifier < $1.identifier }
+                )
+            }
+            .sorted { $0.title < $1.title }
+    }
+
+    private var surfacedDiagnosticTools: [OmegaToolDefinition] {
+        diagnosticRuntimeTools
+    }
+
+    private var agentControlOperatingMode: EpistemosOperatingMode {
+        EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
+    }
+
+    private var agentControlEffectiveSelection: ChatModelSelection {
+        inference.effectiveChatSurfaceSelection(for: agentControlOperatingMode)
+    }
+
+    private var agentControlCapability: ChatCapability {
+        ChatCapability.classify(
+            isCloudProvider: {
+                if case .cloud = agentControlEffectiveSelection {
+                    return true
+                }
+                return false
+            }(),
+            isAgentExecuting: agentControlOperatingMode == .agent,
+            isResearchMode: false,
+            isThinkingMode: agentControlOperatingMode == .thinking
+        )
+    }
+
+    private var agentControlToolSummary: ComposerModelToolTruth.Summary {
+        ComposerModelToolTruth.summary(
+            for: agentControlEffectiveSelection,
+            capability: agentControlCapability,
+            operatingMode: agentControlOperatingMode
+        )
+    }
+
+    private var providerNativeToolNames: [String] {
+        inference.providerNativeCapabilityToolNameList(for: agentControlOperatingMode)
+    }
+
+    private var modelToolCompatibilityRows: [ComposerModelToolTruth.CompatibilityRow] {
+        ComposerModelToolTruth.compatibilityRows(
+            currentSelection: agentControlEffectiveSelection,
+            operatingMode: agentControlOperatingMode,
+            localModelIDs: inference.releaseSelectableInstalledLocalTextModelIDs,
+            cloudModels: CloudModelProvider.preferredOrder.map {
+                inference.preferredCloudModel(for: $0)
+            },
+            providerNativeToolNames: {
+                inference.providerNativeCapabilityToolNameList(for: $0)
+            },
+            skillCount: diagnosticDiscoveredSkills.count
+        )
+    }
+
+    private var agentControlCompatibilityGuidance: String {
+        if agentControlToolSummary.toolsAvailable {
+            return "This route can execute app tools from the MCP Tool Plane. Skills remain instruction context until selected or routed by the runtime."
+        }
+        return "MCP tools below are inventory only for this route. Switch to a managed cloud route or a local tool-capable model before expecting app tool execution."
+    }
+
+    private func refreshDiagnosticRuntimeTools() {
+        let vaultPath = vaultSync.vaultURL?.path ?? ""
+        diagnosticRuntimeTools = ToolTierBridge(
+            vaultPath: vaultPath,
+            tier: .agent
+        ).loadTools()
+    }
+
+    private func refreshDiagnosticSkillCatalog() {
+        diagnosticDiscoveredSkills = SkillDiscoveryCatalog.discoverSkillEntries()
+    }
+
+    private func skillCount(from source: SkillDiscoverySource) -> Int {
+        diagnosticDiscoveredSkills.filter { $0.source == source }.count
     }
 
     private func refreshExecutions() {
@@ -911,7 +1188,15 @@ private struct ToolInventoryGroup: Identifiable {
     var id: String { title }
 }
 
-private struct MCPExecutionEntry: Identifiable {
+private struct SkillDiscoveryGroup: Identifiable {
+    let source: SkillDiscoverySource
+    let skills: [SkillDiscoveryEntry]
+
+    var id: String { source.rawValue }
+    var title: String { source.title }
+}
+
+struct MCPExecutionEntry: Identifiable {
     let id: String
     let toolName: String
     let timestamp: Date?

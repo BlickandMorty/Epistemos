@@ -1104,8 +1104,14 @@ fn canonical_card_from_byte_envelope(
         pro_status: ProStatus::ResearchCandidate,
         promotion_tier: CompressedModelPromotionTier::T1L1Metadata,
         argv_template,
-        forbidden_args: FORBIDDEN_ARGS.iter().map(|value| (*value).to_string()).collect(),
-        forbidden_env: FORBIDDEN_ENV.iter().map(|value| (*value).to_string()).collect(),
+        forbidden_args: FORBIDDEN_ARGS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
+        forbidden_env: FORBIDDEN_ENV
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
         issue_failure_refs: issue_refs_for_surface(surface),
         policy: if mac_candidate {
             CrashSafeCommandPolicy::unarmed_mac_candidate()
@@ -1281,8 +1287,7 @@ fn is_mac_candidate_source_pin(source_pin: &str) -> bool {
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json#F-ExoticQuantOwnerPathByteEnvelopePreflightGate";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json#F-ExoticQuantOwnerPathByteEnvelopePreflightGate";
 
     fn ledger_from_cards(
         cards: Vec<CrashSafeCommandEnvelopeCard>,

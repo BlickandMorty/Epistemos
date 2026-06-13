@@ -21,8 +21,7 @@ pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_PREFLIGHT_PACKET_GATE_CURS
     "gemma_direct_harness_owner_approved_receipt_preflight_packet_gate";
 pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_PREFLIGHT_PACKET_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_command_envelope_gate";
-pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_PREFLIGHT_PACKET_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_owner_approved_receipt_runbook_gate/result.json#F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate";
+pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RECEIPT_PREFLIGHT_PACKET_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_owner_approved_receipt_runbook_gate/result.json#F-GemmaDirectHarnessOwnerApprovedReceiptRunbookGate";
 
 const UPSTREAM_RUNBOOK_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_owner_approved_receipt_runbook_gate/";

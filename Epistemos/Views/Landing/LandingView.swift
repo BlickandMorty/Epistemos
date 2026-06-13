@@ -126,7 +126,7 @@ struct LandingView: View {
     @State private var showLandingSlashMenu = false
     @State private var landingSlashFilter = ""
     @State private var landingSlashKeyboardIndex = 0
-    @State private var selectedLandingSlashCommand: ACCSlashCommand?
+    @State private var selectedLandingSlashItem: ComposerSlashCommandItem?
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
@@ -189,25 +189,48 @@ struct LandingView: View {
             )
         )
     }
-    private var activeSelectedLandingSlashCommand: ACCSlashCommand? {
-        guard let selectedLandingSlashCommand,
-              supportedLandingSlashCommands.contains(selectedLandingSlashCommand) else {
+
+    private var supportedLandingSlashItems: [ComposerSlashCommandItem] {
+        ComposerSlashCommandItem.all(
+            commands: supportedLandingSlashCommands,
+            skills: agentCommandCenter.availableSkills
+        )
+    }
+
+    private var activeSelectedLandingSlashItem: ComposerSlashCommandItem? {
+        if let selectedLandingSlashItem,
+           supportedLandingSlashItems.contains(selectedLandingSlashItem) {
+            return selectedLandingSlashItem
+        }
+
+        let result = CommandInputParser.parse(
+            landingSearchText,
+            availableSkills: agentCommandCenter.availableSkills,
+            availableSlashCommands: supportedLandingSlashCommands
+        )
+        guard let token = result.slashToken else {
             return nil
         }
-        return selectedLandingSlashCommand
+        let item = ComposerSlashCommandItem(token: token)
+        return supportedLandingSlashItems.contains(item) ? item : nil
     }
-    private var filteredLandingSlashCommands: [ACCSlashCommand] {
-        SlashCommandPopover.filteredCommands(
-            commands: supportedLandingSlashCommands,
+
+    private var activeSelectedLandingSlashToken: ParsedSlashToken? {
+        activeSelectedLandingSlashItem?.token
+    }
+
+    private var filteredLandingSlashItems: [ComposerSlashCommandItem] {
+        SlashCommandPopover.filteredItems(
+            items: supportedLandingSlashItems,
             filter: landingSlashFilter
         )
     }
-    private var highlightedLandingSlashCommand: ACCSlashCommand? {
-        guard !filteredLandingSlashCommands.isEmpty else { return nil }
-        return filteredLandingSlashCommands[
+    private var highlightedLandingSlashItem: ComposerSlashCommandItem? {
+        guard !filteredLandingSlashItems.isEmpty else { return nil }
+        return filteredLandingSlashItems[
             clampedLandingKeyboardIndex(
                 landingSlashKeyboardIndex,
-                count: filteredLandingSlashCommands.count
+                count: filteredLandingSlashItems.count
             )
         ]
     }
@@ -233,7 +256,7 @@ struct LandingView: View {
         }
     }
     private var landingIsCloudSelection: Bool {
-        switch inference.preferredChatModelSelection {
+        switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
         case .cloud: true
         case .localMLX, .appleIntelligence: false
         }
@@ -249,6 +272,12 @@ struct LandingView: View {
             text: trimmedLandingSearchText,
             isCloudProvider: landingIsCloudSelection
         ).predicted
+    }
+    private var landingPillDetail: String? {
+        ComposerModelToolTruth.detail(
+            for: inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
+            capability: landingEffectiveCapability
+        )
     }
     private var landingAttachmentCount: Int {
         landingContextAttachments.count + landingFileAttachments.count
@@ -905,13 +934,13 @@ struct LandingView: View {
 
     private var landingSearchCommandTool: some View {
         LandingStageToolTile(
-            title: activeSelectedLandingSlashCommand.map { "/\($0.rawValue)" } ?? "Command",
+            title: activeSelectedLandingSlashItem.map { "/\($0.rawValue)" } ?? "Command",
             systemImage: "command",
             theme: theme,
             accent: Color(hex: 0x7E8CE0),
             action: openLandingSlashCommandMenu
         )
-        .help(activeSelectedLandingSlashCommand?.helpText ?? "Open slash commands")
+        .help(activeSelectedLandingSlashItem?.helpText ?? "Open slash commands")
     }
 
     private var landingSearchMentionTool: some View {
@@ -1003,7 +1032,10 @@ struct LandingView: View {
                 .help(landingAllNotesContextAttached ? "Remove all-notes context" : "Attach all notes")
 
                 LandingStageToolShell(theme: theme, accent: Color(hex: 0xD96B7E)) {
-                    ChatCapabilityPill(capability: landingEffectiveCapability)
+                    ChatCapabilityPill(
+                        capability: landingEffectiveCapability,
+                        detail: landingPillDetail
+                    )
                 }
 
                 LandingStageToolShell(theme: theme, accent: Color(hex: 0x62B7C7)) {
@@ -1210,11 +1242,11 @@ struct LandingView: View {
             }
             .popover(isPresented: $showLandingSlashMenu, arrowEdge: .top) {
                 SlashCommandPopover(
-                    commands: supportedLandingSlashCommands,
+                    items: supportedLandingSlashItems,
                     filter: landingSlashFilter,
-                    selectedCommand: highlightedLandingSlashCommand,
-                    onSelect: { command in
-                        applyLandingSlashCommand(command)
+                    selectedItem: highlightedLandingSlashItem,
+                    onSelect: { item in
+                        applyLandingSlashItem(item)
                     }
                 )
             }
@@ -1497,7 +1529,7 @@ struct LandingView: View {
         }
         let afterSlash = String(trimmedLeading.dropFirst())
         if !afterSlash.isEmpty {
-            selectedLandingSlashCommand = nil
+            selectedLandingSlashItem = nil
         }
         if afterSlash.contains(where: { $0.isWhitespace || $0.isNewline }) {
             showLandingSlashMenu = false
@@ -1510,18 +1542,20 @@ struct LandingView: View {
         showLandingSlashMenu = true
     }
 
-    private func applyLandingSlashCommand(_ command: ACCSlashCommand) {
-        selectedOperatingMode = MainChatOperatingModePreference.sanitize(
-            command.defaultOperatingMode,
-            for: inference,
-            availableModes: supportedOperatingModes
-        )
-        selectedLandingSlashCommand = command
+    private func applyLandingSlashItem(_ item: ComposerSlashCommandItem) {
+        if let command = item.command {
+            selectedOperatingMode = MainChatOperatingModePreference.sanitize(
+                command.defaultOperatingMode,
+                for: inference,
+                availableModes: supportedOperatingModes
+            )
+        }
+        selectedLandingSlashItem = item
 
         let leadingWhitespace = landingSearchText.prefix { $0.isWhitespace }
         let afterLeading = landingSearchText.dropFirst(leadingWhitespace.count)
         if afterLeading.hasPrefix("/") {
-            let slug = "/" + command.rawValue
+            let slug = "/" + item.rawValue
             if afterLeading.hasPrefix(slug) {
                 let suffix = afterLeading.dropFirst(slug.count)
                 landingSearchText = String(leadingWhitespace) + suffix
@@ -1533,8 +1567,9 @@ struct LandingView: View {
             }
         }
 
-        if trimmedLandingSearchText.isEmpty {
-            landingSearchText = command.suggestedPrompt
+        if trimmedLandingSearchText.isEmpty,
+           let suggestedPrompt = item.suggestedPrompt {
+            landingSearchText = suggestedPrompt
         }
 
         showLandingSlashMenu = false
@@ -1544,7 +1579,7 @@ struct LandingView: View {
     }
 
     private func openLandingSlashCommandMenu() {
-        guard !supportedLandingSlashCommands.isEmpty else { return }
+        guard !supportedLandingSlashItems.isEmpty else { return }
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
         showLandingSlashMenu = true
@@ -1606,29 +1641,29 @@ struct LandingView: View {
     }
 
     private func handleLandingSlashOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
-        let commands = filteredLandingSlashCommands
+        let items = filteredLandingSlashItems
         switch command {
         case .moveDown:
-            guard !commands.isEmpty else { return true }
+            guard !items.isEmpty else { return true }
             landingSlashKeyboardIndex = clampedLandingKeyboardIndex(
                 landingSlashKeyboardIndex + 1,
-                count: commands.count
+                count: items.count
             )
             return true
         case .moveUp:
-            guard !commands.isEmpty else { return true }
+            guard !items.isEmpty else { return true }
             landingSlashKeyboardIndex = clampedLandingKeyboardIndex(
                 landingSlashKeyboardIndex - 1,
-                count: commands.count
+                count: items.count
             )
             return true
         case .confirm:
-            guard !commands.isEmpty else { return true }
-            applyLandingSlashCommand(
-                commands[
+            guard !items.isEmpty else { return true }
+            applyLandingSlashItem(
+                items[
                     clampedLandingKeyboardIndex(
                         landingSlashKeyboardIndex,
-                        count: commands.count
+                        count: items.count
                     )
                 ]
             )
@@ -1659,7 +1694,7 @@ struct LandingView: View {
         showLandingSlashMenu = false
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
-        selectedLandingSlashCommand = nil
+        selectedLandingSlashItem = nil
         landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
         landingMentionKeyboardIndex = 0
@@ -1685,7 +1720,7 @@ struct LandingView: View {
         showLandingSlashMenu = false
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
-        selectedLandingSlashCommand = nil
+        selectedLandingSlashItem = nil
         landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
         landingMentionKeyboardIndex = 0
@@ -1789,7 +1824,7 @@ struct LandingView: View {
         guard !trimmed.isEmpty else { return }
         let attachments = landingContextAttachments
         let fileAttachments = landingFileAttachments
-        let slashCommand = activeSelectedLandingSlashCommand
+        let slashToken = activeSelectedLandingSlashToken
         dismissLandingSearch()
         chat.startNewChat()
         for attachment in fileAttachments {
@@ -1798,7 +1833,7 @@ struct LandingView: View {
         for attachment in attachments {
             chat.addContextAttachment(attachment)
         }
-        chat.queuePendingSlashCommand(slashCommand)
+        chat.queuePendingSlashToken(slashToken)
         applyActiveLandingAgentRuntimePreference()
         ui.setActivePanel(.home)
         MainChatSubmissionRouter.submit(
@@ -1826,7 +1861,7 @@ struct LandingView: View {
             selectedOperatingMode = .agent
         }
         applyLandingAgentRuntimePreference(for: entry)
-        selectedLandingSlashCommand = nil
+        selectedLandingSlashItem = nil
         if !showingSearchPopover {
             landingSearchText = ""
         }

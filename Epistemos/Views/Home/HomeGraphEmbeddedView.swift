@@ -35,7 +35,7 @@ import SwiftUI
 //     allocated + rendering at any moment.
 //
 // What's TAILORED for the embedded surface:
-//   - `theme.background` Color fills the backdrop (NOT NSVisualEffectView).
+//   - The resolved background token fills the backdrop (NOT NSVisualEffectView).
 //     The landing's color shows through directly.
 //   - `isOverlayMode = true` on the metal view → Rust engine uses
 //     transparent clear color so the SwiftUI Color underneath is visible.

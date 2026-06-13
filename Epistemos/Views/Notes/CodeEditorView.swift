@@ -2974,6 +2974,8 @@ struct CodeEditorView: View {
             Section("View") {
                 Toggle("Word Wrap", isOn: $wrapLines)
                 Toggle("Show Line Numbers", isOn: $showLineGutter)
+                Toggle("Folding Arrows", isOn: $showFoldingRibbon)
+                Toggle("Indent Guides", isOn: $showIndentationGuides)
             }
 
         } label: {

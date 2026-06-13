@@ -258,7 +258,8 @@ struct MemoryStressTests {
         guard !TestSanitizerSupport.hasRuntimeInstrumentation else { return }
 
         let store = GraphStore()
-        var peakMemory: UInt64 = 0
+        let baselineMemory = MemoryTracker.currentMemoryUsage()
+        var peakMemory: UInt64 = baselineMemory
         
         // Monitor during large load
         let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 10000)
@@ -295,9 +296,12 @@ struct MemoryStressTests {
         
         peakMemory = max(peakMemory, MemoryTracker.currentMemoryUsage())
         
-        // Peak should stay below 750 MiB in debug builds.
-        #expect(peakMemory < 786_432_000,
-                "Peak memory \(MemoryTracker.formattedMemory(peakMemory)) too high")
+        let graphMemoryDelta = peakMemory > baselineMemory ? peakMemory - baselineMemory : 0
+
+        // Full-suite RSS includes earlier framework/runtime baggage; this guard
+        // tracks the graph operation's own growth.
+        #expect(graphMemoryDelta < 314_572_800,
+                "Graph memory delta \(MemoryTracker.formattedMemory(graphMemoryDelta)) too high")
     }
     
     @Test("Memory during intensive search")

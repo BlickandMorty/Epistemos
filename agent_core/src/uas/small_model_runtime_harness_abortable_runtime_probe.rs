@@ -564,20 +564,26 @@ impl SmallModelRuntimeHarnessAbortableProbeWitness {
             metrics.cloud_fallback_count += u64::from(run.hidden_cloud_fallback);
             metrics.subprocess_spawn_count += u64::from(run.subprocess_spawned);
             metrics.seventy_b_probe_count += u64::from(run.seventy_b_probe_attempted);
-            metrics.max_context_tokens = metrics.max_context_tokens.max(run.max_context_tokens as u64);
+            metrics.max_context_tokens = metrics
+                .max_context_tokens
+                .max(run.max_context_tokens as u64);
             metrics.max_prompt_tokens = metrics.max_prompt_tokens.max(run.prompt_tokens as u64);
             metrics.max_decode_tokens = metrics.max_decode_tokens.max(run.max_decode_tokens as u64);
             metrics.max_memory_budget_bytes =
                 metrics.max_memory_budget_bytes.max(run.memory_budget_bytes);
-            metrics.max_runtime_seconds =
-                metrics.max_runtime_seconds.max(run.runtime_budget_seconds as u64);
+            metrics.max_runtime_seconds = metrics
+                .max_runtime_seconds
+                .max(run.runtime_budget_seconds as u64);
             metrics.max_deadline_ms = metrics.max_deadline_ms.max(run.deadline_ms as u64);
-            metrics.max_observed_elapsed_ms =
-                metrics.max_observed_elapsed_ms.max(run.observed_elapsed_ms as u64);
-            metrics.runtime_bytes_loaded =
-                metrics.runtime_bytes_loaded.saturating_add(run.runtime_bytes_loaded);
-            metrics.model_bytes_loaded =
-                metrics.model_bytes_loaded.saturating_add(run.model_bytes_loaded);
+            metrics.max_observed_elapsed_ms = metrics
+                .max_observed_elapsed_ms
+                .max(run.observed_elapsed_ms as u64);
+            metrics.runtime_bytes_loaded = metrics
+                .runtime_bytes_loaded
+                .saturating_add(run.runtime_bytes_loaded);
+            metrics.model_bytes_loaded = metrics
+                .model_bytes_loaded
+                .saturating_add(run.model_bytes_loaded);
             metrics.transport_runtime_bytes_loaded = metrics
                 .transport_runtime_bytes_loaded
                 .saturating_add(run.transport_runtime_bytes_loaded);
@@ -655,10 +661,19 @@ fn validate_witness(
     witness: &SmallModelRuntimeHarnessAbortableProbeWitness,
 ) -> Result<(), SmallModelRuntimeHarnessAbortableProbeError> {
     validate_clean("witness_id", &witness.witness_id)?;
-    validate_clean("owner_probe_artifact_ref", &witness.owner_probe_artifact_ref)?;
-    validate_clean("guard_next_existing_work", &witness.guard_next_existing_work)?;
+    validate_clean(
+        "owner_probe_artifact_ref",
+        &witness.owner_probe_artifact_ref,
+    )?;
+    validate_clean(
+        "guard_next_existing_work",
+        &witness.guard_next_existing_work,
+    )?;
     validate_clean("capability_route_status", &witness.capability_route_status)?;
-    validate_clean("capability_next_bottleneck", &witness.capability_next_bottleneck)?;
+    validate_clean(
+        "capability_next_bottleneck",
+        &witness.capability_next_bottleneck,
+    )?;
     validate_clean("route_authority", &witness.route_authority)?;
     validate_prefix(
         &witness.owner_probe_artifact_ref,
@@ -667,7 +682,8 @@ fn validate_witness(
             "witness".to_string(),
         ),
     )?;
-    if witness.guard_next_existing_work != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR
+    if witness.guard_next_existing_work
+        != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR
         && witness.guard_next_existing_work
             != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR
     {
@@ -708,17 +724,19 @@ fn validate_witness(
     }
     for required_lane in REQUIRED_LANES {
         if !lane_ids.contains(required_lane) {
-            return Err(SmallModelRuntimeHarnessAbortableProbeError::MissingRequiredLane(
-                required_lane,
-            ));
+            return Err(
+                SmallModelRuntimeHarnessAbortableProbeError::MissingRequiredLane(required_lane),
+            );
         }
     }
     let mut surface_ids = HashSet::with_capacity(witness.surfaces.len());
     for surface in &witness.surfaces {
         if !surface_ids.insert(surface.surface_id.as_str()) {
-            return Err(SmallModelRuntimeHarnessAbortableProbeError::DuplicateSurface(
-                surface.surface_id.clone(),
-            ));
+            return Err(
+                SmallModelRuntimeHarnessAbortableProbeError::DuplicateSurface(
+                    surface.surface_id.clone(),
+                ),
+            );
         }
     }
     if witness.metadata_bytes > MAX_METADATA_BYTES {
@@ -750,17 +768,17 @@ fn validate_surface(
     for marker in &surface.required_markers {
         validate_clean("required_marker", marker)?;
         if !surface.observed_text.contains(marker) {
-            return Err(SmallModelRuntimeHarnessAbortableProbeError::MissingRequiredMarker(
-                marker.clone(),
-            ));
+            return Err(
+                SmallModelRuntimeHarnessAbortableProbeError::MissingRequiredMarker(marker.clone()),
+            );
         }
     }
     for marker in &surface.forbidden_markers {
         validate_clean("forbidden_marker", marker)?;
         if surface.observed_text.contains(marker) {
-            return Err(SmallModelRuntimeHarnessAbortableProbeError::ForbiddenMarker(
-                marker.clone(),
-            ));
+            return Err(
+                SmallModelRuntimeHarnessAbortableProbeError::ForbiddenMarker(marker.clone()),
+            );
         }
     }
     Ok(())
@@ -890,14 +908,14 @@ fn validate_run(
         return Err(SmallModelRuntimeHarnessAbortableProbeError::ProbeNotAttempted(id));
     }
     if !run.cancellation_armed {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::CancellationNotArmed(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::CancellationNotArmed(run.run_id.clone()),
+        );
     }
     if !run.abort_signal_observed {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::AbortNotObserved(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::AbortNotObserved(run.run_id.clone()),
+        );
     }
     if !run.runtime_start_suppressed {
         return Err(
@@ -907,24 +925,24 @@ fn validate_run(
         );
     }
     if run.runtime_completed {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::RuntimeCompleted(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::RuntimeCompleted(run.run_id.clone()),
+        );
     }
     if run.model_open_attempted {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::ModelOpenAttempted(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::ModelOpenAttempted(run.run_id.clone()),
+        );
     }
     if run.mutation_committed {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::MutationCommitted(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::MutationCommitted(run.run_id.clone()),
+        );
     }
     if run.route_policy_mutated {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::RoutePolicyMutation(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::RoutePolicyMutation(run.run_id.clone()),
+        );
     }
     if run.gate_bypass {
         return Err(SmallModelRuntimeHarnessAbortableProbeError::GateBypass(
@@ -939,34 +957,36 @@ fn validate_run(
         );
     }
     if run.hidden_route_authority {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::HiddenRouteAuthority(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::HiddenRouteAuthority(run.run_id.clone()),
+        );
     }
     if run.hidden_chain_exposed {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::HiddenChainExposure(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::HiddenChainExposure(run.run_id.clone()),
+        );
     }
     if run.hidden_cloud_fallback {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::HiddenCloudFallback(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::HiddenCloudFallback(run.run_id.clone()),
+        );
     }
     if run.subprocess_spawned {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::SubprocessSpawn(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::SubprocessSpawn(run.run_id.clone()),
+        );
     }
     if run.autogenous_kernel_attempted {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::AutogenousKernelAttempt(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::AutogenousKernelAttempt(
+                run.run_id.clone(),
+            ),
+        );
     }
     if run.seventy_b_probe_attempted {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::SeventyBProbeAttempt(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::SeventyBProbeAttempt(run.run_id.clone()),
+        );
     }
     if run.max_context_tokens > MAX_CONTEXT_TOKENS {
         return Err(SmallModelRuntimeHarnessAbortableProbeError::BudgetExceeded(
@@ -994,24 +1014,24 @@ fn validate_run(
         ));
     }
     if run.deadline_ms > MAX_DEADLINE_MS || run.observed_elapsed_ms > MAX_OBSERVED_ELAPSED_MS {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::DeadlineExceeded(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::DeadlineExceeded(run.run_id.clone()),
+        );
     }
     if run.observed_elapsed_ms > run.deadline_ms {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::DeadlineExceeded(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::DeadlineExceeded(run.run_id.clone()),
+        );
     }
     if run.runtime_bytes_loaded != 0 {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::RuntimeBytesLoaded(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::RuntimeBytesLoaded(run.run_id.clone()),
+        );
     }
     if run.model_bytes_loaded != 0 {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::ModelBytesLoaded(
-            run.run_id.clone(),
-        ));
+        return Err(
+            SmallModelRuntimeHarnessAbortableProbeError::ModelBytesLoaded(run.run_id.clone()),
+        );
     }
     if run.transport_runtime_bytes_loaded != 0 {
         return Err(
@@ -1060,7 +1080,9 @@ fn validate_clean(
     value: &str,
 ) -> Result<(), SmallModelRuntimeHarnessAbortableProbeError> {
     if value.is_empty() {
-        return Err(SmallModelRuntimeHarnessAbortableProbeError::MissingField(field));
+        return Err(SmallModelRuntimeHarnessAbortableProbeError::MissingField(
+            field,
+        ));
     }
     if value.trim() != value {
         return Err(

@@ -1,0 +1,400 @@
+{
+  "falsifier_id": "F-ReleaseAuditDistributionComplianceReview",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/materialize_release_audit_distribution_compliance_review.sh",
+  "command_digest": "sha256:d8457c18e37ce4e613b40616de496aa6f19ecc5e1b074b7115f48cf7d642c4ae",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
+  "fixture_id": "release_audit_distribution_compliance_review_v1",
+  "timestamp_utc": "2026-06-11T08:56:54Z",
+  "result_digest": "sha256:f6d3390121ac1c6a9a672d2cc3bad0ffae3339f2713feb1b0edc0aa2c6a61c46",
+  "measurements": {
+    "app_review_notes_bytes": {
+      "value": 23065,
+      "unit": "bytes"
+    },
+    "app_review_notes_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_review_notes_sha256": {
+      "value": "sha256:14bf72975336693514337f169794471af3340e9e6f0514a7c327483d150dc69c",
+      "unit": "sha256"
+    },
+    "apple_sources_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_bytes": {
+      "value": 600,
+      "unit": "bytes"
+    },
+    "mas_entitlements_pro_forbidden_keys_absent": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_required_keys_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_sandboxed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_sha256": {
+      "value": "sha256:d78bc26e557b0b3c501a90e44feab9de69f3326ec1b8c65aff33f2b54089beb6",
+      "unit": "sha256"
+    },
+    "mas_info_plist_bytes": {
+      "value": 3908,
+      "unit": "bytes"
+    },
+    "mas_info_plist_export_compliance_answer_false": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_info_plist_sha256": {
+      "value": "sha256:e76128fddf4116120fde53ac847a6e0f77b6c9df97b140fbc383bddbeda4a20d",
+      "unit": "sha256"
+    },
+    "mas_usage_descriptions_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "release_audit_zero_fail_pass_ledger",
+      "unit": "cursor"
+    },
+    "notarization_or_review_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_collected_data_empty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_bytes": {
+      "value": 1549,
+      "unit": "bytes"
+    },
+    "privacy_manifest_in_project_spec": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_sha256": {
+      "value": "sha256:92b0cead2c0f1d1144ad57087d0518028fe62ca9635954ca64a8856fc3d3cbcd",
+      "unit": "sha256"
+    },
+    "privacy_policy_doc_bytes": {
+      "value": 2632,
+      "unit": "bytes"
+    },
+    "privacy_policy_doc_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_policy_doc_sha256": {
+      "value": "sha256:ac22777d7f5ff4945d7445c2deb385e1839ddb4cb1fe4e524428e237927ec8b2",
+      "unit": "sha256"
+    },
+    "privacy_required_reason_apis_declared": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_tracking_disabled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_tracking_domains_empty": {
+      "value": true,
+      "unit": "bool"
+    },
+    "project_spec_bytes": {
+      "value": 23274,
+      "unit": "bytes"
+    },
+    "project_spec_sha256": {
+      "value": "sha256:6479db0905eb98e68bbbb0f30912f109f5978d7e30cbcaaf6f95fd8a9587da53",
+      "unit": "sha256"
+    },
+    "raw_file_content_not_embedded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_notarization_scripts_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_focused_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_focused_artifact_sha256": {
+      "value": "sha256:ca99599acf0f9a674a46409f55c9e9773df7b8b940d7b7c94da639f8245e81f1",
+      "unit": "sha256"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_review_notes_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "app_review_notes_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "app_review_notes_sha256": {
+      "operator": "==",
+      "value": "sha256:14bf72975336693514337f169794471af3340e9e6f0514a7c327483d150dc69c",
+      "unit": "sha256"
+    },
+    "apple_sources_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mas_entitlements_pro_forbidden_keys_absent": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_required_keys_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_sandboxed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_entitlements_sha256": {
+      "operator": "==",
+      "value": "sha256:d78bc26e557b0b3c501a90e44feab9de69f3326ec1b8c65aff33f2b54089beb6",
+      "unit": "sha256"
+    },
+    "mas_info_plist_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "mas_info_plist_export_compliance_answer_false": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_info_plist_sha256": {
+      "operator": "==",
+      "value": "sha256:e76128fddf4116120fde53ac847a6e0f77b6c9df97b140fbc383bddbeda4a20d",
+      "unit": "sha256"
+    },
+    "mas_usage_descriptions_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "release_audit_zero_fail_pass_ledger",
+      "unit": "cursor"
+    },
+    "notarization_or_review_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_collected_data_empty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "privacy_manifest_in_project_spec": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_manifest_sha256": {
+      "operator": "==",
+      "value": "sha256:92b0cead2c0f1d1144ad57087d0518028fe62ca9635954ca64a8856fc3d3cbcd",
+      "unit": "sha256"
+    },
+    "privacy_policy_doc_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "privacy_policy_doc_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_policy_doc_sha256": {
+      "operator": "==",
+      "value": "sha256:ac22777d7f5ff4945d7445c2deb385e1839ddb4cb1fe4e524428e237927ec8b2",
+      "unit": "sha256"
+    },
+    "privacy_required_reason_apis_declared": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_tracking_disabled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "privacy_tracking_domains_empty": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "project_spec_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "project_spec_sha256": {
+      "operator": "==",
+      "value": "sha256:6479db0905eb98e68bbbb0f30912f109f5978d7e30cbcaaf6f95fd8a9587da53",
+      "unit": "sha256"
+    },
+    "raw_file_content_not_embedded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_notarization_scripts_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_focused_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "upstream_distribution_focused_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:ca99599acf0f9a674a46409f55c9e9773df7b8b940d7b7c94da639f8245e81f1",
+      "unit": "sha256"
+    }
+  },
+  "pass_per_axis": {
+    "app_review_notes_bytes": true,
+    "app_review_notes_present": true,
+    "app_review_notes_sha256": true,
+    "apple_sources_bound": true,
+    "distribution_compliance_review_passed": true,
+    "gemma_route_not_promoted": true,
+    "mas_entitlements_bytes": true,
+    "mas_entitlements_pro_forbidden_keys_absent": true,
+    "mas_entitlements_required_keys_present": true,
+    "mas_entitlements_sandboxed": true,
+    "mas_entitlements_sha256": true,
+    "mas_info_plist_bytes": true,
+    "mas_info_plist_export_compliance_answer_false": true,
+    "mas_info_plist_sha256": true,
+    "mas_usage_descriptions_present": true,
+    "next_cursor": true,
+    "notarization_or_review_not_claimed": true,
+    "privacy_collected_data_empty": true,
+    "privacy_manifest_bytes": true,
+    "privacy_manifest_in_project_spec": true,
+    "privacy_manifest_present": true,
+    "privacy_manifest_sha256": true,
+    "privacy_policy_doc_bytes": true,
+    "privacy_policy_doc_present": true,
+    "privacy_policy_doc_sha256": true,
+    "privacy_required_reason_apis_declared": true,
+    "privacy_tracking_disabled": true,
+    "privacy_tracking_domains_empty": true,
+    "project_spec_bytes": true,
+    "project_spec_sha256": true,
+    "raw_file_content_not_embedded": true,
+    "release_notarization_scripts_present": true,
+    "ship_call_not_authorized": true,
+    "upstream_distribution_focused_artifact_passed": true,
+    "upstream_distribution_focused_artifact_sha256": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "release_audit_distribution_compliance_review_not_ship_authority",
+      "detail": "Local distribution/compliance review passed against privacy manifest, MAS entitlements, Info.plist export answer, review notes, and release scripts. Notarization/App Review submission and ship authorization are still explicitly unclaimed."
+    }
+  ],
+  "notes": "Digest-only release distribution/compliance review: binds local privacy manifest, MAS entitlements, export-compliance Info.plist answer, App Review notes, privacy policy, and notarization scripts without embedding raw content, submitting to Apple, authorizing shipment, or promoting Gemma."
+}

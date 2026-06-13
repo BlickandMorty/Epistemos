@@ -145,10 +145,7 @@ struct VaultSyncServiceAuditTests {
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let repoRoot = testsDirectory.deletingLastPathComponent()
-        let fileURL = repoRoot.appendingPathComponent(relativePath)
-        return try String(contentsOf: fileURL, encoding: .utf8)
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     private let vaultBookmarkKey = "epistemos.vaultBookmark"
@@ -996,20 +993,9 @@ struct VaultSyncServiceAuditTests {
 
     @Test("RRF readable FTS repair and fallback source guards stay wired")
     func rrfReadableFTSRepairAndFallbackSourceGuardsStayWired() throws {
-        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let repoRoot = testsDirectory.deletingLastPathComponent()
-        let vaultSync = try String(
-            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/VaultSyncService.swift"),
-            encoding: .utf8
-        )
-        let searchIndex = try String(
-            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/SearchIndexService.swift"),
-            encoding: .utf8
-        )
-        let readableBlocks = try String(
-            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/ReadableBlocksIndex.swift"),
-            encoding: .utf8
-        )
+        let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let searchIndex = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+        let readableBlocks = try loadMirroredSourceTextFile("Epistemos/Sync/ReadableBlocksIndex.swift")
 
         #expect(vaultSync.contains("RRF fused searchIndex failed; falling back to legacy page search"))
         #expect(vaultSync.contains("RRF fused searchFull failed; falling back to legacy page search"))

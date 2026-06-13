@@ -344,6 +344,13 @@ struct MessageBubble: View {
                     theme: theme
                 )
 
+                if let contentBlocks = message.contentBlocks {
+                    ToolExecutionPreviewList(
+                        blocks: contentBlocks,
+                        isStreaming: false
+                    )
+                }
+
                 // Structured artifacts — interactive cards for JSON, code, tables
                 if !message.artifacts.isEmpty {
                     VStack(alignment: .leading, spacing: Spacing.sm) {

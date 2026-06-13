@@ -2049,10 +2049,14 @@ struct NoteDetailWorkspaceView: View {
         noteChatState.error ?? "Ask this note"
     }
 
+    private var toolbarAskSelection: ChatModelSelection {
+        inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)
+    }
+
     private var toolbarAskCapability: ChatCapability {
         let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let isCloudProvider: Bool = {
-            switch inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode) {
+            switch toolbarAskSelection {
             case .cloud:
                 return true
             case .localMLX, .appleIntelligence:
@@ -2072,6 +2076,13 @@ struct NoteDetailWorkspaceView: View {
             isAgentExecuting: false,
             isResearchMode: false,
             isThinkingMode: selectedNoteChatOperatingMode == .thinking || selectedNoteChatOperatingMode == .pro
+        )
+    }
+
+    private var toolbarAskPillDetail: String? {
+        ComposerModelToolTruth.detail(
+            for: toolbarAskSelection,
+            capability: toolbarAskCapability
         )
     }
 
@@ -2104,7 +2115,8 @@ struct NoteDetailWorkspaceView: View {
                     availableOperatingModes: supportedNoteChatOperatingModes
                 )
                 ChatCapabilityPill(
-                    capability: toolbarAskCapability
+                    capability: toolbarAskCapability,
+                    detail: toolbarAskPillDetail
                 )
                 Button(action: routeToolbarAskToMainChat) {
                     Label("Send to Main Chat", systemImage: "arrow.up.forward.app")

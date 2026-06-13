@@ -158,12 +158,23 @@ struct HELIOSInvariantSourceGuardTests {
     @Test("V6.1 North Star constitutional addendum pins model-as-guest doctrine")
     func v6_1NorthStarModelAsGuestDoctrinePinned() throws {
         let source = try loadMirroredSourceTextFile("EPISTEMOS-NORTH-STAR.md")
-        #expect(source.contains("Epistemos is not an AI app"))
-        #expect(source.contains("cognitive substrate that occasionally summons AI as a precision instrument"))
-        #expect(source.contains("The model is a guest in the user's brain"))
-        #expect(source.contains("Intelligence is the exception; the State is the rule"))
-        #expect(source.contains("Most software runs the user; Epistemos lets the user run themselves"))
-        #expect(source.contains("ClaimKind::StaticFallbackAcknowledged"))
+        let pinsModelAsGuest = source.contains("Epistemos is not an AI app")
+        let pinsSubstrateSentence = source.contains(
+            "cognitive substrate that occasionally summons AI as a precision instrument"
+        )
+        let pinsGuestDoctrine = source.contains("The model is a guest in the user's brain")
+        let pinsStateRule = source.contains("Intelligence is the exception; the State is the rule")
+        let pinsProductSentence = source.contains(
+            "Most software runs the user; Epistemos lets the user run themselves"
+        )
+        let pinsStaticFallbackClaim = source.contains("ClaimKind::StaticFallbackAcknowledged")
+
+        #expect(pinsModelAsGuest)
+        #expect(pinsSubstrateSentence)
+        #expect(pinsGuestDoctrine)
+        #expect(pinsStateRule)
+        #expect(pinsProductSentence)
+        #expect(pinsStaticFallbackClaim)
     }
 
     @Test("V6.2 North Star keeps Epistemos product and pins M2 Pro falsifier doctrine")
@@ -2009,7 +2020,6 @@ struct HELIOSInvariantSourceGuardTests {
             "SemiseparableBlockScan.metal",
             "LocalRecallIsland.metal",
             "PageGather.metal",
-            "ControllerKernelPack.metal",
             "PacketRouter1bit.metal",
             "InterruptScore.metal",
         ] {
@@ -2027,8 +2037,8 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(witnessTests.contains("morphOracleFp16"))
 
         let audit = try loadMirroredSourceTextFile("docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md")
-        #expect(audit.contains("primary throughput artifacts remain pending"))
-        #expect(audit.contains("not promoted to green"))
+        #expect(audit.contains("PageGather remains orange/pending"))
+        #expect(audit.contains("ControllerKernelPack is now promoted by its primary Metal witness"))
         #expect(audit.contains("F-PageGather-M2Pro"))
         #expect(audit.contains("F-ControllerKernelPack"))
         #expect(audit.contains("F-ULP-Oracle"))
@@ -2127,7 +2137,7 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("HELIOS-W9 guard"))
         #expect(!source.contains("@AppStorage(\"epistemos.helios.v5"))
         #expect(!source.contains("Toggle("))
-        #expect(source.contains("Deferred: no chat-path AnswerPacket emission is wired in v1."))
+        #expect(source.contains("every chat turn emits an AnswerPacket"))
         // VRM parent -> Hopfield child scaffold remains preserved.
         #expect(source.contains("Modern Hopfield retrieval"))
     }

@@ -152,14 +152,20 @@ impl fmt::Display for SmallModelProductWrvProbeError {
             }
             Self::MissingPrivacyFence(id) => write!(f, "surface `{id}` missing privacy fence"),
             Self::MissingBudget(id) => write!(f, "surface `{id}` missing budget ref"),
-            Self::HiddenRouteAuthority(id) => write!(f, "surface `{id}` has hidden route authority"),
-            Self::HiddenCloudFallback(id) => write!(f, "surface `{id}` allows hidden cloud fallback"),
+            Self::HiddenRouteAuthority(id) => {
+                write!(f, "surface `{id}` has hidden route authority")
+            }
+            Self::HiddenCloudFallback(id) => {
+                write!(f, "surface `{id}` allows hidden cloud fallback")
+            }
             Self::HiddenChainExposure(id) => write!(f, "surface `{id}` exposes hidden chain"),
             Self::RoutePolicyMutation(id) => write!(f, "surface `{id}` mutates route policy"),
             Self::GateBypass(id) => write!(f, "surface `{id}` bypasses admission gate"),
             Self::AnswerPacketSuppressed(id) => write!(f, "surface `{id}` suppresses AnswerPacket"),
             Self::AppPathSubprocessSpawn(id) => write!(f, "surface `{id}` spawns subprocesses"),
-            Self::AutogenousKernelAttempt(id) => write!(f, "surface `{id}` attempts autogenous kernel"),
+            Self::AutogenousKernelAttempt(id) => {
+                write!(f, "surface `{id}` attempts autogenous kernel")
+            }
             Self::SeventyBProductClaim(id) => write!(f, "surface `{id}` claims live 70B product"),
             Self::LongContextShardProductClaim(id) => {
                 write!(f, "surface `{id}` claims live 128K shard product")
@@ -348,9 +354,11 @@ impl SmallModelProductWrvSurface {
             ));
         }
         if self.long_context_shard_product_claimed {
-            return Err(SmallModelProductWrvProbeError::LongContextShardProductClaim(
-                self.surface_id.clone(),
-            ));
+            return Err(
+                SmallModelProductWrvProbeError::LongContextShardProductClaim(
+                    self.surface_id.clone(),
+                ),
+            );
         }
         Ok(())
     }
@@ -673,10 +681,7 @@ fn validate_prefixed(
     Ok(())
 }
 
-fn validate_clean(
-    field: &'static str,
-    value: &str,
-) -> Result<(), SmallModelProductWrvProbeError> {
+fn validate_clean(field: &'static str, value: &str) -> Result<(), SmallModelProductWrvProbeError> {
     if value.is_empty() {
         return Err(SmallModelProductWrvProbeError::MissingField(field));
     }
@@ -745,7 +750,10 @@ mod tests {
             "source_wrv_only_no_live_route_authority",
             vec![source("TriageService"), source("LLMService")],
             vec![surface("settings"), surface("message")],
-            vec![test_ref("TriageServiceTests"), test_ref("AnswerPacketAttentionModeTests")],
+            vec![
+                test_ref("TriageServiceTests"),
+                test_ref("AnswerPacketAttentionModeTests"),
+            ],
             required_product_wrv_phases().to_vec(),
             true,
             true,
@@ -835,7 +843,10 @@ mod tests {
             4096,
         )
         .expect_err("source-only witness cannot load runtime bytes");
-        assert!(matches!(error, SmallModelProductWrvProbeError::RuntimeBytesLoaded));
+        assert!(matches!(
+            error,
+            SmallModelProductWrvProbeError::RuntimeBytesLoaded
+        ));
     }
 
     #[test]

@@ -160,10 +160,16 @@ impl fmt::Display for MetalIoFeatureGateError {
             Self::MissingRequiredMarker(marker) => write!(f, "missing marker `{marker}`"),
             Self::ForbiddenMarker(marker) => write!(f, "forbidden marker `{marker}`"),
             Self::UnsupportedFeatureSelectedMetal(id) => {
-                write!(f, "`{id}` selected Metal for an unsupported or unknown feature")
+                write!(
+                    f,
+                    "`{id}` selected Metal for an unsupported or unknown feature"
+                )
             }
             Self::SupportedFeatureSelectedFallback(id) => {
-                write!(f, "`{id}` selected fallback despite supported Metal feature")
+                write!(
+                    f,
+                    "`{id}` selected fallback despite supported Metal feature"
+                )
             }
             Self::MissingLayerSeparation => write!(f, "L1/L2/L3 separation missing"),
             Self::ProductStatusMismatch => write!(f, "product status promoted beyond Pro Research"),
@@ -178,7 +184,9 @@ impl fmt::Display for MetalIoFeatureGateError {
             Self::LiveBenchmarkAttempted => write!(f, "metadata witness attempted live benchmark"),
             Self::RuntimeBytesLoaded => write!(f, "metadata witness loaded runtime bytes"),
             Self::ModelBytesLoaded => write!(f, "metadata witness loaded model bytes"),
-            Self::MetalRuntimeBytesLoaded => write!(f, "metadata witness loaded Metal runtime bytes"),
+            Self::MetalRuntimeBytesLoaded => {
+                write!(f, "metadata witness loaded Metal runtime bytes")
+            }
             Self::MetadataBudgetExceeded => write!(f, "metadata budget exceeded"),
             Self::BaselineUnbeaten(name) => write!(f, "baseline `{name}` was unbeaten"),
         }
@@ -497,9 +505,7 @@ fn validate_witness(witness: &MetalIoFeatureGateWitness) -> Result<(), MetalIoFe
         ));
     }
     if witness.ungated_metal_baseline_bps >= witness.feature_gate_success_bps {
-        return Err(MetalIoFeatureGateError::BaselineUnbeaten(
-            "ungated_metal",
-        ));
+        return Err(MetalIoFeatureGateError::BaselineUnbeaten("ungated_metal"));
     }
     if witness.no_fallback_baseline_bps >= witness.feature_gate_success_bps {
         return Err(MetalIoFeatureGateError::BaselineUnbeaten("no_fallback"));
@@ -705,14 +711,20 @@ fn validate_decision(decision: &MetalIoFeatureDecision) -> Result<(), MetalIoFea
                 decision.decision_id.clone(),
             ));
         }
-        (MetalFeatureStatus::Unsupported | MetalFeatureStatus::Unknown, MetalIoLane::CpuSlabFallback) => {
+        (
+            MetalFeatureStatus::Unsupported | MetalFeatureStatus::Unknown,
+            MetalIoLane::CpuSlabFallback,
+        ) => {
             if decision.metal_buffer_lease_ref.is_some() {
                 return Err(MetalIoFeatureGateError::UnexpectedMetalBufferLease(
                     decision.decision_id.clone(),
                 ));
             }
         }
-        (MetalFeatureStatus::Unsupported | MetalFeatureStatus::Unknown, MetalIoLane::MetalResourceLoading) => {
+        (
+            MetalFeatureStatus::Unsupported | MetalFeatureStatus::Unknown,
+            MetalIoLane::MetalResourceLoading,
+        ) => {
             return Err(MetalIoFeatureGateError::UnsupportedFeatureSelectedMetal(
                 decision.decision_id.clone(),
             ));

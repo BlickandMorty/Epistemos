@@ -6797,10 +6797,12 @@ T1/L1 Gemma side-ladder witness at
 and `docs/falsifiers/F-GemmaQATE2BReleaseAuditSurfaceGate_2026_06_08.md`.
 
 The witness consumes `F-GemmaQATE2BSettingsDiagnosticsWRVGate`, binds the E2B
-QAT GGUF / llama.cpp lane, release-audit skill, red automated-check blocker,
+QAT GGUF / llama.cpp lane, release-audit skill, distribution/compliance plus
+three-pass completion blocker,
 graph-filter proof-root command card, execution-artifact parser gate,
 owner-approval runbook, 40 release-surface fields, 72 rejection policies,
-log/manual/distribution/repeated-zero-fail evidence requirements, visible
+repaired automated/log/manual evidence chain, remaining distribution/
+repeated-zero-fail evidence requirements, visible
 settings and diagnostics copy, AnswerPacket template, RunEventLog, rollback,
 abstention, SCOPE-Rex, SovereignGate, cancellation, non-promotion, fast-row
 gated visibility, owner action, and product-capability recheck deferral. It
@@ -6816,7 +6818,7 @@ Layer truth:
 - L1 architecture/canon: the Gemma E2B side-ladder advanced to a metadata-only
   release-audit surface contract.
 - L1 guard-owned product cursor: still
-  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+  `release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes`.
 - L2 capability route: still `vault_research_route_with_packetized_mitigation`.
 - L3 user-facing / release readiness: still red; no Swift settings row,
   diagnostics UI, Xcode proof, runtime log, manual verification, model load,
@@ -6826,7 +6828,7 @@ Correct phrasing: "Gemma E2B release-audit surface requirements are L1
 metadata-proofed; no settings row, release proof, model load, or user-facing
 Gemma capability was activated."
 
-### 2026-06-08 - F-GemmaQATE2BProductCapabilityRecheckGate landed
+### 2026-06-08 / 2026-06-11 - F-GemmaQATE2BProductCapabilityRecheckGate landed and re-hardened
 
 North-star sentence: Epistemos is a local cognitive substrate where every
 meaningful object has an address, plane, budget, status, and witness; MAS ships
@@ -6841,29 +6843,29 @@ metadata-only T1/L1 Gemma side-ladder witness at
 `artifacts/falsifiers/gemma_qat_e2b_product_capability_recheck_gate/result.json`,
 and `docs/falsifiers/F-GemmaQATE2BProductCapabilityRecheckGate_2026_06_08.md`.
 
-The witness consumes `F-GemmaQATE2BReleaseAuditSurfaceGate`, binds the E2B QAT
-GGUF / llama.cpp lane, reads the guard and capability-kernel truth, and passes
-only because the product-capability recheck is still blocked by
-`small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
-It records 36 recheck fields, 52 rejection policies, 9 blocked-truth
-requirements, 6 gated-surface requirements, 62 rejected red fixtures, zero
-Xcode commands, zero settings or diagnostics product wiring, zero
-user-visible AnswerPackets, zero model command execution, zero
-model/runtime/provider bytes, and zero L2/L3/T4/product-default promotion.
+The witness originally landed as a blocked release-audit recheck. It was
+re-hardened on 2026-06-11 after the release-audit zero-fail ledger reached
+`3/3`. It now consumes `F-GemmaQATE2BReleaseAuditSurfaceGate`,
+`artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json`, and the
+E2B first-runtime Settings/diagnostics WRV packet. It records 37 recheck
+fields, 53 rejection policies, 5 remaining live-route blocker truths, 6
+gated-surface requirements, 61 rejected red fixtures, zero Xcode commands, zero
+settings/default route mutation, zero user-visible AnswerPackets, zero model
+command execution, zero model/runtime/provider bytes, and zero
+L2/L3/T4/product-default promotion.
 
 Layer truth:
 
-- L1 architecture/canon: the Gemma E2B side-ladder advanced to a blocked
-  product-capability recheck contract.
-- L1 guard-owned product cursor: still
-  `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`.
+- L1 architecture/canon: the Gemma E2B side-ladder advanced from release-floor
+  blocked to proof-ladder-ready/live-route-integration-blocked.
+- L1 guard-owned product cursor: `gemma_product_route_integration_gate`.
 - L2 capability route: still `vault_research_route_with_packetized_mitigation`.
-- L3 user-facing / release readiness: still red; no Swift settings row,
-  diagnostics UI, Xcode proof, runtime log, manual verification, model load,
-  first token, or user-facing Gemma capability was activated.
+- L3 user-facing / release readiness: still not promoted; the local proof ladder
+  and release ledger are present, but no Swift picker/default route, live
+  RuntimeRouter/System G route, or user-facing Gemma capability was activated.
 
-Correct phrasing: "Gemma E2B product capability was rechecked as still blocked;
-no product capability was promoted."
+Correct phrasing: "Gemma E2B has release-floor plus local proof-ladder
+evidence; product capability remains blocked by live route integration."
 
 ### 2026-06-08 — Gemma Runtime Lane Split Canon (Pass 206, T0 only)
 
@@ -8393,6 +8395,128 @@ Layer truth:
 
 Correct phrasing: "Gemma direct runtime now has a landed trap-policy witness;
 product capability and user-facing Gemma remain unproven."
+
+### 2026-06-10 - Gemma E2B QAT First Runtime Proof Chain Materialized
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The Gemma-first lane has crossed from no-byte metadata into a real local E2B
+QAT GGUF proof chain while keeping the product boundary closed. Current
+artifacts:
+
+- owner-approved local artifact receipt:
+  `artifacts/falsifiers/gemma_owner_approved_local_artifact_receipt_materializer/receipt.redacted.json`
+- first-runtime execution receipt:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_execution_probe/receipt.redacted.json`
+- same-fixture quality replay:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_quality_replay/result.redacted.json`
+- RuntimeRouter admission packet:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/admission.redacted.json`
+- System G dry-run packet:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/system_g_dry_run.redacted.json`
+- route AnswerPacket visibility packet:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/visibility.redacted.json`
+- settings/diagnostics WRV packet:
+  `artifacts/falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json`
+
+Measured result: local `google/gemma-4-E2B-it-qat-q4_0-gguf` passed the
+seven-task same-fixture replay with `passed_task_count=7`,
+`failed_task_count=0`, and `route_admission_packet_ready=true`. RuntimeRouter
+admission and System G dry-run packets are ready, mutation counts are zero, and
+the WRV packet now points to
+`release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes`.
+
+Layer truth:
+
+- L1 architecture/canon: advanced from metadata-only schemas into a local E2B
+  QAT runtime receipt plus replay and packet chain.
+- L1 guard-owned product cursor: still
+  `release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes`.
+- L2/L3/T4: not promoted. Gemma is still not the default, not user-facing, not
+  a MAS/live route, and not a large-model/70B completion claim.
+
+Correct phrasing: "Gemma E2B QAT now has a real local first-runtime proof chain
+through RuntimeRouter/System G dry-run packets; product capability remains
+blocked by release-completion evidence."
+
+### 2026-06-10 - Gemma E4B / 12B Proof Chain and Release Ledger Materialized
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The Gemma-first lane now has real local proof artifacts for E2B, E4B, and 12B.
+All three lanes use direct local-file GGUF through bounded `llama-cli
+--offline -m`, digest-only receipts, seven-task quality replay, RuntimeRouter
+admission packets, System G dry-run packets, route AnswerPacket visibility
+packets, and Settings/diagnostics WRV packets. Current measured summary:
+
+- E2B: `google/gemma-4-E2B-it-qat-q4_0-gguf`, first-runtime `2154` ms,
+  replay `7/7`, WRV true, mutation counts `0/0/0`.
+- E4B: `google/gemma-4-E4B-it-qat-q4_0-gguf`, first-runtime `8181` ms,
+  replay `7/7`, WRV true, mutation counts `0/0/0`.
+- 12B: `google/gemma-4-12B-it-qat-q4_0-gguf`, first-runtime `10213` ms,
+  replay `7/7`, WRV true, mutation counts `0/0/0`.
+
+Fresh release-audit bridge evidence was also materialized:
+
+- `artifacts/falsifiers/release_audit_distribution_focused_evidence/result.json`
+  passes from a fresh `Epistemos-AppStore` build and the 70-test focused
+  distribution suite.
+- `artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json`
+  passes with cumulative `zero_fail_pass_count=3` for the current source-state
+  signature.
+
+Layer truth:
+
+- L1 architecture/canon: advanced from E2B-only local proof to E2B/E4B/12B
+  direct local-file proof chains plus three counted release-audit zero-fail
+  evidence sets.
+- L1 guard-owned product cursor:
+  `release_audit_distribution_compliance_review`.
+- L2/L3/T4: not promoted. Gemma is still not default, not live user-facing
+  route, not MAS-ready, not a completed System G runtime, and not a 70B/72B
+  cold-assembly completion claim.
+
+Correct phrasing: "Gemma E2B/E4B/12B QAT now run through the guarded local
+proof ladder; product capability remains blocked by release completion and live
+route integration."
+
+### 2026-06-10 - Release Audit Distribution Compliance Review Materialized
+
+North-star sentence: Epistemos is a local cognitive substrate where every
+meaningful object has an address, plane, budget, status, and witness; MAS ships
+the safe floor, Pro contains the gated/research/vault/omega ladder, and no
+claim promotes without visible proof.
+
+The guarded release path now has a digest-only distribution-compliance review
+artifact:
+
+- `artifacts/falsifiers/release_audit_distribution_compliance_review/result.json`
+  passes and binds `PrivacyInfo.xcprivacy`, App Store entitlements, Info.plist,
+  release scripts, privacy policy, MAS review notes, distribution focused
+  evidence, and the zero-fail ledger.
+- `artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json`
+  passes after consuming the compliance review and now counts
+  `zero_fail_pass_count=3` with `remaining_zero_fail_pass_count=0`.
+
+Layer truth:
+
+- L1 architecture/canon: advanced with explicit distribution-compliance
+  evidence and Settings diagnostics visibility.
+- L1 guard-owned product cursor: `gemma_product_capability_recheck_after_release_audit`,
+  consumed by the re-hardened Gemma E2B product-capability recheck.
+- L2/L3/T4: not promoted. This is not notarization, not App Review approval,
+  not release readiness, not Gemma default/live route, and not a 70B/72B
+  cold-assembly completion claim.
+
+Correct phrasing: "Release-audit distribution compliance and three zero-fail
+passes now have L1 witnesses; Gemma product capability remains blocked by live
+route integration, not by missing release-audit evidence."
 
 ## 11 · Cross-references (only descend when you need specific detail)
 

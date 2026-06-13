@@ -18,12 +18,9 @@ const FALSIFIER_ID: &str = "F-SparseWakeCertificate-AnswerPacket";
 const FIXTURE_ID: &str = "sparse_wake_certificate_answer_packet_v1";
 const COMMAND: &str = "Tools/falsifiers/f_sparse_wake_certificate_answer_packet.sh";
 const RESULT: &str = "artifacts/falsifiers/sparse_wake_certificate_answer_packet/result.json";
-const UPSTREAM_SPARSE_WAKE: &str =
-    "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
-const UPSTREAM_VERIFIER_AUCTION: &str =
-    "artifacts/falsifiers/verifier_budget_auction/result.json";
-const UPSTREAM_QUERY_SELECTOR: &str =
-    "artifacts/falsifiers/query_aware_kv_selector/result.json";
+const UPSTREAM_SPARSE_WAKE: &str = "artifacts/falsifiers/sparse_wake_proposal_budget/result.json";
+const UPSTREAM_VERIFIER_AUCTION: &str = "artifacts/falsifiers/verifier_budget_auction/result.json";
+const UPSTREAM_QUERY_SELECTOR: &str = "artifacts/falsifiers/query_aware_kv_selector/result.json";
 const CURRENT_FENCE: &str = "fence:model:qwen3.5:kv:v1:tokenizer:qwen3.5:adapter:none";
 const MAX_HOT_BYTES: u64 = 96 * 1024 * 1024;
 const MAX_KV_BYTES: u64 = 128 * 1024 * 1024;
@@ -354,8 +351,8 @@ fn build_artifact(
         .certificates
         .iter()
         .all(|certificate| certificate.runtime_bytes_loaded == 0);
-    let sparse_wake_certificate_address_deterministic =
-        registry.sparse_wake_certificate_address == reversed_registry.sparse_wake_certificate_address;
+    let sparse_wake_certificate_address_deterministic = registry.sparse_wake_certificate_address
+        == reversed_registry.sparse_wake_certificate_address;
     let selected_units_fit_hot_budget = metrics.max_hot_bytes <= MAX_HOT_BYTES;
     let selected_units_fit_kv_budget = metrics.max_kv_bytes <= MAX_KV_BYTES;
     let selected_units_fit_cold_budget = metrics.max_cold_bytes <= MAX_COLD_BYTES;
@@ -382,9 +379,10 @@ fn build_artifact(
     let missing_selected_unit_rejected =
         invalid_certificate_rejected(|certificate| certificate.selected_unit_ids.clear())
             == Some(SparseWakeCertificateError::MissingSelectedUnit);
-    let unknown_selected_unit_rejected = invalid_certificate_rejected(|certificate| {
-        certificate.selected_unit_ids = vec!["unit:unknown".to_string()];
-    }) == Some(SparseWakeCertificateError::UnknownSelectedUnit);
+    let unknown_selected_unit_rejected =
+        invalid_certificate_rejected(|certificate| {
+            certificate.selected_unit_ids = vec!["unit:unknown".to_string()];
+        }) == Some(SparseWakeCertificateError::UnknownSelectedUnit);
     let missing_verifier_result_rejected =
         invalid_selected_unit_rejected(|unit| unit.verifier_result_ref.clear())
             == Some(SparseWakeCertificateError::MissingVerifierResult);
@@ -394,14 +392,14 @@ fn build_artifact(
     let missing_test_result_rejected =
         invalid_selected_unit_rejected(|unit| unit.test_result_ref.clear())
             == Some(SparseWakeCertificateError::MissingTestResult);
-    let missing_trace_ref_rejected =
-        invalid_selected_unit_rejected(|unit| unit.trace_ref.clear())
-            == Some(SparseWakeCertificateError::MissingTraceRef);
-    let missing_answer_packet_field_rejected = invalid_certificate_rejected(|certificate| {
-        certificate
-            .answer_packet_visible_fields
-            .retain(|field| field != "trace_refs");
-    }) == Some(SparseWakeCertificateError::MissingAnswerPacketField);
+    let missing_trace_ref_rejected = invalid_selected_unit_rejected(|unit| unit.trace_ref.clear())
+        == Some(SparseWakeCertificateError::MissingTraceRef);
+    let missing_answer_packet_field_rejected =
+        invalid_certificate_rejected(|certificate| {
+            certificate
+                .answer_packet_visible_fields
+                .retain(|field| field != "trace_refs");
+        }) == Some(SparseWakeCertificateError::MissingAnswerPacketField);
     let stale_unit_rejected = invalid_selected_unit_rejected(|unit| unit.stale = true)
         == Some(SparseWakeCertificateError::StaleUnitSelected);
     let incompatible_fence_rejected =
@@ -444,8 +442,9 @@ fn build_artifact(
         invalid_certificate_rejected(|certificate| certificate.run_event_log_ref.clear())
             == Some(SparseWakeCertificateError::MissingRunEventLog);
     let hidden_live_authority_rejected =
-        invalid_certificate_rejected(|certificate| certificate.route_authority = "live".to_string())
-            == Some(SparseWakeCertificateError::HiddenLiveAuthority);
+        invalid_certificate_rejected(|certificate| {
+            certificate.route_authority = "live".to_string()
+        }) == Some(SparseWakeCertificateError::HiddenLiveAuthority);
     let live_route_promotion_rejected =
         invalid_certificate_rejected(|certificate| certificate.live_route_promoted = true)
             == Some(SparseWakeCertificateError::LiveRoutePromotion);
@@ -516,9 +515,15 @@ fn build_artifact(
             "sparse_wake_certificate_address_deterministic",
             sparse_wake_certificate_address_deterministic,
         ),
-        ("selected_units_fit_hot_budget", selected_units_fit_hot_budget),
+        (
+            "selected_units_fit_hot_budget",
+            selected_units_fit_hot_budget,
+        ),
         ("selected_units_fit_kv_budget", selected_units_fit_kv_budget),
-        ("selected_units_fit_cold_budget", selected_units_fit_cold_budget),
+        (
+            "selected_units_fit_cold_budget",
+            selected_units_fit_cold_budget,
+        ),
         ("certificate_latency_bound", certificate_latency_bound),
         ("uncertainty_bound", uncertainty_bound),
         ("verifier_floor_bound", verifier_floor_bound),
@@ -537,10 +542,19 @@ fn build_artifact(
             certificate_beats_hidden_answer_baseline,
         ),
         ("certificate_metadata_bound", certificate_metadata_bound),
-        ("duplicate_certificate_rejected", duplicate_certificate_rejected),
+        (
+            "duplicate_certificate_rejected",
+            duplicate_certificate_rejected,
+        ),
         ("duplicate_unit_rejected", duplicate_unit_rejected),
-        ("missing_selected_unit_rejected", missing_selected_unit_rejected),
-        ("unknown_selected_unit_rejected", unknown_selected_unit_rejected),
+        (
+            "missing_selected_unit_rejected",
+            missing_selected_unit_rejected,
+        ),
+        (
+            "unknown_selected_unit_rejected",
+            unknown_selected_unit_rejected,
+        ),
         (
             "missing_verifier_result_rejected",
             missing_verifier_result_rejected,
@@ -565,7 +579,10 @@ fn build_artifact(
         ("over_kv_budget_rejected", over_kv_budget_rejected),
         ("over_cold_budget_rejected", over_cold_budget_rejected),
         ("over_latency_rejected", over_latency_rejected),
-        ("uncertainty_too_high_rejected", uncertainty_too_high_rejected),
+        (
+            "uncertainty_too_high_rejected",
+            uncertainty_too_high_rejected,
+        ),
         ("verifier_bypass_rejected", verifier_bypass_rejected),
         ("citation_bypass_rejected", citation_bypass_rejected),
         ("test_bypass_rejected", test_bypass_rejected),
@@ -575,8 +592,14 @@ fn build_artifact(
             "missing_run_event_log_rejected",
             missing_run_event_log_rejected,
         ),
-        ("hidden_live_authority_rejected", hidden_live_authority_rejected),
-        ("live_route_promotion_rejected", live_route_promotion_rejected),
+        (
+            "hidden_live_authority_rejected",
+            hidden_live_authority_rejected,
+        ),
+        (
+            "live_route_promotion_rejected",
+            live_route_promotion_rejected,
+        ),
         (
             "hidden_chain_exposure_rejected",
             hidden_chain_exposure_rejected,
@@ -586,7 +609,13 @@ fn build_artifact(
         ("metadata_budget_rejected", metadata_budget_rejected),
         ("unbeaten_baseline_rejected", unbeaten_baseline_rejected),
     ] {
-        add_bool_axis(&mut measurements, &mut thresholds, &mut pass_per_axis, name, pass);
+        add_bool_axis(
+            &mut measurements,
+            &mut thresholds,
+            &mut pass_per_axis,
+            name,
+            pass,
+        );
     }
 
     add_count_eq_axis(
@@ -1007,7 +1036,10 @@ fn validate_unit(unit: &CertifiedWakeUnit) -> Result<(), SparseWakeCertificateEr
 }
 
 fn valid_privacy_class(privacy_class: &str) -> bool {
-    matches!(privacy_class, "vault_private" | "local_only" | "proof_public")
+    matches!(
+        privacy_class,
+        "vault_private" | "local_only" | "proof_public"
+    )
 }
 
 fn has_selected_kind(certificate: &SparseWakeCertificateFixture, kind: &str) -> bool {
@@ -1094,22 +1126,19 @@ fn certificate_metrics(certificates: &[SparseWakeCertificateFixture]) -> Certifi
         metrics.min_verifier_bps = metrics.min_verifier_bps.min(certificate.verifier_pass_bps);
         metrics.min_citation_bps = metrics.min_citation_bps.min(certificate.citation_pass_bps);
         metrics.min_test_bps = metrics.min_test_bps.min(certificate.test_pass_bps);
-        metrics
-            .max_certificate_metadata_bytes = metrics
+        metrics.max_certificate_metadata_bytes = metrics
             .max_certificate_metadata_bytes
             .max(certificate.certificate_metadata_bytes);
-        metrics
-            .proposal_only_baseline_bps = metrics
+        metrics.proposal_only_baseline_bps = metrics
             .proposal_only_baseline_bps
             .max(certificate.proposal_only_baseline_bps);
-        metrics.route_only_baseline_bps =
-            metrics.route_only_baseline_bps.max(certificate.route_only_baseline_bps);
-        metrics
-            .hidden_answer_baseline_bps = metrics
+        metrics.route_only_baseline_bps = metrics
+            .route_only_baseline_bps
+            .max(certificate.route_only_baseline_bps);
+        metrics.hidden_answer_baseline_bps = metrics
             .hidden_answer_baseline_bps
             .max(certificate.hidden_answer_baseline_bps);
-        metrics
-            .certificate_success_bps = metrics
+        metrics.certificate_success_bps = metrics
             .certificate_success_bps
             .min(certificate_success_bps(certificate));
         if metrics.certificate_success_bps == 0 {
@@ -1148,7 +1177,10 @@ fn certificate_address(certificates: &[SparseWakeCertificateFixture]) -> String 
         material.push_str(&certificate.selected_unit_ids.join(","));
         material.push('|');
     }
-    format!("uas:sparse-wake-certificate:{}", sha256_hex(material.as_bytes()))
+    format!(
+        "uas:sparse-wake-certificate:{}",
+        sha256_hex(material.as_bytes())
+    )
 }
 
 fn upstream_artifact_pass(path: &str) -> bool {
@@ -1208,13 +1240,68 @@ fn fixture_certificates() -> Vec<SparseWakeCertificateFixture> {
                 "unit:test:summary-regression".to_string(),
             ],
             units: vec![
-                unit("unit:hot-controller:summary", "uas:model-component:hot-controller:summary", "model_component", "route-card:query-aware-kv-local-summary", "hot controller keeps the route small", "hot", 24 * 1024 * 1024),
-                unit("unit:kv-page:summary-evidence-a", "uas:kv-page:summary:evidence:a", "kv_page", UPSTREAM_QUERY_SELECTOR, "query selector picked required evidence page A", "kv", 32 * 1024 * 1024),
-                unit("unit:kv-page:summary-evidence-b", "uas:kv-page:summary:evidence:b", "kv_page", UPSTREAM_QUERY_SELECTOR, "query selector picked required evidence page B", "kv", 28 * 1024 * 1024),
-                unit("unit:citation:summary-vault", "uas:eidos:citation:summary-vault", "citation_source", "eidos:summary:citation", "citations must be exposed in AnswerPacket", "cold", 96 * 1024 * 1024),
-                unit("unit:verifier:summary-factuality", "uas:verifier:summary-factuality", "verifier_tool", UPSTREAM_VERIFIER_AUCTION, "factuality verifier is required before answer", "hot", 8 * 1024 * 1024),
-                unit("unit:test:summary-regression", "uas:test:summary-regression", "test_harness", "test:summary-regression-suite", "summary regression test result must be exposed", "hot", 6 * 1024 * 1024),
-                unselected_unit("unit:rejected:wake-all-summary", "uas:model-component:wake-all-summary", "model_component", "wake-all baseline rejected", "cold", 512 * 1024 * 1024),
+                unit(
+                    "unit:hot-controller:summary",
+                    "uas:model-component:hot-controller:summary",
+                    "model_component",
+                    "route-card:query-aware-kv-local-summary",
+                    "hot controller keeps the route small",
+                    "hot",
+                    24 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:kv-page:summary-evidence-a",
+                    "uas:kv-page:summary:evidence:a",
+                    "kv_page",
+                    UPSTREAM_QUERY_SELECTOR,
+                    "query selector picked required evidence page A",
+                    "kv",
+                    32 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:kv-page:summary-evidence-b",
+                    "uas:kv-page:summary:evidence:b",
+                    "kv_page",
+                    UPSTREAM_QUERY_SELECTOR,
+                    "query selector picked required evidence page B",
+                    "kv",
+                    28 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:citation:summary-vault",
+                    "uas:eidos:citation:summary-vault",
+                    "citation_source",
+                    "eidos:summary:citation",
+                    "citations must be exposed in AnswerPacket",
+                    "cold",
+                    96 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:verifier:summary-factuality",
+                    "uas:verifier:summary-factuality",
+                    "verifier_tool",
+                    UPSTREAM_VERIFIER_AUCTION,
+                    "factuality verifier is required before answer",
+                    "hot",
+                    8 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:test:summary-regression",
+                    "uas:test:summary-regression",
+                    "test_harness",
+                    "test:summary-regression-suite",
+                    "summary regression test result must be exposed",
+                    "hot",
+                    6 * 1024 * 1024,
+                ),
+                unselected_unit(
+                    "unit:rejected:wake-all-summary",
+                    "uas:model-component:wake-all-summary",
+                    "model_component",
+                    "wake-all baseline rejected",
+                    "cold",
+                    512 * 1024 * 1024,
+                ),
             ],
             max_hot_bytes: MAX_HOT_BYTES,
             max_kv_bytes: MAX_KV_BYTES,
@@ -1224,7 +1311,10 @@ fn fixture_certificates() -> Vec<SparseWakeCertificateFixture> {
             fallback_route: "fallback:apple-private-summary-with-citations".to_string(),
             rollback_handle: "rollback:sparse-wake:local-summary-proof".to_string(),
             run_event_log_ref: "runevent:sparse-wake:local-summary-proof".to_string(),
-            answer_packet_visible_fields: REQUIRED_PACKET_FIELDS.iter().map(|field| field.to_string()).collect(),
+            answer_packet_visible_fields: REQUIRED_PACKET_FIELDS
+                .iter()
+                .map(|field| field.to_string())
+                .collect(),
             verifier_pass_bps: 9_200,
             citation_pass_bps: 9_100,
             test_pass_bps: 8_800,
@@ -1255,13 +1345,68 @@ fn fixture_certificates() -> Vec<SparseWakeCertificateFixture> {
                 "unit:test:proof-regression".to_string(),
             ],
             units: vec![
-                unit("unit:hot-controller:proof", "uas:model-component:hot-controller:proof", "model_component", "route-card:proof-repair-query-kv", "hot controller keeps proof repair bounded", "hot", 26 * 1024 * 1024),
-                unit("unit:kv-page:proof-premise-a", "uas:kv-page:proof:premise:a", "kv_page", UPSTREAM_QUERY_SELECTOR, "query selector picked premise A", "kv", 30 * 1024 * 1024),
-                unit("unit:kv-page:proof-premise-b", "uas:kv-page:proof:premise:b", "kv_page", UPSTREAM_QUERY_SELECTOR, "query selector picked premise B", "kv", 30 * 1024 * 1024),
-                unit("unit:citation:proof-source", "uas:eidos:citation:proof-source", "citation_source", "eidos:proof:citation", "proof source must be exposed", "cold", 128 * 1024 * 1024),
-                unit("unit:verifier:proof-checker", "uas:verifier:proof-checker", "verifier_tool", UPSTREAM_VERIFIER_AUCTION, "proof checker result is required", "hot", 10 * 1024 * 1024),
-                unit("unit:test:proof-regression", "uas:test:proof-regression", "test_harness", "test:proof-regression-suite", "regression test result must be exposed", "hot", 6 * 1024 * 1024),
-                unselected_unit("unit:rejected:dense-proof", "uas:model-component:dense-proof", "model_component", "dense proof route rejected", "cold", 1024 * 1024 * 1024),
+                unit(
+                    "unit:hot-controller:proof",
+                    "uas:model-component:hot-controller:proof",
+                    "model_component",
+                    "route-card:proof-repair-query-kv",
+                    "hot controller keeps proof repair bounded",
+                    "hot",
+                    26 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:kv-page:proof-premise-a",
+                    "uas:kv-page:proof:premise:a",
+                    "kv_page",
+                    UPSTREAM_QUERY_SELECTOR,
+                    "query selector picked premise A",
+                    "kv",
+                    30 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:kv-page:proof-premise-b",
+                    "uas:kv-page:proof:premise:b",
+                    "kv_page",
+                    UPSTREAM_QUERY_SELECTOR,
+                    "query selector picked premise B",
+                    "kv",
+                    30 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:citation:proof-source",
+                    "uas:eidos:citation:proof-source",
+                    "citation_source",
+                    "eidos:proof:citation",
+                    "proof source must be exposed",
+                    "cold",
+                    128 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:verifier:proof-checker",
+                    "uas:verifier:proof-checker",
+                    "verifier_tool",
+                    UPSTREAM_VERIFIER_AUCTION,
+                    "proof checker result is required",
+                    "hot",
+                    10 * 1024 * 1024,
+                ),
+                unit(
+                    "unit:test:proof-regression",
+                    "uas:test:proof-regression",
+                    "test_harness",
+                    "test:proof-regression-suite",
+                    "regression test result must be exposed",
+                    "hot",
+                    6 * 1024 * 1024,
+                ),
+                unselected_unit(
+                    "unit:rejected:dense-proof",
+                    "uas:model-component:dense-proof",
+                    "model_component",
+                    "dense proof route rejected",
+                    "cold",
+                    1024 * 1024 * 1024,
+                ),
             ],
             max_hot_bytes: MAX_HOT_BYTES,
             max_kv_bytes: MAX_KV_BYTES,
@@ -1271,7 +1416,10 @@ fn fixture_certificates() -> Vec<SparseWakeCertificateFixture> {
             fallback_route: "fallback:proof-repair-abstain-with-visible-gap".to_string(),
             rollback_handle: "rollback:sparse-wake:proof-repair-citation".to_string(),
             run_event_log_ref: "runevent:sparse-wake:proof-repair-citation".to_string(),
-            answer_packet_visible_fields: REQUIRED_PACKET_FIELDS.iter().map(|field| field.to_string()).collect(),
+            answer_packet_visible_fields: REQUIRED_PACKET_FIELDS
+                .iter()
+                .map(|field| field.to_string())
+                .collect(),
             verifier_pass_bps: 9_300,
             citation_pass_bps: 9_000,
             test_pass_bps: 8_700,

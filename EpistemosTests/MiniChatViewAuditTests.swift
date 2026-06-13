@@ -163,11 +163,38 @@ struct MiniChatViewAuditTests {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let coordinatorSource = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
 
-        #expect(miniChatSource.contains("private func shouldUseSharedCoordinator(for query: String) -> Bool"))
-        #expect(miniChatSource.contains("let shouldUseSharedCoordinator = shouldUseSharedCoordinator(for: trimmed)"))
+        #expect(miniChatSource.contains("private func shouldUseSharedCoordinator("))
+        #expect(miniChatSource.contains("fileAttachments: [FileAttachment] = []"))
+        #expect(miniChatSource.contains("requestedSlashToken: ParsedSlashToken? = nil"))
+        #expect(miniChatSource.contains("let shouldUseSharedCoordinator = shouldUseSharedCoordinator("))
+        #expect(miniChatSource.contains("for: trimmed,"))
+        #expect(miniChatSource.contains("fileAttachments: fileAttachments,"))
+        #expect(miniChatSource.contains("requestedSlashToken: requestedSlashToken"))
+        #expect(miniChatSource.contains("if !fileAttachments.isEmpty || requestedSlashToken != nil {\n            return true\n        }"))
         #expect(miniChatSource.contains("try await runSharedCoordinatorTurn("))
         #expect(miniChatSource.contains("mirrorSharedCoordinatorState("))
         #expect(coordinatorSource.contains("func handleMiniChatQuery("))
+    }
+
+    @Test("mini chat composer exposes main chat tool affordances without changing its shell")
+    func miniChatComposerExposesMainChatToolAffordances() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains("@State private var pendingFileAttachments: [FileAttachment] = []"))
+        #expect(miniChatSource.contains("@State private var showPermissionGrantPopover = false"))
+        #expect(miniChatSource.contains("@State private var showSlashMenu = false"))
+        #expect(miniChatSource.contains("SlashCommandPopover("))
+        #expect(miniChatSource.contains("supportedSlashItems"))
+        #expect(miniChatSource.contains("agentCommandCenter.availableSkills"))
+        #expect(miniChatSource.contains("ToolbarCapsuleButton("))
+        #expect(miniChatSource.contains("openFilePicker()"))
+        #expect(miniChatSource.contains("FileAttachmentBuilder.buildAll(from: urls)"))
+        #expect(miniChatSource.contains("ComposerReferenceHelpers.fileContextAttachment("))
+        #expect(miniChatSource.contains("ComposerCurrentAccessPlan("))
+        #expect(miniChatSource.contains("permissionVisibilityChip"))
+        #expect(miniChatSource.contains("bridgeState.messages[lastUserIndex].attachments = fileAttachments"))
+        #expect(miniChatSource.contains("bridgeState.queuePendingSlashToken(requestedSlashToken)"))
+        #expect(miniChatSource.contains("ChatCoordinator.buildFileAttachmentContext("))
     }
 
     @Test("mini chat preserves reasoning traces for assistant turns")

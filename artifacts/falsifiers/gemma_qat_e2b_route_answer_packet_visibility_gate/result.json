@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "201333dde85b7f4bcc55377e99845e74d11b423b",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "gemma_qat_e2b_route_answer_packet_visibility_gate_v1",
-  "timestamp_utc": "2026-06-08T21:23:19Z",
+  "timestamp_utc": "2026-06-10T08:42:59Z",
   "result_digest": "sha256:e3ca7eadca212899e870f893aaa86d446010a1c0c5f391ad1d0314182c49a8dd",
   "measurements": {
     "admission_performed_count": {

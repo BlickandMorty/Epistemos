@@ -1,0 +1,460 @@
+{
+  "falsifier_id": "F-ReleaseAuditZeroFailPassLedger",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/materialize_release_audit_zero_fail_pass_ledger.sh",
+  "command_digest": "sha256:d939b9e6d115166068301208009c2016d97b4c16794f8729bab6a5ac036287ef",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
+  "fixture_id": "release_audit_zero_fail_pass_ledger_v1",
+  "timestamp_utc": "2026-06-11T08:56:55Z",
+  "result_digest": "sha256:a54df42fe0315e81f9e73159a79a43c5f3d159d918a5a31910d366c067a7b676",
+  "measurements": {
+    "all_required_artifacts_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "all_required_artifacts_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_artifact_bytes": {
+      "value": 28280,
+      "unit": "bytes"
+    },
+    "automated_checks_artifact_id": {
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
+      "unit": "id"
+    },
+    "automated_checks_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_artifact_sha256": {
+      "value": "sha256:e633d698ed4ba11f48a17e816a30c106fcc6ad3e221b5a29ae06a26b41317756",
+      "unit": "sha256"
+    },
+    "capability_closeout_artifact_bytes": {
+      "value": 17968,
+      "unit": "bytes"
+    },
+    "capability_closeout_artifact_id": {
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe",
+      "unit": "id"
+    },
+    "capability_closeout_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_closeout_artifact_sha256": {
+      "value": "sha256:fbb9b743f277df43a4fbd81eba1352146404f2da8376f831197cb75b0bfb3df4",
+      "unit": "sha256"
+    },
+    "distribution_compliance_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_artifact_bytes": {
+      "value": 11480,
+      "unit": "bytes"
+    },
+    "distribution_compliance_review_artifact_id": {
+      "value": "F-ReleaseAuditDistributionComplianceReview",
+      "unit": "id"
+    },
+    "distribution_compliance_review_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_artifact_sha256": {
+      "value": "sha256:69cf1bf36ab937007caf829d00d02b7771e2fa3bfb902ce8a863a9d2592eec0d",
+      "unit": "sha256"
+    },
+    "distribution_compliance_review_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_artifact_bytes": {
+      "value": 6946,
+      "unit": "bytes"
+    },
+    "distribution_focused_artifact_id": {
+      "value": "F-ReleaseAuditDistributionFocusedEvidence",
+      "unit": "id"
+    },
+    "distribution_focused_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_artifact_sha256": {
+      "value": "sha256:ca99599acf0f9a674a46409f55c9e9773df7b8b940d7b7c94da639f8245e81f1",
+      "unit": "sha256"
+    },
+    "duplicate_pass_signature_not_counted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_artifact_bytes": {
+      "value": 18707,
+      "unit": "bytes"
+    },
+    "log_evidence_artifact_id": {
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe",
+      "unit": "id"
+    },
+    "log_evidence_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_artifact_sha256": {
+      "value": "sha256:9ab68dc9d7d3e2eb2a20c2fe3ba8631107d336dfa0a1961dcd70e491870602fd",
+      "unit": "sha256"
+    },
+    "manual_runtime_artifact_bytes": {
+      "value": 19775,
+      "unit": "bytes"
+    },
+    "manual_runtime_artifact_id": {
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe",
+      "unit": "id"
+    },
+    "manual_runtime_artifact_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_artifact_sha256": {
+      "value": "sha256:9a6ed7b1acb4953b53ce86aad4600ff99884aa6d711eeffa106348e17f090e8e",
+      "unit": "sha256"
+    },
+    "next_cursor": {
+      "value": "gemma_product_capability_recheck_after_release_audit",
+      "unit": "cursor"
+    },
+    "previous_zero_fail_pass_count": {
+      "value": 3,
+      "unit": "passes"
+    },
+    "release_completion_still_required": {
+      "value": false,
+      "unit": "bool"
+    },
+    "release_ready_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "remaining_zero_fail_pass_count": {
+      "value": 0,
+      "unit": "passes"
+    },
+    "required_zero_fail_pass_count": {
+      "value": 3,
+      "unit": "passes"
+    },
+    "ship_call_not_authorized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_state_change_resets_counter": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_state_signature": {
+      "value": "sha256:96706387f8812b93c104122419201f38a7afd0278e891c09bd8f38b1791e1526",
+      "unit": "sha256"
+    },
+    "zero_fail_pass_count": {
+      "value": 3,
+      "unit": "passes"
+    },
+    "zero_fail_pass_signature": {
+      "value": "sha256:95bc92b9a0a8f4cf0aa0f06cadaa058976646c449b7e810bc5ef3eafd43b67f5",
+      "unit": "sha256"
+    }
+  },
+  "acceptance_thresholds": {
+    "all_required_artifacts_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_required_artifacts_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "automated_checks_artifact_id": {
+      "operator": "==",
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe",
+      "unit": "id"
+    },
+    "automated_checks_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "automated_checks_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:e633d698ed4ba11f48a17e816a30c106fcc6ad3e221b5a29ae06a26b41317756",
+      "unit": "sha256"
+    },
+    "capability_closeout_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "capability_closeout_artifact_id": {
+      "operator": "==",
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe",
+      "unit": "id"
+    },
+    "capability_closeout_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "capability_closeout_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:fbb9b743f277df43a4fbd81eba1352146404f2da8376f831197cb75b0bfb3df4",
+      "unit": "sha256"
+    },
+    "distribution_compliance_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "distribution_compliance_review_artifact_id": {
+      "operator": "==",
+      "value": "F-ReleaseAuditDistributionComplianceReview",
+      "unit": "id"
+    },
+    "distribution_compliance_review_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_review_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:69cf1bf36ab937007caf829d00d02b7771e2fa3bfb902ce8a863a9d2592eec0d",
+      "unit": "sha256"
+    },
+    "distribution_compliance_review_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "distribution_focused_artifact_id": {
+      "operator": "==",
+      "value": "F-ReleaseAuditDistributionFocusedEvidence",
+      "unit": "id"
+    },
+    "distribution_focused_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:ca99599acf0f9a674a46409f55c9e9773df7b8b940d7b7c94da639f8245e81f1",
+      "unit": "sha256"
+    },
+    "duplicate_pass_signature_not_counted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "log_evidence_artifact_id": {
+      "operator": "==",
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditLogEvidenceProbe",
+      "unit": "id"
+    },
+    "log_evidence_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "log_evidence_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:9ab68dc9d7d3e2eb2a20c2fe3ba8631107d336dfa0a1961dcd70e491870602fd",
+      "unit": "sha256"
+    },
+    "manual_runtime_artifact_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "manual_runtime_artifact_id": {
+      "operator": "==",
+      "value": "F-SmallModelRuntimeHarnessFreshProductRuntimeL3ManualRuntimeVerificationProbe",
+      "unit": "id"
+    },
+    "manual_runtime_artifact_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manual_runtime_artifact_sha256": {
+      "operator": "==",
+      "value": "sha256:9a6ed7b1acb4953b53ce86aad4600ff99884aa6d711eeffa106348e17f090e8e",
+      "unit": "sha256"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "gemma_product_capability_recheck_after_release_audit",
+      "unit": "cursor"
+    },
+    "previous_zero_fail_pass_count": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "passes"
+    },
+    "release_completion_still_required": {
+      "operator": "==",
+      "value": false,
+      "unit": "bool"
+    },
+    "release_ready_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "remaining_zero_fail_pass_count": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "passes"
+    },
+    "required_zero_fail_pass_count": {
+      "operator": "==",
+      "value": 3,
+      "unit": "passes"
+    },
+    "ship_call_not_authorized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_state_change_resets_counter": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_state_signature": {
+      "operator": "==",
+      "value": "sha256:96706387f8812b93c104122419201f38a7afd0278e891c09bd8f38b1791e1526",
+      "unit": "sha256"
+    },
+    "zero_fail_pass_count": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "passes"
+    },
+    "zero_fail_pass_signature": {
+      "operator": "==",
+      "value": "sha256:95bc92b9a0a8f4cf0aa0f06cadaa058976646c449b7e810bc5ef3eafd43b67f5",
+      "unit": "sha256"
+    }
+  },
+  "pass_per_axis": {
+    "all_required_artifacts_passed": true,
+    "all_required_artifacts_present": true,
+    "automated_checks_artifact_bytes": true,
+    "automated_checks_artifact_id": true,
+    "automated_checks_artifact_passed": true,
+    "automated_checks_artifact_sha256": true,
+    "capability_closeout_artifact_bytes": true,
+    "capability_closeout_artifact_id": true,
+    "capability_closeout_artifact_passed": true,
+    "capability_closeout_artifact_sha256": true,
+    "distribution_compliance_not_claimed": true,
+    "distribution_compliance_review_artifact_bytes": true,
+    "distribution_compliance_review_artifact_id": true,
+    "distribution_compliance_review_artifact_passed": true,
+    "distribution_compliance_review_artifact_sha256": true,
+    "distribution_compliance_review_passed": true,
+    "distribution_focused_artifact_bytes": true,
+    "distribution_focused_artifact_id": true,
+    "distribution_focused_artifact_passed": true,
+    "distribution_focused_artifact_sha256": true,
+    "duplicate_pass_signature_not_counted": true,
+    "gemma_route_not_promoted": true,
+    "log_evidence_artifact_bytes": true,
+    "log_evidence_artifact_id": true,
+    "log_evidence_artifact_passed": true,
+    "log_evidence_artifact_sha256": true,
+    "manual_runtime_artifact_bytes": true,
+    "manual_runtime_artifact_id": true,
+    "manual_runtime_artifact_passed": true,
+    "manual_runtime_artifact_sha256": true,
+    "next_cursor": true,
+    "previous_zero_fail_pass_count": true,
+    "release_completion_still_required": true,
+    "release_ready_not_claimed": true,
+    "remaining_zero_fail_pass_count": true,
+    "required_zero_fail_pass_count": true,
+    "ship_call_not_authorized": true,
+    "source_state_change_resets_counter": true,
+    "source_state_signature": true,
+    "zero_fail_pass_count": true,
+    "zero_fail_pass_signature": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "release_audit_zero_fail_pass_ledger_not_release_ready",
+      "detail": "3/3 uninterrupted zero-fail evidence sets are counted for this source-state signature. Distribution/compliance review passed=true. Gemma route/default promotion stays blocked until product capability recheck."
+    }
+  ],
+  "notes": "Digest-only release-audit zero-fail pass ledger: counts green automated/log/manual/closeout/distribution-focused/compliance evidence sets only when the source-state signature is stable and the pass signature is fresh; keeps release/Gemma promotion blocked until product capability recheck."
+}

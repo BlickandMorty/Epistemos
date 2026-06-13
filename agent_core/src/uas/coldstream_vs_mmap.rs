@@ -7,11 +7,21 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
 
+use super::small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR;
 use crate::falsifier_artifacts::sha256_hex;
 use crate::uas::{ProStatus, ProductBuild};
 
 pub const COLDSTREAM_VS_MMAP_CURSOR: &str = "coldstream_vs_mmap";
 pub const COLDSTREAM_VS_MMAP_NEXT_CURSOR: &str = "slab_arena_copy_count";
+
+pub fn coldstream_vs_mmap_or_advanced_cursor(cursor: &str) -> bool {
+    matches!(
+        cursor,
+        COLDSTREAM_VS_MMAP_CURSOR
+            | COLDSTREAM_VS_MMAP_NEXT_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+    )
+}
 
 const BENCHMARK_PLAN_PREFIX: &str = "benchmark_plan:";
 const ANSWER_PACKET_PREFIX: &str = "answer_packet:";
@@ -1124,7 +1134,9 @@ mod tests {
             format!("compat:{suffix}:coldstream_vs_mmap"),
             format!("cancel_group:{suffix}"),
             format!("fallback:{suffix}:pread_visible"),
-            format!("Metadata-only ColdStream vs mmap/pread benchmark plan for {suffix}: p95 and p99 stall, read amplification, AnswerPacket, rollback, and L1/L2/L3 separation are visible; no live benchmark or product promotion is claimed."),
+            format!(
+                "Metadata-only ColdStream vs mmap/pread benchmark plan for {suffix}: p95 and p99 stall, read amplification, AnswerPacket, rollback, and L1/L2/L3 separation are visible; no live benchmark or product promotion is claimed."
+            ),
             rows,
             1,
             true,

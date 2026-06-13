@@ -1,8 +1,8 @@
 //! `falsify_gemma_qat_e2b_product_capability_recheck_gate`
 //!
 //! Metadata-only product capability recheck for Gemma E2B. The expected current
-//! result is blocked because the release-audit automated-check bottleneck is
-//! still red.
+//! result is blocked because the proof ladder is ready but live route
+//! integration remains unpromoted.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -17,6 +17,7 @@ use agent_core::uas::{
     GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ID,
     GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_NEXT_CURSOR,
     GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_UPSTREAM_REF,
+    GEMMA_QAT_RUNTIME_REPLAY_SELECTED_MODEL_ID,
 };
 
 const FALSIFIER_ID: &str = GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_ID;
@@ -26,11 +27,13 @@ const RESULT: &str =
     "artifacts/falsifiers/gemma_qat_e2b_product_capability_recheck_gate/result.json";
 const UPSTREAM_RESULT: &str =
     "artifacts/falsifiers/gemma_qat_e2b_release_audit_surface_gate/result.json";
-const GUARD_RESULT: &str = "artifacts/falsifiers/architecture_pending_work_guard/result.json";
-const KERNEL_RESULT: &str = "artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json";
-const PRODUCT_BLOCKER_CURSOR: &str =
-    "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-const ROUTE_STATUS_BLOCKED: &str = "vault_research_route_with_packetized_mitigation";
+const ZERO_FAIL_LEDGER_RESULT: &str =
+    "artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json";
+const FIRST_RUNTIME_WRV_RESULT: &str =
+    "artifacts/falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json";
+const RELEASE_AUDIT_READY_CURSOR: &str = "gemma_product_capability_recheck_after_release_audit";
+const FIRST_RUNTIME_WRV_RELEASE_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const CREATED_AT_MS: u64 = 1_779_582_000_000;
 
 fn main() -> std::process::ExitCode {
@@ -81,16 +84,48 @@ fn main() -> std::process::ExitCode {
 fn build_artifact(
 ) -> Result<agent_core::falsifier_artifacts::FalsifierArtifact, Box<dyn std::error::Error>> {
     let upstream_pass = json_overall_pass(UPSTREAM_RESULT)?;
-    let guard_cursor_match = json_measurement_string(GUARD_RESULT, "next_existing_work")?
-        .as_deref()
-        == Some(PRODUCT_BLOCKER_CURSOR);
-    let kernel_red = json_overall_pass(KERNEL_RESULT)? == false;
-    let kernel_bottleneck_match = json_measurement_string(KERNEL_RESULT, "next_bottleneck")?
-        .as_deref()
-        == Some(PRODUCT_BLOCKER_CURSOR);
-    let kernel_route_status_match = json_measurement_string(KERNEL_RESULT, "route_status")?
-        .as_deref()
-        == Some(ROUTE_STATUS_BLOCKED);
+    let zero_fail_ledger_pass = json_overall_pass(ZERO_FAIL_LEDGER_RESULT)?;
+    let zero_fail_count =
+        json_measurement_u64(ZERO_FAIL_LEDGER_RESULT, "zero_fail_pass_count")?.unwrap_or(0);
+    let remaining_zero_fail_count = json_measurement_u64(
+        ZERO_FAIL_LEDGER_RESULT,
+        "remaining_zero_fail_pass_count",
+    )?
+    .unwrap_or(u64::MAX);
+    let release_completion_still_required = json_measurement_bool(
+        ZERO_FAIL_LEDGER_RESULT,
+        "release_completion_still_required",
+    )?
+    .unwrap_or(true);
+    let release_next_cursor = json_measurement_string(ZERO_FAIL_LEDGER_RESULT, "next_cursor")?;
+
+    let first_runtime_wrv = read_json(FIRST_RUNTIME_WRV_RESULT)?;
+    let first_runtime_wrv_passed = json_bool(&first_runtime_wrv, "settings_diagnostics_wrv_passed");
+    let first_runtime_release_ready =
+        json_bool(&first_runtime_wrv, "release_audit_automated_checks_ready");
+    let first_runtime_selected_model =
+        json_string(&first_runtime_wrv, "selected_model_id").unwrap_or_default();
+    let first_runtime_next_cursor =
+        json_string(&first_runtime_wrv, "next_cursor").unwrap_or_default();
+    let first_runtime_mutation_count = [
+        "route_priority_mutation_count",
+        "runtime_router_mutation_count",
+        "system_g_mutation_count",
+        "default_model_mutation_count",
+    ]
+    .iter()
+    .map(|key| json_u64(&first_runtime_wrv, key).unwrap_or(u64::MAX))
+    .sum::<u64>();
+    let first_runtime_action_count = [
+        "command_executed_count",
+        "process_spawned_count",
+        "runtime_replay_performed_count",
+    ]
+    .iter()
+    .map(|key| json_u64(&first_runtime_wrv, key).unwrap_or(u64::MAX))
+    .sum::<u64>();
+    let first_runtime_live_claim = json_bool(&first_runtime_wrv, "live_gemma_claim");
+    let first_runtime_t4_claim = json_bool(&first_runtime_wrv, "l2_l3_t4_claim");
 
     let gate = GemmaQatE2bProductCapabilityRecheckGate::canonical(
         GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_UPSTREAM_REF,
@@ -134,47 +169,58 @@ fn build_artifact(
                 && red_pass(&red_results, "wrong_runtime_lane"),
         ),
         (
-            "capability_kernel_red_status_bound",
-            kernel_red
-                && kernel_bottleneck_match
-                && kernel_route_status_match
-                && gate.capability_kernel_red_required
-                && gate.expected_next_bottleneck == PRODUCT_BLOCKER_CURSOR
-                && gate.expected_route_status == ROUTE_STATUS_BLOCKED
-                && red_pass(&red_results, "capability_kernel_green")
-                && red_pass(&red_results, "wrong_bottleneck")
-                && red_pass(&red_results, "wrong_route_status"),
+            "release_audit_zero_fail_ledger_bound",
+            zero_fail_ledger_pass
+                && zero_fail_count >= 3
+                && remaining_zero_fail_count == 0
+                && !release_completion_still_required
+                && release_next_cursor.as_deref() == Some(RELEASE_AUDIT_READY_CURSOR)
+                && gate.release_audit_zero_fail_ledger_pass_required
+                && gate.release_audit_next_cursor_match_required
+                && gate.release_audit_three_pass_count_required
+                && gate.expected_release_audit_next_cursor == RELEASE_AUDIT_READY_CURSOR
+                && red_pass(&red_results, "zero_fail_ledger_red")
+                && red_pass(&red_results, "zero_fail_count_under_three")
+                && red_pass(&red_results, "wrong_release_next_cursor"),
         ),
         (
-            "guard_cursor_and_release_blocker_bound",
-            guard_cursor_match
-                && gate.guard_cursor_match_required
-                && gate.automated_checks_blocker_required
-                && gate.xcode_test_red_required
-                && red_pass(&red_results, "guard_cursor_missing")
-                && red_pass(&red_results, "automated_blocker_missing")
-                && red_pass(&red_results, "xcode_test_not_red"),
+            "first_runtime_wrv_chain_bound",
+            first_runtime_wrv_passed
+                && first_runtime_release_ready
+                && first_runtime_selected_model == GEMMA_QAT_RUNTIME_REPLAY_SELECTED_MODEL_ID
+                && first_runtime_next_cursor == FIRST_RUNTIME_WRV_RELEASE_CURSOR
+                && first_runtime_mutation_count == 0
+                && first_runtime_action_count == 0
+                && !first_runtime_live_claim
+                && !first_runtime_t4_claim
+                && gate.first_runtime_wrv_pass_required
+                && gate.first_runtime_selected_model_match_required
+                && gate.first_runtime_release_cursor_match_required
+                && gate.expected_first_runtime_wrv_next_cursor == FIRST_RUNTIME_WRV_RELEASE_CURSOR
+                && red_pass(&red_results, "first_runtime_wrv_red")
+                && red_pass(&red_results, "wrong_first_runtime_model")
+                && red_pass(&red_results, "default_model_mutated")
+                && red_pass(&red_results, "runtime_router_mutated")
+                && red_pass(&red_results, "system_g_mutated"),
         ),
         (
             "recheck_fields_and_rejection_policies_bound",
-            metrics.required_recheck_field_count == 36
-                && metrics.required_rejection_policy_count == 52
+            metrics.required_recheck_field_count == 37
+                && metrics.required_rejection_policy_count == 53
                 && red_pass(&red_results, "missing_recheck_field")
                 && red_pass(&red_results, "missing_rejection_policy"),
         ),
         (
-            "pending_product_evidence_bound",
-            metrics.blocked_truth_count == 9
-                && gate.focused_proof_root_pending_required
-                && gate.log_correlation_pending_required
-                && gate.manual_runtime_pending_required
-                && gate.distribution_compliance_pending_required
-                && gate.repeated_zero_fail_pending_required
-                && red_pass(&red_results, "focused_proof_done")
-                && red_pass(&red_results, "log_correlation_done")
-                && red_pass(&red_results, "manual_runtime_done")
-                && red_pass(&red_results, "distribution_done")
-                && red_pass(&red_results, "zero_fail_done"),
+            "live_route_integration_pending_bound",
+            metrics.blocked_truth_count == 5
+                && gate.live_route_integration_pending_required
+                && gate.live_route_default_mutation_zero_required
+                && gate.live_route_runtime_router_mutation_zero_required
+                && gate.live_route_system_g_mutation_zero_required
+                && red_pass(&red_results, "live_route_integration_claimed_done")
+                && red_pass(&red_results, "runtime_route_unblocked")
+                && red_pass(&red_results, "default_model_unblocked")
+                && red_pass(&red_results, "answer_packet_unblocked"),
         ),
         (
             "gated_surfaces_and_owner_action_bound",
@@ -259,7 +305,7 @@ fn build_artifact(
         (
             "next_cursor_bound",
             GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_NEXT_CURSOR
-                == "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+                == "gemma_product_route_integration_gate",
         ),
     ] {
         add_bool_axis(
@@ -276,21 +322,21 @@ fn build_artifact(
             "required_recheck_field_count",
             metrics.required_recheck_field_count,
             "==",
-            36,
+            37,
             "fields",
         ),
         (
             "required_rejection_policy_count",
             metrics.required_rejection_policy_count,
             "==",
-            52,
+            53,
             "policies",
         ),
         (
             "blocked_truth_count",
             metrics.blocked_truth_count,
             "==",
-            9,
+            5,
             "blocked_truths",
         ),
         (
@@ -397,7 +443,7 @@ fn build_artifact(
         &mut pass_per_axis,
         "next_cursor",
         GEMMA_QAT_E2B_PRODUCT_CAPABILITY_RECHECK_GATE_NEXT_CURSOR,
-        "gemma_qat_e2b_release_audit_blocker_repair_bridge_gate",
+        "gemma_product_route_integration_gate",
     );
 
     assert_axis_coverage(&measurements);
@@ -413,7 +459,7 @@ fn build_artifact(
         pass_per_axis,
         fallback_tier: FallbackTier::Primary,
         anomalies: Vec::new(),
-        notes: "metadata-only F-GemmaQATE2BProductCapabilityRecheckGate: consumes the E2B release-audit surface gate and rechecks product truth against the current red capability kernel. It passes only when the Gemma E2B product route remains blocked by the release-audit automated-check bottleneck, with focused proof-root, log correlation, manual runtime, distribution/compliance, and repeated-zero-fail evidence still pending. It runs no Xcode command, wires no settings or diagnostics product surface, emits no user AnswerPacket, arms or executes no model command, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim.".to_string(),
+        notes: "metadata-only F-GemmaQATE2BProductCapabilityRecheckGate: consumes the E2B release-audit surface, the 3/3 release-audit zero-fail ledger, and the E2B first-runtime Settings/diagnostics WRV packet. It passes only when the local proof ladder and release floor are present while live RuntimeRouter/System G/default route integration remains blocked. It runs no Xcode command, wires no product picker/default route, emits no user AnswerPacket, arms or executes no model command, loads zero model/runtime/provider bytes, captures zero raw prompt/output bytes, and makes no MAS/L2/L3/T4/user-facing, Gemma-default, quality, benchmark-fit, E4B/12B/70B bypass, live-70B, or SSD-as-RAM claim.".to_string(),
         timestamp_utc: now_utc_rfc3339(),
     }
     .build())
@@ -444,6 +490,58 @@ fn json_measurement_string(
         .and_then(|entry| entry.get("value"))
         .and_then(|value| value.as_str())
         .map(ToOwned::to_owned))
+}
+
+fn json_measurement_bool(
+    path: &str,
+    measurement: &str,
+) -> Result<Option<bool>, Box<dyn std::error::Error>> {
+    if !Path::new(path).exists() {
+        return Ok(None);
+    }
+    let value = read_json(path)?;
+    Ok(value
+        .get("measurements")
+        .and_then(|measurements| measurements.get(measurement))
+        .and_then(|entry| entry.get("value"))
+        .and_then(|value| value.as_bool()))
+}
+
+fn json_measurement_u64(
+    path: &str,
+    measurement: &str,
+) -> Result<Option<u64>, Box<dyn std::error::Error>> {
+    if !Path::new(path).exists() {
+        return Ok(None);
+    }
+    let value = read_json(path)?;
+    Ok(value
+        .get("measurements")
+        .and_then(|measurements| measurements.get(measurement))
+        .and_then(|entry| entry.get("value"))
+        .and_then(|value| value.as_u64()))
+}
+
+fn read_json(path: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    Ok(serde_json::from_slice(&std::fs::read(path)?)?)
+}
+
+fn json_bool(value: &serde_json::Value, key: &str) -> bool {
+    value
+        .get(key)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+}
+
+fn json_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(|value| value.as_str())
+        .map(ToOwned::to_owned)
+}
+
+fn json_u64(value: &serde_json::Value, key: &str) -> Option<u64> {
+    value.get(key).and_then(|value| value.as_u64())
 }
 
 fn red_fixture_results(
@@ -486,28 +584,28 @@ fn red_fixture_results(
             Box::new(|g| g.recheck_card_id = "wrong".to_string()),
         ),
         (
-            "capability_kernel_green",
-            Box::new(|g| g.capability_kernel_red_required = false),
+            "zero_fail_ledger_red",
+            Box::new(|g| g.release_audit_zero_fail_ledger_pass_required = false),
         ),
         (
-            "wrong_bottleneck",
-            Box::new(|g| g.expected_next_bottleneck = "wrong".to_string()),
+            "zero_fail_count_under_three",
+            Box::new(|g| g.release_audit_three_pass_count_required = false),
         ),
         (
-            "wrong_route_status",
-            Box::new(|g| g.expected_route_status = "live".to_string()),
+            "wrong_release_next_cursor",
+            Box::new(|g| g.expected_release_audit_next_cursor = "wrong".to_string()),
         ),
         (
-            "guard_cursor_missing",
-            Box::new(|g| g.guard_cursor_match_required = false),
+            "first_runtime_wrv_red",
+            Box::new(|g| g.first_runtime_wrv_pass_required = false),
         ),
         (
-            "automated_blocker_missing",
-            Box::new(|g| g.automated_checks_blocker_required = false),
+            "wrong_first_runtime_model",
+            Box::new(|g| g.first_runtime_selected_model_match_required = false),
         ),
         (
-            "xcode_test_not_red",
-            Box::new(|g| g.xcode_test_red_required = false),
+            "wrong_first_runtime_release_cursor",
+            Box::new(|g| g.expected_first_runtime_wrv_next_cursor = "wrong".to_string()),
         ),
         (
             "missing_recheck_field",
@@ -522,24 +620,20 @@ fn red_fixture_results(
             }),
         ),
         (
-            "focused_proof_done",
-            Box::new(|g| g.focused_proof_root_pending_required = false),
+            "live_route_integration_claimed_done",
+            Box::new(|g| g.live_route_integration_pending_required = false),
         ),
         (
-            "log_correlation_done",
-            Box::new(|g| g.log_correlation_pending_required = false),
+            "default_model_mutated",
+            Box::new(|g| g.live_route_default_mutation_zero_required = false),
         ),
         (
-            "manual_runtime_done",
-            Box::new(|g| g.manual_runtime_pending_required = false),
+            "runtime_router_mutated",
+            Box::new(|g| g.live_route_runtime_router_mutation_zero_required = false),
         ),
         (
-            "distribution_done",
-            Box::new(|g| g.distribution_compliance_pending_required = false),
-        ),
-        (
-            "zero_fail_done",
-            Box::new(|g| g.repeated_zero_fail_pending_required = false),
+            "system_g_mutated",
+            Box::new(|g| g.live_route_system_g_mutation_zero_required = false),
         ),
         (
             "settings_unlocked",

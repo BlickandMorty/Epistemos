@@ -527,7 +527,10 @@ impl fmt::Display for TurboVecCrashSafePersistentIndexError {
                 write!(f, "duplicate persistent-index scenario `{id}`")
             }
             Self::MissingField { plan_id, field } => {
-                write!(f, "TurboVec persistent-index plan `{plan_id}` missing `{field}`")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{plan_id}` missing `{field}`"
+                )
             }
             Self::BadPrefix {
                 plan_id,
@@ -541,22 +544,40 @@ impl fmt::Display for TurboVecCrashSafePersistentIndexError {
                 write!(f, "TurboVec persistent-index plan `{id}` leaked to MAS")
             }
             Self::BadProStatus(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` has forbidden Pro status")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` has forbidden Pro status"
+                )
             }
             Self::BadIndexStatus(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` has forbidden status")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` has forbidden status"
+                )
             }
             Self::BadPromotionTier(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` promoted beyond T1")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` promoted beyond T1"
+                )
             }
             Self::InvalidOrgans(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` has invalid organs")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` has invalid organs"
+                )
             }
             Self::MissingFileCoverage(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` lacks required files")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` lacks required files"
+                )
             }
             Self::MissingScenarioCoverage(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` lacks crash scenarios")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` lacks crash scenarios"
+                )
             }
             Self::InvalidFile(id) => write!(f, "TurboVec persistent-index file `{id}` is unsafe"),
             Self::InvalidScenario(id) => {
@@ -566,7 +587,10 @@ impl fmt::Display for TurboVecCrashSafePersistentIndexError {
                 write!(f, "TurboVec persistent-index plan `{id}` has unsafe policy")
             }
             Self::InvalidProofRefs(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` has unsafe proof refs")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` has unsafe proof refs"
+                )
             }
             Self::MetadataBudgetExceeded {
                 metadata_bytes_read,
@@ -576,13 +600,22 @@ impl fmt::Display for TurboVecCrashSafePersistentIndexError {
                 "TurboVec persistent-index metadata budget exceeded: metadata={metadata_bytes_read}, manifest={manifest_bytes_read}"
             ),
             Self::RuntimeOrIndexNotDeferred(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` tried to build or run")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` tried to build or run"
+                )
             }
             Self::HiddenAuthority(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` enabled hidden authority")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` enabled hidden authority"
+                )
             }
             Self::ProductPromotionAllowed(id) => {
-                write!(f, "TurboVec persistent-index plan `{id}` promoted product truth")
+                write!(
+                    f,
+                    "TurboVec persistent-index plan `{id}` promoted product truth"
+                )
             }
             Self::SetPromotionAllowed => write!(f, "TurboVec persistent-index set promoted truth"),
         }

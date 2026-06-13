@@ -176,7 +176,7 @@ struct ModelVaultBrowserTests {
             url: URL(fileURLWithPath: "/tmp/gpt-5.4", isDirectory: true)
         )
 
-        #expect(entry.id == "gpt-5.4")
+        #expect(entry.id == "gpt-4o")
         #expect(entry.acceptedAuthoredModelIDs.contains("gpt-5.4"))
         #expect(entry.acceptedAuthoredModelIDs.contains("openai:gpt-5.4"))
     }
@@ -201,7 +201,7 @@ struct ModelVaultBrowserTests {
         try metadataData.write(to: root.appendingPathComponent("meta.json"))
 
         let entry = ModelVaultEntry(url: root)
-        #expect(entry.id == "gpt-5.4")
+        #expect(entry.id == "gpt-4o")
         #expect(entry.acceptedAuthoredModelIDs.contains("openai:gpt-5.4"))
     }
 

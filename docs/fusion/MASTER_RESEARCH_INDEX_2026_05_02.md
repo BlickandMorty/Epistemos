@@ -119,6 +119,36 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > no Gemma live/default/L2/L3/T4 claim. It converts the official-source
 > validation into a hard proof boundary: official examples are source evidence,
 > not receipts, admission, or product capability.
+> 2026-06-10 current Gemma runtime proof state: local owner-approved GGUF
+> receipts and first-runtime receipts now exist for
+> `google/gemma-4-E2B-it-qat-q4_0-gguf`,
+> `google/gemma-4-E4B-it-qat-q4_0-gguf`, and
+> `google/gemma-4-12B-it-qat-q4_0-gguf` as redacted digest artifacts. All three
+> lanes passed the seven-task same-fixture replay: E2B first-runtime `2154` ms,
+> replay `7/7`; E4B first-runtime `8181` ms, replay `7/7`; 12B first-runtime
+> `10213` ms, replay `7/7`. Downstream lane-specific packets under
+> `gemma_direct_harness_first_runtime_runtime_router_admission`,
+> `gemma_direct_harness_first_runtime_system_g_dry_run_route`,
+> `gemma_direct_harness_first_runtime_route_answer_packet_visibility`, and
+> `gemma_direct_harness_first_runtime_settings_diagnostics_wrv` are materialized
+> and mutation-free. Fresh release-audit bridge artifacts now pass at
+> `artifacts/falsifiers/release_audit_distribution_focused_evidence/result.json`
+> `artifacts/falsifiers/release_audit_distribution_compliance_review/result.json`,
+> and `artifacts/falsifiers/release_audit_zero_fail_pass_ledger/result.json`.
+> The compliance review binds privacy manifest, entitlements, Info.plist,
+> release scripts, legal docs, distribution evidence, and zero-fail evidence
+> without claiming notarization, App Review, release readiness, or Gemma
+> promotion. The refreshed cumulative ledger now counts
+> `zero_fail_pass_count=3` and `remaining_zero_fail_pass_count=0`; the current
+> product cursor is `gemma_product_capability_recheck_after_release_audit`.
+> `F-GemmaQATE2BProductCapabilityRecheckGate` now consumes that ledger plus the
+> E2B first-runtime Settings/diagnostics WRV packet and advances only to
+> `gemma_product_route_integration_gate`, with live/default route mutation still
+> blocked.
+> This proves L1/T1 direct local
+> E2B/E4B/12B QAT proof lanes through RuntimeRouter and System G dry-run
+> packets plus distribution-compliance evidence, not live/default/T4 product
+> capability.
 > Current retrieval/index built
 > truth extends through
 > `artifacts/falsifiers/turbovec_real_adapter_owner_approved_native_dry_run_probe/result.json`,
@@ -524,9 +554,11 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > Current addendum: Deep Research Pass 204 lands
 > `F-GemmaQATE2BReleaseAuditSurfaceGate` as metadata-only T1/L1 evidence. The
 > gate consumes `F-GemmaQATE2BSettingsDiagnosticsWRVGate`, binds the Gemma E2B
-> GGUF/llama.cpp lane to the release-audit skill, red automated-check blocker,
+> GGUF/llama.cpp lane to the release-audit skill, distribution/compliance plus
+> three-pass completion blocker,
 > graph-filter proof-root command card, execution-artifact parser gate,
-> owner-approval runbook, log/manual/distribution/repeated-zero-fail
+> owner-approval runbook, repaired automated/log/manual evidence chain,
+> remaining distribution/repeated-zero-fail
 > requirements, AnswerPacket, RunEventLog, rollback, abstention, and
 > fast-row-gated visibility, rejects 85 red fixtures, and opens or executes
 > zero settings, Xcode, model, runtime, route, provider, or user-facing packet
@@ -536,7 +568,7 @@ North-star sentence: Epistemos is a local cognitive substrate where every meanin
 > The gate consumes `F-GemmaQATE2BReleaseAuditSurfaceGate`, reads the guard and
 > capability-kernel artifacts, and passes only by proving the Gemma E2B product
 > recheck remains blocked on
-> `small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe`
+> `release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes`
 > with route status `vault_research_route_with_packetized_mitigation`. It
 > rejects 62 red fixtures, runs zero Xcode/model/runtime/provider actions, and
 > does not advance L2/L3.
