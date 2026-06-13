@@ -220,18 +220,7 @@ public final class IntakeValve {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() async -> LanguageModelSession {
-        // AP6 — shared AFM session pool across all classifiers.
-        await AFMSessionPool.shared.session(
-            useCase: .contentTagging,
-            instructions: Self.systemPrompt,
-            useCaseLabel: "IntakeValve"
-        )
-    }
-
-    @available(macOS 26.0, *)
     private func runAFM(_ text: String) async throws -> IntakeDecision {
-        let s = await ensureSession()
         let prompt = """
         Classify this incoming user text into one IntakeRoute. Return
         an IntakeDecision with the route, your confidence, and a
@@ -241,11 +230,15 @@ public final class IntakeValve {
         \(text)
         """
         do {
-            let response = try await s.respond(
-                to: prompt,
-                generating: IntakeDecision.self
-            )
-            return response.content
+            // AP6 — shared warm session, serialized via the pool so AFM is never
+            // entered concurrently (see AFMSessionPool.withSession).
+            return try await AFMSessionPool.shared.withSession(
+                useCase: .contentTagging,
+                instructions: Self.systemPrompt,
+                useCaseLabel: "IntakeValve"
+            ) { s in
+                try await s.respond(to: prompt, generating: IntakeDecision.self).content
+            }
         } catch let error as LanguageModelSession.GenerationError {
             throw IntakeError.modelRefused(String(describing: error))
         } catch {

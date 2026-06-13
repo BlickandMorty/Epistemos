@@ -228,11 +228,6 @@ public final class AFMSidecarGenerator: AFMSidecarGenerating {
         _ text: String,
         candidateLinks: [AFMSidecarCandidateLink]
     ) async throws -> AFMSidecarGeneratedPayload {
-        let session = await AFMSessionPool.shared.session(
-            useCase: .contentTagging,
-            instructions: Self.systemPrompt,
-            useCaseLabel: "AFMSidecarGenerator"
-        )
         let prompt = """
         Generate a model-derived sidecar payload for this note. Use the
         supplied candidates only when suggesting links; do not invent IDs.
@@ -244,11 +239,15 @@ public final class AFMSidecarGenerator: AFMSidecarGenerating {
         \(text)
         """
         do {
-            let response = try await session.respond(
-                to: prompt,
-                generating: AFMSidecarGeneratedPayload.self
-            )
-            return response.content
+            // Serialized via the pool so AFM is never entered concurrently
+            // (see AFMSessionPool.withSession).
+            return try await AFMSessionPool.shared.withSession(
+                useCase: .contentTagging,
+                instructions: Self.systemPrompt,
+                useCaseLabel: "AFMSidecarGenerator"
+            ) { s in
+                try await s.respond(to: prompt, generating: AFMSidecarGeneratedPayload.self).content
+            }
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error {
                 throw GenerationError.decodeFailed("input exceeded AFM context window")

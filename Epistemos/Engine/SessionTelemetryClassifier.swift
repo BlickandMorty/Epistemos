@@ -233,22 +233,11 @@ public final class SessionTelemetryClassifier {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() async -> LanguageModelSession {
-        // AP6 — share warm sessions across all AFM-backed classifiers.
-        await AFMSessionPool.shared.session(
-            useCase: .contentTagging,
-            instructions: Self.systemPrompt,
-            useCaseLabel: "SessionTelemetryClassifier"
-        )
-    }
-
-    @available(macOS 26.0, *)
     private func runAFM(
         transcript: String,
         sessionStart: Date,
         sessionEnd: Date
     ) async throws -> SessionTelemetry {
-        let s = await ensureSession()
         let iso = ISO8601DateFormatter()
         let prompt = """
         Distill this session into the SessionTelemetry schema described
@@ -259,11 +248,15 @@ public final class SessionTelemetryClassifier {
         \(transcript)
         """
         do {
-            let response = try await s.respond(
-                to: prompt,
-                generating: SessionTelemetry.self
-            )
-            return response.content
+            // AP6 — shared warm session, serialized via the pool so AFM is never
+            // entered concurrently (see AFMSessionPool.withSession).
+            return try await AFMSessionPool.shared.withSession(
+                useCase: .contentTagging,
+                instructions: Self.systemPrompt,
+                useCaseLabel: "SessionTelemetryClassifier"
+            ) { s in
+                try await s.respond(to: prompt, generating: SessionTelemetry.self).content
+            }
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error {
                 // Caller should chunk + reduce per Wave 13 §"Map-

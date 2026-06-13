@@ -59,6 +59,15 @@ public actor AFMSessionPool {
 
     public static let sessionLifetime: TimeInterval = 600  // 10 min
 
+    /// Serializes EVERY AFM generation. A `LanguageModelSession` handles one
+    /// request at a time, and FoundationModels shares the on-device model + ANE
+    /// across sessions — concurrent `respond(...)` calls trap inside the
+    /// framework (verified crashes 2026-06-09 / 06-11: EXC_BREAKPOINT with two
+    /// threads simultaneously in FoundationModels). Routing all classifier
+    /// generations through one gate guarantees no two ever overlap. Background
+    /// classifiers are not latency-coupled, so the serialization cost is benign.
+    private let respondGate = AFMSerialGate()
+
     private init() {}
 
     // MARK: - Pool API
@@ -88,6 +97,26 @@ public actor AFMSessionPool {
             "AFMSessionPool created session useCase=\(useCaseLabel, privacy: .public) instructionsLen=\(instructions.count, privacy: .public)"
         )
         return s
+    }
+
+    /// Run `body` with a warm pooled session, serialized against every other AFM
+    /// generation so FoundationModels is never entered concurrently. This is the
+    /// safe entry point classifiers must use instead of calling `respond(...)` on
+    /// a session fetched from `session(...)`: two callers sharing a key would
+    /// otherwise hold the same one-request-at-a-time `LanguageModelSession` and
+    /// trap inside the framework. Throws whatever `body` throws.
+    public func withSession<T: Sendable>(
+        useCase: SystemLanguageModel.UseCase = .contentTagging,
+        instructions: String,
+        useCaseLabel: String = "contentTagging",
+        _ body: @Sendable @escaping (LanguageModelSession) async throws -> T
+    ) async throws -> T {
+        let s = session(
+            useCase: useCase,
+            instructions: instructions,
+            useCaseLabel: useCaseLabel
+        )
+        return try await respondGate.run { try await body(s) }
     }
 
     /// Explicit classifier prewarm. This must only run after a user-triggered
@@ -141,5 +170,25 @@ public actor AFMSessionPool {
         hasher.combine(useCaseLabel)
         hasher.combine(instructions)
         return "\(useCaseLabel):\(hasher.finalize())"
+    }
+}
+
+/// Serial async executor: each `run` waits for the previously-enqueued `run`
+/// to finish before its body executes, so bodies never overlap even across
+/// `await` suspension points (a plain actor would allow reentrancy there). A
+/// body that throws does not block the next in line. Used by `AFMSessionPool`
+/// to guarantee one-at-a-time FoundationModels generation.
+actor AFMSerialGate {
+    private var tail: Task<Void, Never> = Task {}
+
+    func run<T: Sendable>(_ body: @Sendable @escaping () async throws -> T) async throws -> T {
+        let predecessor = tail
+        let task = Task<T, Error> {
+            await predecessor.value
+            return try await body()
+        }
+        // The next caller waits for THIS task to settle (success or failure).
+        tail = Task { _ = try? await task.value }
+        return try await task.value
     }
 }
