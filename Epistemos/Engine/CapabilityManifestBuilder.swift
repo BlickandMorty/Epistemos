@@ -74,12 +74,32 @@ enum CapabilityManifestBuilder {
             )
         }
 
+        if !context.disabledToolNames.isEmpty {
+            let toolList = context.disabledToolNames
+                .prefix(12)
+                .map { "`\($0)`" }
+                .joined(separator: ", ")
+            let more = context.disabledToolNames.count > 12 ? " (+more)" : ""
+            lines.append("Tools intentionally unavailable on this turn: \(toolList)\(more).")
+        }
+
+        if !context.skillNames.isEmpty {
+            let skillList = context.skillNames
+                .prefix(10)
+                .map { "`\($0)`" }
+                .joined(separator: ", ")
+            let more = context.skillNames.count > 10 ? " (+more)" : ""
+            lines.append("Installed skills visible in the slash picker: \(skillList)\(more).")
+        }
+
         lines.append("")
         lines.append("Rules:")
         lines.append("1. Attached notes/files are inlined in the user prompt already — answer from the inlined text; don't call read/fetch tools for content that's right there.")
         lines.append("2. Don't claim capabilities you don't currently have (no browsing unless a web tool is listed, no shell unless terminal is listed, etc.).")
-        lines.append("3. If a listed tool needs approval, call the tool; Epistemos will show the native approval card. Do not ask the user to type an approval phrase.")
-        lines.append("4. Be direct and concise. If you're uncertain, say so.")
+        lines.append("3. Treat unavailable tools as absent; do not simulate, rename, or proxy them through another tool.")
+        lines.append("4. If a listed tool needs approval, call the tool; Epistemos will show the native approval card. Do not ask the user to type an approval phrase.")
+        lines.append("5. Skill names alone are discovery context; don't claim a skill body or skill execution unless this turn explicitly supplies the skill or a tool/runtime reports it.")
+        lines.append("6. Be direct and concise. If you're uncertain, say so.")
 
         if let overrides = loadUserOverrides() {
             lines.append("")
@@ -95,6 +115,23 @@ enum CapabilityManifestBuilder {
     /// The single `render` is already lean enough for every model.
     static func renderCompact(_ context: Context) -> String {
         render(context)
+    }
+
+    nonisolated static func disabledToolNames(
+        availableToolNames: [String],
+        enabledToolNames: [String]
+    ) -> [String] {
+        let enabled = Set(
+            enabledToolNames
+                .map(AgentToolNameAliases.canonical)
+                .filter { !$0.isEmpty }
+        )
+        let available = Set(
+            availableToolNames
+                .map(AgentToolNameAliases.canonical)
+                .filter { !$0.isEmpty }
+        )
+        return Array(available.subtracting(enabled)).sorted()
     }
 
     /// Persist the manifest at `~/Library/Application Support/Epistemos/runtime/Capabilities.md`

@@ -2549,7 +2549,9 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
             self = .cloud(model)
             return
         }
-        guard LocalTextModelID(rawValue: rawValue) != nil else { return nil }
+        guard LocalTextModelID(rawValue: rawValue) != nil
+            || GemmaQATRuntimeLadder.candidate(forID: rawValue) != nil
+        else { return nil }
         self = .localMLX(rawValue)
     }
 
@@ -2569,7 +2571,9 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         case .appleIntelligence:
             "Apple Intelligence"
         case .localMLX(let modelID):
-            LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            LocalTextModelID(rawValue: modelID)?.displayName
+                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
+                ?? modelID
         case .cloud(let model):
             model.displayName
         }
@@ -2577,17 +2581,29 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
 
     var activeMaxContextTokens: Int {
         switch self {
-        case .appleIntelligence: 128_000
-        case .localMLX(let id): LocalTextModelID(rawValue: id)?.maxContextTokens ?? 128_000
-        case .cloud(let model): model.maxContextTokens
+        case .appleIntelligence:
+            return 128_000
+        case .localMLX(let id):
+            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
+                return 128_000
+            }
+            return LocalTextModelID(rawValue: id)?.maxContextTokens ?? 128_000
+        case .cloud(let model):
+            return model.maxContextTokens
         }
     }
 
     var activeSupportsVision: Bool {
         switch self {
-        case .appleIntelligence: false
-        case .localMLX(let id): LocalTextModelID(rawValue: id)?.supportsVision ?? false
-        case .cloud(let model): model.supportsVision
+        case .appleIntelligence:
+            return false
+        case .localMLX(let id):
+            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
+                return false
+            }
+            return LocalTextModelID(rawValue: id)?.supportsVision ?? false
+        case .cloud(let model):
+            return model.supportsVision
         }
     }
 
@@ -2602,11 +2618,14 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
     var supportsThinking: Bool {
         switch self {
         case .appleIntelligence:
-            false
+            return false
         case .localMLX(let id):
-            LocalTextModelID(rawValue: id)?.supportsThinkingMode ?? false
+            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
+                return false
+            }
+            return LocalTextModelID(rawValue: id)?.supportsThinkingMode ?? false
         case .cloud(let model):
-            model.supportedOperatingModes.contains(.thinking)
+            return model.supportedOperatingModes.contains(.thinking)
         }
     }
 
@@ -2615,7 +2634,9 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         case .appleIntelligence:
             "Apple Intelligence"
         case .localMLX(let modelID):
-            LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID
+            LocalTextModelID(rawValue: modelID)?.compactDisplayName
+                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
+                ?? modelID
         case .cloud(let model):
             model.compactDisplayName
         }
@@ -3865,6 +3886,12 @@ final class InferenceState {
         )
     }
 
+    private var supportedAvailableGemmaQATRuntimeCandidates: [GemmaQATRuntimeCandidate] {
+        supportedGemmaQATRuntimeCandidates(
+            from: installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
+        )
+    }
+
     private var qwen3UnifiedPickerPairAvailable: Bool {
         supportedAvailableLocalTextModels.contains(.qwen3_4B4Bit)
             && supportedAvailableLocalTextModels.contains(.qwen3_4BThinking25074Bit)
@@ -3933,6 +3960,27 @@ final class InferenceState {
         return shippedModels.isEmpty ? supportedModels : shippedModels
     }
 
+    private func supportedGemmaQATRuntimeCandidates(
+        from ids: Set<String>
+    ) -> [GemmaQATRuntimeCandidate] {
+        guard availableLocalGenerationRuntimeKinds.contains(.gguf) else { return [] }
+        return ids
+            .compactMap(GemmaQATRuntimeLadder.candidate(forID:))
+            .filter { candidate in
+                guard candidate.isProductRouteIntegrationCandidate,
+                      let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
+                    return false
+                }
+                return hardwareCapabilitySnapshot.supports(descriptor: descriptor)
+            }
+            .sorted { lhs, rhs in
+                if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
+                    return lhs.id < rhs.id
+                }
+                return lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
+            }
+    }
+
     func setAvailableLocalGenerationRuntimeKinds(_ runtimeKinds: Set<BackendRuntimeKind>) {
         availableLocalGenerationRuntimeKinds = runtimeKinds.isEmpty ? [.mlx] : runtimeKinds
         sanitizeStoredLocalChatSelectionIfNeeded()
@@ -3940,9 +3988,10 @@ final class InferenceState {
 
     var releaseSelectableInstalledLocalTextModelIDs: [String] {
         var seen: Set<String> = []
-        return supportedAvailableLocalTextModels
+        return (supportedAvailableLocalTextModels
             .map(\.rawValue)
             .map(normalizedReleaseSelectableLocalTextModelID)
+            + supportedAvailableGemmaQATRuntimeCandidates.map(\.id))
             .filter { seen.insert($0).inserted }
     }
 
@@ -3983,7 +4032,13 @@ final class InferenceState {
            model == .qwen3_4B4Bit || model == .qwen3_4BThinking25074Bit {
             return "Qwen 3"
         }
-        return LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+        return localRouteDisplayName(for: modelID)
+    }
+
+    private func localRouteDisplayName(for modelID: String) -> String {
+        LocalTextModelID(rawValue: modelID)?.displayName
+            ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
+            ?? modelID
     }
 
     var effectiveLocalAgentTextModelID: String? {
@@ -4108,10 +4163,7 @@ final class InferenceState {
         case .appleIntelligence:
             return "Apple Intelligence"
         case .localMLX(let modelID):
-            if let resolved = LocalTextModelID(rawValue: modelID) {
-                return resolved.displayName
-            }
-            return modelID
+            return localRouteDisplayName(for: modelID)
         case .cloud(let model):
             return "\(runtimeProviderDisplayName(for: model.provider)) \(model.displayName)"
         }
@@ -4277,6 +4329,12 @@ final class InferenceState {
         return Array(providerNativeCapabilityToolNames(for: selection)).sorted()
     }
 
+    func providerNativeCapabilityToolNameList(
+        for selection: ChatModelSelection
+    ) -> [String] {
+        Array(providerNativeCapabilityToolNames(for: selection)).sorted()
+    }
+
     private func providerNativeCapabilityToolNames(
         for selection: ChatModelSelection
     ) -> Set<String> {
@@ -4406,10 +4464,7 @@ final class InferenceState {
         guard let modelID = activeLocalTextModelID else {
             return "Local Model"
         }
-        if let model = LocalTextModelID(rawValue: modelID) {
-            return model.displayName
-        }
-        return modelID
+        return localRouteDisplayName(for: modelID)
     }
 
     var activeChatModelDisplayName: String {
@@ -4436,7 +4491,7 @@ final class InferenceState {
                     ? "\(operatingMode.displayName) stays on Apple Intelligence until a cloud escalation is needed."
                     : "\(operatingMode.displayName) runs directly on Apple Intelligence."
             case .localMLX(let modelID):
-                let label = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+                let label = localRouteDisplayName(for: modelID)
                 return usesAutomaticCloudRouteForChatSurfaces
                     ? "\(operatingMode.displayName) stays local on \(label) unless the chat stack needs a cloud escalation."
                     : "\(operatingMode.displayName) runs directly on \(label)."
@@ -5113,7 +5168,9 @@ final class InferenceState {
     }
 
     func setPreferredLocalTextModelID(_ modelID: String) {
-        guard LocalTextModelID(rawValue: modelID) != nil else { return }
+        guard LocalTextModelID(rawValue: modelID) != nil
+            || GemmaQATRuntimeLadder.candidate(forID: modelID) != nil
+        else { return }
         let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
         preferredLocalTextModelID = persistedModelID
         UserDefaults.standard.set(
@@ -5392,6 +5449,9 @@ final class InferenceState {
 
     private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
         if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
+            return modelID
+        }
+        if supportedAvailableGemmaQATRuntimeCandidates.contains(where: { $0.id == modelID }) {
             return modelID
         }
         let recommendedModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue

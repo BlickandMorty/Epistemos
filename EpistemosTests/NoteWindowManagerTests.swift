@@ -695,9 +695,13 @@ struct NoteWindowManagerTests {
     func graphMiniPanelUsesCenteredSquareFrame() {
         let visible = NSRect(x: 80, y: 40, width: 1440, height: 900)
         let frame = GraphMiniPanelLayout.frame(in: visible)
+        let expectedSide = min(
+            GraphMiniPanelLayout.defaultSide,
+            min(visible.width, visible.height) - GraphMiniPanelLayout.screenPadding * 2
+        )
 
         #expect(frame.width == frame.height)
-        #expect(frame.width == GraphMiniPanelLayout.defaultSide)
+        #expect(frame.width == expectedSide)
         #expect(frame.midY == visible.midY)
         // Mini panel is pinned to the right edge of the screen.
         #expect(frame.maxX == visible.maxX - GraphMiniPanelLayout.screenPadding)
@@ -882,9 +886,9 @@ struct VaultSelectorSourceGuardTests {
         let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
         let selector = try loadMirroredSourceTextFile("Epistemos/Views/Sidebar/VaultSelectorView.swift")
 
-        #expect(sidebar.contains("VaultSelectorView("))
-        #expect(sidebar.contains("selectionEnabled: false"),
-                "The sidebar only passes the active vault today, so it must render read-only status instead of a dead selector.")
+        #expect(!sidebar.contains("VaultSelectorView("))
+        #expect(sidebar.contains("removed the W9.7 single-row VaultSelectorView"),
+                "The sidebar should not render a dead single-vault selector.")
         #expect(!sidebar.contains("No-op until the multi-vault data source lands"),
                 "Visible sidebar actions should not be justified by no-op comments.")
         #expect(selector.contains("let onSelect: ((Vault) -> Void)?"))

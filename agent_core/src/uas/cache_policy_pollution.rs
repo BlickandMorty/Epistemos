@@ -7,11 +7,21 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 
+use super::small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR;
 use crate::falsifier_artifacts::sha256_hex;
 use crate::uas::{ProStatus, ProductBuild};
 
 pub const CACHE_POLICY_POLLUTION_CURSOR: &str = "cache_policy_pollution";
 pub const CACHE_POLICY_POLLUTION_NEXT_CURSOR: &str = "cold_panic_fallback";
+
+pub fn cache_policy_pollution_or_advanced_cursor(cursor: &str) -> bool {
+    matches!(
+        cursor,
+        CACHE_POLICY_POLLUTION_CURSOR
+            | CACHE_POLICY_POLLUTION_NEXT_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+    )
+}
 
 const CACHE_POLICY_PREFIX: &str = "cache_policy:";
 const HOT_ROUTE_PREFIX: &str = "hot_route:";

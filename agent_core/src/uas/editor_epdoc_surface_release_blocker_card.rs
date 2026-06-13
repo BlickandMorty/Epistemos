@@ -9,8 +9,7 @@ pub const EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "editor_epdoc_surface_release_blocker_card";
 pub const EDITOR_EPDOC_SURFACE_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "ui_shell_source_guard_release_blocker_card";
-pub const EDITOR_EPDOC_SURFACE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/distribution_project_integrity_release_blocker_card/result.json#F-DistributionProjectIntegrity-ReleaseBlockerCard";
+pub const EDITOR_EPDOC_SURFACE_UPSTREAM_REF: &str = "artifact:falsifiers/distribution_project_integrity_release_blocker_card/result.json#F-DistributionProjectIntegrity-ReleaseBlockerCard";
 pub const EDITOR_EPDOC_SURFACE_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#editor_epdoc_surface";
 

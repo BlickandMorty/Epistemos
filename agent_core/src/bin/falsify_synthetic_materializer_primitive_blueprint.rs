@@ -9,8 +9,7 @@ use std::path::PathBuf;
 
 use agent_core::falsifier_artifacts::{
     add_bool_axis, add_count_eq_axis, add_u64_axis, current_commit_sha, now_utc_rfc3339,
-    write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier,
-    Measurement,
+    write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
 use agent_core::uas::{
     SyntheticMaterializerBlueprintError, SyntheticMaterializerPrimitiveBlueprint,
@@ -22,17 +21,14 @@ use agent_core::uas::{
 
 const FIXTURE_ID: &str = "synthetic_materializer_primitive_blueprint_v1";
 const COMMAND: &str = "Tools/falsifiers/f_synthetic_materializer_primitive_blueprint.sh";
-const RESULT: &str =
-    "artifacts/falsifiers/synthetic_materializer_primitive_blueprint/result.json";
+const RESULT: &str = "artifacts/falsifiers/synthetic_materializer_primitive_blueprint/result.json";
 const RED_FIXTURE_FLOOR: u64 = 18;
 
 fn main() -> std::process::ExitCode {
     let artifact = match build_artifact() {
         Ok(artifact) => artifact,
         Err(error) => {
-            eprintln!(
-                "failed to build {SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID}: {error}"
-            );
+            eprintln!("failed to build {SYNTHETIC_MATERIALIZER_PRIMITIVE_BLUEPRINT_ID}: {error}");
             return std::process::ExitCode::from(2);
         }
     };

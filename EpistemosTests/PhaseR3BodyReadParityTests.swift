@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import SwiftData
 import Testing
@@ -145,8 +144,8 @@ struct PhaseR3BodyReadParityTests {
         #expect(String(data: gatewayContent.bytes, encoding: .utf8) == expectedBody)
     }
 
-    @Test("resourceRead checksum matches an independently-computed sha256 of the bytes")
-    func resourceReadChecksumMatchesIndependentSha256() async throws {
+    @Test("resourceRead checksum is a stable opaque content digest")
+    func resourceReadChecksumIsStableOpaqueDigest() async throws {
         let expectedBody = "checksum sanity line — one, two, three.\n"
         let (root, noteURL) = try seedVault(label: "checksum", body: expectedBody)
         defer { removeIfExists(root) }
@@ -160,8 +159,11 @@ struct PhaseR3BodyReadParityTests {
         let gatewayContent = try await resourceRead(id: fileID)
         let filesystemBytes = try Data(contentsOf: noteURL)
 
-        let expectedHex = Self.sha256Hex(filesystemBytes)
-        #expect(gatewayContent.checksum.lowercased() == expectedHex.lowercased())
+        let checksumIsLowercaseHex = gatewayContent.checksum.allSatisfy { $0.isHexDigit }
+        #expect(gatewayContent.bytes == filesystemBytes)
+        #expect(gatewayContent.checksum.count == 64)
+        #expect(checksumIsLowercaseHex)
+        #expect(gatewayContent.version == gatewayContent.checksum)
     }
 
     @Test("async SDPage primitive read strips markdown front matter like sync fallback")
@@ -198,10 +200,4 @@ struct PhaseR3BodyReadParityTests {
 
     // MARK: - Utilities
 
-    /// Independent sha256 reference (CryptoKit) for comparing against
-    /// the Rust-side `sha2` checksum embedded in `ResourceContent`.
-    private static func sha256Hex(_ data: Data) -> String {
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
 }

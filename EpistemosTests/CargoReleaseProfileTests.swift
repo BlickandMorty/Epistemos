@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 import Testing
 
 /// Source-guard for the canonical Cargo release profile applied in
@@ -14,9 +15,9 @@ import Testing
 /// keep `panic = "unwind"` so the macros remain functional; the others
 /// MAY use `panic = "abort"` for the smallest dylib footprint.
 ///
-/// This test reads bundled `SourceMirror` files. The mirror is refreshed by
-/// the test target build phase, avoiding runtime access to repo paths that can
-/// block under the Xcode test host.
+    /// This test uses bounded helper processes for file reads. The Xcode hosted
+    /// app test runner can stall inside Foundation URL reads during this suite,
+    /// and the release-audit gate needs a fast fail instead of a wedged proof.
 @Suite("Cargo Release Profile (Wave 2.4)")
 struct CargoReleaseProfileTests {
     /// Crates whose FFI surface relies on `std::panic::catch_unwind`
@@ -42,8 +43,26 @@ struct CargoReleaseProfileTests {
         "substrate-core",
     ]
 
+    private static func sourceURL(for relativePath: String) throws -> URL {
+        let url = try sourceMirrorRootURL().appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw CocoaError(
+                .fileNoSuchFile,
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        return url
+    }
+
     private static func loadCargoToml(crate: String) throws -> String {
-        try loadMirroredSourceTextFile("\(crate)/Cargo.toml")
+        try loadTextFile(at: sourceURL(for: "\(crate)/Cargo.toml"))
+    }
+
+    private static func sourceDirectoryExists(_ relativeDirectory: String) throws -> Bool {
+        let srcURL = try sourceMirrorRootURL().appendingPathComponent(relativeDirectory)
+        var isDirectory = ObjCBool(false)
+        return FileManager.default.fileExists(atPath: srcURL.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
     }
 
     /// TOML comments routinely reference the *forbidden* alternative
@@ -152,8 +171,6 @@ struct CargoReleaseProfileTests {
     /// catches both raw and macro-wrapped sites.
     @Test("catch_unwind site audit matches the unwind/abort split")
     func catchUnwindAuditMatchesSplit() throws {
-        let fm = FileManager.default
-
         for crate in Self.unwindCrates {
             let found = try Self.scanForToken("catch_unwind", under: "\(crate)/src")
             #expect(
@@ -163,10 +180,9 @@ struct CargoReleaseProfileTests {
         }
 
         for crate in Self.abortCrates {
-            let srcURL = try sourceMirrorURL(for: "\(crate)/src")
             // abort crates may not have a src/ at all (they could be pure
             // re-exports); only enforce when the directory exists.
-            guard fm.fileExists(atPath: srcURL.path) else { continue }
+            guard try Self.sourceDirectoryExists("\(crate)/src") else { continue }
             let found = try Self.scanForToken("catch_unwind", under: "\(crate)/src")
             #expect(
                 !found,
@@ -179,45 +195,118 @@ struct CargoReleaseProfileTests {
         _ token: String,
         under relativeDirectory: String
     ) throws -> Bool {
-        let sourceFiles = try mirroredSourceFileURLs(
-            under: relativeDirectory,
-            includingExtensions: ["rs"]
-        )
-        for item in sourceFiles {
-            let text = try Self.releaseRelevantRustText(
-                String(contentsOf: item, encoding: .utf8)
-            )
-            if text.contains(token) { return true }
-        }
-        return false
+        let root = try sourceURL(for: relativeDirectory)
+        return try scanReleaseSourceForToken(root: root, token: token)
     }
 
-    private static func releaseRelevantRustText(_ text: String) -> String {
-        var output = text
-        while let cfgRange = output.range(of: "#[cfg(test)]"),
-              let moduleRange = output.range(of: "mod tests", range: cfgRange.upperBound..<output.endIndex),
-              let openBrace = output[moduleRange.upperBound...].firstIndex(of: "{"),
-              let closeBrace = Self.matchingBrace(in: output, openingAt: openBrace) {
-            output.removeSubrange(cfgRange.lowerBound...closeBrace)
+    private static func loadTextFile(at url: URL) throws -> String {
+        try runTool("/bin/cat", arguments: [url.path], timeoutSeconds: 5)
+    }
+
+    private static func scanReleaseSourceForToken(root: URL, token: String) throws -> Bool {
+        let script = """
+        import pathlib
+        import sys
+
+        root = pathlib.Path(sys.argv[1])
+        token = sys.argv[2]
+
+        def strip_test_modules(text):
+            while True:
+                cfg = text.find("#[cfg(test)]")
+                if cfg < 0:
+                    return text
+                module = text.find("mod tests", cfg)
+                if module < 0:
+                    return text
+                open_brace = text.find("{", module)
+                if open_brace < 0:
+                    return text
+                depth = 0
+                for index in range(open_brace, len(text)):
+                    character = text[index]
+                    if character == "{":
+                        depth += 1
+                    elif character == "}":
+                        depth -= 1
+                        if depth == 0:
+                            text = text[:cfg] + text[index + 1:]
+                            break
+                else:
+                    return text
+
+        for path in sorted(root.rglob("*.rs")):
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            if token in strip_test_modules(text):
+                print("1")
+                sys.exit(0)
+        print("0")
+        """
+        let output = try runTool(
+            "/usr/bin/python3",
+            arguments: ["-c", script, root.path, token],
+            timeoutSeconds: 10
+        )
+        return output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
+    }
+
+    private static func runTool(
+        _ executablePath: String,
+        arguments: [String],
+        timeoutSeconds: TimeInterval
+    ) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            semaphore.signal()
         }
+
+        try process.run()
+
+        guard semaphore.wait(timeout: .now() + timeoutSeconds) == .success else {
+            process.terminate()
+            throw ToolFailure.timedOut(executablePath, arguments)
+        }
+
+        let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: stdoutData, encoding: .utf8) ?? ""
+        let error = String(data: stderrData, encoding: .utf8) ?? ""
+
+        guard process.terminationStatus == 0 else {
+            throw ToolFailure.failed(
+                executablePath,
+                arguments,
+                process.terminationStatus,
+                error.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+
         return output
     }
 
-    private static func matchingBrace(in text: String, openingAt openBrace: String.Index) -> String.Index? {
-        var depth = 0
-        var index = openBrace
-        while index < text.endIndex {
-            let character = text[index]
-            if character == "{" {
-                depth += 1
-            } else if character == "}" {
-                depth -= 1
-                if depth == 0 {
-                    return index
-                }
+    private enum ToolFailure: Error, CustomStringConvertible {
+        case timedOut(String, [String])
+        case failed(String, [String], Int32, String)
+
+        var description: String {
+            switch self {
+            case let .timedOut(executable, arguments):
+                return "\(executable) timed out with arguments \(arguments)"
+            case let .failed(executable, arguments, status, stderr):
+                return "\(executable) failed with status \(status), arguments \(arguments), stderr: \(stderr)"
             }
-            index = text.index(after: index)
         }
-        return nil
     }
 }

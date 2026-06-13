@@ -1043,8 +1043,7 @@ fn is_lower_hex_sha(value: &str) -> bool {
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/hardware_tiered_model_catalog_source_card/result.json#F-HardwareTieredModelCatalog-SourceCard";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/hardware_tiered_model_catalog_source_card/result.json#F-HardwareTieredModelCatalog-SourceCard";
     const CREATED_AT_MS: u64 = 1_779_230_000_000;
 
     fn build_ledger(

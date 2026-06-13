@@ -20,8 +20,7 @@ pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_CUR
     "gemma_direct_harness_owner_approved_first_token_digest_review_gate";
 pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate";
-pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate/result.json#F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate";
+pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_FIRST_TOKEN_DIGEST_REVIEW_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate/result.json#F-GemmaDirectHarnessOwnerApprovedRedactedDryRunReceiptGate";
 
 const UPSTREAM_REDACTED_RECEIPT_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_owner_approved_redacted_dry_run_receipt_gate/";

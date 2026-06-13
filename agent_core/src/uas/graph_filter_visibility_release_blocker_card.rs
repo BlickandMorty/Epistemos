@@ -9,10 +9,8 @@ pub const GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "graph_filter_visibility_release_blocker_card";
 pub const GRAPH_FILTER_VISIBILITY_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "research_tool_catalog_no_hidden_authority";
-pub const GRAPH_FILTER_VISIBILITY_UPSTREAM_REF: &str =
-    "artifact:falsifiers/visible_output_sanitization_release_blocker_card/result.json#F-VisibleOutputSanitization-ReleaseBlockerCard";
-pub const GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#graph_filter_visibility";
+pub const GRAPH_FILTER_VISIBILITY_UPSTREAM_REF: &str = "artifact:falsifiers/visible_output_sanitization_release_blocker_card/result.json#F-VisibleOutputSanitization-ReleaseBlockerCard";
+pub const GRAPH_FILTER_VISIBILITY_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#graph_filter_visibility";
 
 const REQUIRED_SOURCE_REFS: [&str; 9] = [
     "Epistemos/Graph/FilterEngine.swift",

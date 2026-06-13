@@ -9,8 +9,7 @@ pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_CURSOR: &str =
     "graph_filter_visibility_test_products_command_spec";
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
-pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_focused_identifier_proof/result.json#F-GraphFilterVisibilityFocusedIdentifierProof";
+pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_REF: &str = "artifact:falsifiers/graph_filter_visibility_focused_identifier_proof/result.json#F-GraphFilterVisibilityFocusedIdentifierProof";
 pub const GRAPH_FILTER_VISIBILITY_TEST_PRODUCTS_COMMAND_SPEC_UPSTREAM_NEXT_CURSOR: &str =
     "graph_filter_visibility_test_products_command_spec";
 

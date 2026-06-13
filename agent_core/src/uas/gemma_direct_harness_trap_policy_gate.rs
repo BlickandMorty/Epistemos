@@ -14,19 +14,16 @@ use crate::uas::{
     GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_ID,
 };
 
-pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID: &str =
-    "F-GemmaDirectHarnessTrapPolicyGate";
+pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_ID: &str = "F-GemmaDirectHarnessTrapPolicyGate";
 pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_CURSOR: &str =
     "gemma_direct_harness_trap_policy_gate";
 pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_first_runtime_proof_receipt_gate";
-pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json#F-GemmaDirectHarnessFirstRuntimeProofCommandCard";
+pub const GEMMA_DIRECT_HARNESS_TRAP_POLICY_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/result.json#F-GemmaDirectHarnessFirstRuntimeProofCommandCard";
 
 const UPSTREAM_COMMAND_CARD_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_first_runtime_proof_command_card/";
-const ARTIFACT_ROOT_PREFIX: &str =
-    "artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/";
+const ARTIFACT_ROOT_PREFIX: &str = "artifacts/falsifiers/gemma_direct_harness_trap_policy_gate/";
 const POLICY_ID: &str = "gemma-direct-harness-trap-policy-v1";
 const RUNTIME_LANE: &str = "gemma-direct-harness-llama-cpp-gguf-pro-gated";
 const MAX_METADATA_BYTES: u64 = 384 * 1024;
@@ -290,7 +287,11 @@ impl GemmaDirectHarnessTrapPolicyGate {
         {
             return Err(GemmaDirectHarnessTrapPolicyGateError::BadUpstreamRef);
         }
-        validate_exact("artifact_root_prefix", &self.artifact_root_prefix, ARTIFACT_ROOT_PREFIX)?;
+        validate_exact(
+            "artifact_root_prefix",
+            &self.artifact_root_prefix,
+            ARTIFACT_ROOT_PREFIX,
+        )?;
         validate_exact("policy_id", &self.policy_id, POLICY_ID)?;
         validate_exact("runtime_lane", &self.runtime_lane, RUNTIME_LANE)?;
         validate_unique_exact_set(
@@ -544,16 +545,12 @@ fn validate_unique_exact_set(
     expected: &[&str],
 ) -> Result<(), GemmaDirectHarnessTrapPolicyGateError> {
     if actual.len() != expected.len() {
-        return Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
-            field_name,
-        ));
+        return Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(field_name));
     }
     let actual_set: BTreeSet<&str> = actual.iter().map(String::as_str).collect();
     let expected_set: BTreeSet<&str> = expected.iter().copied().collect();
     if actual_set.len() != actual.len() || actual_set != expected_set {
-        return Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
-            field_name,
-        ));
+        return Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(field_name));
     }
     Ok(())
 }
@@ -604,18 +601,22 @@ mod tests {
         gate.denied_runtime_shapes[0] = gate.denied_runtime_shapes[1].clone();
         assert!(matches!(
             gate.validate(),
-            Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
-                "denied_runtime_shapes"
-            ))
+            Err(
+                GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
+                    "denied_runtime_shapes"
+                )
+            )
         ));
 
         let mut gate = GemmaDirectHarnessTrapPolicyGate::canonical();
         gate.allowed_runtime_shapes[0] = gate.allowed_runtime_shapes[1].clone();
         assert!(matches!(
             gate.validate(),
-            Err(GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
-                "allowed_runtime_shapes"
-            ))
+            Err(
+                GemmaDirectHarnessTrapPolicyGateError::DuplicateOrMissingField(
+                    "allowed_runtime_shapes"
+                )
+            )
         ));
     }
 

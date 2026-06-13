@@ -26,8 +26,7 @@ pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_RUNTIME_ROUTER_ADMISSION_PACKET_GA
 
 const UPSTREAM_QUALITY_PACKET_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate/";
-const ARTIFACT_ROOT_PREFIX: &str =
-    "artifacts/falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/";
+const ARTIFACT_ROOT_PREFIX: &str = "artifacts/falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/";
 const ADMISSION_CARD_ID: &str =
     "gemma-direct-harness-owner-approved-runtime-router-admission-packet-gate-v1";
 const FUTURE_ADMISSION_PACKET_NAME: &str =

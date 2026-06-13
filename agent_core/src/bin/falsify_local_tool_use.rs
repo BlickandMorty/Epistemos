@@ -10,8 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use agent_core::falsifier_artifacts::{
-    add_bool_axis, current_commit_sha, now_utc_rfc3339, write_artifact,
-    AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
+    add_bool_axis, current_commit_sha, now_utc_rfc3339, write_artifact, AcceptanceThreshold,
+    ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
 
 const FALSIFIER_ID: &str = "F-LocalToolUse";
@@ -84,9 +84,16 @@ fn build_report() -> agent_core::falsifier_artifacts::FalsifierArtifact {
         &mut thresholds,
         &mut pass_per_axis,
         "source_files_present",
-        [&inference, &grammar, &router, &runtime_tests, &swift_falsifier, &policy_guard]
-            .iter()
-            .all(|source| source.exists),
+        [
+            &inference,
+            &grammar,
+            &router,
+            &runtime_tests,
+            &swift_falsifier,
+            &policy_guard,
+        ]
+        .iter()
+        .all(|source| source.exists),
     );
     add_count_axis(
         &mut measurements,
@@ -126,7 +133,8 @@ fn build_report() -> agent_core::falsifier_artifacts::FalsifierArtifact {
         &mut pass_per_axis,
         "swift_flocaltooluse_checks_native_grammar",
         swift_falsifier.contains("LocalToolGrammar.nativeGrammar(forModelID: model.rawValue)")
-            && swift_falsifier.contains("capability.grammarSupport.contains(nativeGrammar.rawValue)")
+            && swift_falsifier
+                .contains("capability.grammarSupport.contains(nativeGrammar.rawValue)")
             && swift_falsifier.contains("capability.toolCallMode == .softGuidance"),
     );
     add_bool_axis(
@@ -158,7 +166,8 @@ fn build_report() -> agent_core::falsifier_artifacts::FalsifierArtifact {
         &mut pass_per_axis,
         "mlx_lane_supports_agent_tool_grammars",
         router.contains("case .mlx")
-            && router.contains("grammarSupport: [\"qwen_xml\", \"hermes_json\", \"canonical_xml\"]")
+            && router
+                .contains("grammarSupport: [\"qwen_xml\", \"hermes_json\", \"canonical_xml\"]")
             && router.contains("toolCallMode: .native"),
     );
     add_bool_axis(
@@ -206,7 +215,11 @@ fn build_report() -> agent_core::falsifier_artifacts::FalsifierArtifact {
     add_source_summary(&mut measurements, "local_tool_grammar", &grammar);
     add_source_summary(&mut measurements, "runtime_router", &router);
     add_source_summary(&mut measurements, "runtime_router_tests", &runtime_tests);
-    add_source_summary(&mut measurements, "f_local_tool_use_tests", &swift_falsifier);
+    add_source_summary(
+        &mut measurements,
+        "f_local_tool_use_tests",
+        &swift_falsifier,
+    );
     add_source_summary(&mut measurements, "policy_order_guard", &policy_guard);
 
     let overall = pass_per_axis.values().copied().all(|passed| passed);
@@ -264,8 +277,11 @@ impl SourceFile {
 }
 
 fn agent_capable_models(source: &str) -> BTreeSet<String> {
-    let Some(section) = section_between(source, "var canActAsAgent: Bool", "var canRunLocalAgentLoop")
-    else {
+    let Some(section) = section_between(
+        source,
+        "var canActAsAgent: Bool",
+        "var canRunLocalAgentLoop",
+    ) else {
         return BTreeSet::new();
     };
     let Some(switch_start) = section.find("switch self") else {
@@ -273,7 +289,9 @@ fn agent_capable_models(source: &str) -> BTreeSet<String> {
     };
     let mut true_branch = String::new();
     for line in section[switch_start..].lines() {
-        let source_line = line.split_once("//").map_or(line, |(before_comment, _)| before_comment);
+        let source_line = line
+            .split_once("//")
+            .map_or(line, |(before_comment, _)| before_comment);
         if source_line.trim_start().starts_with("true") {
             break;
         }

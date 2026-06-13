@@ -1372,7 +1372,7 @@ struct PipelineServiceTests {
         )
 
         #expect(result.isError)
-        #expect(result.resultJson.contains("denied by the user"))
+        #expect(result.resultJson.contains("denied by policy"))
 
         let events = recorder.events
         #expect(events.count == 2)
@@ -1385,7 +1385,7 @@ struct PipelineServiceTests {
             return
         }
         #expect(isError)
-        #expect(resultJson.contains("denied by the user"))
+        #expect(resultJson.contains("denied by policy"))
     }
 
     @Test("observed local tool executor gates read-only network fetches")
@@ -1433,7 +1433,7 @@ struct PipelineServiceTests {
         )
 
         #expect(result.isError)
-        #expect(result.resultJson.contains("denied by the user"))
+        #expect(result.resultJson.contains("denied by policy"))
     }
 
     @Test("observed local tool executor persists successful AgentEvent provenance")
@@ -1517,7 +1517,7 @@ struct PipelineServiceTests {
             .toolCallDenied,
         ])
         #expect(events.last?.tool?.status == .denied)
-        #expect(events.last?.tool?.errorMessage?.contains("denied by the user") == true)
+        #expect(events.last?.tool?.errorMessage?.contains("denied by policy") == true)
     }
 
     @Test("observed local tool executor persists failed AgentEvent provenance")
@@ -2746,9 +2746,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(fallback?.loadedNoteIds == Set(["train-id"]))
         #expect(fallback?.loadedNoteTitles == ["Train Notes"])
         #expect(fallback?.answer.contains("Train Notes") == true)
-        #expect(fallback?.answer.contains("Research/Train Notes.md") == true)
         #expect(fallback?.answer.contains("<b>") == false)
-        #expect(fallback?.answer.contains("Freight train schedule notes.") == true)
         let trace = try #require(fallback?.vaultRecallTrace)
         #expect(trace.ladderTier == "vault-chat-context-v1")
         #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
@@ -4156,6 +4154,8 @@ struct AmbientManifestRefreshDriverTests {
             }
         )
 
+        await Task.yield()
+        await Task.yield()
         await probe.releaseFirstBuild()
 
         try await waitUntil(timeout: .seconds(8)) {

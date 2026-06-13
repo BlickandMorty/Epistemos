@@ -24,8 +24,7 @@ pub const GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_CURSOR: &str =
     "gemma_qat_e2b_settings_diagnostics_wrv_gate";
 pub const GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_release_audit_surface_gate";
-pub const GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_route_answer_packet_visibility_gate/result.json#F-GemmaQATE2BRouteAnswerPacketVisibilityGate";
+pub const GEMMA_QAT_E2B_SETTINGS_DIAGNOSTICS_WRV_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_route_answer_packet_visibility_gate/result.json#F-GemmaQATE2BRouteAnswerPacketVisibilityGate";
 
 const UPSTREAM_ROUTE_ANSWER_PACKET_VISIBILITY_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_route_answer_packet_visibility_gate/";

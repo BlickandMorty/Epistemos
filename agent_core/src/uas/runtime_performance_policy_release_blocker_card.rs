@@ -9,10 +9,8 @@ pub const RUNTIME_PERFORMANCE_POLICY_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "runtime_performance_policy_release_blocker_card";
 pub const RUNTIME_PERFORMANCE_POLICY_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "body_read_checksum_release_blocker_card";
-pub const RUNTIME_PERFORMANCE_POLICY_UPSTREAM_REF: &str =
-    "artifact:falsifiers/ui_shell_source_guard_release_blocker_card/result.json#F-UiShellSourceGuard-ReleaseBlockerCard";
-pub const RUNTIME_PERFORMANCE_POLICY_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#runtime_performance_policy";
+pub const RUNTIME_PERFORMANCE_POLICY_UPSTREAM_REF: &str = "artifact:falsifiers/ui_shell_source_guard_release_blocker_card/result.json#F-UiShellSourceGuard-ReleaseBlockerCard";
+pub const RUNTIME_PERFORMANCE_POLICY_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#runtime_performance_policy";
 
 const REQUIRED_SOURCE_REFS: [&str; 15] = [
     "Epistemos/Engine/BackendRuntimeContract.swift",

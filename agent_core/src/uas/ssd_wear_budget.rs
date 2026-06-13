@@ -985,8 +985,12 @@ mod tests {
             1_000,
             11_200,
             30_000,
-            format!("SSD wear, energy, and cache impact are visible in AnswerPacket; fallback remains visible and rollback: {suffix} is bound."),
-            format!("AnswerPacket shows SSD wear budget for {read} read bytes and {write} write bytes with energy and cache caveats before cold transport affects output."),
+            format!(
+                "SSD wear, energy, and cache impact are visible in AnswerPacket; fallback remains visible and rollback: {suffix} is bound."
+            ),
+            format!(
+                "AnswerPacket shows SSD wear budget for {read} read bytes and {write} write bytes with energy and cache caveats before cold transport affects output."
+            ),
             true,
             false,
             false,

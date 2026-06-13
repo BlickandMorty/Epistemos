@@ -206,8 +206,16 @@ impl SyntheticMaterializerPrimitiveBlueprint {
         self.inventory_plan.validate()?;
         self.byte_ledger.validate()?;
         validate_exact("rollback_ref", &self.rollback_ref, ROLLBACK_REF)?;
-        validate_exact("run_event_log_ref", &self.run_event_log_ref, RUN_EVENT_LOG_REF)?;
-        validate_exact("answer_packet_ref", &self.answer_packet_ref, ANSWER_PACKET_REF)?;
+        validate_exact(
+            "run_event_log_ref",
+            &self.run_event_log_ref,
+            RUN_EVENT_LOG_REF,
+        )?;
+        validate_exact(
+            "answer_packet_ref",
+            &self.answer_packet_ref,
+            ANSWER_PACKET_REF,
+        )?;
         if self.status != SyntheticMaterializerStatus::BlueprintOnly {
             return Err(SyntheticMaterializerBlueprintError::WrongStatus);
         }
@@ -218,7 +226,11 @@ impl SyntheticMaterializerPrimitiveBlueprint {
 impl SyntheticMaterializerPathPolicy {
     pub fn validate(&self) -> Result<(), SyntheticMaterializerBlueprintError> {
         validate_exact("fixture_root", &self.fixture_root, FIXTURE_ROOT)?;
-        validate_exact("staging_root_prefix", &self.staging_root_prefix, STAGING_ROOT)?;
+        validate_exact(
+            "staging_root_prefix",
+            &self.staging_root_prefix,
+            STAGING_ROOT,
+        )?;
         if self.fixture_root.starts_with('/')
             || self.staging_root_prefix.starts_with('/')
             || self.fixture_root.contains("..")

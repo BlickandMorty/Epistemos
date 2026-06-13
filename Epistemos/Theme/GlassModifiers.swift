@@ -692,8 +692,9 @@ struct AssistantComposerChrome: ViewModifier {
 
         content
             .background {
+                let surfaceTint = theme.isDark ? theme.card : (lightModeSurfaceTint ?? theme.card)
                 ZStack {
-                    shape.fill(theme.card.opacity(theme.isDark ? 0.60 : 0.74))
+                    shape.fill(surfaceTint.opacity(theme.isDark ? 0.60 : 0.74))
                     shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.030 : 0.018))
                 }
             }

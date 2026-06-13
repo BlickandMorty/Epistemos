@@ -564,7 +564,7 @@ enum GraphStartupViewMode: String, Codable, CaseIterable, Identifiable {
 /// `.miniPanel` — the existing floating panel (HologramController.shared.toggle())
 /// `.embedded`  — inline inside the home/landing window, replaces the greeting
 ///                with full graph chrome (canvas + workspace routes + sidebar
-///                + inspector + floating controls), background = theme.background
+///                + inspector + floating controls), background = resolved background
 ///                (no NSVisualEffectView blur). UI lives in
 ///                `Epistemos/Views/Home/HomeGraphEmbeddedView.swift`.
 ///

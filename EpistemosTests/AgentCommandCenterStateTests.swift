@@ -102,6 +102,23 @@ struct AgentCommandCenterStateTests {
         #expect(enabled == Set(["a", "c"]))
     }
 
+    @Test func disabledToolNamesCanonicalizeAgainstCurrentCatalog() {
+        let state = AgentCommandCenterState()
+        state.availableTools = [
+            Self.makeTool(name: "web_search"),
+            Self.makeTool(name: "vault.write"),
+            Self.makeTool(name: "read_file"),
+        ]
+        state.toolToggles = [
+            "web_search": true,
+            "vault.write": false,
+            "read_file": true,
+        ]
+
+        #expect(state.disabledToolNames == ["vault.write"])
+        #expect(state.disabledToolNames(for: ["web.search", "file.read"]) == ["vault.write"])
+    }
+
     @Test func defaultsToStandardPresentationAndProMode() {
         // Use an ephemeral UserDefaults to isolate this test from any
         // persisted activeSpecialistPreset left over from parallel or
@@ -277,7 +294,7 @@ struct AgentCommandCenterStateTests {
         #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault.search"])
     }
 
-    @Test func changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() {
+    @Test func changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() async throws {
         let fastTools = [
             Self.makeTool(name: "vault.search"),
             Self.makeTool(name: "web.search"),
@@ -308,6 +325,7 @@ struct AgentCommandCenterStateTests {
         state.toggleTool("vault.search")
 
         state.selectedOperatingMode = .agent
+        try await Task.sleep(for: .milliseconds(10))
 
         #expect(state.availableTools.map(\.name) == ["vault.search", "send_message"])
         #expect(state.toolToggles["vault.search"] == false)

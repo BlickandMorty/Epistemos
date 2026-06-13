@@ -28,17 +28,17 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "cdb0ba4ccaf41e67778cf3fe2f768a4c99ac4276",
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
   "fixture_id": "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_v1",
-  "timestamp_utc": "2026-06-08T08:46:09Z",
-  "result_digest": "sha256:677a9434e28de2ce6ddf8f7d596b9fbe2928546d9efdbbc801cf6f8d46442b7a",
+  "timestamp_utc": "2026-06-11T08:53:31Z",
+  "result_digest": "sha256:7cceba92a01f30f336c4a6a41aed55fb91484e4c86ad727cf1739fc3ba9de849",
   "measurements": {
     "all_check_logs_bound": {
       "value": true,
       "unit": "bool"
     },
     "all_required_automated_checks_passed": {
-      "value": false,
+      "value": true,
       "unit": "bool"
     },
     "all_required_automated_checks_present": {
@@ -121,7 +121,7 @@
       "unit": "count"
     },
     "check_log_bytes": {
-      "value": 7297056,
+      "value": 12802563,
       "unit": "bytes"
     },
     "command_log_digests_present": {
@@ -145,7 +145,7 @@
       "unit": "bool"
     },
     "failed_check_count": {
-      "value": 1,
+      "value": 0,
       "unit": "count"
     },
     "failed_check_rejected": {
@@ -154,21 +154,18 @@
     },
     "focused_repair_commands": {
       "value": [
-        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/FilterEngineComprehensiveTests test",
-        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ResourceExhaustionTests test",
-        "xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ConcurrencyEdgeCaseTests test"
+        "Use the retained xcodebuild_test_failure_exemplars to choose the smallest -only-testing target before the full release-audit marathon."
       ],
       "unit": "commands"
     },
     "focused_repair_family": {
-      "value": "graph_filter_visibility",
+      "value": "none",
       "unit": "family"
     },
     "focused_repair_notes": {
       "value": [
-        "Run focused tests before the full release-audit marathon.",
-        "Preserve the FFI 14-case GraphNodeType contract while checking visible/app-level cases.",
-        "Do not mark L2/L3 green from focused family tests; rerun the automated-check gate first."
+        "Fallback repair plan only; add a typed family mapping before claiming family-scoped repair coverage.",
+        "No L2/L3 promotion is authorized from this plan."
       ],
       "unit": "notes"
     },
@@ -182,17 +179,13 @@
     },
     "focused_repair_source_refs": {
       "value": [
-        "Epistemos/Graph/FilterEngine.swift",
-        "Epistemos/Models/GraphTypes.swift",
-        "Epistemos/Graph/GraphState.swift"
+        "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/xcodebuild_test.log"
       ],
       "unit": "paths"
     },
     "focused_repair_test_refs": {
       "value": [
-        "EpistemosTests/FilterEngineComprehensiveTests.swift",
-        "EpistemosTests/ResourceExhaustionTests.swift",
-        "EpistemosTests/ConcurrencyEdgeCaseTests.swift"
+        "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/checks.tsv"
       ],
       "unit": "paths"
     },
@@ -261,7 +254,7 @@
       "unit": "bool"
     },
     "metadata_bytes": {
-      "value": 26344,
+      "value": 26343,
       "unit": "bytes"
     },
     "missing_log_rejected": {
@@ -397,7 +390,7 @@
       "unit": "bool"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address": {
-      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "value": "sha256:e79bfba4d1c2305528385210e5973a8e737ffb99ae72e3c8a931eaa292492a83",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic": {
@@ -405,7 +398,7 @@
       "unit": "bool"
     },
     "top_xcodebuild_test_failure_family": {
-      "value": "graph_filter_visibility",
+      "value": "",
       "unit": "family"
     },
     "upstream_l3_release_audit_zero_fail_probe_pass": {
@@ -417,52 +410,23 @@
       "unit": "bool"
     },
     "xcodebuild_test_failure_exemplars": {
-      "value": [
-        "✘ Test \"Tool dispatch consults stored authority before executor resolution\" recorded an issue at AgentAuthorityPersistenceTests.swift:220:26: Expectation failed: (source → \"private func runCommandCenterLocalAgentPath(",
-        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:312:9: Expectation failed: (state.availableTools.map(\\.name) → [\"vault.search\", \"web.search\"]) == [\"vault....",
-        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:314:9: Expectation failed: (state.toolToggles[\"send_message\"] → nil) == true",
-        "✘ Test changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() recorded an issue at AgentCommandCenterStateTests.swift:315:9: Expectation failed: (state.toolToggles[\"web.search\"] → true) == nil",
-        "✘ Test applyingCodeSpecialistPrefersNextBestLocalBrainAndFocusedToolBundle() recorded an issue at AgentCommandCenterStateTests.swift:409:9: Expectation failed: (state.enabledToolNames → [\"file.read\", \"vault.search\"]) == (Set([",
-        "✘ Test \"App Store agent command modes do not advertise Pro subprocess tools\" recorded an issue at AppStoreHardeningTests.swift:484:13: Expectation failed: (proBranch → \"",
-        "✘ Test \"App Store agent command modes do not advertise Pro subprocess tools\" recorded an issue at AppStoreHardeningTests.swift:484:13: Expectation failed: (proBranch → \"",
-        "✘ Test \"Settings mounts shared arena diagnostics without v2 authority copy\" recorded an issue at ArenaTests.swift:158:9: Expectation failed: (settings → \"import AppKit",
-        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:207:9: Expectation failed: (appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:208:9: Expectation failed: (appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:209:9: Expectation failed: !((appStore → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-        "✘ Test \"App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail\" recorded an issue at ArenaTests.swift:211:9: Expectation failed: !((direct → \"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      ],
+      "value": [],
       "unit": "log-lines"
     },
     "xcodebuild_test_failure_families": {
-      "value": {
-        "agent_route_policy": 21,
-        "body_read_checksum": 1,
-        "distribution_project_integrity": 18,
-        "editor_epdoc_surface": 14,
-        "graph_filter_visibility": 34,
-        "model_vault_catalog": 9,
-        "research_tool_catalog": 16,
-        "runtime_performance_policy": 3,
-        "search_index": 1,
-        "source_guard_drift": 3,
-        "theme_presentation": 19,
-        "tool_execution_surface": 2,
-        "ui_shell_source_guard": 14,
-        "visible_output_sanitization": 5,
-        "xpc_trust_configuration": 1
-      },
+      "value": {},
       "unit": "families"
     },
     "xcodebuild_test_issue_count": {
-      "value": 161,
+      "value": 0,
       "unit": "issues"
     },
     "xcodebuild_test_passed": {
-      "value": false,
+      "value": true,
       "unit": "bool"
     },
     "xcodebuild_test_unique_failure_count": {
-      "value": 84,
+      "value": 0,
       "unit": "tests"
     },
     "zero_fail_pass_count": {
@@ -910,7 +874,7 @@
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address": {
       "operator": "==",
-      "value": "sha256:aff80562ed42a10848eee774d3e0775d3d934c5c779779e2e4d9e7bcf726e9e6",
+      "value": "sha256:e79bfba4d1c2305528385210e5973a8e737ffb99ae72e3c8a931eaa292492a83",
       "unit": "sha256"
     },
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_address_deterministic": {
@@ -920,7 +884,7 @@
     },
     "top_xcodebuild_test_failure_family": {
       "operator": "==",
-      "value": "graph_filter_visibility",
+      "value": "",
       "unit": "family"
     },
     "upstream_l3_release_audit_zero_fail_probe_pass": {
@@ -945,7 +909,7 @@
     },
     "xcodebuild_test_issue_count": {
       "operator": ">=",
-      "value": 1,
+      "value": 0,
       "unit": "issues"
     },
     "xcodebuild_test_passed": {
@@ -955,7 +919,7 @@
     },
     "xcodebuild_test_unique_failure_count": {
       "operator": ">=",
-      "value": 1,
+      "value": 0,
       "unit": "tests"
     },
     "zero_fail_pass_count": {
@@ -976,7 +940,7 @@
   },
   "pass_per_axis": {
     "all_check_logs_bound": true,
-    "all_required_automated_checks_passed": false,
+    "all_required_automated_checks_passed": true,
     "all_required_automated_checks_present": true,
     "autogenous_kernel_rejected": true,
     "autogenous_kernel_still_research": true,
@@ -998,7 +962,7 @@
     "distribution_compliance_not_claimed": true,
     "duplicate_blocker_rejected": true,
     "duplicate_check_rejected": true,
-    "failed_check_count": false,
+    "failed_check_count": true,
     "failed_check_rejected": true,
     "focused_repair_commands": true,
     "focused_repair_family": true,
@@ -1065,19 +1029,19 @@
     "xcodebuild_test_failure_exemplars": true,
     "xcodebuild_test_failure_families": true,
     "xcodebuild_test_issue_count": true,
-    "xcodebuild_test_passed": false,
+    "xcodebuild_test_passed": true,
     "xcodebuild_test_unique_failure_count": true,
     "zero_fail_pass_count": true,
     "zero_fail_pass_count_overclaim_rejected": true,
     "zero_fail_pass_count_zero": true
   },
-  "overall_pass": false,
+  "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [
     {
-      "kind": "small_model_fresh_product_runtime_l3_release_audit_automated_checks_failed",
-      "detail": "Required automated build/test command logs are bound, but at least one automated check failed. The artifact is retained as red evidence; the architecture cursor must not advance and no ship call or product capability promotion is authorized."
+      "kind": "small_model_fresh_product_runtime_l3_release_audit_automated_checks_passed_not_ready",
+      "detail": "Required automated build/test commands passed and logs are bound, but this advances L1/L3 check evidence only. Runtime log evidence, manual runtime review, distribution/compliance review, and three uninterrupted zero-fail passes remain blockers; no ship call or L2 product capability promotion is authorized."
     }
   ],
-  "notes": "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe: records a red automated-check ledger with bound logs, preserves red L2/L3 release blockers, opens zero model/runtime bytes, and keeps the guard cursor on automated-check repair."
+  "notes": "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe: binds required xcodebuild/cargo automated-check logs, preserves red L2/L3 release blockers, opens zero model/runtime bytes, and advances only to distribution/compliance review plus three uninterrupted zero-fail release passes."
 }

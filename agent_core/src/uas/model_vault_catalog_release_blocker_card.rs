@@ -9,8 +9,7 @@ pub const MODEL_VAULT_CATALOG_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "model_vault_catalog_release_blocker_card";
 pub const MODEL_VAULT_CATALOG_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "agent_route_policy_large_model_no_hidden_authority";
-pub const MODEL_VAULT_CATALOG_UPSTREAM_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard";
+pub const MODEL_VAULT_CATALOG_UPSTREAM_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#F-ReleaseAuditFailureFamily-SourceCard";
 
 const REQUIRED_SOURCE_REFS: [&str; 8] = [
     "Epistemos/State/InferenceState.swift",

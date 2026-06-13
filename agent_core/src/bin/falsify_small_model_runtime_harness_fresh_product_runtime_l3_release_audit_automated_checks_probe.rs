@@ -17,6 +17,7 @@ use agent_core::falsifier_artifacts::{
     Measurement,
 };
 use agent_core::uas::{
+    fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor,
     fresh_product_runtime_l3_release_audit_automated_checks_metadata_budget_bytes,
     fresh_product_runtime_l3_release_audit_automated_checks_skill_path,
     required_fresh_product_runtime_l3_release_audit_automated_check_blockers,
@@ -27,7 +28,6 @@ use agent_core::uas::{
     SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksError,
     SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksWitness,
     SmallModelProductRouteCapabilityBlocker,
-    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR,
 };
 
@@ -154,10 +154,9 @@ fn build_artifact() -> Result<
         ("upstream_l3_release_audit_zero_fail_probe_pass", evidence.zero_fail_pass),
         (
             "guard_cursor_l3_release_audit_automated_checks_or_advanced",
-            evidence.guard_next_existing_work
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR
-                || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR,
+            fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor(
+                &evidence.guard_next_existing_work,
+            ),
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -166,10 +165,9 @@ fn build_artifact() -> Result<
         ),
         (
             "capability_next_bottleneck_l3_release_audit_automated_checks_or_advanced",
-            evidence.capability_next_bottleneck
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR
-                || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR,
+            fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor(
+                &evidence.capability_next_bottleneck,
+            ),
         ),
         (
             "product_status_gated",
@@ -586,7 +584,10 @@ fn build_artifact() -> Result<
         &mut thresholds,
         &mut pass_per_axis,
         "focused_repair_plan_matches_top_family",
-        evidence.focused_repair_plan.family == evidence.xcodebuild_test_failures.top_family,
+        focused_repair_plan_matches_top_family(
+            &evidence.focused_repair_plan.family,
+            &evidence.xcodebuild_test_failures.top_family,
+        ),
     );
     measurements.insert(
         "focused_repair_family".to_string(),
@@ -706,7 +707,7 @@ fn build_artifact() -> Result<
         (
             "small_model_fresh_product_runtime_l3_release_audit_automated_checks_passed_not_ready",
             "Required automated build/test commands passed and logs are bound, but this advances L1/L3 check evidence only. Runtime log evidence, manual runtime review, distribution/compliance review, and three uninterrupted zero-fail passes remain blockers; no ship call or L2 product capability promotion is authorized.",
-            "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe: binds required xcodebuild/cargo automated-check logs, preserves red L2/L3 release blockers, opens zero model/runtime bytes, and advances only to log-evidence release-audit work.",
+            "L1/L3 F-SmallModelRuntimeHarnessFreshProductRuntimeL3ReleaseAuditAutomatedChecksProbe: binds required xcodebuild/cargo automated-check logs, preserves red L2/L3 release blockers, opens zero model/runtime bytes, and advances only to distribution/compliance review plus three uninterrupted zero-fail release passes.",
         )
     } else {
         (
@@ -873,6 +874,15 @@ impl FailureFamilyRepairPlan {
     }
 }
 
+fn focused_repair_plan_matches_top_family(plan_family: &str, top_family: &str) -> bool {
+    let normalized_top_family = if top_family.trim().is_empty() {
+        "none"
+    } else {
+        top_family
+    };
+    plan_family == normalized_top_family
+}
+
 fn repair_plan_for_family(family: &str) -> FailureFamilyRepairPlan {
     match family {
         "graph_filter_visibility" => FailureFamilyRepairPlan {
@@ -955,7 +965,10 @@ struct XcodebuildTestFailureSummary {
 fn summarize_xcodebuild_test_failures(
     checks: &[SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckRecord],
 ) -> XcodebuildTestFailureSummary {
-    let Some(check) = checks.iter().find(|check| check.check_id == "xcodebuild_test") else {
+    let Some(check) = checks
+        .iter()
+        .find(|check| check.check_id == "xcodebuild_test")
+    else {
         return XcodebuildTestFailureSummary::default();
     };
     if check.status == SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedCheckStatus::Pass {
@@ -1104,7 +1117,10 @@ fn compact_log_line(line: &str, max_chars: usize) -> String {
     if compact.chars().count() <= max_chars {
         return compact;
     }
-    let mut output = compact.chars().take(max_chars.saturating_sub(3)).collect::<String>();
+    let mut output = compact
+        .chars()
+        .take(max_chars.saturating_sub(3))
+        .collect::<String>();
     output.push_str("...");
     output
 }
@@ -1689,7 +1705,10 @@ mod tests {
             Some(1)
         );
         assert_eq!(
-            summary.family_counts.get("xpc_trust_configuration").copied(),
+            summary
+                .family_counts
+                .get("xpc_trust_configuration")
+                .copied(),
             Some(1)
         );
         assert_eq!(summary.exemplars.len(), 4);
@@ -1712,5 +1731,18 @@ mod tests {
             .repair_notes
             .iter()
             .any(|note| note.contains("Do not mark L2/L3 green")));
+    }
+
+    #[test]
+    fn focused_repair_match_accepts_resolved_zero_failure_family() {
+        assert!(focused_repair_plan_matches_top_family("none", ""));
+        assert!(focused_repair_plan_matches_top_family(
+            "graph_filter_visibility",
+            "graph_filter_visibility"
+        ));
+        assert!(!focused_repair_plan_matches_top_family(
+            "none",
+            "graph_filter_visibility"
+        ));
     }
 }

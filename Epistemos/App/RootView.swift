@@ -871,6 +871,10 @@ struct LocalModelToolbarMenu: View {
             : "No supported local runtimes are available yet."
     }
 
+    private var gemmaQATRouteIntegrationCandidates: [GemmaQATRuntimeCandidate] {
+        GemmaQATRuntimeLadder.productRouteIntegrationCandidates
+    }
+
     private var localModelSubtitleInputsFingerprint: String {
         let visibleModelIDs = (installedSelectableModels + installableSelectableModels)
             .map(\.id)
@@ -1499,12 +1503,15 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var localModelsDisclosureSubtitle: String {
+        let gemmaCount = gemmaQATRouteIntegrationCandidates.count
         if installableSelectableModels.isEmpty {
-            return installedSelectableModels.isEmpty
+            let base = installedSelectableModels.isEmpty
                 ? "On-device"
                 : "\(installedSelectableModels.count) installed"
+            return gemmaCount == 0 ? base : "\(base) • \(gemmaCount) Gemma pending"
         }
-        return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
+        let base = "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
+        return gemmaCount == 0 ? base : "\(base) • \(gemmaCount) Gemma pending"
     }
 
     @ViewBuilder
@@ -1591,6 +1598,95 @@ struct LocalModelToolbarMenu: View {
                     closeAction()
                 }
             }
+        }
+
+        gemmaQATRouteLaneRows(closeAction: closeAction)
+    }
+
+    @ViewBuilder
+    private func gemmaQATRouteLaneRows(
+        closeAction: @escaping () -> Void
+    ) -> some View {
+        if !gemmaQATRouteIntegrationCandidates.isEmpty {
+            Divider()
+                .padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Gemma QAT GGUF route lanes")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
+                Text("E2B, E4B, and 12B have packet evidence, but stay read-only until \(GemmaQATRuntimeLadder.productRouteIntegrationCursor) wires a live route.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(gemmaQATRouteIntegrationCandidates) { candidate in
+                gemmaQATRouteLaneStatusRow(candidate)
+            }
+
+            selectionRow(
+                title: "Open Diagnostics",
+                subtitle: "Review GGUF receipts, WRV, and route integration status in Settings.",
+                systemImage: "wrench.and.screwdriver",
+                isSelected: false
+            ) {
+                openSettings()
+                closeAction()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func gemmaQATRouteLaneStatusRow(
+        _ candidate: GemmaQATRuntimeCandidate
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: gemmaQATRouteLaneIcon(for: candidate.stage))
+                .font(.system(size: variant == .toolbar ? 12 : 13, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+                .frame(width: 14, height: 14)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(candidate.displayName)
+                    .font(.system(size: variant == .toolbar ? 12.5 : 13, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
+                    .multilineTextAlignment(.leading)
+                Text("\(candidate.routeIntegrationStatusLabel) • \(candidate.expectedByteCountLabel) • \(candidate.runtimeLane)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.textTertiary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(theme.muted.opacity(theme.isDark ? 0.24 : 0.52))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.36), lineWidth: 0.6)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(candidate.displayName), \(candidate.routeIntegrationStatusLabel)")
+        .help("Gemma QAT route evidence is present, but live chat selection is still gated.")
+    }
+
+    private func gemmaQATRouteLaneIcon(for stage: GemmaQATRuntimeStage) -> String {
+        switch stage {
+        case .firstRuntimeHarness:
+            return "bolt.horizontal.circle"
+        case .nextScaleLane:
+            return "arrow.up.right.circle"
+        case .proFlagshipCandidate:
+            return "crown"
         }
     }
 

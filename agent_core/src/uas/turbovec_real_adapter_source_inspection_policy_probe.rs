@@ -38,8 +38,7 @@ const COMPATIBILITY_REF_PREFIX: &str = "compat:turbovec-source-inspection:";
 const NATIVE_LINK_REF_PREFIX: &str = "native_link:turbovec-source-inspection:";
 const BENCHMARK_CAVEAT_REF_PREFIX: &str = "benchmark_caveat:turbovec-source-inspection:";
 const PINNED_REVISION: &str = "efe29a184986cbf562a9847c2ac52a2990bfaca2";
-const TREE_API_URL: &str =
-    "https://api.github.com/repos/RyanCodrai/turbovec/git/trees/efe29a184986cbf562a9847c2ac52a2990bfaca2?recursive=1";
+const TREE_API_URL: &str = "https://api.github.com/repos/RyanCodrai/turbovec/git/trees/efe29a184986cbf562a9847c2ac52a2990bfaca2?recursive=1";
 const SOURCE_URL: &str = "https://github.com/RyanCodrai/turbovec";
 const EXPECTED_POLICY_ROW_COUNT: usize = 22;
 const MIN_FUTURE_READ_ROW_COUNT: u64 = 15;

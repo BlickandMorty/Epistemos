@@ -267,7 +267,13 @@ fn build_artifact(
             8,
             "classes",
         ),
-        ("command_armed_count", metrics.command_armed_count, "==", 0, "count"),
+        (
+            "command_armed_count",
+            metrics.command_armed_count,
+            "==",
+            0,
+            "count",
+        ),
         (
             "command_executed_count",
             metrics.command_executed_count,
@@ -318,7 +324,13 @@ fn build_artifact(
             0,
             "count",
         ),
-        ("raw_private_bytes", metrics.raw_private_bytes, "==", 0, "bytes"),
+        (
+            "raw_private_bytes",
+            metrics.raw_private_bytes,
+            "==",
+            0,
+            "bytes",
+        ),
         ("mutation_count", metrics.mutation_count, "==", 0, "count"),
         (
             "hidden_authority_count",
@@ -402,66 +414,222 @@ fn upstream_gate_pass(path: &str) -> Result<bool, Box<dyn std::error::Error>> {
 }
 
 fn red_fixture_results(gate: &GemmaDirectHarnessTrapPolicyGate) -> Vec<(&'static str, bool)> {
-    let cases: Vec<(&'static str, Box<dyn Fn(&mut GemmaDirectHarnessTrapPolicyGate)>)> = vec![
-        ("bad_upstream_ref", Box::new(|g| g.upstream_command_card_ref = "artifact:falsifiers/wrong/result.json#wrong".to_string())),
-        ("bad_upstream_id", Box::new(|g| g.upstream_command_card_id = "F-Wrong".to_string())),
-        ("bad_artifact_root", Box::new(|g| g.artifact_root_prefix = "artifacts/falsifiers/wrong/".to_string())),
-        ("bad_policy_id", Box::new(|g| g.policy_id = "wrong".to_string())),
-        ("bad_runtime_lane", Box::new(|g| g.runtime_lane = "gemma-server".to_string())),
-        ("missing_policy_field", Box::new(|g| { g.required_policy_fields.pop(); })),
-        ("duplicate_policy_field", Box::new(|g| g.required_policy_fields[0] = g.required_policy_fields[1].clone())),
-        ("missing_allowed_shape", Box::new(|g| { g.allowed_runtime_shapes.pop(); })),
-        ("duplicate_allowed_shape", Box::new(|g| g.allowed_runtime_shapes[0] = g.allowed_runtime_shapes[1].clone())),
-        ("missing_denied_shape", Box::new(|g| { g.denied_runtime_shapes.pop(); })),
-        ("duplicate_denied_shape", Box::new(|g| g.denied_runtime_shapes[0] = g.denied_runtime_shapes[1].clone())),
-        ("missing_denied_file_class", Box::new(|g| { g.denied_file_classes.pop(); })),
-        ("duplicate_denied_file_class", Box::new(|g| g.denied_file_classes[0] = g.denied_file_classes[1].clone())),
-        ("text_only_disabled", Box::new(|g| g.text_only_required = false)),
-        ("direct_file_disabled", Box::new(|g| g.direct_local_file_required = false)),
+    let cases: Vec<(
+        &'static str,
+        Box<dyn Fn(&mut GemmaDirectHarnessTrapPolicyGate)>,
+    )> = vec![
+        (
+            "bad_upstream_ref",
+            Box::new(|g| {
+                g.upstream_command_card_ref =
+                    "artifact:falsifiers/wrong/result.json#wrong".to_string()
+            }),
+        ),
+        (
+            "bad_upstream_id",
+            Box::new(|g| g.upstream_command_card_id = "F-Wrong".to_string()),
+        ),
+        (
+            "bad_artifact_root",
+            Box::new(|g| g.artifact_root_prefix = "artifacts/falsifiers/wrong/".to_string()),
+        ),
+        (
+            "bad_policy_id",
+            Box::new(|g| g.policy_id = "wrong".to_string()),
+        ),
+        (
+            "bad_runtime_lane",
+            Box::new(|g| g.runtime_lane = "gemma-server".to_string()),
+        ),
+        (
+            "missing_policy_field",
+            Box::new(|g| {
+                g.required_policy_fields.pop();
+            }),
+        ),
+        (
+            "duplicate_policy_field",
+            Box::new(|g| g.required_policy_fields[0] = g.required_policy_fields[1].clone()),
+        ),
+        (
+            "missing_allowed_shape",
+            Box::new(|g| {
+                g.allowed_runtime_shapes.pop();
+            }),
+        ),
+        (
+            "duplicate_allowed_shape",
+            Box::new(|g| g.allowed_runtime_shapes[0] = g.allowed_runtime_shapes[1].clone()),
+        ),
+        (
+            "missing_denied_shape",
+            Box::new(|g| {
+                g.denied_runtime_shapes.pop();
+            }),
+        ),
+        (
+            "duplicate_denied_shape",
+            Box::new(|g| g.denied_runtime_shapes[0] = g.denied_runtime_shapes[1].clone()),
+        ),
+        (
+            "missing_denied_file_class",
+            Box::new(|g| {
+                g.denied_file_classes.pop();
+            }),
+        ),
+        (
+            "duplicate_denied_file_class",
+            Box::new(|g| g.denied_file_classes[0] = g.denied_file_classes[1].clone()),
+        ),
+        (
+            "text_only_disabled",
+            Box::new(|g| g.text_only_required = false),
+        ),
+        (
+            "direct_file_disabled",
+            Box::new(|g| g.direct_local_file_required = false),
+        ),
         ("offline_disabled", Box::new(|g| g.offline_required = false)),
-        ("server_policy_disabled", Box::new(|g| g.no_server_required = false)),
-        ("network_policy_disabled", Box::new(|g| g.no_network_required = false)),
-        ("hf_cache_policy_disabled", Box::new(|g| g.no_hf_cache_required = false)),
-        ("mtp_policy_disabled", Box::new(|g| g.no_mtp_drafter_required = false)),
-        ("mmproj_policy_disabled", Box::new(|g| g.no_mmproj_required = false)),
-        ("mlx_loader_assumption", Box::new(|g| g.no_mlx_loader_assumption = false)),
-        ("litert_assumption", Box::new(|g| g.no_litert_assumption = false)),
-        ("rollback_missing", Box::new(|g| g.rollback_required = false)),
-        ("run_event_log_missing", Box::new(|g| g.run_event_log_required = false)),
-        ("answer_packet_missing", Box::new(|g| g.answer_packet_required = false)),
-        ("abstention_missing", Box::new(|g| g.abstention_required = false)),
+        (
+            "server_policy_disabled",
+            Box::new(|g| g.no_server_required = false),
+        ),
+        (
+            "network_policy_disabled",
+            Box::new(|g| g.no_network_required = false),
+        ),
+        (
+            "hf_cache_policy_disabled",
+            Box::new(|g| g.no_hf_cache_required = false),
+        ),
+        (
+            "mtp_policy_disabled",
+            Box::new(|g| g.no_mtp_drafter_required = false),
+        ),
+        (
+            "mmproj_policy_disabled",
+            Box::new(|g| g.no_mmproj_required = false),
+        ),
+        (
+            "mlx_loader_assumption",
+            Box::new(|g| g.no_mlx_loader_assumption = false),
+        ),
+        (
+            "litert_assumption",
+            Box::new(|g| g.no_litert_assumption = false),
+        ),
+        (
+            "rollback_missing",
+            Box::new(|g| g.rollback_required = false),
+        ),
+        (
+            "run_event_log_missing",
+            Box::new(|g| g.run_event_log_required = false),
+        ),
+        (
+            "answer_packet_missing",
+            Box::new(|g| g.answer_packet_required = false),
+        ),
+        (
+            "abstention_missing",
+            Box::new(|g| g.abstention_required = false),
+        ),
         ("command_armed", Box::new(|g| g.command_armed = true)),
         ("command_executed", Box::new(|g| g.command_executed = true)),
         ("process_spawned", Box::new(|g| g.process_spawned = true)),
         ("server_started", Box::new(|g| g.server_started = true)),
         ("network_allowed", Box::new(|g| g.network_allowed = true)),
-        ("hub_cache_allowed", Box::new(|g| g.hub_cache_allowed = true)),
-        ("provider_route_allowed", Box::new(|g| g.provider_route_allowed = true)),
-        ("model_file_opened", Box::new(|g| g.model_file_opened = true)),
+        (
+            "hub_cache_allowed",
+            Box::new(|g| g.hub_cache_allowed = true),
+        ),
+        (
+            "provider_route_allowed",
+            Box::new(|g| g.provider_route_allowed = true),
+        ),
+        (
+            "model_file_opened",
+            Box::new(|g| g.model_file_opened = true),
+        ),
         ("mmproj_opened", Box::new(|g| g.mmproj_opened = true)),
-        ("mlx_folder_opened", Box::new(|g| g.mlx_folder_opened = true)),
-        ("litert_bundle_opened", Box::new(|g| g.litert_bundle_opened = true)),
+        (
+            "mlx_folder_opened",
+            Box::new(|g| g.mlx_folder_opened = true),
+        ),
+        (
+            "litert_bundle_opened",
+            Box::new(|g| g.litert_bundle_opened = true),
+        ),
         ("model_bytes_loaded", Box::new(|g| g.model_bytes_loaded = 1)),
-        ("runtime_bytes_loaded", Box::new(|g| g.runtime_bytes_loaded = 1)),
-        ("provider_calls_made", Box::new(|g| g.provider_calls_made = 1)),
+        (
+            "runtime_bytes_loaded",
+            Box::new(|g| g.runtime_bytes_loaded = 1),
+        ),
+        (
+            "provider_calls_made",
+            Box::new(|g| g.provider_calls_made = 1),
+        ),
         ("raw_path_bytes", Box::new(|g| g.raw_path_bytes = 1)),
         ("raw_prompt_bytes", Box::new(|g| g.raw_prompt_bytes = 1)),
         ("raw_output_bytes", Box::new(|g| g.raw_output_bytes = 1)),
-        ("runtime_router_mutation", Box::new(|g| g.runtime_router_mutation_allowed = true)),
-        ("system_g_mutation", Box::new(|g| g.system_g_mutation_allowed = true)),
-        ("settings_default_mutation", Box::new(|g| g.settings_or_default_mutation_allowed = true)),
-        ("hidden_route_authority", Box::new(|g| g.hidden_route_authority = true)),
-        ("hidden_eidos_authority", Box::new(|g| g.hidden_eidos_authority = true)),
-        ("hidden_lattice_authority", Box::new(|g| g.hidden_lattice_authority = true)),
-        ("hidden_patternboost_authority", Box::new(|g| g.hidden_patternboost_authority = true)),
-        ("hidden_cloud_fallback", Box::new(|g| g.hidden_cloud_fallback = true)),
+        (
+            "runtime_router_mutation",
+            Box::new(|g| g.runtime_router_mutation_allowed = true),
+        ),
+        (
+            "system_g_mutation",
+            Box::new(|g| g.system_g_mutation_allowed = true),
+        ),
+        (
+            "settings_default_mutation",
+            Box::new(|g| g.settings_or_default_mutation_allowed = true),
+        ),
+        (
+            "hidden_route_authority",
+            Box::new(|g| g.hidden_route_authority = true),
+        ),
+        (
+            "hidden_eidos_authority",
+            Box::new(|g| g.hidden_eidos_authority = true),
+        ),
+        (
+            "hidden_lattice_authority",
+            Box::new(|g| g.hidden_lattice_authority = true),
+        ),
+        (
+            "hidden_patternboost_authority",
+            Box::new(|g| g.hidden_patternboost_authority = true),
+        ),
+        (
+            "hidden_cloud_fallback",
+            Box::new(|g| g.hidden_cloud_fallback = true),
+        ),
         ("quality_claim", Box::new(|g| g.quality_claimed = true)),
-        ("l2_l3_t4_claim", Box::new(|g| { g.l2_capability_effect = true; g.l3_wrv_effect = true; g.t4_build_green_effect = true; })),
-        ("gemma_default_claim", Box::new(|g| g.live_gemma_default_claim = true)),
-        ("live_dense_70b_claim", Box::new(|g| g.live_dense_70b_claim = true)),
+        (
+            "l2_l3_t4_claim",
+            Box::new(|g| {
+                g.l2_capability_effect = true;
+                g.l3_wrv_effect = true;
+                g.t4_build_green_effect = true;
+            }),
+        ),
+        (
+            "gemma_default_claim",
+            Box::new(|g| g.live_gemma_default_claim = true),
+        ),
+        (
+            "live_dense_70b_claim",
+            Box::new(|g| g.live_dense_70b_claim = true),
+        ),
         ("ssd_as_ram_claim", Box::new(|g| g.ssd_as_ram_claim = true)),
-        ("metadata_over_budget", Box::new(|g| g.metadata_bytes = 999_999)),
-        ("wrong_next_cursor", Box::new(|g| g.next_cursor = "wrong_next".to_string())),
+        (
+            "metadata_over_budget",
+            Box::new(|g| g.metadata_bytes = 999_999),
+        ),
+        (
+            "wrong_next_cursor",
+            Box::new(|g| g.next_cursor = "wrong_next".to_string()),
+        ),
     ];
     cases
         .into_iter()

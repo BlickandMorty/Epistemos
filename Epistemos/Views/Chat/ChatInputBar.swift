@@ -63,6 +63,7 @@ struct ChatInputBar: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
@@ -113,7 +114,7 @@ struct ChatInputBar: View {
     @State private var showSlashMenu = false
     @State private var slashFilter = ""
     @State private var slashKeyboardIndex = 0
-    @State private var selectedSlashCommand: ACCSlashCommand?
+    @State private var selectedSlashItem: ComposerSlashCommandItem?
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -150,12 +151,11 @@ struct ChatInputBar: View {
         ).predicted
     }
 
-    /// Whether the user has explicitly selected a cloud model. Derives from
-    /// preferredChatModelSelection (the next-turn target), NOT the cloud
-    /// provider preference — a user who keeps OpenAI in activeAIProvider
-    /// but picks Bonsai in the chat picker is on LOCAL for the next turn.
+    /// Whether the route that will actually serve this operating mode is
+    /// cloud-hosted. This uses the effective selection so auto-route and
+    /// Tools-mode local-agent substitution do not leave the pill stale.
     private var isCloudSelection: Bool {
-        switch inference.preferredChatModelSelection {
+        switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
         case .cloud: true
         case .localMLX, .appleIntelligence: false
         }
@@ -174,13 +174,18 @@ struct ChatInputBar: View {
     /// narrator always returns *something* for a non-empty tool name so
     /// the pill isn't blank during the seconds the tool is running.
     private var pillDetail: String? {
-        guard chat.isAgentExecuting else { return nil }
-        guard let activeTool = chat.activeToolName, !activeTool.isEmpty else {
-            return nil
+        if chat.isAgentExecuting,
+           let activeTool = chat.activeToolName,
+           !activeTool.isEmpty {
+            return ToolActivityNarrator.phrase(
+                name: activeTool,
+                inputJson: chat.activeToolInputJson
+            )
         }
-        return ToolActivityNarrator.phrase(
-            name: activeTool,
-            inputJson: chat.activeToolInputJson
+
+        return ComposerModelToolTruth.detail(
+            for: inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
+            capability: effectiveCapability
         )
     }
 
@@ -215,12 +220,12 @@ struct ChatInputBar: View {
     }
 
     /// Mirrors `InferenceState.CloudModelProvider.supportsAgentTier` for
-    /// the currently-selected chat surface. Used by `pillNeedsCloudWarning`
-    /// to nudge cloud-but-not-tool-capable users to switch
-    /// providers before they fire an agent-tier turn that can't dispatch
-    /// tools. Returns `false` for local/AFM/non-cloud selections.
+    /// the effective chat surface. Used by `pillNeedsCloudWarning` to nudge
+    /// cloud-but-not-tool-capable users before they fire an agent-tier turn
+    /// that can't dispatch tools. Returns `false` for local/AFM/non-cloud
+    /// selections.
     private var cloudSurfaceSupportsAgentTier: Bool {
-        guard case .cloud(let model) = inference.preferredChatModelSelection else {
+        guard case .cloud(let model) = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) else {
             return false
         }
         return model.provider.supportsAgentTier
@@ -263,7 +268,7 @@ struct ChatInputBar: View {
         }
         let afterSlash = String(trimmedLeading.dropFirst())
         if !afterSlash.isEmpty {
-            selectedSlashCommand = nil
+            selectedSlashItem = nil
         }
         // Close the menu as soon as the user adds whitespace — the
         // intent has become a free-form prompt that happens to start
@@ -279,19 +284,19 @@ struct ChatInputBar: View {
         showSlashMenu = true
     }
 
-    /// Apply the selected slash command: promote the operating mode to
-    /// the command's default, strip the `/name` prefix from the
+    /// Apply the selected slash item: promote built-in commands to their
+    /// default operating mode, strip the `/name` prefix from the
     /// composer, leaving a clean ready-to-type prompt, and optionally
-    /// prefill with the command's suggested opener.
-    private func applySlashCommand(_ command: ACCSlashCommand) {
-        if let operatingMode {
+    /// prefill command items with their suggested opener.
+    private func applySlashItem(_ item: ComposerSlashCommandItem) {
+        if let command = item.command, let operatingMode {
             operatingMode.wrappedValue = MainChatOperatingModePreference.sanitize(
                 command.defaultOperatingMode,
                 for: inference,
                 availableModes: availableOperatingModes
             )
         }
-        selectedSlashCommand = command
+        selectedSlashItem = item
 
         // Trim the leading `/token` plus any single trailing space so
         // the user can start typing immediately. If the user had already
@@ -300,7 +305,7 @@ struct ChatInputBar: View {
         let leadingWhitespace = text.prefix { $0.isWhitespace }
         let afterLeading = text.dropFirst(leadingWhitespace.count)
         if afterLeading.hasPrefix("/") {
-            let slug = "/" + command.rawValue
+            let slug = "/" + item.rawValue
             if afterLeading.hasPrefix(slug) {
                 let suffix = afterLeading.dropFirst(slug.count)
                 text = String(leadingWhitespace) + suffix
@@ -314,8 +319,8 @@ struct ChatInputBar: View {
             }
         }
 
-        if trimmedText.isEmpty {
-            text = command.suggestedPrompt
+        if trimmedText.isEmpty, let suggestedPrompt = item.suggestedPrompt {
+            text = suggestedPrompt
         }
 
         showSlashMenu = false
@@ -324,7 +329,7 @@ struct ChatInputBar: View {
     }
 
     private func openSlashCommandMenu() {
-        guard !supportedSlashCommands.isEmpty else { return }
+        guard !supportedSlashItems.isEmpty else { return }
         slashFilter = ""
         slashKeyboardIndex = 0
         showSlashMenu = true
@@ -370,19 +375,19 @@ struct ChatInputBar: View {
     }
 
     private func handleSlashOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
-        let commands = filteredSlashCommands
+        let items = filteredSlashItems
         switch command {
         case .moveDown:
-            guard !commands.isEmpty else { return true }
-            slashKeyboardIndex = clamped(slashKeyboardIndex + 1, count: commands.count)
+            guard !items.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex + 1, count: items.count)
             return true
         case .moveUp:
-            guard !commands.isEmpty else { return true }
-            slashKeyboardIndex = clamped(slashKeyboardIndex - 1, count: commands.count)
+            guard !items.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex - 1, count: items.count)
             return true
         case .confirm:
-            guard !commands.isEmpty else { return true }
-            applySlashCommand(commands[clamped(slashKeyboardIndex, count: commands.count)])
+            guard !items.isEmpty else { return true }
+            applySlashItem(items[clamped(slashKeyboardIndex, count: items.count)])
             return true
         case .cancel:
             showSlashMenu = false
@@ -473,6 +478,8 @@ struct ChatInputBar: View {
         return supportedModes.map(\.rawValue).joined(separator: "|")
             + "::"
             + inference.activeChatModelDisplayName
+            + "::"
+            + (selectedSlashItem?.id ?? "none")
     }
     private var selectedOperatingMode: EpistemosOperatingMode {
         operatingMode?.wrappedValue ?? .fast
@@ -485,22 +492,46 @@ struct ChatInputBar: View {
             )
         )
     }
-    private var activeSelectedSlashCommand: ACCSlashCommand? {
-        guard let selectedSlashCommand,
-              supportedSlashCommands.contains(selectedSlashCommand) else {
+
+    private var supportedSlashItems: [ComposerSlashCommandItem] {
+        ComposerSlashCommandItem.all(
+            commands: supportedSlashCommands,
+            skills: agentCommandCenter.availableSkills
+        )
+    }
+
+    private var activeSelectedSlashItem: ComposerSlashCommandItem? {
+        if let selectedSlashItem,
+           supportedSlashItems.contains(selectedSlashItem) {
+            return selectedSlashItem
+        }
+
+        let result = CommandInputParser.parse(
+            text,
+            availableSkills: agentCommandCenter.availableSkills,
+            availableSlashCommands: supportedSlashCommands
+        )
+        guard let token = result.slashToken else {
             return nil
         }
-        return selectedSlashCommand
+        let item = ComposerSlashCommandItem(token: token)
+        return supportedSlashItems.contains(item) ? item : nil
     }
-    private var filteredSlashCommands: [ACCSlashCommand] {
-        SlashCommandPopover.filteredCommands(
-            commands: supportedSlashCommands,
+
+    private var activeSelectedSlashToken: ParsedSlashToken? {
+        activeSelectedSlashItem?.token
+    }
+
+    private var filteredSlashItems: [ComposerSlashCommandItem] {
+        SlashCommandPopover.filteredItems(
+            items: supportedSlashItems,
             filter: slashFilter
         )
     }
-    private var highlightedSlashCommand: ACCSlashCommand? {
-        guard !filteredSlashCommands.isEmpty else { return nil }
-        return filteredSlashCommands[clamped(slashKeyboardIndex, count: filteredSlashCommands.count)]
+
+    private var highlightedSlashItem: ComposerSlashCommandItem? {
+        guard !filteredSlashItems.isEmpty else { return nil }
+        return filteredSlashItems[clamped(slashKeyboardIndex, count: filteredSlashItems.count)]
     }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
@@ -667,11 +698,11 @@ struct ChatInputBar: View {
                     }
                     .popover(isPresented: $showSlashMenu, arrowEdge: .top) {
                         SlashCommandPopover(
-                            commands: supportedSlashCommands,
+                            items: supportedSlashItems,
                             filter: slashFilter,
-                            selectedCommand: highlightedSlashCommand,
-                            onSelect: { command in
-                                applySlashCommand(command)
+                            selectedItem: highlightedSlashItem,
+                            onSelect: { item in
+                                applySlashItem(item)
                             }
                         )
                     }
@@ -683,11 +714,11 @@ struct ChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
-                        if !supportedSlashCommands.isEmpty {
+                        if !supportedSlashItems.isEmpty {
                             slashButton
                         }
-                        if let selectedSlashCommand = activeSelectedSlashCommand {
-                            selectedSlashPill(for: selectedSlashCommand)
+                        if let activeSelectedSlashItem {
+                            selectedSlashPill(for: activeSelectedSlashItem)
                         }
                         ChatBrainPickerMenu(
                             operatingMode: operatingMode,
@@ -821,7 +852,8 @@ struct ChatInputBar: View {
         .assistantComposerChrome(
             theme: theme,
             metrics: composerMetrics,
-            isActive: composerIsActive
+            isActive: composerIsActive,
+            lightModeSurfaceTint: theme.resolved.background.color
         )
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
@@ -1036,15 +1068,15 @@ struct ChatInputBar: View {
         .disabled(isProcessing)
     }
 
-    private func selectedSlashPill(for command: ACCSlashCommand) -> some View {
+    private func selectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
         ToolbarCapsuleButton(
-            title: "/\(command.rawValue)",
-            systemImage: command.icon,
+            title: "/\(item.rawValue)",
+            systemImage: item.icon,
             variant: .toolbar,
-            helpText: command.helpText,
-            accessibilityLabel: "Selected command \(command.displayName)"
+            helpText: item.helpText,
+            accessibilityLabel: "Selected command \(item.displayName)"
         ) {
-            selectedSlashCommand = nil
+            selectedSlashItem = nil
         }
         .accessibilityHint("Clear the selected slash command")
         .disabled(isProcessing)
@@ -1189,11 +1221,11 @@ struct ChatInputBar: View {
                 operatingMode.wrappedValue = .agent
             }
         }
-        chat.queuePendingSlashCommand(activeSelectedSlashCommand)
+        chat.queuePendingSlashToken(activeSelectedSlashToken)
         onSubmit(trimmedText)
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
-        selectedSlashCommand = nil
+        selectedSlashItem = nil
         showMentionDropdown = false
         referencePopoverStyle = .mention
         mentionKeyboardIndex = 0
@@ -1209,7 +1241,7 @@ struct ChatInputBar: View {
 
         guard let draft = chat.consumePendingComposerDraft() else { return }
         text = draft
-        selectedSlashCommand = nil
+        selectedSlashItem = nil
         refreshSlashMenu(for: draft)
         isFocused = true
     }

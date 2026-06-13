@@ -9,10 +9,8 @@ pub const RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_CURSOR: &str =
     "research_tool_catalog_no_hidden_authority";
 pub const RESEARCH_TOOL_CATALOG_NO_HIDDEN_AUTHORITY_NEXT_CURSOR: &str =
     "theme_presentation_release_blocker_card";
-pub const RESEARCH_TOOL_CATALOG_UPSTREAM_REF: &str =
-    "artifact:falsifiers/graph_filter_visibility_release_blocker_card/result.json#F-GraphFilterVisibility-ReleaseBlockerCard";
-pub const RESEARCH_TOOL_CATALOG_FAMILY_SOURCE_REF: &str =
-    "artifact:falsifiers/release_audit_failure_family_source_card/result.json#research_tool_catalog";
+pub const RESEARCH_TOOL_CATALOG_UPSTREAM_REF: &str = "artifact:falsifiers/graph_filter_visibility_release_blocker_card/result.json#F-GraphFilterVisibility-ReleaseBlockerCard";
+pub const RESEARCH_TOOL_CATALOG_FAMILY_SOURCE_REF: &str = "artifact:falsifiers/release_audit_failure_family_source_card/result.json#research_tool_catalog";
 
 const REQUIRED_SOURCE_REFS: [&str; 10] = [
     "Epistemos/Omega/MCPBridge.swift",

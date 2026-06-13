@@ -883,8 +883,7 @@ fn is_lower_hex_digest(value: &str) -> bool {
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_quarantine_route_card/result.json#F-ExoticQuantQuarantineRouteCard";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_quarantine_route_card/result.json#F-ExoticQuantQuarantineRouteCard";
     const CREATED_AT_MS: u64 = 1_779_326_400_000;
 
     fn build_ledger(

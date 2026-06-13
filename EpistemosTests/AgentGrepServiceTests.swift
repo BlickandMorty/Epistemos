@@ -42,6 +42,16 @@ struct AgentGrepServiceTests {
         return (svc, files, index, cleanup)
     }
 
+    private func loadRequiredMirroredSource(_ relativePath: String) throws -> String {
+        let url = try sourceMirrorRootURL().appendingPathComponent(relativePath)
+        let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        let isRegularFile = try #require(values.isRegularFile)
+        #expect(isRegularFile, "\(relativePath) must be bundled in SourceMirror as a regular file")
+        let fileSize = try #require(values.fileSize)
+        #expect(fileSize > 0, "\(relativePath) must not be empty in SourceMirror")
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
     // MARK: - search
 
     @Test("search returns backend hits enriched with sidecar provenance")
@@ -79,7 +89,7 @@ struct AgentGrepServiceTests {
         ]
 
         for path in checkedPaths {
-            let source = try loadMirroredSourceTextFile(path)
+            let source = try loadRequiredMirroredSource(path)
             #expect(!source.contains("stub-substring"), "\(path) must not emit stale stub provenance")
             #expect(!source.contains("W9.7 stub"), "\(path) must not label code-index fallback as shipped backend")
             #expect(!source.contains("stub backend"), "\(path) must use fallback wording")
@@ -87,8 +97,8 @@ struct AgentGrepServiceTests {
             #expect(!source.contains("StubCodeIndexClient"), "\(path) must use behavior-based fallback naming")
         }
 
-        let rustState = try loadMirroredSourceTextFile("epistemos-code-index/src/state.rs")
-        let swiftService = try loadMirroredSourceTextFile("Epistemos/Engine/AgentGrepService.swift")
+        let rustState = try loadRequiredMirroredSource("epistemos-code-index/src/state.rs")
+        let swiftService = try loadRequiredMirroredSource("Epistemos/Engine/AgentGrepService.swift")
 
         #expect(rustState.contains("source: \"in-memory-substring\""))
         #expect(swiftService.contains("source: \"in-memory-substring\""))

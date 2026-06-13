@@ -532,7 +532,9 @@ impl fmt::Display for TurboVecLatencyMemoryError {
                 f,
                 "metadata budget exceeded: metadata={metadata_bytes_read} fixture={fixture_bytes_read}"
             ),
-            Self::SetPromotionAllowed => write!(f, "latency/memory set promoted product capability"),
+            Self::SetPromotionAllowed => {
+                write!(f, "latency/memory set promoted product capability")
+            }
             Self::BadPrefix {
                 field,
                 value,
@@ -555,7 +557,10 @@ impl fmt::Display for TurboVecLatencyMemoryError {
                 write!(f, "invalid latency/memory case `{case_id}`: {reason}")
             }
             Self::RuntimeOrIndexNotDeferred(id) => {
-                write!(f, "plan `{id}` opened/allocated runtime, model, provider, or index bytes")
+                write!(
+                    f,
+                    "plan `{id}` opened/allocated runtime, model, provider, or index bytes"
+                )
             }
             Self::HiddenAuthority(id) => write!(f, "plan `{id}` allows hidden route authority"),
             Self::ProductPromotionAllowed(id) => {

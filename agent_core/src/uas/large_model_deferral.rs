@@ -8,10 +8,19 @@
 use std::collections::HashSet;
 use std::fmt;
 
+use super::small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR;
 use crate::uas::{ProStatus, ProductBuild, UasAddress, UasKind};
 
 pub const LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR: &str =
     "large_model_provider_reference_deferred_by_mlx_route";
+
+pub fn large_model_provider_reference_deferred_or_advanced_cursor(cursor: &str) -> bool {
+    matches!(
+        cursor,
+        LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR
+            | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+    )
+}
 
 const ARTIFACT_PREFIX: &str = "artifact:falsifier:";
 const ROLLBACK_PREFIX: &str = "rollback:";

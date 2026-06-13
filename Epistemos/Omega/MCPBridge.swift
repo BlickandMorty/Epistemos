@@ -164,13 +164,16 @@ nonisolated enum OmegaToolRegistry {
               let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return "[]"
         }
+        var seenCanonicalNames: Set<String> = []
         let filtered = array.compactMap { dict -> [String: Any]? in
             guard let name = dict["name"] as? String else { return nil }
-            guard ToolSurfacePolicy.isSurfacedToolName(name, distribution: distribution) else {
+            let canonicalName = AgentToolNameAliases.canonical(name)
+            guard ToolSurfacePolicy.isSurfacedToolName(canonicalName, distribution: distribution),
+                  seenCanonicalNames.insert(canonicalName).inserted else {
                 return nil
             }
             var canonicalized = dict
-            canonicalized["name"] = AgentToolNameAliases.canonical(name)
+            canonicalized["name"] = canonicalName
             return canonicalized
         }
         return (try? JSONSerialization.data(
@@ -268,7 +271,7 @@ final class MCPBridge {
 
     /// Tools grouped by agent for the Command Center inspector.
     var toolsByAgent: [String: [OmegaToolDefinition]] {
-        Dictionary(grouping: OmegaToolRegistry.all, by: \.agent)
+        Dictionary(grouping: OmegaToolRegistry.surfacedTools(), by: \.agent)
     }
 
     // MARK: - Catalog Query

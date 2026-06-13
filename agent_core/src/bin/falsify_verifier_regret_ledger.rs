@@ -235,9 +235,15 @@ fn build_artifact(
         .iter()
         .all(|entry| entry.policy_patch_ref.starts_with("policy-patch:"));
     let no_hidden_route_authority = route_utility_update_shadow_only;
-    let no_hidden_chain = ledger.entries.iter().all(|entry| !entry.hidden_chain_exposed);
+    let no_hidden_chain = ledger
+        .entries
+        .iter()
+        .all(|entry| !entry.hidden_chain_exposed);
     let no_hidden_cloud = ledger.entries.iter().all(|entry| !entry.hidden_cloud);
-    let live_policy_not_mutated = ledger.entries.iter().all(|entry| !entry.live_policy_mutated);
+    let live_policy_not_mutated = ledger
+        .entries
+        .iter()
+        .all(|entry| !entry.live_policy_mutated);
     let policy_version_advances = ledger
         .entries
         .iter()
@@ -257,17 +263,14 @@ fn build_artifact(
         .all(|entry| entry.policy_patch_active_bytes <= MAX_POLICY_PATCH_BYTES);
     let regret_address_deterministic = ledger.regret_address == reversed_ledger.regret_address;
     let duplicate_entry_rejected = duplicate_entry_rejected();
-    let missing_held_out_rejected =
-        invalid_entry_rejected(|entry| entry.held_out.task_ids = &[]) == Some(RegretError::MissingHeldOut);
-    let missing_regret_update_rejected =
-        invalid_entry_rejected(|entry| entry.regret_update = "")
-            == Some(RegretError::MissingRegretUpdate);
-    let missing_next_policy_rejected =
-        invalid_entry_rejected(|entry| entry.next_policy = "")
-            == Some(RegretError::MissingNextPolicy);
-    let missing_rollback_rejected =
-        invalid_entry_rejected(|entry| entry.rollback_handle = "")
-            == Some(RegretError::MissingRollback);
+    let missing_held_out_rejected = invalid_entry_rejected(|entry| entry.held_out.task_ids = &[])
+        == Some(RegretError::MissingHeldOut);
+    let missing_regret_update_rejected = invalid_entry_rejected(|entry| entry.regret_update = "")
+        == Some(RegretError::MissingRegretUpdate);
+    let missing_next_policy_rejected = invalid_entry_rejected(|entry| entry.next_policy = "")
+        == Some(RegretError::MissingNextPolicy);
+    let missing_rollback_rejected = invalid_entry_rejected(|entry| entry.rollback_handle = "")
+        == Some(RegretError::MissingRollback);
     let missing_run_event_log_rejected =
         invalid_entry_rejected(|entry| entry.run_event_log_ref = "")
             == Some(RegretError::MissingRunEventLog);
@@ -291,9 +294,9 @@ fn build_artifact(
             == Some(RegretError::HiddenChainExposure);
     let cloud_route_rejected =
         invalid_entry_rejected(|entry| entry.hidden_cloud = true) == Some(RegretError::CloudRoute);
-    let over_budget_update_rejected =
-        invalid_entry_rejected(|entry| entry.policy_patch_active_bytes = MAX_POLICY_PATCH_BYTES + 1)
-            == Some(RegretError::ActiveByteBudgetExceeded);
+    let over_budget_update_rejected = invalid_entry_rejected(|entry| {
+        entry.policy_patch_active_bytes = MAX_POLICY_PATCH_BYTES + 1
+    }) == Some(RegretError::ActiveByteBudgetExceeded);
     let stale_policy_rejected =
         invalid_entry_rejected(|entry| entry.policy_version_after = entry.policy_version_before)
             == Some(RegretError::StalePolicyVersion);
@@ -342,10 +345,7 @@ fn build_artifact(
         ("live_policy_not_mutated", live_policy_not_mutated),
         ("policy_version_advances", policy_version_advances),
         ("upstream_neural_refs_bound", upstream_neural_refs_bound),
-        (
-            "active_byte_budget_respected",
-            active_byte_budget_respected,
-        ),
+        ("active_byte_budget_respected", active_byte_budget_respected),
         ("regret_address_deterministic", regret_address_deterministic),
         ("duplicate_entry_rejected", duplicate_entry_rejected),
         ("missing_held_out_rejected", missing_held_out_rejected),
@@ -364,10 +364,7 @@ fn build_artifact(
             missing_answer_packet_rejected,
         ),
         ("no_route_change_rejected", no_route_change_rejected),
-        (
-            "no_regret_reduction_rejected",
-            no_regret_reduction_rejected,
-        ),
+        ("no_regret_reduction_rejected", no_regret_reduction_rejected),
         (
             "hidden_live_authority_rejected",
             hidden_live_authority_rejected,

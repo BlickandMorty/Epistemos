@@ -230,10 +230,10 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
     func graphDialoguePaletteUsesSolidLightDarkNodeSemantics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
 
-        #expect(source.contains("dialogueLightNodeColor: DialogueDepthColor = (0.0, 0.0, 0.0, 1.0)"))
-        #expect(source.contains("dialogueDarkNodeColor: DialogueDepthColor = (1.0, 1.0, 1.0, 1.0)"))
-        #expect(source.contains("if node.type == .folder"))
-        #expect(source.contains("(0.0, 0.0, 0.0, 0.0)"))
+        #expect(source.contains("enum GraphThemeNodePalette"))
+        #expect(source.contains("if type == .folder"))
+        #expect(source.contains("theme.isDark ? (1.0, 1.0, 1.0, 1.0) : (0.0, 0.0, 0.0, 1.0)"))
+        #expect(source.contains("GraphThemeNodePalette.color(for: node.type, theme: theme)"))
         #expect(!source.contains("dialogueDepthPalette"))
     }
 

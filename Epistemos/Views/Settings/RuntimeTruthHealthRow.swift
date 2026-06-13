@@ -12,7 +12,7 @@ import SwiftUI
 //   1. **Operating mode**   — Fast / Thinking / Pro / Agent
 //      (`EpistemosOperatingMode`). Driven by the user's selector.
 //   2. **Active provider**  — Local Qwen / Cloud Claude / Cloud GPT / etc.
-//      from `InferenceState.preferredChatModelSelection`.
+//      from the effective route for the selected operating mode.
 //   3. **Tool-loop route**  — Direct stream / Rust managed agent / Local
 //      pipeline. Maps to whether the turn will invoke tools at all.
 //   4. **Capability tier**  — the chat-bubble pill view of "what can
@@ -48,9 +48,13 @@ public struct RuntimeTruthHealthRow: View {
         EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
     }
 
+    private var effectiveSelection: ChatModelSelection {
+        inference.effectiveChatSurfaceSelection(for: mode)
+    }
+
     /// Active provider summary (human-readable).
     private var providerSummary: String {
-        switch inference.preferredChatModelSelection {
+        switch effectiveSelection {
         case .localMLX(let id):
             return "Local · \(id)"
         case .cloud(let model):
@@ -65,8 +69,7 @@ public struct RuntimeTruthHealthRow: View {
 
     /// Whether the current selection is cloud-hosted.
     private var isCloudProvider: Bool {
-        if case .cloud = inference.preferredChatModelSelection { return true }
-        if case .appleIntelligence = inference.preferredChatModelSelection { return false }
+        if case .cloud = effectiveSelection { return true }
         return false
     }
 
@@ -84,57 +87,17 @@ public struct RuntimeTruthHealthRow: View {
     /// answer per the audit's acceptance criterion — "users see when
     /// tools were used, denied, or unavailable."
     private var toolLoopSummary: ToolLoopSummary {
-        switch (mode, isCloudProvider) {
-        case (.agent, true):
-            return .init(
-                label: "Rust managed agent (cloud + tools)",
-                detail: "Pro+cloud chat_pro loop — vault_search, vault_read, web_search, etc. dispatched via agent_core",
-                isToolEnabled: true,
-                systemImage: "sparkles"
-            )
-        case (.agent, false):
-            return .init(
-                label: "Local agent loop (on-device + tools)",
-                detail: "Local model + Rust agent_core tool dispatch",
-                isToolEnabled: true,
-                systemImage: "bolt.circle"
-            )
-        case (.pro, true):
-            return .init(
-                label: "Cloud chat_pro (bounded tool loop)",
-                detail: "Cloud provider + Rust agent_core tool loop with reduced budget",
-                isToolEnabled: true,
-                systemImage: "tray.full"
-            )
-        case (.pro, false):
-            return .init(
-                label: "Local Pro (extended thinking)",
-                detail: "On-device model with extended reasoning; no external tools",
-                isToolEnabled: false,
-                systemImage: "brain.head.profile"
-            )
-        case (.thinking, _):
-            return .init(
-                label: "Thinking (direct stream)",
-                detail: "Extended reasoning; no tools",
-                isToolEnabled: false,
-                systemImage: "brain"
-            )
-        case (.fast, true):
-            return .init(
-                label: "Cloud direct stream",
-                detail: "Provider streaming, no tool loop",
-                isToolEnabled: false,
-                systemImage: "cloud"
-            )
-        case (.fast, false):
-            return .init(
-                label: "Local direct stream",
-                detail: "On-device generation, no tools",
-                isToolEnabled: false,
-                systemImage: "bolt"
-            )
-        }
+        let summary = ComposerModelToolTruth.summary(
+            for: effectiveSelection,
+            capability: capability,
+            operatingMode: mode
+        )
+        return .init(
+            label: summary.label,
+            detail: summary.detail,
+            isToolEnabled: summary.toolsAvailable,
+            systemImage: summary.systemImage
+        )
     }
 
     /// User-visible category of work this turn can actually do. Three

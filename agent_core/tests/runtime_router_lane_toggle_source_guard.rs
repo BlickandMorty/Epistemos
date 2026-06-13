@@ -14,7 +14,10 @@ fn index_of(haystack: &str, needle: &str) -> usize {
 }
 
 fn route_body() -> &'static str {
-    let start = index_of(RUNTIME_ROUTER_SOURCE, "public func route(_ packet: MissionPacket)");
+    let start = index_of(
+        RUNTIME_ROUTER_SOURCE,
+        "public func route(_ packet: MissionPacket)",
+    );
     let end = index_of(RUNTIME_ROUTER_SOURCE, "// MARK: - Metrics recording");
     &RUNTIME_ROUTER_SOURCE[start..end]
 }

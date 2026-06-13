@@ -166,6 +166,20 @@ final class AgentCommandCenterState {
         Set(toolToggles.filter(\.value).map(\.key))
     }
 
+    /// Catalog tools that are intentionally absent from the current execution
+    /// set. Used by prompts and diagnostics so unavailable tools do not vanish
+    /// silently or get simulated by another tool.
+    var disabledToolNames: [String] {
+        disabledToolNames(for: Array(enabledToolNames))
+    }
+
+    func disabledToolNames(for enabledNames: [String]) -> [String] {
+        CapabilityManifestBuilder.disabledToolNames(
+            availableToolNames: availableTools.map(\.name),
+            enabledToolNames: enabledNames
+        )
+    }
+
     var harnessHeadline: String? {
         activeSpecialistPreset?.displayName
     }
@@ -498,6 +512,7 @@ final class AgentCommandCenterState {
             activeSlashToken = .builtinMode(command)
             selectedBrain = preferredBrain(for: command)
             selectedOperatingMode = command.defaultOperatingMode
+            rebuildToolCatalog()
             applySpecialistToolBundle(for: command)
         }
         persistActiveSpecialistPreset()

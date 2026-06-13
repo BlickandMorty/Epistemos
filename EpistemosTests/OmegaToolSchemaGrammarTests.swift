@@ -177,10 +177,10 @@ struct ToolSchemaGrammarTests {
         let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
         let names = Set(schemas.compactMap { $0["name"] as? String })
 
-        #expect(names.contains("read_file"))
-        #expect(names.contains("write_file"))
-        #expect(!names.contains("run_command"))
-        #expect(!names.contains("run_persistent"))
+        #expect(names.contains("file.read"))
+        #expect(names.contains("file.write"))
+        #expect(!names.contains("action.bash"))
+        #expect(!names.contains("action.terminal"))
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
@@ -194,10 +194,10 @@ struct ToolSchemaGrammarTests {
         let catalog = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
         let names = Set(catalog.compactMap { $0["name"] as? String })
 
-        #expect(names.contains("read_file"))
-        #expect(names.contains("write_file"))
-        #expect(!names.contains("run_command"))
-        #expect(!names.contains("run_persistent"))
+        #expect(names.contains("file.read"))
+        #expect(names.contains("file.write"))
+        #expect(!names.contains("action.bash"))
+        #expect(!names.contains("action.terminal"))
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
@@ -217,17 +217,22 @@ struct ToolSchemaGrammarTests {
         ) as? [[String: Any]])
 
         let bridgeNames = bridgeCatalog.compactMap { $0["name"] as? String }
-        let rawVisibleNames = rawCatalog
-            .compactMap { $0["name"] as? String }
-            .filter {
-                ToolSurfacePolicy.isSurfacedToolName(
-                    $0,
-                    distribution: .proResearch
-                )
+        var seenCanonicalNames: Set<String> = []
+        let rawVisibleNames = rawCatalog.compactMap { entry -> String? in
+            guard let name = entry["name"] as? String else { return nil }
+            let canonicalName = AgentToolNameAliases.canonical(name)
+            guard ToolSurfacePolicy.isSurfacedToolName(
+                canonicalName,
+                distribution: .proResearch
+            ),
+                  seenCanonicalNames.insert(canonicalName).inserted else {
+                return nil
             }
+            return canonicalName
+        }
 
         #expect(bridgeNames == rawVisibleNames)
-        let readFile = try #require(bridgeCatalog.first { ($0["name"] as? String) == "read_file" })
+        let readFile = try #require(bridgeCatalog.first { ($0["name"] as? String) == "file.read" })
         let schemaJson = try #require(readFile["input_schema_json"] as? String)
         let schemaData = try #require(schemaJson.data(using: .utf8))
         #expect(try JSONSerialization.jsonObject(with: schemaData) is [String: Any])
@@ -255,13 +260,72 @@ struct ToolSchemaGrammarTests {
         }
     }
 
+    @Test("Omega visible tool surfaces expose unique canonical tool names")
+    @MainActor func omegaVisibleToolSurfacesExposeUniqueCanonicalToolNames() throws {
+        let bridge = MCPBridge()
+
+        for distribution in [
+            ToolSurfacePolicy.Distribution.coreAppStore,
+            .proResearch,
+        ] {
+            let surfacedNames = OmegaToolRegistry.surfacedTools(
+                distribution: distribution
+            ).map(\.name)
+            Self.expectUniqueCanonicalNames(
+                surfacedNames,
+                label: "surfacedTools \(distribution)"
+            )
+
+            let schemaNames = OmegaToolRegistry.planningSchemas(
+                distribution: distribution
+            ).compactMap { $0["name"] as? String }
+            Self.expectUniqueCanonicalNames(
+                schemaNames,
+                label: "planningSchemas \(distribution)"
+            )
+
+            let catalogData = try #require(OmegaToolRegistry.catalogJson(
+                distribution: distribution
+            ).data(using: .utf8))
+            let catalog = try #require(try JSONSerialization.jsonObject(
+                with: catalogData
+            ) as? [[String: Any]])
+            let catalogNames = catalog.compactMap { $0["name"] as? String }
+            Self.expectUniqueCanonicalNames(
+                catalogNames,
+                label: "catalogJson \(distribution)"
+            )
+
+            let listResponse = bridge.dispatch(
+                #"{"jsonrpc":"2.0","method":"tools/list","id":99}"#,
+                distribution: distribution
+            )
+            let listJson = try Self.jsonObject(from: listResponse)
+            let result = try #require(listJson["result"] as? [String: Any])
+            let tools = try #require(result["tools"] as? [[String: Any]])
+            let listNames = tools.compactMap { $0["name"] as? String }
+            Self.expectUniqueCanonicalNames(
+                listNames,
+                label: "tools/list \(distribution)"
+            )
+        }
+
+        let inspectorNames = bridge.toolsByAgent.values.flatMap { tools in
+            tools.map(\.name)
+        }
+        Self.expectUniqueCanonicalNames(
+            inspectorNames,
+            label: "MCPBridge.toolsByAgent"
+        )
+    }
+
     @Test("Omega Core App Store planning prompt hides Pro agent groups")
     func omegaCoreAppStorePlanningPromptHidesProAgentGroups() {
         let block = OmegaToolRegistry.planningPromptBlock(distribution: .coreAppStore)
 
-        #expect(block.contains("- read_file:"))
-        #expect(!block.contains("- run_command:"))
-        #expect(!block.contains("- run_persistent:"))
+        #expect(block.contains("- file.read:"))
+        #expect(!block.contains("- action.bash:"))
+        #expect(!block.contains("- action.terminal:"))
         #expect(!block.contains("- get_ui_tree:"))
         #expect(!block.contains("- see:"))
         #expect(!block.contains("- click:"))
@@ -279,10 +343,10 @@ struct ToolSchemaGrammarTests {
         let tools = try #require(result["tools"] as? [[String: Any]])
         let names = Set(tools.compactMap { $0["name"] as? String })
 
-        #expect(names.contains("read_file"))
-        #expect(names.contains("write_file"))
-        #expect(!names.contains("run_command"))
-        #expect(!names.contains("run_persistent"))
+        #expect(names.contains("file.read"))
+        #expect(names.contains("file.write"))
+        #expect(!names.contains("action.bash"))
+        #expect(!names.contains("action.terminal"))
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
@@ -300,16 +364,18 @@ struct ToolSchemaGrammarTests {
         let tools = try #require(result["tools"] as? [[String: Any]])
         let names = Set(tools.compactMap { $0["name"] as? String })
 
-        #expect(names.count == OmegaToolRegistry.all.count)
-        #expect(names.contains("run_command"))
+        #expect(names.count == OmegaToolRegistry.surfacedTools(
+            distribution: .proResearch
+        ).count)
+        #expect(names.contains("action.bash"))
     }
 
     @Test("Omega Core App Store dispatch denies Pro gateway tool calls")
     func omegaCoreAppStoreDispatchDeniesProGatewayToolCalls() throws {
         let bridge = MCPBridge()
         for toolName in [
-            "run_command",
-            "run_persistent",
+            "action.bash",
+            "action.terminal",
             "get_ui_tree",
             "see",
             "click",
@@ -338,7 +404,7 @@ struct ToolSchemaGrammarTests {
         let result = try #require(json["result"] as? [String: Any])
 
         #expect(result["status"] as? String == "pending")
-        #expect(result["tool_name"] as? String == "read_file")
+        #expect(result["tool_name"] as? String == "file.read")
         #expect(json["error"] == nil || json["error"] is NSNull)
     }
 
@@ -376,8 +442,69 @@ struct ToolSchemaGrammarTests {
         #expect(options["additionalProperties"] as? Bool == false)
     }
 
+    @Test("Settings tool inventory uses the same surfaced catalog as chat")
+    func settingsToolInventoryUsesSurfacedCatalog() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/AgentControlSettingsView.swift"
+        )
+
+        #expect(source.contains("private var surfacedDiagnosticTools"))
+        #expect(source.contains("diagnosticRuntimeTools"))
+        #expect(source.contains("ToolTierBridge("))
+        #expect(source.contains("tier: .agent"))
+        #expect(source.contains("Rust-backed Agent-tier tools"))
+        #expect(source.contains("surfacedDiagnosticTools.count) visible tools"))
+        #expect(source.contains("private var modelToolCompatibilityCard"))
+        #expect(source.contains("Text(\"Compatibility Matrix\")"))
+        #expect(source.contains("private var modelToolCompatibilityRows"))
+        #expect(source.contains("ComposerModelToolTruth.compatibilityRows("))
+        #expect(source.contains("ComposerModelToolTruth.summary("))
+        #expect(source.contains("inference.providerNativeCapabilityToolNameList"))
+        #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
+        #expect(source.contains("CloudModelProvider.preferredOrder.map"))
+        #expect(source.contains("MCP tools below are inventory only for this route"))
+        #expect(!source.contains("OmegaToolRegistry.surfacedTools()"))
+        #expect(!source.contains("OmegaToolRegistry.all.filter(\\.requiresConfirmation)"))
+        #expect(!source.contains("Dictionary(grouping: OmegaToolRegistry.all"))
+    }
+
+    @Test("Settings skill inventory shows discovered skills separately from tool execution")
+    func settingsSkillInventoryUsesDiscoveryCatalog() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/AgentControlSettingsView.swift"
+        )
+
+        #expect(source.contains("private var skillInventoryCard"))
+        #expect(source.contains("diagnosticDiscoveredSkills"))
+        #expect(source.contains("SkillDiscoveryCatalog.discoverSkillEntries()"))
+        #expect(source.contains("Text(\"Skill Plane\")"))
+        #expect(source.contains("soft-guidance and preview models use them as supervised instructions"))
+        #expect(source.contains("Tool execution still follows MCP Tool Plane"))
+        #expect(source.contains("skillDiscoveryGroups"))
+        #expect(source.contains("SkillDiscoveryGroup"))
+    }
+
     private static func jsonObject(from response: String) throws -> [String: Any] {
         let data = try #require(response.data(using: .utf8))
         return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    private static func expectUniqueCanonicalNames(
+        _ names: [String],
+        label: String
+    ) {
+        let canonicalNames = names.map(AgentToolNameAliases.canonical)
+        #expect(
+            canonicalNames == names,
+            "\(label) must already expose canonical names"
+        )
+        #expect(
+            Set(canonicalNames).count == canonicalNames.count,
+            "\(label) must not expose duplicate canonical tool names"
+        )
+        #expect(
+            !Set(canonicalNames).contains("think"),
+            "\(label) must not expose internal scratchpad tools"
+        )
     }
 }

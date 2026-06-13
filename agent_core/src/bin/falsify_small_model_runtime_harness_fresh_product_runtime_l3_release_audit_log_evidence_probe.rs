@@ -100,7 +100,7 @@ fn build_artifact(
 
     for (axis, pass) in [
         ("upstream_automated_checks_artifact_present", true),
-        ("upstream_automated_checks_red_bound", !upstream.overall_pass),
+        ("upstream_automated_checks_green_bound", upstream.overall_pass),
         (
             "upstream_automated_checks_address_bound",
             witness.upstream_artifact_address == upstream.address
@@ -127,13 +127,11 @@ fn build_artifact(
         ),
         (
             "xcodebuild_test_failure_family_bound",
-            witness.top_xcodebuild_test_failure_family == "graph_filter_visibility",
+            witness.top_xcodebuild_test_failure_family == witness.expected_top_failure_family(),
         ),
         (
             "red_failure_counts_bound",
-            witness.failed_check_count == 1
-                && witness.xcodebuild_test_issue_count > 0
-                && witness.xcodebuild_test_unique_failure_count > 0,
+            witness.automated_failure_counts_bound(),
         ),
         (
             "runtime_oslog_evidence_pending",
@@ -255,8 +253,23 @@ fn build_artifact(
         "fixtures",
     );
 
+    let expected_failed_check_count = if witness.top_xcodebuild_test_failure_family.is_empty() {
+        ZERO
+    } else {
+        1
+    };
+    let minimum_xcodebuild_issue_count = if witness.failed_check_count == 0 {
+        ZERO
+    } else {
+        1
+    };
+
     for (axis, value, expected) in [
-        ("failed_check_count", witness.failed_check_count, 1),
+        (
+            "failed_check_count",
+            witness.failed_check_count,
+            expected_failed_check_count,
+        ),
         (
             "runtime_oslog_entries_bound",
             witness.runtime_oslog_entries_bound,
@@ -296,7 +309,7 @@ fn build_artifact(
         "xcodebuild_test_issue_count",
         witness.xcodebuild_test_issue_count,
         ">=",
-        1,
+        minimum_xcodebuild_issue_count,
         "issues",
     );
     add_u64_axis(
@@ -306,7 +319,7 @@ fn build_artifact(
         "xcodebuild_test_unique_failure_count",
         witness.xcodebuild_test_unique_failure_count,
         ">=",
-        1,
+        minimum_xcodebuild_issue_count,
         "tests",
     );
     add_u64_axis(
@@ -335,7 +348,7 @@ fn build_artifact(
         &mut pass_per_axis,
         "top_xcodebuild_test_failure_family",
         &witness.top_xcodebuild_test_failure_family,
-        "graph_filter_visibility",
+        witness.expected_top_failure_family(),
         "family",
     );
     insert_string_measurement(
@@ -492,9 +505,9 @@ fn red_fixture_results(
     let mut results = Vec::new();
     let mut cases = Vec::new();
     cases.push((
-        "upstream_green_laundered_rejected",
+        "upstream_automated_checks_not_green_rejected",
         mutate(witness, |probe| {
-            probe.upstream_overall_pass = true;
+            probe.upstream_overall_pass = false;
         }),
     ));
     cases.push((
@@ -516,15 +529,21 @@ fn red_fixture_results(
         }),
     ));
     cases.push((
-        "zero_xcodebuild_issue_count_rejected",
+        "failure_count_without_issue_count_rejected",
         mutate(witness, |probe| {
+            probe.failed_check_count = 1;
             probe.xcodebuild_test_issue_count = 0;
+            probe.xcodebuild_test_unique_failure_count = 0;
+            probe.top_xcodebuild_test_failure_family = "graph_filter_visibility".to_string();
         }),
     ));
     cases.push((
         "missing_top_failure_family_rejected",
         mutate(witness, |probe| {
-            probe.top_xcodebuild_test_failure_family = "none".to_string();
+            probe.failed_check_count = 1;
+            probe.xcodebuild_test_issue_count = 1;
+            probe.xcodebuild_test_unique_failure_count = 1;
+            probe.top_xcodebuild_test_failure_family.clear();
         }),
     ));
     cases.push((

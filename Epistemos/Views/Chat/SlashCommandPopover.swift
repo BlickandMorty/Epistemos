@@ -12,26 +12,156 @@
 
 import SwiftUI
 
+enum ComposerSlashCommandItem: Identifiable, Hashable {
+    case command(ACCSlashCommand)
+    case skill(SkillDiscoveryEntry)
+
+    init(token: ParsedSlashToken) {
+        switch token {
+        case .builtinMode(let command):
+            self = .command(command)
+        case .skill(let skill):
+            self = .skill(skill)
+        }
+    }
+
+    var id: String {
+        switch self {
+        case .command(let command): "command:\(command.rawValue)"
+        case .skill(let skill): "skill:\(skill.identifier)"
+        }
+    }
+
+    var token: ParsedSlashToken {
+        switch self {
+        case .command(let command): .builtinMode(command)
+        case .skill(let skill): .skill(skill)
+        }
+    }
+
+    var command: ACCSlashCommand? {
+        if case .command(let command) = self {
+            return command
+        }
+        return nil
+    }
+
+    var rawValue: String {
+        switch self {
+        case .command(let command): command.rawValue
+        case .skill(let skill): skill.identifier
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .command(let command): command.displayName
+        case .skill(let skill): skill.title
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .command(let command): command.helpText
+        case .skill(let skill): skill.description
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .command(let command): command.icon
+        case .skill: "wand.and.stars"
+        }
+    }
+
+    var detailLabel: String {
+        switch self {
+        case .command(let command): command.defaultOperatingMode.displayName
+        case .skill(let skill): skill.category.isEmpty ? "Skill" : skill.category
+        }
+    }
+
+    var detailIcon: String {
+        switch self {
+        case .command(let command): command.defaultOperatingMode.systemImage
+        case .skill: "sparkles"
+        }
+    }
+
+    var suggestedPrompt: String? {
+        switch self {
+        case .command(let command): command.suggestedPrompt
+        case .skill: nil
+        }
+    }
+
+    static func all(
+        commands: [ACCSlashCommand],
+        skills: [SkillDiscoveryEntry]
+    ) -> [ComposerSlashCommandItem] {
+        commands.map(ComposerSlashCommandItem.command)
+            + skills.map(ComposerSlashCommandItem.skill)
+    }
+}
+
 struct SlashCommandPopover: View {
-    let commands: [ACCSlashCommand]
+    let items: [ComposerSlashCommandItem]
     let filter: String
-    var selectedCommand: ACCSlashCommand? = nil
-    let onSelect: (ACCSlashCommand) -> Void
+    var selectedItem: ComposerSlashCommandItem? = nil
+    let onSelect: (ComposerSlashCommandItem) -> Void
 
     @Environment(UIState.self) private var ui
 
     private var theme: EpistemosTheme { ui.theme }
 
-    private var filteredCommands: [ACCSlashCommand] {
-        Self.filteredCommands(commands: commands, filter: filter)
+    private var filteredItems: [ComposerSlashCommandItem] {
+        Self.filteredItems(items: items, filter: filter)
+    }
+
+    init(
+        commands: [ACCSlashCommand],
+        filter: String,
+        selectedCommand: ACCSlashCommand? = nil,
+        onSelect: @escaping (ACCSlashCommand) -> Void
+    ) {
+        self.items = commands.map(ComposerSlashCommandItem.command)
+        self.filter = filter
+        self.selectedItem = selectedCommand.map(ComposerSlashCommandItem.command)
+        self.onSelect = { item in
+            if case .command(let command) = item {
+                onSelect(command)
+            }
+        }
+    }
+
+    init(
+        items: [ComposerSlashCommandItem],
+        filter: String,
+        selectedItem: ComposerSlashCommandItem? = nil,
+        onSelect: @escaping (ComposerSlashCommandItem) -> Void
+    ) {
+        self.items = items
+        self.filter = filter
+        self.selectedItem = selectedItem
+        self.onSelect = onSelect
     }
 
     static func filteredCommands(commands: [ACCSlashCommand], filter: String) -> [ACCSlashCommand] {
+        filteredItems(items: commands.map(ComposerSlashCommandItem.command), filter: filter)
+            .compactMap(\.command)
+    }
+
+    static func filteredItems(
+        items: [ComposerSlashCommandItem],
+        filter: String
+    ) -> [ComposerSlashCommandItem] {
         let query = filter.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !query.isEmpty else { return commands }
-        return commands.filter { command in
-            command.rawValue.lowercased().contains(query)
-                || command.displayName.lowercased().contains(query)
+        guard !query.isEmpty else { return items }
+        return items.filter { item in
+            item.rawValue.lowercased().contains(query)
+                || item.displayName.lowercased().contains(query)
+                || item.helpText.lowercased().contains(query)
+                || item.detailLabel.lowercased().contains(query)
         }
     }
 
@@ -39,19 +169,19 @@ struct SlashCommandPopover: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            if filteredCommands.isEmpty {
+            if filteredItems.isEmpty {
                 emptyState
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(filteredCommands) { command in
+                        ForEach(filteredItems) { item in
                             SlashCommandRow(
-                                command: command,
-                                isSelected: selectedCommand == command
+                                item: item,
+                                isSelected: selectedItem == item
                             ) {
-                                onSelect(command)
+                                onSelect(item)
                             }
-                            if command != filteredCommands.last {
+                            if item != filteredItems.last {
                                 Divider().opacity(0.15)
                                     .padding(.leading, 40)
                             }
@@ -72,7 +202,7 @@ struct SlashCommandPopover: View {
             Image(systemName: "command")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text("Commands")
+            Text("Commands + Skills")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -92,7 +222,7 @@ struct SlashCommandPopover: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            Text("No commands match \"\(filter)\"")
+            Text("No commands or skills match \"\(filter)\"")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
@@ -102,7 +232,7 @@ struct SlashCommandPopover: View {
 
     private var footer: some View {
         HStack {
-            Text("Type to filter")
+            Text("Type to filter commands and skills")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
             Spacer()
@@ -114,7 +244,7 @@ struct SlashCommandPopover: View {
 }
 
 private struct SlashCommandRow: View {
-    let command: ACCSlashCommand
+    let item: ComposerSlashCommandItem
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -123,21 +253,21 @@ private struct SlashCommandRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: command.icon)
+                Image(systemName: item.icon)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.purple.opacity(0.8))
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("/\(command.rawValue)")
+                        Text("/\(item.rawValue)")
                             .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         Text("·")
                             .foregroundStyle(.tertiary)
-                        Text(command.displayName)
+                        Text(item.displayName)
                             .font(.system(size: 12, weight: .medium))
                     }
-                    Text(command.helpText)
+                    Text(item.helpText)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -166,9 +296,9 @@ private struct SlashCommandRow: View {
 
     private var modePill: some View {
         HStack(spacing: 3) {
-            Image(systemName: command.defaultOperatingMode.systemImage)
+            Image(systemName: item.detailIcon)
                 .font(.system(size: 8, weight: .semibold))
-            Text(command.defaultOperatingMode.displayName)
+            Text(item.detailLabel)
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 6)

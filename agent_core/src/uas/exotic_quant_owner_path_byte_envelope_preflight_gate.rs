@@ -1034,8 +1034,7 @@ fn is_mac_candidate_source_pin(source_pin: &str) -> bool {
 mod tests {
     use super::*;
 
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_owner_path_canonicalization_preflight_gate/result.json#F-ExoticQuantOwnerPathCanonicalizationPreflightGate";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_owner_path_canonicalization_preflight_gate/result.json#F-ExoticQuantOwnerPathCanonicalizationPreflightGate";
 
     fn ledger_from_cards(
         cards: Vec<OwnerPathByteEnvelopePreflightCard>,

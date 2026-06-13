@@ -9,8 +9,7 @@ pub const BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "body_read_checksum_release_blocker_card";
 pub const BODY_READ_CHECKSUM_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "search_index_release_blocker_card";
-pub const BODY_READ_CHECKSUM_UPSTREAM_REF: &str =
-    "artifact:falsifiers/runtime_performance_policy_release_blocker_card/result.json#F-RuntimePerformancePolicy-ReleaseBlockerCard";
+pub const BODY_READ_CHECKSUM_UPSTREAM_REF: &str = "artifact:falsifiers/runtime_performance_policy_release_blocker_card/result.json#F-RuntimePerformancePolicy-ReleaseBlockerCard";
 pub const BODY_READ_CHECKSUM_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#body_read_checksum";
 

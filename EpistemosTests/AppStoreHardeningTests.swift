@@ -445,10 +445,9 @@ struct AppStoreHardeningTests {
         )
         let guardedSource = toolAllowlistSection ?? source
         let proOnlyToolNames = [
-            "bash_execute",
-            "run_command",
-            "terminal",
-            "process",
+            "action.bash",
+            "action.terminal",
+            "system.process",
             "execute_code",
         ]
 
@@ -482,7 +481,7 @@ struct AppStoreHardeningTests {
                 )
             }
             #expect(
-                proBranch.contains("bash_execute"),
+                proBranch.contains("action.bash"),
                 "\(caseMarker) Pro branch should keep the direct-build tool path; this guard is meant to gate MAS, not delete Pro capability."
             )
         }

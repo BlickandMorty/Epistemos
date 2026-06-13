@@ -8,9 +8,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use agent_core::falsifier_artifacts::axes::SLAB_ARENA_COPY_COUNT_AXES;
 #[cfg(test)]
 use agent_core::falsifier_artifacts::axes::METAL_IO_FEATURE_GATE_AXES;
+use agent_core::falsifier_artifacts::axes::SLAB_ARENA_COPY_COUNT_AXES;
 use agent_core::falsifier_artifacts::{
     add_bool_axis, current_commit_sha, now_utc_rfc3339, write_artifact, AcceptanceThreshold,
     ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
@@ -584,9 +584,12 @@ fn invalid_fixture_axes() -> Result<Vec<(&'static str, bool)>, MetalIoWitnessErr
         (
             "duplicate_answer_packet_rejected",
             matches!(
-                reject_one_decision(|decision| {
-                    decision.answer_packet_ref = "answer_packet:metal-io-supported".to_string();
-                }, 1),
+                reject_one_decision(
+                    |decision| {
+                        decision.answer_packet_ref = "answer_packet:metal-io-supported".to_string();
+                    },
+                    1
+                ),
                 Err(MetalIoFeatureGateError::DuplicateAnswerPacket(_))
             ),
         ),
@@ -628,10 +631,13 @@ fn invalid_fixture_axes() -> Result<Vec<(&'static str, bool)>, MetalIoWitnessErr
         (
             "unexpected_metal_buffer_lease_rejected",
             matches!(
-                reject_one_decision(|decision| {
-                    decision.metal_buffer_lease_ref =
-                        Some("metal_buffer_lease:unexpected-fallback".to_string());
-                }, 1),
+                reject_one_decision(
+                    |decision| {
+                        decision.metal_buffer_lease_ref =
+                            Some("metal_buffer_lease:unexpected-fallback".to_string());
+                    },
+                    1
+                ),
                 Err(MetalIoFeatureGateError::UnexpectedMetalBufferLease(_))
             ),
         ),
@@ -733,20 +739,26 @@ fn invalid_fixture_axes() -> Result<Vec<(&'static str, bool)>, MetalIoWitnessErr
         (
             "unsupported_feature_selected_metal_rejected",
             matches!(
-                reject_one_decision(|decision| {
-                    decision.feature_status = MetalFeatureStatus::Unsupported;
-                    decision.selected_lane = MetalIoLane::MetalResourceLoading;
-                }, 1),
+                reject_one_decision(
+                    |decision| {
+                        decision.feature_status = MetalFeatureStatus::Unsupported;
+                        decision.selected_lane = MetalIoLane::MetalResourceLoading;
+                    },
+                    1
+                ),
                 Err(MetalIoFeatureGateError::UnsupportedFeatureSelectedMetal(_))
             ),
         ),
         (
             "supported_feature_selected_fallback_rejected",
             matches!(
-                reject_one_decision(|decision| {
-                    decision.selected_lane = MetalIoLane::CpuSlabFallback;
-                    decision.metal_buffer_lease_ref = None;
-                }, 0),
+                reject_one_decision(
+                    |decision| {
+                        decision.selected_lane = MetalIoLane::CpuSlabFallback;
+                        decision.metal_buffer_lease_ref = None;
+                    },
+                    0
+                ),
                 Err(MetalIoFeatureGateError::SupportedFeatureSelectedFallback(_))
             ),
         ),

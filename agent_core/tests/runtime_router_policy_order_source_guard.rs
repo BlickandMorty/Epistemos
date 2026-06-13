@@ -13,7 +13,10 @@ fn index_of(haystack: &str, needle: &str) -> usize {
 }
 
 fn route_body() -> &'static str {
-    let start = index_of(RUNTIME_ROUTER_SOURCE, "public func route(_ packet: MissionPacket)");
+    let start = index_of(
+        RUNTIME_ROUTER_SOURCE,
+        "public func route(_ packet: MissionPacket)",
+    );
     let end = index_of(RUNTIME_ROUTER_SOURCE, "// MARK: - Metrics recording");
     &RUNTIME_ROUTER_SOURCE[start..end]
 }
@@ -33,7 +36,10 @@ fn default_preferred_lanes_body() -> &'static str {
 #[test]
 fn route_rejects_invalid_policy_inputs_before_any_lane_walk() {
     let route = route_body();
-    let invalid_gate = index_of(route, "if let rejectReason = invalidPolicyRejectReason(for: packet)");
+    let invalid_gate = index_of(
+        route,
+        "if let rejectReason = invalidPolicyRejectReason(for: packet)",
+    );
     let privacy_gate = index_of(route, "if packet.privacySensitive {");
     let lane_walk = index_of(route, "for lane in preferredChain {");
 

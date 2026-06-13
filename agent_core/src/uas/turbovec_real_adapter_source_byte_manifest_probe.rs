@@ -31,10 +31,8 @@ const COMPATIBILITY_REF_PREFIX: &str = "compat:turbovec-source-manifest:";
 const NATIVE_LINK_REF_PREFIX: &str = "native_link:turbovec-source-manifest:";
 const BENCHMARK_CAVEAT_PREFIX: &str = "benchmark_caveat:turbovec-source-manifest:";
 const SOURCE_URL: &str = "https://github.com/RyanCodrai/turbovec";
-const TREE_API_URL: &str =
-    "https://api.github.com/repos/RyanCodrai/turbovec/git/trees/efe29a184986cbf562a9847c2ac52a2990bfaca2?recursive=1";
-const CODELOAD_URL: &str =
-    "https://codeload.github.com/RyanCodrai/turbovec/tar.gz/efe29a184986cbf562a9847c2ac52a2990bfaca2";
+const TREE_API_URL: &str = "https://api.github.com/repos/RyanCodrai/turbovec/git/trees/efe29a184986cbf562a9847c2ac52a2990bfaca2?recursive=1";
+const CODELOAD_URL: &str = "https://codeload.github.com/RyanCodrai/turbovec/tar.gz/efe29a184986cbf562a9847c2ac52a2990bfaca2";
 const PINNED_REVISION: &str = "efe29a184986cbf562a9847c2ac52a2990bfaca2";
 const QUARANTINE_ROOT: &str =
     ".epistemos-quarantine/turbovec/efe29a184986cbf562a9847c2ac52a2990bfaca2";
@@ -1253,8 +1251,7 @@ mod tests {
     use super::*;
     use std::str::FromStr;
 
-    const UPSTREAM: &str =
-        "turbovec_real_adapter_fetch_lease_probe:50f480573a411e7160b379655938b9185d6c192d062ee485ee01acbc85cb4b68@1779040901000";
+    const UPSTREAM: &str = "turbovec_real_adapter_fetch_lease_probe:50f480573a411e7160b379655938b9185d6c192d062ee485ee01acbc85cb4b68@1779040901000";
 
     fn upstream() -> UasAddress {
         UasAddress::from_str(UPSTREAM).expect("valid upstream test address")

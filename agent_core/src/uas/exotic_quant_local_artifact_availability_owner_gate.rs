@@ -1097,8 +1097,7 @@ mod tests {
     use super::*;
 
     const CREATED_AT_MS: u64 = 1_779_417_200_000;
-    const UPSTREAM_REF: &str =
-        "artifact:falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json#F-ExoticQuantLoaderCompatibilityModelPathGate";
+    const UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_loader_compatibility_model_path_gate/result.json#F-ExoticQuantLoaderCompatibilityModelPathGate";
 
     fn upstream_address() -> UasAddress {
         UasAddress::new(

@@ -9,8 +9,7 @@ pub const GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_CURSOR: &str =
     "graph_filter_visibility_focused_repair_packet";
 pub const GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_NEXT_CURSOR: &str =
     "graph_filter_visibility_focused_identifier_proof";
-pub const GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_UPSTREAM_REF: &str =
-    "artifact:falsifiers/release_audit_automated_checks_closure_matrix/result.json#F-ReleaseAuditAutomatedChecksClosureMatrix";
+pub const GRAPH_FILTER_VISIBILITY_FOCUSED_REPAIR_PACKET_UPSTREAM_REF: &str = "artifact:falsifiers/release_audit_automated_checks_closure_matrix/result.json#F-ReleaseAuditAutomatedChecksClosureMatrix";
 
 const REQUIRED_SOURCE_REFS: [&str; 4] = [
     "Epistemos/Models/GraphTypes.swift",

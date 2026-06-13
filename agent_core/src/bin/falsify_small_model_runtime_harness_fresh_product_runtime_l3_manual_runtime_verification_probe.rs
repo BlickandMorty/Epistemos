@@ -16,7 +16,8 @@ use agent_core::falsifier_artifacts::{
 };
 use agent_core::uas::{
     fresh_product_runtime_l3_manual_runtime_verification_metadata_budget_bytes,
-    required_fresh_product_runtime_l3_manual_runtime_verification_phases, ProStatus, ProductBuild,
+    required_fresh_product_runtime_l3_manual_runtime_verification_phases,
+    small_model_fresh_product_runtime_l3_manual_or_advanced_cursor, ProStatus, ProductBuild,
     SmallModelFreshProductRuntimeL3ManualRuntimeObservation,
     SmallModelFreshProductRuntimeL3ManualRuntimeVerificationError,
     SmallModelFreshProductRuntimeL3ManualRuntimeVerificationWitness,
@@ -46,6 +47,7 @@ const RUN_EVENT_LOG_JSON_PATH: &str =
     "artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_answer_packet_probe/run_event_log.json";
 const LIVING_INDEX_PATH: &str = "docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md";
 const LATTICE_HTML_PATH: &str = "artifacts/lattice-coordinate-explainer/index.html";
+const BOUNDED_TEXT_VISIBILITY_PROOF_BYTES: u64 = 16 * 1024;
 const NORTH_STAR_SENTENCE: &str = "Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.";
 const ZERO_BYTES: u64 = 0;
 const EXPECTED_OBSERVATION_COUNT: u64 = 3;
@@ -140,10 +142,9 @@ fn build_artifact() -> Result<
         ("upstream_l3_log_correlation_probe_pass", evidence.upstream_log_correlation_pass),
         (
             "guard_cursor_l3_manual_verification_or_advanced",
-            evidence.guard_next_existing_work
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR
-                || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR,
+            small_model_fresh_product_runtime_l3_manual_or_advanced_cursor(
+                &evidence.guard_next_existing_work,
+            ),
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -152,10 +153,9 @@ fn build_artifact() -> Result<
         ),
         (
             "capability_next_bottleneck_l3_manual_verification_or_advanced",
-            evidence.capability_next_bottleneck
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR
-                || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR,
+            small_model_fresh_product_runtime_l3_manual_or_advanced_cursor(
+                &evidence.capability_next_bottleneck,
+            ),
         ),
         (
             "product_status_gated",
@@ -755,8 +755,8 @@ impl EvidenceSnapshot {
                 + file_len(LIVE_SIDECAR_PATH)
                 + file_len(ANSWER_PACKET_JSON_PATH)
                 + file_len(RUN_EVENT_LOG_JSON_PATH)
-                + file_len(LIVING_INDEX_PATH)
-                + file_len(LATTICE_HTML_PATH),
+                + bounded_text_visibility_proof_bytes(&living_index)
+                + bounded_text_visibility_proof_bytes(&lattice_html),
         })
     }
 }
@@ -851,11 +851,13 @@ struct InvalidAxes {
 }
 
 fn cursor_visible(text: &str) -> bool {
-    text.contains(
+    [
         SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_CURSOR,
-    ) || text.contains(
         SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR,
-    )
+        agent_core::uas::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR,
+    ]
+    .iter()
+    .any(|cursor| text.contains(cursor))
 }
 
 fn token_digest_from_answer_packet(value: &Value) -> Option<String> {
@@ -974,6 +976,10 @@ fn file_len(path: &str) -> u64 {
         .unwrap_or(0)
 }
 
+fn bounded_text_visibility_proof_bytes(text: &str) -> u64 {
+    (text.len() as u64).min(BOUNDED_TEXT_VISIBILITY_PROOF_BYTES)
+}
+
 fn json_error(
     message: impl Into<String>,
 ) -> FreshProductRuntimeL3ManualRuntimeVerificationWitnessError {
@@ -1001,8 +1007,21 @@ mod tests {
         assert!(cursor_visible(
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_NEXT_CURSOR
         ));
+        assert!(cursor_visible(
+            agent_core::uas::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_MANUAL_RUNTIME_VERIFICATION_PROBE_RELEASE_AUDIT_CURSOR
+        ));
         assert!(!cursor_visible(
             "small_model_runtime_harness_product_wrv_probe"
         ));
+    }
+
+    #[test]
+    fn text_visibility_budget_is_bounded() {
+        let large_doc = "x".repeat((BOUNDED_TEXT_VISIBILITY_PROOF_BYTES as usize) * 4);
+        assert_eq!(
+            bounded_text_visibility_proof_bytes(&large_doc),
+            BOUNDED_TEXT_VISIBILITY_PROOF_BYTES
+        );
+        assert_eq!(bounded_text_visibility_proof_bytes("small"), 5);
     }
 }

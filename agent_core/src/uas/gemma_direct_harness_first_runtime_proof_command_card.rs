@@ -20,8 +20,7 @@ pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_CURSOR: &str =
     "gemma_direct_harness_first_runtime_proof_command_card";
 pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_NEXT_CURSOR: &str =
     "gemma_direct_harness_first_runtime_proof_receipt_gate";
-pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/result.json#F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate";
+pub const GEMMA_DIRECT_HARNESS_FIRST_RUNTIME_PROOF_COMMAND_CARD_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/result.json#F-GemmaDirectHarnessOwnerApprovedRuntimeRouterAdmissionPacketGate";
 
 const UPSTREAM_ADMISSION_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate/";

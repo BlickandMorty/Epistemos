@@ -484,7 +484,8 @@ fn provider_reference_status_at(path: Option<&str>, base_dir: &Path) -> Provider
     if let Some(path) = path {
         return provider_reference_status_from_path(Path::new(path), base_dir);
     }
-    let retained_shape_manifest = base_dir.join(RETAINED_SHAPE_ONLY_PROVIDER_REFERENCE_MANIFEST_PATH);
+    let retained_shape_manifest =
+        base_dir.join(RETAINED_SHAPE_ONLY_PROVIDER_REFERENCE_MANIFEST_PATH);
     if retained_shape_manifest.exists() {
         return provider_reference_status_from_path(&retained_shape_manifest, base_dir);
     }

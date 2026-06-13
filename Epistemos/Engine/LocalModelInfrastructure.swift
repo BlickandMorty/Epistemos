@@ -127,7 +127,10 @@ nonisolated struct LocalModelDescriptor: Identifiable, Codable, Hashable, Sendab
     }
 
     var runtimeKind: BackendRuntimeKind {
-        LocalTextModelID(rawValue: id)?.runtimeKind ?? .mlx
+        if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
+            return .gguf
+        }
+        return LocalTextModelID(rawValue: id)?.runtimeKind ?? .mlx
     }
 }
 
@@ -389,6 +392,247 @@ nonisolated struct LocalModelPaths: Sendable, Equatable {
     }
 }
 
+nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
+    case firstRuntimeHarness = "first_runtime_harness"
+    case nextScaleLane = "next_scale_lane"
+    case proFlagshipCandidate = "pro_flagship_candidate"
+
+    var displayName: String {
+        switch self {
+        case .firstRuntimeHarness: "First runtime harness"
+        case .nextScaleLane: "Next scale lane"
+        case .proFlagshipCandidate: "Pro flagship candidate"
+        }
+    }
+}
+
+nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Sendable {
+    let id: String
+    let displayName: String
+    let sourceRepo: String
+    let sourceURL: String
+    let sourceRevision: String
+    let expectedFilename: String
+    let expectedFileBytes: Int64
+    let expectedSHA256: String
+    let blobID: String
+    let runtimeLane: String
+    let stage: GemmaQATRuntimeStage
+    let localExecutionProofArtifactRef: String?
+    let runtimeRouterAdmissionArtifactRef: String?
+    let systemGDryRunArtifactRef: String?
+    let routeAnswerPacketVisibilityArtifactRef: String?
+    let settingsDiagnosticsWRVArtifactRef: String?
+    let releaseGateRef: String
+
+    var isReleaseSelectableForInteractiveChat: Bool { false }
+    var allowsDefaultRouteMutation: Bool { false }
+
+    var expectedByteCountLabel: String {
+        ByteCountFormatter.string(fromByteCount: expectedFileBytes, countStyle: .file)
+    }
+
+    var proofStatusLabel: String {
+        localExecutionProofArtifactRef == nil ? "receipt pending" : "local proof artifact"
+    }
+
+    var hasCompleteRouteEvidencePacketChain: Bool {
+        localExecutionProofArtifactRef != nil
+            && runtimeRouterAdmissionArtifactRef != nil
+            && systemGDryRunArtifactRef != nil
+            && routeAnswerPacketVisibilityArtifactRef != nil
+            && settingsDiagnosticsWRVArtifactRef != nil
+    }
+
+    var isProductRouteIntegrationCandidate: Bool {
+        hasCompleteRouteEvidencePacketChain
+            && !isReleaseSelectableForInteractiveChat
+            && !allowsDefaultRouteMutation
+    }
+
+    var routeIntegrationStatusLabel: String {
+        if isProductRouteIntegrationCandidate {
+            switch stage {
+            case .firstRuntimeHarness:
+                return "route integration pending"
+            case .nextScaleLane:
+                return "scale route integration pending"
+            case .proFlagshipCandidate:
+                return "Pro route integration pending"
+            }
+        }
+        if hasCompleteRouteEvidencePacketChain {
+            switch stage {
+            case .firstRuntimeHarness:
+                return "route evidence ready"
+            case .nextScaleLane:
+                return "scale route evidence ready"
+            case .proFlagshipCandidate:
+                return "Pro route evidence ready"
+            }
+        }
+        return "route evidence pending"
+    }
+
+    var acquisitionLaneArgument: String {
+        if id.contains("-12B-") { return "12b" }
+        if id.contains("-E4B-") { return "e4b" }
+        return "e2b"
+    }
+
+    var minimumRecommendedMemoryGB: Int {
+        switch stage {
+        case .firstRuntimeHarness:
+            8
+        case .nextScaleLane:
+            12
+        case .proFlagshipCandidate:
+            18
+        }
+    }
+
+    var catalogSummary: String {
+        switch stage {
+        case .firstRuntimeHarness:
+            "Gemma 4 E2B QAT GGUF route lane. Text-only, direct local GGUF runtime; installable for explicit route-integration testing, with no agent-tool claim until Gemma tool grammar is proven."
+        case .nextScaleLane:
+            "Gemma 4 E4B QAT GGUF scale lane. Text-only, direct local GGUF runtime; larger than E2B, still gated away from default route mutation."
+        case .proFlagshipCandidate:
+            "Gemma 4 12B QAT GGUF Pro lane. Text-only, direct local GGUF runtime; flagship candidate for roomier Macs after explicit user preparation."
+        }
+    }
+
+    var localModelDescriptor: LocalModelDescriptor {
+        LocalModelDescriptor(
+            id: id,
+            kind: .text,
+            displayName: displayName,
+            familyName: "Gemma 4 QAT GGUF",
+            summary: catalogSummary,
+            approximateDownloadBytes: expectedFileBytes,
+            minimumRecommendedMemoryGB: minimumRecommendedMemoryGB,
+            revision: sourceRevision,
+            matchingGlobs: [
+                expectedFilename,
+                "*.gguf",
+                "*.json",
+                "*.txt",
+                "tokenizer.*",
+                "special_tokens_map.json",
+                "*.jinja",
+            ]
+        )
+    }
+}
+
+nonisolated enum GemmaQATRuntimeLadder {
+    static let productRouteIntegrationCursor = "gemma_product_route_integration_gate"
+
+    static let candidates: [GemmaQATRuntimeCandidate] = [
+        GemmaQATRuntimeCandidate(
+            id: "google/gemma-4-E2B-it-qat-q4_0-gguf",
+            displayName: "Gemma 4 E2B QAT GGUF",
+            sourceRepo: "google/gemma-4-E2B-it-qat-q4_0-gguf",
+            sourceURL: "https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf",
+            sourceRevision: "1894d1fc0a19d86697abd40483f5983c867df03f",
+            expectedFilename: "gemma-4-E2B_q4_0-it.gguf",
+            expectedFileBytes: 3_349_514_112,
+            expectedSHA256: "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd",
+            blobID: "b63a95d68c7cf64a36f56b181b8ec9178d1cb827",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .firstRuntimeHarness,
+            localExecutionProofArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_execution_probe/receipt.redacted.json",
+            runtimeRouterAdmissionArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/admission.redacted.json",
+            systemGDryRunArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/system_g_dry_run.redacted.json",
+            routeAnswerPacketVisibilityArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/visibility.redacted.json",
+            settingsDiagnosticsWRVArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json",
+            releaseGateRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json"
+        ),
+        GemmaQATRuntimeCandidate(
+            id: "google/gemma-4-E4B-it-qat-q4_0-gguf",
+            displayName: "Gemma 4 E4B QAT GGUF",
+            sourceRepo: "google/gemma-4-E4B-it-qat-q4_0-gguf",
+            sourceURL: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf",
+            sourceRevision: "bb3b92e6f031fa438b409f898dd9f14f499a0cb0",
+            expectedFilename: "gemma-4-E4B_q4_0-it.gguf",
+            expectedFileBytes: 5_154_939_136,
+            expectedSHA256: "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+            blobID: "037d149730502f5f2ddcd3a1ddafcfb10e2b6394",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .nextScaleLane,
+            localExecutionProofArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_execution_probe/e4b/receipt.redacted.json",
+            runtimeRouterAdmissionArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/e4b/admission.redacted.json",
+            systemGDryRunArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/e4b/system_g_dry_run.redacted.json",
+            routeAnswerPacketVisibilityArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/e4b/visibility.redacted.json",
+            settingsDiagnosticsWRVArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/e4b/wrv.redacted.json",
+            releaseGateRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/e4b/wrv.redacted.json"
+        ),
+        GemmaQATRuntimeCandidate(
+            id: "google/gemma-4-12B-it-qat-q4_0-gguf",
+            displayName: "Gemma 4 12B QAT GGUF",
+            sourceRepo: "google/gemma-4-12B-it-qat-q4_0-gguf",
+            sourceURL: "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf",
+            sourceRevision: "f6e7774e6148da3b7f201e42ba37cf084c1db35f",
+            expectedFilename: "gemma-4-12b-it-qat-q4_0.gguf",
+            expectedFileBytes: 6_975_877_728,
+            expectedSHA256: "faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1",
+            blobID: "2bf67e31a647c65d7037e38fd6e42fd6319da4bc",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .proFlagshipCandidate,
+            localExecutionProofArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_execution_probe/12b/receipt.redacted.json",
+            runtimeRouterAdmissionArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/12b/admission.redacted.json",
+            systemGDryRunArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/12b/system_g_dry_run.redacted.json",
+            routeAnswerPacketVisibilityArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/12b/visibility.redacted.json",
+            settingsDiagnosticsWRVArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/12b/wrv.redacted.json",
+            releaseGateRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/12b/wrv.redacted.json"
+        ),
+    ]
+
+    static var firstRuntimeHarnessCandidate: GemmaQATRuntimeCandidate? {
+        candidates.first { $0.stage == .firstRuntimeHarness }
+    }
+
+    static var nextScaleCandidate: GemmaQATRuntimeCandidate? {
+        candidates.first { $0.stage == .nextScaleLane }
+    }
+
+    static var proFlagshipCandidate: GemmaQATRuntimeCandidate? {
+        candidates.first { $0.stage == .proFlagshipCandidate }
+    }
+
+    static var productRouteIntegrationCandidate: GemmaQATRuntimeCandidate? {
+        candidates.first { $0.isProductRouteIntegrationCandidate }
+    }
+
+    static var productRouteIntegrationCandidates: [GemmaQATRuntimeCandidate] {
+        candidates.filter(\.isProductRouteIntegrationCandidate)
+    }
+
+    static func candidate(forFilename filename: String) -> GemmaQATRuntimeCandidate? {
+        let normalized = filename
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+        return candidates.first { candidate in
+            let expected = candidate.expectedFilename
+                .lowercased()
+                .replacingOccurrences(of: "_", with: "-")
+            return normalized == expected || normalized.contains(candidate.filenameNeedle)
+        }
+    }
+
+    static func candidate(forID id: String) -> GemmaQATRuntimeCandidate? {
+        candidates.first { $0.id == id || $0.sourceRepo == id }
+    }
+}
+
+private extension GemmaQATRuntimeCandidate {
+    nonisolated var filenameNeedle: String {
+        if id.contains("-12B-") { return "12b" }
+        if id.contains("-E4B-") { return "e4b" }
+        return "e2b"
+    }
+}
+
 enum LocalModelCatalog {
     nonisolated static let textDescriptors: [LocalModelDescriptor] = [
         LocalModelDescriptor(
@@ -634,7 +878,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.gemma4_2B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_2B4Bit.familyName,
-            summary: "Best 2B model of 2026. Multimodal (text+vision), 128K context. Ideal for routing and quick tasks.",
+            summary: "Gemma 4 E2B MLX preview weights. Keep available for loader bring-up work only; the shipping Gemma path is the gated QAT GGUF proof lane until the Swift runtime loader lands.",
             approximateDownloadBytes: 1_614_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_2B4Bit.minimumRecommendedMemoryGB,
             revision: "76b6a5af250fa029339a757deeb93716baa8ead0",
@@ -676,7 +920,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.gemma4_31BJANG.displayName,
             familyName: LocalTextModelID.gemma4_31BJANG.familyName,
-            summary: "Abliterated Gemma 4 31B dense. JANG mixed-precision (5.1-bit avg). Uncensored, 256K context. Requires vMLX 1.3.26+.",
+            summary: "Gemma 4 31B JANG research preview. Keep for vault/fork comparison only; it is not part of the shipping route or the E2B/E4B/12B QAT GGUF proof ladder while the Swift runtime loader is absent.",
             approximateDownloadBytes: 19_327_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_31BJANG.minimumRecommendedMemoryGB,
             revision: "83167cb7b232cbaef0bcca832921e95a052860df",
@@ -1010,7 +1254,11 @@ enum LocalModelCatalog {
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
             ]
         ),
-    ]
+    ] + gemmaQATGGUFDescriptors
+
+    nonisolated static var gemmaQATGGUFDescriptors: [LocalModelDescriptor] {
+        GemmaQATRuntimeLadder.productRouteIntegrationCandidates.map(\.localModelDescriptor)
+    }
 
     nonisolated static var allDescriptors: [LocalModelDescriptor] {
         textDescriptors

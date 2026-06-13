@@ -14,10 +14,8 @@ pub const EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_CURSOR: 
     "exotic_quant_owner_approved_dry_run_transcript_preflight_gate";
 pub const EXOTIC_QUANT_OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PREFLIGHT_GATE_NEXT_CURSOR: &str =
     "exotic_quant_redacted_first_token_probe_preflight_gate";
-pub const EXOTIC_QUANT_COMMAND_ENVELOPE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json#F-ExoticQuantCrashSafeCommandEnvelopePreflightGate";
-pub const EXOTIC_QUANT_BYTE_ENVELOPE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json#F-ExoticQuantOwnerPathByteEnvelopePreflightGate";
+pub const EXOTIC_QUANT_COMMAND_ENVELOPE_UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_crash_safe_command_envelope_preflight_gate/result.json#F-ExoticQuantCrashSafeCommandEnvelopePreflightGate";
+pub const EXOTIC_QUANT_BYTE_ENVELOPE_UPSTREAM_REF: &str = "artifact:falsifiers/exotic_quant_owner_path_byte_envelope_preflight_gate/result.json#F-ExoticQuantOwnerPathByteEnvelopePreflightGate";
 pub const OWNER_APPROVED_DRY_RUN_TRANSCRIPT_METADATA_BUDGET_BYTES: u64 = 96 * 1024;
 pub const OWNER_APPROVED_DRY_RUN_TRANSCRIPT_PHASE_COUNT: usize = 13;
 
@@ -421,7 +419,10 @@ impl OwnerApprovedDryRunTranscriptPreflightCard {
             stderr_byte_limit: 4_096,
             token_byte_limit: 0,
             policy: OwnerApprovedDryRunTranscriptPolicy::preflight(mac_candidate),
-            byte_ledger: OwnerApprovedDryRunTranscriptByteLedger::metadata_only(18_432, transcript_bytes),
+            byte_ledger: OwnerApprovedDryRunTranscriptByteLedger::metadata_only(
+                18_432,
+                transcript_bytes,
+            ),
             proof_refs,
             hidden_route_authority: false,
             hidden_patternboost_authority: false,

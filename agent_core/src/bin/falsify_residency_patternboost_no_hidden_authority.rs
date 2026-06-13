@@ -634,7 +634,10 @@ mod tests {
             report.pass_per_axis.get("runtime_model_bytes_loaded"),
             Some(&true)
         );
-        assert_eq!(report.pass_per_axis.get("route_card_ref_bound"), Some(&true));
+        assert_eq!(
+            report.pass_per_axis.get("route_card_ref_bound"),
+            Some(&true)
+        );
         assert_eq!(
             report.pass_per_axis.get("model_inference_runs"),
             Some(&true)

@@ -24,7 +24,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
     func landingExposesNewDocShortcut() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(source.contains("title: \"New Doc\""),
+        #expect(source.contains("title: \"new doc\""),
                 "Landing must project .epdoc creation visibly instead of hiding it only in File > New.")
         #expect(source.contains("createAndOpenDocument()"),
                 "Landing New Doc action should route through one command helper.")
@@ -294,7 +294,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && inbound.contains("TextSelection.near")
                 && inbound.contains("{ language: 'swift' }"),
                 "The visible Code block action must convert selected multi-line text into one real codeBlock node by replacing the selected block range; raw toggleCodeBlock/replaceRangeWith can recreate the one-card-per-line bug.")
-        #expect(package.contains(#""@tiptap/extension-code-block-lowlight": "3.22.4""#) && package.contains(#""lowlight": "3.3.0""#),
+        #expect(package.contains(#""@tiptap/extension-code-block-lowlight": "3.24.0""#) && package.contains(#""lowlight": "3.3.0""#),
                 "Epdoc code blocks should use Tiptap's lowlight node rather than a bespoke highlighter or a heavy CodeMirror island for the V1.5 doc editor.")
         #expect(index.contains("StarterKit.configure") && index.contains("codeBlock: false") && index.contains("EpdocCodeBlock"),
                 "The base StarterKit codeBlock must be replaced by the syntax-highlighted EpdocCodeBlock extension.")
@@ -355,7 +355,8 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Advertised callout slash-menu commands must have a real Tiptap node registered.")
         #expect(css.contains(".ProseMirror table") && css.contains("border-collapse: collapse"),
                 "The Table toolbar action must produce a visible grid, not an invisible empty structure.")
-        #expect(Self.sourceCount(in: slash, needle: "apply: (e)") == 19,
+        #expect(Self.sourceCount(in: slash, needle: "apply: (e)") == 18
+                && slash.contains("apply: requestHTMLWorkspace"),
                 "Every advertised JS slash item should carry a concrete command implementation.")
         #expect(outbound.contains("type: 'documentStatsChanged'"))
         #expect(index.contains("postDocumentStats(ed)"),

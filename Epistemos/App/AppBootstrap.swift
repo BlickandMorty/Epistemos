@@ -1784,6 +1784,7 @@ final class AppBootstrap {
             runtime: localGGUFRuntime,
             inference: inference,
             runtimeControlPlane: localRuntimeControlPlane,
+            paths: localModelManager.paths,
             agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,
             prepareForRequest: {
                 localModelRefreshThrottle.refreshIfNeeded()
@@ -1805,8 +1806,15 @@ final class AppBootstrap {
             refreshAvailableRuntimeKinds: { configuration, requestedModelID in
                 var availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx]
 
+                let preferredProbeModelID: String?
+                if LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID)?.runtimeKind == .gguf {
+                    preferredProbeModelID = inference.preferredLocalTextModelID
+                } else {
+                    preferredProbeModelID = nil
+                }
                 let probeModelID = requestedModelID
                     ?? inference.effectiveLocalTextModelID
+                    ?? preferredProbeModelID
                     ?? configuration?.primaryGenerator.servedModelID
 
                 let probeArtifactID = configuration.flatMap { config in
@@ -1815,18 +1823,26 @@ final class AppBootstrap {
                     }
                     return config.primaryGenerator.artifactID
                 }
+                let catalogDescriptor = probeModelID.flatMap(LocalModelCatalog.descriptor(for:))
                 let probeModelDirectory = configuration.flatMap { config in
                     if let probeModelID {
                         return config.resolvedModelDirectory(for: probeModelID) ?? config.primaryResolvedModelDirectory
                     }
                     return config.primaryResolvedModelDirectory
+                } ?? catalogDescriptor.flatMap { descriptor in
+                    let activeDirectory = localModelManager.paths.activeDirectory(for: descriptor)
+                    if FileManager.default.fileExists(atPath: activeDirectory.path) {
+                        return activeDirectory
+                    }
+                    return localModelManager.paths.usableHubSnapshotDirectory(for: descriptor)
                 }
                 let probeRuntimeKind: BackendRuntimeKind? = configuration.flatMap { config in
                     if let probeModelID {
-                        return config.resolvedRuntimeKind(for: probeModelID) ?? LocalTextModelID(rawValue: probeModelID)?.runtimeKind
+                        return config.resolvedRuntimeKind(for: probeModelID)
+                            ?? LocalModelCatalog.descriptor(for: probeModelID)?.runtimeKind
                     }
                     return config.primaryGenerator.runtimeKind
-                } ?? probeModelID.flatMap { LocalTextModelID(rawValue: $0)?.runtimeKind }
+                } ?? catalogDescriptor?.runtimeKind
                 let hasPreparedProbeDirectory = probeModelDirectory.map { directory in
                     FileManager.default.fileExists(atPath: directory.path)
                 } ?? false
@@ -1963,6 +1979,9 @@ final class AppBootstrap {
             },
             activeCompanionInstructionProvider: { [weak companionStateForPipeline] in
                 companionStateForPipeline?.activeAgentSystemInstruction()
+            },
+            skillNamesProvider: { [weak agentCommandCenterState] in
+                agentCommandCenterState?.availableSkills.map(\.title).sorted() ?? []
             }
         )
 

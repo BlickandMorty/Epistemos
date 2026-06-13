@@ -16,13 +16,15 @@ use agent_core::falsifier_artifacts::{
 use agent_core::uas::{
     fresh_product_runtime_l3_capability_closeout_metadata_budget_bytes,
     required_fresh_product_runtime_l3_capability_closeout_blockers,
-    required_fresh_product_runtime_l3_capability_closeout_phases, ProStatus, ProductBuild,
-    SmallModelFreshProductRuntimeL3CapabilityCloseoutError,
+    required_fresh_product_runtime_l3_capability_closeout_phases,
+    small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor, ProStatus,
+    ProductBuild, SmallModelFreshProductRuntimeL3CapabilityCloseoutError,
     SmallModelFreshProductRuntimeL3CapabilityCloseoutWitness,
     SmallModelProductRouteCapabilityBlocker,
-    SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR,
 };
+#[cfg(test)]
+use agent_core::uas::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR;
 
 const FALSIFIER_ID: &str = "F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe";
 const FIXTURE_ID: &str =
@@ -137,10 +139,9 @@ fn build_artifact() -> Result<
         ),
         (
             "guard_cursor_l3_capability_closeout_or_advanced",
-            evidence.guard_next_existing_work
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR
-                || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR,
+            small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+                &evidence.guard_next_existing_work,
+            ),
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -149,10 +150,9 @@ fn build_artifact() -> Result<
         ),
         (
             "capability_next_bottleneck_l3_capability_closeout_or_advanced",
-            evidence.capability_next_bottleneck
-                == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR
-                || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR,
+            small_model_fresh_product_runtime_l3_capability_closeout_or_advanced_cursor(
+                &evidence.capability_next_bottleneck,
+            ),
         ),
         (
             "product_status_gated",

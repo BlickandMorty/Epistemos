@@ -67,6 +67,38 @@ enum MarkdownHeadingDisplay {
         )
     }
 
+    nonisolated static func themedNoteHeadingFontSize(
+        for level: Int,
+        text: String,
+        theme: EpistemosTheme,
+        baseFontSize: CGFloat? = nil
+    ) -> CGFloat {
+        let rawFontSize = noteHeadingFontSize(for: level, text: text, baseFontSize: baseFontSize)
+        guard (1...3).contains(level) else { return rawFontSize }
+
+        let scaledFontSize =
+            (theme.notesMatchingHeadingSpec(level: level)?.size ?? rawFontSize)
+            * theme.headingSizeMultiplier(level: level)
+        guard level == 1 else { return scaledFontSize }
+
+        let h2RawFontSize = noteHeadingBaseSize(for: 2, baseFontSize: baseFontSize)
+        let h2ScaledFontSize =
+            (theme.notesMatchingHeadingSpec(level: 2)?.size ?? h2RawFontSize)
+            * theme.headingSizeMultiplier(level: 2)
+        let characterCount = normalizedHeadingText(text, level: level).count
+        let hierarchyOffset: CGFloat = switch characterCount {
+        case ...h1FullSizeCharacterLimit:
+            3
+        case ...h1MediumSizeCharacterLimit:
+            2
+        case ...h1LongSizeCharacterLimit:
+            1.5
+        default:
+            1
+        }
+        return max(scaledFontSize, h2ScaledFontSize + hierarchyOffset)
+    }
+
     nonisolated static func foregroundHex(for theme: EpistemosTheme, level: Int) -> UInt32 {
         guard (1...3).contains(level) else { return theme.foregroundHex }
         if level == 1 {
@@ -1288,10 +1320,11 @@ struct MarkdownTextView: View {
     private func renderHeading(level: Int, text: String) -> some View {
         let headingRole = AppHeadingRole.markdownRole(level: level)
         let notesSpec = theme.notesMatchingHeadingSpec(level: level)
-        let rawFontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
-        let fontSize = (1...3).contains(level)
-            ? (notesSpec?.size ?? rawFontSize) * theme.headingSizeMultiplier(level: level)
-            : rawFontSize
+        let fontSize = MarkdownHeadingDisplay.themedNoteHeadingFontSize(
+            for: level,
+            text: text,
+            theme: theme
+        )
         let fontWeight = notesSpec?.weight ?? MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
             if let notesSpec {

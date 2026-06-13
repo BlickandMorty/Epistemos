@@ -143,6 +143,7 @@ final class PipelineService {
     private let constrainedDecoding: ConstrainedDecodingService?
     private let vaultPathProvider: @MainActor () -> String?
     private let activeCompanionInstructionProvider: @MainActor () -> String?
+    private let skillNamesProvider: @MainActor () -> [String]
     private var pipelineTask: Task<Void, Never>?
     private var activeRunID: UUID?
 
@@ -155,7 +156,8 @@ final class PipelineService {
         localModelClient: (any LocalConfigurableLLMClient)? = nil,
         constrainedDecoding: ConstrainedDecodingService? = nil,
         vaultPathProvider: @escaping @MainActor () -> String? = { nil },
-        activeCompanionInstructionProvider: @escaping @MainActor () -> String? = { nil }
+        activeCompanionInstructionProvider: @escaping @MainActor () -> String? = { nil },
+        skillNamesProvider: @escaping @MainActor () -> [String] = { [] }
     ) {
         self.pipelineState = pipelineState
         self.llmService = llmService
@@ -166,6 +168,7 @@ final class PipelineService {
         self.constrainedDecoding = constrainedDecoding
         self.vaultPathProvider = vaultPathProvider
         self.activeCompanionInstructionProvider = activeCompanionInstructionProvider
+        self.skillNamesProvider = skillNamesProvider
     }
 
     func run(
@@ -451,11 +454,12 @@ final class PipelineService {
         default:        .fast
         }
 
+        let effectiveChatSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
         let modelID: String? = {
             if executionPlan?.forcesLocalExecution == true {
                 return inference.effectiveLocalAgentTextModelID
             }
-            if case .localMLX(let id) = inference.preferredChatModelSelection,
+            if case .localMLX(let id) = effectiveChatSelection,
                let model = LocalTextModelID(rawValue: id),
                model.canRunLocalAgentLoop {
                 return id
@@ -910,15 +914,10 @@ final class PipelineService {
         )
         let shouldForceDirectLocalStream = executionPlan?.forcesLocalExecution == true
             && {
-                switch inference.preferredChatModelSelection {
-                case .cloud, .appleIntelligence:
-                    return false
-                case .localMLX:
-                    if case .localMLX = effectiveChatSelection {
-                        return true
-                    }
-                    return false
+                if case .localMLX = effectiveChatSelection {
+                    return true
                 }
+                return false
             }()
 
         if shouldForceDirectLocalStream {
@@ -997,6 +996,17 @@ final class PipelineService {
                 for: operatingMode
             )
         }()
+        let disabledNames: [String] = {
+            guard !toolExecutionAvailable,
+                  let requestedNames = executionPlan?.allowedToolNames,
+                  !requestedNames.isEmpty else {
+                return []
+            }
+            return CapabilityManifestBuilder.disabledToolNames(
+                availableToolNames: Array(requestedNames).sorted(),
+                enabledToolNames: allowedNames
+            )
+        }()
 
         let vaultName = vaultPathProvider().flatMap {
             URL(fileURLWithPath: $0).lastPathComponent
@@ -1008,10 +1018,10 @@ final class PipelineService {
             operatingMode: operatingMode,
             reasoningTier: inference.chatReasoningTier,
             enabledToolNames: allowedNames,
-            disabledToolNames: [],
+            disabledToolNames: disabledNames,
             vaultName: vaultName,
             vaultNoteCount: nil,
-            skillNames: [],
+            skillNames: skillNamesProvider(),
             maxContextTokens: 128_000
         )
         let manifest = isLocal

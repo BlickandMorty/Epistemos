@@ -85,7 +85,7 @@ struct ResearchModeTests {
 
     @Test("Total tool count reflects the current research, computer-use, and D2 graph catalog")
     func totalToolCount() {
-        #expect(OmegaToolRegistry.all.count == 40)
+        #expect(OmegaToolRegistry.all.count == 56)
     }
 
     // MARK: - Complexity Gate

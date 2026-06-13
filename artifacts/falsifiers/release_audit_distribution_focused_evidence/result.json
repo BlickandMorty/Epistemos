@@ -1,0 +1,230 @@
+{
+  "falsifier_id": "F-ReleaseAuditDistributionFocusedEvidence",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/materialize_release_audit_distribution_focused_evidence.sh",
+  "command_digest": "sha256:cf11460acfa381e6c3ac7178c56c477d1a19e19398de3c05961fd63c2a1ea67c",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "438e78bd1d8744b1b6fb117688ae68e3ccb65150",
+  "fixture_id": "release_audit_distribution_focused_evidence_v1",
+  "timestamp_utc": "2026-06-11T08:56:53Z",
+  "result_digest": "sha256:a35c39c7ea83b96bf1f6518abea9a2a9b6d365a9916e8e3d09d5da5f1c75f42b",
+  "measurements": {
+    "appstore_build_log_bytes": {
+      "value": 841695,
+      "unit": "bytes"
+    },
+    "appstore_build_log_path": {
+      "value": "/tmp/epistemos_appstore_distribution_build.log",
+      "unit": "path"
+    },
+    "appstore_build_log_sha256": {
+      "value": "sha256:dae9cf1740a66e4f4498067aca94ff70c2a57a07676201f71c0d6715476500c5",
+      "unit": "sha256"
+    },
+    "appstore_build_succeeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_hardening_suite_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "core_mas_boundary_suite_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_tests_log_bytes": {
+      "value": 1180555,
+      "unit": "bytes"
+    },
+    "distribution_focused_tests_log_path": {
+      "value": "/tmp/epistemos_distribution_focused_tests.log",
+      "unit": "path"
+    },
+    "distribution_focused_tests_log_sha256": {
+      "value": "sha256:6974a1171416aeec945462ea20fff19dee66f8e666d626175ae64557b8e72d3e",
+      "unit": "sha256"
+    },
+    "distribution_focused_tests_succeeded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_distribution_test_count_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "value": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes",
+      "unit": "cursor"
+    },
+    "notarization_or_review_not_claimed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_log_content_not_embedded": {
+      "value": true,
+      "unit": "bool"
+    },
+    "release_script_audit_suite_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "appstore_build_log_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "appstore_build_log_path": {
+      "operator": "==",
+      "value": "/tmp/epistemos_appstore_distribution_build.log",
+      "unit": "path"
+    },
+    "appstore_build_log_sha256": {
+      "operator": "==",
+      "value": "sha256:dae9cf1740a66e4f4498067aca94ff70c2a57a07676201f71c0d6715476500c5",
+      "unit": "sha256"
+    },
+    "appstore_build_succeeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "appstore_hardening_suite_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "core_mas_boundary_suite_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_compliance_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "distribution_focused_tests_log_bytes": {
+      "operator": ">",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "distribution_focused_tests_log_path": {
+      "operator": "==",
+      "value": "/tmp/epistemos_distribution_focused_tests.log",
+      "unit": "path"
+    },
+    "distribution_focused_tests_log_sha256": {
+      "operator": "==",
+      "value": "sha256:6974a1171416aeec945462ea20fff19dee66f8e666d626175ae64557b8e72d3e",
+      "unit": "sha256"
+    },
+    "distribution_focused_tests_succeeded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "expected_distribution_test_count_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gemma_route_not_promoted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "next_cursor": {
+      "operator": "==",
+      "value": "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes",
+      "unit": "cursor"
+    },
+    "notarization_or_review_not_claimed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "raw_log_content_not_embedded": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "release_script_audit_suite_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ship_call_not_authorized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "appstore_build_log_bytes": true,
+    "appstore_build_log_path": true,
+    "appstore_build_log_sha256": true,
+    "appstore_build_succeeded": true,
+    "appstore_hardening_suite_passed": true,
+    "core_mas_boundary_suite_passed": true,
+    "distribution_compliance_not_claimed": true,
+    "distribution_focused_tests_log_bytes": true,
+    "distribution_focused_tests_log_path": true,
+    "distribution_focused_tests_log_sha256": true,
+    "distribution_focused_tests_succeeded": true,
+    "expected_distribution_test_count_passed": true,
+    "gemma_route_not_promoted": true,
+    "next_cursor": true,
+    "notarization_or_review_not_claimed": true,
+    "raw_log_content_not_embedded": true,
+    "release_script_audit_suite_passed": true,
+    "ship_call_not_authorized": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "release_audit_distribution_focused_evidence_not_ship_authority",
+      "detail": "Focused App Store build and distribution source-guard tests passed, but distribution/compliance review, notarization/review, and three uninterrupted zero-fail passes remain unclaimed."
+    }
+  ],
+  "notes": "Digest-only focused distribution evidence: proves current App Store scheme build and focused distribution tests passed from local logs; does not claim notarization, App Store review, compliance, Gemma route promotion, or ship readiness."
+}

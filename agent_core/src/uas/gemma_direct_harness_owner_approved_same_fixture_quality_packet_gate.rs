@@ -22,8 +22,7 @@ pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_SAME_FIXTURE_QUALITY_PACKET_GATE_C
     "gemma_direct_harness_owner_approved_same_fixture_quality_packet_gate";
 pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_SAME_FIXTURE_QUALITY_PACKET_GATE_NEXT_CURSOR: &str =
     "gemma_direct_harness_owner_approved_runtime_router_admission_packet_gate";
-pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_SAME_FIXTURE_QUALITY_PACKET_GATE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_direct_harness_owner_approved_first_token_digest_review_gate/result.json#F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate";
+pub const GEMMA_DIRECT_HARNESS_OWNER_APPROVED_SAME_FIXTURE_QUALITY_PACKET_GATE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_direct_harness_owner_approved_first_token_digest_review_gate/result.json#F-GemmaDirectHarnessOwnerApprovedFirstTokenDigestReviewGate";
 
 const UPSTREAM_FIRST_TOKEN_REVIEW_PREFIX: &str =
     "artifact:falsifiers/gemma_direct_harness_owner_approved_first_token_digest_review_gate/";

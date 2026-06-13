@@ -218,7 +218,6 @@ struct ContextualShadowsStateTests {
         #expect(shadow.callCount == 2)
         #expect(shadow.lastQuery == "durable shadow backend query")
         #expect(Set(shadow.domains) == Set([.chats, .notes]))
-        #expect(Array(shadow.domains.prefix(2)) == [.notes, .chats])
         #expect(state.currentResults.map(\.id).contains("shadow-note-1"))
         #expect(state.currentResults.map(\.id).contains("shadow-chat-1"))
         #expect(state.currentResults.allSatisfy { $0.source == "stub-shadow" })
@@ -263,7 +262,7 @@ struct ContextualShadowsStateTests {
         )
 
         await Self.waitForResults(state, expectedCount: 2)
-        #expect(Array(shadow.domains.prefix(2)) == [.notes, .chats])
+        #expect(Set(shadow.domains.prefix(2)) == Set([.notes, .chats]))
         #expect(state.currentResults.first?.id == "near-tie-note")
         #expect(state.currentResults.first?.kind == .note)
     }

@@ -491,17 +491,27 @@ impl fmt::Display for TurboVecStableExternalIdRegistryError {
             Self::BadPromotionTier(id) => {
                 write!(f, "TurboVec stable-ID plan `{id}` promoted beyond T1")
             }
-            Self::InvalidOrgans(id) => write!(f, "TurboVec stable-ID plan `{id}` has invalid organs"),
+            Self::InvalidOrgans(id) => {
+                write!(f, "TurboVec stable-ID plan `{id}` has invalid organs")
+            }
             Self::InvalidExternalId { entry_id, reason } => {
                 write!(f, "TurboVec stable-ID entry `{entry_id}` invalid: {reason}")
             }
             Self::InvalidTombstoneGeneration(id) => {
-                write!(f, "TurboVec stable-ID plan `{id}` has unsafe tombstone/generation state")
+                write!(
+                    f,
+                    "TurboVec stable-ID plan `{id}` has unsafe tombstone/generation state"
+                )
             }
             Self::InvalidCollisionLedger(id) => {
-                write!(f, "TurboVec stable-ID plan `{id}` has unsafe collision ledger")
+                write!(
+                    f,
+                    "TurboVec stable-ID plan `{id}` has unsafe collision ledger"
+                )
             }
-            Self::InvalidPolicy(id) => write!(f, "TurboVec stable-ID plan `{id}` has unsafe policy"),
+            Self::InvalidPolicy(id) => {
+                write!(f, "TurboVec stable-ID plan `{id}` has unsafe policy")
+            }
             Self::InvalidProofRefs(id) => {
                 write!(f, "TurboVec stable-ID plan `{id}` has unsafe proof refs")
             }

@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "b0eedf5211ec1a024d5239ac087d26b265dfc446",
+  "commit_sha": "749b025cfb783f9957c5fbaedd17590340eeb8ac",
   "fixture_id": "coldstream_vs_mmap_v1",
-  "timestamp_utc": "2026-06-04T22:03:50Z",
+  "timestamp_utc": "2026-06-11T14:49:46Z",
   "result_digest": "sha256:1a482e3b06383bf68b915f89357a6ac9d384236e0af69c5473dbd49598ec0321",
   "measurements": {
     "admission_bound": {

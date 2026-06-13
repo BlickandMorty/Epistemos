@@ -24,8 +24,7 @@ pub const GEMMA_QAT_E2B_OWNER_APPROVED_FIRST_TOKEN_RUNTIME_PROBE_CURSOR: &str =
     "gemma_qat_e2b_owner_approved_first_token_runtime_probe";
 pub const GEMMA_QAT_E2B_OWNER_APPROVED_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR: &str =
     "gemma_qat_e2b_first_token_runtime_artifact_review_reconciliation_gate";
-pub const GEMMA_QAT_E2B_OWNER_APPROVED_FIRST_TOKEN_RUNTIME_PROBE_UPSTREAM_REF: &str =
-    "artifact:falsifiers/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate/result.json#F-GemmaQATE2BModelFileAndLlamaCppDigestGate";
+pub const GEMMA_QAT_E2B_OWNER_APPROVED_FIRST_TOKEN_RUNTIME_PROBE_UPSTREAM_REF: &str = "artifact:falsifiers/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate/result.json#F-GemmaQATE2BModelFileAndLlamaCppDigestGate";
 
 const UPSTREAM_MODEL_FILE_DIGEST_PREFIX: &str =
     "artifact:falsifiers/gemma_qat_e2b_model_file_and_llama_cpp_digest_gate/";

@@ -10,8 +10,7 @@ pub const SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_CURSOR: &str =
     "source_guard_drift_release_blocker_card";
 pub const SOURCE_GUARD_DRIFT_RELEASE_BLOCKER_CARD_NEXT_CURSOR: &str =
     "tool_execution_surface_release_blocker_card";
-pub const SOURCE_GUARD_DRIFT_UPSTREAM_REF: &str =
-    "artifact:falsifiers/search_index_release_blocker_card/result.json#F-SearchIndex-ReleaseBlockerCard";
+pub const SOURCE_GUARD_DRIFT_UPSTREAM_REF: &str = "artifact:falsifiers/search_index_release_blocker_card/result.json#F-SearchIndex-ReleaseBlockerCard";
 pub const SOURCE_GUARD_DRIFT_FAMILY_SOURCE_REF: &str =
     "artifact:falsifiers/release_audit_failure_family_source_card/result.json#source_guard_drift";
 

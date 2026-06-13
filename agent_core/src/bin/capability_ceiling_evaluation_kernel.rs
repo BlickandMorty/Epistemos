@@ -248,6 +248,8 @@ const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_ZERO_FA
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
 const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT:
     &str = "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe";
+const RELEASE_AUDIT_DISTRIBUTION_THREE_PASS_BLOCKER: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const RUST_ROUTE_KERNEL_MODEL_CHECK_AXES: &[&str] = &[
     "upstream_route_card_artifact_pass",
     "bounded_state_space_enumerated",
@@ -3408,6 +3410,24 @@ fn build_report() -> KernelReport {
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_pass
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_pass
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass
+        && base_next_bottleneck == SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_NEXT
+    {
+        RELEASE_AUDIT_DISTRIBUTION_THREE_PASS_BLOCKER.to_string()
+    } else if !seventy_b_route_pass
+        && !heavy_long_context_enabled
+        && small_model_runtime_harness_product_route_capability_recheck_pass
+        && small_model_runtime_harness_fresh_product_runtime_safety_lease_pass
+        && small_model_runtime_harness_fresh_product_runtime_live_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_answer_packet_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_wrv_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_capability_recheck_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_manual_runtime_verification_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_capability_closeout_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass
         && base_next_bottleneck == SMALL_MODEL_RUNTIME_HARNESS_ANSWER_PACKET_RUNTIME_PROBE_NEXT
     {
         SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT
@@ -4863,10 +4883,11 @@ fn build_report() -> KernelReport {
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_preflight_probe_pass
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe_pass
         && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe_pass
+        && small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe_pass
     {
         anomalies.push(serde_json::json!({
-            "kind": "small_model_harness_fresh_product_runtime_l3_release_audit_automated_checks_passed_not_ready",
-            "detail": "Release-audit automated checks are present and passed, but runtime log evidence, manual runtime review, distribution/compliance review, and three uninterrupted zero-fail passes remain blockers; no ship call, L2 green claim, or product capability promotion is authorized."
+            "kind": "small_model_harness_fresh_product_runtime_l3_release_audit_distribution_three_pass_blocker",
+            "detail": "Release-audit automated checks, log evidence, manual runtime review, capability closeout, preflight, and zero-fail blocker witnesses are present. Distribution/compliance review and three uninterrupted zero-fail passes remain unproven; no ship call, L2 green claim, or product capability promotion is authorized."
         }));
     } else if !seventy_b_route_pass
         && !heavy_long_context_enabled

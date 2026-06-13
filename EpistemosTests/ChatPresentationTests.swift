@@ -481,11 +481,12 @@ struct ChatPresentationTests {
     let coordinatorSource = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
 
     #expect(chatViewSource.contains("LiveActivityStrip("))
-    #expect(chatViewSource.contains("ThinkingPopoverView("))
-    #expect(chatViewSource.contains("ToolExecutionPreviewList("))
-    #expect(chatViewSource.contains("blocks: chat.pendingContentBlocks"))
+    #expect(chatViewSource.contains("AssistantInlineTranscriptView("))
+    #expect(chatViewSource.contains("contentBlocks: chat.pendingContentBlocks"))
 
-    #expect(bubbleSource.contains("ToolExecutionPreviewList(blocks: contentBlocks)"))
+    #expect(bubbleSource.contains("AssistantInlineTranscriptView("))
+    #expect(bubbleSource.contains("contentBlocks: message.contentBlocks"))
+    #expect(bubbleSource.contains("struct ToolExecutionPreviewList: View"))
 
     #expect(stateSource.contains("pendingContentBlocks.append(.toolUse"))
     #expect(stateSource.contains("contentBlocks: completedContentBlocks"))
@@ -558,6 +559,7 @@ struct ChatPresentationTests {
       chatViewSource.contains(
         "let effectiveSelection = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)"
       ))
+    #expect(!chatViewSource.contains("reads preferredChatModelSelection"))
     #expect(chatViewSource.contains("let toolsModeSelected = selectedOperatingMode == .agent"))
     #expect(chatViewSource.contains("isAgentExecuting: toolsModeSelected || chat.isAgentExecuting"))
   }
@@ -590,9 +592,11 @@ struct ChatPresentationTests {
     #expect(inputSource.contains("helpText: \"Commands\""))
     #expect(inputSource.contains("title: \"/\""))
     #expect(inputSource.contains("supportedSlashCommands"))
-    #expect(inputSource.contains("text = command.suggestedPrompt"))
-    #expect(inputSource.contains("activeSelectedSlashCommand"))
-    #expect(inputSource.contains("chat.queuePendingSlashCommand(activeSelectedSlashCommand)"))
+    #expect(inputSource.contains("supportedSlashItems"))
+    #expect(inputSource.contains("agentCommandCenter.availableSkills"))
+    #expect(inputSource.contains("let suggestedPrompt = item.suggestedPrompt"))
+    #expect(inputSource.contains("activeSelectedSlashToken"))
+    #expect(inputSource.contains("chat.queuePendingSlashToken(activeSelectedSlashToken)"))
   }
 
   @Test("brain inspector keeps empty and section copy short")
@@ -758,7 +762,7 @@ struct ChatPresentationTests {
     #expect(source.contains("selectedOperatingMode.capturesReasoningTrace"))
     #expect(
       source.contains(
-        "if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty {"))
+        "if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty || !chat.pendingContentBlocks.isEmpty {"))
   }
 
   @Test(

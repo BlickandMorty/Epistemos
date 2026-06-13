@@ -15,14 +15,25 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUT
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_log_evidence_probe";
+pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_COMPLETION_CURSOR:
+    &str = "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const UPSTREAM_ZERO_FAIL_ARTIFACT_PREFIX: &str =
     "artifact:small_model_runtime_harness_fresh_product_runtime_l3_release_audit_zero_fail_probe:";
 const RELEASE_AUDIT_SKILL_PATH: &str = ".agents/skills/epistemos_release_audit/SKILL.md";
 const MIN_BLOCKER_COUNT: usize = 12;
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
-const LOG_PREFIX: &str =
-    "log:artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/";
+const LOG_PREFIX: &str = "log:artifacts/falsifiers/small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe/logs/";
+
+pub fn fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor(
+    cursor: &str,
+) -> bool {
+    cursor == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR
+        || cursor
+            == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR
+        || cursor
+            == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_COMPLETION_CURSOR
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 // UAS: uas:small-model-runtime-harness-fresh-product-runtime-l3-release-audit-automated-checks-probe:phase
@@ -423,21 +434,18 @@ impl SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksWitness {
                 SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksError::MissingReleaseAuditSkill,
             );
         }
-        if self.guard_next_existing_work
-            != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR
-            && self.guard_next_existing_work
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR
-        {
+        if !fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor(
+            &self.guard_next_existing_work,
+        ) {
             return Err(
                 SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksError::GuardCursorMismatch,
             );
         }
         if self.capability_overall_pass
             || self.capability_route_status != "vault_research_route_with_packetized_mitigation"
-            || (self.capability_next_bottleneck
-                != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_CURSOR
-                && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_AUTOMATED_CHECKS_PROBE_NEXT_CURSOR)
+            || !fresh_product_runtime_l3_release_audit_automated_checks_accepts_cursor(
+                &self.capability_next_bottleneck,
+            )
         {
             return Err(
                 SmallModelFreshProductRuntimeL3ReleaseAuditAutomatedChecksError::CapabilityStatusMismatch,
@@ -924,6 +932,23 @@ mod tests {
             .validate()
             .expect("failed check with nonzero exit code remains ledger evidence");
         assert_eq!(candidate.metrics().failed_check_count, 1);
+    }
+
+    #[test]
+    fn advanced_release_completion_cursor_is_accepted_without_ship_authority() {
+        let mut candidate = witness();
+        candidate.guard_next_existing_work =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_COMPLETION_CURSOR
+                .to_string();
+        candidate.capability_next_bottleneck =
+            SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_RELEASE_AUDIT_COMPLETION_CURSOR
+                .to_string();
+        candidate
+            .validate()
+            .expect("advanced release-completion cursor should remain valid L1 evidence");
+        assert!(!candidate.ship_call_authorized);
+        assert!(!candidate.product_capability_promoted);
+        assert_eq!(candidate.zero_fail_pass_count, 0);
     }
 
     #[test]
