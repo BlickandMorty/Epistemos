@@ -127,6 +127,43 @@ struct KnowledgeCoreBridgeTests {
         #expect(summary.undone == 2)
     }
 
+    @Test("knowledge-core task counts reach parity with the live pipeline on checkboxes")
+    func knowledgeCoreMatchesLivePipelineOnCheckboxTasks() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 22))
+        let subscriptionId = await bridge.subscribeTasks(pageId: "tasks-live-parity")
+        #expect(subscriptionId != nil)
+        _ = await bridge.drainPayloads()
+
+        let text = "- [ ] Alpha\n- [x] Beta\n- [ ] Gamma\n- [x] Delta"
+        let ingested = await bridge.ingestDocument(
+            pageId: "tasks-live-parity",
+            format: .markdown,
+            text: text
+        )
+        #expect(ingested)
+
+        let taskRows = (await bridge.drainPayloads())
+            .filter { $0.kind == .tasks }
+            .flatMap(\.added)
+        let kcSummary = KnowledgeCoreTaskParitySummary(knowledgeCoreTaskRows: taskRows)
+
+        // The live extractor is @MainActor; summarize inside the actor and
+        // return the Sendable summary so the non-Sendable pipeline never escapes.
+        let liveSummary = await MainActor.run {
+            let live = TextCapturePipeline().extractTasks(from: text)
+            return KnowledgeCoreTaskParitySummary(
+                total: live.count,
+                done: live.filter(\.isCompleted).count
+            )
+        }
+
+        #expect(liveSummary.total == 4)
+        #expect(liveSummary.done == 2)
+        // Core cutover invariant for tasks: KC count-parity with the live path
+        // on the common checkbox syntax.
+        #expect(kcSummary.matches(liveSummary))
+    }
+
     @Test("shadow runtime batches summaries onto MainActor state")
     func shadowRuntimeBatchesSummaries() async throws {
         let runtime = try await MainActor.run {
