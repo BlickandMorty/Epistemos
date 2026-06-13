@@ -89,6 +89,22 @@ struct KnowledgeCoreBridgeTests {
         #expect(blocks.count == 2)
     }
 
+    @Test("bridge fact counts reflect ingested blocks + tasks (Slice 3 read API)")
+    func bridgeFactCountsReflectIngestedState() async throws {
+        let bridge = try #require(KnowledgeCoreBridge(peerId: 36))
+        #expect(await bridge.factCounts() == .zero)
+
+        #expect(await bridge.ingestDocument(
+            pageId: "facts-bridge-1",
+            format: .markdown,
+            text: "- Alpha\n- [ ] Beta"
+        ))
+
+        let counts = await bridge.factCounts()
+        #expect(counts.blocks == 2)
+        #expect(counts.tasks == 1)
+    }
+
     @Test("outline payload decoding covers added updated and removed sections")
     func outlinePayloadDecodingCoversAllSections() async throws {
         let bridge = try #require(KnowledgeCoreBridge(peerId: 16))

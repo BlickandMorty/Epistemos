@@ -223,3 +223,28 @@ not a flag flip:
 Steps 1-2 are buildable + compile-verifiable headless (flag-gated-OFF → no default-app behavior
 change). Step 3 (driving real UI state) is high-stakes and **runtime-verifiable only in a
 dev-cert app build** — build flag-off + verify on `Product ▸ Run` before promoting (flag on).
+
+## 12. Slice 3 steps 1-2 LANDED + fact-counts read API + runtime health row (2026-06-13)
+
+**Steps 1-2 done (`d68a368c1b`).** New flag `knowledgeCoreRuntimeV0` (default OFF, env
+`EPISTEMOS_KNOWLEDGECORE_RUNTIME_V0`). `KnowledgeCoreShadowRuntime.init?` gained `oplogPath`
+forwarding; `AppBootstrap` stands up a lazy, vault-rotating runtime against
+`<vault>/.epcache/kc-oplog.jsonl`, wired into startup + `.vaultChanged`. **Seed gate:** the full
+vault feed (SDPage → `ingestDocument`) runs ONLY when there is no prior oplog to replay — later
+opens trust the replayed state, so the oplog stays bounded and persistence is genuinely used
+(not re-walked each launch). App `BUILD SUCCEEDED`; KnowledgeCoreBridge suite 23/23.
+
+**First KC read API + observability.** `graph_engine_kc_fact_counts` FFI → bridge `factCounts()`
+→ runtime `factCounts()` exposes the store's (blocks, tasks, properties, links) counts — the
+first read *into* KC state (every prior FFI was a mutation or a ring drain). This is the seam the
+eventual UI cutover reads through. Surfaced read-only in Settings ▸ Diagnostics via
+`KnowledgeCoreRuntimeHealthRow` (flag state, runtime-standing, live fact counts, durable-oplog
+byte size). Honest `VerifiedFloorChipStrip`: `productionWired:false`, shadow-only, "drives no
+user-visible surface yet." Tests: `knowledge_core_fact_counts_reflect_ingested_state` (Rust),
+`bridgeFactCountsReflectIngestedState` + `shadowRuntimePersistsThroughOplogPath` (Swift).
+
+**Still ahead (step 3 — the cutover proper, dev-cert-gated):** subscribe a real SwiftUI surface
+(Notes outline / task list / sidebar) to the runtime's projected diffs, build it flag-off, then
+verify on `Product ▸ Run` before any promotion. Incremental note-edit → KC mutation wiring (so KC
+tracks edits without a full re-seed) is the other half of making KC authoritative; until then KC
+trusts its persisted projection, which is safe precisely because it is shadow-only.
