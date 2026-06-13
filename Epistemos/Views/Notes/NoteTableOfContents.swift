@@ -13,6 +13,7 @@ struct TOCItem: Identifiable, Equatable, Sendable {
         case heading
         case citation
         case source
+        case block   // KnowledgeCore block-outline row (every block, not just headings)
     }
 
     static func == (lhs: TOCItem, rhs: TOCItem) -> Bool {
@@ -101,6 +102,44 @@ enum TOCParser {
         return dropped
             .replacingOccurrences(of: "\\*\\*|\\*|`|\\[|\\]", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+// MARK: - KnowledgeCore Block Outline (Slice 3 cutover — Option 1)
+
+/// Builds a block-level outline (EVERY block, not just headings) from the shared
+/// KnowledgeCore runtime's projection of a page, for the "Blocks" mode of the
+/// outline panel. This is the production surface KC drives — its native block
+/// model, read on-demand via `pageOutline` (no per-TOC bridge, no re-ingest).
+/// Char offsets are resolved against the markdown (UTF-16, matching `TOCParser`)
+/// so click-to-scroll works; an unlocatable row falls back to offset 0. Returns
+/// `[]` when the runtime is unavailable (flag off) — the panel then keeps headings.
+@MainActor
+enum KnowledgeCoreBlockOutline {
+    static func items(pageId: String, markdown: String) async -> [TOCItem] {
+        guard let runtime = AppBootstrap.shared?.knowledgeCoreRuntime else { return [] }
+        let rows = await runtime.pageOutline(pageId: pageId)
+        guard !rows.isEmpty else { return [] }
+
+        // First-occurrence UTF-16 offset per trimmed line, matching TOCParser's
+        // accumulation so navigation lands on the same character positions.
+        var offsetByLine: [String: Int] = [:]
+        var charOffset = 0
+        for line in markdown.components(separatedBy: "\n") {
+            let key = line.trimmingCharacters(in: .whitespaces)
+            if !key.isEmpty, offsetByLine[key] == nil { offsetByLine[key] = charOffset }
+            charOffset += line.utf16.count + 1
+        }
+
+        return rows.map { row in
+            let trimmed = row.content.trimmingCharacters(in: .whitespaces)
+            return TOCItem(
+                level: min(max(row.depth + 1, 1), 6),
+                title: trimmed.isEmpty ? "—" : trimmed,
+                charOffset: offsetByLine[trimmed] ?? 0,
+                kind: .block
+            )
+        }
     }
 }
 
@@ -234,18 +273,35 @@ struct NoteOutlineOverlay: View {
     let theme: EpistemosTheme
     let onNavigate: (Int) -> Void
     var externalItems: [TOCItem]? = nil
+    /// KC block-outline rows (Slice 3 cutover). When non-empty, a Headings ⇄ Blocks
+    /// toggle appears and Blocks mode renders KC's projection. nil/empty → headings only.
+    var blockItems: [TOCItem]? = nil
+
+    enum OutlineMode { case headings, blocks }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var items: [TOCItem] = []
     @State private var isHovering = false
+    @State private var mode: OutlineMode = .headings
 
     private var headings: [TOCItem] {
         (externalItems ?? items).filter { $0.kind == .heading }
     }
 
+    private var blocks: [TOCItem] { blockItems ?? [] }
+    private var hasBlocks: Bool { !blocks.isEmpty }
+
+    /// What the panel renders: KC blocks in Blocks mode (when available), else headings.
+    private var displayedItems: [TOCItem] {
+        (mode == .blocks && hasBlocks) ? blocks : headings
+    }
+
+    /// The panel shows when there's anything to navigate — headings OR KC blocks.
+    private var isVisible: Bool { !headings.isEmpty || hasBlocks }
+
     var body: some View {
         Group {
-            if !headings.isEmpty {
+            if isVisible {
                 VStack {
                     Spacer()
 
@@ -293,10 +349,27 @@ struct NoteOutlineOverlay: View {
     private var outlinePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
-                Image(systemName: "list.bullet")
+                Image(systemName: mode == .blocks && hasBlocks ? "square.stack.3d.up" : "list.bullet")
                     .font(.system(size: 10, weight: .semibold))
                 Text("Outline")
                     .font(.system(size: 11, weight: .semibold))
+                Spacer()
+                // Headings ⇄ Blocks toggle — only when KC supplies a block outline.
+                if hasBlocks {
+                    Button {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.15)) {
+                            mode = (mode == .headings) ? .blocks : .headings
+                        }
+                    } label: {
+                        Text(mode == .blocks ? "Blocks" : "Headings")
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.quaternary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Toggle between markdown headings and the KnowledgeCore block outline")
+                }
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 12)
@@ -305,7 +378,7 @@ struct NoteOutlineOverlay: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 1) {
-                    ForEach(headings) { item in
+                    ForEach(displayedItems) { item in
                         Button {
                             onNavigate(item.charOffset)
                         } label: {
