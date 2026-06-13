@@ -287,3 +287,40 @@ verify on `Product ▸ Run` before promotion. The read path + a working preview 
 landed + verified; only wiring the production view and live-refresh remain, and those are the
 dev-cert step. Everything else (persistence, instantiate, seed, read APIs, edit-track, compaction,
 outline read + preview) is headless-verified.
+
+## 15. Two-path discovery + production-TOC cutover plan (2026-06-13)
+
+Investigating the production binding surfaced a SECOND, pre-existing KC→outline path, distinct
+from the new persistent runtime:
+
+- **Path B (pre-existing, `deterministicKnowledgeCoreRuntime` flag):**
+  `KnowledgeCoreOutlineProjectionState` in `NoteTableOfContents.swift` drives the production TOC.
+  But it (a) spins its OWN `KnowledgeCoreBridge` PER open note (one store per TOC, separate from
+  the app-wide runtime), (b) RE-INGESTS the markdown on every refresh, and (c) crucially still
+  sets `items = fallbackHeadings` (the regex markdown-heading parse) after applying KC payloads —
+  so KC currently SHADOW-validates the TOC but its projection is NOT displayed. The user still
+  sees the old regex headings.
+- **Path A (new, `knowledgeCoreRuntimeV0` flag):** the app-wide persistent seeded runtime +
+  `pageOutline` read API + `KnowledgeCoreOutlinePreview` (live-validated: 73,035 blocks projected
+  from My mind 2, outline rendered).
+
+**So the production TOC is NOT yet KC-displayed — it is shadow-validated.** The real cutover is to
+make the TOC DISPLAY KC's projected items, sourced from the shared seeded runtime (Path A) via
+`pageOutline`, retiring Path B's per-TOC bridge + per-refresh re-ingest + the
+`items = fallbackHeadings` shadow.
+
+**Canonical cutover plan (dev-cert-gated — now runnable since computer-use live verification works):**
+1. Give `KnowledgeCoreOutlineProjectionState` access to the shared `AppBootstrap.knowledgeCoreRuntime`;
+   when present, build `items` from `runtime.pageOutline(pageId:)` (already seeded — no per-TOC
+   bridge, no re-ingest) instead of the regex headings.
+2. Live-refresh: re-read on the runtime's diff signal (the poller's frame counter) so edits update
+   the TOC. Until that lands, refresh on `.vaultPageChanged` (the same signal edit-tracking uses).
+3. Keep it flag-gated + fallback-safe: regex headings remain the fallback when the runtime is off
+   or returns empty, so a KC miss never blanks the user's note navigation.
+4. Retire `deterministicKnowledgeCoreRuntime`'s per-TOC bridge once Path A drives the display.
+5. Verify on `Product ▸ Run` (A/B the flag) before flipping the default — this is the one step that
+   changes a user-visible production surface, so it stays gated until visually confirmed.
+
+This is the final cutover step. Everything beneath it (persistence, instantiate, seed, read APIs,
+edit-track, compaction, outline read + preview, app-wide AFM serialization, NL-embedding fix) is
+landed + verified, with the headline pieces live-validated on the real vault.
