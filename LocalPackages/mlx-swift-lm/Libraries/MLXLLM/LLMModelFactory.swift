@@ -33,14 +33,13 @@ public enum LLMTypeRegistry {
         "gemma3": create(Gemma3TextConfiguration.self, Gemma3TextModel.init),
         "gemma3_text": create(Gemma3TextConfiguration.self, Gemma3TextModel.init),
         "gemma3n": create(Gemma3nTextConfiguration.self, Gemma3nTextModel.init),
-        // Gemma 4 E2B / E4B use the MatFormer-style per-layer architecture
-        // that Gemma 3n introduced — the naming convention "E2B / E4B"
-        // (effective parameters) is the strongest hint. Alias to the Gemma
-        // 3n text config/model so the loader can pick up the weights.
-        // If upstream mlx-swift-lm later ships a dedicated Gemma 4 class
-        // this alias should be replaced with its own factory entry.
-        "gemma4": create(Gemma3nTextConfiguration.self, Gemma3nTextModel.init),
-        "gemma4_text": create(Gemma3nTextConfiguration.self, Gemma3nTextModel.init),
+        // Gemma 4 native port (vendored from ml-explore/mlx-swift-lm @ e3cb1e1b,
+        // 2026-06-14), replacing the prior Gemma-3n alias. `gemma4` is the
+        // multimodal config (thin text adapter that drops vision/audio weights);
+        // `gemma4_text` is the dense text config. See Models/Gemma4.swift +
+        // Models/Gemma4Text.swift.
+        "gemma4": create(Gemma4Configuration.self, Gemma4Model.init),
+        "gemma4_text": create(Gemma4TextConfiguration.self, Gemma4TextModel.init),
         "qwen2": create(Qwen2Configuration.self, Qwen2Model.init),
         "qwen3": create(Qwen3Configuration.self, Qwen3Model.init),
         "qwen3_moe": create(Qwen3MoEConfiguration.self, Qwen3MoEModel.init),
