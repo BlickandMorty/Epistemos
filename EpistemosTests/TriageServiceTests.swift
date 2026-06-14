@@ -567,6 +567,33 @@ struct TriageServiceTests {
         )
     }
 
+    @Test("invariant: no awaiting-loader tier is ever picker-selectable (catalog-wide)")
+    func awaitingLoaderTiersAreNeverReleaseValidated() {
+        // Hardening invariant: a model whose Swift loader doesn't exist must
+        // never be release-validated for the interactive picker — otherwise a
+        // user could select it and hit a load failure. Guards the WHOLE
+        // catalog, so any future model that flips one flag without the other
+        // (the exact class of bug the Gemma 4 preview shipped with) trips here.
+        for model in LocalTextModelID.allCases where model.isAwaitingSwiftRuntimeLoader {
+            #expect(
+                !model.isReleaseValidatedForInteractiveChat,
+                "\(model.rawValue) is awaiting a Swift loader yet marked release-validated for chat"
+            )
+        }
+    }
+
+    @Test("Gemma 4 dense tiers stay honestly non-agent")
+    func gemma4DenseTiersStayNonAgent() {
+        // The native MLX port loads Gemma 4, but its tool-call grammar isn't
+        // witnessed in this app (Gemma emits malformed <tool_call> XML —
+        // RCA-LOCAL-AGENT-GRAMMAR-001), so agent capability stays OFF. Pinning
+        // this prevents a future change from silently faking Gemma agent tools.
+        #expect(!LocalTextModelID.gemma4_2B4Bit.canActAsAgent)
+        #expect(!LocalTextModelID.gemma4_4B4Bit.canActAsAgent)
+        #expect(!LocalTextModelID.gemma4_2B4Bit.supportsNativeToolCalling)
+        #expect(!LocalTextModelID.gemma4_4B4Bit.supportsNativeToolCalling)
+    }
+
     @Test("model vault settings defer release-tier filtering to the shared inference targets builder")
     func modelVaultSettingsUseSharedReleaseTierFiltering() throws {
         let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ModelVaultsSettingsView.swift")
