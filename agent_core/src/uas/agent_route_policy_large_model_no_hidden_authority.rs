@@ -610,4 +610,42 @@ mod tests {
         byte_leak.model_runtime_bytes_loaded = 1;
         assert!(byte_leak.validate().is_err());
     }
+
+    #[test]
+    fn required_source_refs_resolve_to_real_files() {
+        // Hardening: the gate's safety claim is that these are THE route-authority
+        // surface. The other tests only check the strings are present in the list;
+        // if a referenced file is renamed or deleted the claim silently becomes
+        // fiction while the gate still passes. Pin every ref to a real on-disk
+        // file so a rename trips here instead of going unnoticed.
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("agent_core has a parent (the repo root)");
+        for source_ref in REQUIRED_SOURCE_REFS {
+            let path = repo_root.join(source_ref);
+            assert!(
+                path.exists(),
+                "no-hidden-authority gate references a missing source file: {source_ref}"
+            );
+        }
+    }
+
+    #[test]
+    fn required_refs_and_invariants_are_unique_and_nonempty() {
+        let refs: BTreeSet<&str> = REQUIRED_SOURCE_REFS.iter().copied().collect();
+        assert_eq!(
+            refs.len(),
+            REQUIRED_SOURCE_REFS.len(),
+            "duplicate entry in REQUIRED_SOURCE_REFS"
+        );
+        assert!(REQUIRED_SOURCE_REFS.iter().all(|s| !s.is_empty()));
+
+        let invariants: BTreeSet<&str> = REQUIRED_INVARIANTS.iter().copied().collect();
+        assert_eq!(
+            invariants.len(),
+            REQUIRED_INVARIANTS.len(),
+            "duplicate entry in REQUIRED_INVARIANTS"
+        );
+        assert!(REQUIRED_INVARIANTS.iter().all(|s| !s.is_empty()));
+    }
 }
