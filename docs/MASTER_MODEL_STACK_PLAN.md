@@ -34,7 +34,7 @@ table.
 | **Flagship Coder** | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | Qwen 3.6 35B A3B | Large-surface code, MoE |
 | **Function-Calling Local** | `leonsarmiento/Hermes-4.3-36B-4bit-mlx` | 3bit variant | On-device agent tool use |
 | **Flagship Local** | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | `mlx-community/Qwen3.6-35B-A3B-4bit-DWQ` | Best local generalist |
-| **Gemma 4 (Preview)** | `unsloth/gemma-4-E4B-it-UD-MLX-4bit` | — | NOT SHIPPABLE until MLX-Swift loader lands (tracked: `mlx-swift` issue #389) |
+| **Gemma 4 (dense)** | `mlx-community/gemma-4-e4b-it-4bit` | `mlx-community/gemma-4-e2b-it-4bit` | E2B/E4B load via vendored Apple Gemma4Text port (2026-06-14); on-device token-gen proof pending. 26B-A4B MoE + 31B-JANG still gated |
 | **Fast Cloud** | GPT-5.4 Nano / Claude Haiku 3.5 | — | Quick cloud |
 | **Pro Cloud** | GPT-5.4 / Claude Sonnet 4 | — | Default cloud |
 | **Agent Cloud** | Claude Opus 4.7 / GPT-5.4 | — | Cloud-backed agent loops (OpenAI + Anthropic only per `supportsAgentTier`) |
@@ -99,7 +99,7 @@ The user-facing picker now exposes exactly these tiers for LOCAL:
 - Coding Local (Qwen3-Coder Next + 30B A3B, Qwen 2.5 Coder 7B)
 - Function-Calling Local (Hermes 4.3 36B 4bit + 3bit)
 - Flagship Local (Qwen 3.6 35B A3B — Unsloth UD / DWQ)
-- Gemma 4 (Preview — coming when Swift loader ships)
+- Gemma 4 dense E2B/E4B (loader landed 2026-06-14; selectable, on-device token-gen proof pending)
 
 Everything else in the catalog (LFM, Mamba2, Jamba, Falcon, SmolLM3,
 Devstral, Mistral, Gemma 3, Llama 4 Scout, Qwopus) stays installable
@@ -113,19 +113,40 @@ auto-router. Users who know what they want can still pick them.
 Every item here is a real workstream, not "maybe someday." Each has a
 clear scope + verifiable completion signal.
 
-### a. Port Gemma 4 Swift loader from `SharpAI/SwiftLM`
-- **Source**: `SharpAI/SwiftLM` (MIT-licensed, working Gemma 4 Swift impl)
-- **Target**: `LocalPackages/mlx-swift-lm/Libraries/MLXLLM/Models/Gemma4Text.swift`
-- **Scope**: Port `Gemma4TextConfiguration` + `Gemma4Model` (E4B dense
-  variant first). Port the MoE variant (`gemma-4-26b-a4b`) second.
-  Register both in `LLMTypeRegistry` under `"gemma4"` and `"gemma4_text"`
-  — replace the current alias-to-Gemma-3n hack in
-  `LocalPackages/mlx-swift-lm/Libraries/MLXLLM/LLMModelFactory.swift`.
-- **Verify**: `unsloth/gemma-4-E4B-it-UD-MLX-4bit` actually loads and
-  generates coherent tokens. Run a "describe this sentence" smoke test.
-- **Once green**: restore Gemma 4 tiers to triage preferredOrder, drop
-  the triage-ready filter introduced in commit `f3e9c6d4`, switch
-  catalog HF IDs from `mlx-community/gemma-4-*` to `unsloth/gemma-4-*-UD-MLX-4bit`.
+### a. Port Gemma 4 Swift loader — ✅ LANDED 2026-06-14 (`0b53121737` + app un-gate)
+- **What changed vs the original plan**: instead of hand-porting from
+  `SharpAI/SwiftLM`, Apple shipped a *tested* native port in
+  `ml-explore/mlx-swift-lm` on the Gemma 4 launch (2026-04-02). Per the
+  best-version-audit rule we vendored Apple's port verbatim
+  (@ `e3cb1e1b`, MIT) rather than hand-rolling ~700 LOC — lower risk,
+  upstream-tested, re-syncable.
+- **Vendored**: `MLXLLM/Models/Gemma4Text.swift` (dense text model: PLE,
+  shared KV, dual-RoPE, K-eq-V), `MLXLLM/Models/Gemma4.swift` (thin text
+  adapter that drops vision/audio weights — MAS-shippable),
+  `MLXLMCommon/Models/Gemma4.swift` (`Gemma4SharedKVState`),
+  `MLXLMCommon/RoPEApplication.swift` (`applyRotaryPosition`). Additive
+  `RoPEOffset`/`ropeOffset` in `KVCache.swift`. `LLMModelFactory` now maps
+  `"gemma4"`→`Gemma4Model` and `"gemma4_text"`→`Gemma4TextModel`,
+  replacing the Gemma-3n alias. `swift build --target MLXLLM` green.
+- **Scope reality — DENSE ONLY**: the upstream Swift port has no
+  Router/Experts, so the **26B-A4B MoE** tier still has no runnable loader
+  and stays gated (`isAwaitingSwiftRuntimeLoader`). The **31B-JANG**
+  third-party fine-tune is unverified against the port + oversized, also
+  gated. Only the official dense **E2B/E4B** tiers are un-gated.
+- **App un-gate**: `isAwaitingSwiftRuntimeLoader` / picker /
+  TriageService filter / migration / sanitizer all key off the gate, so
+  they auto-narrowed to 26B/31B. E2B/E4B are now picker-selectable.
+  Capability truth: Gemma 4 keeps `canActAsAgent == false` (its tool-call
+  grammar isn't witnessed in this app) — agent tools stay honestly OFF
+  with a "no witness" reason, no longer "loader unavailable".
+- **STILL PENDING (user machine)**: on-device proof that
+  `mlx-community/gemma-4-e4b-it-4bit` loads and generates coherent tokens
+  (a "describe this sentence" smoke test). Headless builds can't run the
+  signed app host — needs Product ▸ Run. Until then E4B is "loadable +
+  selectable", not "live-sweep validated". Catalog HF IDs left at
+  `mlx-community/gemma-4-*` (official, present); no switch to `unsloth/*`
+  needed. Gemma 4 intentionally NOT added to triage preferredOrder — the
+  validated automatic default stays Qwen.
 
 ### b. Convert OpenThinker3-7B to MLX 4-bit
 - **Source**: `open-thoughts/OpenThinker3-7B` (Qwen2.5-7B-Instruct base)
