@@ -891,6 +891,11 @@ final class PipelineService {
         if let activeAgent = activeCompanionSystemInstruction() {
             systemParts.append(activeAgent)
         }
+        // Procedural memory: the user's generated skills shape direct (non-agent)
+        // chats too, matching the local-agent loop. Absent skills → no change.
+        if let skills = LocalAgentPromptBuilder.proceduralMemoryBlock() {
+            systemParts.append(skills)
+        }
         let systemPrompt: String? = systemParts.isEmpty
             ? nil
             : systemParts.joined(separator: "\n\n")
