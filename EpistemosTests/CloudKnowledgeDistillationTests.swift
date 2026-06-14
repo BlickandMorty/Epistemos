@@ -94,7 +94,16 @@ struct CloudKnowledgeDistillationTests {
                 .map(\.modelID)
         )
 
-        #expect(localTargetIDs == Set(LocalModelCatalog.allDescriptors.map(\.id)))
+        // GGUF models (e.g. the Gemma-4 QAT ladder) are catalog-registered but
+        // Pro-gated — intentionally NOT enum-backed default targets. The invariant
+        // is therefore: enum-backed local default-targets == the SHIPPABLE
+        // (non-GGUF) catalog descriptors.
+        let shippableCatalogIDs = Set(
+            LocalModelCatalog.allDescriptors
+                .filter { $0.runtimeKind != .gguf }
+                .map(\.id)
+        )
+        #expect(localTargetIDs == shippableCatalogIDs)
         #expect(!localTargetIDs.contains(nonexistentGemma4))
     }
 

@@ -6051,8 +6051,12 @@ struct InferenceCloudSelectionTests {
         )
 
         #expect(source.contains("return \"Qwen 3\""))
-        #expect(source.contains("return LocalTextModelID(rawValue: modelID)?.displayName ?? modelID"))
-        #expect(!source.contains("return LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID"))
+        // The picker's route name (`localRouteDisplayName`) resolves the FULL
+        // displayName — with a GemmaQATRuntimeLadder fallback for gated GGUF —
+        // not the compact variant.
+        #expect(source.contains("func localRouteDisplayName"))
+        #expect(source.contains("LocalTextModelID(rawValue: modelID)?.displayName"))
+        #expect(!source.contains("localRouteDisplayName(for modelID: String) -> String {\n        LocalTextModelID(rawValue: modelID)?.compactDisplayName"))
     }
 
     @MainActor
@@ -6768,7 +6772,10 @@ struct InferenceCloudSelectionTests {
 
         #expect(bootstrap.contains("let probeRuntimeKind"))
         #expect(bootstrap.contains("config.resolvedRuntimeKind(for: probeModelID)"))
-        #expect(bootstrap.contains("LocalTextModelID(rawValue: probeModelID)?.runtimeKind"))
+        // Runtime kind is resolved through the catalog descriptor, which correctly
+        // classifies the Gemma-4 QAT GGUF ladder (the LocalTextModelID enum does
+        // not back those gated ids, so an enum-only lookup would mis-tag them .mlx).
+        #expect(bootstrap.contains("LocalModelCatalog.descriptor(for: probeModelID)?.runtimeKind"))
         #expect(bootstrap.contains("probeRuntimeKind == .gguf"))
     }
 
