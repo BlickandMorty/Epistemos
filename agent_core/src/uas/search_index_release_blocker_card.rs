@@ -19,7 +19,7 @@ const REQUIRED_SOURCE_REFS: [&str; 13] = [
     "Epistemos/Sync/ReadableBlocksProjector.swift",
     "Epistemos/Sync/VaultSyncService.swift",
     "Epistemos/Engine/QueryRuntime.swift",
-    "Epistemos/Engine/QueryTypes.swift",
+    "Epistemos/Models/QueryTypes.swift",
     "Epistemos/Graph/GraphState.swift",
     "Epistemos/Graph/GraphStore.swift",
     "EpistemosTests/SearchIndexTests.swift",
