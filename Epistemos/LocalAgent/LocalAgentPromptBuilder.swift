@@ -137,15 +137,30 @@ nonisolated enum LocalAgentPromptBuilder {
     static func foldingSkillContent(_ skills: String, into instructions: String?) -> String? {
         let trimmed = skills.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return instructions }
-        let block = """
-        ## Procedural Memory (the user's learned skills — apply them)
-        \(trimmed)
-        """
         guard let instructions,
               !instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return block
+            return proceduralMemoryBlock(for: trimmed)
         }
-        return instructions + "\n\n" + block
+        return instructions + "\n\n" + proceduralMemoryBlock(for: trimmed)
+    }
+
+    /// Formats skill content into the labeled Procedural Memory block.
+    static func proceduralMemoryBlock(for skills: String) -> String {
+        """
+        ## Procedural Memory (the user's learned skills — apply them)
+        \(skills)
+        """
+    }
+
+    /// Loads the user's skills as a Procedural Memory block, or nil if none exist.
+    /// Shared seam so the direct-chat pipeline injects the same skills as the
+    /// local-agent loop — skills shape EVERY response, not just agentic turns.
+    static func proceduralMemoryBlock(maxChars: Int = 6000) -> String? {
+        let skills = SkillManifest.load()
+            .loadSkillContent(types: SkillType.allCases, maxChars: maxChars)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !skills.isEmpty else { return nil }
+        return proceduralMemoryBlock(for: skills)
     }
 
     static func buildMessages(
