@@ -1,0 +1,92 @@
+//! Meta-integrity guard for the `uas/` gate family.
+//!
+//! The `*_release_blocker_card` / `*_source_guard` / route-policy gates assert
+//! "these named Swift/Rust files are THE surface for capability X". Their own
+//! unit tests only check that the ref *strings* are present in the list — so if
+//! one of those files is renamed or deleted, the gate keeps passing while its
+//! safety claim silently becomes fiction.
+//!
+//! This single test scans the production (non-test) portion of every `src/uas`
+//! gate, extracts the `Epistemos/...` and `agent_core/...` `.swift`/`.rs` file
+//! refs, and asserts each resolves on disk. It guards the whole family plus any
+//! future gate, with no per-gate boilerplate.
+//!
+//! It caught `Epistemos/Engine/QueryTypes.swift` (the file had moved to
+//! `Epistemos/Models/`) in `search_index_release_blocker_card` when it landed.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("agent_core has a parent (the repo root)")
+        .to_path_buf()
+}
+
+/// Pull repo-relative source-file refs from the NON-test portion of a gate.
+///
+/// Scanning stops at the first `#[cfg(test)]` so test fixtures — which
+/// deliberately use bogus paths for rejection/path-traversal tests — are not
+/// flagged. Refs containing `{` (format placeholders) or `:` (file:symbol
+/// pointers) are skipped; only clean `Epistemos/...`/`agent_core/...` paths
+/// ending in `.swift`/`.rs` are returned.
+fn extract_source_refs(src: &str) -> Vec<String> {
+    let body = match src.find("#[cfg(test)]") {
+        Some(idx) => &src[..idx],
+        None => src,
+    };
+
+    let mut refs = Vec::new();
+    let mut rest = body;
+    while let Some(open) = rest.find('"') {
+        rest = &rest[open + 1..];
+        let Some(close) = rest.find('"') else { break };
+        let literal = &rest[..close];
+        rest = &rest[close + 1..];
+
+        let is_repo_path =
+            literal.starts_with("Epistemos/") || literal.starts_with("agent_core/");
+        let is_source_file = literal.ends_with(".swift") || literal.ends_with(".rs");
+        let is_clean = !literal.contains('{') && !literal.contains(':');
+        if is_repo_path && is_source_file && is_clean {
+            refs.push(literal.to_string());
+        }
+    }
+    refs
+}
+
+#[test]
+fn uas_gate_source_refs_resolve_to_real_files() {
+    let root = repo_root();
+    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("uas");
+
+    let mut missing: Vec<String> = Vec::new();
+    let mut checked = 0usize;
+
+    for entry in fs::read_dir(&uas_dir).expect("read src/uas") {
+        let path = entry.expect("dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let src = fs::read_to_string(&path).expect("read gate source");
+        let file = path.file_name().unwrap().to_string_lossy().to_string();
+        for source_ref in extract_source_refs(&src) {
+            checked += 1;
+            if !root.join(&source_ref).exists() {
+                missing.push(format!("{file}: {source_ref}"));
+            }
+        }
+    }
+
+    // Guard against the matcher silently breaking and scanning nothing.
+    assert!(
+        checked > 20,
+        "expected to scan many uas/ source refs, only saw {checked} — matcher likely broke"
+    );
+    assert!(
+        missing.is_empty(),
+        "uas/ gates name source files that no longer exist (rename/delete drift):\n  {}",
+        missing.join("\n  ")
+    );
+}
