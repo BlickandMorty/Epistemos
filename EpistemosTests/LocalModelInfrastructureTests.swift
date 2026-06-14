@@ -1140,8 +1140,11 @@ struct LocalModelInfrastructureTests {
         let legacyDescriptor = try #require(
             LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
         )
+        // 26B-A4B (MoE) is still awaiting a Swift loader (the native port is
+        // dense-only), so it stays hidden from the legacy installed list. The
+        // dense E4B tier now loads and would no longer be hidden.
         let gemmaDescriptor = try #require(
-            LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue)
+            LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
         )
 
         try FileManager.default.createDirectory(

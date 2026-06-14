@@ -21,8 +21,11 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(experimental.title == "EXPERIMENTAL")
         #expect(experimental.falsifier == "F-LocalToolUse pending")
 
+        // 26B-A4B (MoE) still lacks a Swift loader (the native port is
+        // dense-only), so it keeps the loader-unavailable OFF badge. The dense
+        // E4B tier now loads and is covered separately below (no-witness OFF).
         let gemmaPreview = RuntimeRouter.agentCapabilityBadgeData(
-            forLocalModelID: LocalTextModelID.gemma4_4B4Bit.rawValue
+            forLocalModelID: LocalTextModelID.gemma4_27BA4B4Bit.rawValue
         )
         #expect(gemmaPreview.state == .off)
         #expect(gemmaPreview.title == "OFF")
@@ -142,7 +145,10 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(!gatedGemma.toolsAvailable)
         #expect(gatedGemma.pillDetail == "no tools")
         #expect(gatedGemma.label == "Local agent unavailable")
-        #expect(gatedGemma.detail.contains("Swift MLX loader"))
+        // E4B now loads, but Gemma's tool-call grammar isn't witnessed in this
+        // app (canActAsAgent == false), so the honest reason is now "no
+        // witness", not the old loader-unavailable message.
+        #expect(gatedGemma.detail.contains("No model witness"))
     }
 
     @Test("shared compatibility matrix covers current, local, cloud, provider-native, and skills")
@@ -192,7 +198,9 @@ struct AgentCapabilityTruthCloseoutTests {
             rows.first { $0.selection == .localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue) }
         )
         #expect(!gemma.summary.toolsAvailable)
-        #expect(gemma.summary.detail.contains("Swift MLX loader"))
+        // E4B loads now; tools stay off because Gemma's grammar isn't witnessed
+        // (no-witness), not because the loader is missing.
+        #expect(gemma.summary.detail.contains("No model witness"))
         #expect(gemma.appToolStateLabel == "inventory only")
 
         let google = try #require(rows.first { $0.selection == .cloud(.googleGemini25Pro) })

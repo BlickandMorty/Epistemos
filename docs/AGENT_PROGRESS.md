@@ -582,7 +582,9 @@ Canonical release-hardening plan:
 - [x] Batch J `cfad9a99` — `EffectiveModelBadge` renders a small sparkle-pill under each assistant reply showing the actual model that answered (the Perplexity #1 research pattern: transparent routing)
 - [x] Verification: 7-suite sanity sweep (`AgentChatStateTests`, `ChatPresentationTests`, `CloudProviderAuthServiceTests`, `LocalModelInfrastructureTests`, `PipelineServiceTests`, `RuntimeValidationTests`, `TriageServiceTests`) all green
 
-**Open:** OpenThinker3-7B catalog entry (needs Python MLX conversion step we can't run autonomously — wait for a community `mlx-community/OpenThinker3-7B-*-mlx` upload or run the conversion manually). Gemma 4 loader port (multi-file Swift MLX work in `LocalPackages/mlx-swift-lm/` — too big for autonomous landing, tracked in MASTER_MODEL_STACK_PLAN.md §3.a).
+**Open:** OpenThinker3-7B catalog entry (needs Python MLX conversion step we can't run autonomously — wait for a community `mlx-community/OpenThinker3-7B-*-mlx` upload or run the conversion manually).
+
+**Gemma 4 loader — ✅ LANDED 2026-06-14** (`0b53121737` + app un-gate): vendored Apple's tested native `Gemma4Text` port from `ml-explore/mlx-swift-lm` @ `e3cb1e1b` (replacing the Gemma-3n alias), so the dense **E2B/E4B** tiers now load. The Swift port is **dense-only** (no MoE), so **26B-A4B** stays `isAwaitingSwiftRuntimeLoader`-gated; **31B-JANG** (third-party, unverified, oversized) stays gated too. `swift build --target MLXLLM` green; full Epistemos `build-for-testing` compiles. **On-device token-generation proof still pending** (needs a signed Product ▸ Run — headless can't launch the test host). See MASTER_MODEL_STACK_PLAN.md §3.a.
 
 **Next-session P1 continuation:** typed error surfaces (401/429/content-policy/tool-failure), context side panel (NotebookLM + Continue.dev hybrid), and click-through routing rationale ("why this model?") on the new model badge — all specified in CHAT_TRANSPARENCY_PLAN_2026-04-19.md.
 

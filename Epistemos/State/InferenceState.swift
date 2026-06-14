@@ -33,9 +33,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     // MARK: - Gemma 4 Family (2026 frontier)
     // PREVIEW ONLY until a Swift MLX Gemma 4 loader ships. Current
-    // mlx-swift-lm aliases gemma4 → Gemma 3n but Gemma 3n's config
-    // decoder fails on Gemma 4's MatFormer fields. Do not surface
-    // these as default triage picks.
+    // Gemma 4 now loads via the native Apple Swift port vendored into
+    // mlx-swift-lm (Gemma4Text.swift @ e3cb1e1b). The official dense E2B/E4B
+    // tiers are runnable; the 26B-A4B MoE + 31B-JANG third-party tiers are
+    // still gated (dense-only port / unverified config) — see
+    // isAwaitingSwiftRuntimeLoader. Do not surface gemma4 as a default triage
+    // pick; the validated default stays Qwen.
     case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
     case gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"
     case gemma4_27BA4B4Bit = "mlx-community/gemma-4-26b-a4b-it-4bit"
@@ -586,9 +589,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              // installs still resolve; new installs prefer UD/DWQ via
              // TriageService preferredOrder.
              .qwen36_35BA3B4Bit,
-             // Gemma 4 tiers — SHIPPED but preview-gated (loader pending).
-             // Listed here so users can install weights; triage excludes
-             // them until the Swift loader lands.
+             // Gemma 4 tiers — installable. The dense E4B tier now loads via
+             // the native Apple MLX port (Gemma4Text.swift); the 26B-A4B MoE
+             // tier stays triage-excluded because the Swift port is dense-only.
              .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit:
             true
@@ -605,13 +608,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen25Coder7B:
             false
-        // Gemma 4 ships in the catalog (weights download correctly) but
-        // the mlx-swift-lm Swift loader for `model_type: gemma4` isn't
-        // ported yet (tracked in docs/MASTER_MODEL_STACK_PLAN.md §3.a).
-        // Selecting any Gemma 4 tier today produces a runtime
-        // "Unsupported model type: gemma4" error. Hide from the
-        // interactive chat picker until the loader lands.
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        // The official dense Gemma 4 E2B/E4B tiers now load via the native
+        // Apple MLX port (Gemma4Text.swift) and are selectable for on-device
+        // validation — they fall through to the default visibility rule.
+        // 26B-A4B is Mixture-of-Experts (the dense-only Swift port can't run
+        // it) and 31B-JANG is an unverified third-party fine-tune that won't
+        // fit the 16GB ship target; keep both out of the chat picker.
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             false
         default:
             !isExperimentalForEpistemos
@@ -624,7 +627,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// never hits the raw "Unsupported model type" error.
     var isAwaitingSwiftRuntimeLoader: Bool {
         switch self {
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        // Gemma 4 26B-A4B is a Mixture-of-Experts checkpoint; the vendored
+        // Apple Swift port (Gemma4Text.swift @ e3cb1e1b) is dense-only — no
+        // Router/Experts — so the MoE tier has no runnable Swift loader.
+        // 31B-JANG is a third-party fine-tune whose config hasn't been
+        // verified against the dense port (and won't fit the 16GB ship
+        // target). The official dense E2B/E4B tiers now load natively, so
+        // they are no longer awaiting a loader.
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true
         default:
             false
@@ -633,7 +643,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var releasePickerVisibilityReason: String? {
         if isAwaitingSwiftRuntimeLoader {
-            return "Hidden from the release picker while the Swift MLX loader for this family is still being ported (docs/MASTER_MODEL_STACK_PLAN.md §3.a). Weights install fine but loading one would fail at runtime."
+            return "Hidden from the release picker: this Gemma 4 tier has no runnable Swift loader. The native Apple MLX port (Gemma4Text.swift) is dense-only, so the 26B-A4B Mixture-of-Experts checkpoint can't run; the 31B-JANG third-party fine-tune isn't verified against it and won't fit this device. Weights install fine but loading one would fail at runtime. The official dense E2B/E4B tiers load natively."
         }
         if isExperimentalForEpistemos {
             switch self {

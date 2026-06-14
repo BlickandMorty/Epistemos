@@ -735,23 +735,17 @@ nonisolated struct InferencePolicyEngine {
             }
         }
 
-        // Triage-ready candidates: same as the input list minus families we
-        // know cannot load today. Right now this is the Gemma 4 family —
-        // mlx-swift-lm has no Gemma 4 config decoder, so letting the
-        // shipped-fallback pick a Gemma 4 tier would reproduce the user-
-        // visible "Unsupported model type: gemma4" error even when the
-        // preferredOrder above successfully demotes it. Qwen 3.6 / Qwen
-        // Coder / DeepSeek R1 / Bonsai all load cleanly so they're safe
-        // fallback picks. When the Gemma 4 decoder ships, drop this
-        // filter and restore Gemma 4 to preferredOrder at the top of
-        // this function.
+        // Triage-ready candidates: same as the input list minus tiers we know
+        // cannot load today. The native Apple Gemma 4 port (Gemma4Text.swift)
+        // is dense-only, so the dense E2B/E4B tiers load cleanly and are safe
+        // fallback picks — only the 26B-A4B Mixture-of-Experts tier (no Swift
+        // Router/Experts) and the 31B-JANG third-party fine-tune (unverified
+        // config, oversized) still reproduce the "Unsupported model type" /
+        // load-failure path, so they stay excluded. Gemma 4 is intentionally
+        // kept out of preferredOrder above; the validated default stays Qwen.
+        // This filter mirrors LocalTextModelID.isAwaitingSwiftRuntimeLoader.
         let triageReadyCandidates = effectiveCandidateModels.filter { candidate in
-            switch candidate {
-            case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
-                return false
-            default:
-                return true
-            }
+            !candidate.isAwaitingSwiftRuntimeLoader
         }
 
         if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {

@@ -1950,13 +1950,13 @@ actor MLXInferenceService: LocalMLXRuntime {
             return (container, false, 0)
         }
 
-        // Defensive guard: Gemma 4 weights install but the Swift MLX
-        // loader isn't ported yet (see LocalTextModelID.isAwaitingSwiftRuntimeLoader
-        // + docs/MASTER_MODEL_STACK_PLAN.md §3.a). The picker filter
-        // (Batch T) + the startup migration already try to keep users
-        // off Gemma 4, but if ANY path still resolves to a gemma4 ID
-        // we want a friendly error instead of the opaque
-        // "Unsupported model type: gemma4" the user has been seeing.
+        // Defensive guard: most Gemma 4 tiers now load via the native Apple
+        // Swift port (Gemma4Text.swift), but the dense-only port still can't
+        // run the 26B-A4B Mixture-of-Experts checkpoint, and the 31B-JANG
+        // third-party fine-tune is unverified against it
+        // (see LocalTextModelID.isAwaitingSwiftRuntimeLoader). If any path
+        // still resolves to one of those IDs we want a friendly error instead
+        // of the opaque "Unsupported model type: gemma4" the user used to see.
         if let modelID = LocalTextModelID(rawValue: request.modelID),
            modelID.isAwaitingSwiftRuntimeLoader {
             throw LocalInferenceRoutingError.modelLoaderUnavailable(modelID: request.modelID)

@@ -525,9 +525,13 @@ struct TriageServiceTests {
             }
         }
 
-        defaults.set(LocalTextModelID.gemma4_4B4Bit.rawValue, forKey: localKey)
+        // Use the 26B-A4B MoE tier: it still lacks a runnable Swift loader
+        // (the native port is dense-only), so it must still migrate away. The
+        // dense E2B/E4B tiers now load natively and are intentionally NOT
+        // migrated — see gemma4TiersHiddenFromPicker.
+        defaults.set(LocalTextModelID.gemma4_27BA4B4Bit.rawValue, forKey: localKey)
         defaults.set(
-            ChatModelSelection.localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue).rawValue,
+            ChatModelSelection.localMLX(LocalTextModelID.gemma4_27BA4B4Bit.rawValue).rawValue,
             forKey: selectionKey
         )
 
@@ -542,15 +546,25 @@ struct TriageServiceTests {
         )
     }
 
-    @Test("Gemma 4 tiers are hidden from the interactive chat picker")
+    @Test("dense Gemma 4 E2B/E4B are selectable; MoE/JANG tiers stay gated")
     func gemma4TiersHiddenFromPicker() {
-        #expect(!LocalTextModelID.gemma4_2B4Bit.isReleaseValidatedForInteractiveChat)
-        #expect(!LocalTextModelID.gemma4_4B4Bit.isReleaseValidatedForInteractiveChat)
+        // Dense E2B/E4B load via the native Apple MLX port → selectable.
+        #expect(LocalTextModelID.gemma4_2B4Bit.isReleaseValidatedForInteractiveChat)
+        #expect(LocalTextModelID.gemma4_4B4Bit.isReleaseValidatedForInteractiveChat)
+        #expect(!LocalTextModelID.gemma4_2B4Bit.isAwaitingSwiftRuntimeLoader)
+        #expect(!LocalTextModelID.gemma4_4B4Bit.isAwaitingSwiftRuntimeLoader)
+        #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason == nil)
+
+        // 26B-A4B (MoE, dense-only port can't run it) + 31B-JANG (unverified
+        // third-party, oversized) stay out of the picker and awaiting a loader.
         #expect(!LocalTextModelID.gemma4_27BA4B4Bit.isReleaseValidatedForInteractiveChat)
         #expect(!LocalTextModelID.gemma4_31BJANG.isReleaseValidatedForInteractiveChat)
-
-        #expect(LocalTextModelID.gemma4_4B4Bit.isAwaitingSwiftRuntimeLoader)
-        #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason?.contains("Swift MLX loader") == true)
+        #expect(LocalTextModelID.gemma4_27BA4B4Bit.isAwaitingSwiftRuntimeLoader)
+        #expect(LocalTextModelID.gemma4_31BJANG.isAwaitingSwiftRuntimeLoader)
+        #expect(
+            LocalTextModelID.gemma4_27BA4B4Bit.releasePickerVisibilityReason?
+                .contains("Mixture-of-Experts") == true
+        )
     }
 
     @Test("model vault settings defer release-tier filtering to the shared inference targets builder")
@@ -1426,20 +1440,17 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
-    @Test("auto local routing prefers a non-Gemma fallback for general pro work (Gemma 4 excluded until loader ships)")
+    @Test("auto local routing prefers a non-Gemma fallback for general pro work (Gemma 4 kept out of preferredOrder)")
     func autoLocalRoutingPrefersFlagshipForGeneralProWork() {
-        // Gemma 4 family was removed from TriageService.preferredOrder (and
-        // the shipped-fallback) in the 2026-04-18 fix because the
-        // MLX-Swift-LM Gemma 4 decoder isn't yet implemented — the old
-        // expected-gemma4 behavior caused user-visible "Unsupported model
-        // type: gemma4" errors on routed turns. With Gemma 4 demoted,
-        // DeepSeek R1 7B is the preferred .pro-synthesis pick that fits
-        // inside this test's 18GB hardware snapshot (qwen36_35BA3B4Bit is
-        // filtered by supportedInstalledModels on 18GB). Installed list
-        // keeps gemma4_27BA4B4Bit to prove the filter actually excludes
-        // it when an alternative is available. When MLX-Swift-LM ships
-        // a real Gemma 4 config decoder, restore Gemma 4 to preferredOrder
-        // at the top of preferredAutomaticLocalModel and revert this.
+        // Gemma 4 is intentionally kept out of TriageService.preferredOrder —
+        // the validated automatic default stays Qwen/DeepSeek even though the
+        // dense E2B/E4B tiers now load via the native Apple MLX port. With
+        // Gemma 4 not preferred, DeepSeek R1 7B is the .pro-synthesis pick that
+        // fits this test's 18GB snapshot (qwen36_35BA3B4Bit is filtered by
+        // supportedInstalledModels on 18GB). The installed list keeps
+        // gemma4_27BA4B4Bit — the MoE tier the dense-only port still can't run
+        // — to prove the awaiting-loader filter excludes it when an
+        // alternative is available.
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(

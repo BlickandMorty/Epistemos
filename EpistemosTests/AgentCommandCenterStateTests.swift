@@ -216,7 +216,7 @@ struct AgentCommandCenterStateTests {
         #expect(state.selectedOperatingMode == .fast)
     }
 
-    @Test func refreshBrainCatalogHidesGemmaFourEvenWhenInstalled() {
+    @Test func refreshBrainCatalogExposesDenseGemmaFourButHidesMoE() {
         let state = AgentCommandCenterState(userDefaults: Self.makeDefaults())
         let inference = InferenceState(
             keychainLoad: { _ in nil },
@@ -226,14 +226,21 @@ struct AgentCommandCenterStateTests {
 
         inference.setInstalledLocalTextModelIDs([
             LocalTextModelID.gemma4_4B4Bit.rawValue,
+            LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
             LocalTextModelID.bonsai4B2Bit.rawValue,
             LocalTextModelID.qwen3_4B4Bit.rawValue,
         ])
 
         state.refreshBrainCatalog(from: inference)
 
+        // Dense E4B now loads via the native Apple MLX port → selectable brain.
         #expect(
-            !state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_4B4Bit.rawValue)" })
+            state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_4B4Bit.rawValue)" })
+        )
+        // 26B-A4B is Mixture-of-Experts; the dense-only Swift port can't run
+        // it, so it stays hidden from the brain catalog.
+        #expect(
+            !state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)" })
         )
         #expect(
             state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.bonsai4B2Bit.rawValue)" })
