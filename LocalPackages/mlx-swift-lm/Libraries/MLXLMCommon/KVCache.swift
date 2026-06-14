@@ -4,6 +4,16 @@ import Foundation
 import MLX
 import MLXNN
 
+/// Offset to use with ``applyRotaryPosition(_:to:offset:)``.
+///
+/// See ``KVCache/ropeOffset``. Added for the vendored Gemma 4 port
+/// (ml-explore/mlx-swift-lm @ e3cb1e1b); `.batch` is a forward-compat hook for
+/// batched caches — all current Epistemos fork caches resolve to `.scalar`.
+public enum RoPEOffset {
+    case scalar(Int)
+    case batch(MLXArray)
+}
+
 /// Implementation of KV cache functionality for MLX Swift
 ///
 ///
@@ -39,6 +49,12 @@ public protocol KVCache: Evaluatable {
     /// get the current offset
     var offset: Int { get }
 
+    /// Offset to use with ``applyRotaryPosition(_:to:offset:)``.
+    ///
+    /// Defaulted to `.scalar(offset)` (see the `KVCache` extension); batched
+    /// caches override via ``BatchPositionedKVCache``.
+    var ropeOffset: RoPEOffset { get }
+
     /// get the maximum size (if any)
     var maxSize: Int? { get }
 
@@ -71,6 +87,14 @@ public protocol KVCache: Evaluatable {
     func makeMask(
         n: Int, windowSize: Int?, returnArray: Bool
     ) -> MLXFast.ScaledDotProductAttentionMaskMode
+}
+
+extension KVCache {
+    /// Default RoPE offset: the scalar cache offset. Batched caches override
+    /// this via ``BatchPositionedKVCache``. Added for the vendored Gemma 4 port.
+    public var ropeOffset: RoPEOffset {
+        .scalar(offset)
+    }
 }
 
 /// Protocol for caches that support efficient quantized operations
