@@ -35,10 +35,17 @@ nonisolated enum LocalAgentPromptBuilder {
     ) -> String {
         let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
 
+        // Procedural memory: fold the user's generated skills (writing voice,
+        // coding style, tool registry, domain glossary, guardrails) into the
+        // additional instructions so BOTH the Rust and Swift prompt paths carry
+        // them. Skills are an explicit user artifact generated on demand — their
+        // presence on disk is the opt-in; with no skills the prompt is unchanged.
+        let mergedInstructions = mergingSkillContent(into: additionalInstructions)
+
         #if canImport(agent_coreFFI)
         if let prompt = rustSystemPrompt(
             tools: tools,
-            additionalInstructions: additionalInstructions,
+            additionalInstructions: mergedInstructions,
             knowledgeIndex: knowledgeIndex
         ) {
             return prompt
@@ -46,7 +53,7 @@ nonisolated enum LocalAgentPromptBuilder {
         #endif
 
         let toolsJson = formattedToolsJSON(for: tools)
-        let trimmedInstructions = additionalInstructions?
+        let trimmedInstructions = mergedInstructions?
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Knowledge index is injected FIRST for maximum attention / prefix-cache position
@@ -111,6 +118,34 @@ nonisolated enum LocalAgentPromptBuilder {
         }
 
         return prompt
+    }
+
+    /// Loads the user's generated skills and folds them into the additional
+    /// instructions as a "Procedural Memory" block. Returns the instructions
+    /// unchanged when no skills exist on disk. Budget-limited (6 KB) so the system
+    /// prompt stays bounded. This is the seam that makes generated skills actually
+    /// reach the model — without it, skills are written to disk but never used.
+    private static func mergingSkillContent(into instructions: String?) -> String? {
+        let skills = SkillManifest.load()
+            .loadSkillContent(types: SkillType.allCases, maxChars: 6000)
+        return foldingSkillContent(skills, into: instructions)
+    }
+
+    /// Pure fold of skill content into additional instructions (testable seam).
+    /// Empty/blank skills leave the instructions untouched; otherwise the skills
+    /// are appended after the instructions as a labeled Procedural Memory block.
+    static func foldingSkillContent(_ skills: String, into instructions: String?) -> String? {
+        let trimmed = skills.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return instructions }
+        let block = """
+        ## Procedural Memory (the user's learned skills — apply them)
+        \(trimmed)
+        """
+        guard let instructions,
+              !instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return block
+        }
+        return instructions + "\n\n" + block
     }
 
     static func buildMessages(
