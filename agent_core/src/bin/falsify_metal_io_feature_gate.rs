@@ -22,6 +22,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-MetalIO-FeatureGate";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "metal_io_feature_gate_v1";
 const COMMAND: &str = "Tools/falsifiers/f_metal_io_feature_gate.sh";
 const RESULT: &str = "artifacts/falsifiers/metal_io_feature_gate/result.json";
@@ -145,7 +147,8 @@ fn build_artifact(
         (
             "guard_cursor_metal_io_feature_gate_or_advanced",
             evidence.guard_next_existing_work == METAL_IO_FEATURE_GATE_CURSOR
-                || evidence.guard_next_existing_work == METAL_IO_FEATURE_GATE_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == METAL_IO_FEATURE_GATE_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -155,7 +158,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_metal_io_feature_gate_or_advanced",
             evidence.capability_next_bottleneck == METAL_IO_FEATURE_GATE_CURSOR
-                || evidence.capability_next_bottleneck == METAL_IO_FEATURE_GATE_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == METAL_IO_FEATURE_GATE_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",

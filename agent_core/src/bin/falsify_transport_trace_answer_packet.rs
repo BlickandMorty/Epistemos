@@ -28,6 +28,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-TransportTrace-AnswerPacket";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "transport_trace_answer_packet_v1";
 const COMMAND: &str = "Tools/falsifiers/f_transport_trace_answer_packet.sh";
 const RESULT: &str = "artifacts/falsifiers/transport_trace_answer_packet/result.json";
@@ -155,7 +157,8 @@ fn build_artifact(
         (
             "guard_cursor_transport_trace_or_advanced",
             evidence.guard_next_existing_work == TRANSPORT_TRACE_ANSWER_PACKET_CURSOR
-                || evidence.guard_next_existing_work == TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -165,7 +168,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_transport_trace_or_advanced",
             evidence.capability_next_bottleneck == TRANSPORT_TRACE_ANSWER_PACKET_CURSOR
-                || evidence.capability_next_bottleneck == TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == TRANSPORT_TRACE_ANSWER_PACKET_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",

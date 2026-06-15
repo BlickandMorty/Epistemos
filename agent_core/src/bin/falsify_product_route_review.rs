@@ -20,6 +20,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-ProductRouteReview";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "product_route_review_v1";
 const COMMAND: &str = "Tools/falsifiers/f_product_route_review.sh";
 const RESULT: &str = "artifacts/falsifiers/product_route_review/result.json";
@@ -156,7 +158,8 @@ fn build_artifact(
         (
             "guard_cursor_product_route_review_or_advanced",
             evidence.guard_next_existing_work == PRODUCT_ROUTE_REVIEW_CURSOR
-                || evidence.guard_next_existing_work == PRODUCT_ROUTE_REVIEW_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == PRODUCT_ROUTE_REVIEW_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -166,7 +169,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_product_review_or_advanced",
             evidence.capability_next_bottleneck == PRODUCT_ROUTE_REVIEW_CURSOR
-                || evidence.capability_next_bottleneck == PRODUCT_ROUTE_REVIEW_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == PRODUCT_ROUTE_REVIEW_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",

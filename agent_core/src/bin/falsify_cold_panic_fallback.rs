@@ -22,6 +22,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-ColdPanicFallback";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "cold_panic_fallback_v1";
 const COMMAND: &str = "Tools/falsifiers/f_cold_panic_fallback.sh";
 const RESULT: &str = "artifacts/falsifiers/cold_panic_fallback/result.json";
@@ -148,7 +150,8 @@ fn build_artifact(
         (
             "guard_cursor_cold_panic_fallback_or_advanced",
             evidence.guard_next_existing_work == COLD_PANIC_FALLBACK_CURSOR
-                || evidence.guard_next_existing_work == COLD_PANIC_FALLBACK_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == COLD_PANIC_FALLBACK_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -158,7 +161,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_cold_panic_fallback_or_advanced",
             evidence.capability_next_bottleneck == COLD_PANIC_FALLBACK_CURSOR
-                || evidence.capability_next_bottleneck == COLD_PANIC_FALLBACK_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == COLD_PANIC_FALLBACK_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",
