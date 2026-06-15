@@ -358,7 +358,10 @@ struct SkillsDetailView: View {
     }
 
     private func refreshDiscovery() {
-        discoveredSkills = SkillDiscoveryCatalog.discoverSkillEntries()
+        // Settings is the authoritative skill-management surface: force a fresh
+        // disk walk so it always reflects ground truth, and repopulate the
+        // app-side SkillDiscoveryCache the command-center hot path serves from.
+        discoveredSkills = SkillDiscoveryCatalog.discoverSkillEntries(forceRefresh: true)
     }
 
     private func installSkill(vaultPath: String) async {
