@@ -93,7 +93,13 @@ fn uas_gate_source_refs_resolve_to_real_files() {
 
 /// Cursors that are intentional terminal states of the witness chain rather
 /// than gate files (the chain "exits" to product-route review).
-const TERMINAL_CURSORS: &[&str] = &["ready_for_product_route_review"];
+const TERMINAL_CURSORS: &[&str] = &[
+    "ready_for_product_route_review",
+    // The synthetic-fixture owner-approval gate's successor (the actual staged
+    // write) is the owner-gated frontier — intentionally unbuilt until
+    // owner-approved on-device bytes exist.
+    "synthetic_fixture_staged_write_owner_gated_frontier",
+];
 
 /// Extract every `*_NEXT_CURSOR: &str = "..."` target from the non-test portion.
 fn extract_next_cursors(src: &str) -> Vec<String> {
