@@ -21,6 +21,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-CodecStage-Latency";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "codec_stage_latency_v1";
 const COMMAND: &str = "Tools/falsifiers/f_codec_stage_latency.sh";
 const RESULT: &str = "artifacts/falsifiers/codec_stage_latency/result.json";
@@ -145,7 +147,8 @@ fn build_artifact(
         (
             "guard_cursor_codec_stage_latency_or_advanced",
             evidence.guard_next_existing_work == CODEC_STAGE_LATENCY_CURSOR
-                || evidence.guard_next_existing_work == CODEC_STAGE_LATENCY_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == CODEC_STAGE_LATENCY_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -155,7 +158,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_codec_stage_latency_or_advanced",
             evidence.capability_next_bottleneck == CODEC_STAGE_LATENCY_CURSOR
-                || evidence.capability_next_bottleneck == CODEC_STAGE_LATENCY_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == CODEC_STAGE_LATENCY_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",
