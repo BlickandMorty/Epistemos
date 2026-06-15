@@ -878,7 +878,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.gemma4_2B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_2B4Bit.familyName,
-            summary: "Gemma 4 E2B MLX preview weights. Keep available for loader bring-up work only; the shipping Gemma path is the gated QAT GGUF proof lane until the Swift runtime loader lands.",
+            summary: "Gemma 4 E2B (MLX, native Apple Swift loader). Installable for on-device validation — not a shipping route default; the curated default stays Qwen. The 26B-A4B MoE and 31B-JANG tiers remain gated.",
             approximateDownloadBytes: 1_614_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_2B4Bit.minimumRecommendedMemoryGB,
             revision: "76b6a5af250fa029339a757deeb93716baa8ead0",
@@ -1313,6 +1313,12 @@ enum LocalModelCatalog {
         LocalTextModelID.bonsai8B2Bit.rawValue,
         LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
         LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
+        // Gemma 4 E2B (dense, native Apple Swift MLX loader landed 2026-06-14).
+        // Installable so the now-runnable loader can be validated on-device;
+        // kept honest as a preview/validation tier (not a shipping default) via
+        // its descriptor copy. The 26B-A4B MoE + 31B-JANG tiers stay out (no
+        // runnable Swift loader / unverified third-party config).
+        LocalTextModelID.gemma4_2B4Bit.rawValue,
         // Flagship coder (30B A3B MoE — 24GB class).
         LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
         LocalTextModelID.qwen3_8B4Bit.rawValue,
