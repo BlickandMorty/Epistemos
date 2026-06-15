@@ -66,6 +66,13 @@ nonisolated struct SkillManifest: Codable, Sendable {
     }
 
     static func load() -> SkillManifest {
+        // App-side storage first: the process-wide SkillContentStore caches the
+        // manifest so the common path (every agent turn + direct-chat injection)
+        // never re-reads the manifest file. The raw file read is the fallback
+        // that populates the store on a cold cache.
+        if let cached = SkillContentStore.shared.cachedManifest() {
+            return cached
+        }
         guard let data = try? Data(contentsOf: manifestURL) else {
             Self.log.warning("Failed to read skill manifest at \(manifestURL.path, privacy: .public)")
             return SkillManifest()
@@ -74,6 +81,7 @@ nonisolated struct SkillManifest: Codable, Sendable {
             Self.log.error("Failed to decode skill manifest at \(manifestURL.path, privacy: .public)")
             return SkillManifest()
         }
+        SkillContentStore.shared.storeManifest(manifest)
         return manifest
     }
 
@@ -82,6 +90,11 @@ nonisolated struct SkillManifest: Codable, Sendable {
         try fm.createDirectory(at: Self.skillsDirectory, withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(self)
         try data.write(to: Self.manifestURL, options: .atomic)
+        // Keep the app-side store the source of truth after a write: refresh the
+        // cached manifest and drop stale content so regenerated skills are seen
+        // on the next load without a process restart.
+        SkillContentStore.shared.storeManifest(self)
+        SkillContentStore.shared.invalidateContent()
     }
 
     mutating func addSkill(_ entry: SkillEntry) {
@@ -107,7 +120,19 @@ nonisolated struct SkillManifest: Codable, Sendable {
         for type in types {
             for path in skillPaths(for: type) {
                 guard remaining > 0 else { break }
-                if let content = try? String(contentsOf: path, encoding: .utf8) {
+                // App-side storage first: hit the in-process content store; the
+                // disk read is the fallback that populates it on a miss.
+                let key = path.path
+                let content: String?
+                if let cached = SkillContentStore.shared.content(forPath: key) {
+                    content = cached
+                } else if let fileContent = try? String(contentsOf: path, encoding: .utf8) {
+                    SkillContentStore.shared.store(content: fileContent, forPath: key)
+                    content = fileContent
+                } else {
+                    content = nil
+                }
+                if let content {
                     let trimmed = String(content.prefix(remaining))
                     result += "\n--- \(type.displayName) ---\n\(trimmed)\n"
                     remaining -= trimmed.count
@@ -116,5 +141,71 @@ nonisolated struct SkillManifest: Codable, Sendable {
         }
 
         return result
+    }
+}
+
+// MARK: - App-Side Skill Content Store
+
+/// Process-wide, app-side cache for the skill manifest and generated skill
+/// content. The skill-injection path (`SkillManifest.load` +
+/// `loadSkillContent`) consults this FIRST so the common case — every agent
+/// turn and every direct-chat system-prompt injection — reads from app-side
+/// storage instead of re-globbing the skills directory on disk. Raw file reads
+/// only happen on a cache miss, and they populate the store. `save()`
+/// refreshes the cached manifest and drops stale content so regenerated skills
+/// are reflected without a process restart.
+///
+/// Backed by an in-process lock rather than a database: the on-disk files
+/// remain the durable backing/export, and this is the fast app-side layer in
+/// front of them. (`@unchecked Sendable` is justified — every access goes
+/// through `lock`.)
+nonisolated final class SkillContentStore: @unchecked Sendable {
+    static let shared = SkillContentStore()
+
+    private let lock = NSLock()
+    private var manifest: SkillManifest?
+    private var contentByPath: [String: String] = [:]
+
+    private init() {}
+
+    func cachedManifest() -> SkillManifest? {
+        lock.lock()
+        defer { lock.unlock() }
+        return manifest
+    }
+
+    func storeManifest(_ manifest: SkillManifest) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.manifest = manifest
+    }
+
+    func content(forPath path: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return contentByPath[path]
+    }
+
+    func store(content: String, forPath path: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        contentByPath[path] = content
+    }
+
+    /// Drop cached skill-file content (e.g. after regeneration) while keeping
+    /// the refreshed manifest. The next `loadSkillContent` re-reads from disk
+    /// once and repopulates.
+    func invalidateContent() {
+        lock.lock()
+        defer { lock.unlock() }
+        contentByPath.removeAll()
+    }
+
+    /// Full reset — drops both the cached manifest and content.
+    func invalidateAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        manifest = nil
+        contentByPath.removeAll()
     }
 }
