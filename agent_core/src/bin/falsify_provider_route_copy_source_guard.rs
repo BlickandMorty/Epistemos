@@ -31,6 +31,14 @@ const DEFERRAL_PATH: &str =
     "artifacts/falsifiers/large_model_provider_reference_deferred_by_mlx_route/result.json";
 const LIVING_INDEX_PATH: &str = "docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md";
 const LATTICE_HTML_PATH: &str = "artifacts/lattice-coordinate-explainer/index.html";
+/// The terminal release-audit cursor the architecture-pending-work guard and
+/// capability-ceiling kernel advance to once every side-ladder unit (including
+/// provider-route-copy) is done. The `*_or_advanced` axes accept it so the
+/// guard keeps passing as work legitimately progresses past provider-route-copy
+/// (the failure mode that matters is a regression to an earlier cursor, not a
+/// forward advance to the release-audit endgame).
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const MIN_SURFACE_COUNT: u64 = 2;
 const MIN_CLAIM_COUNT: u64 = 4;
 const MIN_SOURCE_KIND_COUNT: u64 = 4;
@@ -123,7 +131,8 @@ fn build_artifact(
         (
             "guard_cursor_provider_route_copy_or_advanced",
             evidence.guard_next_existing_work == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR
-                || evidence.guard_next_existing_work == PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -133,7 +142,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_provider_route_copy_or_advanced",
             evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR
-                || evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "living_index_surface_scan_pass",
@@ -506,7 +516,7 @@ fn fixture_guard() -> Result<ProviderRouteCopySourceGuard, ProviderRouteCopyWitn
             "lattice_html",
             LATTICE_HTML_PATH,
             vec![
-                "epistemos-artifact-cursor\" content=\"transport_trace_answer_packet".to_string(),
+                "epistemos-artifact-cursor\" content=\"small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe".to_string(),
                 "Epistemos is a local cognitive substrate".to_string(),
                 "no claim promotes without visible proof".to_string(),
                 "LargeModelProviderReferenceDeferral".to_string(),
