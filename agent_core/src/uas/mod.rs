@@ -155,6 +155,7 @@ pub mod residency_construction_graph;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod runtime_performance_policy_release_blocker_card;
+pub mod runtime_plural_qat_lane_tournament_owner_approval_gate;
 pub mod runtime_plural_qat_lane_tournament_plan;
 pub mod same_fixture_runtime_replay_envelope;
 pub mod search_index_release_blocker_card;
@@ -1241,6 +1242,14 @@ pub use xpc_trust_configuration_release_blocker_card::{
     XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_CURSOR,
     XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_ID,
     XPC_TRUST_CONFIGURATION_RELEASE_BLOCKER_CARD_NEXT_CURSOR, XPC_TRUST_CONFIGURATION_UPSTREAM_REF,
+};
+pub use runtime_plural_qat_lane_tournament_owner_approval_gate::{
+    owner_approval_gate_address, RuntimePluralQatLaneTournamentOwnerApprovalGate,
+    RuntimePluralQatLaneTournamentOwnerApprovalWitness, RuntimePluralQatOwnerApprovalError,
+    RuntimePluralQatOwnerApprovalMetrics, RuntimePluralQatOwnerApprovalStatus,
+    RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_CURSOR,
+    RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_ID,
+    RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_NEXT_CURSOR,
 };
 pub use runtime_plural_qat_lane_tournament_plan::{
     RuntimePluralQatByteLedger, RuntimePluralQatLane, RuntimePluralQatLaneCard,

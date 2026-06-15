@@ -99,6 +99,10 @@ const TERMINAL_CURSORS: &[&str] = &[
     // write) is the owner-gated frontier — intentionally unbuilt until
     // owner-approved on-device bytes exist.
     "synthetic_fixture_staged_write_owner_gated_frontier",
+    // The runtime-plural owner-approval gate's successor (the actual E2B GGUF
+    // same-fixture runtime probe) is the owner-gated frontier — needs real
+    // on-device bytes + a signed run.
+    "runtime_plural_e2b_gguf_same_fixture_owner_gated_runtime_probe_frontier",
 ];
 
 /// Extract every `*_NEXT_CURSOR: &str = "..."` target from the non-test portion.
