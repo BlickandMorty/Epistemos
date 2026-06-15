@@ -90,3 +90,68 @@ fn uas_gate_source_refs_resolve_to_real_files() {
         missing.join("\n  ")
     );
 }
+
+/// Cursors that are intentional terminal states of the witness chain rather
+/// than gate files (the chain "exits" to product-route review).
+const TERMINAL_CURSORS: &[&str] = &["ready_for_product_route_review"];
+
+/// Extract every `*_NEXT_CURSOR: &str = "..."` target from the non-test portion.
+fn extract_next_cursors(src: &str) -> Vec<String> {
+    let body = match src.find("#[cfg(test)]") {
+        Some(idx) => &src[..idx],
+        None => src,
+    };
+    let mut out = Vec::new();
+    for line in body.lines() {
+        let Some(pos) = line.find("NEXT_CURSOR") else { continue };
+        let after = &line[pos..];
+        // Only `... NEXT_CURSOR...: &str = "value"` const declarations.
+        if !after.contains(": &str") {
+            continue;
+        }
+        let Some(eq) = after.find('=') else { continue };
+        let rhs = &after[eq + 1..];
+        let Some(q1) = rhs.find('"') else { continue };
+        let Some(q2) = rhs[q1 + 1..].find('"') else { continue };
+        out.push(rhs[q1 + 1..q1 + 1 + q2].to_string());
+    }
+    out
+}
+
+#[test]
+fn uas_next_cursors_resolve_to_gates_or_terminal() {
+    // The witness chain advances gate -> NEXT_CURSOR -> next gate. A dangling
+    // NEXT_CURSOR (typo or a gate renamed without updating its referrers) breaks
+    // the chain silently. Pin every link to a real gate file or a known terminal.
+    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("uas");
+
+    let mut dangling: Vec<String> = Vec::new();
+    let mut checked = 0usize;
+
+    for entry in fs::read_dir(&uas_dir).expect("read src/uas") {
+        let path = entry.expect("dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let src = fs::read_to_string(&path).expect("read gate source");
+        let file = path.file_name().unwrap().to_string_lossy().to_string();
+        for cursor in extract_next_cursors(&src) {
+            checked += 1;
+            let resolves = uas_dir.join(format!("{cursor}.rs")).exists()
+                || TERMINAL_CURSORS.contains(&cursor.as_str());
+            if !resolves {
+                dangling.push(format!("{file}: NEXT_CURSOR -> {cursor}"));
+            }
+        }
+    }
+
+    assert!(
+        checked > 5,
+        "expected several NEXT_CURSOR chain links, saw {checked} — matcher likely broke"
+    );
+    assert!(
+        dangling.is_empty(),
+        "uas/ witness-chain links point to gates that don't exist:\n  {}",
+        dangling.join("\n  ")
+    );
+}
