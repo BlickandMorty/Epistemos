@@ -29,6 +29,13 @@ const GUARD_PATH: &str = "artifacts/falsifiers/architecture_pending_work_guard/r
 const CAPABILITY_PATH: &str =
     "artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json";
 const TRANSPORT_TRACE_PATH: &str = "artifacts/falsifiers/transport_trace_answer_packet/result.json";
+/// The terminal release-audit cursor the architecture-pending-work guard and
+/// capability-ceiling kernel advance to once every side-ladder unit (including
+/// ssd-wear-budget) is done. The `*_or_advanced` axes accept it so the guard
+/// keeps passing as work legitimately progresses past ssd-wear-budget (a
+/// forward advance to the release-audit endgame is not a regression).
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const MIN_PLAN_COUNT: u64 = 3;
 const MIN_SURFACE_COUNT: u64 = 3;
 const MIN_TOTAL_READ_BYTES: u64 = 384 * 1024;
@@ -141,7 +148,8 @@ fn build_artifact(
         (
             "guard_cursor_ssd_wear_or_advanced",
             evidence.guard_next_existing_work == SSD_WEAR_BUDGET_CURSOR
-                || evidence.guard_next_existing_work == SSD_WEAR_BUDGET_NEXT_CURSOR,
+                || evidence.guard_next_existing_work == SSD_WEAR_BUDGET_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -151,7 +159,8 @@ fn build_artifact(
         (
             "capability_next_bottleneck_ssd_wear_or_advanced",
             evidence.capability_next_bottleneck == SSD_WEAR_BUDGET_CURSOR
-                || evidence.capability_next_bottleneck == SSD_WEAR_BUDGET_NEXT_CURSOR,
+                || evidence.capability_next_bottleneck == SSD_WEAR_BUDGET_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",
