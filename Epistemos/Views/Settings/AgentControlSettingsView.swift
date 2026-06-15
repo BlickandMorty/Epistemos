@@ -948,7 +948,9 @@ struct AgentControlDetailView: View {
     }
 
     private func refreshDiagnosticSkillCatalog() {
-        diagnosticDiscoveredSkills = SkillDiscoveryCatalog.discoverSkillEntries()
+        // Diagnostics must show ground truth, so force a fresh disk walk (which
+        // also repopulates the app-side cache the hot path reads from).
+        diagnosticDiscoveredSkills = SkillDiscoveryCatalog.discoverSkillEntries(forceRefresh: true)
     }
 
     private func skillCount(from source: SkillDiscoverySource) -> Int {

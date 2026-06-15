@@ -37,10 +37,24 @@ nonisolated enum SkillDiscoveryCatalog {
     private static let log = Logger(subsystem: "com.epistemos", category: "SkillDiscovery")
 
     static func discoverSkillEntries(
-        inRoots roots: [SkillDiscoveryRoot] = defaultRoots(),
-        fileManager: FileManager = .default
+        inRoots roots: [SkillDiscoveryRoot]? = nil,
+        fileManager: FileManager = .default,
+        forceRefresh: Bool = false
     ) -> [SkillDiscoveryEntry] {
-        let sortedEntries = roots
+        // App-side storage first: the default (no explicit roots) production
+        // path — `AgentCommandCenterState.refreshSkillCatalog()` re-runs this on
+        // every command-center present() — serves from the process-wide
+        // SkillDiscoveryCache instead of re-walking + re-parsing every SKILL.md
+        // on disk. Disk is only touched on a cold cache, an explicit
+        // forceRefresh, or when a caller passes its own roots (tests stay
+        // isolated). Skill creation and the Settings "Refresh" repopulate the
+        // cache with ground truth via forceRefresh.
+        let usesDefaultRoots = (roots == nil)
+        if usesDefaultRoots, !forceRefresh, let cached = SkillDiscoveryCache.shared.cached() {
+            return cached
+        }
+        let resolvedRoots = roots ?? defaultRoots(fileManager: fileManager)
+        let sortedEntries = resolvedRoots
             .flatMap { root in
                 discoverSkillEntries(in: root, fileManager: fileManager)
             }
@@ -56,9 +70,13 @@ nonisolated enum SkillDiscoveryCatalog {
                 return $0.identifier < $1.identifier
             }
         var seenIdentifiers: Set<String> = []
-        return sortedEntries.filter { entry in
+        let deduped = sortedEntries.filter { entry in
             seenIdentifiers.insert(entry.identifier).inserted
         }
+        if usesDefaultRoots {
+            SkillDiscoveryCache.shared.store(deduped)
+        }
+        return deduped
     }
 
     static func derivedIdentifier(forLocalPath path: String) -> String {
@@ -291,5 +309,54 @@ nonisolated enum SkillDiscoveryCatalog {
                 String(item).trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: "\"'")))
             }
             .filter { !$0.isEmpty }
+    }
+}
+
+// MARK: - App-Side Skill Discovery Cache
+
+/// Process-wide, app-side cache for the discovered SKILL.md catalog. The
+/// command-center hot path (`AgentCommandCenterState.refreshSkillCatalog()`,
+/// invoked on every present()) consults this FIRST so repeated opens serve the
+/// already-parsed catalog from app-side storage instead of re-walking the
+/// discovery roots and re-reading + re-parsing every `SKILL.md` on disk. Disk
+/// is touched only on a cold cache, an explicit `forceRefresh`, or a caller
+/// supplying its own roots. Skill creation and the Settings "Refresh" both go
+/// through `forceRefresh`, which repopulates this store with ground truth, so
+/// the cache never goes stale against an in-app mutation.
+///
+/// Backed by an in-process lock rather than a database: the discovery roots on
+/// disk remain the durable source, and this is the fast app-side layer in front
+/// of them. (`@unchecked Sendable` is justified — every access goes through
+/// `lock`.) Mirrors `SkillContentStore` so both skill subsystems — generated
+/// (manifest) and authored (SKILL.md) — share one "app-side first" shape.
+nonisolated final class SkillDiscoveryCache: @unchecked Sendable {
+    static let shared = SkillDiscoveryCache()
+
+    private let lock = NSLock()
+    private var entries: [SkillDiscoveryEntry]?
+
+    private init() {}
+
+    /// The last discovered default-root catalog, or nil on a cold cache.
+    func cached() -> [SkillDiscoveryEntry]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries
+    }
+
+    /// Replace the cached catalog with a freshly discovered one.
+    func store(_ entries: [SkillDiscoveryEntry]) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.entries = entries
+    }
+
+    /// Drop the cached catalog so the next default-root discovery re-walks disk
+    /// once and repopulates. Call after a skill mutation that this process did
+    /// not route through `forceRefresh`.
+    func invalidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        entries = nil
     }
 }

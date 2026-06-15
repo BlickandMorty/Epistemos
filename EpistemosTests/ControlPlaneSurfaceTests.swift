@@ -828,6 +828,67 @@ struct ControlPlaneSurfaceTests {
         #expect(entries.first?.description == "Bundled note reader.")
     }
 
+    // The command-center hot path (refreshSkillCatalog on every present()) reads
+    // the discovered catalog from the app-side SkillDiscoveryCache before any
+    // disk walk. These pin that contract: the cache serves + invalidates, and an
+    // explicit-roots discovery (tests, custom callers) NEVER touches the shared
+    // cache so it stays isolated and deterministic.
+    @Test("app-side skill discovery cache serves, then invalidates")
+    func skillDiscoveryCacheServesThenInvalidates() {
+        let cache = SkillDiscoveryCache.shared
+        cache.invalidate()
+        #expect(cache.cached() == nil)
+
+        let probe = SkillDiscoveryEntry(
+            identifier: "probe-skill",
+            description: "probe",
+            category: "testing",
+            tags: ["probe"],
+            source: .bundled,
+            sourcePath: "/tmp/epistemos-skill-discovery-probe"
+        )
+        cache.store([probe])
+        #expect(cache.cached()?.map(\.identifier) == ["probe-skill"])
+
+        cache.invalidate()
+        #expect(cache.cached() == nil)
+    }
+
+    @Test("explicit-roots skill discovery bypasses the app-side cache")
+    func explicitRootsSkillDiscoveryBypassesCache() throws {
+        let cache = SkillDiscoveryCache.shared
+        cache.invalidate()
+
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bundledSkill = root
+            .appendingPathComponent(".agents", isDirectory: true)
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("isolated", isDirectory: true)
+        try fileManager.createDirectory(at: bundledSkill, withIntermediateDirectories: true)
+        try writeSkill(
+            at: bundledSkill.appendingPathComponent("SKILL.md"),
+            name: "isolated",
+            description: "Should not leak into the shared cache.",
+            category: "testing",
+            tags: ["isolated"]
+        )
+
+        let entries = SkillDiscoveryCatalog.discoverSkillEntries(
+            inRoots: [
+                SkillDiscoveryRoot(
+                    url: root.appendingPathComponent(".agents/skills", isDirectory: true),
+                    source: .bundled
+                )
+            ],
+            fileManager: fileManager
+        )
+
+        #expect(entries.map(\.identifier) == ["isolated"])
+        // Explicit roots must not populate the process-wide hot-path cache.
+        #expect(cache.cached() == nil)
+    }
+
     @Test("skill discovery catalog treats SourceMirror agent skills as bundled app skills")
     func skillDiscoveryCatalogTreatsSourceMirrorAgentSkillsAsBundledAppSkills() throws {
         let fileManager = FileManager.default
