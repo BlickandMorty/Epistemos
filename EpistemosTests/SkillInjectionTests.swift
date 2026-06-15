@@ -45,4 +45,27 @@ struct SkillInjectionTests {
             #expect(instrRange.lowerBound < memoRange.lowerBound)
         }
     }
+
+    // The app-side SkillContentStore is consulted before any disk read in
+    // SkillManifest.load / loadSkillContent, so skill injection on every agent
+    // turn + direct-chat hit reads from app-side storage, not raw file globbing.
+    @Test("app-side skill content store caches and serves before file reads")
+    func skillContentStoreCachesBeforeFileReads() {
+        let store = SkillContentStore.shared
+        store.invalidateAll()
+        let key = "/tmp/epistemos-skill-store-probe.md"
+        #expect(store.content(forPath: key) == nil)
+
+        store.store(content: "skill body", forPath: key)
+        #expect(store.content(forPath: key) == "skill body")
+
+        // invalidateContent drops content but a stored manifest survives.
+        store.storeManifest(SkillManifest())
+        store.invalidateContent()
+        #expect(store.content(forPath: key) == nil)
+        #expect(store.cachedManifest() != nil)
+
+        store.invalidateAll()
+        #expect(store.cachedManifest() == nil)
+    }
 }
