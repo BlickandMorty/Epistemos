@@ -113,3 +113,39 @@ review + harness witnesses before it leaves research):
 
 This is the next multi-session build slice; it pulls a heavy dependency, so it
 should land in a build environment that won't thrash the 16 GB rig.
+
+## 6. What actually LANDED (2026-06-16) — the proven llama-cli seam, end to end
+
+Ahead of the mistral.rs in-process target in §5, the **proven** hardened
+`llama-cli` path was wired all the way into the app, Pro-gated and flag-OFF.
+This is the "models just run" path that works today on the ship rig; §5 remains
+the future zero-copy ideal that removes the subprocess.
+
+End-to-end chain (all commits on `main`):
+1. **Rust provider** — `agent_core/src/providers/gguf_cli.rs` `GgufCliProvider`
+   (`#[cfg(feature = "pro-build")]`). Streams `llama-cli` stdout line-by-line;
+   `runtime() == Local` so the agent loop refuses it (Gemma stays non-agent).
+   Command mirrors the gate card: offline, temp=0, seed=0, single-turn, capped
+   ctx/batch, no-mmap, log-disable; `harden_cli_subprocess` env-scrubs it.
+2. **Provider factory** — `bridge.rs` maps a `gguf:/abs/path.gguf` slug to the
+   provider, placed before the dynamic `name.contains('/')` arm, Pro-gated,
+   empty path rejected, no hidden fallback.
+3. **Non-agent FFI** — `run_local_gguf_generation(model_path, prompt,
+   system_prompt, max_output_tokens, delegate)` (Pro-only). BYPASSES the agent
+   loop (which refuses Local), drives `stream_message` directly, forwards each
+   `TextDelta` to `on_text_delta` and the final `MessageStop` to `on_complete`.
+4. **Swift engine builder** — `Epistemos/Bridge/LocalGgufRuntimeBridge.swift`
+   (`#if !EPISTEMOS_APP_STORE`). `LocalGgufCliRuntime.engineBuilderIfEnabled()`
+   returns a `LocalGGUFEngine` backed by the FFI when the
+   `EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0` flag is armed, else `nil`.
+5. **Injection** — `AppBootstrap.swift:1806` passes that builder into
+   `LocalGGUFInProcessRuntime(engineBuilder:)`. The runtime's reserved
+   `defaultEngineBuilder` (which throws `backendUnavailable` until the future
+   in-process `GGUFRuntimeBridge` module lands) is left untouched.
+
+**Default posture: OFF.** Flag unset ⇒ builder nil ⇒ `backendUnavailable`
+(honest). On MAS the whole surface is compiled out. To arm an on-device
+validation run on Pro: `EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0=1` (env) or the
+matching `UserDefaults` bool, with a prepared GGUF in the model directory the
+locator resolves. This is the seam the owner flips after the runtime-plural
+witness chain (RunEventLog + AnswerPacket + rollback + MAS/Pro review) is green.
