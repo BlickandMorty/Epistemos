@@ -39,3 +39,19 @@ CONCLUSION
   M2 Pro Metal at ~64 tok/s using ~1.6 GB. The Pro-gated GGUF runtime lane is
   proven runnable on this hardware. This is the first-token evidence the
   small_compressed_model_owner_approved_runtime_probe frontier was fail-closed on.
+
+====================================================
+ADDENDUM — Gemma 4 12B Coder (Fable5/Composer2.5) also runs on-device
+====================================================
+  repo:    yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF (PUBLIC)
+  file:    gemma4-coding-Q4_K_M.gguf
+  bytes:   7,381,381,664  (matches the specialist candidate's expected_file_bytes)
+  sha256:  1fe90b72e105d7bc71650aa59883edece3e84751af489075217a7ae717b1fe8d
+           (MATCHES the candidate's pinned expectedSHA256 — verified)
+  backend: Apple M2 Pro Metal; exit 0
+  perf:    prompt ~71 t/s | generation ~18.5 t/s (12B Q4_K_M; fits 16 GB)
+  result:  Correct, reasoned solution to "is_balanced(s)" (bracket matching) in
+           Gemma's native thinking channel — stack + {')':'(',']':'[','}':'{'} mapping.
+  conclusion: the exact coder fine-tune the owner requested is proven runnable
+           on this hardware. Both the E2B QAT and the 12B coder GGUF execute on
+           Metal via the same llama-cli path.
