@@ -53,18 +53,33 @@ nonisolated final class ThinkTagStreamRouter {
     /// Bonsai fine-tunes have been observed using `<thought>…</thought>`
     /// or `<reasoning>…</reasoning>`. All match case-insensitively
     /// since some models emit uppercase variants.
+    ///
+    /// Gemma 4 QAT (GGUF llama-cli lane) does NOT use XML tags — it
+    /// brackets its chain-of-thought with the literal `[Start thinking]`
+    /// … `[End thinking]` delimiters (verified against the on-device E2B
+    /// build: a numbered `**Analyze the Request:**` plan between the two
+    /// markers, the user-facing answer after `[End thinking]`). Without
+    /// these pairs the whole reasoning dump leaked into the chat bubble
+    /// and the real answer stayed welded to it — exactly the "thinking is
+    /// attached to the answer, all cluttered" report. Keep this list in
+    /// sync with `ThinkingTagSyntax.tagPairs` (Extensions.swift), which
+    /// strips the same markers from the FINAL (non-streamed) text.
     private static let tagPairs: [(open: String, close: String)] = [
         ("<scratch_pad>", "</scratch_pad>"),
         ("<think>", "</think>"),
         ("<thinking>", "</thinking>"),
         ("<thought>", "</thought>"),
         ("<reasoning>", "</reasoning>"),
+        ("[Start thinking]", "[End thinking]"),
     ]
 
     /// Longest trailing substring we'll hold back waiting for a tag to
-    /// finish forming. Max open-tag length is `<reasoning>` (11) —
-    /// give a bit of headroom.
-    private static let maxPartialTagLength = 12
+    /// finish forming. Max open-tag length is `[Start thinking]` (16) —
+    /// give a bit of headroom so a tag split across network chunks
+    /// (e.g. "[Start think" then "ing]") is always held until it
+    /// resolves rather than leaking the half-formed marker as visible
+    /// text.
+    private static let maxPartialTagLength = 18
 
     /// Safety valve: if pending buffer grows past this without ever
     /// finding an open tag, force-flush as visible so a misbehaving

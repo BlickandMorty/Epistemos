@@ -103,6 +103,65 @@ struct UserFacingModelOutputTests {
         #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
     }
 
+    // MARK: - Gemma 4 QAT bracket-delimited reasoning ([Start thinking] / [End thinking])
+    //
+    // These transcripts are the on-device E2B GGUF ground truth (llama-cli
+    // b9370). Gemma brackets its chain-of-thought with `[Start thinking]` …
+    // `[End thinking]` and emits the user-facing answer AFTER the close marker.
+    // Before the markers were registered, the whole reasoning dump leaked into
+    // the chat bubble welded to the answer — the user's "thinking is attached
+    // to the answer, all cluttered, final answer sometimes never appears" bug.
+
+    @Test("Gemma [Start thinking]…[End thinking] reasoning is stripped, answer surfaces")
+    func gemmaBracketThinkingStripsToAnswer() {
+        let raw = """
+        [Start thinking]
+        Thinking Process:
+
+        1.  **Analyze the Request:** The user wants 17 times 4.
+        2.  **Determine the Calculation:** 17 * 4 = 68.
+        [End thinking]
+
+        **68**
+
+        17 × 4 = 68, computed as (10 × 4) + (7 × 4) = 40 + 28.
+        """
+
+        let answer = UserFacingModelOutput.finalVisibleText(from: raw)
+        #expect(answer.contains("68"))
+        #expect(!answer.contains("[Start thinking]"))
+        #expect(!answer.contains("[End thinking]"))
+        #expect(!answer.contains("Analyze the Request"))
+        #expect(!answer.contains("Thinking Process"))
+    }
+
+    @Test("Gemma reasoning streaming in the [Start thinking] block stays out of visible text")
+    func gemmaBracketThinkingStreamingSuppressed() {
+        // Mid-stream: open marker seen, no close yet — nothing user-facing.
+        let midStream = """
+        [Start thinking]
+        Thinking Process:
+
+        1.  **Analyze the Request:** The user wants 17 times 4.
+        """
+        #expect(UserFacingModelOutput.streamingVisibleText(from: midStream).isEmpty)
+    }
+
+    @Test("Gemma lowercase [start thinking] bracket variant is also stripped")
+    func gemmaLowercaseBracketThinkingStripped() {
+        let raw = """
+        [start thinking]
+        Let me work through this carefully step by step.
+        [end thinking]
+
+        The capital of France is Paris.
+        """
+        let answer = UserFacingModelOutput.finalVisibleText(from: raw)
+        #expect(answer.contains("Paris"))
+        #expect(!answer.lowercased().contains("[start thinking]"))
+        #expect(!answer.lowercased().contains("work through this"))
+    }
+
     @Test("structured local analysis plans stay out of the visible answer stream")
     func structuredLocalAnalysisPlansStayOutOfVisibleAnswerStream() {
         let raw = """
@@ -500,5 +559,80 @@ struct UserFacingModelOutputTests {
                 3. Retributive Desert: The essay should say more clearly why punishment becomes harder to justify on this view.
                 """
         )
+    }
+}
+
+@Suite("ThinkTagStreamRouter")
+struct ThinkTagStreamRouterTests {
+    @Test("splits XML <think> reasoning from visible answer")
+    func splitsXmlThinkTag() {
+        let router = ThinkTagStreamRouter()
+        let emit = router.ingest("<think>reasoning here</think>The answer is 42.")
+        #expect(emit.visible == "The answer is 42.")
+        #expect(emit.thinking == "reasoning here")
+    }
+
+    @Test("splits Gemma [Start thinking] reasoning from the post-marker answer")
+    func splitsGemmaBracketThinking() {
+        let router = ThinkTagStreamRouter()
+        let emit = router.ingest("[Start thinking]\nstep one\nstep two\n[End thinking]\n\n**68**")
+        #expect(emit.thinking.contains("step one"))
+        #expect(emit.thinking.contains("step two"))
+        #expect(emit.visible.contains("68"))
+        #expect(!emit.visible.contains("[Start thinking]"))
+        #expect(!emit.visible.contains("[End thinking]"))
+        #expect(!emit.visible.contains("step one"))
+    }
+
+    @Test("holds a Gemma open marker split across stream chunks until it resolves")
+    func holdsGemmaMarkerSplitAcrossChunks() {
+        let router = ThinkTagStreamRouter()
+        // The 16-char "[Start thinking]" marker arrives in two network chunks.
+        // The half-formed "[Start think" must NOT leak as visible text.
+        let first = router.ingest("[Start think")
+        #expect(first.visible.isEmpty)
+        #expect(first.thinking.isEmpty)
+        let second = router.ingest("ing]\ndeliberating\n[End thinking]\nDone.")
+        #expect(second.thinking.contains("deliberating"))
+        #expect(second.visible.contains("Done."))
+        #expect(!second.visible.contains("[Start think"))
+    }
+
+    @Test("thinking-trace display strips raw markdown emphasis and heading syntax")
+    func thinkingDisplayDeMarkdowns() {
+        let raw = """
+        ### Plan
+        1. **Analyze the Request:** parse it.
+        2. __Draft__ the reply.
+
+        > a quoted aside
+        """
+        let shown = ProcessDisclosureTextBlock.displayText(for: raw)
+        #expect(shown.contains("Plan"))
+        #expect(!shown.contains("**"))
+        #expect(!shown.contains("__"))
+        #expect(!shown.contains("#"))
+        #expect(shown.contains("Analyze the Request:"))
+        #expect(shown.contains("1.")) // list markers preserved
+        #expect(shown.contains("a quoted aside"))
+        #expect(!shown.contains(">"))
+    }
+
+    @Test("unterminated Gemma reasoning streams as thinking, never leaks as visible")
+    func tracksThinkingStateForBracketBlock() {
+        let router = ThinkTagStreamRouter()
+        // Reasoning after an unclosed [Start thinking] streams out the thinking
+        // channel live (NOT held until flush) and never leaks into visible text.
+        let emit = router.ingest("[Start thinking]\nstill reasoning")
+        #expect(emit.thinking.contains("still reasoning"))
+        #expect(emit.visible.isEmpty)
+        #expect(router.isCurrentlyThinking)
+        // A partial close marker split across chunks is held back, then flushed
+        // into the thinking channel at stream end — never dropped, never visible.
+        let emit2 = router.ingest(" wrapping up [End think")
+        #expect(emit2.visible.isEmpty)
+        #expect(emit2.thinking.contains("wrapping up"))
+        let flushed = router.flush()
+        #expect(flushed.visible.isEmpty)
     }
 }

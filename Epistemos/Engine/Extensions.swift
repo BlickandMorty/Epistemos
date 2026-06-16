@@ -224,11 +224,18 @@ nonisolated enum FoundationSafety {
 }
 
 nonisolated enum ThinkingTagSyntax {
+    // Keep in sync with ThinkTagStreamRouter.tagPairs (live streaming split).
+    // The `[Start thinking]` / `[End thinking]` pair is Gemma 4 QAT's
+    // bracket-delimited chain-of-thought (verified on the on-device E2B GGUF
+    // build); both case variants are listed because this path matches
+    // case-sensitively (the streaming router matches case-insensitively).
     private static let tagPairs: [(open: String, close: String)] = [
         ("<thinking>", "</thinking>"),
         ("<think>", "</think>"),
         ("<thought>", "</thought>"),
         ("<reasoning>", "</reasoning>"),
+        ("[Start thinking]", "[End thinking]"),
+        ("[start thinking]", "[end thinking]"),
     ]
 
     static func openingMatch(in text: String) -> (range: Range<String.Index>, closingTag: String)? {
