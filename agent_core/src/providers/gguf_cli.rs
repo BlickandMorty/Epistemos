@@ -32,6 +32,73 @@ const DEFAULT_LLAMA_CLI: &str = "/opt/homebrew/bin/llama-cli";
 const DEFAULT_CTX_SIZE: u32 = 4096;
 const DEFAULT_MAX_TOKENS: u32 = 512;
 
+/// What to do with one line of llama-cli stdout.
+#[derive(Debug, PartialEq, Eq)]
+enum FilterStep {
+    /// Drop this line (banner / prompt echo / residual prompt marker).
+    Skip,
+    /// Forward this line as generated output.
+    Emit,
+    /// Terminal framing reached (stats footer / "Exiting..."); stop reading.
+    Stop,
+}
+
+/// Stateful filter that strips llama-cli b9370's interactive REPL framing from
+/// its stdout, leaving only the model's generation.
+///
+/// llama-cli b9370 is an interactive REPL (`-no-cnv` is rejected by this build):
+/// on stdout it prints a "Loading model" line, an ASCII-art banner,
+/// build/model info, an "available commands" block, the echoed prompt (after a
+/// "> " marker), a "[ Prompt: ... ]" stats footer and "Exiting...". The state
+/// machine skips the banner until the "> " prompt-echo marker, drops the echoed
+/// prompt lines (matched against the known prompt set), then emits generation
+/// until the stats footer. NOTE: format-coupled to this llama.cpp line; a
+/// non-interactive binary would remove the need.
+struct LlamaCliFramingFilter<'a> {
+    prompt_line_set: &'a std::collections::HashSet<String>,
+    emitting: bool,
+    seen_prompt_marker: bool,
+}
+
+impl<'a> LlamaCliFramingFilter<'a> {
+    fn new(prompt_line_set: &'a std::collections::HashSet<String>) -> Self {
+        Self {
+            prompt_line_set,
+            emitting: false,
+            seen_prompt_marker: false,
+        }
+    }
+
+    fn step(&mut self, line: &str) -> FilterStep {
+        let trimmed = line.trim();
+        // Terminal framing: stop before the stats footer / exit line.
+        if trimmed.starts_with("[ Prompt:") || trimmed == "Exiting..." {
+            return FilterStep::Stop;
+        }
+        if !self.emitting {
+            if !self.seen_prompt_marker {
+                if trimmed.starts_with("> ") || trimmed == ">" {
+                    self.seen_prompt_marker = true;
+                }
+                return FilterStep::Skip; // banner / preamble
+            }
+            // Past the marker: drop the echoed prompt (we know it) plus blank /
+            // residual "> " lines.
+            if trimmed.is_empty()
+                || trimmed.starts_with("> ")
+                || self.prompt_line_set.contains(trimmed)
+            {
+                return FilterStep::Skip;
+            }
+            self.emitting = true; // first real generated line
+        }
+        if trimmed == ">" {
+            return FilterStep::Skip; // trailing interactive prompt
+        }
+        FilterStep::Emit
+    }
+}
+
 /// A Pro-only on-device provider that runs a local GGUF model through the
 /// hardened `llama-cli` subprocess. Never reachable on the MAS build.
 pub struct GgufCliProvider {
@@ -167,53 +234,23 @@ impl AgentProvider for GgufCliProvider {
 
             let mut lines = BufReader::new(stdout).lines();
             let mut output_token_estimate: u32 = 0;
-            // llama-cli b9370 is an interactive REPL (`-no-cnv` is rejected by
-            // this build): on stdout it prints a "Loading model" line, ASCII-art
-            // banner, build/model info, an "available commands" block, the echoed
-            // prompt (after a "> " marker), a "[ Prompt: ... ]" stats footer and
-            // "Exiting...". Strip that framing so only the model's generation
-            // reaches the delegate. State machine: skip the banner until the
-            // "> " prompt-echo marker, then drop the echoed prompt lines, then
-            // emit generation until the stats footer. NOTE: format-coupled to
-            // this llama.cpp line; a non-interactive binary would remove the need.
-            let mut emitting = false;
-            let mut seen_prompt_marker = false;
+            // Strip llama-cli's interactive REPL framing (see LlamaCliFramingFilter).
+            let mut filter = LlamaCliFramingFilter::new(&prompt_line_set);
             loop {
                 match lines.next_line().await {
-                    Ok(Some(line)) => {
-                        let trimmed = line.trim();
-                        // Terminal framing: stop before the stats footer / exit.
-                        if trimmed.starts_with("[ Prompt:") || trimmed == "Exiting..." {
-                            break;
+                    Ok(Some(line)) => match filter.step(&line) {
+                        FilterStep::Stop => break,
+                        FilterStep::Skip => continue,
+                        FilterStep::Emit => {
+                            output_token_estimate = output_token_estimate
+                                .saturating_add(line.split_whitespace().count() as u32);
+                            // STREAM EVERYTHING: forward each generated line as it arrives.
+                            yield Ok(StreamEvent::TextDelta {
+                                index: 0,
+                                text: format!("{line}\n"),
+                            });
                         }
-                        if !emitting {
-                            if !seen_prompt_marker {
-                                if trimmed.starts_with("> ") || trimmed == ">" {
-                                    seen_prompt_marker = true;
-                                }
-                                continue; // banner / preamble
-                            }
-                            // Past the marker: drop the echoed prompt (we know it)
-                            // plus blank / residual "> " lines.
-                            if trimmed.is_empty()
-                                || trimmed.starts_with("> ")
-                                || prompt_line_set.contains(trimmed)
-                            {
-                                continue;
-                            }
-                            emitting = true; // first real generated line
-                        }
-                        if trimmed == ">" {
-                            continue; // trailing interactive prompt
-                        }
-                        output_token_estimate =
-                            output_token_estimate.saturating_add(line.split_whitespace().count() as u32);
-                        // STREAM EVERYTHING: forward each generated line as it arrives.
-                        yield Ok(StreamEvent::TextDelta {
-                            index: 0,
-                            text: format!("{line}\n"),
-                        });
-                    }
+                    },
                     Ok(None) => break,
                     Err(error) => {
                         yield Err(AgentError::StreamError(error.to_string()));
@@ -281,6 +318,76 @@ mod tests {
         assert_eq!(provider.runtime(), ProviderRuntime::Local);
         assert!(provider.capabilities().supports_streaming);
         assert!(!provider.capabilities().supports_mcp);
+    }
+
+    fn prompt_set(prompt: &str) -> std::collections::HashSet<String> {
+        prompt
+            .lines()
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect()
+    }
+
+    #[test]
+    fn framing_filter_strips_banner_prompt_echo_and_footer() {
+        // Mirrors real llama-cli b9370 stdout (see runtime_receipts).
+        let set = prompt_set("You are terse.\n\nReply with the single word: ready");
+        let stdout = [
+            "",
+            "Loading model... ",
+            "▄▄ ▄▄",
+            "build      : b9370-aa50b2c2a",
+            "model      : gemma-4-E2B_q4_0-it.gguf",
+            "available commands:",
+            "  /exit or Ctrl+C     stop or exit",
+            "  /glob <pattern>     add text files using globbing pattern",
+            "",
+            "> You are terse.",
+            "",
+            "Reply with the single word: ready",
+            "",
+            "[Start thinking]",
+            "Thinking Process:",
+            "ready",
+            "[ Prompt: 331.4 t/s | Generation: 81.8 t/s ]",
+            "> ",
+            "Exiting...",
+        ];
+        let mut filter = LlamaCliFramingFilter::new(&set);
+        let mut emitted = Vec::new();
+        for line in stdout {
+            match filter.step(line) {
+                FilterStep::Stop => break,
+                FilterStep::Skip => {}
+                FilterStep::Emit => emitted.push(line),
+            }
+        }
+        assert_eq!(emitted, vec!["[Start thinking]", "Thinking Process:", "ready"]);
+        let joined = emitted.join("\n");
+        assert!(!joined.contains("Loading model"));
+        assert!(!joined.contains("available commands"));
+        assert!(!joined.contains("[ Prompt:"));
+        assert!(!joined.contains("You are terse."));
+    }
+
+    #[test]
+    fn framing_filter_skips_everything_before_prompt_marker() {
+        let set = std::collections::HashSet::new();
+        let mut filter = LlamaCliFramingFilter::new(&set);
+        // With no "> " marker, all lines are preamble and are skipped.
+        assert_eq!(filter.step("Loading model..."), FilterStep::Skip);
+        assert_eq!(filter.step("build : x"), FilterStep::Skip);
+        assert_eq!(filter.step("plain text"), FilterStep::Skip);
+    }
+
+    #[test]
+    fn framing_filter_emits_after_marker_and_stops_at_footer() {
+        let set = std::collections::HashSet::new();
+        let mut filter = LlamaCliFramingFilter::new(&set);
+        assert_eq!(filter.step("> hi"), FilterStep::Skip); // prompt-echo marker
+        assert_eq!(filter.step("generated line"), FilterStep::Emit);
+        assert_eq!(filter.step("more"), FilterStep::Emit);
+        assert_eq!(filter.step("[ Prompt: 1 t/s ]"), FilterStep::Stop);
     }
 
     #[test]
