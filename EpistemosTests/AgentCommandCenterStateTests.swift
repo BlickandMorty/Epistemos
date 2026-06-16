@@ -233,12 +233,15 @@ struct AgentCommandCenterStateTests {
 
         state.refreshBrainCatalog(from: inference)
 
-        // Dense E4B now loads via the native Apple MLX port → selectable brain.
+        // MLX Gemma 4 E4B has NO working Swift loader — mlx-swift-lm doesn't
+        // decode `gemma4` (selecting it errors "Unsupported model type: gemma4"
+        // at runtime), so it stays out of the brain catalog. The runnable
+        // Gemma 4 is the separate GGUF lane, not this MLX enum id.
         #expect(
-            state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_4B4Bit.rawValue)" })
+            !state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_4B4Bit.rawValue)" })
         )
         // 26B-A4B is Mixture-of-Experts; the dense-only Swift port can't run
-        // it, so it stays hidden from the brain catalog.
+        // it either, so it stays hidden from the brain catalog.
         #expect(
             !state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)" })
         )
