@@ -1058,6 +1058,148 @@ async fn run_agent_session_inner(
     }
 }
 
+/// Result of a one-shot, non-agent local GGUF generation.
+#[cfg(feature = "pro-build")]
+#[derive(uniffi::Record)]
+pub struct LocalGgufGenerationFFI {
+    pub output_tokens: u32,
+    pub stop_reason: String,
+}
+
+/// Pro-only: stream a one-shot generation from a local GGUF model through the
+/// hardened `llama-cli` subprocess. This deliberately BYPASSES the agent loop
+/// (which refuses `ProviderRuntime::Local`): Gemma + other on-device GGUF models
+/// stay non-agent per honest-capability-gating, but they can still answer plain
+/// chat / fast / thinking turns. The model path must already exist on disk (the
+/// owner-approved gate chain owns acquisition + the SHA pin); nothing is
+/// downloaded here. Every line of stdout is forwarded to `on_text_delta` as it
+/// arrives (STREAM EVERYTHING). MAS never sees this symbol — the whole function
+/// is `#[cfg(feature = "pro-build")]`.
+#[cfg(feature = "pro-build")]
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn run_local_gguf_generation(
+    model_path: String,
+    prompt: String,
+    system_prompt: Option<String>,
+    max_output_tokens: Option<u32>,
+    delegate: Box<dyn AgentEventDelegate>,
+) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
+    // Mirror run_agent_session: spawn + join so a panic anywhere in the
+    // subprocess plumbing returns a typed error instead of aborting the host.
+    let handle = tokio::task::spawn(async move {
+        run_local_gguf_generation_inner(
+            model_path,
+            prompt,
+            system_prompt,
+            max_output_tokens,
+            delegate,
+        )
+        .await
+    });
+    match handle.await {
+        Ok(result) => result,
+        Err(join_error) => {
+            let msg = if join_error.is_panic() {
+                let payload = join_error.into_panic();
+                let msg = panic_payload_to_string(payload);
+                tracing::error!("[ffi] PANIC in run_local_gguf_generation: {}", msg);
+                format!("Rust panic in local GGUF generation: {}", msg)
+            } else {
+                "Local GGUF generation task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
+}
+
+#[cfg(feature = "pro-build")]
+async fn run_local_gguf_generation_inner(
+    model_path: String,
+    prompt: String,
+    system_prompt: Option<String>,
+    max_output_tokens: Option<u32>,
+    delegate: Box<dyn AgentEventDelegate>,
+) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
+    use crate::provider::{ProviderRuntime, StreamEvent};
+    use crate::types::{Message, StopReason};
+    use futures::StreamExt;
+
+    if model_path.trim().is_empty() {
+        return Err(AgentErrorFFI::AgentError {
+            message: "run_local_gguf_generation requires a non-empty model path".to_string(),
+        });
+    }
+
+    let provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path);
+    // Defensive: this entry exists ONLY to drive on-device providers. If a future
+    // refactor ever makes the provider cloud-runtime, refuse rather than leak a
+    // network path through the local seam (no-hidden-fallback).
+    if provider.runtime() != ProviderRuntime::Local {
+        return Err(AgentErrorFFI::AgentError {
+            message: "run_local_gguf_generation refused: provider is not a local runtime"
+                .to_string(),
+        });
+    }
+
+    let mut config = AgentConfig::default();
+    config.system_prompt = system_prompt;
+    config.max_output_tokens = max_output_tokens.or(Some(512));
+
+    let messages = vec![Message::user_text(&prompt)];
+
+    let mut stream = provider
+        .stream_message(&messages, &[], &config)
+        .await
+        .map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("local GGUF stream_message failed: {error}"),
+        })?;
+
+    let mut output_tokens = 0_u32;
+    let mut stop_reason = "end_turn".to_string();
+
+    while let Some(event_result) = stream.next().await {
+        match event_result {
+            Ok(StreamEvent::TextDelta { text, .. }) => {
+                // STREAM EVERYTHING: forward each token line immediately.
+                delegate.on_text_delta(text);
+            }
+            Ok(StreamEvent::ThinkingDelta { text, .. }) => {
+                delegate.on_thinking_delta(text);
+            }
+            Ok(StreamEvent::MessageStop {
+                stop_reason: reason,
+                usage,
+            }) => {
+                output_tokens = usage.output_tokens;
+                stop_reason = match reason {
+                    StopReason::EndTurn => "end_turn",
+                    StopReason::ToolUse => "tool_use",
+                    StopReason::MaxTokens => "max_tokens",
+                    StopReason::StopSequence => "stop_sequence",
+                }
+                .to_string();
+                delegate.on_complete(
+                    stop_reason.clone(),
+                    usage.input_tokens,
+                    usage.output_tokens,
+                );
+            }
+            // The local CLI provider emits only text + stop; ignore the rest.
+            Ok(_) => {}
+            Err(error) => {
+                let msg = error.to_string();
+                delegate.on_error(msg.clone());
+                return Err(AgentErrorFFI::AgentError { message: msg });
+            }
+        }
+    }
+
+    Ok(LocalGgufGenerationFFI {
+        output_tokens,
+        stop_reason,
+    })
+}
+
 #[uniffi::export]
 pub fn cancel_agent_session(session_id: String) {
     ffi_guard_value!(GlobalSessions::cancel(&session_id), ());

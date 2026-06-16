@@ -1803,7 +1803,17 @@ final class AppBootstrap {
             preparedModelRegistryState.generationRuntimeConfiguration
         )
         self.localMLXClient = localMLXClient
+        // Pro builds can inject the flag-gated, subprocess-backed GGUF engine
+        // (EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0, default OFF). When the flag is
+        // off — and always on MAS — this is nil, so the runtime keeps its
+        // reserved default builder (honest `backendUnavailable`).
+        #if !EPISTEMOS_APP_STORE
+        let localGGUFRuntime = LocalGGUFInProcessRuntime(
+            engineBuilder: LocalGgufCliRuntime.engineBuilderIfEnabled()
+        )
+        #else
         let localGGUFRuntime = LocalGGUFInProcessRuntime()
+        #endif
         let localGGUFClient = LocalGGUFClient(
             runtime: localGGUFRuntime,
             inference: inference,
