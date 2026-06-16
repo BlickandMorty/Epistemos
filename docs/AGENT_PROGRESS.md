@@ -953,3 +953,30 @@ Priority order honored: P1 Gemma runnable → P2 skills/tools app-side → P3 ha
 - [x] **Skills read app-side storage first** (`628041917`). `SkillDiscoveryCatalog.discoverSkillEntries` was re-walking the discovery roots + re-parsing every `SKILL.md` on every AgentCommandCenter `present()`. Added a process-wide `SkillDiscoveryCache` so the hot path serves the parsed catalog from app-side storage; disk only on cold-cache / forceRefresh / explicit-roots (tests stay isolated). Settings + diagnostics forceRefresh to repopulate ground truth; `createSkill` already refreshes. Mirrors `SkillContentStore` (generated-skill manifest). Tools already come from the in-process Rust registry via FFI; context providers are in-memory — skills were the one remaining hot path re-globbing disk. 2 new focused tests. TEST BUILD SUCCEEDED.
 - [x] **Dense Gemma 4 E2B installable for on-device validation** (`0d241ac61`). The 2026-06-14 native Apple Swift loader landed (E2B `isAwaitingSwiftRuntimeLoader=false`, `isReleaseValidatedForInteractiveChat=true`) but E2B was never added to the install catalog — so the loader worked + the tier was picker-selectable, yet the weights never appeared in Settings to download ('still didn't see Gemma working'). Added `gemma4_2B4Bit` to `optionalBaselineModelIDs`, refreshed stale descriptor copy (kept 'not a shipping route' so the preview invariant holds), updated the exact-list test. Honest: enables INSTALL (no quality claim), not a shipping-validated promotion; on-device token-gen still needs a signed Product▸Run (MLX metallib). 26B-A4B MoE + 31B-JANG stay gated. Reversible in one commit.
 - [ ] **User on-device validation pending**: open the app on a signed build, Settings → install "Gemma 4 2B", select it in chat, generate — confirms the vendored Gemma4Text loader produces tokens on-device (the one step that can't run headless).
+
+### Latent release-floor reds repaired (2026-06-16)
+
+The 2026-06-09 cursor advancement (`438e78bd1d`) pushed the guard + capability
+bottleneck evidence to the release-audit endgame value, leaving 16 inline
+`small_model_runtime_harness_*` falsifier probes **latently red**: a fresh
+`main()` run hard-failed (`GuardCursorMismatch`, exit 2) because their uas-module
+validations + bin `_or_advanced` axes only accepted their own CURSOR/NEXT_CURSOR.
+Crucially these probes are **testless**, so `cargo test` reported "ok" while the
+real run failed — the stale checked-in `overall_pass=true` artifacts dated to
+2026-06-05, before the advancement. The helper-based probes were already migrated.
+
+- [x] **15 probes fixed + verified** across `52e4c5ceb` (owner_approved_probe),
+      `341f4981e` (+12), `a0b3a2b6d` (live_probe + safety_lease, `matches!` variant).
+      Each gains a local `ADVANCED_RELEASE_AUDIT_CURSOR` const + the release-audit
+      clause on its 2 module validations and 2 bin axes. All 15 fresh `main()` runs
+      print `overall_pass=true` (exit 0); owner_probe additionally passes its full
+      command script end-to-end (`f_*.sh`: bin + `falsifier_validator`, exit 0).
+      agent_core lib **5322 passed / 0 failed** (no regression from the uas changes).
+- [ ] **`l3_log_correlation_probe` left for owner review**: shares the cursor drift
+      but ALSO hard-fails `ManualVerificationAlreadyGreen` — it requires the
+      manual-verification probe to be not-yet-green, but that probe now passes. A
+      deliberate superseded-state dependency, not cursor drift; not overridden.
+- [ ] **Full-floor "3 zero-fail passes" is the owner's CI gate**: the 257
+      `Tools/falsifiers/f_*.sh` scripts share `artifacts/falsifiers/*/result.json`,
+      so a naive bulk run cross-contaminates; proper ordering is the CI's job. These
+      15 fixes remove 15 blockers from that gate.
