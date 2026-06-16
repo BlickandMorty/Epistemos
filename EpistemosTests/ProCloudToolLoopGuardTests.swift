@@ -31,7 +31,12 @@ struct ProCloudToolLoopGuardTests {
             managedAgentSession: true
         ))
         #expect(managedBudget.toolTier == .chatPro)
-        #expect(managedBudget.maxTurns == 3)
+        // Pro turn ceiling is a SAFETY RAIL, not a schedule: the model ends
+        // simple turns early via stop_reason==end_turn, so this ceiling only
+        // enables genuine multi-step tool loops (the "feels agentic" lever).
+        // Stays under DEFAULT_AGENT_MAX_TURNS (25) for the bounded-execution
+        // review posture. Was 3 (effectively single-shot for real work).
+        #expect(managedBudget.maxTurns == 15)
 
         let directBudget = try #require(ChatCoordinator.cloudToolBudget(
             for: .pro,
@@ -40,7 +45,7 @@ struct ProCloudToolLoopGuardTests {
             managedAgentSession: false
         ))
         #expect(directBudget.toolTier == .chatPro)
-        #expect(directBudget.maxTurns == 3)
+        #expect(directBudget.maxTurns == 15)
 
         let source = try loadMirroredSourceTextFile(
             "Epistemos/App/ChatCoordinator.swift"
@@ -61,7 +66,12 @@ struct ProCloudToolLoopGuardTests {
 
     @Test("ChatCoordinator keeps Fast and Thinking cloud tiers deterministic")
     func cloudFastThinkingBudgetsStayDeterministic() throws {
-        for mode in [EpistemosOperatingMode.fast, .thinking] {
+        // Fast and Thinking both stay on the read-only chat_lite tier (no
+        // writes), but get distinct LOOP ceilings so the everyday cloud chat
+        // can do multi-step research instead of single-shot Q&A. Ceilings are
+        // safety rails — stop_reason==end_turn ends simple turns immediately.
+        let expectedTurns: [EpistemosOperatingMode: UInt32] = [.fast: 5, .thinking: 10]
+        for (mode, turns) in expectedTurns {
             let directBudget = try #require(ChatCoordinator.cloudToolBudget(
                 for: mode,
                 isCloudSelectedSurface: true,
@@ -69,7 +79,9 @@ struct ProCloudToolLoopGuardTests {
                 managedAgentSession: false
             ))
             #expect(directBudget.toolTier == .chatLite)
-            #expect(directBudget.maxTurns == 1)
+            #expect(directBudget.maxTurns == turns)
+            // A tool-capable loop ceiling means > 1 (the old single-shot value).
+            #expect(directBudget.maxTurns > 1)
 
             #expect(ChatCoordinator.cloudToolBudget(
                 for: mode,

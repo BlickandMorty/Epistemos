@@ -1022,11 +1022,26 @@ final class ChatCoordinator {
   ) -> (toolTier: ChatToolTier, maxTurns: UInt32)? {
     guard isCloudSelectedSurface, supportsAgentTier else { return nil }
 
+    // Turn budgets are a SAFETY-RAIL CEILING, not a schedule (CLAUDE.md:
+    // "max_turns is a safety rail … Trust stop_reason == 'end_turn'"). The
+    // model ends a simple turn after one round via end_turn, so raising the
+    // ceiling does NOT slow down trivial Q&A — it only lets the model LOOP
+    // (call a tool → read the result → reason → call again → self-correct)
+    // when the task actually needs it. The previous 1/1/3 ceilings made the
+    // everyday cloud chat single-shot: a tool call on turn 1 tripped
+    // MaxTurnsExceeded before the model could read the result, so even a
+    // frontier cloud model behaved like one-shot Q&A. These ceilings are the
+    // "feels agentic like Codex" lever; they stay UNDER the 25-turn Agent
+    // ceiling (DEFAULT_AGENT_MAX_TURNS) so the bounded-execution review posture
+    // holds. chat_lite stays read-only (Fast/Think loop = multi-step research,
+    // no writes); chat_pro adds write+memory for real multi-step work.
     switch operatingMode {
     case .pro:
-      return (.chatPro, 3)
-    case .fast, .thinking:
-      return managedAgentSession ? nil : (.chatLite, 1)
+      return (.chatPro, 15)
+    case .thinking:
+      return managedAgentSession ? nil : (.chatLite, 10)
+    case .fast:
+      return managedAgentSession ? nil : (.chatLite, 5)
     case .agent:
       return nil
     }
