@@ -16,6 +16,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR: &str =
     "small_model_runtime_harness_first_token_runtime_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_answer_packet_runtime_probe";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const LOGGED_SMOKE_PREFIX: &str = "artifact:small_model_runtime_harness_logged_runtime_smoke:";
 const LIVE_PROBE_SIDECAR_PREFIX: &str =
@@ -858,6 +860,7 @@ impl SmallModelRuntimeHarnessFirstTokenProbeWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR
+        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelRuntimeHarnessFirstTokenProbeError::GuardCursorMismatch);
         }
@@ -865,7 +868,8 @@ impl SmallModelRuntimeHarnessFirstTokenProbeWitness {
             || (self.capability_next_bottleneck
                 != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR
                 && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR)
+                    != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR
+        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(SmallModelRuntimeHarnessFirstTokenProbeError::CapabilityStatusMismatch);
         }

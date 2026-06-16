@@ -16,6 +16,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR: &str =
     "small_model_runtime_harness_abortable_runtime_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_logged_runtime_smoke";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const OWNER_PROBE_PREFIX: &str = "artifact:small_model_runtime_harness_owner_approved_probe:";
 const ANSWER_PACKET_PREFIX: &str = "answer_packet:";
@@ -686,6 +688,7 @@ fn validate_witness(
         != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR
         && witness.guard_next_existing_work
             != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR
+        && witness.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
     {
         return Err(SmallModelRuntimeHarnessAbortableProbeError::GuardCursorMismatch);
     }
@@ -696,6 +699,7 @@ fn validate_witness(
         != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_CURSOR
         && witness.capability_next_bottleneck
             != SMALL_MODEL_RUNTIME_HARNESS_ABORTABLE_RUNTIME_PROBE_NEXT_CURSOR
+        && witness.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR
     {
         return Err(SmallModelRuntimeHarnessAbortableProbeError::CapabilityStatusMismatch);
     }

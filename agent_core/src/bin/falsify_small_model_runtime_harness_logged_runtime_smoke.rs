@@ -23,6 +23,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-SmallModelRuntimeHarnessLoggedRuntimeSmoke";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "small_model_runtime_harness_logged_runtime_smoke_v1";
 const COMMAND: &str = "Tools/falsifiers/f_small_model_runtime_harness_logged_runtime_smoke.sh";
 const RESULT: &str =
@@ -154,7 +156,8 @@ fn build_artifact(
             evidence.guard_next_existing_work
                 == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_CURSOR
                 || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -166,7 +169,8 @@ fn build_artifact(
             evidence.capability_next_bottleneck
                 == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_CURSOR
                 || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",
