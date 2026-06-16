@@ -1645,6 +1645,111 @@ struct InferencePolicyEngineTests {
         #expect(decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
+    // SOURCE GUARD (Gemma route integration, Phase 2 critical bug): selecting a
+    // Gemma QAT GGUF descriptor id MUST route to that descriptor-backed GGUF
+    // model, never silently fall through enum-only resolution to Qwen.
+    @Test("selecting a Gemma QAT GGUF descriptor id routes to that model, never silently to Qwen")
+    func gemmaGGUFDescriptorRoutesToGemmaNotQwen() {
+        guard let gemma = GemmaQATRuntimeLadder.productRouteIntegrationCandidates.first else {
+            Issue.record("no Gemma QAT product-route-integration candidate available")
+            return
+        }
+        // The candidate id is descriptor-only (NOT a LocalTextModelID enum case).
+        #expect(LocalTextModelID(rawValue: gemma.id) == nil)
+
+        let engine = InferencePolicyEngine()
+        let context = InferencePolicyContext(
+            routingMode: .auto,
+            appleIntelligenceAvailable: false,
+            cloudAutoRouteEnabled: false,
+            hasConfiguredCloudModels: false,
+            preferredChatModelSelection: .localMLX(gemma.id),
+            preferredLocalTextModelID: gemma.id,
+            // Gemma GGUF installed alongside a Qwen enum model — the exact shape
+            // that used to fall through to the Qwen automatic selection.
+            installedLocalTextModelIDs: [gemma.id, LocalTextModelID.qwen3_4B4Bit.rawValue],
+            hardwareCapabilitySnapshot: ggufCapableTestHardwareSnapshot,
+            runtimeConditions: LocalRuntimeConditions(
+                lowPowerModeEnabled: false,
+                appActive: true,
+                thermalState: .nominal
+            )
+        )
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .miniChat,
+                intent: .simpleAsk,
+                contentLength: 40,
+                promptLength: 40,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 30,
+                baseComplexity: 0.10,
+                queryComplexity: 0.05,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: context
+        )
+
+        // Must resolve to the selected Gemma GGUF id — NOT the Qwen fallback.
+        #expect(decision.localSelection?.modelID == gemma.id)
+        #expect(decision.localSelection?.modelID != LocalTextModelID.qwen3_4B4Bit.rawValue)
+        // Gemma stays non-agent (honest capability gating for a non-enum id).
+        #expect(decision.localSelection?.canActAsAgent == false)
+    }
+
+    @Test("the Gemma 4 family is held out of automatic routing — never an auto fallback")
+    func gemma4FamilyHeldOutOfAutomaticRouting() {
+        // Predicate invariant: every Gemma 4 tier is user-selectable-only.
+        for tier in [LocalTextModelID.gemma4_2B4Bit, .gemma4_4B4Bit,
+                     .gemma4_27BA4B4Bit, .gemma4_31BJANG] {
+            #expect(tier.isHeldOutOfAutomaticLocalRouting,
+                    "\(tier.rawValue) must be held out of automatic routing")
+        }
+        // Gemma 3 + the validated Qwen default must stay AUTO-eligible.
+        #expect(!LocalTextModelID.gemma3_4BQAT4Bit.isHeldOutOfAutomaticLocalRouting)
+        #expect(!LocalTextModelID.qwen3_4B4Bit.isHeldOutOfAutomaticLocalRouting)
+
+        // End-to-end: with Gemma 4 the only fast-eligible installed model under
+        // automatic routing, triage must NOT silently fall back to it. Before the
+        // hold-out predicate, flipping isAwaitingSwiftRuntimeLoader=false let
+        // gemma-4-e4b leak into the last-resort automatic selection.
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 60,
+                promptLength: 50,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 40,
+                baseComplexity: 0.10,
+                queryComplexity: 0.05,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: false,
+                hasConfiguredCloudModels: false,
+                preferredChatModelSelection: .appleIntelligence,
+                // gemma4_4B4Bit survives the upstream filters (shipped + fits the
+                // default test hardware); deepseek is always-thinking so it is
+                // fast-filtered — Gemma 4 is the ONLY fast-eligible candidate.
+                installed: [.gemma4_4B4Bit, .deepseekR1Distill7B]
+            )
+        )
+
+        #expect(decision.localSelection == nil)
+        #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_4B4Bit.rawValue)
+    }
+
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,

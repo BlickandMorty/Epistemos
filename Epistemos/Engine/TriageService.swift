@@ -765,9 +765,15 @@ nonisolated struct InferencePolicyEngine {
         // config, oversized) still reproduce the "Unsupported model type" /
         // load-failure path, so they stay excluded. Gemma 4 is intentionally
         // kept out of preferredOrder above; the validated default stays Qwen.
-        // This filter mirrors LocalTextModelID.isAwaitingSwiftRuntimeLoader.
+        // This filter mirrors LocalTextModelID.isAwaitingSwiftRuntimeLoader,
+        // and ALSO honors isHeldOutOfAutomaticLocalRouting so the whole Gemma 4
+        // family stays out of automatic selection now that the dense E2B/E4B
+        // tiers have a runnable loader (native MLX port + GGUF lane). Gemma 4 is
+        // only ever picked when the user explicitly pins it via
+        // resolvedPreferredLocalSelection — never as a silent auto fallback.
         let triageReadyCandidates = effectiveCandidateModels.filter { candidate in
             !candidate.isAwaitingSwiftRuntimeLoader
+                && !candidate.isHeldOutOfAutomaticLocalRouting
         }
 
         if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {
