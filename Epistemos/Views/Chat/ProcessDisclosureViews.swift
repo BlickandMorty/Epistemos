@@ -167,6 +167,14 @@ struct ProcessDisclosureDetailBlock: View {
     }
 }
 
+/// Reasoning-trace body used by every "thinking" surface (the main-chat inline
+/// segment, the MiniChat / note / graph ThinkingTrailView, and the legacy
+/// popover preview). Styled to read like ChatGPT's native thinking panel —
+/// muted, proportional, airy prose rather than an 11pt monospaced code dump.
+/// The content is lightly de-markdowned for display (raw `**`, `__`, leading
+/// `#` heading hashes, and `>` quote carets removed) so a model's scratch-pad
+/// markdown doesn't surface as literal syntax. Tool / skill payloads render via
+/// `ProcessDisclosureDetailBlock` (still monospaced) and are unaffected.
 struct ProcessDisclosureTextBlock: View {
     @Environment(UIState.self) private var ui
 
@@ -176,18 +184,53 @@ struct ProcessDisclosureTextBlock: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Rectangle()
-                .fill(tone.tint(theme: theme).opacity(theme.isDark ? 0.82 : 0.58))
-                .frame(width: 2)
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(tone.tint(theme: theme).opacity(theme.isDark ? 0.55 : 0.40))
+                .frame(width: 2.5)
 
-            Text(content)
-                .font(ClaudeAppTypography.monoFont(size: 11))
+            Text(Self.displayText(for: content))
+                .font(ClaudeAppTypography.assistantFont(size: 14))
                 .foregroundStyle(theme.textSecondary)
-                .lineSpacing(4)
+                .lineSpacing(5)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Strip the most common raw-markdown artifacts from a reasoning trace so it
+    /// reads as plain muted prose. Intentionally conservative: it only removes
+    /// emphasis/heading/quote SYNTAX, never content, and preserves list markers
+    /// and indentation so a numbered reasoning plan still reads as a list.
+    static func displayText(for content: String) -> String {
+        var collapsed: [String] = []
+        var blankRun = 0
+        for rawLine in content.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+            // Strip bold / italic emphasis runs (**x**, __x__) → x.
+            var line = rawLine
+                .replacingOccurrences(of: "**", with: "")
+                .replacingOccurrences(of: "__", with: "")
+            // Drop leading heading hashes ("### Plan" → "Plan") and quote carets,
+            // preserving the line's original indentation (list nesting).
+            let indent = line.prefix { $0 == " " || $0 == "\t" }
+            var rest = Substring(line.dropFirst(indent.count))
+            while rest.first == "#" || rest.first == ">" { rest = rest.dropFirst() }
+            if (line.first == "#" || line.first == ">") || indent.isEmpty {
+                line = String(rest).trimmingCharacters(in: .whitespaces)
+            } else {
+                line = String(indent) + String(rest.drop { $0 == " " })
+            }
+
+            // Collapse runs of blank lines into a single paragraph break.
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                blankRun += 1
+                if blankRun <= 1 { collapsed.append("") }
+            } else {
+                blankRun = 0
+                collapsed.append(line)
+            }
+        }
+        return collapsed.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
