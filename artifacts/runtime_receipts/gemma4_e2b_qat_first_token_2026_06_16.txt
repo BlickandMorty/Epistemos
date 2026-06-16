@@ -1,0 +1,41 @@
+GEMMA 4 E2B QAT GGUF — ON-DEVICE FIRST-TOKEN RECEIPT
+====================================================
+Date: 2026-06-16
+Operator: Claude (autonomous, via Bash on the owner's Mac — owner authorized
+          "use computer use and do it yourself ... it should all be you")
+Owner approval phrase honored: APPROVE_SMALL_COMPRESSED_E2B_LLAMA_CLI_ONE_TOKEN_PROBE_V0
+
+MODEL
+  repo:      google/gemma-4-E2B-it-qat-q4_0-gguf  (PUBLIC, no auth/gate)
+  file:      gemma-4-E2B_q4_0-it.gguf
+  bytes:     3,349,514,112  (matches gate expected_file_bytes)
+  sha256:    3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd
+             (MATCHES the gate's pinned expectedSHA256 — verified)
+  arch:      gemma4   (general.name: 2B_dequant_qat_it_hf; block_count 35; 541 tensors; GGUF V3)
+  path:      ~/Downloads/gemma-4-E2B_q4_0-it.gguf
+
+RUNTIME
+  binary:    /opt/homebrew/bin/llama-cli  (build b9370-aa50b2c2a)
+  backend:   Apple M2 Pro — Metal; offloaded 36/36 layers to GPU
+  device mem: projected 1605 MiB used vs 12123 MiB free (fits 16 GB with headroom)
+  flags:     --offline --predict N --ctx-size 512/1024 --batch-size --ubatch-size
+             --temp 0 --seed 0 --single-turn --simple-io   (offline, deterministic, capped)
+
+RESULT (exit 0)
+  prompt eval: ~270 tok/s     generation: ~64 tok/s
+  Coherent code generation in Gemma's native thinking channel. Sample output for
+  "Write one short Python function that returns the sum of a list":
+      def list_sum(numbers):
+          return sum(numbers)
+
+DRIFT FOUND (real, by running it)
+  The gate command card pins --no-conversation, which llama-cli b9370 dropped
+  ("--no-conversation is not supported by llama-cli, please use llama-completion").
+  The probe ran correctly without it (--single-turn covers one-turn). Gate command
+  template updated to match the installed llama.cpp.
+
+CONCLUSION
+  Gemma 4 E2B QAT GGUF loads and generates real, coherent text on-device on Apple
+  M2 Pro Metal at ~64 tok/s using ~1.6 GB. The Pro-gated GGUF runtime lane is
+  proven runnable on this hardware. This is the first-token evidence the
+  small_compressed_model_owner_approved_runtime_probe frontier was fail-closed on.
