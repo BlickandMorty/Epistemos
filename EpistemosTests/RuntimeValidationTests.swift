@@ -4855,9 +4855,12 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("Self.cloudToolBudget("))
         #expect(coordinator.contains("guard isCloudSelectedSurface, supportsAgentTier else { return nil }"))
         // Per-mode branches in cloudToolBudget — these are the real
-        // gate that USABILITY-001 turns on.
+        // gate that USABILITY-001 turns on. Fast and Thinking are now
+        // SEPARATE cases (distinct loop ceilings: Fast=5, Think=10, Pro=15)
+        // so the everyday cloud chat can loop instead of single-shotting.
         #expect(coordinator.contains("case .pro:"))
-        #expect(coordinator.contains("case .fast, .thinking:"))
+        #expect(coordinator.contains("case .thinking:"))
+        #expect(coordinator.contains("case .fast:"))
         #expect(coordinator.contains("case .agent:"))
     }
 
