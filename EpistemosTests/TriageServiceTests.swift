@@ -546,21 +546,23 @@ struct TriageServiceTests {
         )
     }
 
-    @Test("dense Gemma 4 E2B/E4B are selectable; MoE/JANG tiers stay gated")
+    @Test("all Gemma 4 MLX enum tiers stay gated (no working gemma4 MLX loader)")
     func gemma4TiersHiddenFromPicker() {
-        // Dense E2B/E4B load via the native Apple MLX port → selectable.
-        #expect(LocalTextModelID.gemma4_2B4Bit.isReleaseValidatedForInteractiveChat)
-        #expect(LocalTextModelID.gemma4_4B4Bit.isReleaseValidatedForInteractiveChat)
-        #expect(!LocalTextModelID.gemma4_2B4Bit.isAwaitingSwiftRuntimeLoader)
-        #expect(!LocalTextModelID.gemma4_4B4Bit.isAwaitingSwiftRuntimeLoader)
-        #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason == nil)
-
-        // 26B-A4B (MoE, dense-only port can't run it) + 31B-JANG (unverified
-        // third-party, oversized) stay out of the picker and awaiting a loader.
-        #expect(!LocalTextModelID.gemma4_27BA4B4Bit.isReleaseValidatedForInteractiveChat)
-        #expect(!LocalTextModelID.gemma4_31BJANG.isReleaseValidatedForInteractiveChat)
-        #expect(LocalTextModelID.gemma4_27BA4B4Bit.isAwaitingSwiftRuntimeLoader)
-        #expect(LocalTextModelID.gemma4_31BJANG.isAwaitingSwiftRuntimeLoader)
+        // The MLX/Swift loader does NOT decode `gemma4` (selecting a dense
+        // E2B/E4B MLX tier errors "Unsupported model type: gemma4" on-device,
+        // verified 2026-06-16). So every MLX Gemma 4 enum id is awaiting a
+        // loader and stays out of the chat picker. The RUNNABLE Gemma 4 is the
+        // separate GGUF llama-cli lane (descriptor ids), not these enum ids.
+        for tier in [LocalTextModelID.gemma4_2B4Bit, .gemma4_4B4Bit,
+                     .gemma4_27BA4B4Bit, .gemma4_31BJANG] {
+            #expect(!tier.isReleaseValidatedForInteractiveChat,
+                    "\(tier.rawValue) must not be chat-selectable (no gemma4 MLX loader)")
+            #expect(tier.isAwaitingSwiftRuntimeLoader,
+                    "\(tier.rawValue) must be marked awaiting a Swift loader")
+            #expect(tier.releasePickerVisibilityReason != nil,
+                    "\(tier.rawValue) must carry a picker-visibility reason")
+        }
+        // 26B-A4B keeps its specific Mixture-of-Experts rationale.
         #expect(
             LocalTextModelID.gemma4_27BA4B4Bit.releasePickerVisibilityReason?
                 .contains("Mixture-of-Experts") == true

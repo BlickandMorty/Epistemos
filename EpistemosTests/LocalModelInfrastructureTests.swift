@@ -1110,20 +1110,20 @@ struct LocalModelInfrastructureTests {
         )
 
         #expect(manager.curatedBaselineDescriptors.count == 3)
-        // Stack refresh 2026-04-21 — optional baseline is now ordered as
-        // declared in LocalModelCatalog.optionalBaselineModelIDs
-        // (Bonsai fallbacks, 16 GB Mac all-round/reasoning picks, dense Gemma 4
-        // E2B on-device-validation tier, coder flagship, Hermes function-calling,
-        // Qwen 3.6 flagship quant variants, QwQ flagship reasoner, and the legacy
-        // coder fallback). Gemma 4 E2B added 2026-06-15 after its native Swift
-        // loader landed — installable for validation, still preview-labeled.
+        // Stack refresh 2026-04-21 — optional baseline is ordered as declared
+        // in LocalModelCatalog.optionalBaselineModelIDs (Bonsai fallbacks,
+        // 16 GB Mac all-round/reasoning picks, coder flagship, Hermes
+        // function-calling, Qwen 3.6 flagship quant variants, QwQ flagship
+        // reasoner, legacy coder fallback). The MLX Gemma 4 E2B tier is NOT in
+        // the install list: mlx-swift-lm doesn't decode `gemma4` (the loader
+        // errors at runtime), so it's awaiting-loader/hidden. The runnable
+        // Gemma 4 is the separate owner-gated GGUF lane, not a baseline install.
         #expect(
             manager.optionalBaselineDescriptors.map(\.id) == [
                 LocalTextModelID.bonsai4B2Bit.rawValue,
                 LocalTextModelID.bonsai8B2Bit.rawValue,
                 LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
                 LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
-                LocalTextModelID.gemma4_2B4Bit.rawValue,
                 LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
                 LocalTextModelID.qwen3_8B4Bit.rawValue,
                 LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
