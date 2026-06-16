@@ -40,3 +40,17 @@ KNOWN REFINEMENT (tracked, non-blocking — engine is flag-OFF + not UI-reachabl
   banner/footer strip in the provider, or (b) a switch to a non-interactive
   binary (llama-completion / llama-simple). The witness asserts generation, not
   cleanliness; the strip lands before the engine is promoted toward UI use.
+
+UPDATE (same day) — REFINEMENT RESOLVED: banner strip landed.
+GgufCliProvider.stream_message now runs a stateful filter over llama-cli's
+stdout: skip the banner until the "> " prompt-echo marker, drop the echoed
+prompt lines (matched against the known prompt set), emit generation until the
+"[ Prompt: ... ]" stats footer. The e2e witness now asserts the framing is
+absent and passes:
+  [gguf-e2e] streamed 109 chars: "[Start thinking]\nThinking Process:\n\n
+   1.  **Analyze the Request:** The user wants me to reply with the single\n\n"
+  test result: ok. 1 passed; 0 failed; finished in 4.24s
+Only Gemma's own generation remains (the "[Start thinking]" is the model's
+reasoning, not llama-cli framing). Format-coupled to llama.cpp b9370; a
+non-interactive binary (or --jinja-fixed llama-completion) would remove the
+coupling later.

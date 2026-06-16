@@ -82,4 +82,22 @@ async fn gguf_cli_provider_streams_real_tokens() {
         !text.trim().is_empty(),
         "GGUF provider must stream non-empty text from a real model"
     );
+    // The provider must strip llama-cli's interactive REPL framing so only the
+    // model's generation reaches the delegate.
+    assert!(
+        !text.contains("Loading model"),
+        "banner 'Loading model' must be stripped: {text:?}"
+    );
+    assert!(
+        !text.contains("available commands"),
+        "command list must be stripped: {text:?}"
+    );
+    assert!(
+        !text.contains("[ Prompt:"),
+        "llama-cli stats footer must be stripped: {text:?}"
+    );
+    assert!(
+        !text.contains("Exiting..."),
+        "llama-cli exit line must be stripped: {text:?}"
+    );
 }
