@@ -307,6 +307,28 @@ nonisolated struct InferencePolicyEngine {
         in context: InferencePolicyContext,
         reasoningMode: LocalReasoningMode? = nil
     ) -> LocalModelSelection? {
+        // Gemma QAT GGUF route-integration candidates are descriptor-only ids
+        // (NOT LocalTextModelID enum cases). The enum lookup below returns nil for
+        // them, so the caller used to fall through to an automatic (Qwen)
+        // selection — i.e. picking a GGUF Gemma in the model picker silently
+        // routed to Qwen. Resolve them explicitly: if the preferred id is an
+        // installed product-route-integration candidate, route to it. The local
+        // backend dispatches by descriptor.runtimeKind == .gguf to the GGUF
+        // runtime. Gemma stays non-agent (LocalModelSelection.canActAsAgent is
+        // false for a non-enum id), preserving honest capability gating.
+        if LocalTextModelID(rawValue: context.preferredLocalTextModelID) == nil,
+           let candidate = GemmaQATRuntimeLadder.candidate(forID: context.preferredLocalTextModelID),
+           candidate.isProductRouteIntegrationCandidate,
+           context.installedLocalTextModelIDs.contains(candidate.id) {
+            return LocalModelSelection(
+                modelID: candidate.id,
+                reasoningMode: reasoningMode ?? .fast,
+                // Conservative budget that fits the GGUF context window (E2B/E4B
+                // run at ctx 4096; ~4k chars ≈ 1k tokens leaves room to generate).
+                contentBudget: 4_000
+            )
+        }
+
         let installedModels = supportedInstalledModels(in: context)
         guard !installedModels.isEmpty else { return nil }
 

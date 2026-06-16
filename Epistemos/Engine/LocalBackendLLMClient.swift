@@ -524,17 +524,24 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             return (preparedRuntimeKind, allowMLXFallback)
         }
 
-        guard let resolvedModelID,
-              let localModel = LocalTextModelID(rawValue: resolvedModelID) else {
+        guard let resolvedModelID else {
             return (nil, true)
         }
 
-        switch localModel.runtimeKind {
+        // Resolve via the catalog descriptor's runtimeKind, which returns .gguf
+        // for the Gemma QAT GGUF route-integration candidates (descriptor-only
+        // ids, NOT LocalTextModelID enum cases) as well as for the enum models.
+        // Without this a GGUF descriptor id fell through to (nil, true) and the
+        // runtime resolver defaulted to MLX — so a selected GGUF Gemma silently
+        // ran on the MLX lane (which can't decode gemma4).
+        let runtimeKind = LocalModelCatalog.descriptor(for: resolvedModelID)?.runtimeKind
+            ?? LocalTextModelID(rawValue: resolvedModelID)?.runtimeKind
+        switch runtimeKind {
         case .gguf:
             return (.gguf, false)
         case .mlx:
             return (.mlx, true)
-        case .remote:
+        case .remote, .none:
             return (nil, true)
         }
     }
