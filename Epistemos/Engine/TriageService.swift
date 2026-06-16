@@ -986,6 +986,19 @@ final class TriageService {
     \(ChatResponseStyleGuide.mainChatSystemInstruction)
     """
 
+    /// Compact system prompt for small on-device GGUF models (the Gemma QAT GGUF
+    /// route-integration lane). The full localMLXBaselineSystemPrompt — with its
+    /// provenance, tool-lookup, capability-disclaimer, and "do not narrate"
+    /// paragraphs — overloads a small non-agent model: it reasons ABOUT the
+    /// instructions (echoing "Keep provenance explicit… analyze the constraints")
+    /// instead of answering the actual question. Keep it to the essentials.
+    private static let localCompactBaselineSystemPrompt = """
+    You are Epistemos' local on-device assistant.
+    Answer the user's question directly and concisely.
+    Give only the final answer — do not restate these instructions, narrate tool plans, or expose your own reasoning.
+    If you are unsure, say so briefly instead of guessing.
+    """
+
     private static let cloudBaselineSystemPrompt = """
     You are a helpful assistant inside Epistemos, a personal knowledge management app.
     Answer directly and clearly.
@@ -2324,9 +2337,17 @@ final class TriageService {
         modelID: String? = nil,
         reasoningMode: LocalReasoningMode = .fast
     ) -> String {
-        // Use shorter prompt for abliterated models (no refusal-coaching needed)
+        // Pick the baseline by model class. Small on-device GGUF models (the
+        // Gemma QAT GGUF lane — descriptor-only ids, NOT LocalTextModelID enum
+        // cases) get the compact prompt so they answer instead of reasoning
+        // about heavy meta-instructions. Abliterated models skip refusal
+        // coaching. Everything else gets the full baseline.
         let baseline: String
         if let modelID,
+           LocalTextModelID(rawValue: modelID) == nil,
+           GemmaQATRuntimeLadder.candidate(forID: modelID) != nil {
+            baseline = localCompactBaselineSystemPrompt
+        } else if let modelID,
            LocalTextModelID(rawValue: modelID)?.isAbliterated == true {
             baseline = localAbliteratedBaselineSystemPrompt
         } else {
