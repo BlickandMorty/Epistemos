@@ -103,6 +103,11 @@ const TERMINAL_CURSORS: &[&str] = &[
     // same-fixture runtime probe) is the owner-gated frontier — needs real
     // on-device bytes + a signed run.
     "runtime_plural_e2b_gguf_same_fixture_owner_gated_runtime_probe_frontier",
+    // The small-compressed owner-approved runtime probe's successor (the actual
+    // first-token execution + retained-token receipt) is the owner-gated
+    // frontier — needs explicit owner approval, a real local model path, and a
+    // signed on-device run that produces real (redacted) bytes.
+    "small_compressed_model_owner_approved_runtime_probe_first_token_owner_gated_frontier",
 ];
 
 /// Extract every `*_NEXT_CURSOR: &str = "..."` target from the non-test portion.

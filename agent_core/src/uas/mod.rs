@@ -165,6 +165,7 @@ pub mod small_compressed_model_live_harness_preflight;
 pub mod small_compressed_model_local_runtime_command_card;
 pub mod small_compressed_model_model_path_readiness_card;
 pub mod small_compressed_model_owner_approval_runtime_gate;
+pub mod small_compressed_model_owner_approved_runtime_probe;
 pub mod small_compressed_model_runtime_probe_proof_envelope;
 pub mod small_model_runtime_harness_abortable_runtime_probe;
 pub mod small_model_runtime_harness_answer_packet_runtime_probe;
