@@ -512,7 +512,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
         case .proFlagshipCandidate:
             "Gemma 4 12B QAT GGUF Pro lane. Text-only, direct local GGUF runtime; flagship candidate for roomier Macs after explicit user preparation."
         case .specialistCoderFineTune:
-            "Gemma 4 12B Coder (Fable5/Composer2.5) — community specialist fine-tune (yuxinlu1), NOT official QAT. Q4_K_M GGUF is the best tier for a 16 GB Mac; rides the same Pro-gated GGUF/llama.cpp lane, text-only, receipt pending, gated away from default route mutation. Q6_K is higher quality but tight on 16 GB; the sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only and does not run on Apple Silicon."
+            "Gemma 4 12B Coder (Fable5/Composer2.5) — community specialist fine-tune (yuxinlu1), NOT official QAT. Text-only, direct local GGUF runtime; Q4_K_M is the best tier for a 16 GB Mac, rides the same Pro-gated GGUF/llama.cpp lane, receipt pending, gated away from default route mutation. Q6_K is higher quality but tight on 16 GB; the sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only and does not run on Apple Silicon."
         }
     }
 
@@ -1297,7 +1297,14 @@ enum LocalModelCatalog {
     ] + gemmaQATGGUFDescriptors
 
     nonisolated static var gemmaQATGGUFDescriptors: [LocalModelDescriptor] {
-        GemmaQATRuntimeLadder.productRouteIntegrationCandidates.map(\.localModelDescriptor)
+        // ALL GGUF runtime candidates get catalog descriptors (installable
+        // metadata) — including the 12B coder fine-tune, which is owner-wanted
+        // and rides the same GGUF llama-cli lane but doesn't carry route
+        // receipts yet. Catalog presence ≠ baseline promotion ≠ auto-available
+        // for chat: `supportedAvailableGemmaQATRuntimeCandidates` still gates
+        // runtime availability on isProductRouteIntegrationCandidate, so a
+        // receipt-pending candidate is installable but not silently auto-routed.
+        GemmaQATRuntimeLadder.candidates.map(\.localModelDescriptor)
     }
 
     nonisolated static var allDescriptors: [LocalModelDescriptor] {
@@ -1353,12 +1360,12 @@ enum LocalModelCatalog {
         LocalTextModelID.bonsai8B2Bit.rawValue,
         LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
         LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
-        // Gemma 4 E2B (dense, native Apple Swift MLX loader landed 2026-06-14).
-        // Installable so the now-runnable loader can be validated on-device;
-        // kept honest as a preview/validation tier (not a shipping default) via
-        // its descriptor copy. The 26B-A4B MoE + 31B-JANG tiers stay out (no
-        // runnable Swift loader / unverified third-party config).
-        LocalTextModelID.gemma4_2B4Bit.rawValue,
+        // NOTE: the MLX Gemma 4 E2B/E4B enum tiers are intentionally NOT in the
+        // baseline install list — the mlx-swift-lm decoder doesn't support
+        // `gemma4` (selecting one errors "Unsupported model type: gemma4"), so
+        // they're awaiting-loader/hidden. The runnable Gemma 4 is the separate
+        // GGUF llama-cli lane (gemmaQATGGUFDescriptors), owner-gated, not a
+        // standard baseline install.
         // Flagship coder (30B A3B MoE — 24GB class).
         LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
         LocalTextModelID.qwen3_8B4Bit.rawValue,

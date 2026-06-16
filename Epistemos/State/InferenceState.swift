@@ -608,13 +608,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen25Coder7B:
             false
-        // The official dense Gemma 4 E2B/E4B tiers now load via the native
-        // Apple MLX port (Gemma4Text.swift) and are selectable for on-device
-        // validation — they fall through to the default visibility rule.
-        // 26B-A4B is Mixture-of-Experts (the dense-only Swift port can't run
-        // it) and 31B-JANG is an unverified third-party fine-tune that won't
-        // fit the 16GB ship target; keep both out of the chat picker.
-        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        // The MLX Gemma 4 enum tiers are NOT chat-selectable: the MLX/Swift
+        // loader does not decode `gemma4` (selecting one errors at runtime with
+        // "Unsupported model type: gemma4" — verified on-device 2026-06-16), so
+        // the dense E2B/E4B MLX repos stay hidden, and 26B-A4B (MoE, dense-only
+        // port can't run it) + 31B-JANG (unverified third-party, oversized) stay
+        // out too. The RUNNABLE Gemma 4 is the separate GGUF llama-cli lane
+        // (descriptor ids `google/gemma-4-…-gguf`), surfaced via
+        // supportedAvailableGemmaQATRuntimeCandidates — NOT these enum ids.
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             false
         default:
             !isExperimentalForEpistemos
@@ -627,14 +629,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// never hits the raw "Unsupported model type" error.
     var isAwaitingSwiftRuntimeLoader: Bool {
         switch self {
-        // Gemma 4 26B-A4B is a Mixture-of-Experts checkpoint; the vendored
-        // Apple Swift port (Gemma4Text.swift @ e3cb1e1b) is dense-only — no
-        // Router/Experts — so the MoE tier has no runnable Swift loader.
-        // 31B-JANG is a third-party fine-tune whose config hasn't been
-        // verified against the dense port (and won't fit the 16GB ship
-        // target). The official dense E2B/E4B tiers now load natively, so
-        // they are no longer awaiting a loader.
-        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        // The whole Gemma 4 MLX family is awaiting a working Swift loader: the
+        // mlx-swift-lm decoder does NOT support `gemma4` (selecting a dense
+        // E2B/E4B MLX tier errors at runtime with "Unsupported model type:
+        // gemma4", verified on-device 2026-06-16), the 26B-A4B MoE tier has no
+        // dense-only Swift path, and 31B-JANG is unverified + oversized. The
+        // runnable Gemma 4 is the separate GGUF llama-cli lane, not these MLX
+        // enum ids — so treat ALL of them as "not runnable today" so the user
+        // never hits the raw load error from the picker.
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true
         default:
             false
@@ -667,7 +670,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var releasePickerVisibilityReason: String? {
         if isAwaitingSwiftRuntimeLoader {
-            return "Hidden from the release picker: this Gemma 4 tier has no runnable Swift loader. The native Apple MLX port (Gemma4Text.swift) is dense-only, so the 26B-A4B Mixture-of-Experts checkpoint can't run; the 31B-JANG third-party fine-tune isn't verified against it and won't fit this device. Weights install fine but loading one would fail at runtime. The official dense E2B/E4B tiers load natively."
+            return "Hidden from the release picker: this Gemma 4 MLX tier has no runnable Swift loader. The mlx-swift-lm decoder does not support `gemma4` (selecting a dense E2B/E4B MLX tier errors with \"Unsupported model type: gemma4\" at runtime); 26B-A4B is Mixture-of-Experts (no dense-only Swift path) and 31B-JANG is unverified + oversized. Weights install fine but loading one would fail at runtime. The runnable Gemma 4 is the separate GGUF llama-cli lane, not these MLX repos."
         }
         if isExperimentalForEpistemos {
             switch self {
@@ -5510,16 +5513,19 @@ final class InferenceState {
         if let sanitizedModelID = sanitizedInteractiveLocalTextModelID(for: modelID) {
             return normalizedReleaseSelectableLocalTextModelID(sanitizedModelID)
         }
-        // The selection isn't available (nothing installed/prepared resolves it,
-        // or its runtime kind isn't active). Fall back to the recommended seed
-        // default rather than leaving an unrunnable id in place. NOTE: a staged
-        // GGUF Gemma IS resolved by sanitizedInteractiveLocalTextModelID (via
-        // supportedAvailableGemmaQATRuntimeCandidates) once its weights are
-        // detected in active/ — see detectedOnDiskActiveGgufModelIDs — so this
-        // fallback fires only for genuinely-absent models, NOT for a real Gemma
-        // pick. That is what keeps "selected Gemma → silently ran Qwen" from
-        // recurring while still degrading gracefully when nothing is installed.
-        return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        // A model whose Swift loader is missing (e.g. the MLX Gemma 4 tiers,
+        // which error "Unsupported model type: gemma4") is rewritten to the
+        // recommended default so the user never lands on an unrunnable pick.
+        // A staged GGUF Gemma is NOT awaiting-loader and IS resolved by
+        // sanitizedInteractiveLocalTextModelID above (via the active/ detection
+        // in detectedOnDiskActiveGgufModelIDs), so it is never swapped to Qwen.
+        // Any other model the caller set deliberately is left in place even if
+        // not currently runnable (the picker simply surfaces nothing effective).
+        if let model = LocalTextModelID(rawValue: modelID),
+           model.isAwaitingSwiftRuntimeLoader {
+            return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        }
+        return modelID
     }
 
     private func sanitizeStoredLocalChatSelectionIfNeeded() {
