@@ -741,9 +741,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// Whether the model natively supports vision (image/video input).
     var supportsVision: Bool {
         switch self {
-        case .gemma4_2B4Bit, .gemma4_4B4Bit,
-             .gemma4_27BA4B4Bit, .gemma4_31BJANG:
-            true  // All Gemma 4 are multimodal
+        case .gemma4_2B4Bit, .gemma4_4B4Bit:
+            // The Gemma 4 architecture is multimodal, but the vendored Apple Swift
+            // port (Gemma4Text @ e3cb1e1b) is DENSE TEXT-ONLY and is registered in
+            // LLMModelFactory — NOT VLMModelFactory. Advertising vision here routed
+            // these dense tiers to VLMModelFactory (no gemma4 loader) → crash on
+            // load with "Unsupported model type: gemma4". Gate honestly to the
+            // Swift runtime's actual capability so they load via LLMModelFactory.
+            false
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            true  // multimodal architecture; gated off by isAwaitingSwiftRuntimeLoader (no runnable Swift loader)
         case .lfm25_VL1B:
             true  // LFM2.5 Vision-Language
         case .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit:
