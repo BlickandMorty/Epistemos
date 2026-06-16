@@ -1120,8 +1120,34 @@ nonisolated enum UserFacingModelOutput {
             recoveryMode: recoveryMode
         )
         cleaned = stripStandaloneToolWrappers(in: cleaned)
+        cleaned = stripDottedToolWrappers(in: cleaned)
         cleaned = stripOrphanToolWrapperClosings(in: cleaned)
         return cleaned
+    }
+
+    /// Strip leaked dotted-namespace tool-call XML like
+    /// `<file.search><parameters>…</parameters></file.search>` — the grammar a
+    /// local model emits when it tries to call a tool but the loop never
+    /// executed it (e.g. a single-shot turn). Such a block is a control
+    /// artifact, never user-facing prose, so it must not render as the answer.
+    /// Tightly scoped: requires a `<namespace.verb>` tag whose body contains a
+    /// `<parameters>` block and a matching close tag (backreference), so it
+    /// cannot eat ordinary text that merely contains a dot inside angle brackets.
+    private static func stripDottedToolWrappers(in text: String) -> String {
+        guard text.contains("<parameters>") || text.contains("</parameters>") else {
+            return text
+        }
+        guard let regex = try? NSRegularExpression(
+            pattern: "<([a-z0-9_]+\\.[a-z0-9_]+)>\\s*<parameters>[\\s\\S]*?</parameters>\\s*</\\1>",
+            options: [.caseInsensitive]
+        ) else {
+            return text
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let stripped = regex.stringByReplacingMatches(
+            in: text, options: [], range: range, withTemplate: ""
+        )
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func stripDelimitedArtifacts(

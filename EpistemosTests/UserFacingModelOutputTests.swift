@@ -162,6 +162,30 @@ struct UserFacingModelOutputTests {
         #expect(!answer.lowercased().contains("work through this"))
     }
 
+    @Test("leaked dotted-namespace tool-call XML is stripped from the answer")
+    func dottedToolCallXMLStripped() {
+        // A local model tried to call a tool but the loop never executed it, so
+        // the raw grammar leaked. It must not render as the answer (the user's
+        // 2026-06-16 'second response only returned this crap' screenshot).
+        let raw = """
+        <file.search>
+         <parameters>
+          <pattern>essay</pattern>
+          <path>.</path>
+          <target>files</target>
+         </parameters>
+        </file.search>
+        """
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+
+        // But a real answer that merely follows such a block survives.
+        let withAnswer = raw + "\n\nThe essay's strongest section is the opening."
+        let cleaned = UserFacingModelOutput.finalVisibleText(from: withAnswer)
+        #expect(cleaned.contains("strongest section"))
+        #expect(!cleaned.contains("<file.search>"))
+        #expect(!cleaned.contains("<parameters>"))
+    }
+
     @Test("structured local analysis plans stay out of the visible answer stream")
     func structuredLocalAnalysisPlansStayOutOfVisibleAnswerStream() {
         let raw = """

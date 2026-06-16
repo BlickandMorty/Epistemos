@@ -1660,8 +1660,14 @@ final class ChatCoordinator {
     switch selection {
     case .appleIntelligence:
       return "Apple Intelligence"
-    case .localMLX:
-      return "Local MLX"
+    case .localMLX(let modelID):
+      // The brain-snapshot runtime label was hardcoded "Local MLX" even when a
+      // GGUF model is selected — confusing when the user picks a `.gguf` Gemma
+      // and the panel still reads "Local MLX". Report the model's real runtime
+      // kind so the panel is honest about which lane is active.
+      let kind = LocalModelCatalog.descriptor(for: modelID)?.runtimeKind
+        ?? LocalTextModelID(rawValue: modelID)?.runtimeKind
+      return kind == .gguf ? "Local GGUF" : "Local MLX"
     case .cloud(let model):
       return model.provider.displayName
     }

@@ -259,7 +259,12 @@ impl AgentProvider for GgufCliProvider {
                 .arg("--single-turn")
                 .arg("--simple-io")
                 .arg("--no-display-prompt")
-                .arg("--no-mmap")
+                // mmap (default) lazily pages the weights in — much faster to
+                // "get going" than --no-mmap (which read the whole 7GB model
+                // into RAM upfront), and gentler on a 16GB Mac since the OS can
+                // evict clean pages. The deeper latency win (a warm/persistent
+                // process instead of a one-shot reload per turn) rides on the
+                // local-server work.
                 .arg("--log-disable")
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null());
