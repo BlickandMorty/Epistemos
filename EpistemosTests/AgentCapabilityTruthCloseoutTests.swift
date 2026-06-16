@@ -145,10 +145,11 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(!gatedGemma.toolsAvailable)
         #expect(gatedGemma.pillDetail == "no tools")
         #expect(gatedGemma.label == "Local agent unavailable")
-        // E4B now loads, but Gemma's tool-call grammar isn't witnessed in this
-        // app (canActAsAgent == false), so the honest reason is now "no
-        // witness", not the old loader-unavailable message.
-        #expect(gatedGemma.detail.contains("No model witness"))
+        // The MLX Gemma 4 enum row has no working Swift loader (mlx-swift-lm
+        // doesn't decode `gemma4`), so the honest detail points the user at the
+        // runnable GGUF lane instead of the old "no witness" message.
+        #expect(gatedGemma.detail.contains("Swift MLX loader is unavailable"))
+        #expect(gatedGemma.detail.contains("GGUF"))
     }
 
     @Test("shared compatibility matrix covers current, local, cloud, provider-native, and skills")
@@ -198,9 +199,10 @@ struct AgentCapabilityTruthCloseoutTests {
             rows.first { $0.selection == .localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue) }
         )
         #expect(!gemma.summary.toolsAvailable)
-        // E4B loads now; tools stay off because Gemma's grammar isn't witnessed
-        // (no-witness), not because the loader is missing.
-        #expect(gemma.summary.detail.contains("No model witness"))
+        // The MLX Gemma 4 enum row has no working Swift loader, so the honest
+        // detail points the user at the runnable GGUF lane.
+        #expect(gemma.summary.detail.contains("Swift MLX loader is unavailable"))
+        #expect(gemma.summary.detail.contains("GGUF"))
         #expect(gemma.appToolStateLabel == "inventory only")
 
         let google = try #require(rows.first { $0.selection == .cloud(.googleGemini25Pro) })
