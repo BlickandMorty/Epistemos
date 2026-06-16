@@ -32,13 +32,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case localAgent43_36B3Bit = "leonsarmiento/Hermes-4.3-36B-3bit-mlx"
 
     // MARK: - Gemma 4 Family (2026 frontier)
-    // PREVIEW ONLY until a Swift MLX Gemma 4 loader ships. Current
-    // Gemma 4 now loads via the native Apple Swift port vendored into
-    // mlx-swift-lm (Gemma4Text.swift @ e3cb1e1b). The official dense E2B/E4B
-    // tiers are runnable; the 26B-A4B MoE + 31B-JANG third-party tiers are
-    // still gated (dense-only port / unverified config) — see
-    // isAwaitingSwiftRuntimeLoader. Do not surface gemma4 as a default triage
-    // pick; the validated default stays Qwen.
+    // Gemma 4 dense tiers load via the native Apple Swift port vendored into
+    // mlx-swift-lm (Gemma4Text.swift @ e3cb1e1b) — no longer preview-blocked on
+    // a missing loader. The official dense E2B/E4B tiers are runnable (E2B is
+    // installable as the on-device validation tier); the 26B-A4B MoE + 31B-JANG
+    // third-party tiers are still gated (dense-only port / unverified config) —
+    // see isAwaitingSwiftRuntimeLoader. Do not surface gemma4 as a default
+    // triage pick; the validated default stays Qwen.
     case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
     case gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"
     case gemma4_27BA4B4Bit = "mlx-community/gemma-4-26b-a4b-it-4bit"
