@@ -113,6 +113,14 @@ impl AgentProvider for GgufCliProvider {
         let cli = self.llama_cli_path.clone();
         let ctx = self.ctx_size;
         let predict = config.max_output_tokens.unwrap_or(self.max_output_tokens);
+        // Trimmed, non-empty lines of the prompt we send, so the banner strip
+        // below can drop llama-cli's echo of the prompt without depending on its
+        // exact reformatting.
+        let prompt_line_set: std::collections::HashSet<String> = prompt
+            .lines()
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
 
         let s = stream! {
             // Exact, gate-aligned, network-free, deterministic, capped command.
@@ -159,12 +167,48 @@ impl AgentProvider for GgufCliProvider {
 
             let mut lines = BufReader::new(stdout).lines();
             let mut output_token_estimate: u32 = 0;
+            // llama-cli b9370 is an interactive REPL (`-no-cnv` is rejected by
+            // this build): on stdout it prints a "Loading model" line, ASCII-art
+            // banner, build/model info, an "available commands" block, the echoed
+            // prompt (after a "> " marker), a "[ Prompt: ... ]" stats footer and
+            // "Exiting...". Strip that framing so only the model's generation
+            // reaches the delegate. State machine: skip the banner until the
+            // "> " prompt-echo marker, then drop the echoed prompt lines, then
+            // emit generation until the stats footer. NOTE: format-coupled to
+            // this llama.cpp line; a non-interactive binary would remove the need.
+            let mut emitting = false;
+            let mut seen_prompt_marker = false;
             loop {
                 match lines.next_line().await {
                     Ok(Some(line)) => {
+                        let trimmed = line.trim();
+                        // Terminal framing: stop before the stats footer / exit.
+                        if trimmed.starts_with("[ Prompt:") || trimmed == "Exiting..." {
+                            break;
+                        }
+                        if !emitting {
+                            if !seen_prompt_marker {
+                                if trimmed.starts_with("> ") || trimmed == ">" {
+                                    seen_prompt_marker = true;
+                                }
+                                continue; // banner / preamble
+                            }
+                            // Past the marker: drop the echoed prompt (we know it)
+                            // plus blank / residual "> " lines.
+                            if trimmed.is_empty()
+                                || trimmed.starts_with("> ")
+                                || prompt_line_set.contains(trimmed)
+                            {
+                                continue;
+                            }
+                            emitting = true; // first real generated line
+                        }
+                        if trimmed == ">" {
+                            continue; // trailing interactive prompt
+                        }
                         output_token_estimate =
                             output_token_estimate.saturating_add(line.split_whitespace().count() as u32);
-                        // STREAM EVERYTHING: forward each line as it arrives.
+                        // STREAM EVERYTHING: forward each generated line as it arrives.
                         yield Ok(StreamEvent::TextDelta {
                             index: 0,
                             text: format!("{line}\n"),
