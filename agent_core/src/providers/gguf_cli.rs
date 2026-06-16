@@ -107,6 +107,15 @@ pub struct GgufCliProvider {
     ctx_size: u32,
     max_output_tokens: u32,
     temperature: f32,
+    /// Optional JSON Schema to constrain generation. When set, the provider
+    /// passes `--json-schema <schema>` to llama-cli, which uses GBNF
+    /// grammar-constrained decoding to GUARANTEE the output is structurally
+    /// valid against the schema. This is the honest path to reliable local
+    /// tool calling: a model whose free-form tool-call output is malformed
+    /// (e.g. Gemma 4, which doesn't speak the `<tool_call>` XML grammar) is
+    /// forced at the sampler level to emit valid tool-call JSON. Real
+    /// capability via decoding constraints, NOT a faked capability badge.
+    json_schema: Option<String>,
 }
 
 impl GgufCliProvider {
@@ -123,6 +132,29 @@ impl GgufCliProvider {
             // gate's witnessed command card. Chat callers raise it per reasoning
             // mode via `with_temperature`.
             temperature: 0.0,
+            json_schema: None,
+        }
+    }
+
+    /// Constrain generation to a JSON Schema via llama-cli `--json-schema`.
+    /// An empty / whitespace-only schema is treated as "no constraint".
+    pub fn with_json_schema(mut self, schema: impl Into<String>) -> Self {
+        let schema = schema.into();
+        self.json_schema = if schema.trim().is_empty() {
+            None
+        } else {
+            Some(schema)
+        };
+        self
+    }
+
+    /// The extra llama-cli args that apply the JSON-schema constraint, or an
+    /// empty vec when unconstrained. Split out as a pure function so the arg
+    /// wiring is unit-testable without spawning a subprocess.
+    fn constrained_args(&self) -> Vec<String> {
+        match &self.json_schema {
+            Some(schema) => vec!["--json-schema".to_string(), schema.clone()],
+            None => Vec::new(),
         }
     }
 
@@ -197,6 +229,9 @@ impl AgentProvider for GgufCliProvider {
         let ctx = self.ctx_size;
         let predict = config.max_output_tokens.unwrap_or(self.max_output_tokens);
         let temperature = self.temperature;
+        // JSON-schema constraint args (empty when unconstrained). Captured here
+        // so the `stream!` block below can move them in alongside the model/cli.
+        let constrained_args = self.constrained_args();
         // Trimmed, non-empty lines of the prompt we send, so the banner strip
         // below can drop llama-cli's echo of the prompt without depending on its
         // exact reformatting.
@@ -218,6 +253,9 @@ impl AgentProvider for GgufCliProvider {
                 .arg("--ubatch-size").arg("64")
                 .arg("--temp").arg(format!("{temperature}"))
                 .arg("--seed").arg("0")
+                // Grammar-constrained decoding (empty when unconstrained):
+                // forces structurally-valid JSON for honest local tool calls.
+                .args(&constrained_args)
                 .arg("--single-turn")
                 .arg("--simple-io")
                 .arg("--no-display-prompt")
@@ -425,5 +463,34 @@ mod tests {
         let messages = vec![Message::user_text("hello")];
         let prompt = GgufCliProvider::build_prompt(&messages, None);
         assert_eq!(prompt, "hello");
+    }
+
+    #[test]
+    fn unconstrained_provider_emits_no_schema_args() {
+        let provider = GgufCliProvider::new("/tmp/model.gguf");
+        assert!(provider.constrained_args().is_empty());
+    }
+
+    #[test]
+    fn with_json_schema_emits_json_schema_arg() {
+        let schema = r#"{"type":"object","properties":{"name":{"type":"string"}}}"#;
+        let provider = GgufCliProvider::new("/tmp/model.gguf").with_json_schema(schema);
+        let args = provider.constrained_args();
+        assert_eq!(args.len(), 2);
+        assert_eq!(args[0], "--json-schema");
+        assert_eq!(args[1], schema);
+    }
+
+    #[test]
+    fn empty_or_blank_json_schema_is_treated_as_unconstrained() {
+        // Defensive: an empty/whitespace schema must NOT pass a broken
+        // `--json-schema ""` to llama-cli (which would error or match nothing).
+        for blank in ["", "   ", "\n\t "] {
+            let provider = GgufCliProvider::new("/tmp/model.gguf").with_json_schema(blank);
+            assert!(
+                provider.constrained_args().is_empty(),
+                "blank schema {blank:?} must be unconstrained"
+            );
+        }
     }
 }
