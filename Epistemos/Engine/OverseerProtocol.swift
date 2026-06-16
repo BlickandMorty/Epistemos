@@ -577,6 +577,18 @@ final class OverseerComplexityRouter {
             }
             return false
         }()
+        // NOTE: tool-planning is intentionally NOT gated on the CHAT model's
+        // canActAsAgent here — the overseer escalates fast-mode tool work to a
+        // HIDDEN agent-capable local tier (see PipelineService.localToolTier /
+        // "hidden local agent tier backs fast-mode tool execution"), so a
+        // non-agent chat model (e.g. Gemma) legitimately reaches
+        // .overseerLocalExecution and the tool loop runs on an agent-capable
+        // backing model, not on the chat model itself. The user's "Gemma
+        // emitted <file.search> XML" symptom is that the hidden tier didn't back
+        // the GGUF selection — the fix belongs in the execution-model resolution
+        // (back GGUF Gemma with an agent tier, else fall to localOnly), tracked
+        // separately. The leaked-XML safety net (stripDottedToolWrappers) covers
+        // the visible damage in the meantime.
         let shouldPlanToolsInChat = shouldUseOverseerLocalExecution(
             query: query,
             analysis: analysis,
