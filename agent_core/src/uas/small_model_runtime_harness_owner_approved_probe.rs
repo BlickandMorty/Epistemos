@@ -18,6 +18,13 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR: &str =
     "small_model_runtime_harness_owner_approved_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_abortable_runtime_probe";
+/// Accept the release-audit endgame cursor as a valid "advanced past me" state:
+/// once the guard/capability bottleneck advances to the V1 release audit, every
+/// earlier small-model-runtime-harness step is satisfied, so this probe must not
+/// hard-fail with a cursor mismatch. Matches the helper-based probes that already
+/// accept this value (e.g. cache_policy_pollution_or_advanced_cursor).
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const ANSWER_PACKET_PREFIX: &str = "answer_packet:";
 const RUN_EVENT_LOG_PREFIX: &str = "run_event_log:";
@@ -645,6 +652,7 @@ fn validate_witness(
     if witness.guard_next_existing_work != SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
         && witness.guard_next_existing_work
             != SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR
+        && witness.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
     {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::GuardCursorMismatch);
     }
@@ -654,6 +662,7 @@ fn validate_witness(
     if witness.capability_next_bottleneck != SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
         && witness.capability_next_bottleneck
             != SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR
+        && witness.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR
     {
         return Err(SmallModelRuntimeHarnessOwnerProbeError::CapabilityStatusMismatch);
     }

@@ -35,6 +35,12 @@ const DRY_RUN_PATH: &str =
 const LIVING_INDEX_PATH: &str = "docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md";
 const LATTICE_HTML_PATH: &str = "artifacts/lattice-coordinate-explainer/index.html";
 const MIN_LEASE_COUNT: u64 = 3;
+/// The guard/capability bottleneck advanced to the V1 release-audit endgame
+/// cursor; every earlier small-model-runtime-harness step is satisfied once it
+/// does, so this probe's cursor axes accept it as a valid "advanced past me"
+/// state (mirrors the helper-based probes that already accept it).
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const MIN_SURFACE_COUNT: u64 = 2;
 const MIN_REQUIRED_LANE_COUNT: u64 = 3;
 const MIN_PHASE_COUNT: u64 = 13;
@@ -151,7 +157,8 @@ fn build_artifact(
             evidence.guard_next_existing_work
                 == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
                 || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -163,7 +170,8 @@ fn build_artifact(
             evidence.capability_next_bottleneck
                 == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_CURSOR
                 || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_OWNER_APPROVED_PROBE_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_research_only",
