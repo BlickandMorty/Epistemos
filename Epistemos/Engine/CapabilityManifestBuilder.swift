@@ -68,6 +68,16 @@ enum CapabilityManifestBuilder {
                 .joined(separator: ", ")
             let more = context.enabledToolNames.count > 12 ? " (+more)" : ""
             lines.append("Tools available: \(toolList)\(more).")
+            // Positive agentic directive (only when tools actually exist this
+            // turn). The defensive rules below stop the model OVER-claiming;
+            // this stops it UNDER-using — the other half of feeling capable.
+            // Honest by construction: "when the answer depends on real data",
+            // not "always", and it composes with rule 1 (don't re-read inlined
+            // content). This is what turns a high turn budget into Codex-style
+            // behavior instead of a single tool call followed by a guess.
+            lines.append(
+                "Use them. When the answer depends on real data — vault notes, files, the web, or earlier context — gather it with a tool before answering instead of guessing. For anything multi-step, work iteratively: call a tool, read its result, then decide the next action, and keep going until the task is genuinely done rather than stopping after one call. Prefer verifying with a tool over asserting from memory."
+            )
         } else {
             lines.append(
                 "No tools are available on this turn. Answer in plain text only. Do not emit tool-call JSON, `<tool_call>` tags, or policy/status tokens."

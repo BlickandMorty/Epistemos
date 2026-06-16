@@ -316,6 +316,48 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(manifest.contains("Treat unavailable tools as absent; do not simulate, rename, or proxy them through another tool."))
     }
 
+    @Test("capability manifest invites agentic tool use only when tools exist")
+    @MainActor
+    func capabilityManifestInvitesAgenticToolUseWhenToolsPresent() throws {
+        let withTools = CapabilityManifestBuilder.render(
+            CapabilityManifestBuilder.Context(
+                providerLabel: "Claude",
+                modelLabel: "Test Model",
+                operatingMode: .pro,
+                reasoningTier: .medium,
+                enabledToolNames: ["vault.search", "web.search"],
+                disabledToolNames: [],
+                vaultName: "Test Vault",
+                vaultNoteCount: nil,
+                skillNames: [],
+                maxContextTokens: 4096
+            )
+        )
+        // Positive agentic directive present — the "feels like Codex" half.
+        #expect(withTools.contains("gather it with a tool before answering instead of guessing"))
+        #expect(withTools.contains("keep going until the task is genuinely done rather than stopping after one call"))
+        // Honesty rules still present (defensive half intact).
+        #expect(withTools.contains("Don't claim capabilities you don't currently have"))
+
+        let withoutTools = CapabilityManifestBuilder.render(
+            CapabilityManifestBuilder.Context(
+                providerLabel: "local",
+                modelLabel: "Test Model",
+                operatingMode: .fast,
+                reasoningTier: .medium,
+                enabledToolNames: [],
+                disabledToolNames: ["vault.write"],
+                vaultName: "Test Vault",
+                vaultNoteCount: nil,
+                skillNames: [],
+                maxContextTokens: 4096
+            )
+        )
+        // No tools → no agentic invitation, and the plain-text rule still holds.
+        #expect(!withoutTools.contains("gather it with a tool before answering"))
+        #expect(withoutTools.contains("No tools are available on this turn."))
+    }
+
     @Test("capability manifest disabled tools canonicalize legacy aliases")
     func capabilityManifestDisabledToolsCanonicalizeAliases() {
         let disabled = CapabilityManifestBuilder.disabledToolNames(
