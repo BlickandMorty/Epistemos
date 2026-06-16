@@ -1,0 +1,42 @@
+GGUF PROVIDER E2E HARNESS WITNESS — 2026-06-16
+================================================
+
+Proves that GgufCliProvider (agent_core/src/providers/gguf_cli.rs) — the exact
+code path the app's in-process GGUF engine drives via the
+run_local_gguf_generation FFI — streams real tokens from a GGUF model on disk
+through the hardened llama-cli subprocess.
+
+Test: agent_core/tests/gguf_cli_provider_e2e.rs :: gguf_cli_provider_streams_real_tokens
+Run:
+  EPISTEMOS_GGUF_E2E_MODEL=~/Downloads/gemma-4-E2B_q4_0-it.gguf \
+    cargo test --no-default-features --features pro-build \
+    --test gguf_cli_provider_e2e -- --nocapture
+
+Model:  gemma-4-E2B_q4_0-it.gguf   (Gemma 4 E2B QAT, q4_0, 3.1 GB)
+Binary: /opt/homebrew/bin/llama-cli  (llama.cpp build b9370-aa50b2c2a)
+Host:   Apple M2 Pro, Metal
+
+RESULT: test result: ok. 1 passed; 0 failed; finished in 3.76s
+  - provider.runtime() == ProviderRuntime::Local   (agent loop refuses it; Gemma stays non-agent)
+  - streamed 1060 chars (non-empty) + terminal MessageStop received
+  - Generation throughput reported by llama-cli: 81.8 tok/s
+
+Excerpt of streamed text (real model generation, prompt "You are terse. /
+Reply with the single word: ready"):
+  > You are terse.
+  Reply with the single word: ready
+  [Start thinking]
+  Thinking Process:
+  1.  **Analyze the Request:** The user wants me to reply with the single ...
+  [ Prompt: 331.4 t/s | Generation: 81.8 t/s ]
+
+KNOWN REFINEMENT (tracked, non-blocking — engine is flag-OFF + not UI-reachable):
+  llama-cli b9370 is an interactive REPL: it prints its banner ("Loading
+  model...", ASCII art, build/model info, available commands), the echoed
+  prompt ("> ..."), a "[ Prompt ... | Generation ... ]" footer and "Exiting..."
+  to STDOUT even with --log-disable / --simple-io / --no-display-prompt.
+  -no-cnv / --no-conversation is hard-rejected by llama-cli in b9370 ("please
+  use llama-completion instead"). So clean chat output needs either (a) a
+  banner/footer strip in the provider, or (b) a switch to a non-interactive
+  binary (llama-completion / llama-simple). The witness asserts generation, not
+  cleanliness; the strip lands before the engine is promoted toward UI use.
