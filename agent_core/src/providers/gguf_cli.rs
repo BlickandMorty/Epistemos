@@ -106,6 +106,7 @@ pub struct GgufCliProvider {
     llama_cli_path: PathBuf,
     ctx_size: u32,
     max_output_tokens: u32,
+    temperature: f32,
 }
 
 impl GgufCliProvider {
@@ -118,6 +119,10 @@ impl GgufCliProvider {
             llama_cli_path: PathBuf::from(DEFAULT_LLAMA_CLI),
             ctx_size: DEFAULT_CTX_SIZE,
             max_output_tokens: DEFAULT_MAX_TOKENS,
+            // Default 0.0 == greedy/deterministic, matching the owner-approval
+            // gate's witnessed command card. Chat callers raise it per reasoning
+            // mode via `with_temperature`.
+            temperature: 0.0,
         }
     }
 
@@ -128,6 +133,17 @@ impl GgufCliProvider {
 
     pub fn with_ctx_size(mut self, ctx_size: u32) -> Self {
         self.ctx_size = ctx_size;
+        self
+    }
+
+    /// Set the sampling temperature. 0.0 is greedy/deterministic (the gate
+    /// default + witness). Negative values are clamped to 0.0.
+    pub fn with_temperature(mut self, temperature: f32) -> Self {
+        self.temperature = if temperature.is_finite() && temperature > 0.0 {
+            temperature
+        } else {
+            0.0
+        };
         self
     }
 
@@ -180,6 +196,7 @@ impl AgentProvider for GgufCliProvider {
         let cli = self.llama_cli_path.clone();
         let ctx = self.ctx_size;
         let predict = config.max_output_tokens.unwrap_or(self.max_output_tokens);
+        let temperature = self.temperature;
         // Trimmed, non-empty lines of the prompt we send, so the banner strip
         // below can drop llama-cli's echo of the prompt without depending on its
         // exact reformatting.
@@ -199,7 +216,7 @@ impl AgentProvider for GgufCliProvider {
                 .arg("--ctx-size").arg(ctx.to_string())
                 .arg("--batch-size").arg("64")
                 .arg("--ubatch-size").arg("64")
-                .arg("--temp").arg("0")
+                .arg("--temp").arg(format!("{temperature}"))
                 .arg("--seed").arg("0")
                 .arg("--single-turn")
                 .arg("--simple-io")
