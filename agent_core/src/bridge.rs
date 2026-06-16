@@ -581,6 +581,28 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         // Local providers (no API key needed)
         "ollama" => Ok(Arc::new(OpenAICompatibleProvider::ollama("llama3.3"))),
         "llama_cpp" => Ok(Arc::new(OpenAICompatibleProvider::llama_cpp("default"))),
+        // Pro-only on-device GGUF via the hardened one-shot `llama-cli`. The slug
+        // carries the absolute model path: "gguf:/abs/path/to/model.gguf". This arm
+        // is placed BEFORE the dynamic `name.contains('/')` arm so it wins, and the
+        // whole branch is `#[cfg(feature = "pro-build")]` — invisible to the MAS
+        // build (the gguf_cli module does not even compile there). It returns
+        // `ProviderRuntime::Local`, so the agent loop refuses to start: Gemma stays
+        // non-agent per honest-capability-gating. There is NO hidden fallback: the
+        // owner must explicitly select a `gguf:` slug; nothing auto-routes here.
+        #[cfg(feature = "pro-build")]
+        name if name.starts_with("gguf:") => {
+            let model_path = name.trim_start_matches("gguf:");
+            if model_path.trim().is_empty() {
+                return Err(AgentErrorFFI::AgentError {
+                    message:
+                        "gguf: provider slug requires an absolute model path (gguf:/abs/path.gguf)"
+                            .to_string(),
+                });
+            }
+            Ok(Arc::new(crate::providers::gguf_cli::GgufCliProvider::new(
+                model_path,
+            )))
+        }
         // Chinese AI providers
         "zai" | "glm" => Ok(Arc::new(OpenAICompatibleProvider::zai())),
         "kimi" | "kimi_latest" | "kimi_coding" => {
