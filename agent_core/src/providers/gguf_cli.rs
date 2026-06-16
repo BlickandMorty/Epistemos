@@ -242,9 +242,9 @@ mod tests {
     #[test]
     fn build_prompt_uses_last_user_turn_and_system() {
         let messages = vec![
-            Message::user("first"),
+            Message::user_text("first"),
             Message::Assistant { content: vec![] },
-            Message::user("write a function"),
+            Message::user_text("write a function"),
         ];
         let prompt = GgufCliProvider::build_prompt(&messages, Some("You are terse."));
         assert!(prompt.contains("You are terse."));
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn build_prompt_without_system_is_just_user_text() {
-        let messages = vec![Message::user("hello")];
+        let messages = vec![Message::user_text("hello")];
         let prompt = GgufCliProvider::build_prompt(&messages, None);
         assert_eq!(prompt, "hello");
     }
